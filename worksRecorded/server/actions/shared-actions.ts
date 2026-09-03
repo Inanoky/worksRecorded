@@ -2,25 +2,26 @@
 
 "use server";
 
-
-import {redirect} from "next/navigation";
-import {parseWithZod} from '@conform-to/zod'
-import { SiteCreationSchema} from "@/lib/utils/zodSchemas";
-import {prisma} from "@/lib/utils/db";
-import {requireUser} from "@/lib/utils/requireUser";
-import { requireInternationalPhoneForWhatsApp } from "@/lib/utils/phone/international-phone";
-import { getToastMessages } from "@/lib/dashboard-i18n";
-import {stripe} from "@/lib/utils/stripe";
-import { defaultProgram } from "@/lib/utils/DefaultProgram";
+import { parseWithZod } from "@conform-to/zod";
+import { redirect } from "next/navigation";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import defaultConfigLV from "@/components/sitediary/configs/defaultConfigLV_27042026.json";
+import {
+  DEFAULT_CONSTRUCTION_QUANTITY_PROFILE_KEY,
+  enableDefaultConstructionQuantityProfile,
+} from "@/flows/default-construction/lib/quantity-plan-actual";
+import { getToastMessages } from "@/lib/dashboard-i18n";
+import { defaultProgram } from "@/lib/utils/DefaultProgram";
+import { prisma } from "@/lib/utils/db";
+import { requireInternationalPhoneForWhatsApp } from "@/lib/utils/phone/international-phone";
+import { requireUser } from "@/lib/utils/requireUser";
+import { stripe } from "@/lib/utils/stripe";
 import { isSuperUserId } from "@/lib/utils/super-user";
+import { SiteCreationSchema } from "@/lib/utils/zodSchemas";
 
-
-
-
-
-export async function getOrganizationIdByUserId(userId: string): Promise<string | null> {
+export async function getOrganizationIdByUserId(
+  userId: string,
+): Promise<string | null> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { organizationId: true },
@@ -28,8 +29,6 @@ export async function getOrganizationIdByUserId(userId: string): Promise<string 
 
   return user?.organizationId ?? null;
 }
-
-
 
 export async function orgCheck(userId: string, paramSiteId: string) {
   const site = await prisma.site.findFirst({
@@ -46,14 +45,16 @@ export async function orgCheck(userId: string, paramSiteId: string) {
     select: { id: true, name: true, organizationId: true },
   });
 
-    if (!site) {
+  if (!site) {
     return false; // site not found or not in user's org
   }
 
   return site; // site exists and belongs to org
 }
 
-export async function getSiteOrganizationIdBySiteId(siteId: string): Promise<string | null> {
+export async function getSiteOrganizationIdBySiteId(
+  siteId: string,
+): Promise<string | null> {
   const site = await prisma.site.findUnique({
     where: { id: siteId },
     select: { organizationId: true },
@@ -62,54 +63,72 @@ export async function getSiteOrganizationIdBySiteId(siteId: string): Promise<str
   return site?.organizationId ?? null;
 }
 
-
 //Action to create a construction project
 
-export async function CreateSiteAction(_prevState: unknown,formData: FormData){
+export async function CreateSiteAction(
+  _prevState: unknown,
+  formData: FormData,
+) {
+  const user = await requireUser();
+  const org = await getOrganizationIdByUserId(user.id);
 
-    const user = await requireUser();    
-    const org = await getOrganizationIdByUserId(user.id)
+  const result = await createSite();
+  if (result) {
+    return result;
+  }
 
-    const result = await createSite()
-    if (result) {
-        return result;
-    }
-
-    async function createSite(){
-
+  async function createSite() {
     const submission = await parseWithZod(formData, {
-        schema: SiteCreationSchema(),
-       
-        async: true,
+      schema: SiteCreationSchema(),
+
+      async: true,
     });
 
-    if (submission.status !== "success" ){
-        return submission.reply();
+    if (submission.status !== "success") {
+      return submission.reply();
     }
 
-    const orgData = org
-      ? await prisma.organization.findUnique({
-          where: { id: org },
-          select: { orgLanguage: true },
-        })
-      : null;
+    const [orgData, quantityProfileSite] = org
+      ? await Promise.all([
+          prisma.organization.findUnique({
+            where: { id: org },
+            select: { orgLanguage: true },
+          }),
+          prisma.site.findFirst({
+            where: {
+              organizationId: org,
+              siteDiaryRecordsMap: {
+                path: [
+                  "otherSettings",
+                  DEFAULT_CONSTRUCTION_QUANTITY_PROFILE_KEY,
+                  "enabled",
+                ],
+                equals: true,
+              },
+            },
+            select: { id: true },
+          }),
+        ])
+      : [null, null];
 
-    const siteDiaryRecordsMap =
+    const baseSiteDiaryRecordsMap =
       orgData?.orgLanguage === "lv"
         ? structuredClone(defaultConfigLV)
         : structuredClone(defaultConfig);
+    const siteDiaryRecordsMap = quantityProfileSite
+      ? enableDefaultConstructionQuantityProfile(baseSiteDiaryRecordsMap)
+      : baseSiteDiaryRecordsMap;
 
     await prisma.site.create({
-
-        data : {
-            description: submission.value.description,
-            name: submission.value.name,
-            subdirectory:submission.value.subdirectory,
-            userId: user.id,
-            organizationId: org,
-            siteDiaryRecordsMap,
-            sitediarysettings: {
-            create: {
+      data: {
+        description: submission.value.description,
+        name: submission.value.name,
+        subdirectory: submission.value.subdirectory,
+        userId: user.id,
+        organizationId: org,
+        siteDiaryRecordsMap,
+        sitediarysettings: {
+          create: {
             userId: user.id,
             organizationId: org,
             // schema column is String? → store stringified JSON
@@ -117,119 +136,93 @@ export async function CreateSiteAction(_prevState: unknown,formData: FormData){
             // fileUrl can remain null for now
           },
         },
-        }
-
+      },
     });
-
-        }
-     return redirect("/dashboard/sites")
+  }
+  return redirect("/dashboard/sites");
 }
 
+export async function UpdateImage(formData: FormData) {
+  const user = await requireUser();
 
+  await prisma.site.update({
+    where: {
+      //  userId: user.id,
+      id: formData.get("siteId") as string,
+    },
+    data: {
+      imageUrl: formData.get("imageUrl") as string,
+    },
+  });
 
-export async function UpdateImage(formData: FormData){
-
-     const user = await requireUser();
-
-     await prisma.site.update({
-
-         where: {
-
-            //  userId: user.id,
-             id: formData.get("siteId") as string,
-         },
-         data: {
-
-             imageUrl: formData.get("imageUrl") as string,
-
-         }
-
-     })
-
-    return redirect(`/dashboard/sites`)
-
-
+  return redirect(`/dashboard/sites`);
 }
 
+export async function DeleteSite(formData: FormData) {
+  const user = await requireUser();
 
-
-export async function DeleteSite(formData: FormData){
-
-    const user = await requireUser();
-
-
-    await prisma.site.delete({
-        where: {
-            // userId: user.id,
-            id: formData.get('siteId') as string,
-
-        },
-    })
-    return redirect("/dashboard/sites")
+  await prisma.site.delete({
+    where: {
+      // userId: user.id,
+      id: formData.get("siteId") as string,
+    },
+  });
+  return redirect("/dashboard/sites");
 }
 
+export async function CreateSubscription() {
+  const user = await requireUser();
 
+  let stripeUserId = await prisma.user.findUnique({
+    where: {
+      id: user.id,
+    },
+    select: {
+      customerId: true,
+      email: true,
+      firstName: true,
+    },
+  });
 
-export async function CreateSubscription(){
-
-    const user = await requireUser();
-
-      let stripeUserId = await prisma.user.findUnique({
-        where: {
-            id: user.id,
-        },
-        select: {
-            customerId: true,
-            email: true,
-            firstName : true,
-        },
+  if (!stripeUserId?.customerId) {
+    const stripeCustomer = await stripe.customers.create({
+      email: stripeUserId?.email,
+      name: stripeUserId?.firstName,
     });
+    stripeUserId = await prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        customerId: stripeCustomer.id,
+      },
+    });
+  }
 
-
-    if(!stripeUserId?.customerId){
-        const stripeCustomer = await stripe.customers.create({
-            email: stripeUserId?.email,
-            name: stripeUserId?.firstName,
-
-
-        });
-        stripeUserId = await prisma.user.update({
-            where: {
-                id: user.id,
-            },
-            data:{
-                customerId: stripeCustomer.id,
-            },
-        })
-    }
-
-    const session = await stripe.checkout.sessions.create({
-
-        customer: stripeUserId.customerId as string,
-        mode: 'subscription',
-        billing_address_collection: 'auto',
-        payment_method_types: ['card'],
-        customer_update: {
-            address: 'auto',
-            name: "auto"
-        },
-        success_url: process.env.NODE_ENV === 'production'
-         ? "https://buvconsult.com/dashboard/payment/success"
+  const session = await stripe.checkout.sessions.create({
+    customer: stripeUserId.customerId as string,
+    mode: "subscription",
+    billing_address_collection: "auto",
+    payment_method_types: ["card"],
+    customer_update: {
+      address: "auto",
+      name: "auto",
+    },
+    success_url:
+      process.env.NODE_ENV === "production"
+        ? "https://buvconsult.com/dashboard/payment/success"
         : "http://localhost:3000/dashboard/payment/success",
 
-        cancel_url: process.env.NODE_ENV === 'production'
+    cancel_url:
+      process.env.NODE_ENV === "production"
         ? "https://buvconsult.com/dashboard/payment/cancelled"
         : "http://localhost:3000/dashboard/payment/cancelled",
 
-        line_items: [{price: process.env.STRIPE_PRICE_ID, quantity: 1}]
-    });
+    line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+  });
 
-    return redirect(session.url as string)
-
-
+  return redirect(session.url as string);
 }
-
-
 
 export async function updateSiteAction(formData: FormData) {
   const siteId = formData.get("siteId") as string;
@@ -257,11 +250,17 @@ export async function updateSiteAction(formData: FormData) {
   }
 
   if (description.length > 100) {
-    return { success: false, message: "Description must be 100 characters or fewer." };
+    return {
+      success: false,
+      message: "Description must be 100 characters or fewer.",
+    };
   }
 
   if (subdirectory.length > 100) {
-    return { success: false, message: "Subdirectory must be 100 characters or fewer." };
+    return {
+      success: false,
+      message: "Subdirectory must be 100 characters or fewer.",
+    };
   }
 
   let geofencePolygon: unknown = null;
@@ -269,7 +268,10 @@ export async function updateSiteAction(formData: FormData) {
   if (geofencePolygonRaw.trim().length > 0) {
     try {
       geofencePolygon = JSON.parse(geofencePolygonRaw);
-      console.log("[updateSiteAction] parsed geofence polygon", geofencePolygon);
+      console.log(
+        "[updateSiteAction] parsed geofence polygon",
+        geofencePolygon,
+      );
     } catch {
       return { success: false, message: "Invalid geofence polygon format." };
     }
@@ -295,8 +297,9 @@ export async function updateSiteAction(formData: FormData) {
   }
 }
 
-
-export async function getProjectNameBySiteId(siteId: string): Promise<string | null> {
+export async function getProjectNameBySiteId(
+  siteId: string,
+): Promise<string | null> {
   if (!siteId) return null;
 
   const site = await prisma.site.findUnique({
@@ -307,11 +310,9 @@ export async function getProjectNameBySiteId(siteId: string): Promise<string | n
   return site?.name ?? null;
 }
 
-
-
-
-
-export async function getUserEmailByUserId(userId: string): Promise<string | null> {
+export async function getUserEmailByUserId(
+  userId: string,
+): Promise<string | null> {
   if (!userId) return null;
 
   const user = await prisma.user.findUnique({
@@ -322,17 +323,15 @@ export async function getUserEmailByUserId(userId: string): Promise<string | nul
   return user?.email ?? null;
 }
 
-
-export async function getOrganizationIdByWorkerId(workerId: string): Promise<string | null> {
+export async function getOrganizationIdByWorkerId(
+  workerId: string,
+): Promise<string | null> {
   const worker = await prisma.workers.findUnique({
     where: { id: workerId },
     select: { organizationId: true },
   });
   return worker?.organizationId ?? null;
 }
-
-
-
 
 export async function saveUserPhone(formData: FormData) {
   const user = await requireUser();
@@ -351,9 +350,6 @@ export async function saveUserPhone(formData: FormData) {
     },
   });
 }
-
-
-
 
 export async function updateOrganizationLanguage(language: "en" | "lv") {
   const user = await requireUser();

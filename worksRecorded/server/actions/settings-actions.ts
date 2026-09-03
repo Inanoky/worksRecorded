@@ -1,19 +1,17 @@
-"use server"
+"use server";
 
-import { prisma } from "@/lib/utils/db";
 import { Prisma } from "@prisma/client";
 import { Resend } from "resend";
-import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
-import { sendManualWhatsappReminder } from "@/lib/whatsapp-reminders/engine";
 import { z } from "zod";
-
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
+import {
+  enableDefaultConstructionQuantityProfile,
+  hasDefaultConstructionQuantityProfile,
+} from "@/flows/default-construction/lib/quantity-plan-actual";
+import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
+import { sendManualWhatsappReminder } from "@/lib/whatsapp-reminders/engine";
 import { orgCheck } from "@/server/actions/shared-actions";
-
-
-
-
-
 
 const ORG_CODE = "org_ed664b1eedd";
 
@@ -24,7 +22,11 @@ if (!hasKey) {
 }
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const inviteEmailSchema = z.string().trim().email("Invalid email").transform((value) => value.toLowerCase());
+const inviteEmailSchema = z
+  .string()
+  .trim()
+  .email("Invalid email")
+  .transform((value) => value.toLowerCase());
 
 /**
  * Sends an org-scoped Kinde signup link to the given email.
@@ -36,9 +38,11 @@ export async function inviteUserByEmail(formData: FormData) {
     const organizationId = String(formData.get("organizationId") || "").trim();
     console.log("[inviteUserByEmail] raw email from formData:", emailRaw);
     const parsedEmail = inviteEmailSchema.safeParse(String(emailRaw || ""));
-    if (!parsedEmail.success) return { ok: false, message: "Please provide a valid email" };
+    if (!parsedEmail.success)
+      return { ok: false, message: "Please provide a valid email" };
     const email = parsedEmail.data;
-    if (!organizationId) return { ok: false, message: "Organization is required" };
+    if (!organizationId)
+      return { ok: false, message: "Organization is required" };
 
     const existingUser = await prisma.user.findFirst({
       where: { email: { equals: email, mode: "insensitive" } },
@@ -49,7 +53,7 @@ export async function inviteUserByEmail(formData: FormData) {
     }
 
     const link = `https://worksrecorded.com/api/auth/register?org_code=${ORG_CODE}&login_hint=${encodeURIComponent(
-      email
+      email,
     )}`;
 
     console.log("[inviteUserByEmail] prepared link:", link);
@@ -60,7 +64,7 @@ export async function inviteUserByEmail(formData: FormData) {
     // If domain isn't verified, you'll typically get 403 or a descriptive error.
 
     const result = await resend.emails.send({
-      from: 'BUVCONSULT <invite@no-reply.buvconsult.com>',
+      from: "BUVCONSULT <invite@no-reply.buvconsult.com>",
       to: email,
       subject: "WorksRecorded – Invitation to join",
       html: `
@@ -75,7 +79,10 @@ export async function inviteUserByEmail(formData: FormData) {
     console.log("[inviteUserByEmail] resend.emails.send() result:", result);
 
     if ((result as any)?.error) {
-      console.error("[inviteUserByEmail] Resend error payload:", (result as any).error);
+      console.error(
+        "[inviteUserByEmail] Resend error payload:",
+        (result as any).error,
+      );
       return {
         ok: false,
         message:
@@ -86,11 +93,18 @@ export async function inviteUserByEmail(formData: FormData) {
     }
 
     const messageId = (result as any)?.id ?? "(no id)";
-    console.log("[inviteUserByEmail] email queued successfully. id:", messageId);
+    console.log(
+      "[inviteUserByEmail] email queued successfully. id:",
+      messageId,
+    );
 
     const created = await saveTemporaryUser(email, organizationId);
     if (!created.ok) {
-      return { ok: false, message: created.message ?? "Invitation was sent, but saving user failed" };
+      return {
+        ok: false,
+        message:
+          created.message ?? "Invitation was sent, but saving user failed",
+      };
     }
 
     return { ok: true };
@@ -101,7 +115,8 @@ export async function inviteUserByEmail(formData: FormData) {
     console.error("[inviteUserByEmail] exception stack:", err?.stack);
 
     // Some SDK/network libs expose response details like this:
-    if (err?.status) console.error("[inviteUserByEmail] http status:", err.status);
+    if (err?.status)
+      console.error("[inviteUserByEmail] http status:", err.status);
     if (err?.response) {
       try {
         const body = await err.response.text?.();
@@ -115,49 +130,34 @@ export async function inviteUserByEmail(formData: FormData) {
   }
 }
 
+export async function getUserData(orgId) {
+  const users = await prisma.user.findMany({
+    where: { organizationId: orgId },
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+      role: true,
+      status: true,
+      reminderTime: true,
+      remindersEnabled: true,
+      reminderText: true,
+    },
+  });
 
-
-export async function getUserData(orgId){
-
-
-   const users = await prisma.user.findMany({
-
-        where: {organizationId : orgId},
-        select: {
-            id: true,
-            email : true,
-            firstName : true,
-            lastName : true,
-            phone : true,
-            role : true,
-            status: true,
-            reminderTime: true,
-            remindersEnabled: true,
-            reminderText: true,
-
-        }
-    })
-
-    return  users
-
-
+  return users;
 }
 
-export async function editUserData( id, data){
+export async function editUserData(id, data) {
+  await prisma.user.update({
+    where: { id },
+    data,
+  });
 
-
-    await prisma.user.update({
-
-        where: {id },
-        data
-        
-    })
-
-    return  "Success"
-
-
+  return "Success";
 }
-
 
 export async function saveTemporaryUser(email: string, organizationId: string) {
   console.log("[saveTemporaryUser] called with:", { email, organizationId });
@@ -178,12 +178,11 @@ export async function saveTemporaryUser(email: string, organizationId: string) {
 
     await prisma.user.create({
       data: {
-
-        id: crypto.randomUUID(),       
+        id: crypto.randomUUID(),
         email: parsedEmail.data,
-        firstName: "",           // placeholder
-        lastName: "",            // placeholder
-        profileImage: "",        // placeholder
+        firstName: "", // placeholder
+        lastName: "", // placeholder
+        profileImage: "", // placeholder
         organizationId: organizationId,
         status: "pending",
       },
@@ -193,17 +192,19 @@ export async function saveTemporaryUser(email: string, organizationId: string) {
     return { ok: true };
   } catch (e: any) {
     console.log("[saveTemporaryUser] error:", e?.message);
-    return { ok: false, message: e?.message ?? "Failed to save temporary user" };
+    return {
+      ok: false,
+      message: e?.message ?? "Failed to save temporary user",
+    };
   }
 }
-
 
 //--------------Settings mode----------------
 
 export type SiteDiaryMode = "sorting" | "nosorting";
 
-function buildConfig(mode: SiteDiaryMode) {
-  const config = structuredClone(defaultConfig);
+function buildConfig(mode: SiteDiaryMode, currentConfig?: unknown) {
+  let config: Record<string, any> = structuredClone(defaultConfig);
 
   if (!config.AIpromptToUse) {
     config.AIpromptToUse = {
@@ -212,8 +213,15 @@ function buildConfig(mode: SiteDiaryMode) {
     };
   }
 
-  config.AIpromptToUse.Client =
-    mode === "sorting" ? "DEPROM" : "NoSorting";
+  config.AIpromptToUse.Client = mode === "sorting" ? "DEPROM" : "NoSorting";
+
+  if (
+    hasDefaultConstructionQuantityProfile(
+      currentConfig as Record<string, any> | null,
+    )
+  ) {
+    config = enableDefaultConstructionQuantityProfile(config);
+  }
 
   return config;
 }
@@ -240,14 +248,17 @@ export async function getSiteDiaryMode(siteId: string) {
   };
 }
 
-export async function saveSiteDiaryMode(
-  siteId: string,
-  mode: SiteDiaryMode
-) {
+export async function saveSiteDiaryMode(siteId: string, mode: SiteDiaryMode) {
   const user = await requireUser();
   await orgCheck(user.id, siteId);
 
-  const config = buildConfig(mode);
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: { siteDiaryRecordsMap: true },
+  });
+  if (!site) throw new Error("Site not found");
+
+  const config = buildConfig(mode, site.siteDiaryRecordsMap);
 
   await prisma.site.update({
     where: { id: siteId },
@@ -317,7 +328,7 @@ export async function updateWorkerOrganizationSettings(
     remindersEnabled?: boolean;
     reminderText?: string | null;
     timezone?: string | null;
-  }
+  },
 ) {
   const { role, ...workerData } = data;
   await prisma.workers.update({
@@ -482,7 +493,8 @@ export async function getWhatsappReminderLogs(
   const userNameById = new Map(
     users.map((target) => [
       target.id,
-      [target.firstName, target.lastName].filter(Boolean).join(" ") || target.email,
+      [target.firstName, target.lastName].filter(Boolean).join(" ") ||
+        target.email,
     ]),
   );
   const workerNameById = new Map(
@@ -499,9 +511,9 @@ export async function getWhatsappReminderLogs(
     targetId: log.targetId,
     targetName:
       log.targetType === "user"
-        ? userNameById.get(log.targetId) ?? log.targetId
-        : workerNameById.get(log.targetId) ?? log.targetId,
-    siteName: log.siteId ? siteNameById.get(log.siteId) ?? log.siteId : null,
+        ? (userNameById.get(log.targetId) ?? log.targetId)
+        : (workerNameById.get(log.targetId) ?? log.targetId),
+    siteName: log.siteId ? (siteNameById.get(log.siteId) ?? log.siteId) : null,
     localDate: log.localDate,
     timezone: log.timezone,
     scheduledHHmm: log.scheduledHHmm,

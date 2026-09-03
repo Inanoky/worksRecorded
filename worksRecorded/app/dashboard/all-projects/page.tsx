@@ -6,548 +6,627 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from "@/components/ui/popover";
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-	type AllProjectsDiaryFilters,
-	loadAllProjectsDiary,
+  type AllProjectsDiaryFilters,
+  loadAllProjectsDiary,
 } from "@/flows/default-construction/backend/all-projects-diary";
+import {
+  getDefaultConstructionQuantityStatusLabel,
+  getDefaultConstructionQuantityToneClass,
+} from "@/flows/default-construction/lib/quantity-plan-actual";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { requireUser } from "@/lib/utils/requireUser";
+import { cn } from "@/lib/utils/utils";
 import {
-	getOrganizationIdByUserId,
-	getOrganizationLanguageByUserId,
+  getOrganizationIdByUserId,
+  getOrganizationLanguageByUserId,
 } from "@/server/actions/shared-actions";
 
 type AllProjectsSearchParams = Promise<
-	Record<string, string | string[] | undefined>
+  Record<string, string | string[] | undefined>
 >;
 
 function firstValue(value: string | string[] | undefined) {
-	return Array.isArray(value) ? value[0] : value;
+  return Array.isArray(value) ? value[0] : value;
 }
 
 function parsePage(value: string | undefined) {
-	const page = Number(value);
-	return Number.isInteger(page) && page > 0 ? page : 1;
+  const page = Number(value);
+  return Number.isInteger(page) && page > 0 ? page : 1;
 }
 
 function isMissingOrZero(value: number | null | undefined) {
-	return value == null || value === 0;
+  return value == null || value === 0;
 }
 
 function pageHref(
-	searchParams: Record<string, string | string[] | undefined>,
-	page: number,
+  searchParams: Record<string, string | string[] | undefined>,
+  page: number,
 ) {
-	const params = new URLSearchParams();
-	for (const key of ["project", "q", "from", "to"] as const) {
-		const value = firstValue(searchParams[key]);
-		if (value) params.set(key, value);
-	}
-	if (page > 1) params.set("page", String(page));
-	const query = params.toString();
-	return query ? `/dashboard/all-projects?${query}` : "/dashboard/all-projects";
+  const params = new URLSearchParams();
+  for (const key of ["project", "q", "from", "to"] as const) {
+    const value = firstValue(searchParams[key]);
+    if (value) params.set(key, value);
+  }
+  if (page > 1) params.set("page", String(page));
+  const query = params.toString();
+  return query ? `/dashboard/all-projects?${query}` : "/dashboard/all-projects";
 }
 
 function exportHref(
-	searchParams: Record<string, string | string[] | undefined>,
+  searchParams: Record<string, string | string[] | undefined>,
 ) {
-	const params = new URLSearchParams();
-	for (const key of ["project", "q", "from", "to"] as const) {
-		const value = firstValue(searchParams[key]);
-		if (value) params.set(key, value);
-	}
-	const query = params.toString();
-	return query
-		? `/api/all-projects/export?${query}`
-		: "/api/all-projects/export";
+  const params = new URLSearchParams();
+  for (const key of ["project", "q", "from", "to"] as const) {
+    const value = firstValue(searchParams[key]);
+    if (value) params.set(key, value);
+  }
+  const query = params.toString();
+  return query
+    ? `/api/all-projects/export?${query}`
+    : "/api/all-projects/export";
 }
 
 function getMessages(language: string | null) {
-	if (language === "lv") {
-		return {
-			title: "Visi projekti",
-			description: "Visu projektu darbu ieraksti hronoloģiskā secībā.",
-			back: "Atpakaļ uz projektiem",
-			keyword: "Meklēt darbus, vietu vai komentārus",
-			allProjects: "Visi projekti",
-			from: "No datuma",
-			to: "Līdz datumam",
-			filter: "Filtrēt",
-			clear: "Notīrīt",
-			date: "Datums",
-			project: "Projekts",
-			location: "Vieta",
-			work: "Darbs",
-			amount: "Daudzums",
-			workers: "Darbinieki",
-			hours: "Stundas",
-			cost: "Izmaksas",
-			comments: "Komentāri",
-			source: "Avots",
-			showSource: "Rādīt avotu",
-			openingProject: "Atver projektu...",
-			noRecords: "Atbilstoši ieraksti nav atrasti.",
-			previous: "Iepriekšējā",
-			next: "Nākamā",
-			records: "ieraksti",
-			exportToExcel: "Eksportēt uz Excel",
-		};
-	}
+  if (language === "lv") {
+    return {
+      title: "Visi projekti",
+      description: "Visu projektu darbu ieraksti hronoloģiskā secībā.",
+      back: "Atpakaļ uz projektiem",
+      keyword: "Meklēt darbus, vietu vai komentārus",
+      allProjects: "Visi projekti",
+      from: "No datuma",
+      to: "Līdz datumam",
+      filter: "Filtrēt",
+      clear: "Notīrīt",
+      date: "Datums",
+      project: "Projekts",
+      location: "Vieta",
+      work: "Darbs",
+      amount: "Daudzums",
+      plannedAmount: "Daudzums (plāns)",
+      actualAmount: "Daudzums (fakts)",
+      workers: "Darbinieki",
+      hours: "Stundas",
+      cost: "Izmaksas",
+      comments: "Komentāri",
+      source: "Avots",
+      showSource: "Rādīt avotu",
+      openingProject: "Atver projektu...",
+      noRecords: "Atbilstoši ieraksti nav atrasti.",
+      previous: "Iepriekšējā",
+      next: "Nākamā",
+      records: "ieraksti",
+      exportToExcel: "Eksportēt uz Excel",
+    };
+  }
 
-	return {
-		title: "All projects",
-		description: "Work records from every project in chronological order.",
-		back: "Back to projects",
-		keyword: "Search work, location, or comments",
-		allProjects: "All projects",
-		from: "From date",
-		to: "To date",
-		filter: "Filter",
-		clear: "Clear",
-		date: "Date",
-		project: "Project",
-		location: "Location",
-		work: "Work",
-		amount: "Amount",
-		workers: "Workers",
-		hours: "Hours",
-		cost: "Cost",
-		comments: "Comments",
-		source: "Source",
-		showSource: "Show source",
-		openingProject: "Opening project...",
-		noRecords: "No matching records found.",
-		previous: "Previous",
-		next: "Next",
-		records: "records",
-		exportToExcel: "Export to Excel",
-	};
+  return {
+    title: "All projects",
+    description: "Work records from every project in chronological order.",
+    back: "Back to projects",
+    keyword: "Search work, location, or comments",
+    allProjects: "All projects",
+    from: "From date",
+    to: "To date",
+    filter: "Filter",
+    clear: "Clear",
+    date: "Date",
+    project: "Project",
+    location: "Location",
+    work: "Work",
+    amount: "Amount",
+    plannedAmount: "Quantity (plan)",
+    actualAmount: "Quantity (actual)",
+    workers: "Workers",
+    hours: "Hours",
+    cost: "Cost",
+    comments: "Comments",
+    source: "Source",
+    showSource: "Show source",
+    openingProject: "Opening project...",
+    noRecords: "No matching records found.",
+    previous: "Previous",
+    next: "Next",
+    records: "records",
+    exportToExcel: "Export to Excel",
+  };
 }
 
 export default async function AllProjectsPage({
-	searchParams,
+  searchParams,
 }: {
-	searchParams: AllProjectsSearchParams;
+  searchParams: AllProjectsSearchParams;
 }) {
-	const user = await requireUser();
-	const rawSearchParams = await searchParams;
-	const [organizationId, organizationLanguage] = await Promise.all([
-		getOrganizationIdByUserId(user.id),
-		getOrganizationLanguageByUserId(user.id),
-	]);
+  const user = await requireUser();
+  const rawSearchParams = await searchParams;
+  const [organizationId, organizationLanguage] = await Promise.all([
+    getOrganizationIdByUserId(user.id),
+    getOrganizationLanguageByUserId(user.id),
+  ]);
 
-	if (!organizationId) notFound();
+  if (!organizationId) notFound();
 
-	const flowModuleKey = await resolveFlowModuleKeyForRuntime({
-		organizationId,
-	});
-	if (flowModuleKey !== FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION) notFound();
+  const flowModuleKey = await resolveFlowModuleKeyForRuntime({
+    organizationId,
+  });
+  if (flowModuleKey !== FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION) notFound();
 
-	const filters: AllProjectsDiaryFilters = {
-		page: parsePage(firstValue(rawSearchParams.page)),
-		projectId: firstValue(rawSearchParams.project),
-		keyword: firstValue(rawSearchParams.q),
-		dateFrom: firstValue(rawSearchParams.from),
-		dateTo: firstValue(rawSearchParams.to),
-	};
-	const data = await loadAllProjectsDiary(organizationId, filters);
-	const messages = getMessages(organizationLanguage);
-	const locale = organizationLanguage === "lv" ? "lv-LV" : "en-GB";
-	const dateFormatter = new Intl.DateTimeFormat(locale, {
-		day: "2-digit",
-		month: "2-digit",
-		year: "numeric",
-		timeZone: "Europe/Riga",
-	});
-	const numberFormatter = new Intl.NumberFormat(locale, {
-		maximumFractionDigits: 2,
-	});
-	const currencyFormatter = new Intl.NumberFormat(locale, {
-		style: "currency",
-		currency: "EUR",
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	});
+  const filters: AllProjectsDiaryFilters = {
+    page: parsePage(firstValue(rawSearchParams.page)),
+    projectId: firstValue(rawSearchParams.project),
+    keyword: firstValue(rawSearchParams.q),
+    dateFrom: firstValue(rawSearchParams.from),
+    dateTo: firstValue(rawSearchParams.to),
+  };
+  const data = await loadAllProjectsDiary(organizationId, filters);
+  const messages = getMessages(organizationLanguage);
+  const locale = organizationLanguage === "lv" ? "lv-LV" : "en-GB";
+  const dateFormatter = new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Europe/Riga",
+  });
+  const numberFormatter = new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 2,
+  });
+  const currencyFormatter = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
-	return (
-		<div className="mx-auto w-full max-w-[1600px] space-y-6 py-4">
-			<div className="space-y-2">
-				<Button asChild variant="ghost" className="px-0">
-					<Link href="/dashboard">← {messages.back}</Link>
-				</Button>
-				<div>
-					<h1 className="text-3xl font-semibold tracking-tight">
-						{messages.title}
-					</h1>
-					<p className="text-muted-foreground">{messages.description}</p>
-				</div>
-			</div>
+  return (
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 py-4">
+      <div className="space-y-2">
+        <Button asChild variant="ghost" className="px-0">
+          <Link href="/dashboard">← {messages.back}</Link>
+        </Button>
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {messages.title}
+          </h1>
+          <p className="text-muted-foreground">{messages.description}</p>
+        </div>
+      </div>
 
-			<Card>
-				<CardContent className="pt-6">
-					<form
-						action="/dashboard/all-projects"
-						className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_220px_170px_170px_auto]"
-					>
-						<Input
-							name="q"
-							defaultValue={filters.keyword}
-							placeholder={messages.keyword}
-							aria-label={messages.keyword}
-						/>
-						<select
-							name="project"
-							defaultValue={filters.projectId ?? ""}
-							aria-label={messages.project}
-							className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-						>
-							<option value="">{messages.allProjects}</option>
-							{data.projects.map((project) => (
-								<option key={project.id} value={project.id}>
-									{project.name}
-								</option>
-							))}
-						</select>
-						<Input
-							name="from"
-							type="date"
-							defaultValue={filters.dateFrom}
-							aria-label={messages.from}
-						/>
-						<Input
-							name="to"
-							type="date"
-							defaultValue={filters.dateTo}
-							aria-label={messages.to}
-						/>
-						<div className="flex gap-2">
-							<Button type="submit">{messages.filter}</Button>
-							<Button asChild variant="outline">
-								<Link href="/dashboard/all-projects">{messages.clear}</Link>
-							</Button>
-						</div>
-					</form>
-				</CardContent>
-			</Card>
+      <Card>
+        <CardContent className="pt-6">
+          <form
+            action="/dashboard/all-projects"
+            className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_220px_170px_170px_auto]"
+          >
+            <Input
+              name="q"
+              defaultValue={filters.keyword}
+              placeholder={messages.keyword}
+              aria-label={messages.keyword}
+            />
+            <select
+              name="project"
+              defaultValue={filters.projectId ?? ""}
+              aria-label={messages.project}
+              className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              <option value="">{messages.allProjects}</option>
+              {data.projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+            <Input
+              name="from"
+              type="date"
+              defaultValue={filters.dateFrom}
+              aria-label={messages.from}
+            />
+            <Input
+              name="to"
+              type="date"
+              defaultValue={filters.dateTo}
+              aria-label={messages.to}
+            />
+            <div className="flex gap-2">
+              <Button type="submit">{messages.filter}</Button>
+              <Button asChild variant="outline">
+                <Link href="/dashboard/all-projects">{messages.clear}</Link>
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
-			<Card>
-				<CardHeader className="gap-3 px-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-					<CardTitle>{messages.title}</CardTitle>
-					<div className="flex flex-wrap items-center gap-2 sm:gap-3">
-						<span className="text-sm text-muted-foreground">
-							{numberFormatter.format(data.totalCount)} {messages.records}
-						</span>
-						<Button asChild variant="outline" size="sm">
-							<a href={exportHref(rawSearchParams)}>{messages.exportToExcel}</a>
-						</Button>
-					</div>
-				</CardHeader>
-				<CardContent className="px-3 sm:px-6">
-					<div className="space-y-3 lg:hidden">
-						{data.records.length ? (
-							data.records.map((record) => (
-								<article
-									key={record.id}
-									className="rounded-xl border bg-card p-4 shadow-sm"
-								>
-									<div className="flex items-start justify-between gap-3">
-										<div className="min-w-0 text-sm font-semibold">
-											{record.siteId ? (
-												<ProjectNavigationLink
-													projectId={record.siteId}
-													projectName={record.Site?.name ?? "—"}
-													loadingLabel={messages.openingProject}
-												/>
-											) : (
-												(record.Site?.name ?? "—")
-											)}
-										</div>
-										<time
-											dateTime={(record.Date ?? record.createdAt).toISOString()}
-											className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium tabular-nums text-muted-foreground"
-										>
-											{dateFormatter.format(record.Date ?? record.createdAt)}
-										</time>
-									</div>
+      <Card>
+        <CardHeader className="gap-3 px-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <CardTitle>{messages.title}</CardTitle>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <span className="text-sm text-muted-foreground">
+              {numberFormatter.format(data.totalCount)} {messages.records}
+            </span>
+            <Button asChild variant="outline" size="sm">
+              <a href={exportHref(rawSearchParams)}>{messages.exportToExcel}</a>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6">
+          <div className="space-y-3 lg:hidden">
+            {data.records.length ? (
+              data.records.map((record) => (
+                <article
+                  key={record.id}
+                  className={cn(
+                    "rounded-xl border bg-card p-4 shadow-sm",
+                    getDefaultConstructionQuantityToneClass(
+                      record.quantityComparisonStatus,
+                    ),
+                  )}
+                  aria-label={
+                    getDefaultConstructionQuantityStatusLabel(
+                      record.quantityComparisonStatus,
+                      organizationLanguage,
+                    ) ?? undefined
+                  }
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 text-sm font-semibold">
+                      {record.siteId ? (
+                        <ProjectNavigationLink
+                          projectId={record.siteId}
+                          projectName={record.Site?.name ?? "—"}
+                          loadingLabel={messages.openingProject}
+                        />
+                      ) : (
+                        (record.Site?.name ?? "—")
+                      )}
+                    </div>
+                    <time
+                      dateTime={(record.Date ?? record.createdAt).toISOString()}
+                      className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium tabular-nums text-muted-foreground"
+                    >
+                      {dateFormatter.format(record.Date ?? record.createdAt)}
+                    </time>
+                  </div>
 
-									<div className="mt-3 space-y-1.5">
-										<p className="break-words text-sm font-semibold leading-5">
-											{record.Works || "—"}
-										</p>
-										<p className="break-words text-xs text-muted-foreground">
-											<span className="font-medium text-foreground">
-												{messages.location}:
-											</span>{" "}
-											{record.Location || "—"}
-										</p>
-									</div>
+                  <div className="mt-3 space-y-1.5">
+                    <p className="break-words text-sm font-semibold leading-5">
+                      {record.Works || "—"}
+                    </p>
+                    <p className="break-words text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        {messages.location}:
+                      </span>{" "}
+                      {record.Location || "—"}
+                    </p>
+                  </div>
 
-									<dl className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border">
-										<div className="bg-muted/40 p-2.5">
-											<dt className="text-[11px] text-muted-foreground">
-												{messages.amount}
-											</dt>
-											<dd className="mt-0.5 text-sm font-semibold tabular-nums">
-												{isMissingOrZero(record.Amounts)
-													? "—"
-													: `${numberFormatter.format(record.Amounts)} ${record.Units ?? ""}`.trim()}
-											</dd>
-										</div>
-										<div className="bg-muted/40 p-2.5">
-											<dt className="text-[11px] text-muted-foreground">
-												{messages.cost}
-											</dt>
-											<dd className="mt-0.5 text-sm font-semibold tabular-nums">
-												{record.actualCost == null
-													? "—"
-													: currencyFormatter.format(record.actualCost)}
-											</dd>
-										</div>
-										<div className="bg-muted/40 p-2.5">
-											<dt className="text-[11px] text-muted-foreground">
-												{messages.workers}
-											</dt>
-											<dd className="mt-0.5 text-sm font-semibold tabular-nums">
-												{isMissingOrZero(record.WorkersInvolved)
-													? "—"
-													: numberFormatter.format(record.WorkersInvolved)}
-											</dd>
-										</div>
-										<div className="bg-muted/40 p-2.5">
-											<dt className="text-[11px] text-muted-foreground">
-												{messages.hours}
-											</dt>
-											<dd className="mt-0.5 text-sm font-semibold tabular-nums">
-												{isMissingOrZero(record.TimeInvolved)
-													? "—"
-													: numberFormatter.format(record.TimeInvolved)}
-											</dd>
-										</div>
-									</dl>
+                  <dl className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border">
+                    {data.quantityPlanFactEnabled ? (
+                      <div className="bg-muted/40 p-2.5">
+                        <dt className="text-[11px] text-muted-foreground">
+                          {messages.plannedAmount}
+                        </dt>
+                        <dd className="mt-0.5 text-sm font-semibold tabular-nums">
+                          {isMissingOrZero(record.plannedAmount)
+                            ? "—"
+                            : `${numberFormatter.format(record.plannedAmount)} ${record.Units ?? ""}`.trim()}
+                        </dd>
+                      </div>
+                    ) : null}
+                    <div className="bg-muted/40 p-2.5">
+                      <dt className="text-[11px] text-muted-foreground">
+                        {data.quantityPlanFactEnabled
+                          ? messages.actualAmount
+                          : messages.amount}
+                      </dt>
+                      <dd className="mt-0.5 text-sm font-semibold tabular-nums">
+                        {isMissingOrZero(record.Amounts)
+                          ? "—"
+                          : `${numberFormatter.format(record.Amounts)} ${record.Units ?? ""}`.trim()}
+                      </dd>
+                    </div>
+                    <div className="bg-muted/40 p-2.5">
+                      <dt className="text-[11px] text-muted-foreground">
+                        {messages.cost}
+                      </dt>
+                      <dd className="mt-0.5 text-sm font-semibold tabular-nums">
+                        {record.actualCost == null
+                          ? "—"
+                          : currencyFormatter.format(record.actualCost)}
+                      </dd>
+                    </div>
+                    <div className="bg-muted/40 p-2.5">
+                      <dt className="text-[11px] text-muted-foreground">
+                        {messages.workers}
+                      </dt>
+                      <dd className="mt-0.5 text-sm font-semibold tabular-nums">
+                        {isMissingOrZero(record.WorkersInvolved)
+                          ? "—"
+                          : numberFormatter.format(record.WorkersInvolved)}
+                      </dd>
+                    </div>
+                    <div className="bg-muted/40 p-2.5">
+                      <dt className="text-[11px] text-muted-foreground">
+                        {messages.hours}
+                      </dt>
+                      <dd className="mt-0.5 text-sm font-semibold tabular-nums">
+                        {isMissingOrZero(record.TimeInvolved)
+                          ? "—"
+                          : numberFormatter.format(record.TimeInvolved)}
+                      </dd>
+                    </div>
+                  </dl>
+                  {(() => {
+                    const label = getDefaultConstructionQuantityStatusLabel(
+                      record.quantityComparisonStatus,
+                      organizationLanguage,
+                    );
+                    return label &&
+                      record.quantityComparisonStatus !== "on-plan" ? (
+                      <p className="mt-2 text-xs font-semibold">{label}</p>
+                    ) : null;
+                  })()}
 
-									<div className="mt-3 border-t pt-3">
-										<p className="text-[11px] font-medium text-muted-foreground">
-											{messages.comments}
-										</p>
-										<p className="mt-1 whitespace-pre-wrap break-words text-sm leading-5">
-											{record.Comments || "—"}
-										</p>
-									</div>
+                  <div className="mt-3 border-t pt-3">
+                    <p className="text-[11px] font-medium text-muted-foreground">
+                      {messages.comments}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-5">
+                      {record.Comments || "—"}
+                    </p>
+                  </div>
 
-									<div className="mt-3 flex items-center justify-between gap-3 border-t pt-3">
-										<span className="text-xs font-medium text-muted-foreground">
-											{messages.source}
-										</span>
-										{record.originalUserComment || record.originalAudioUrl ? (
-											<Popover>
-												<PopoverTrigger asChild>
-													<button
-														type="button"
-														className="inline-flex h-8 items-center justify-center rounded-full border border-blue-600 px-3 text-xs font-semibold text-blue-600 hover:bg-blue-50 hover:text-blue-800"
-													>
-														{messages.showSource}
-													</button>
-												</PopoverTrigger>
-												<PopoverContent className="max-h-[70vh] w-[min(90vw,28rem)] overflow-y-auto">
-													<OriginalSourceContent
-														originalUserComment={record.originalUserComment}
-														originalAudioUrl={record.originalAudioUrl}
-													/>
-												</PopoverContent>
-											</Popover>
-										) : (
-											<span className="text-sm text-muted-foreground">—</span>
-										)}
-									</div>
-								</article>
-							))
-						) : (
-							<div className="rounded-xl border border-dashed px-4 py-12 text-center text-sm text-muted-foreground">
-								{messages.noRecords}
-							</div>
-						)}
-					</div>
+                  <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {messages.source}
+                    </span>
+                    {record.originalUserComment || record.originalAudioUrl ? (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex h-8 items-center justify-center rounded-full border border-blue-600 px-3 text-xs font-semibold text-blue-600 hover:bg-blue-50 hover:text-blue-800"
+                          >
+                            {messages.showSource}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="max-h-[70vh] w-[min(90vw,28rem)] overflow-y-auto">
+                          <OriginalSourceContent
+                            originalUserComment={record.originalUserComment}
+                            originalAudioUrl={record.originalAudioUrl}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">—</span>
+                    )}
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="rounded-xl border border-dashed px-4 py-12 text-center text-sm text-muted-foreground">
+                {messages.noRecords}
+              </div>
+            )}
+          </div>
 
-					<div className="hidden overflow-x-auto rounded-md border lg:block">
-						<Table className="min-w-[1300px] table-fixed">
-							<TableHeader>
-								<TableRow>
-									<TableHead className="w-[104px]">{messages.date}</TableHead>
-									<TableHead className="w-[240px]">
-										{messages.project}
-									</TableHead>
-									<TableHead className="w-[140px]">
-										{messages.location}
-									</TableHead>
-									<TableHead className="w-[260px]">{messages.work}</TableHead>
-									<TableHead className="w-[120px] text-right">
-										{messages.amount}
-									</TableHead>
-									<TableHead className="w-[96px] text-right">
-										{messages.workers}
-									</TableHead>
-									<TableHead className="w-[96px] text-right">
-										{messages.hours}
-									</TableHead>
-									<TableHead className="w-[120px] text-right">
-										{messages.cost}
-									</TableHead>
-									<TableHead className="w-[260px]">
-										{messages.comments}
-									</TableHead>
-									<TableHead className="w-[72px] text-center">
-										{messages.source}
-									</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{data.records.length ? (
-									data.records.map((record) => (
-										<TableRow key={record.id}>
-											<TableCell className="whitespace-nowrap">
-												{dateFormatter.format(record.Date ?? record.createdAt)}
-											</TableCell>
-											<TableCell className="min-w-0 overflow-hidden font-medium">
-												<div
-													className="truncate"
-													title={record.Site?.name ?? undefined}
-												>
-													{record.siteId ? (
-														<ProjectNavigationLink
-															projectId={record.siteId}
-															projectName={record.Site?.name ?? "—"}
-															loadingLabel={messages.openingProject}
-														/>
-													) : (
-														(record.Site?.name ?? "—")
-													)}
-												</div>
-											</TableCell>
-											<TableCell className="min-w-0 overflow-hidden">
-												<span
-													className="block truncate"
-													title={record.Location || undefined}
-												>
-													{record.Location || "—"}
-												</span>
-											</TableCell>
-											<TableCell className="min-w-0 overflow-hidden">
-												<span
-													className="block truncate"
-													title={record.Works || undefined}
-												>
-													{record.Works || "—"}
-												</span>
-											</TableCell>
-											<TableCell className="whitespace-nowrap text-right tabular-nums">
-												{isMissingOrZero(record.Amounts)
-													? "—"
-													: `${numberFormatter.format(record.Amounts)} ${record.Units ?? ""}`.trim()}
-											</TableCell>
-											<TableCell className="text-right tabular-nums">
-												{isMissingOrZero(record.WorkersInvolved)
-													? "—"
-													: numberFormatter.format(record.WorkersInvolved)}
-											</TableCell>
-											<TableCell className="text-right tabular-nums">
-												{isMissingOrZero(record.TimeInvolved)
-													? "—"
-													: numberFormatter.format(record.TimeInvolved)}
-											</TableCell>
-											<TableCell className="whitespace-nowrap text-right tabular-nums">
-												{record.actualCost == null
-													? "—"
-													: currencyFormatter.format(record.actualCost)}
-											</TableCell>
-											<TableCell className="min-w-0 overflow-hidden">
-												<span
-													className="block truncate"
-													title={record.Comments || undefined}
-												>
-													{record.Comments || "—"}
-												</span>
-											</TableCell>
-											<TableCell className="text-center">
-												{record.originalUserComment ||
-												record.originalAudioUrl ? (
-													<Popover>
-														<PopoverTrigger asChild>
-															<button
-																type="button"
-																aria-label={messages.showSource}
-																className="inline-flex size-7 items-center justify-center rounded-full border border-blue-600 text-sm font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-800"
-															>
-																?
-															</button>
-														</PopoverTrigger>
-														<PopoverContent className="max-h-[70vh] w-[min(90vw,28rem)] overflow-y-auto">
-															<OriginalSourceContent
-																originalUserComment={record.originalUserComment}
-																originalAudioUrl={record.originalAudioUrl}
-															/>
-														</PopoverContent>
-													</Popover>
-												) : (
-													"—"
-												)}
-											</TableCell>
-										</TableRow>
-									))
-								) : (
-									<TableRow>
-										<TableCell colSpan={10} className="h-32 text-center">
-											{messages.noRecords}
-										</TableCell>
-									</TableRow>
-								)}
-							</TableBody>
-						</Table>
-					</div>
+          <div className="hidden overflow-x-auto rounded-md border lg:block">
+            <Table
+              className={cn(
+                "table-fixed",
+                data.quantityPlanFactEnabled
+                  ? "min-w-[1420px]"
+                  : "min-w-[1300px]",
+              )}
+            >
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[104px]">{messages.date}</TableHead>
+                  <TableHead className="w-[240px]">
+                    {messages.project}
+                  </TableHead>
+                  <TableHead className="w-[140px]">
+                    {messages.location}
+                  </TableHead>
+                  <TableHead className="w-[260px]">{messages.work}</TableHead>
+                  {data.quantityPlanFactEnabled ? (
+                    <TableHead className="w-[120px] text-right">
+                      {messages.plannedAmount}
+                    </TableHead>
+                  ) : null}
+                  <TableHead className="w-[120px] text-right">
+                    {data.quantityPlanFactEnabled
+                      ? messages.actualAmount
+                      : messages.amount}
+                  </TableHead>
+                  <TableHead className="w-[96px] text-right">
+                    {messages.workers}
+                  </TableHead>
+                  <TableHead className="w-[96px] text-right">
+                    {messages.hours}
+                  </TableHead>
+                  <TableHead className="w-[120px] text-right">
+                    {messages.cost}
+                  </TableHead>
+                  <TableHead className="w-[260px]">
+                    {messages.comments}
+                  </TableHead>
+                  <TableHead className="w-[72px] text-center">
+                    {messages.source}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.records.length ? (
+                  data.records.map((record) => (
+                    <TableRow
+                      key={record.id}
+                      className={getDefaultConstructionQuantityToneClass(
+                        record.quantityComparisonStatus,
+                      )}
+                      aria-label={
+                        getDefaultConstructionQuantityStatusLabel(
+                          record.quantityComparisonStatus,
+                          organizationLanguage,
+                        ) ?? undefined
+                      }
+                    >
+                      <TableCell className="whitespace-nowrap">
+                        {dateFormatter.format(record.Date ?? record.createdAt)}
+                      </TableCell>
+                      <TableCell className="min-w-0 overflow-hidden font-medium">
+                        <div
+                          className="truncate"
+                          title={record.Site?.name ?? undefined}
+                        >
+                          {record.siteId ? (
+                            <ProjectNavigationLink
+                              projectId={record.siteId}
+                              projectName={record.Site?.name ?? "—"}
+                              loadingLabel={messages.openingProject}
+                            />
+                          ) : (
+                            (record.Site?.name ?? "—")
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-0 overflow-hidden">
+                        <span
+                          className="block truncate"
+                          title={record.Location || undefined}
+                        >
+                          {record.Location || "—"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="min-w-0 overflow-hidden">
+                        <span
+                          className="block truncate"
+                          title={record.Works || undefined}
+                        >
+                          {record.Works || "—"}
+                        </span>
+                      </TableCell>
+                      {data.quantityPlanFactEnabled ? (
+                        <TableCell className="whitespace-nowrap text-right tabular-nums">
+                          {isMissingOrZero(record.plannedAmount)
+                            ? "—"
+                            : `${numberFormatter.format(record.plannedAmount)} ${record.Units ?? ""}`.trim()}
+                        </TableCell>
+                      ) : null}
+                      <TableCell className="whitespace-nowrap text-right tabular-nums">
+                        {isMissingOrZero(record.Amounts)
+                          ? "—"
+                          : `${numberFormatter.format(record.Amounts)} ${record.Units ?? ""}`.trim()}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {isMissingOrZero(record.WorkersInvolved)
+                          ? "—"
+                          : numberFormatter.format(record.WorkersInvolved)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {isMissingOrZero(record.TimeInvolved)
+                          ? "—"
+                          : numberFormatter.format(record.TimeInvolved)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums">
+                        {record.actualCost == null
+                          ? "—"
+                          : currencyFormatter.format(record.actualCost)}
+                      </TableCell>
+                      <TableCell className="min-w-0 overflow-hidden">
+                        <span
+                          className="block truncate"
+                          title={record.Comments || undefined}
+                        >
+                          {record.Comments || "—"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {record.originalUserComment ||
+                        record.originalAudioUrl ? (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                aria-label={messages.showSource}
+                                className="inline-flex size-7 items-center justify-center rounded-full border border-blue-600 text-sm font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-800"
+                              >
+                                ?
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="max-h-[70vh] w-[min(90vw,28rem)] overflow-y-auto">
+                              <OriginalSourceContent
+                                originalUserComment={record.originalUserComment}
+                                originalAudioUrl={record.originalAudioUrl}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={data.quantityPlanFactEnabled ? 11 : 10}
+                      className="h-32 text-center"
+                    >
+                      {messages.noRecords}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-					{data.totalPages > 1 ? (
-						<div className="mt-4 flex items-center justify-between gap-4">
-							{data.page > 1 ? (
-								<Button asChild variant="outline">
-									<Link href={pageHref(rawSearchParams, data.page - 1)}>
-										{messages.previous}
-									</Link>
-								</Button>
-							) : (
-								<Button variant="outline" disabled>
-									{messages.previous}
-								</Button>
-							)}
-							<span className="text-sm text-muted-foreground">
-								{data.page} / {data.totalPages}
-							</span>
-							{data.page < data.totalPages ? (
-								<Button asChild variant="outline">
-									<Link href={pageHref(rawSearchParams, data.page + 1)}>
-										{messages.next}
-									</Link>
-								</Button>
-							) : (
-								<Button variant="outline" disabled>
-									{messages.next}
-								</Button>
-							)}
-						</div>
-					) : null}
-				</CardContent>
-			</Card>
-		</div>
-	);
+          {data.totalPages > 1 ? (
+            <div className="mt-4 flex items-center justify-between gap-4">
+              {data.page > 1 ? (
+                <Button asChild variant="outline">
+                  <Link href={pageHref(rawSearchParams, data.page - 1)}>
+                    {messages.previous}
+                  </Link>
+                </Button>
+              ) : (
+                <Button variant="outline" disabled>
+                  {messages.previous}
+                </Button>
+              )}
+              <span className="text-sm text-muted-foreground">
+                {data.page} / {data.totalPages}
+              </span>
+              {data.page < data.totalPages ? (
+                <Button asChild variant="outline">
+                  <Link href={pageHref(rawSearchParams, data.page + 1)}>
+                    {messages.next}
+                  </Link>
+                </Button>
+              ) : (
+                <Button variant="outline" disabled>
+                  {messages.next}
+                </Button>
+              )}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

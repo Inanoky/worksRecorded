@@ -1,55 +1,58 @@
 // DialogTable.tsx
 "use client";
 
+import { Check, ChevronsUpDown, Loader2, Search, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import {
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
+import { toast } from "sonner";
+import { z } from "zod";
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Check,
-  ChevronsUpDown,
-  Loader2,
-  Search,
-  Trash2,
-} from "lucide-react";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
-  getSiteDiaryRecord,
-  getSiteDiarySchema,
-  saveSiteDiaryRecordFromWeb,
-  deleteSiteDiaryRecord,
-  updateSiteDiaryRecord,
-  getConfig,
-} from "@/server/actions/site-diary-actions";
-import { toast } from "sonner";
-import { useMediaQuery } from "./Use-media-querty";
-import { z } from "zod";
-import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
-import { getSiteDiaryDialogMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  DEFAULT_CONSTRUCTION_ACTUAL_QUANTITY_FIELD,
+  hasDefaultConstructionQuantityProfile,
+  normalizeActualQuantityForStorage,
+} from "@/flows/default-construction/lib/quantity-plan-actual";
 import {
   groupDefaultConstructionSiteDiaryWorks,
   sortDefaultConstructionSiteDiaryWorks,
 } from "@/flows/default-construction/lib/site-diary-work-order";
+import {
+  getSiteDiaryDialogMessages,
+  getToastMessages,
+  normalizeOrganizationLanguage,
+} from "@/lib/dashboard-i18n";
+import {
+  deleteSiteDiaryRecord,
+  getConfig,
+  getSiteDiaryRecord,
+  getSiteDiarySchema,
+  saveSiteDiaryRecordFromWeb,
+  updateSiteDiaryRecord,
+} from "@/server/actions/site-diary-actions";
+import { useMediaQuery } from "./Use-media-querty";
 
 type SearchableWorksSelectProps = {
   value: string;
@@ -173,9 +176,7 @@ function SearchableWorksSelect({
   );
 }
 
-
 //--------Loading config------------
-
 
 /* ---------- helpers ---------- */
 const ADDITIONAL_WORKS_OPTION = {
@@ -186,11 +187,12 @@ const CLIENT_DELAY_OPTION = {
   value: "__clientDelay__",
   label: "Client Delay (hindrance)",
 };
-const INTERNAL_DELAY_OPTION = { value: "__internalDelay__", label: "Internal Delay" };
+const INTERNAL_DELAY_OPTION = {
+  value: "__internalDelay__",
+  label: "Internal Delay",
+};
 const NOTE_OPTION = { value: "__note__", label: "Note" };
-const OTHER_OPTION = { value: "__other__", label: "Other Works" }
-
-
+const OTHER_OPTION = { value: "__other__", label: "Other Works" };
 
 const ADD_NEW_LOCATION = "__add_new_location__";
 const ADD_NEW_WORK = "__add_new_work__";
@@ -224,16 +226,22 @@ const coerceOptionalFloat = (v: unknown) => {
 
 const coerceOptionalInt = (v: unknown) => {
   if (v === "" || v === undefined || v === null) return undefined;
-  if (typeof v === "number") return Number.isFinite(v) ? Math.trunc(v) : undefined;
+  if (typeof v === "number")
+    return Number.isFinite(v) ? Math.trunc(v) : undefined;
   const n = Number(String(v).trim());
   return Number.isFinite(n) ? Math.trunc(n) : undefined;
 };
 
 const isUUID = (id: unknown) =>
   typeof id === "string" &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    id,
+  );
 
-const showZodErrorToast = (err: z.ZodError, toastMessages: ReturnType<typeof getToastMessages>) => {
+const showZodErrorToast = (
+  err: z.ZodError,
+  toastMessages: ReturnType<typeof getToastMessages>,
+) => {
   const first = err.errors[0];
   const path = first?.path?.length ? first.path.join(".") : "row";
   toast.error(toastMessages.validationError(path, first.message));
@@ -248,17 +256,18 @@ const showZodErrorToast = (err: z.ZodError, toastMessages: ReturnType<typeof get
  * - workers: int, <= 1B, empty ok
  */
 const DiaryRowSchema = z.object({
-
-
-  id: z.string().uuid().optional(),          // DB id (only if real UUID)
-  _tempId: z.string().optional(),            // UI id (always present for new rows)
+  id: z.string().uuid().optional(), // DB id (only if real UUID)
+  _tempId: z.string().optional(), // UI id (always present for new rows)
   // numbers in your table are strings while editing, so allow "" and coerce
   Amounts: z
     .union([z.coerce.number().finite(), z.literal("")])
     .optional()
     .refine(
-      (v) => v === "" || v === undefined || (typeof v === "number" && Math.abs(v) <= MAX_NUM),
-      { message: `Amounts must be a number <= ${MAX_NUM}` }
+      (v) =>
+        v === "" ||
+        v === undefined ||
+        (typeof v === "number" && Math.abs(v) <= MAX_NUM),
+      { message: `Amounts must be a number <= ${MAX_NUM}` },
     ),
 
   WorkersInvolved: z
@@ -268,16 +277,21 @@ const DiaryRowSchema = z.object({
       (v) =>
         v === "" ||
         v === undefined ||
-        (typeof v === "number" && Math.abs(v) <= MAX_NUM && Number.isInteger(v)),
-      { message: `Workers must be an integer <= ${MAX_NUM}` }
+        (typeof v === "number" &&
+          Math.abs(v) <= MAX_NUM &&
+          Number.isInteger(v)),
+      { message: `Workers must be an integer <= ${MAX_NUM}` },
     ),
 
   TimeInvolved: z
     .union([z.coerce.number().finite(), z.literal("")])
     .optional()
     .refine(
-      (v) => v === "" || v === undefined || (typeof v === "number" && Math.abs(v) <= MAX_NUM),
-      { message: `Hours must be a number <= ${MAX_NUM}` }
+      (v) =>
+        v === "" ||
+        v === undefined ||
+        (typeof v === "number" && Math.abs(v) <= MAX_NUM),
+      { message: `Hours must be a number <= ${MAX_NUM}` },
     ),
 
   Comments: z.string().max(1500).optional().or(z.literal("")),
@@ -289,14 +303,9 @@ const DiaryRowSchema = z.object({
   Location_Custom_1: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
   Location_Custom_2: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
 
-
-
   Works: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
   Works_Custom_1: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
   Works_Custom_2: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
-
-
-
 
   // units: no validation
   Units: z.any().optional(),
@@ -309,8 +318,11 @@ const DiaryRowSchema = z.object({
 
 const DiaryRowsSchema = z.array(DiaryRowSchema);
 
-
-const validateRows = (rowsToValidate: any[], toastMessages: ReturnType<typeof getToastMessages>) => {
+const validateRows = (
+  rowsToValidate: any[],
+  toastMessages: ReturnType<typeof getToastMessages>,
+  config: Record<string, any>,
+) => {
   const parsed = DiaryRowsSchema.safeParse(rowsToValidate);
   if (!parsed.success) {
     showZodErrorToast(parsed.error, toastMessages);
@@ -338,13 +350,23 @@ const validateRows = (rowsToValidate: any[], toastMessages: ReturnType<typeof ge
       toast.error(toastMessages.rowWorkersMax(String(key), MAX_NUM));
       return { ok: false as const, rows: null as any };
     }
+
+    if (hasDefaultConstructionQuantityProfile(config)) {
+      try {
+        normalizeActualQuantityForStorage(
+          r[DEFAULT_CONSTRUCTION_ACTUAL_QUANTITY_FIELD],
+        );
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Invalid planned quantity",
+        );
+        return { ok: false as const, rows: null as any };
+      }
+    }
   }
 
   return { ok: true as const, rows: parsed.data };
 };
-
-
-
 
 /* ---------- component ---------- */
 export function DialogTable({
@@ -367,9 +389,6 @@ export function DialogTable({
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSiteDiaryDialogMessages(language);
   const toastMessages = getToastMessages(language);
-
-
-
 
   //---------------------------------------State---------------------------------------
   const isMobile = useMediaQuery("(max-width: 640px)");
@@ -416,9 +435,14 @@ export function DialogTable({
     setRows((prev) => [...prev, newEmptyRow()]);
   };
 
-  const handleDeleteRow = async (idOrTemp: string | undefined, tempId?: string) => {
+  const handleDeleteRow = async (
+    idOrTemp: string | undefined,
+    tempId?: string,
+  ) => {
     const row = rows.find((r) => r.id === idOrTemp || r._tempId === tempId);
-    const confirmed = window.confirm("Delete this diary row? This action cannot be undone.");
+    const confirmed = window.confirm(
+      "Delete this diary row? This action cannot be undone.",
+    );
     if (!confirmed) return;
     hasClientEditsRef.current = true;
 
@@ -457,8 +481,10 @@ export function DialogTable({
 
     setRows((prev) =>
       prev.map((r) =>
-        r.id === rowIdOrTemp || r._tempId === rowIdOrTemp ? { ...r, [field]: value } : r
-      )
+        r.id === rowIdOrTemp || r._tempId === rowIdOrTemp
+          ? { ...r, [field]: value }
+          : r,
+      ),
     );
   };
 
@@ -482,7 +508,9 @@ export function DialogTable({
 
       for (const field of tableHeads) {
         const type = getTypeByKey(field);
-        if (!["timePicker", "calendarPicker", "textInput", "float"].includes(type)) {
+        if (
+          !["timePicker", "calendarPicker", "textInput", "float"].includes(type)
+        ) {
           continue;
         }
 
@@ -517,136 +545,135 @@ export function DialogTable({
     e?.preventDefault();
     if (isSaving) return;
 
-
-    const validated = validateRows(getRowsWithUncontrolledValues(), toastMessages);
+    const validated = validateRows(
+      getRowsWithUncontrolledValues(),
+      toastMessages,
+      defaultMap,
+    );
     if (!validated.ok) return;
 
     setIsSaving(true);
 
     try {
-    const cleanRows = validated.rows; // <-- use this
+      const cleanRows = validated.rows; // <-- use this
 
-    console.dir(cleanRows);
+      console.dir(cleanRows);
 
+      const existingRows = cleanRows.filter((r) =>
+        Boolean(r.id && isUUID(r.id) && dirtyRowIds.has(r.id)),
+      );
 
+      console.log(`existing rows ${existingRows}`);
 
+      const newRows = cleanRows.filter((r) => !isUUID(r.id));
 
-    const existingRows = cleanRows.filter(
-      (r) => isUUID(r.id) && dirtyRowIds.has(r.id),
-    );
+      //This we need to strip any UI only fields
+      const stripUiFields = (r: any) => {
+        const {
+          _tempId,
 
-    console.log(`existing rows ${existingRows}`)
+          Location_code,
+          Works_code,
 
-    const newRows = cleanRows.filter((r) => !isUUID(r.id));
+          Location_mode,
+          Works_mode,
+          Location_manual,
+          Works_manual,
 
+          Location_custom_1_mode,
+          Location_custom_2_mode,
+          Works_custom_1_mode,
+          Works_custom_2_mode,
 
+          ...db
+        } = r;
 
-    //This we need to strip any UI only fields 
-    const stripUiFields = (r: any) => {
-      const {
-        _tempId,
-
-        Location_code,
-        Works_code,
-
-        Location_mode,
-        Works_mode,
-        Location_manual,
-        Works_manual,
-
-        Location_custom_1_mode,
-        Location_custom_2_mode,
-        Works_custom_1_mode,
-        Works_custom_2_mode,
-
-        ...db
-      } = r;
-
-      return db;
-    };
-
-
-    let updatedCount = 0;
-    let createdCount = 0;
-
-    // Here we actually update existing rows 
-    for (const r of existingRows) {
-
-
-      const dbRow = stripUiFields(r);
-
-      //Converting "" into datetime
-
-      dbRow.Date_Custom_1 = normalizeDate(dbRow.Date_Custom_1);
-      dbRow.Date_Custom_2 = normalizeDate(dbRow.Date_Custom_2);
-
-      const payload = {
-        //So here we will only save original dbRows + siteId
-
-        ...dbRow,
-        
-        siteId,
+        return db;
       };
 
-      try {
+      let updatedCount = 0;
+      let createdCount = 0;
 
-        await updateSiteDiaryRecord(payload);
-        updatedCount += 1;
-        setDirtyRowIds((current) => {
-          const next = new Set(current);
-          next.delete(String(r.id));
-          return next;
-        });
-      } catch (err: any) {
-        toast.error(toastMessages.updateDiaryRowFailed(String(r.id), err?.message ?? toastMessages.somethingWentWrong));
-        return;
-      }
-    }
-    //for create we also need to strip of id
-    const stripUiFieldsForCreate = (r: any) => {
-      const { id, ...rest } = stripUiFields(r);
-      return rest;
-    };
-    // Here we create new rows
-    if (newRows.length) {
+      // Here we actually update existing rows
+      for (const r of existingRows) {
+        const dbRow = stripUiFields(r);
 
-      //same, strip UI only fields 
+        //Converting "" into datetime
 
+        dbRow.Date_Custom_1 = normalizeDate(dbRow.Date_Custom_1);
+        dbRow.Date_Custom_2 = normalizeDate(dbRow.Date_Custom_2);
 
-      const rowsToCreate = newRows.map(stripUiFieldsForCreate).map((r) => ({
-            ...r,
-            Date_Custom_1: normalizeDate(r.Date_Custom_1),
-            Date_Custom_2: normalizeDate(r.Date_Custom_2),
-          }));
+        const payload = {
+          //So here we will only save original dbRows + siteId
 
+          ...dbRow,
 
-      try {
-        console.dir(rowsToCreate)
-        await saveSiteDiaryRecordFromWeb({
-          rows: rowsToCreate,
           siteId,
-        });
-        createdCount = rowsToCreate.length;
-      } catch (err: any) {
-        toast.error(toastMessages.createDiaryRowsFailed(err?.message ?? toastMessages.somethingWentWrong));
-        return;
-      }
-    }
+        };
 
-    toast.success(toastMessages.diarySaved(updatedCount, createdCount));
-    await onSaved?.();
+        try {
+          const result = await updateSiteDiaryRecord(payload);
+          if (!result.ok) throw new Error(result.message);
+          updatedCount += 1;
+          setDirtyRowIds((current) => {
+            const next = new Set(current);
+            next.delete(String(r.id));
+            return next;
+          });
+        } catch (err: any) {
+          toast.error(
+            toastMessages.updateDiaryRowFailed(
+              String(r.id),
+              err?.message ?? toastMessages.somethingWentWrong,
+            ),
+          );
+          return;
+        }
+      }
+      //for create we also need to strip of id
+      const stripUiFieldsForCreate = (r: any) => {
+        const { id, ...rest } = stripUiFields(r);
+        return rest;
+      };
+      // Here we create new rows
+      if (newRows.length) {
+        //same, strip UI only fields
+
+        const rowsToCreate = newRows.map(stripUiFieldsForCreate).map((r) => ({
+          ...r,
+          Date_Custom_1: normalizeDate(r.Date_Custom_1),
+          Date_Custom_2: normalizeDate(r.Date_Custom_2),
+        }));
+
+        try {
+          console.dir(rowsToCreate);
+          const result = await saveSiteDiaryRecordFromWeb({
+            rows: rowsToCreate,
+            siteId,
+          });
+          if (!result.ok) throw new Error(result.message);
+          createdCount = rowsToCreate.length;
+        } catch (err: any) {
+          toast.error(
+            toastMessages.createDiaryRowsFailed(
+              err?.message ?? toastMessages.somethingWentWrong,
+            ),
+          );
+          return;
+        }
+      }
+
+      toast.success(toastMessages.diarySaved(updatedCount, createdCount));
+      await onSaved?.();
     } finally {
       setIsSaving(false);
     }
   };
 
-
   const normalizeDate = (v: any) => {
-  if (!v) return null;
-  return v instanceof Date ? v : new Date(v);
-};
-
-
+    if (!v) return null;
+    return v instanceof Date ? v : new Date(v);
+  };
 
   //------------------------map helpers----------------------------------------------
 
@@ -654,9 +681,11 @@ export function DialogTable({
     return defaultMap[key]?.Type ?? null;
   }
 
-
   function getDisplayNameByKey(key) {
-    if (key === "Units" && normalizeOrganizationLanguage(organizationLanguage) === "lv") {
+    if (
+      key === "Units" &&
+      normalizeOrganizationLanguage(organizationLanguage) === "lv"
+    ) {
       return "Vienības";
     }
 
@@ -666,29 +695,22 @@ export function DialogTable({
   function getCellWidthByKey(
     key: string,
     map: Record<string, any>,
-    fallback = 200 // default if not defined
+    fallback = 200, // default if not defined
   ): number {
-    return (
-      map?.[key]?.customSettings?.cellWidth ??
-      fallback
-    );
+    return map?.[key]?.customSettings?.cellWidth ?? fallback;
   }
-
 
   //----------------------cell renders-----------------------------------------------------
 
-  function cellRender(args: {
-    field: string;
-    row: any;
-    rowKey: string;
-  }) {
+  function cellRender(args: { field: string; row: any; rowKey: string }) {
     const { field, row, rowKey } = args;
     const type = getTypeByKey(field);
 
     // fixed / default
     if (type === "fixed") {
       const value = row[field];
-      const renderAs = defaultMap?.[field]?.customSettings?.renderAs ?? "String";
+      const renderAs =
+        defaultMap?.[field]?.customSettings?.renderAs ?? "String";
 
       let display = "";
 
@@ -716,15 +738,14 @@ export function DialogTable({
         }
       }
 
-      return <span className="text-sm text-muted-foreground select-none">{display}</span>;
+      return (
+        <span className="text-sm text-muted-foreground select-none">
+          {display}
+        </span>
+      );
     }
 
-
-
-
     if (type === "timePicker") {
-
-
       function dateTimeToHHmm(value: any): string {
         if (!value) return "";
         const d = value instanceof Date ? value : new Date(value);
@@ -736,15 +757,13 @@ export function DialogTable({
 
       function hhmmToDateTime(
         hhmm: string,
-        baseDate?: string | Date
+        baseDate?: string | Date,
       ): Date | null {
         if (!hhmm) return null;
 
         const [h, m] = hhmm.split(":").map(Number);
 
-        const base = baseDate
-          ? new Date(baseDate)
-          : new Date();
+        const base = baseDate ? new Date(baseDate) : new Date();
 
         if (isNaN(base.getTime())) return null;
 
@@ -753,15 +772,13 @@ export function DialogTable({
         return base; // ✅ Date object
       }
 
-
-
-
-
       return (
         <Input
           ref={(element) => setUncontrolledFieldRef(rowKey, field, element)}
           type="time"
-          style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
+          style={{
+            width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap),
+          }}
           defaultValue={dateTimeToHHmm(row[field])}
           onChange={() => markRowDirty(rowKey)}
         />
@@ -777,45 +794,23 @@ export function DialogTable({
         <Input
           ref={(element) => setUncontrolledFieldRef(rowKey, field, element)}
           type="date"
-          style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
+          style={{
+            width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap),
+          }}
           defaultValue={v.length >= 10 ? ymd : v}
           onChange={() => markRowDirty(rowKey)}
         />
       );
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     // textInput
     if (type === "textInput") {
       return (
         <Textarea
           ref={(element) => setUncontrolledFieldRef(rowKey, field, element)}
-          style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
+          style={{
+            width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap),
+          }}
           rows={1}
           defaultValue={String(row[field] ?? "")}
           onChange={() => markRowDirty(rowKey)}
@@ -829,7 +824,9 @@ export function DialogTable({
         <Input
           ref={(element) => setUncontrolledFieldRef(rowKey, field, element)}
           inputMode="decimal"
-          style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
+          style={{
+            width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap),
+          }}
           defaultValue={String(row[field] ?? "")}
           onChange={() => markRowDirty(rowKey)}
         />
@@ -838,10 +835,6 @@ export function DialogTable({
 
     // dropdown
     if (type === "dropdown") {
-
-
-
-
       const optionsObj = defaultMap[field]?.DropDownOptions ?? {};
 
       const options = Object.entries(optionsObj).map(([value, label]) => ({
@@ -853,10 +846,7 @@ export function DialogTable({
       const getDropdownOptionLabel = (label: string) =>
         field === "Units" ? (t.unitLabels[label] ?? label) : label;
 
-      if (
-        currentValue &&
-        !options.some((opt) => opt.label  === currentValue)
-      ) {
+      if (currentValue && !options.some((opt) => opt.label === currentValue)) {
         options.push({
           value: currentValue,
           label: currentValue,
@@ -885,16 +875,15 @@ export function DialogTable({
         );
       }
 
-
       return (
         <Select
           value={currentValue}
           onValueChange={(val) => handleChange(rowKey, field, val)}
         >
           <SelectTrigger
-
-            style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
-
+            style={{
+              width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap),
+            }}
           >
             <SelectValue placeholder={String(row[field] ?? t.select)} />
           </SelectTrigger>
@@ -913,9 +902,6 @@ export function DialogTable({
     return <span>{String(row[field] ?? "")}</span>;
   }
 
-
-
-
   useEffect(() => {
     let cancelled = false;
 
@@ -930,19 +916,24 @@ export function DialogTable({
         ? initialRows.filter((row) => row.id === focusedRecordId)
         : initialRows
       : null;
-    const cachedConfig = (initialConfig ?? defaultConfig) as Record<string, any>;
+    const cachedConfig = (initialConfig ?? defaultConfig) as Record<
+      string,
+      any
+    >;
     hasClientEditsRef.current = false;
 
     if (cachedRows) {
       const renderableFields = Object.entries(cachedConfig)
         .filter(([_, cfg]) => cfg?.Type !== "noRender")
         .sort((a, b) => {
-          const aOrder = typeof a[1]?.customSettings?.order === "number"
-            ? a[1].customSettings.order
-            : Number.POSITIVE_INFINITY;
-          const bOrder = typeof b[1]?.customSettings?.order === "number"
-            ? b[1].customSettings.order
-            : Number.POSITIVE_INFINITY;
+          const aOrder =
+            typeof a[1]?.customSettings?.order === "number"
+              ? a[1].customSettings.order
+              : Number.POSITIVE_INFINITY;
+          const bOrder =
+            typeof b[1]?.customSettings?.order === "number"
+              ? b[1].customSettings.order
+              : Number.POSITIVE_INFINITY;
           return aOrder !== bOrder ? aOrder - bOrder : a[0].localeCompare(b[0]);
         })
         .map(([key]) => key.trim());
@@ -972,13 +963,12 @@ export function DialogTable({
 
     (async () => {
       const isoDate = typeof date === "string" ? date : date.toISOString();
-      const config = (initialConfig ?? (await getConfig(siteId)) ?? defaultConfig) as Record<string, any>;
+      const config = (initialConfig ??
+        (await getConfig(siteId)) ??
+        defaultConfig) as Record<string, any>;
       setMap(config);
 
-
-
-
-      //Rhis is funciton will map out noRender fields. 
+      //Rhis is funciton will map out noRender fields.
 
       function getRenderableFieldsOrdered(map: Record<string, any>): string[] {
         return Object.entries(map)
@@ -987,8 +977,10 @@ export function DialogTable({
             const ao = a[1]?.customSettings?.order;
             const bo = b[1]?.customSettings?.order;
 
-            const aOrder = typeof ao === "number" ? ao : Number.POSITIVE_INFINITY;
-            const bOrder = typeof bo === "number" ? bo : Number.POSITIVE_INFINITY;
+            const aOrder =
+              typeof ao === "number" ? ao : Number.POSITIVE_INFINITY;
+            const bOrder =
+              typeof bo === "number" ? bo : Number.POSITIVE_INFINITY;
 
             // primary sort: order asc
             if (aOrder !== bOrder) return aOrder - bOrder;
@@ -999,72 +991,50 @@ export function DialogTable({
           .map(([key]) => key.trim());
       }
 
+      //Here we load config from database, and if no config we use default.
 
-      //Here we load config from database, and if no config we use default. 
-
-   
       const cfg = config;
-          if (cancelled) return;
+      if (cancelled) return;
 
-          setMap(cfg);
+      setMap(cfg);
 
-          const renderableFields = getRenderableFieldsOrdered(cfg);
+      const renderableFields = getRenderableFieldsOrdered(cfg);
 
-      console.log(`renderable fields`)
-      console.dir(renderableFields)
+      console.log(`renderable fields`);
+      console.dir(renderableFields);
 
+      console.log(config);
 
+      setTableHeads(renderableFields);
 
-
-
-
-
-
-      console.log(config)
-
-
-
-      setTableHeads(renderableFields)
-
-
-
-
-
-
-
-
-
-      //Load rows 
+      //Load rows
       const loadedRows = await getSiteDiaryRecord({ siteId, date: isoDate });
       console.log("Loaded rows:");
       console.dir(loadedRows);
 
-      //Filter out rows we don't need according to map. But let's keep id Row also. 
+      //Filter out rows we don't need according to map. But let's keep id Row also.
 
       function pickRenderableRows(
         rows: Record<string, any>[],
-        renderableFields: string[]
+        renderableFields: string[],
       ) {
         return rows.map((row) => ({
           id: row.id ?? undefined, // keep DB id even if not renderable
           createdBy: row.createdBy ?? undefined,
 
           ...Object.fromEntries(
-            renderableFields.map((field) => [field, row[field] ?? ""])
+            renderableFields.map((field) => [field, row[field] ?? ""]),
           ),
         }));
       }
 
-
-      //So this will only leave rows which are not marked as noRender. 
-
-
+      //So this will only leave rows which are not marked as noRender.
 
       const formattedRows = pickRenderableRows(
         focusedRecordId
           ? loadedRows.filter((row) => row.id === focusedRecordId)
           : loadedRows,
-        renderableFields
+        renderableFields,
       );
 
       console.log("Formatted rows ");
@@ -1072,38 +1042,28 @@ export function DialogTable({
 
       //This function returns corrected table name :
 
-
-
-
-
-
-
       if (cancelled) return;
 
       //This mess I just hate. It just needs to be same as fucking data.
 
-
-
       const nextRows = formattedRows.length
         ? formattedRows.map((row: any) => ({
-          ...row,
-          _tempId: crypto.randomUUID(),
-          Location_code: "",
-          Works_code: "",
-          Location_mode: "select",
-          Works_mode: "select",
-          Location_manual: "",
-          Works_manual: "",
+            ...row,
+            _tempId: crypto.randomUUID(),
+            Location_code: "",
+            Works_code: "",
+            Location_mode: "select",
+            Works_mode: "select",
+            Location_manual: "",
+            Works_manual: "",
 
-          //Database rows
-
-
-        }))
+            //Database rows
+          }))
         : focusedRecordId
           ? []
           : [newEmptyRow()];
 
-      console.dir(formattedRows)
+      console.dir(formattedRows);
       if (!hasClientEditsRef.current) {
         if (cachedRows) {
           setRows((currentRows) => {
@@ -1113,9 +1073,7 @@ export function DialogTable({
                 .map((row) => [String(row.id), row]),
             );
             const currentIds = new Set(
-              currentRows
-                .filter((row) => row.id)
-                .map((row) => String(row.id)),
+              currentRows.filter((row) => row.id).map((row) => String(row.id)),
             );
             return [
               ...currentRows.flatMap((row) => {
@@ -1123,7 +1081,9 @@ export function DialogTable({
                 const refreshedRow = serverRowsById.get(String(row.id));
                 return refreshedRow ? [refreshedRow] : [];
               }),
-              ...nextRows.filter((row) => row.id && !currentIds.has(String(row.id))),
+              ...nextRows.filter(
+                (row) => row.id && !currentIds.has(String(row.id)),
+              ),
             ];
           });
         } else {
@@ -1146,17 +1106,22 @@ export function DialogTable({
   }, [date, focusedRecordId, initialConfig, initialRows, siteId]);
 
   if (loading) {
-    return <div className="flex justify-center items-center min-h-[300px]">{t.loading}</div>;
+    return (
+      <div className="flex justify-center items-center min-h-[300px]">
+        {t.loading}
+      </div>
+    );
   }
 
-  const mobileFieldGroups = tableHeads.reduce<string[][]>((groups, field, index) => {
-    const groupIndex = Math.floor(index / 2);
-    if (!groups[groupIndex]) groups[groupIndex] = [];
-    groups[groupIndex].push(field);
-    return groups;
-  }, []);
-
-
+  const mobileFieldGroups = tableHeads.reduce<string[][]>(
+    (groups, field, index) => {
+      const groupIndex = Math.floor(index / 2);
+      if (!groups[groupIndex]) groups[groupIndex] = [];
+      groups[groupIndex].push(field);
+      return groups;
+    },
+    [],
+  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
@@ -1199,7 +1164,9 @@ export function DialogTable({
                 className="rounded-lg border bg-card p-3 space-y-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold">{t.task} #{rowIndex + 1}</p>
+                  <p className="text-sm font-semibold">
+                    {t.task} #{rowIndex + 1}
+                  </p>
                   {!focusedRecordId ? (
                     <Button
                       variant="ghost"
@@ -1220,7 +1187,11 @@ export function DialogTable({
                         <p className="text-xs font-medium text-muted-foreground">
                           {getDisplayNameByKey(field)}
                         </p>
-                        {cellRender({ field, row, rowKey: row.id ?? row._tempId })}
+                        {cellRender({
+                          field,
+                          row,
+                          rowKey: row.id ?? row._tempId,
+                        })}
                       </div>
                     ))}
                   </div>
@@ -1256,15 +1227,15 @@ export function DialogTable({
                       >
                         {getDisplayNameByKey(head)}
                       </TableHead>
+                    ))}
 
-                    )
-
-
-                    )}
-
-                    <TableHead className="text-center w-[150px]">{t.createdBy}</TableHead>
+                    <TableHead className="text-center w-[150px]">
+                      {t.createdBy}
+                    </TableHead>
                     {!focusedRecordId ? (
-                      <TableHead className="text-center w-[80px]">{t.delete}</TableHead>
+                      <TableHead className="text-center w-[80px]">
+                        {t.delete}
+                      </TableHead>
                     ) : null}
                   </TableRow>
                 </TableHeader>
@@ -1273,16 +1244,17 @@ export function DialogTable({
                     <TableRow key={row.id ?? row._tempId}>
                       {tableHeads.map((field) => (
                         <TableCell key={field} className="text-center">
-
-
-                          {cellRender({ field, row, rowKey: row.id ?? row._tempId })}
-
-
-
+                          {cellRender({
+                            field,
+                            row,
+                            rowKey: row.id ?? row._tempId,
+                          })}
                         </TableCell>
                       ))}
 
-                      <TableCell className="text-center">{row.createdBy ?? ""}</TableCell>
+                      <TableCell className="text-center">
+                        {row.createdBy ?? ""}
+                      </TableCell>
 
                       {!focusedRecordId ? (
                         <TableCell className="text-center">
@@ -1306,7 +1278,6 @@ export function DialogTable({
           <ScrollBar orientation="vertical" />
         </ScrollArea>
       )}
-
     </form>
   );
 }

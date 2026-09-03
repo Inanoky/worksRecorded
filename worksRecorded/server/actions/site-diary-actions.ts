@@ -1,39 +1,54 @@
 "use server";
 
-import { prisma } from "@/lib/utils/db";
-import { requireBisAccessTokenForSite, getBisBaseUrl } from "@/server/actions/BIS/service";
-import { requireUser } from "@/lib/utils/requireUser";
-import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
 import { inspect } from "node:util";
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
+import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
+import { syncDefaultConstructionForma2WorkAssignments } from "@/flows/default-construction/backend/forma2-analytics-actions";
+import {
+  applyDefaultConstructionQuantityProfile,
+  DEFAULT_CONSTRUCTION_ACTUAL_QUANTITY_FIELD,
+  hasDefaultConstructionQuantityProfile,
+  normalizeActualQuantityForStorage,
+} from "@/flows/default-construction/lib/quantity-plan-actual";
+import {
+  setDefaultConstructionWorkDropdownOptions,
+  withDefaultConstructionSystemWorks,
+} from "@/flows/default-construction/lib/site-diary-productivity-settings";
+import {
+  type ZtcRateProject,
+  ztcRowMatchesConfiguredWorkFilter,
+} from "@/flows/ztc-production/lib/ztc-rate-resolver";
+import { buildZtcNotCancelledWhere } from "@/flows/ztc-production/lib/ztc-session-markers";
 import { createPerfTrace } from "@/lib/observability/perf";
 import {
   PHOTO_MEDIA_PURPOSE_SITE_DIARY,
   PHOTO_MEDIA_PURPOSE_WAREHOUSE_INVOICE,
   siteDiaryPhotoPurposeWhere,
 } from "@/lib/photos/media-purpose";
-
-import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types";
-import { getOrganizationIdByUserId } from "./shared-actions";
-import { getOrganizationIdByWorkerId, orgCheck } from "./shared-actions";
-import { getUserFullNameById, getWorkerFullNameById } from "./whatsapp-actions";
-import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
-import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
+import { isZtcProductionFlowRuntime } from "@/lib/production-flow/runtime-server";
+import { prisma } from "@/lib/utils/db";
+import { requireUser } from "@/lib/utils/requireUser";
+import { resolvePersistableAudioUrl } from "@/lib/utils/uploadthing-file-url";
+import {
+  getBisBaseUrl,
+  requireBisAccessTokenForSite,
+} from "@/server/actions/BIS/service";
+import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
+import type {
+  Args,
+  GetPhotosByDateArgs,
+  SavePhotoArgs,
+} from "@/server/actions/types";
 import {
   consumeWhatsappAudioSourceContext,
   getWhatsappSourceContext,
 } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
-import { resolvePersistableAudioUrl } from "@/lib/utils/uploadthing-file-url";
-import { isZtcProductionFlowRuntime } from "@/lib/production-flow/runtime-server";
-import { buildZtcNotCancelledWhere } from "@/flows/ztc-production/lib/ztc-session-markers";
 import {
-  setDefaultConstructionWorkDropdownOptions,
-  withDefaultConstructionSystemWorks,
-} from "@/flows/default-construction/lib/site-diary-productivity-settings";
-import {
-  ztcRowMatchesConfiguredWorkFilter,
-  type ZtcRateProject,
-} from "@/flows/ztc-production/lib/ztc-rate-resolver";
-import { syncDefaultConstructionForma2WorkAssignments } from "@/flows/default-construction/backend/forma2-analytics-actions";
+  getOrganizationIdByUserId,
+  getOrganizationIdByWorkerId,
+  orgCheck,
+} from "./shared-actions";
+import { getUserFullNameById, getWorkerFullNameById } from "./whatsapp-actions";
 
 type SiteDiaryFlowHint = {
   flowId?: "default" | "ztc" | "tgem" | string | null;
@@ -48,7 +63,10 @@ type SiteDiaryCopyTarget = {
   subdirectory: string | null;
 };
 
-async function shouldUseZtcRecordsForSite(siteId?: string | null, hint?: SiteDiaryFlowHint) {
+async function shouldUseZtcRecordsForSite(
+  siteId?: string | null,
+  hint?: SiteDiaryFlowHint,
+) {
   if (!siteId) return false;
   if (hint?.flowId === "ztc") return true;
   if (hint?.flowId) return false;
@@ -66,17 +84,23 @@ async function shouldUseZtcRecordsForSite(siteId?: string | null, hint?: SiteDia
 
 function assertNormalSiteDiaryCopy(options?: SiteDiaryFlowHint) {
   if (options?.flowId === "ztc") {
-    throw new Error("Copying ZTC site diary records to another project is not supported.");
+    throw new Error(
+      "Copying ZTC site diary records to another project is not supported.",
+    );
   }
 }
 
-async function assertNormalSiteDiaryCopyForSite(siteId: string, options?: SiteDiaryFlowHint) {
+async function assertNormalSiteDiaryCopyForSite(
+  siteId: string,
+  options?: SiteDiaryFlowHint,
+) {
   assertNormalSiteDiaryCopy(options);
   if (await shouldUseZtcRecordsForSite(siteId, options)) {
-    throw new Error("Copying ZTC site diary records to another project is not supported.");
+    throw new Error(
+      "Copying ZTC site diary records to another project is not supported.",
+    );
   }
 }
-
 
 function extractBisUrlDebug(url: string) {
   try {
@@ -99,7 +123,12 @@ function shouldLogVerboseBisApi() {
   return process.env.BIS_VERBOSE_LOGS === "true";
 }
 
-function logBisRequest(label: string, method: string, url: string, body?: unknown) {
+function logBisRequest(
+  label: string,
+  method: string,
+  url: string,
+  body?: unknown,
+) {
   if (!shouldLogVerboseBisApi()) return;
 
   const urlDebug = extractBisUrlDebug(url);
@@ -109,10 +138,17 @@ function logBisRequest(label: string, method: string, url: string, body?: unknow
     body: body ?? null,
   };
 
-  console.log(`[BIS request] ${label} ${inspect(requestLog, { depth: null, colors: false, compact: false })}`);
+  console.log(
+    `[BIS request] ${label} ${inspect(requestLog, { depth: null, colors: false, compact: false })}`,
+  );
 }
 
-function logBisJsonRequest(label: string, method: "POST" | "PATCH", url: string, body: unknown) {
+function logBisJsonRequest(
+  label: string,
+  method: "POST" | "PATCH",
+  url: string,
+  body: unknown,
+) {
   logBisRequest(label, method, url, body);
 }
 
@@ -120,7 +156,10 @@ function logBisGetRequest(label: string, url: string) {
   logBisRequest(label, "GET", url);
 }
 
-function formatOriginalUserComment(originalUserComment?: string, fullName?: string | null) {
+function formatOriginalUserComment(
+  originalUserComment?: string,
+  fullName?: string | null,
+) {
   const normalizedComment = originalUserComment?.trim();
   const normalizedFullName = fullName?.trim();
 
@@ -138,6 +177,15 @@ function toNullableNumber(value: unknown) {
   if (value === null || value === undefined || value === "") return null;
   const numberValue = typeof value === "number" ? value : Number(value);
   return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function actualQuantityForStorage(
+  row: Record<string, any>,
+  quantityProfileEnabled: boolean,
+) {
+  const value = row[DEFAULT_CONSTRUCTION_ACTUAL_QUANTITY_FIELD];
+  if (!quantityProfileEnabled) return value || undefined;
+  return normalizeActualQuantityForStorage(value) ?? undefined;
 }
 
 const savedSiteDiaryRecordSelect = {
@@ -165,7 +213,11 @@ const savedSiteDiaryRecordSelect = {
   createdAt: true,
 } as const;
 
-const numericSiteDiaryFields = ["Amounts", "WorkersInvolved", "TimeInvolved"] as const;
+const numericSiteDiaryFields = [
+  "Amounts",
+  "WorkersInvolved",
+  "TimeInvolved",
+] as const;
 const meaningfulSiteDiaryTextFields = [
   "Location",
   "Location_Custom_1",
@@ -179,8 +231,10 @@ const meaningfulSiteDiaryTextFields = [
 ] as const;
 
 type NumericSiteDiaryField = (typeof numericSiteDiaryFields)[number];
-type NormalizedSiteDiaryInsertRow = Record<string, any> & Record<NumericSiteDiaryField, number | null>;
-type SavedSiteDiaryRecordForIntegrity = Record<string, any> & Record<NumericSiteDiaryField, number | null>;
+type NormalizedSiteDiaryInsertRow = Record<string, any> &
+  Record<NumericSiteDiaryField, number | null>;
+type SavedSiteDiaryRecordForIntegrity = Record<string, any> &
+  Record<NumericSiteDiaryField, number | null>;
 
 function hasMeaningfulSiteDiaryContent(row: unknown) {
   if (!row || typeof row !== "object" || Array.isArray(row)) return false;
@@ -191,11 +245,20 @@ function hasMeaningfulSiteDiaryContent(row: unknown) {
     return typeof value === "string" && value.trim().length > 0;
   });
 
-  return hasTextContent || numericSiteDiaryFields.some((field) => toNullableNumber(record[field]) !== null);
+  return (
+    hasTextContent ||
+    numericSiteDiaryFields.some(
+      (field) => toNullableNumber(record[field]) !== null,
+    )
+  );
 }
 
 function numbersMatch(expected: number, actual: unknown) {
-  return typeof actual === "number" && Number.isFinite(actual) && Math.abs(actual - expected) < 0.01;
+  return (
+    typeof actual === "number" &&
+    Number.isFinite(actual) &&
+    Math.abs(actual - expected) < 0.01
+  );
 }
 
 function findNumericPersistenceMismatch(
@@ -210,17 +273,24 @@ function findNumericPersistenceMismatch(
 }
 
 function numericRepairData(row: NormalizedSiteDiaryInsertRow) {
-  return Object.fromEntries(numericSiteDiaryFields.map((field) => [field, row[field]]));
+  return Object.fromEntries(
+    numericSiteDiaryFields.map((field) => [field, row[field]]),
+  );
 }
 
-function getCreatorNameFromOriginalComment(originalUserComment?: string | null) {
+function getCreatorNameFromOriginalComment(
+  originalUserComment?: string | null,
+) {
   const match = originalUserComment?.trim().match(/^(.+?)\s+:\s+/);
   return match?.[1]?.trim() ?? "";
 }
 
 //-------Loading config------------------------------
 
-export async function getConfig(siteId: string, options: SiteDiaryFlowHint = {}) {
+export async function getConfig(
+  siteId: string,
+  options: SiteDiaryFlowHint = {},
+) {
   const useZtcConfig = await shouldUseZtcRecordsForSite(siteId, options);
   const clientConfig = await prisma.site.findUnique({
     where: {
@@ -232,9 +302,12 @@ export async function getConfig(siteId: string, options: SiteDiaryFlowHint = {})
   });
 
   if (useZtcConfig) {
-    const baseMap = structuredClone(ztcSiteDiaryRecordsMap as Record<string, any>);
+    const baseMap = structuredClone(
+      ztcSiteDiaryRecordsMap as Record<string, any>,
+    );
     const savedMap =
-      clientConfig?.siteDiaryRecordsMap && typeof clientConfig.siteDiaryRecordsMap === "object"
+      clientConfig?.siteDiaryRecordsMap &&
+      typeof clientConfig.siteDiaryRecordsMap === "object"
         ? (clientConfig.siteDiaryRecordsMap as Record<string, any>)
         : null;
 
@@ -242,7 +315,7 @@ export async function getConfig(siteId: string, options: SiteDiaryFlowHint = {})
 
     baseMap.otherSettings = {
       ...(baseMap.otherSettings ?? {}),
-      ...((savedMap.otherSettings && typeof savedMap.otherSettings === "object")
+      ...(savedMap.otherSettings && typeof savedMap.otherSettings === "object"
         ? savedMap.otherSettings
         : {}),
     };
@@ -266,7 +339,8 @@ export async function getConfig(siteId: string, options: SiteDiaryFlowHint = {})
 
   if (!clientConfig) return null;
   const defaultConstructionMap =
-    clientConfig.siteDiaryRecordsMap && typeof clientConfig.siteDiaryRecordsMap === "object"
+    clientConfig.siteDiaryRecordsMap &&
+    typeof clientConfig.siteDiaryRecordsMap === "object"
       ? structuredClone(clientConfig.siteDiaryRecordsMap as Record<string, any>)
       : structuredClone(defaultConfig as Record<string, any>);
 
@@ -274,7 +348,7 @@ export async function getConfig(siteId: string, options: SiteDiaryFlowHint = {})
     defaultConstructionMap,
     withDefaultConstructionSystemWorks(defaultConstructionMap),
   );
-  return defaultConstructionMap;
+  return applyDefaultConstructionQuantityProfile(defaultConstructionMap);
 }
 
 export async function updateSiteDiaryDropdownOptions(args: {
@@ -293,10 +367,7 @@ export async function updateSiteDiaryDropdownOptions(args: {
 
   if (!site) throw new Error("Site not found");
 
-  const fallbackMap =
-    useZtcConfig
-      ? ztcSiteDiaryRecordsMap
-      : defaultConfig;
+  const fallbackMap = useZtcConfig ? ztcSiteDiaryRecordsMap : defaultConfig;
 
   const currentMap =
     site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
@@ -313,7 +384,9 @@ export async function updateSiteDiaryDropdownOptions(args: {
     );
   }
 
-  const fallbackFieldConfig = (fallbackMap as Record<string, any>)?.[args.fieldKey] ?? {
+  const fallbackFieldConfig = (fallbackMap as Record<string, any>)?.[
+    args.fieldKey
+  ] ?? {
     Type: "dropdown",
     DisplayName: args.fieldKey,
   };
@@ -345,32 +418,36 @@ type WeatherHourRow = {
   precipitationMm: number | null;
 };
 
-
 type BisWeatherSummary = {
   averageTemperatureC: number | null;
   hadPrecipitation: boolean;
   weatherConditionsLv: string;
 };
 
+type WeatherKind =
+  "clear" | "cloudy" | "fog" | "rain" | "snow" | "storm" | "mixed";
 
-
-type WeatherKind = "clear" | "cloudy" | "fog" | "rain" | "snow" | "storm" | "mixed";
-
-function resolveWeatherKindFromCode(code: number | null, hadPrecipitation: boolean): WeatherKind {
+function resolveWeatherKindFromCode(
+  code: number | null,
+  hadPrecipitation: boolean,
+): WeatherKind {
   if (code == null || !Number.isFinite(code)) {
     return hadPrecipitation ? "rain" : "mixed";
   }
 
   if ([95, 96, 99].includes(code)) return "storm";
   if ([71, 73, 75, 77, 85, 86].includes(code)) return "snow";
-  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return "rain";
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code))
+    return "rain";
   if ([45, 48].includes(code)) return "fog";
   if ([0, 1].includes(code)) return "clear";
   if ([2, 3].includes(code)) return "cloudy";
   return hadPrecipitation ? "rain" : "mixed";
 }
 
-function resolveWindAdjective(avgWindMs: number | null): "viegls" | "mērens" | "stiprs" | null {
+function resolveWindAdjective(
+  avgWindMs: number | null,
+): "viegls" | "mērens" | "stiprs" | null {
   if (avgWindMs == null || !Number.isFinite(avgWindMs)) return null;
   if (avgWindMs >= 10) return "stiprs";
   if (avgWindMs >= 6) return "mērens";
@@ -378,7 +455,9 @@ function resolveWindAdjective(avgWindMs: number | null): "viegls" | "mērens" | 
   return null;
 }
 
-function resolvePrecipitationAdjective(maxPrecipMm: number): "neliels" | "mērens" | "stiprs" {
+function resolvePrecipitationAdjective(
+  maxPrecipMm: number,
+): "neliels" | "mērens" | "stiprs" {
   if (maxPrecipMm >= 4) return "stiprs";
   if (maxPrecipMm >= 1) return "mērens";
   return "neliels";
@@ -408,17 +487,26 @@ function buildLatvianWeatherConditions(args: {
       return windAdj ? `Skaidrs un ${windAdj} vējš` : "Skaidrs un bezvējš";
     case "cloudy":
       if (args.hadPrecipitation) {
-        return windAdj ? `${precipAdj} lietus, ${windAdj} vējš` : `${precipAdj} lietus, mākoņains`;
+        return windAdj
+          ? `${precipAdj} lietus, ${windAdj} vējš`
+          : `${precipAdj} lietus, mākoņains`;
       }
       return windAdj ? `Mākoņains un ${windAdj} vējš` : "Mākoņains un mierīgs";
     default:
       if (args.hadPrecipitation) {
-        return windAdj ? `${precipAdj} lietus, ${windAdj} vējš` : `${precipAdj} lietus, mākoņains`;
+        return windAdj
+          ? `${precipAdj} lietus, ${windAdj} vējš`
+          : `${precipAdj} lietus, mākoņains`;
       }
-      return windAdj ? `Mainīgs laiks un ${windAdj} vējš` : "Mainīgs dienas laiks";
+      return windAdj
+        ? `Mainīgs laiks un ${windAdj} vējš`
+        : "Mainīgs dienas laiks";
   }
 }
-function getWorkingDayHoursForBis(dayISO: string, hours: WeatherHourRow[]): WeatherHourRow[] {
+function getWorkingDayHoursForBis(
+  dayISO: string,
+  hours: WeatherHourRow[],
+): WeatherHourRow[] {
   const now = new Date();
   const todayISO = now.toISOString().slice(0, 10);
   const currentUtcHour = now.getUTCHours();
@@ -429,7 +517,10 @@ function getWorkingDayHoursForBis(dayISO: string, hours: WeatherHourRow[]): Weat
   return hours.filter((row) => row.hour >= 8 && row.hour <= maxHour);
 }
 
-async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): Promise<BisWeatherSummary | null> {
+async function getBisWeatherSummaryForSiteDay(
+  siteId: string,
+  dayISO: string,
+): Promise<BisWeatherSummary | null> {
   console.log("[BIS weather] summary: start", { siteId, dayISO });
 
   const site = await prisma.site.findUnique({
@@ -438,22 +529,27 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
   });
 
   if (!site?.geofencePolygon) {
-    console.warn("[BIS weather] summary: geofence missing, skip weather", { siteId });
+    console.warn("[BIS weather] summary: geofence missing, skip weather", {
+      siteId,
+    });
     return null;
   }
 
   const center = computePolygonCentroid(site.geofencePolygon);
   if (!center) {
-    console.warn("[BIS weather] summary: centroid could not be computed", { siteId });
+    console.warn("[BIS weather] summary: centroid could not be computed", {
+      siteId,
+    });
     return null;
   }
 
   console.log("[BIS weather] summary: centroid", { siteId, center });
 
   const todayISO = new Date().toISOString().slice(0, 10);
-  const baseUrl = dayISO <= todayISO
-    ? "https://archive-api.open-meteo.com/v1/archive"
-    : "https://api.open-meteo.com/v1/forecast";
+  const baseUrl =
+    dayISO <= todayISO
+      ? "https://archive-api.open-meteo.com/v1/archive"
+      : "https://api.open-meteo.com/v1/forecast";
 
   const params = new URLSearchParams({
     latitude: center.latitude.toString(),
@@ -465,7 +561,11 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
   });
 
   const weatherUrl = `${baseUrl}?${params.toString()}`;
-  console.log("[BIS weather] summary: fetching provider", { siteId, dayISO, weatherUrl });
+  console.log("[BIS weather] summary: fetching provider", {
+    siteId,
+    dayISO,
+    weatherUrl,
+  });
   const response = await fetch(weatherUrl, { cache: "no-store" });
   if (!response.ok) {
     console.error("[BIS weather] summary: provider request failed", {
@@ -480,10 +580,22 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
   const payload = await response.json();
   const hourly = payload?.hourly ?? {};
   const times: string[] = Array.isArray(hourly.time) ? hourly.time : [];
-  const temperatures: Array<number | null> = Array.isArray(hourly.temperature_2m) ? hourly.temperature_2m : [];
-  const windSpeeds: Array<number | null> = Array.isArray(hourly.wind_speed_10m) ? hourly.wind_speed_10m : [];
-  const precipitation: Array<number | null> = Array.isArray(hourly.precipitation) ? hourly.precipitation : [];
-  const weatherCodes: Array<number | null> = Array.isArray(hourly.weather_code) ? hourly.weather_code : [];
+  const temperatures: Array<number | null> = Array.isArray(
+    hourly.temperature_2m,
+  )
+    ? hourly.temperature_2m
+    : [];
+  const windSpeeds: Array<number | null> = Array.isArray(hourly.wind_speed_10m)
+    ? hourly.wind_speed_10m
+    : [];
+  const precipitation: Array<number | null> = Array.isArray(
+    hourly.precipitation,
+  )
+    ? hourly.precipitation
+    : [];
+  const weatherCodes: Array<number | null> = Array.isArray(hourly.weather_code)
+    ? hourly.weather_code
+    : [];
 
   const hours: WeatherHourRow[] = [];
   for (let i = 0; i < times.length; i += 1) {
@@ -496,7 +608,8 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
       hour,
       temperatureC: temperatures[i] == null ? null : Number(temperatures[i]),
       windSpeedMs: windSpeeds[i] == null ? null : Number(windSpeeds[i]),
-      precipitationMm: precipitation[i] == null ? null : Number(precipitation[i]),
+      precipitationMm:
+        precipitation[i] == null ? null : Number(precipitation[i]),
     });
   }
 
@@ -517,22 +630,37 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
 
   const temps = workingHours
     .map((row) => row.temperatureC)
-    .filter((value): value is number => value != null && Number.isFinite(value));
+    .filter(
+      (value): value is number => value != null && Number.isFinite(value),
+    );
 
   const averageTemperatureC = temps.length
-    ? Number((temps.reduce((sum, value) => sum + value, 0) / temps.length).toFixed(1))
+    ? Number(
+        (temps.reduce((sum, value) => sum + value, 0) / temps.length).toFixed(
+          1,
+        ),
+      )
     : null;
 
   const windValues = workingHours
     .map((row) => row.windSpeedMs)
-    .filter((value): value is number => value != null && Number.isFinite(value));
+    .filter(
+      (value): value is number => value != null && Number.isFinite(value),
+    );
   const avgWindMs = windValues.length
-    ? Number((windValues.reduce((sum, value) => sum + value, 0) / windValues.length).toFixed(1))
+    ? Number(
+        (
+          windValues.reduce((sum, value) => sum + value, 0) / windValues.length
+        ).toFixed(1),
+      )
     : null;
 
   const precipValues = workingHours
     .map((row) => row.precipitationMm)
-    .filter((value): value is number => value != null && Number.isFinite(value) && value > 0);
+    .filter(
+      (value): value is number =>
+        value != null && Number.isFinite(value) && value > 0,
+    );
   const maxPrecipMm = precipValues.length ? Math.max(...precipValues) : 0;
   const hadPrecipitation = maxPrecipMm > 0;
 
@@ -545,7 +673,10 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
   const dominantWeatherCode = codeCounts.size
     ? [...codeCounts.entries()].sort((a, b) => b[1] - a[1])[0][0]
     : null;
-  const weatherKind = resolveWeatherKindFromCode(dominantWeatherCode, hadPrecipitation);
+  const weatherKind = resolveWeatherKindFromCode(
+    dominantWeatherCode,
+    hadPrecipitation,
+  );
   const weatherConditionsLv = buildLatvianWeatherConditions({
     weatherKind,
     hadPrecipitation,
@@ -632,7 +763,9 @@ function extractGeoPoints(input: unknown): Array<[number, number]> {
   return points;
 }
 
-function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude: number } | null {
+function computePolygonCentroid(
+  geoJson: unknown,
+): { latitude: number; longitude: number } | null {
   console.log("[weather] computePolygonCentroid: start", {
     inputType: typeof geoJson,
     isArray: Array.isArray(geoJson),
@@ -651,8 +784,14 @@ function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude
         typeof node[0][1] === "number"
       ) {
         const ring = (node as unknown[])
-          .map((p) => (Array.isArray(p) ? [Number(p[0]), Number(p[1])] as [number, number] : null))
-          .filter((p): p is [number, number] => Boolean(p && Number.isFinite(p[0]) && Number.isFinite(p[1])));
+          .map((p) =>
+            Array.isArray(p)
+              ? ([Number(p[0]), Number(p[1])] as [number, number])
+              : null,
+          )
+          .filter((p): p is [number, number] =>
+            Boolean(p && Number.isFinite(p[0]) && Number.isFinite(p[1])),
+          );
         if (ring.length >= 3) rings.push(ring);
         return;
       }
@@ -660,8 +799,10 @@ function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude
         node.length >= 3 &&
         typeof node[0] === "object" &&
         node[0] !== null &&
-        (("lat" in (node[0] as Record<string, unknown>) && "lng" in (node[0] as Record<string, unknown>)) ||
-          ("latitude" in (node[0] as Record<string, unknown>) && "longitude" in (node[0] as Record<string, unknown>)))
+        (("lat" in (node[0] as Record<string, unknown>) &&
+          "lng" in (node[0] as Record<string, unknown>)) ||
+          ("latitude" in (node[0] as Record<string, unknown>) &&
+            "longitude" in (node[0] as Record<string, unknown>)))
       ) {
         const ring = (node as Array<Record<string, unknown>>)
           .map((p) => {
@@ -677,7 +818,9 @@ function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude
                 : typeof p.longitude === "number"
                   ? p.longitude
                   : null;
-            return lat !== null && lng !== null ? [lng, lat] as [number, number] : null;
+            return lat !== null && lng !== null
+              ? ([lng, lat] as [number, number])
+              : null;
           })
           .filter((p): p is [number, number] => Boolean(p));
         if (ring.length >= 3) rings.push(ring);
@@ -702,11 +845,16 @@ function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude
 
   if (!rings.length) {
     const points = extractGeoPoints(geoJson);
-    console.warn("[weather] computePolygonCentroid: no rings, fallback to points", {
-      pointsCount: points.length,
-    });
+    console.warn(
+      "[weather] computePolygonCentroid: no rings, fallback to points",
+      {
+        pointsCount: points.length,
+      },
+    );
     if (!points.length) {
-      console.error("[weather] computePolygonCentroid: failed - no valid points in geofencePolygon");
+      console.error(
+        "[weather] computePolygonCentroid: failed - no valid points in geofencePolygon",
+      );
       return null;
     }
     const lon = points.reduce((s, [x]) => s + x, 0) / points.length;
@@ -715,7 +863,10 @@ function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude
       latitude: lat,
       longitude: lon,
     });
-    return { latitude: Number(lat.toFixed(6)), longitude: Number(lon.toFixed(6)) };
+    return {
+      latitude: Number(lat.toFixed(6)),
+      longitude: Number(lon.toFixed(6)),
+    };
   }
 
   let areaSum = 0;
@@ -737,21 +888,29 @@ function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude
     a *= 0.5;
     if (!a) continue;
     areaSum += a;
-    cxSum += cx / (6 * a) * Math.abs(a);
-    cySum += cy / (6 * a) * Math.abs(a);
+    cxSum += (cx / (6 * a)) * Math.abs(a);
+    cySum += (cy / (6 * a)) * Math.abs(a);
   }
 
   if (!areaSum) {
-    console.warn("[weather] computePolygonCentroid: zero area, fallback to flat point average");
+    console.warn(
+      "[weather] computePolygonCentroid: zero area, fallback to flat point average",
+    );
     const points = rings.flat();
     const lon = points.reduce((s, [x]) => s + x, 0) / points.length;
     const lat = points.reduce((s, [, y]) => s + y, 0) / points.length;
-    console.log("[weather] computePolygonCentroid: zero-area fallback centroid", {
-      latitude: lat,
-      longitude: lon,
-      pointsCount: points.length,
-    });
-    return { latitude: Number(lat.toFixed(6)), longitude: Number(lon.toFixed(6)) };
+    console.log(
+      "[weather] computePolygonCentroid: zero-area fallback centroid",
+      {
+        latitude: lat,
+        longitude: lon,
+        pointsCount: points.length,
+      },
+    );
+    return {
+      latitude: Number(lat.toFixed(6)),
+      longitude: Number(lon.toFixed(6)),
+    };
   }
 
   const totalAbsArea = rings.reduce((sum, ring) => {
@@ -779,13 +938,18 @@ function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude
   };
 }
 
-async function getStoredSiteWeatherRows(siteId: string, dayISO: string): Promise<WeatherHourRow[]> {
-  const rows = await prisma.$queryRawUnsafe<Array<{
-    hour: number;
-    temperatureC: number | null;
-    windSpeedMs: number | null;
-    precipitationMm: number | null;
-  }>>(
+async function getStoredSiteWeatherRows(
+  siteId: string,
+  dayISO: string,
+): Promise<WeatherHourRow[]> {
+  const rows = await prisma.$queryRawUnsafe<
+    Array<{
+      hour: number;
+      temperatureC: number | null;
+      windSpeedMs: number | null;
+      precipitationMm: number | null;
+    }>
+  >(
     `SELECT "hour", "temperatureC", "windSpeedMs", "precipitationMm"
      FROM "SiteWeatherHourly"
      WHERE "siteId" = $1 AND "weatherDate" = $2::date
@@ -798,18 +962,23 @@ async function getStoredSiteWeatherRows(siteId: string, dayISO: string): Promise
     hour: Number(row.hour),
     temperatureC: row.temperatureC == null ? null : Number(row.temperatureC),
     windSpeedMs: row.windSpeedMs == null ? null : Number(row.windSpeedMs),
-    precipitationMm: row.precipitationMm == null ? null : Number(row.precipitationMm),
+    precipitationMm:
+      row.precipitationMm == null ? null : Number(row.precipitationMm),
   }));
 }
 
-function toDayISOFromDate(value: Date | string | null | undefined): string | null {
+function toDayISOFromDate(
+  value: Date | string | null | undefined,
+): string | null {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString().slice(0, 10);
 }
 
-function toLocalDayISOFromDate(value: Date | string | null | undefined): string | null {
+function toLocalDayISOFromDate(
+  value: Date | string | null | undefined,
+): string | null {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
@@ -821,14 +990,21 @@ function toLocalDayISOFromDate(value: Date | string | null | undefined): string 
 
 function isRecentDay(dayISO: string): boolean {
   const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const today = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
   const day = new Date(`${dayISO}T00:00:00.000Z`);
   if (Number.isNaN(day.getTime())) return false;
-  const diffDays = Math.floor((today.getTime() - day.getTime()) / (24 * 60 * 60 * 1000));
+  const diffDays = Math.floor(
+    (today.getTime() - day.getTime()) / (24 * 60 * 60 * 1000),
+  );
   return diffDays <= 1;
 }
 
-async function getLatestWeatherUpdateAt(siteId: string, dayISO: string): Promise<Date | null> {
+async function getLatestWeatherUpdateAt(
+  siteId: string,
+  dayISO: string,
+): Promise<Date | null> {
   const rows = await prisma.$queryRawUnsafe<Array<{ updatedAt: Date }>>(
     `SELECT MAX("updatedAt") AS "updatedAt"
      FROM "SiteWeatherHourly"
@@ -867,7 +1043,11 @@ async function fetchAndStoreSiteWeather(args: {
   });
 
   const weatherUrl = `${baseUrl}?${params.toString()}`;
-  console.log("[weather] getSiteDayWeather: fetching provider", { siteId, dayISO, weatherUrl });
+  console.log("[weather] getSiteDayWeather: fetching provider", {
+    siteId,
+    dayISO,
+    weatherUrl,
+  });
   const response = await fetch(weatherUrl, { cache: "no-store" });
   if (!response.ok) {
     console.error("[weather] getSiteDayWeather: provider request failed", {
@@ -882,9 +1062,19 @@ async function fetchAndStoreSiteWeather(args: {
   const payload = await response.json();
   const hourly = payload?.hourly ?? {};
   const times: string[] = Array.isArray(hourly.time) ? hourly.time : [];
-  const temperatures: Array<number | null> = Array.isArray(hourly.temperature_2m) ? hourly.temperature_2m : [];
-  const windSpeeds: Array<number | null> = Array.isArray(hourly.wind_speed_10m) ? hourly.wind_speed_10m : [];
-  const precipitation: Array<number | null> = Array.isArray(hourly.precipitation) ? hourly.precipitation : [];
+  const temperatures: Array<number | null> = Array.isArray(
+    hourly.temperature_2m,
+  )
+    ? hourly.temperature_2m
+    : [];
+  const windSpeeds: Array<number | null> = Array.isArray(hourly.wind_speed_10m)
+    ? hourly.wind_speed_10m
+    : [];
+  const precipitation: Array<number | null> = Array.isArray(
+    hourly.precipitation,
+  )
+    ? hourly.precipitation
+    : [];
 
   const results: WeatherHourRow[] = [];
   for (let i = 0; i < times.length; i += 1) {
@@ -894,9 +1084,11 @@ async function fetchAndStoreSiteWeather(args: {
     const hour = Number(hourPart);
     if (!Number.isFinite(hour)) continue;
 
-    const temperatureC = temperatures[i] == null ? null : Number(temperatures[i]);
+    const temperatureC =
+      temperatures[i] == null ? null : Number(temperatures[i]);
     const windSpeedMs = windSpeeds[i] == null ? null : Number(windSpeeds[i]);
-    const precipitationMm = precipitation[i] == null ? null : Number(precipitation[i]);
+    const precipitationMm =
+      precipitation[i] == null ? null : Number(precipitation[i]);
 
     results.push({ hour, temperatureC, windSpeedMs, precipitationMm });
   }
@@ -960,20 +1152,27 @@ async function ensureWeatherForSiteDay(args: {
     },
   });
   if (!site) throw new Error("Site not found.");
-  if (!site.geofencePolygon) throw new Error("Site geofence polygon is missing.");
+  if (!site.geofencePolygon)
+    throw new Error("Site geofence polygon is missing.");
 
   const center = computePolygonCentroid(site.geofencePolygon);
   if (!center) {
-    throw new Error("Could not determine site coordinates from geofence polygon.");
+    throw new Error(
+      "Could not determine site coordinates from geofence polygon.",
+    );
   }
 
   let rows = await getStoredSiteWeatherRows(siteId, dayISO);
-  const latestUpdateAt = rows.length ? await getLatestWeatherUpdateAt(siteId, dayISO) : null;
+  const latestUpdateAt = rows.length
+    ? await getLatestWeatherUpdateAt(siteId, dayISO)
+    : null;
   const shouldRefreshRecent =
     rows.length > 0 &&
     isRecentDay(dayISO) &&
-    (!latestUpdateAt || Date.now() - latestUpdateAt.getTime() > RECENT_WEATHER_STALE_MS);
-  const shouldFetch = args.forceRefresh || rows.length < 24 || shouldRefreshRecent;
+    (!latestUpdateAt ||
+      Date.now() - latestUpdateAt.getTime() > RECENT_WEATHER_STALE_MS);
+  const shouldFetch =
+    args.forceRefresh || rows.length < 24 || shouldRefreshRecent;
 
   if (shouldFetch) {
     rows = await fetchAndStoreSiteWeather({
@@ -1005,7 +1204,10 @@ export async function getSiteWeatherAvailability(siteId: string) {
   return { hasGeofencePolygon: Boolean(site?.geofencePolygon) };
 }
 
-export async function getSiteDayWeather(args: { siteId: string; dayISO: string }) {
+export async function getSiteDayWeather(args: {
+  siteId: string;
+  dayISO: string;
+}) {
   await requireUser();
   const dayISO = parseDateKey(args.dayISO);
   console.log("[weather] getSiteDayWeather called", {
@@ -1022,7 +1224,9 @@ export async function getSiteDayWeather(args: { siteId: string; dayISO: string }
     console.warn("[weather] getSiteDayWeather: missing geofencePolygon", {
       siteId: args.siteId,
     });
-    throw new Error("Please mark site location in Settings (geofence polygon is missing).");
+    throw new Error(
+      "Please mark site location in Settings (geofence polygon is missing).",
+    );
   }
 
   console.log("[weather] getSiteDayWeather: geofencePolygon snapshot", {
@@ -1044,9 +1248,10 @@ export async function getSiteDayWeather(args: { siteId: string; dayISO: string }
   });
 
   const todayISO = new Date().toISOString().slice(0, 10);
-  const baseUrl = dayISO <= todayISO
-    ? "https://archive-api.open-meteo.com/v1/archive"
-    : "https://api.open-meteo.com/v1/forecast";
+  const baseUrl =
+    dayISO <= todayISO
+      ? "https://archive-api.open-meteo.com/v1/archive"
+      : "https://api.open-meteo.com/v1/forecast";
 
   const params = new URLSearchParams({
     latitude: center.latitude.toString(),
@@ -1058,7 +1263,11 @@ export async function getSiteDayWeather(args: { siteId: string; dayISO: string }
   });
 
   const weatherUrl = `${baseUrl}?${params.toString()}`;
-  console.log("[weather] getSiteDayWeather: fetching provider", { siteId: args.siteId, dayISO, weatherUrl });
+  console.log("[weather] getSiteDayWeather: fetching provider", {
+    siteId: args.siteId,
+    dayISO,
+    weatherUrl,
+  });
   const response = await fetch(weatherUrl, { cache: "no-store" });
   if (!response.ok) {
     console.error("[weather] getSiteDayWeather: provider request failed", {
@@ -1073,9 +1282,19 @@ export async function getSiteDayWeather(args: { siteId: string; dayISO: string }
   const payload = await response.json();
   const hourly = payload?.hourly ?? {};
   const times: string[] = Array.isArray(hourly.time) ? hourly.time : [];
-  const temperatures: Array<number | null> = Array.isArray(hourly.temperature_2m) ? hourly.temperature_2m : [];
-  const windSpeeds: Array<number | null> = Array.isArray(hourly.wind_speed_10m) ? hourly.wind_speed_10m : [];
-  const precipitation: Array<number | null> = Array.isArray(hourly.precipitation) ? hourly.precipitation : [];
+  const temperatures: Array<number | null> = Array.isArray(
+    hourly.temperature_2m,
+  )
+    ? hourly.temperature_2m
+    : [];
+  const windSpeeds: Array<number | null> = Array.isArray(hourly.wind_speed_10m)
+    ? hourly.wind_speed_10m
+    : [];
+  const precipitation: Array<number | null> = Array.isArray(
+    hourly.precipitation,
+  )
+    ? hourly.precipitation
+    : [];
 
   const hours: WeatherHourRow[] = [];
   for (let i = 0; i < times.length; i += 1) {
@@ -1088,7 +1307,8 @@ export async function getSiteDayWeather(args: { siteId: string; dayISO: string }
       hour,
       temperatureC: temperatures[i] == null ? null : Number(temperatures[i]),
       windSpeedMs: windSpeeds[i] == null ? null : Number(windSpeeds[i]),
-      precipitationMm: precipitation[i] == null ? null : Number(precipitation[i]),
+      precipitationMm:
+        precipitation[i] == null ? null : Number(precipitation[i]),
     });
   }
 
@@ -1133,7 +1353,12 @@ export async function syncRecentActiveDaysWeather() {
     tasks.set(`${siteId}:${dayISO}`, { siteId, dayISO });
   }
 
-  const outcomes: Array<{ siteId: string; dayISO: string; ok: boolean; error?: string }> = [];
+  const outcomes: Array<{
+    siteId: string;
+    dayISO: string;
+    ok: boolean;
+    error?: string;
+  }> = [];
   for (const task of tasks.values()) {
     try {
       await ensureWeatherForSiteDay({
@@ -1143,7 +1368,11 @@ export async function syncRecentActiveDaysWeather() {
       });
       outcomes.push({ ...task, ok: true });
     } catch (err: any) {
-      outcomes.push({ ...task, ok: false, error: err?.message ?? "weather_sync_failed" });
+      outcomes.push({
+        ...task,
+        ok: false,
+        error: err?.message ?? "weather_sync_failed",
+      });
     }
   }
 
@@ -1180,32 +1409,44 @@ export async function saveSiteDiaryRecord({
   const validRows = rows.filter(hasMeaningfulSiteDiaryContent);
 
   if (!validRows.length) {
-    const rawOriginalAudioUrlPreview = originalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null;
-    const resolvedOriginalAudioUrlPreview = resolvePersistableAudioUrl(rawOriginalAudioUrlPreview);
+    const rawOriginalAudioUrlPreview =
+      originalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null;
+    const resolvedOriginalAudioUrlPreview = resolvePersistableAudioUrl(
+      rawOriginalAudioUrlPreview,
+    );
 
     console.log("--- saveSiteDiaryRecord END: No records to insert ---");
-    console.warn("[originalAudioUrl][saveSiteDiaryRecord] no rows inserted after filtering", {
-      inputRowCount: rows?.length ?? 0,
-      hasOriginalAudioUrl: Boolean(resolvedOriginalAudioUrlPreview),
-    });
+    console.warn(
+      "[originalAudioUrl][saveSiteDiaryRecord] no rows inserted after filtering",
+      {
+        inputRowCount: rows?.length ?? 0,
+        hasOriginalAudioUrl: Boolean(resolvedOriginalAudioUrlPreview),
+      },
+    );
     return { ok: false, message: "No records to insert" };
   }
 
   const whatsappAudioContext = consumeWhatsappAudioSourceContext();
-  const resolvedSourceMessageId = sourceMessageId ?? whatsappAudioContext.messageId ?? null;
-  const rawOriginalAudioUrl = originalAudioUrl ?? whatsappAudioContext.originalAudioUrl ?? null;
-  const resolvedOriginalAudioUrl = resolvePersistableAudioUrl(rawOriginalAudioUrl);
+  const resolvedSourceMessageId =
+    sourceMessageId ?? whatsappAudioContext.messageId ?? null;
+  const rawOriginalAudioUrl =
+    originalAudioUrl ?? whatsappAudioContext.originalAudioUrl ?? null;
+  const resolvedOriginalAudioUrl =
+    resolvePersistableAudioUrl(rawOriginalAudioUrl);
 
   if (rawOriginalAudioUrl && !resolvedOriginalAudioUrl) {
-    console.warn("[originalAudioUrl][saveSiteDiaryRecord] rejected non-persistable audio URL", {
-      rejectedUrlHostname: (() => {
-        try {
-          return new URL(rawOriginalAudioUrl).hostname;
-        } catch {
-          return "<invalid-url>";
-        }
-      })(),
-    });
+    console.warn(
+      "[originalAudioUrl][saveSiteDiaryRecord] rejected non-persistable audio URL",
+      {
+        rejectedUrlHostname: (() => {
+          try {
+            return new URL(rawOriginalAudioUrl).hostname;
+          } catch {
+            return "<invalid-url>";
+          }
+        })(),
+      },
+    );
   }
 
   // 🪵 LOG: Initial inputs for context
@@ -1253,75 +1494,91 @@ export async function saveSiteDiaryRecord({
   }
   console.log("---------------------------------");
 
+  const quantityProfileConfig = siteId
+    ? await prisma.site.findUnique({
+        where: { id: siteId },
+        select: { siteDiaryRecordsMap: true },
+      })
+    : null;
+  const quantityProfileEnabled = hasDefaultConstructionQuantityProfile(
+    quantityProfileConfig?.siteDiaryRecordsMap as Record<string, any> | null,
+  );
+
   // Make sure requireUser() is not triggering a redirect!
   // Defensive: Only save rows containing diary content.
-  const toInsert: NormalizedSiteDiaryInsertRow[] = validRows
-    .map((row, idx) => {
-      const out = {
-        // UPDATE: Conditionally set userId or workerId
-        userId: userId ?? undefined,
-        workerId: workerId ?? undefined,
-        siteId: siteId ?? undefined,
-        organizationId: org ?? undefined,
+  const toInsert: NormalizedSiteDiaryInsertRow[] = validRows.map((row, idx) => {
+    const out = {
+      // UPDATE: Conditionally set userId or workerId
+      userId: userId ?? undefined,
+      workerId: workerId ?? undefined,
+      siteId: siteId ?? undefined,
+      organizationId: org ?? undefined,
 
-        Date: row.Date ? new Date(row.Date) : undefined,
-        Date_Custom_1: row.Date_Custom_1 ? new Date(row.Date_Custom_1) : undefined,
-        Date_Custom_2: row.Date_Custom_2 ? new Date(row.Date_Custom_2) : undefined,
+      Date: row.Date ? new Date(row.Date) : undefined,
+      Date_Custom_1: row.Date_Custom_1
+        ? new Date(row.Date_Custom_1)
+        : undefined,
+      Date_Custom_2: row.Date_Custom_2
+        ? new Date(row.Date_Custom_2)
+        : undefined,
 
-        Location: row.Location || undefined,
-        Location_Custom_1: row.Location_Custom_1 || undefined,
-        Location_Custom_2: row.Location_Custom_2 || undefined,
+      Location: row.Location || undefined,
+      Location_Custom_1: row.Location_Custom_1 || undefined,
+      Location_Custom_2: row.Location_Custom_2 || undefined,
 
-        Works: row.Works || undefined,
-        Works_Custom_1: row.Works_Custom_1 || undefined,
-        Works_Custom_2: row.Works_Custom_2 || undefined,
+      Works: row.Works || undefined,
+      Works_Custom_1: row.Works_Custom_1 || undefined,
+      Works_Custom_2: row.Works_Custom_2 || undefined,
 
-        Comments: row.Comments || undefined,
-        Comments_Custom_1: row.Comments_Custom_1 || undefined,
-        Comments_Custom_2: row.Comments_Custom_2 || undefined,
+      Comments: row.Comments || undefined,
+      Comments_Custom_1: actualQuantityForStorage(row, quantityProfileEnabled),
+      Comments_Custom_2: row.Comments_Custom_2 || undefined,
 
-        originalUserComment: formattedOriginalUserComment,
-        originalAudioUrl: idx === 0 ? resolvedOriginalAudioUrl || undefined : undefined,
+      originalUserComment: formattedOriginalUserComment,
+      originalAudioUrl:
+        idx === 0 ? resolvedOriginalAudioUrl || undefined : undefined,
 
-        Units: row.Units || undefined,
-        Amounts: toNullableNumber(row.Amounts),
-        WorkersInvolved: toNullableNumber(row.WorkersInvolved),
-        TimeInvolved: toNullableNumber(row.TimeInvolved),
-        evalMetadata: evalMetadata ?? undefined,
-        Photos: [],
-      };
+      Units: row.Units || undefined,
+      Amounts: toNullableNumber(row.Amounts),
+      WorkersInvolved: toNullableNumber(row.WorkersInvolved),
+      TimeInvolved: toNullableNumber(row.TimeInvolved),
+      evalMetadata: evalMetadata ?? undefined,
+      Photos: [],
+    };
 
-      // 🪵 LOG: Transformed row object
-      console.log(
-        `Transformed Row #${idx + 1} (Original Data: ${JSON.stringify({
-          location: row.location,
-          works: row.works,
-        })}):`,
-      );
-      console.log(out);
-      console.log("[originalAudioUrl][saveSiteDiaryRecord] prepared row", {
-        rowIndex: idx,
-        hasOriginalAudioUrl: Boolean(out.originalAudioUrl),
-        hasLocation: Boolean(out.Location),
-        hasWorks: Boolean(out.Works),
-      });
-
-      return out;
+    // 🪵 LOG: Transformed row object
+    console.log(
+      `Transformed Row #${idx + 1} (Original Data: ${JSON.stringify({
+        location: row.location,
+        works: row.works,
+      })}):`,
+    );
+    console.log(out);
+    console.log("[originalAudioUrl][saveSiteDiaryRecord] prepared row", {
+      rowIndex: idx,
+      hasOriginalAudioUrl: Boolean(out.originalAudioUrl),
+      hasLocation: Boolean(out.Location),
+      hasWorks: Boolean(out.Works),
     });
+
+    return out;
+  });
 
   try {
     const records = await prisma.$transaction(async (tx) => {
       const insertedRecords: any[] = [];
-      const batch = userId && siteId && resolvedSourceMessageId
-        ? await tx.siteDiarySaveBatch.create({
-            data: {
-              userId,
-              siteId,
-              sourceMessageId: resolvedSourceMessageId,
-              originalText: formattedOriginalUserComment ?? originalUserComment ?? "",
-            },
-          })
-        : null;
+      const batch =
+        userId && siteId && resolvedSourceMessageId
+          ? await tx.siteDiarySaveBatch.create({
+              data: {
+                userId,
+                siteId,
+                sourceMessageId: resolvedSourceMessageId,
+                originalText:
+                  formattedOriginalUserComment ?? originalUserComment ?? "",
+              },
+            })
+          : null;
 
       for (const row of toInsert) {
         const created = await tx.sitediaryrecords.create({
@@ -1335,12 +1592,15 @@ export async function saveSiteDiaryRecord({
           continue;
         }
 
-        console.warn("[saveSiteDiaryRecord] repairing numeric persistence mismatch", {
-          recordId: created.id,
-          field: mismatchedField,
-          expected: row[mismatchedField],
-          actual: created[mismatchedField],
-        });
+        console.warn(
+          "[saveSiteDiaryRecord] repairing numeric persistence mismatch",
+          {
+            recordId: created.id,
+            field: mismatchedField,
+            expected: row[mismatchedField],
+            actual: created[mismatchedField],
+          },
+        );
 
         const repaired = await tx.sitediaryrecords.update({
           where: { id: created.id },
@@ -1348,7 +1608,10 @@ export async function saveSiteDiaryRecord({
           select: savedSiteDiaryRecordSelect,
         });
 
-        const stillMismatchedField = findNumericPersistenceMismatch(row, repaired);
+        const stillMismatchedField = findNumericPersistenceMismatch(
+          row,
+          repaired,
+        );
         if (stillMismatchedField) {
           throw new Error(
             `Numeric persistence mismatch for ${stillMismatchedField}: expected ${row[stillMismatchedField]}, got ${repaired[stillMismatchedField]}`,
@@ -1381,18 +1644,30 @@ export async function saveSiteDiaryRecord({
 
 export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
   const user = await requireUser();
-  const org = await getOrganizationIdByUserId(user.id);
+  const authorizedSite = await orgCheck(user.id, siteId);
+  if (!authorizedSite) throw new Error("Site not found");
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: { siteDiaryRecordsMap: true },
+  });
+  const quantityProfileEnabled = hasDefaultConstructionQuantityProfile(
+    site?.siteDiaryRecordsMap as Record<string, any> | null,
+  );
 
   // Defensive: Only save if at least one row with location or works
   const toInsert = rows.map((row, idx) => {
     const out = {
       userId: user.id ?? undefined,
       siteId: siteId ?? undefined,
-      organizationId: org ?? undefined,
+      organizationId: authorizedSite.organizationId ?? undefined,
 
       Date: row.Date ? new Date(row.Date) : undefined,
-      Date_Custom_1: row.Date_Custom_1 ? new Date(row.Date_Custom_1) : undefined,
-      Date_Custom_2: row.Date_Custom_2 ? new Date(row.Date_Custom_2) : undefined,
+      Date_Custom_1: row.Date_Custom_1
+        ? new Date(row.Date_Custom_1)
+        : undefined,
+      Date_Custom_2: row.Date_Custom_2
+        ? new Date(row.Date_Custom_2)
+        : undefined,
       Location: row.Location || undefined,
       Location_Custom_1: row.Location_Custom_1 || undefined,
       Location_Custom_2: row.Location_Custom_2 || undefined,
@@ -1400,7 +1675,7 @@ export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
       Works_Custom_1: row.Works_Custom_1 || undefined,
       Works_Custom_2: row.Works_Custom_2 || undefined,
       Comments: row.Comments || undefined,
-      Comments_Custom_1: row.Comments_Custom_1 || undefined,
+      Comments_Custom_1: actualQuantityForStorage(row, quantityProfileEnabled),
       Comments_Custom_2: row.Comments_Custom_2 || undefined,
       Units: row.Units || undefined,
       Amounts: toNullableNumber(row.Amounts),
@@ -1434,7 +1709,10 @@ export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
       work: record.Works,
     })),
   }).catch((error) => {
-    console.error("Failed to sync Forma 2 assignments for new diary records", error);
+    console.error(
+      "Failed to sync Forma 2 assignments for new diary records",
+      error,
+    );
   });
 
   // Optionally, revalidate data on page
@@ -1449,16 +1727,45 @@ export async function updateSiteDiaryRecord({ id, ...fields }) {
   console.log("Update ID:", id);
   console.log("Update fields:", JSON.stringify(fields, null, 2));
   try {
+    const user = await requireUser();
+    const current = await prisma.sitediaryrecords.findUnique({
+      where: { id },
+      select: {
+        siteId: true,
+        Site: { select: { siteDiaryRecordsMap: true } },
+      },
+    });
+    if (!current?.siteId) throw new Error("Site diary record not found");
+    if (!(await orgCheck(user.id, current.siteId))) {
+      throw new Error("Site diary record not found");
+    }
+
+    const nextFields = { ...fields, siteId: current.siteId };
+    if (
+      hasDefaultConstructionQuantityProfile(
+        current.Site?.siteDiaryRecordsMap as Record<string, any> | null,
+      ) &&
+      Object.hasOwn(nextFields, DEFAULT_CONSTRUCTION_ACTUAL_QUANTITY_FIELD)
+    ) {
+      nextFields[DEFAULT_CONSTRUCTION_ACTUAL_QUANTITY_FIELD] =
+        normalizeActualQuantityForStorage(
+          nextFields[DEFAULT_CONSTRUCTION_ACTUAL_QUANTITY_FIELD],
+        );
+    }
+
     const updated = await prisma.sitediaryrecords.update({
       where: { id },
-      data: fields,
+      data: nextFields,
     });
     if (updated.siteId) {
       await syncDefaultConstructionForma2WorkAssignments({
         siteId: updated.siteId,
         records: [{ id: updated.id, work: updated.Works }],
       }).catch((error) => {
-        console.error("Failed to sync Forma 2 assignment for diary record", error);
+        console.error(
+          "Failed to sync Forma 2 assignment for diary record",
+          error,
+        );
       });
     }
     console.log("Update result:", updated);
@@ -1469,18 +1776,31 @@ export async function updateSiteDiaryRecord({ id, ...fields }) {
   }
 }
 
-export async function getPendingSiteDiaryCorrection(args: { siteId: string; userId: string }) {
+export async function getPendingSiteDiaryCorrection(args: {
+  siteId: string;
+  userId: string;
+}) {
   const pending = await prisma.siteDiaryCorrectionSession.findUnique({
     where: { siteId_userId: { siteId: args.siteId, userId: args.userId } },
   });
   if (!pending || pending.status !== "pending") return null;
   const batch = await prisma.siteDiarySaveBatch.findFirst({
-    where: { id: pending.targetBatchId, siteId: args.siteId, userId: args.userId, status: "active" },
+    where: {
+      id: pending.targetBatchId,
+      siteId: args.siteId,
+      userId: args.userId,
+      status: "active",
+    },
     select: { id: true },
   });
   if (!batch) return null;
   const records = await prisma.sitediaryrecords.findMany({
-    where: { saveBatchId: pending.targetBatchId, siteId: args.siteId, userId: args.userId, archivedAt: null },
+    where: {
+      saveBatchId: pending.targetBatchId,
+      siteId: args.siteId,
+      userId: args.userId,
+      archivedAt: null,
+    },
     select: { id: true },
     take: 1,
   });
@@ -1496,7 +1816,11 @@ async function resolveCorrectionBatch(args: {
     const replied = await prisma.siteDiarySaveBatch.findUnique({
       where: { sourceMessageId: args.replyToMessageId },
     });
-    if (replied?.siteId === args.siteId && replied.userId === args.userId && replied.status === "active") {
+    if (
+      replied?.siteId === args.siteId &&
+      replied.userId === args.userId &&
+      replied.status === "active"
+    ) {
       return replied;
     }
   }
@@ -1513,7 +1837,8 @@ export async function startSiteDiaryCorrection(args: {
   replyToMessageId?: string | null;
 }) {
   const batch = await resolveCorrectionBatch(args);
-  if (!batch) return { ok: false as const, reason: "no-eligible-batch" as const };
+  if (!batch)
+    return { ok: false as const, reason: "no-eligible-batch" as const };
   const blocked = await prisma.sitediaryrecords.findFirst({
     where: { saveBatchId: batch.id, archivedAt: null, BISId: { not: null } },
     select: { id: true },
@@ -1544,14 +1869,25 @@ export async function getSiteDiaryCorrectionTarget(args: {
   replyToMessageId?: string | null;
 }) {
   const pending = await getPendingSiteDiaryCorrection(args);
-  const batch = pending?.status === "pending"
-    ? await prisma.siteDiarySaveBatch.findFirst({
-        where: { id: pending.targetBatchId, siteId: args.siteId, userId: args.userId, status: "active" },
-      })
-    : await resolveCorrectionBatch(args);
+  const batch =
+    pending?.status === "pending"
+      ? await prisma.siteDiarySaveBatch.findFirst({
+          where: {
+            id: pending.targetBatchId,
+            siteId: args.siteId,
+            userId: args.userId,
+            status: "active",
+          },
+        })
+      : await resolveCorrectionBatch(args);
   if (!batch) return null;
   const records = await prisma.sitediaryrecords.findMany({
-    where: { saveBatchId: batch.id, siteId: args.siteId, userId: args.userId, archivedAt: null },
+    where: {
+      saveBatchId: batch.id,
+      siteId: args.siteId,
+      userId: args.userId,
+      archivedAt: null,
+    },
     orderBy: { createdAt: "asc" },
   });
   return { batch, records, pending };
@@ -1570,9 +1906,13 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
     where: { correctionMessageId: args.correctionMessageId },
   });
   if (existingAudit) {
-    const oldIds = Array.isArray(existingAudit.oldRecordIds) ? existingAudit.oldRecordIds : [];
+    const oldIds = Array.isArray(existingAudit.oldRecordIds)
+      ? existingAudit.oldRecordIds
+      : [];
     const newIds = Array.isArray(existingAudit.newRecordIds)
-      ? existingAudit.newRecordIds.filter((id): id is string => typeof id === "string")
+      ? existingAudit.newRecordIds.filter(
+          (id): id is string => typeof id === "string",
+        )
       : [];
     const records = newIds.length
       ? await prisma.sitediaryrecords.findMany({
@@ -1590,24 +1930,41 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
     };
   }
   const target = await getSiteDiaryCorrectionTarget(args);
-  if (!target || !target.records.length) return { ok: false as const, reason: "no-eligible-batch" as const };
+  if (!target || !target.records.length)
+    return { ok: false as const, reason: "no-eligible-batch" as const };
   if (target.records.some((record) => Boolean(record.BISId))) {
     return { ok: false as const, reason: "bis-linked" as const };
   }
   const validRows = args.rows.filter(hasMeaningfulSiteDiaryContent);
-  if (!validRows.length) return { ok: false as const, reason: "no-records" as const };
+  if (!validRows.length)
+    return { ok: false as const, reason: "no-records" as const };
 
   const result = await prisma.$transaction(async (tx) => {
     const activeBatch = await tx.siteDiarySaveBatch.findFirst({
-      where: { id: target.batch.id, siteId: args.siteId, userId: args.userId, status: "active" },
+      where: {
+        id: target.batch.id,
+        siteId: args.siteId,
+        userId: args.userId,
+        status: "active",
+      },
     });
     if (!activeBatch) {
-      throw new Error("Correction target changed or no longer belongs to this site");
+      throw new Error(
+        "Correction target changed or no longer belongs to this site",
+      );
     }
     const locked = await tx.sitediaryrecords.findMany({
-      where: { saveBatchId: target.batch.id, siteId: args.siteId, userId: args.userId, archivedAt: null },
+      where: {
+        saveBatchId: target.batch.id,
+        siteId: args.siteId,
+        userId: args.userId,
+        archivedAt: null,
+      },
     });
-    if (locked.length !== target.records.length || locked.some((record) => Boolean(record.BISId))) {
+    if (
+      locked.length !== target.records.length ||
+      locked.some((record) => Boolean(record.BISId))
+    ) {
       throw new Error("Correction target changed or became BIS-linked");
     }
     const newBatch = await tx.siteDiarySaveBatch.create({
@@ -1622,29 +1979,49 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
     const created = [] as any[];
     for (let index = 0; index < validRows.length; index += 1) {
       const row = validRows[index];
-      created.push(await tx.sitediaryrecords.create({
-        data: {
-          ...row,
-          userId: args.userId,
-          siteId: args.siteId,
-          organizationId: first.organizationId,
-          saveBatchId: newBatch.id,
-          originalUserComment: `${target.batch.originalText}\nCorrection: ${args.correctionText}`,
-          originalAudioUrl: index === 0 ? first.originalAudioUrl : null,
-          evalMetadata: (args.evalMetadata ?? undefined) as any,
-          Photos: [],
-        },
-        select: savedSiteDiaryRecordSelect,
-      }));
+      created.push(
+        await tx.sitediaryrecords.create({
+          data: {
+            ...row,
+            userId: args.userId,
+            siteId: args.siteId,
+            organizationId: first.organizationId,
+            saveBatchId: newBatch.id,
+            originalUserComment: `${target.batch.originalText}\nCorrection: ${args.correctionText}`,
+            originalAudioUrl: index === 0 ? first.originalAudioUrl : null,
+            evalMetadata: (args.evalMetadata ?? undefined) as any,
+            Photos: [],
+          },
+          select: savedSiteDiaryRecordSelect,
+        }),
+      );
     }
     const now = new Date();
     await tx.sitediaryrecords.updateMany({
-      where: { saveBatchId: target.batch.id, siteId: args.siteId, userId: args.userId, archivedAt: null },
-      data: { archivedAt: now, archiveReason: "whatsapp-correction", archivedByMessageId: args.correctionMessageId },
+      where: {
+        saveBatchId: target.batch.id,
+        siteId: args.siteId,
+        userId: args.userId,
+        archivedAt: null,
+      },
+      data: {
+        archivedAt: now,
+        archiveReason: "whatsapp-correction",
+        archivedByMessageId: args.correctionMessageId,
+      },
     });
     const archivedBatch = await tx.siteDiarySaveBatch.updateMany({
-      where: { id: target.batch.id, siteId: args.siteId, userId: args.userId, status: "active" },
-      data: { status: "archived", archivedAt: now, replacementBatchId: newBatch.id },
+      where: {
+        id: target.batch.id,
+        siteId: args.siteId,
+        userId: args.userId,
+        status: "active",
+      },
+      data: {
+        status: "archived",
+        archivedAt: now,
+        replacementBatchId: newBatch.id,
+      },
     });
     if (archivedBatch.count !== 1) {
       throw new Error("Correction target changed before archiving");
@@ -1661,7 +2038,9 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
         newRecordIds: created.map((record) => record.id),
       },
     });
-    await tx.siteDiaryCorrectionSession.deleteMany({ where: { siteId: args.siteId, userId: args.userId } });
+    await tx.siteDiaryCorrectionSession.deleteMany({
+      where: { siteId: args.siteId, userId: args.userId },
+    });
     return { newBatch, created };
   });
   return {
@@ -1692,7 +2071,11 @@ export async function deleteSiteDiaryRecord({
 }
 
 export async function getSiteDiaryRecord({ siteId, date }) {
-  const trace = createPerfTrace({ route: "action.siteDiary.getRecord", category: "action", siteId });
+  const trace = createPerfTrace({
+    route: "action.siteDiary.getRecord",
+    category: "action",
+    siteId,
+  });
   const useZtcRecords = await shouldUseZtcRecordsForSite(siteId);
   const selectedDate = new Date(date);
   const dateISO = Number.isNaN(selectedDate.getTime())
@@ -1706,17 +2089,12 @@ export async function getSiteDiaryRecord({ siteId, date }) {
   end.setHours(23, 59, 59, 999);
 
   try {
-  const recordQuery = {
-    where:
-      useZtcRecords
+    const recordQuery = {
+      where: useZtcRecords
         ? {
             siteId,
             Date_Custom_2: { not: null },
-            NOT: [
-              { Date: null },
-              { Works: null },
-              { Works: "" },
-            ],
+            NOT: [{ Date: null }, { Works: null }, { Works: "" }],
             AND: [buildZtcNotCancelledWhere()],
             OR: [
               { Date: { gte: start, lte: end } },
@@ -1731,125 +2109,126 @@ export async function getSiteDiaryRecord({ siteId, date }) {
               { Date_Custom_1: { gte: start, lte: end } },
             ],
           },
-    orderBy: [{ createdAt: "desc" as const }],
-    // Pick only the fields you use in your row
-    select: {
-      id: true,
-      createdAt: true,
-      Date: true,
-      Date_Custom_1: true,
-      Date_Custom_2: true,
-      Location: true,
-      Location_Custom_1: true,
-      Location_Custom_2: true,
-      Works: true,
-      Works_Custom_1: true,
-      Works_Custom_2: true,
+      orderBy: [{ createdAt: "desc" as const }],
+      // Pick only the fields you use in your row
+      select: {
+        id: true,
+        createdAt: true,
+        Date: true,
+        Date_Custom_1: true,
+        Date_Custom_2: true,
+        Location: true,
+        Location_Custom_1: true,
+        Location_Custom_2: true,
+        Works: true,
+        Works_Custom_1: true,
+        Works_Custom_2: true,
 
-      Units: true,
-      Amounts: true,
-      WorkersInvolved: true,
-      TimeInvolved: true,
-      ...(useZtcRecords ? { pausedAt: true, pauseIntervals: true } : {}),
-      Comments: true,
-      Comments_Custom_1: true,
-      Comments_Custom_2: true,
-      originalUserComment: true,
-      originalAudioUrl: true,
+        Units: true,
+        Amounts: true,
+        WorkersInvolved: true,
+        TimeInvolved: true,
+        ...(useZtcRecords ? { pausedAt: true, pauseIntervals: true } : {}),
+        Comments: true,
+        Comments_Custom_1: true,
+        Comments_Custom_2: true,
+        originalUserComment: true,
+        originalAudioUrl: true,
 
-      // >>> START: NEW FIELDS for 'Created by' logic
-      userId: true, // Keep userId for update payload
-      workerId: true, // Keep workerId for update payload
-      User: {
-        select: {
-          firstName: true,
-          lastName: true,
+        // >>> START: NEW FIELDS for 'Created by' logic
+        userId: true, // Keep userId for update payload
+        workerId: true, // Keep workerId for update payload
+        User: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
         },
-      },
-      Worker: {
-        select: {
-          name: true,
-          surname: true,
+        Worker: {
+          select: {
+            name: true,
+            surname: true,
+          },
         },
+        // <<< END: NEW FIELDS
       },
-      // <<< END: NEW FIELDS
-    },
-  };
-  const records = await trace.measure("recordsQuery", () =>
-    useZtcRecords
-      ? prisma.ztcRecords.findMany(recordQuery)
-      : prisma.sitediaryrecords.findMany(recordQuery),
-  );
-
-  // Helper function to build the full name from parts
-  const formatCreatorName = (
-    firstName: string | null | undefined,
-    lastName: string | null | undefined,
-  ): string => {
-    const parts: string[] = [];
-    if (firstName) parts.push(firstName);
-    if (lastName) parts.push(lastName);
-    return parts.join(" ");
-  };
-
-  // Map to frontend row structure
-  const rows = records.map((rec) => {
-    let createdBy = "";
-
-    if (rec.User) {
-      // Created by User
-      createdBy = formatCreatorName(rec.User.firstName, rec.User.lastName);
-    } else if (rec.Worker) {
-      // Created by Worker
-      createdBy = formatCreatorName(rec.Worker.name, rec.Worker.surname);
-    }
-    if (!createdBy) {
-      createdBy = getCreatorNameFromOriginalComment(rec.originalUserComment);
-    }
-
-    return {
-      id: rec.id,
-      createdAt: rec.createdAt,
-      Date: rec.Date,
-      Date_Custom_1: rec.Date_Custom_1,
-      Date_Custom_2: rec.Date_Custom_2,
-
-      Location: rec.Location || "",
-      Location_Custom_1: rec.Location_Custom_1 || "",
-      Location_Custom_2: rec.Location_Custom_2 || "",
-
-      Works: rec.Works || "",
-      Works_Custom_1: rec.Works_Custom_1 || "",
-      Works_Custom_2: rec.Works_Custom_2 || "",
-
-      Units: rec.Units || "",
-      Amounts: rec.Amounts?.toString() || "",
-      WorkersInvolved: rec.WorkersInvolved?.toString() || "",
-      TimeInvolved: rec.TimeInvolved?.toString() || "",
-      pausedAt: "pausedAt" in rec ? rec.pausedAt || null : null,
-      pauseIntervals: "pauseIntervals" in rec ? rec.pauseIntervals ?? [] : [],
-
-      Comments: rec.Comments || "",
-      Comments_Custom_1: rec.Comments_Custom_1 || "",
-      Comments_Custom_2: rec.Comments_Custom_2 || "",
-      originalUserComment: rec.originalUserComment || "",
-      originalAudioUrl: rec.originalAudioUrl || "",
-
-      // >>> NEW FIELD
-      createdBy: createdBy || "N/A",
-      // <<< NEW FIELD
     };
-  });
+    const records = await trace.measure("recordsQuery", () =>
+      useZtcRecords
+        ? prisma.ztcRecords.findMany(recordQuery)
+        : prisma.sitediaryrecords.findMany(recordQuery),
+    );
 
-  trace.end({
-    status: 200,
-    extra: {
-      date: dateISO,
-      returnedCount: rows.length,
-    },
-  });
+    // Helper function to build the full name from parts
+    const formatCreatorName = (
+      firstName: string | null | undefined,
+      lastName: string | null | undefined,
+    ): string => {
+      const parts: string[] = [];
+      if (firstName) parts.push(firstName);
+      if (lastName) parts.push(lastName);
+      return parts.join(" ");
+    };
 
-  return rows;
+    // Map to frontend row structure
+    const rows = records.map((rec) => {
+      let createdBy = "";
+
+      if (rec.User) {
+        // Created by User
+        createdBy = formatCreatorName(rec.User.firstName, rec.User.lastName);
+      } else if (rec.Worker) {
+        // Created by Worker
+        createdBy = formatCreatorName(rec.Worker.name, rec.Worker.surname);
+      }
+      if (!createdBy) {
+        createdBy = getCreatorNameFromOriginalComment(rec.originalUserComment);
+      }
+
+      return {
+        id: rec.id,
+        createdAt: rec.createdAt,
+        Date: rec.Date,
+        Date_Custom_1: rec.Date_Custom_1,
+        Date_Custom_2: rec.Date_Custom_2,
+
+        Location: rec.Location || "",
+        Location_Custom_1: rec.Location_Custom_1 || "",
+        Location_Custom_2: rec.Location_Custom_2 || "",
+
+        Works: rec.Works || "",
+        Works_Custom_1: rec.Works_Custom_1 || "",
+        Works_Custom_2: rec.Works_Custom_2 || "",
+
+        Units: rec.Units || "",
+        Amounts: rec.Amounts?.toString() || "",
+        WorkersInvolved: rec.WorkersInvolved?.toString() || "",
+        TimeInvolved: rec.TimeInvolved?.toString() || "",
+        pausedAt: "pausedAt" in rec ? rec.pausedAt || null : null,
+        pauseIntervals:
+          "pauseIntervals" in rec ? (rec.pauseIntervals ?? []) : [],
+
+        Comments: rec.Comments || "",
+        Comments_Custom_1: rec.Comments_Custom_1 || "",
+        Comments_Custom_2: rec.Comments_Custom_2 || "",
+        originalUserComment: rec.originalUserComment || "",
+        originalAudioUrl: rec.originalAudioUrl || "",
+
+        // >>> NEW FIELD
+        createdBy: createdBy || "N/A",
+        // <<< NEW FIELD
+      };
+    });
+
+    trace.end({
+      status: 200,
+      extra: {
+        date: dateISO,
+        returnedCount: rows.length,
+      },
+    });
+
+    return rows;
   } catch (error) {
     trace.fail(error, {
       status: 500,
@@ -1879,8 +2258,12 @@ function normalizeSiteDiaryPage(value: unknown) {
 
 function normalizeSiteDiaryPageSize(value: unknown) {
   const pageSize = Number(value);
-  if (!Number.isFinite(pageSize) || pageSize <= 0) return SITE_DIARY_LIST_DEFAULT_PAGE_SIZE;
-  return Math.min(SITE_DIARY_LIST_MAX_PAGE_SIZE, Math.max(1, Math.floor(pageSize)));
+  if (!Number.isFinite(pageSize) || pageSize <= 0)
+    return SITE_DIARY_LIST_DEFAULT_PAGE_SIZE;
+  return Math.min(
+    SITE_DIARY_LIST_MAX_PAGE_SIZE,
+    Math.max(1, Math.floor(pageSize)),
+  );
 }
 
 function compactFilterValue(value?: string | null) {
@@ -1953,30 +2336,52 @@ function buildSiteDiaryListDateFilter(options: SiteDiaryRecordsPageOptions) {
   return dateFilter;
 }
 
-function buildSiteDiaryListWhere(siteId: string, options: SiteDiaryRecordsPageOptions, useZtcRecords: boolean) {
+function buildSiteDiaryListWhere(
+  siteId: string,
+  options: SiteDiaryRecordsPageOptions,
+  useZtcRecords: boolean,
+) {
   const andFilters: any[] = [];
   const dateFilter = buildSiteDiaryListDateFilter(options);
   if (Object.keys(dateFilter).length > 0) andFilters.push({ Date: dateFilter });
 
   const workFilter = compactFilterValue(options.workFilter);
   if (workFilter) {
-    andFilters.push(useZtcRecords ? buildZtcWorkFilterWhere(workFilter) : { Works: workFilter });
+    andFilters.push(
+      useZtcRecords
+        ? buildZtcWorkFilterWhere(workFilter)
+        : { Works: workFilter },
+    );
   }
 
   const floorFilter = compactFilterValue(options.floorFilter);
   if (floorFilter) andFilters.push({ Location: floorFilter });
 
   const elementFilter = compactFilterValue(options.elementFilter);
-  if (useZtcRecords && elementFilter) andFilters.push({ Location_Custom_1: elementFilter });
+  if (useZtcRecords && elementFilter)
+    andFilters.push({ Location_Custom_1: elementFilter });
 
   const workerFilter = compactFilterValue(options.workerFilter);
   if (useZtcRecords && workerFilter) {
-    const containsWorker = { contains: workerFilter, mode: "insensitive" as const };
+    const containsWorker = {
+      contains: workerFilter,
+      mode: "insensitive" as const,
+    };
     andFilters.push({
       OR: [
         { originalUserComment: containsWorker },
-        { User: { is: { OR: [{ firstName: containsWorker }, { lastName: containsWorker }] } } },
-        { Worker: { is: { OR: [{ name: containsWorker }, { surname: containsWorker }] } } },
+        {
+          User: {
+            is: {
+              OR: [{ firstName: containsWorker }, { lastName: containsWorker }],
+            },
+          },
+        },
+        {
+          Worker: {
+            is: { OR: [{ name: containsWorker }, { surname: containsWorker }] },
+          },
+        },
       ],
     });
   }
@@ -1997,8 +2402,23 @@ function buildSiteDiaryListWhere(siteId: string, options: SiteDiaryRecordsPageOp
         { Comments_Custom_2: containsKeyword },
         { Units: containsKeyword },
         { originalUserComment: containsKeyword },
-        { User: { is: { OR: [{ firstName: containsKeyword }, { lastName: containsKeyword }] } } },
-        { Worker: { is: { OR: [{ name: containsKeyword }, { surname: containsKeyword }] } } },
+        {
+          User: {
+            is: {
+              OR: [
+                { firstName: containsKeyword },
+                { lastName: containsKeyword },
+              ],
+            },
+          },
+        },
+        {
+          Worker: {
+            is: {
+              OR: [{ name: containsKeyword }, { surname: containsKeyword }],
+            },
+          },
+        },
       ],
     });
   }
@@ -2007,11 +2427,7 @@ function buildSiteDiaryListWhere(siteId: string, options: SiteDiaryRecordsPageOp
     ? {
         siteId,
         Date_Custom_2: { not: null },
-        NOT: [
-          { Date: null },
-          { Works: null },
-          { Works: "" },
-        ],
+        NOT: [{ Date: null }, { Works: null }, { Works: "" }],
         AND: [buildZtcNotCancelledWhere(), ...andFilters],
       }
     : {
@@ -2100,7 +2516,7 @@ function mapSiteDiaryListRecord(rec: any) {
     WorkersInvolved: rec.WorkersInvolved?.toString() || "",
     TimeInvolved: rec.TimeInvolved?.toString() || "",
     pausedAt: "pausedAt" in rec ? rec.pausedAt || null : null,
-    pauseIntervals: "pauseIntervals" in rec ? rec.pauseIntervals ?? [] : [],
+    pauseIntervals: "pauseIntervals" in rec ? (rec.pauseIntervals ?? []) : [],
     Photos: rec.Photos ?? [],
     BISId: rec.BISId || null,
     bisStatus: rec.bisStatus || null,
@@ -2110,22 +2526,40 @@ function mapSiteDiaryListRecord(rec: any) {
   };
 }
 
-export async function getSiteDiaryRecordsPage(siteId: string, options: SiteDiaryRecordsPageOptions = {}) {
+export async function getSiteDiaryRecordsPage(
+  siteId: string,
+  options: SiteDiaryRecordsPageOptions = {},
+) {
   if (!siteId) throw new Error("Missing siteId");
 
   const page = normalizeSiteDiaryPage(options.page);
   const pageSize = normalizeSiteDiaryPageSize(options.pageSize);
-  const trace = createPerfTrace({ route: "action.siteDiary.recordsPage", category: "action", siteId });
+  const trace = createPerfTrace({
+    route: "action.siteDiary.recordsPage",
+    category: "action",
+    siteId,
+  });
   const useZtcRecords = await shouldUseZtcRecordsForSite(siteId, options);
-  const ztcWorkFilter = useZtcRecords ? compactFilterValue(options.workFilter) : null;
+  const ztcWorkFilter = useZtcRecords
+    ? compactFilterValue(options.workFilter)
+    : null;
   const where = buildSiteDiaryListWhere(
     siteId,
     ztcWorkFilter ? withoutWorkFilter(options) : options,
     useZtcRecords,
   );
   const orderBy = useZtcRecords
-    ? [{ Date: "desc" as const }, { Date_Custom_1: "desc" as const }, { createdAt: "desc" as const }, { id: "desc" as const }]
-    : [{ Date: "desc" as const }, { createdAt: "desc" as const }, { id: "desc" as const }];
+    ? [
+        { Date: "desc" as const },
+        { Date_Custom_1: "desc" as const },
+        { createdAt: "desc" as const },
+        { id: "desc" as const },
+      ]
+    : [
+        { Date: "desc" as const },
+        { createdAt: "desc" as const },
+        { id: "desc" as const },
+      ];
   const skip = (page - 1) * pageSize;
 
   try {
@@ -2212,12 +2646,21 @@ export async function getSiteDiaryRecordsPage(siteId: string, options: SiteDiary
   }
 }
 
-export async function getSiteDiaryMediaOnlyDays(siteId: string, options: SiteDiaryRecordsPageOptions = {}) {
+export async function getSiteDiaryMediaOnlyDays(
+  siteId: string,
+  options: SiteDiaryRecordsPageOptions = {},
+) {
   if (!siteId) throw new Error("Missing siteId");
 
-  const trace = createPerfTrace({ route: "action.siteDiary.mediaOnlyDays", category: "action", siteId });
+  const trace = createPerfTrace({
+    route: "action.siteDiary.mediaOnlyDays",
+    category: "action",
+    siteId,
+  });
   const useZtcRecords = await shouldUseZtcRecordsForSite(siteId, options);
-  const ztcWorkFilter = useZtcRecords ? compactFilterValue(options.workFilter) : null;
+  const ztcWorkFilter = useZtcRecords
+    ? compactFilterValue(options.workFilter)
+    : null;
   const dateFilter = buildSiteDiaryListDateFilter(options);
   const photoWhere: any = {
     siteId,
@@ -2240,52 +2683,51 @@ export async function getSiteDiaryMediaOnlyDays(siteId: string, options: SiteDia
     photoWhere.AND = [
       ...(photoWhere.AND ?? []),
       {
-        OR: [
-          { Comment: containsKeyword },
-          { Location: containsKeyword },
-        ],
+        OR: [{ Comment: containsKeyword }, { Location: containsKeyword }],
       },
     ];
   }
 
   try {
-    const [photos, records, defaultRates] = await trace.measure("mediaOnlyDaysQuery", () =>
-      Promise.all([
-        prisma.photos.findMany({
-          where: photoWhere,
-          orderBy: { Date: "desc" },
-          select: {
-            Date: true,
-            Comment: true,
-            Location: true,
-          },
-        }),
-        useZtcRecords
-          ? prisma.ztcRecords.findMany({
-              where: buildSiteDiaryListWhere(
-                siteId,
-                ztcWorkFilter ? withoutWorkFilter(options) : options,
-                true,
-              ),
-              select: {
-                Date: true,
-                Date_Custom_1: true,
-                Location: true,
-                Location_Custom_1: true,
-                Works: true,
-                Works_Custom_1: true,
-                Comments_Custom_2: true,
-                Units: true,
-              },
-            })
-          : prisma.sitediaryrecords.findMany({
-              where: buildSiteDiaryListWhere(siteId, options, false),
-              select: { Date: true, Date_Custom_1: true },
-            }),
-        useZtcRecords && ztcWorkFilter
-          ? loadZtcFilterRates(siteId)
-          : Promise.resolve([]),
-      ]),
+    const [photos, records, defaultRates] = await trace.measure(
+      "mediaOnlyDaysQuery",
+      () =>
+        Promise.all([
+          prisma.photos.findMany({
+            where: photoWhere,
+            orderBy: { Date: "desc" },
+            select: {
+              Date: true,
+              Comment: true,
+              Location: true,
+            },
+          }),
+          useZtcRecords
+            ? prisma.ztcRecords.findMany({
+                where: buildSiteDiaryListWhere(
+                  siteId,
+                  ztcWorkFilter ? withoutWorkFilter(options) : options,
+                  true,
+                ),
+                select: {
+                  Date: true,
+                  Date_Custom_1: true,
+                  Location: true,
+                  Location_Custom_1: true,
+                  Works: true,
+                  Works_Custom_1: true,
+                  Comments_Custom_2: true,
+                  Units: true,
+                },
+              })
+            : prisma.sitediaryrecords.findMany({
+                where: buildSiteDiaryListWhere(siteId, options, false),
+                select: { Date: true, Date_Custom_1: true },
+              }),
+          useZtcRecords && ztcWorkFilter
+            ? loadZtcFilterRates(siteId)
+            : Promise.resolve([]),
+        ]),
     );
     const filteredRecords =
       useZtcRecords && ztcWorkFilter
@@ -2318,7 +2760,8 @@ export async function getSiteDiaryMediaOnlyDays(siteId: string, options: SiteDia
       const dateKey = toLocalDayISOFromDate(photo.Date);
       if (!dateKey || !photo.Date) return;
 
-      const date = photo.Date instanceof Date ? photo.Date : new Date(photo.Date);
+      const date =
+        photo.Date instanceof Date ? photo.Date : new Date(photo.Date);
       const existing = summariesByDay.get(dateKey);
       if (!existing) {
         summariesByDay.set(dateKey, {
@@ -2326,14 +2769,20 @@ export async function getSiteDiaryMediaOnlyDays(siteId: string, options: SiteDia
           date,
           photoCount: 1,
           latestPhotoDate: date,
-          searchableText: [photo.Comment, photo.Location].filter(Boolean).join(" "),
+          searchableText: [photo.Comment, photo.Location]
+            .filter(Boolean)
+            .join(" "),
           hasDiaryRecords: recordDays.has(dateKey),
         });
         return;
       }
 
       existing.photoCount += 1;
-      existing.searchableText = [existing.searchableText, photo.Comment, photo.Location]
+      existing.searchableText = [
+        existing.searchableText,
+        photo.Comment,
+        photo.Location,
+      ]
         .filter(Boolean)
         .join(" ");
       if (date.getTime() > existing.latestPhotoDate.getTime()) {
@@ -2366,12 +2815,21 @@ export async function getSiteDiaryMediaOnlyDays(siteId: string, options: SiteDia
   }
 }
 
-export async function getSitediaryRecordsBySiteIdForExcel(siteId: string, options: SiteDiaryRecordsPageOptions = {}) {
+export async function getSitediaryRecordsBySiteIdForExcel(
+  siteId: string,
+  options: SiteDiaryRecordsPageOptions = {},
+) {
   if (!siteId) throw new Error("Missing siteId");
 
-  const trace = createPerfTrace({ route: "action.siteDiary.exportExcel", category: "action", siteId });
+  const trace = createPerfTrace({
+    route: "action.siteDiary.exportExcel",
+    category: "action",
+    siteId,
+  });
   const useZtcRecords = await shouldUseZtcRecordsForSite(siteId, options);
-  const ztcWorkFilter = useZtcRecords ? compactFilterValue(options.workFilter) : null;
+  const ztcWorkFilter = useZtcRecords
+    ? compactFilterValue(options.workFilter)
+    : null;
   const where = buildSiteDiaryListWhere(
     siteId,
     ztcWorkFilter ? withoutWorkFilter(options) : options,
@@ -2467,84 +2925,85 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string, option
   };
 
   try {
-  const records = await trace.measure("recordsQuery", () =>
-    useZtcRecords
-      ? prisma.ztcRecords.findMany(query)
-      : prisma.sitediaryrecords.findMany(query),
-  );
-  const defaultRates =
-    useZtcRecords && ztcWorkFilter ? await loadZtcFilterRates(siteId) : [];
-  const exportRecords =
-    useZtcRecords && ztcWorkFilter
-      ? records.filter((row) =>
-          ztcRowMatchesConfiguredWorkFilter(row, ztcWorkFilter, defaultRates),
-        )
-      : records;
+    const records = await trace.measure("recordsQuery", () =>
+      useZtcRecords
+        ? prisma.ztcRecords.findMany(query)
+        : prisma.sitediaryrecords.findMany(query),
+    );
+    const defaultRates =
+      useZtcRecords && ztcWorkFilter ? await loadZtcFilterRates(siteId) : [];
+    const exportRecords =
+      useZtcRecords && ztcWorkFilter
+        ? records.filter((row) =>
+            ztcRowMatchesConfiguredWorkFilter(row, ztcWorkFilter, defaultRates),
+          )
+        : records;
 
-  const formatCreatorName = (
-    firstName: string | null | undefined,
-    lastName: string | null | undefined,
-  ): string => {
-    const parts: string[] = [];
-    if (firstName) parts.push(firstName);
-    if (lastName) parts.push(lastName);
-    return parts.join(" ");
-  };
-
-  const rows = exportRecords.map((rec) => {
-    let createdBy = "";
-
-    if (rec.User) {
-      createdBy = formatCreatorName(rec.User.firstName, rec.User.lastName);
-    } else if (rec.Worker) {
-      createdBy = formatCreatorName(rec.Worker.name, rec.Worker.surname);
-    }
-    if (!createdBy) {
-      createdBy = getCreatorNameFromOriginalComment(rec.originalUserComment);
-    }
-
-    return {
-      id: rec.id,
-      createdAt: rec.createdAt,
-      Date: rec.Date,
-      Date_Custom_1: rec.Date_Custom_1,
-      Date_Custom_2: rec.Date_Custom_2,
-
-      Location: rec.Location || "",
-      Location_Custom_1: rec.Location_Custom_1 || "",
-      Location_Custom_2: rec.Location_Custom_2 || "",
-
-      Works: rec.Works || "",
-      Works_Custom_1: rec.Works_Custom_1 || "",
-      Works_Custom_2: rec.Works_Custom_2 || "",
-
-      Comments: rec.Comments || "",
-      Comments_Custom_1: rec.Comments_Custom_1 || "",
-      Comments_Custom_2: rec.Comments_Custom_2 || "",
-
-      Units: rec.Units || "",
-      Amounts: rec.Amounts?.toString() || "",
-      WorkersInvolved: rec.WorkersInvolved?.toString() || "",
-      TimeInvolved: rec.TimeInvolved?.toString() || "",
-      pausedAt: "pausedAt" in rec ? rec.pausedAt || null : null,
-      pauseIntervals: "pauseIntervals" in rec ? rec.pauseIntervals ?? [] : [],
-
-      Photos: rec.Photos ?? [],
-      BISId: rec.BISId || null,
-      bisStatus: rec.bisStatus || null,
-      originalUserComment: rec.originalUserComment || "",
-      originalAudioUrl: rec.originalAudioUrl || "",
-
-      createdBy: createdBy || "N/A",
+    const formatCreatorName = (
+      firstName: string | null | undefined,
+      lastName: string | null | undefined,
+    ): string => {
+      const parts: string[] = [];
+      if (firstName) parts.push(firstName);
+      if (lastName) parts.push(lastName);
+      return parts.join(" ");
     };
-  });
 
-  trace.end({
-    status: 200,
-    extra: { returnedCount: rows.length },
-  });
+    const rows = exportRecords.map((rec) => {
+      let createdBy = "";
 
-  return rows;
+      if (rec.User) {
+        createdBy = formatCreatorName(rec.User.firstName, rec.User.lastName);
+      } else if (rec.Worker) {
+        createdBy = formatCreatorName(rec.Worker.name, rec.Worker.surname);
+      }
+      if (!createdBy) {
+        createdBy = getCreatorNameFromOriginalComment(rec.originalUserComment);
+      }
+
+      return {
+        id: rec.id,
+        createdAt: rec.createdAt,
+        Date: rec.Date,
+        Date_Custom_1: rec.Date_Custom_1,
+        Date_Custom_2: rec.Date_Custom_2,
+
+        Location: rec.Location || "",
+        Location_Custom_1: rec.Location_Custom_1 || "",
+        Location_Custom_2: rec.Location_Custom_2 || "",
+
+        Works: rec.Works || "",
+        Works_Custom_1: rec.Works_Custom_1 || "",
+        Works_Custom_2: rec.Works_Custom_2 || "",
+
+        Comments: rec.Comments || "",
+        Comments_Custom_1: rec.Comments_Custom_1 || "",
+        Comments_Custom_2: rec.Comments_Custom_2 || "",
+
+        Units: rec.Units || "",
+        Amounts: rec.Amounts?.toString() || "",
+        WorkersInvolved: rec.WorkersInvolved?.toString() || "",
+        TimeInvolved: rec.TimeInvolved?.toString() || "",
+        pausedAt: "pausedAt" in rec ? rec.pausedAt || null : null,
+        pauseIntervals:
+          "pauseIntervals" in rec ? (rec.pauseIntervals ?? []) : [],
+
+        Photos: rec.Photos ?? [],
+        BISId: rec.BISId || null,
+        bisStatus: rec.bisStatus || null,
+        originalUserComment: rec.originalUserComment || "",
+        originalAudioUrl: rec.originalAudioUrl || "",
+
+        createdBy: createdBy || "N/A",
+      };
+    });
+
+    trace.end({
+      status: 200,
+      extra: { returnedCount: rows.length },
+    });
+
+    return rows;
   } catch (error) {
     trace.fail(error, { status: 500 });
     throw error;
@@ -2572,17 +3031,13 @@ async function fetchBisPagedList(
     const separator = urlBase.includes("?") ? "&" : "?";
     const pagedUrl = `${urlBase}${separator}page[number]=${page}&page[size]=${pageSize}`;
     logBisGetRequest("fetch paged list", pagedUrl);
-    const res = await bisFetch(
-      urlBase,
-      pagedUrl,
-      {
-        headers: {
-          Accept: "application/vnd.api+json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        cache: "no-store",
+    const res = await bisFetch(urlBase, pagedUrl, {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
       },
-    );
+      cache: "no-store",
+    });
 
     const text = await res.text();
     let json: any = null;
@@ -2593,7 +3048,11 @@ async function fetchBisPagedList(
     }
 
     if (!res.ok) {
-      throw new Error(json?.errors?.[0]?.detail || json?.error || "Failed to fetch BIS paged list");
+      throw new Error(
+        json?.errors?.[0]?.detail ||
+          json?.error ||
+          "Failed to fetch BIS paged list",
+      );
     }
 
     const rows = Array.isArray(json?.data) ? json.data : [];
@@ -2648,208 +3107,243 @@ async function fetchBisRelatedResource(
 }
 
 export async function getBisCaseAvailableMaterials(siteId: string) {
-  const trace = createPerfTrace({ route: "action.siteDiary.getBisCaseAvailableMaterials", category: "action", siteId });
+  const trace = createPerfTrace({
+    route: "action.siteDiary.getBisCaseAvailableMaterials",
+    category: "action",
+    siteId,
+  });
   let bisCaseForLog: string | undefined;
 
   try {
-  const { accessToken, bisCaseId: bisCase, site } = await trace.measure("bisAccess", () =>
-    requireBisAccessTokenForSite(siteId),
-  );
-  bisCaseForLog = bisCase;
-
-  const baseUrl = getBisBaseUrl();
-  const caseConstructionRoundId = site.bisConstructionRoundId;
-
-  // 12I7-136: available received construction products for adding into performed works.
-  // This endpoint already includes all available rows for the current case context.
-  const receivedProductsUrl = caseConstructionRoundId
-    ? `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_received_construction_products?filter[case_construction_round_id_eq]=${encodeURIComponent(caseConstructionRoundId)}`
-    : `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_received_construction_products`;
-  const availableReceivedItems = await trace.measure(
-    "availableReceivedProducts",
-    () => fetchBisPagedList(
-      receivedProductsUrl,
+    const {
       accessToken,
-    ),
-  );
-  const measureRows = await trace.measure(
-    "measureClassifiers",
-    () => fetchBisPagedList(
-      `${baseUrl}/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
-      accessToken,
-    ),
-  );
-  const measurementNameByCode = new Map<string, string>();
-  for (const row of measureRows) {
-    const code = row?.attributes?.code == null ? "" : String(row.attributes.code);
-    const name = row?.attributes?.name == null ? "" : String(row.attributes.name);
-    if (code && name) {
-      measurementNameByCode.set(code, name);
+      bisCaseId: bisCase,
+      site,
+    } = await trace.measure("bisAccess", () =>
+      requireBisAccessTokenForSite(siteId),
+    );
+    bisCaseForLog = bisCase;
+
+    const baseUrl = getBisBaseUrl();
+    const caseConstructionRoundId = site.bisConstructionRoundId;
+
+    // 12I7-136: available received construction products for adding into performed works.
+    // This endpoint already includes all available rows for the current case context.
+    const receivedProductsUrl = caseConstructionRoundId
+      ? `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_received_construction_products?filter[case_construction_round_id_eq]=${encodeURIComponent(caseConstructionRoundId)}`
+      : `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_received_construction_products`;
+    const availableReceivedItems = await trace.measure(
+      "availableReceivedProducts",
+      () => fetchBisPagedList(receivedProductsUrl, accessToken),
+    );
+    const measureRows = await trace.measure("measureClassifiers", () =>
+      fetchBisPagedList(
+        `${baseUrl}/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
+        accessToken,
+      ),
+    );
+    const measurementNameByCode = new Map<string, string>();
+    for (const row of measureRows) {
+      const code =
+        row?.attributes?.code == null ? "" : String(row.attributes.code);
+      const name =
+        row?.attributes?.name == null ? "" : String(row.attributes.name);
+      if (code && name) {
+        measurementNameByCode.set(code, name);
+      }
     }
-  }
 
-  const resolvedReceivedItems = await trace.measure("receivedDetails", () => Promise.all(
-    availableReceivedItems.map(async (item: any) => {
-      const attributes = item?.attributes ?? {};
-      const detailRelatedUrl = item?.relationships?.detail?.links?.related ?? null;
-      const constructionMaterialRelatedUrl =
-        item?.relationships?.construction_material?.links?.related ?? null;
-      const detailData =
-        attributes?.construction_material_id == null || attributes?.quantity == null
-          ? await fetchBisRelatedResource(detailRelatedUrl, accessToken, baseUrl)
-          : null;
-      const detailAttributes = detailData?.attributes ?? {};
+    const resolvedReceivedItems = await trace.measure("receivedDetails", () =>
+      Promise.all(
+        availableReceivedItems.map(async (item: any) => {
+          const attributes = item?.attributes ?? {};
+          const detailRelatedUrl =
+            item?.relationships?.detail?.links?.related ?? null;
+          const constructionMaterialRelatedUrl =
+            item?.relationships?.construction_material?.links?.related ?? null;
+          const detailData =
+            attributes?.construction_material_id == null ||
+            attributes?.quantity == null
+              ? await fetchBisRelatedResource(
+                  detailRelatedUrl,
+                  accessToken,
+                  baseUrl,
+                )
+              : null;
+          const detailAttributes = detailData?.attributes ?? {};
 
-      const directMaterialId =
-        attributes?.construction_material_id ??
-        detailAttributes?.construction_material_id ??
-        null;
+          const directMaterialId =
+            attributes?.construction_material_id ??
+            detailAttributes?.construction_material_id ??
+            null;
 
-      const parsedMaterialIdFromRelation =
-        typeof constructionMaterialRelatedUrl === "string"
-          ? constructionMaterialRelatedUrl.match(/\/construction_materials\/([^/?#]+)/)?.[1] ?? null
-          : null;
+          const parsedMaterialIdFromRelation =
+            typeof constructionMaterialRelatedUrl === "string"
+              ? (constructionMaterialRelatedUrl.match(
+                  /\/construction_materials\/([^/?#]+)/,
+                )?.[1] ?? null)
+              : null;
 
-      const constructionMaterialId =
-        directMaterialId == null ? parsedMaterialIdFromRelation : String(directMaterialId);
-      const quantityRaw =
-        attributes?.quantity == null ? detailAttributes?.quantity ?? null : attributes.quantity;
+          const constructionMaterialId =
+            directMaterialId == null
+              ? parsedMaterialIdFromRelation
+              : String(directMaterialId);
+          const quantityRaw =
+            attributes?.quantity == null
+              ? (detailAttributes?.quantity ?? null)
+              : attributes.quantity;
 
-      const measurementRaw =
-        attributes?.measurement_unit == null
-          ? attributes?.measurement == null
-            ? detailAttributes?.measurement_unit == null
-              ? detailAttributes?.measurement == null
-                ? null
-                : String(detailAttributes.measurement)
-              : String(detailAttributes.measurement_unit)
-            : String(attributes.measurement)
-          : String(attributes.measurement_unit);
+          const measurementRaw =
+            attributes?.measurement_unit == null
+              ? attributes?.measurement == null
+                ? detailAttributes?.measurement_unit == null
+                  ? detailAttributes?.measurement == null
+                    ? null
+                    : String(detailAttributes.measurement)
+                  : String(detailAttributes.measurement_unit)
+                : String(attributes.measurement)
+              : String(attributes.measurement_unit);
+          const measurementUnit =
+            measurementRaw == null
+              ? null
+              : (measurementNameByCode.get(measurementRaw) ?? measurementRaw);
+
+          return {
+            id: item?.id ?? null,
+            constructionMaterialId,
+            quantity: quantityRaw == null ? 0 : Number(quantityRaw),
+            materialName:
+              attributes?.material_name ?? attributes?.material_kind ?? null,
+            measurementUnit,
+            caseConstructionRoundId:
+              attributes?.case_construction_round_id ?? null,
+          };
+        }),
+      ),
+    );
+
+    if (shouldLogVerboseBisApi()) {
+      console.log(
+        "[SiteDiary BIS] Available received construction products loaded",
+        {
+          siteId,
+          bisCase,
+          caseConstructionRoundId,
+          endpoint: receivedProductsUrl,
+          count: availableReceivedItems.length,
+          sample: resolvedReceivedItems.slice(0, 3),
+        },
+      );
+    }
+
+    // Build metadata (label/unit) and total delivered quantity by construction_material_id.
+    const approvedMaterialMeta = new Map<
+      string,
+      { label: string; measurementUnit: string | null }
+    >();
+    const deliveredByMaterial = new Map<string, number>();
+
+    for (const item of resolvedReceivedItems) {
+      const constructionMaterialId = String(item?.constructionMaterialId ?? "");
+      if (!constructionMaterialId) continue;
+
+      const deliveredQuantity = Number(item?.quantity ?? 0);
       const measurementUnit =
-        measurementRaw == null ? null : (measurementNameByCode.get(measurementRaw) ?? measurementRaw);
+        item?.measurementUnit == null ? null : String(item.measurementUnit);
+      const label = item?.materialName ?? `Material #${constructionMaterialId}`;
 
-      return {
-        id: item?.id ?? null,
+      if (!approvedMaterialMeta.has(constructionMaterialId)) {
+        approvedMaterialMeta.set(constructionMaterialId, {
+          label: String(label),
+          measurementUnit,
+        });
+      }
+
+      deliveredByMaterial.set(
         constructionMaterialId,
-        quantity: quantityRaw == null ? 0 : Number(quantityRaw),
-        materialName: attributes?.material_name ?? attributes?.material_kind ?? null,
-        measurementUnit,
-        caseConstructionRoundId: attributes?.case_construction_round_id ?? null,
-      };
-    }),
-  ));
+        (deliveredByMaterial.get(constructionMaterialId) ?? 0) +
+          deliveredQuantity,
+      );
+    }
 
-  if (shouldLogVerboseBisApi()) {
-    console.log("[SiteDiary BIS] Available received construction products loaded", {
-      siteId,
-      bisCase,
-      caseConstructionRoundId,
-      endpoint: receivedProductsUrl,
-      count: availableReceivedItems.length,
-      sample: resolvedReceivedItems.slice(0, 3),
-    });
-  }
-
-  // Build metadata (label/unit) and total delivered quantity by construction_material_id.
-  const approvedMaterialMeta = new Map<string, { label: string; measurementUnit: string | null }>();
-  const deliveredByMaterial = new Map<string, number>();
-
-  for (const item of resolvedReceivedItems) {
-    const constructionMaterialId = String(item?.constructionMaterialId ?? "");
-    if (!constructionMaterialId) continue;
-
-    const deliveredQuantity = Number(item?.quantity ?? 0);
-    const measurementUnit = item?.measurementUnit == null ? null : String(item.measurementUnit);
-    const label = item?.materialName ?? `Material #${constructionMaterialId}`;
-
-    if (!approvedMaterialMeta.has(constructionMaterialId)) {
-      approvedMaterialMeta.set(constructionMaterialId, {
-        label: String(label),
-        measurementUnit,
+    // 12I7-184: used materials list (quantity already used in logbook records)
+    const availableItems = await trace.measure("availableUsedMaterials", () =>
+      fetchBisPagedList(
+        `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_used_materials`,
+        accessToken,
+      ),
+    );
+    if (shouldLogVerboseBisApi()) {
+      console.log("[SiteDiary BIS] Available used materials loaded", {
+        siteId,
+        bisCase,
+        count: availableItems.length,
+        sample: availableItems.slice(0, 3).map((item: any) => ({
+          id: item?.id ?? null,
+          construction_material_id:
+            item?.attributes?.construction_material_id ?? null,
+          quantity: item?.attributes?.quantity ?? null,
+        })),
       });
     }
 
-    deliveredByMaterial.set(
-      constructionMaterialId,
-      (deliveredByMaterial.get(constructionMaterialId) ?? 0) + deliveredQuantity,
-    );
-  }
+    const usedByMaterial = new Map<string, number>();
+    for (const item of availableItems) {
+      const materialId = String(
+        item?.attributes?.construction_material_id ?? "",
+      );
+      if (!materialId) continue;
 
-  // 12I7-184: used materials list (quantity already used in logbook records)
-  const availableItems = await trace.measure(
-    "availableUsedMaterials",
-    () => fetchBisPagedList(
-      `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_used_materials`,
-      accessToken,
-    ),
-  );
-  if (shouldLogVerboseBisApi()) {
-    console.log("[SiteDiary BIS] Available used materials loaded", {
-      siteId,
-      bisCase,
-      count: availableItems.length,
-      sample: availableItems.slice(0, 3).map((item: any) => ({
-        id: item?.id ?? null,
-        construction_material_id: item?.attributes?.construction_material_id ?? null,
-        quantity: item?.attributes?.quantity ?? null,
-      })),
+      usedByMaterial.set(
+        materialId,
+        (usedByMaterial.get(materialId) ?? 0) +
+          Number(item?.attributes?.quantity ?? 0),
+      );
+    }
+
+    // Remaining = approved delivered (12I7-092 detail.quantity) - used (12I7-184 quantity)
+    const results = Array.from(deliveredByMaterial.entries())
+      .map(([materialId, deliveredQuantity]) => {
+        if (!approvedMaterialMeta.has(materialId)) return null;
+
+        const meta = approvedMaterialMeta.get(materialId)!;
+        const usedQuantity = usedByMaterial.get(materialId) ?? 0;
+        const remaining = Math.max(0, deliveredQuantity - usedQuantity);
+
+        return {
+          id: materialId,
+          label: meta.label,
+          measurementUnit: meta.measurementUnit,
+          deliveredQuantity: Number(deliveredQuantity.toFixed(3)),
+          usedQuantity: Number(usedQuantity.toFixed(3)),
+          availableQuantity: Number(remaining.toFixed(3)),
+        };
+      })
+      .filter((item: any) => item && item.availableQuantity > 0)
+      .sort((a: any, b: any) => String(a.label).localeCompare(String(b.label)));
+
+    if (shouldLogVerboseBisApi()) {
+      console.log("[SiteDiary BIS] Final materials prepared for dialog", {
+        siteId,
+        bisCase,
+        deliveredMaterialCount: deliveredByMaterial.size,
+        usedMaterialCount: usedByMaterial.size,
+        finalCount: results.length,
+        sample: results.slice(0, 5),
+      });
+    }
+
+    trace.end({
+      status: 200,
+      extra: {
+        bisCase,
+        receivedCount: availableReceivedItems.length,
+        usedCount: availableItems.length,
+        resultCount: results.length,
+      },
     });
-  }
 
-  const usedByMaterial = new Map<string, number>();
-  for (const item of availableItems) {
-    const materialId = String(item?.attributes?.construction_material_id ?? "");
-    if (!materialId) continue;
-
-    usedByMaterial.set(
-      materialId,
-      (usedByMaterial.get(materialId) ?? 0) + Number(item?.attributes?.quantity ?? 0),
-    );
-  }
-
-  // Remaining = approved delivered (12I7-092 detail.quantity) - used (12I7-184 quantity)
-  const results = Array.from(deliveredByMaterial.entries())
-    .map(([materialId, deliveredQuantity]) => {
-      if (!approvedMaterialMeta.has(materialId)) return null;
-
-      const meta = approvedMaterialMeta.get(materialId)!;
-      const usedQuantity = usedByMaterial.get(materialId) ?? 0;
-      const remaining = Math.max(0, deliveredQuantity - usedQuantity);
-
-      return {
-        id: materialId,
-        label: meta.label,
-        measurementUnit: meta.measurementUnit,
-        deliveredQuantity: Number(deliveredQuantity.toFixed(3)),
-        usedQuantity: Number(usedQuantity.toFixed(3)),
-        availableQuantity: Number(remaining.toFixed(3)),
-      };
-    })
-    .filter((item: any) => item && item.availableQuantity > 0)
-    .sort((a: any, b: any) => String(a.label).localeCompare(String(b.label)));
-
-  if (shouldLogVerboseBisApi()) {
-    console.log("[SiteDiary BIS] Final materials prepared for dialog", {
-      siteId,
-      bisCase,
-      deliveredMaterialCount: deliveredByMaterial.size,
-      usedMaterialCount: usedByMaterial.size,
-      finalCount: results.length,
-      sample: results.slice(0, 5),
-    });
-  }
-
-  trace.end({
-    status: 200,
-    extra: {
-      bisCase,
-      receivedCount: availableReceivedItems.length,
-      usedCount: availableItems.length,
-      resultCount: results.length,
-    },
-  });
-
-  return results;
+    return results;
   } catch (error) {
     trace.fail(error, {
       status: 500,
@@ -2892,21 +3386,21 @@ export async function getSiteGalleryAttachments(siteId: string) {
 export async function getBisAvailableResponsiblePersons(siteId: string) {
   if (!siteId) return [];
 
-  const { accessToken, bisCaseId: bisCase } = await requireBisAccessTokenForSite(siteId);
+  const { accessToken, bisCaseId: bisCase } =
+    await requireBisAccessTokenForSite(siteId);
   const baseUrl = getBisBaseUrl();
   const responsiblePersonsUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_responsible_persons`;
-  logBisGetRequest("fetch available responsible persons", responsiblePersonsUrl);
-  const res = await bisFetch(
-    baseUrl,
+  logBisGetRequest(
+    "fetch available responsible persons",
     responsiblePersonsUrl,
-    {
-      headers: {
-        Accept: "application/vnd.api+json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
-    },
   );
+  const res = await bisFetch(baseUrl, responsiblePersonsUrl, {
+    headers: {
+      Accept: "application/vnd.api+json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    cache: "no-store",
+  });
 
   const text = await res.text();
   let json: any = null;
@@ -2918,7 +3412,9 @@ export async function getBisAvailableResponsiblePersons(siteId: string) {
 
   if (!res.ok) {
     throw new Error(
-      json?.errors?.[0]?.detail || json?.error || "Failed to fetch available BIS responsible persons",
+      json?.errors?.[0]?.detail ||
+        json?.error ||
+        "Failed to fetch available BIS responsible persons",
     );
   }
 
@@ -2926,9 +3422,16 @@ export async function getBisAvailableResponsiblePersons(siteId: string) {
   return rows
     .map((item: any) => ({
       id: String(item?.id ?? ""),
-      personId: item?.attributes?.person_id == null ? null : Number(item.attributes.person_id),
-      fullName: item?.attributes?.person_full_name == null ? null : String(item.attributes.person_full_name),
-      role: item?.attributes?.role == null ? null : String(item.attributes.role),
+      personId:
+        item?.attributes?.person_id == null
+          ? null
+          : Number(item.attributes.person_id),
+      fullName:
+        item?.attributes?.person_full_name == null
+          ? null
+          : String(item.attributes.person_full_name),
+      role:
+        item?.attributes?.role == null ? null : String(item.attributes.role),
       responsiblePersonId:
         item?.attributes?.responsible_person_id == null
           ? null
@@ -2938,7 +3441,10 @@ export async function getBisAvailableResponsiblePersons(siteId: string) {
           ? null
           : String(item.attributes.responsible_person_type),
     }))
-    .filter((item: any) => item.responsiblePersonId != null && item.responsiblePersonType != null);
+    .filter(
+      (item: any) =>
+        item.responsiblePersonId != null && item.responsiblePersonType != null,
+    );
 }
 
 async function resolveBisResponsiblePersonForCase(
@@ -2948,17 +3454,13 @@ async function resolveBisResponsiblePersonForCase(
 ) {
   const responsiblePersonsUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_responsible_persons`;
   logBisGetRequest("resolve responsible persons", responsiblePersonsUrl);
-  const res = await bisFetch(
-    baseUrl,
-    responsiblePersonsUrl,
-    {
-      headers: {
-        Accept: "application/vnd.api+json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
+  const res = await bisFetch(baseUrl, responsiblePersonsUrl, {
+    headers: {
+      Accept: "application/vnd.api+json",
+      Authorization: `Bearer ${accessToken}`,
     },
-  );
+    cache: "no-store",
+  });
 
   const text = await res.text();
   let json: any = null;
@@ -2970,7 +3472,9 @@ async function resolveBisResponsiblePersonForCase(
 
   if (!res.ok) {
     throw new Error(
-      json?.errors?.[0]?.detail || json?.error || "Failed to load BIS responsible persons",
+      json?.errors?.[0]?.detail ||
+        json?.error ||
+        "Failed to load BIS responsible persons",
     );
   }
 
@@ -2987,7 +3491,9 @@ async function resolveBisResponsiblePersonForCase(
     "construction_performer",
   ]);
 
-  const byRole = people.find((item: any) => preferredRoles.has(String(item?.attributes?.role ?? "")));
+  const byRole = people.find((item: any) =>
+    preferredRoles.has(String(item?.attributes?.role ?? "")),
+  );
   const fallback = people[0];
   const selected = byRole ?? fallback;
   const responsiblePersonId = selected?.attributes?.responsible_person_id;
@@ -3028,7 +3534,11 @@ export async function sendSiteDiaryRecordToBis(
     throw new Error("Site diary record is not assigned to a site");
   }
 
-  const { accessToken, bisCaseId: bisCase, site } = await requireBisAccessTokenForSite(recordSite.siteId);
+  const {
+    accessToken,
+    bisCaseId: bisCase,
+    site,
+  } = await requireBisAccessTokenForSite(recordSite.siteId);
 
   const diaryRecord = await prisma.sitediaryrecords.findUnique({
     where: { id: recordId },
@@ -3072,7 +3582,10 @@ export async function sendSiteDiaryRecordToBis(
   const amountValue = Number(options?.amount ?? diaryRecord.Amounts ?? 1);
   const descriptionOverride = options?.worksDescription?.trim().slice(0, 200);
 
-  const bisWeather = await getBisWeatherSummaryForSiteDay(recordSite.siteId, eventDate);
+  const bisWeather = await getBisWeatherSummaryForSiteDay(
+    recordSite.siteId,
+    eventDate,
+  );
   console.log("[BIS submit] weather summary result", {
     recordId,
     siteId: recordSite.siteId,
@@ -3084,7 +3597,9 @@ export async function sendSiteDiaryRecordToBis(
     multi_day_work: multiDayWork,
     employees: Number(diaryRecord.WorkersInvolved ?? 1),
     quantity: Number.isFinite(amountValue) ? amountValue : 1,
-    measurement: Number(options?.measurement ?? process.env.BIS_DEFAULT_MEASUREMENT ?? 12),
+    measurement: Number(
+      options?.measurement ?? process.env.BIS_DEFAULT_MEASUREMENT ?? 12,
+    ),
   };
 
   if (bisWeather) {
@@ -3121,7 +3636,13 @@ export async function sendSiteDiaryRecordToBis(
       },
     }));
 
-  const commentsDescription = (descriptionOverride || diaryRecord.Comments || "").trim().replace(/^(?:Works|Comments)\s*:\s*/i, "");
+  const commentsDescription = (
+    descriptionOverride ||
+    diaryRecord.Comments ||
+    ""
+  )
+    .trim()
+    .replace(/^(?:Works|Comments)\s*:\s*/i, "");
 
   console.log("[BIS submit] prepared detail attributes", {
     recordId,
@@ -3155,7 +3676,8 @@ export async function sendSiteDiaryRecordToBis(
         event_time_from: eventTimeFrom,
         case_construction_round_id: site.bisConstructionRoundId,
         responsible_person_id: resolvedResponsiblePerson.responsiblePersonId,
-        responsible_person_type: resolvedResponsiblePerson.responsiblePersonType,
+        responsible_person_type:
+          resolvedResponsiblePerson.responsiblePersonType,
         description:
           commentsDescription || "Site diary entry sent from worksRecorded",
       },
@@ -3164,21 +3686,22 @@ export async function sendSiteDiaryRecordToBis(
   };
 
   const performedWorksUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/performed_works`;
-  logBisJsonRequest("create performed_work", "POST", performedWorksUrl, payload);
-  const res = await bisFetch(
-    baseUrl,
+  logBisJsonRequest(
+    "create performed_work",
+    "POST",
     performedWorksUrl,
-    {
-      method: "POST",
-      headers: {
-        Accept: "application/vnd.api+json",
-        "Content-Type": "application/vnd.api+json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(payload),
-      cache: "no-store",
-    },
+    payload,
   );
+  const res = await bisFetch(baseUrl, performedWorksUrl, {
+    method: "POST",
+    headers: {
+      Accept: "application/vnd.api+json",
+      "Content-Type": "application/vnd.api+json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
 
   const text = await res.text();
   let json: any = null;
@@ -3201,7 +3724,9 @@ export async function sendSiteDiaryRecordToBis(
       response: json,
     });
     throw new Error(
-      json?.errors?.[0]?.detail || json?.error || "Failed to send site diary to BIS",
+      json?.errors?.[0]?.detail ||
+        json?.error ||
+        "Failed to send site diary to BIS",
     );
   }
 
@@ -3209,7 +3734,9 @@ export async function sendSiteDiaryRecordToBis(
 
   if (bisId) {
     const bisStatus =
-      json?.data?.attributes?.status == null ? "sent" : String(json.data.attributes.status);
+      json?.data?.attributes?.status == null
+        ? "sent"
+        : String(json.data.attributes.status);
     await prisma.sitediaryrecords.update({
       where: { id: recordId },
       data: { BISId: bisId, bisStatus },
@@ -3265,10 +3792,15 @@ export async function getBisCharacterMeasures(siteId: string) {
     }))
     .filter((item: { id: string; name: string }) => {
       if (!item.id || !item.name) return false;
-      const normalizedName = item.name.trim().replace(/[.\s]/g, "").toLowerCase();
+      const normalizedName = item.name
+        .trim()
+        .replace(/[.\s]/g, "")
+        .toLowerCase();
       return allowedMeasurementNames.has(normalizedName);
     })
-    .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
+    .sort((a: { name: string }, b: { name: string }) =>
+      a.name.localeCompare(b.name),
+    );
 }
 
 type BisApproverSelection = {
@@ -3296,22 +3828,20 @@ export async function getPossibleSiteDiaryBisApprovers(recordId: string) {
     throw new Error("Send this record to BIS before selecting approvers");
   }
 
-  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(
+    record.siteId,
+  );
   const baseUrl = getBisBaseUrl();
   const approversUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}/possible_approvers`;
   logBisGetRequest("fetch possible approvers", approversUrl);
 
-  const res = await bisFetch(
-    baseUrl,
-    approversUrl,
-    {
-      headers: {
-        Accept: "application/vnd.api+json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
+  const res = await bisFetch(baseUrl, approversUrl, {
+    headers: {
+      Accept: "application/vnd.api+json",
+      Authorization: `Bearer ${accessToken}`,
     },
-  );
+    cache: "no-store",
+  });
 
   const text = await res.text();
   let json: any = null;
@@ -3323,14 +3853,17 @@ export async function getPossibleSiteDiaryBisApprovers(recordId: string) {
 
   if (!res.ok) {
     throw new Error(
-      json?.errors?.[0]?.detail || json?.error || "Failed to fetch BIS possible approvers",
+      json?.errors?.[0]?.detail ||
+        json?.error ||
+        "Failed to fetch BIS possible approvers",
     );
   }
 
   return (Array.isArray(json?.data) ? json.data : []).map((item: any) => ({
     memberId: String(item?.attributes?.member_id ?? item?.id ?? ""),
     memberType: item?.attributes?.member_type ?? null,
-    level: item?.attributes?.level == null ? null : Number(item.attributes.level),
+    level:
+      item?.attributes?.level == null ? null : Number(item.attributes.level),
     name:
       item?.attributes?.member_name ??
       item?.attributes?.name ??
@@ -3356,22 +3889,20 @@ export async function getSiteDiaryBisApprovalStatus(recordId: string) {
 
   await orgCheck(user.id, record.siteId);
 
-  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(
+    record.siteId,
+  );
   const baseUrl = getBisBaseUrl();
   const approvalStatusUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}`;
   logBisGetRequest("fetch performed_work status", approvalStatusUrl);
 
-  const res = await bisFetch(
-    baseUrl,
-    approvalStatusUrl,
-    {
-      headers: {
-        Accept: "application/vnd.api+json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
+  const res = await bisFetch(baseUrl, approvalStatusUrl, {
+    headers: {
+      Accept: "application/vnd.api+json",
+      Authorization: `Bearer ${accessToken}`,
     },
-  );
+    cache: "no-store",
+  });
 
   const text = await res.text();
   let json: any = null;
@@ -3389,10 +3920,16 @@ export async function getSiteDiaryBisApprovalStatus(recordId: string) {
       });
       return null;
     }
-    throw new Error(json?.errors?.[0]?.detail || json?.error || "Failed to fetch BIS record status");
+    throw new Error(
+      json?.errors?.[0]?.detail ||
+        json?.error ||
+        "Failed to fetch BIS record status",
+    );
   }
 
-  const status = json?.data?.attributes?.status ? String(json.data.attributes.status) : null;
+  const status = json?.data?.attributes?.status
+    ? String(json.data.attributes.status)
+    : null;
   await prisma.sitediaryrecords.update({
     where: { id: recordId },
     data: { bisStatus: status },
@@ -3424,7 +3961,9 @@ export async function submitSiteDiaryRecordToBisApproval(
     throw new Error("Send this record to BIS before approval");
   }
 
-  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(
+    record.siteId,
+  );
   const baseUrl = getBisBaseUrl();
 
   const submitToApproveUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}/submit_to_approve`;
@@ -3445,21 +3984,22 @@ export async function submitSiteDiaryRecordToBisApproval(
       },
     },
   };
-  logBisJsonRequest("submit performed_work to approve", "PATCH", submitToApproveUrl, submitToApprovePayload);
-  const res = await bisFetch(
-    baseUrl,
+  logBisJsonRequest(
+    "submit performed_work to approve",
+    "PATCH",
     submitToApproveUrl,
-    {
-      method: "PATCH",
-      headers: {
-        Accept: "application/vnd.api+json",
-        "Content-Type": "application/vnd.api+json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(submitToApprovePayload),
-      cache: "no-store",
-    },
+    submitToApprovePayload,
   );
+  const res = await bisFetch(baseUrl, submitToApproveUrl, {
+    method: "PATCH",
+    headers: {
+      Accept: "application/vnd.api+json",
+      "Content-Type": "application/vnd.api+json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(submitToApprovePayload),
+    cache: "no-store",
+  });
 
   const text = await res.text();
   let json: any = null;
@@ -3481,7 +4021,9 @@ export async function submitSiteDiaryRecordToBisApproval(
       response: json,
     });
     throw new Error(
-      json?.errors?.[0]?.detail || json?.error || "Failed to submit site diary record for BIS approval",
+      json?.errors?.[0]?.detail ||
+        json?.error ||
+        "Failed to submit site diary record for BIS approval",
     );
   }
 
@@ -3552,35 +4094,38 @@ export async function copySiteDiaryRecordToDate(
   }
 
   const copyData = {
-      userId: source.userId,
-      workerId: source.workerId,
-      siteId: source.siteId,
-      organizationId: source.organizationId,
-      Date: targetDate,
-      Date_Custom_1: source.Date_Custom_1,
-      Date_Custom_2: source.Date_Custom_2,
-      Location: source.Location,
-      Location_Custom_1: source.Location_Custom_1,
-      Location_Custom_2: source.Location_Custom_2,
-      Works: source.Works,
-      Works_Custom_1: source.Works_Custom_1,
-      Works_Custom_2: source.Works_Custom_2,
-      Comments: source.Comments,
-      Comments_Custom_1: source.Comments_Custom_1,
-      Comments_Custom_2: source.Comments_Custom_2,
-      originalUserComment: source.originalUserComment,
-      originalAudioUrl: source.originalAudioUrl,
-      Units: source.Units,
-      Amounts: source.Amounts,
-      WorkersInvolved: source.WorkersInvolved,
-      TimeInvolved: source.TimeInvolved,
-      Photos: source.Photos,
-      BISId: null,
-      bisStatus: null,
+    userId: source.userId,
+    workerId: source.workerId,
+    siteId: source.siteId,
+    organizationId: source.organizationId,
+    Date: targetDate,
+    Date_Custom_1: source.Date_Custom_1,
+    Date_Custom_2: source.Date_Custom_2,
+    Location: source.Location,
+    Location_Custom_1: source.Location_Custom_1,
+    Location_Custom_2: source.Location_Custom_2,
+    Works: source.Works,
+    Works_Custom_1: source.Works_Custom_1,
+    Works_Custom_2: source.Works_Custom_2,
+    Comments: source.Comments,
+    Comments_Custom_1: source.Comments_Custom_1,
+    Comments_Custom_2: source.Comments_Custom_2,
+    originalUserComment: source.originalUserComment,
+    originalAudioUrl: source.originalAudioUrl,
+    Units: source.Units,
+    Amounts: source.Amounts,
+    WorkersInvolved: source.WorkersInvolved,
+    TimeInvolved: source.TimeInvolved,
+    Photos: source.Photos,
+    BISId: null,
+    bisStatus: null,
   };
   const copied = useZtcRecords
     ? await prisma.ztcRecords.create({ data: copyData, select: { id: true } })
-    : await prisma.sitediaryrecords.create({ data: copyData, select: { id: true } });
+    : await prisma.sitediaryrecords.create({
+        data: copyData,
+        select: { id: true },
+      });
 
   return { id: copied.id };
 }
@@ -3627,7 +4172,8 @@ export async function copySiteDiaryRecordsToProject({
 }: CopySiteDiaryRecordsToProjectArgs) {
   if (!sourceSiteId) throw new Error("Missing source site id");
   if (!targetSiteId) throw new Error("Missing target site id");
-  if (sourceSiteId === targetSiteId) throw new Error("Choose a different target project");
+  if (sourceSiteId === targetSiteId)
+    throw new Error("Choose a different target project");
   assertNormalSiteDiaryCopy(options);
 
   const uniqueRecordIds = Array.from(new Set(recordIds.filter(Boolean)));
@@ -3688,14 +4234,18 @@ export async function copySiteDiaryRecordsToProject({
     });
 
     if (sourceRecords.length !== uniqueRecordIds.length) {
-      throw new Error("Some selected records were not found in the source project");
+      throw new Error(
+        "Some selected records were not found in the source project",
+      );
     }
 
     const copiedRecords = await Promise.all(
       uniqueRecordIds.map((recordId) => {
         const source = sourceRecords.find((record) => record.id === recordId);
         if (!source) {
-          throw new Error("Some selected records were not found in the source project");
+          throw new Error(
+            "Some selected records were not found in the source project",
+          );
         }
 
         return tx.sitediaryrecords.create({
@@ -3769,17 +4319,13 @@ export async function syncDeletedSiteDiaryBisRecords(siteId: string) {
     const performedWorkUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${bisId}`;
     logBisGetRequest("sync performed_work existence", performedWorkUrl);
 
-    const res = await bisFetch(
-      baseUrl,
-      performedWorkUrl,
-      {
-        headers: {
-          Accept: "application/vnd.api+json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        cache: "no-store",
+    const res = await bisFetch(baseUrl, performedWorkUrl, {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
       },
-    );
+      cache: "no-store",
+    });
 
     if (res.ok) {
       const text = await res.text();
@@ -3791,7 +4337,9 @@ export async function syncDeletedSiteDiaryBisRecords(siteId: string) {
       }
 
       const currentStatus =
-        json?.data?.attributes?.status == null ? null : String(json.data.attributes.status);
+        json?.data?.attributes?.status == null
+          ? null
+          : String(json.data.attributes.status);
       if ((record.bisStatus ?? null) !== currentStatus) {
         await prisma.sitediaryrecords.update({
           where: { id: record.id },
@@ -3809,8 +4357,13 @@ export async function syncDeletedSiteDiaryBisRecords(siteId: string) {
       json = null;
     }
 
-    const message = String(json?.errors?.[0]?.detail || json?.error || "").toLowerCase();
-    const shouldClear = res.status === 404 || message.includes("not found") || message.includes("deleted");
+    const message = String(
+      json?.errors?.[0]?.detail || json?.error || "",
+    ).toLowerCase();
+    const shouldClear =
+      res.status === 404 ||
+      message.includes("not found") ||
+      message.includes("deleted");
 
     if (shouldClear) {
       await prisma.sitediaryrecords.update({
@@ -3861,7 +4414,9 @@ async function uploadLogbookAttachmentToBis({
 
   const fileResponse = await fetch(photoUrl, { cache: "no-store" });
   if (!fileResponse.ok) {
-    console.warn(`Skipping BIS upload. Unable to download attachment: ${photoUrl}`);
+    console.warn(
+      `Skipping BIS upload. Unable to download attachment: ${photoUrl}`,
+    );
     return null;
   }
 
@@ -3881,19 +4436,15 @@ async function uploadLogbookAttachmentToBis({
     objId: form.get("upload[obj_id]"),
     attachmentPath,
   });
-  const uploadResponse = await bisFetch(
-    baseUrl,
-    uploadUrl,
-    {
-      method: "POST",
-      headers: {
-        Accept: "application/vnd.api+json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: form,
-      cache: "no-store",
+  const uploadResponse = await bisFetch(baseUrl, uploadUrl, {
+    method: "POST",
+    headers: {
+      Accept: "application/vnd.api+json",
+      Authorization: `Bearer ${accessToken}`,
     },
-  );
+    body: form,
+    cache: "no-store",
+  });
 
   if (!uploadResponse.ok) {
     const errText = await uploadResponse.text();
@@ -3905,80 +4456,86 @@ async function uploadLogbookAttachmentToBis({
   return json?.data?.attributes?.temp_uuid ?? null;
 }
 
-export async function getFilledDays({ siteId, year, month, flowId }: Args & SiteDiaryFlowHint): Promise<number[]> {
-  const trace = createPerfTrace({ route: "action.siteDiary.getFilledDays", category: "action", siteId });
+export async function getFilledDays({
+  siteId,
+  year,
+  month,
+  flowId,
+}: Args & SiteDiaryFlowHint): Promise<number[]> {
+  const trace = createPerfTrace({
+    route: "action.siteDiary.getFilledDays",
+    category: "action",
+    siteId,
+  });
   const from = new Date(year, month, 1);
   const to = new Date(year, month + 1, 1);
   const useZtcRecords = await shouldUseZtcRecordsForSite(siteId, { flowId });
-  const recordsPromise =
-    useZtcRecords
-      ? prisma.ztcRecords.findMany({
-          where: {
-            siteId,
-            Date_Custom_2: { not: null },
-            NOT: [
-              { Date: null },
-              { Works: null },
-              { Works: "" },
-            ],
-            AND: [buildZtcNotCancelledWhere()],
-            OR: [
-              { Date: { gte: from, lt: to } },
-              { Date_Custom_1: { gte: from, lt: to } },
-            ],
-          },
-          select: { Date: true, Date_Custom_1: true },
-        })
-      : prisma.sitediaryrecords.findMany({
-          where: {
-            siteId,
-            archivedAt: null,
-            Date: { gte: from, lt: to },
-          },
-          select: { Date: true, Date_Custom_1: true },
-        });
+  const recordsPromise = useZtcRecords
+    ? prisma.ztcRecords.findMany({
+        where: {
+          siteId,
+          Date_Custom_2: { not: null },
+          NOT: [{ Date: null }, { Works: null }, { Works: "" }],
+          AND: [buildZtcNotCancelledWhere()],
+          OR: [
+            { Date: { gte: from, lt: to } },
+            { Date_Custom_1: { gte: from, lt: to } },
+          ],
+        },
+        select: { Date: true, Date_Custom_1: true },
+      })
+    : prisma.sitediaryrecords.findMany({
+        where: {
+          siteId,
+          archivedAt: null,
+          Date: { gte: from, lt: to },
+        },
+        select: { Date: true, Date_Custom_1: true },
+      });
 
   try {
-  const [records, photos] = await trace.measure("monthQueries", () => Promise.all([
-    recordsPromise,
+    const [records, photos] = await trace.measure("monthQueries", () =>
+      Promise.all([
+        recordsPromise,
 
-    // photos in month (with a valid URL)
-    prisma.photos.findMany({
-      where: {
-        siteId,
-        Date: { gte: from, lt: to },
-        OR: [{ URL: { not: null } }, { fileUrl: { not: null } }],
+        // photos in month (with a valid URL)
+        prisma.photos.findMany({
+          where: {
+            siteId,
+            Date: { gte: from, lt: to },
+            OR: [{ URL: { not: null } }, { fileUrl: { not: null } }],
+          },
+          select: { Date: true },
+        }),
+      ]),
+    );
+
+    // Collect unique day numbers
+    const daysSet = new Set<number>();
+
+    records.forEach((rec) => {
+      if (rec.Date) daysSet.add(new Date(rec.Date).getDate());
+      if (rec.Date_Custom_1) daysSet.add(new Date(rec.Date_Custom_1).getDate());
+    });
+
+    photos.forEach((p) => {
+      if (p.Date) daysSet.add(new Date(p.Date).getDate());
+    });
+
+    const days = Array.from(daysSet).sort((a, b) => a - b);
+
+    trace.end({
+      status: 200,
+      extra: {
+        year,
+        month: month + 1,
+        recordCount: records.length,
+        photoCount: photos.length,
+        dayCount: days.length,
       },
-      select: { Date: true },
-    }),
-  ]));
+    });
 
-  // Collect unique day numbers
-  const daysSet = new Set<number>();
-
-  records.forEach((rec) => {
-    if (rec.Date) daysSet.add(new Date(rec.Date).getDate());
-    if (rec.Date_Custom_1) daysSet.add(new Date(rec.Date_Custom_1).getDate());
-  });
-
-  photos.forEach((p) => {
-    if (p.Date) daysSet.add(new Date(p.Date).getDate());
-  });
-
-  const days = Array.from(daysSet).sort((a, b) => a - b);
-
-  trace.end({
-    status: 200,
-    extra: {
-      year,
-      month: month + 1,
-      recordCount: records.length,
-      photoCount: photos.length,
-      dayCount: days.length,
-    },
-  });
-
-  return days;
+    return days;
   } catch (error) {
     trace.fail(error, {
       status: 500,
@@ -3990,7 +4547,6 @@ export async function getFilledDays({ siteId, year, month, flowId }: Args & Site
     throw error;
   }
 }
-
 
 export async function getSiteDiarySchema({ siteId }) {
   if (!siteId) return null;
@@ -4019,7 +4575,9 @@ export async function getLocationsWorksFromSiteSchema(
   const schema = await getSiteDiarySchema({ siteId });
 
   function extractLocationNames(schema) {
-    return schema.filter((node) => node.type === "Location").map((node) => node.name);
+    return schema
+      .filter((node) => node.type === "Location")
+      .map((node) => node.name);
   }
   function extractWorkNames(schema) {
     const worksSet = new Set();
@@ -4120,7 +4678,11 @@ export async function getPhotosByDate({
   startISO,
   endISO,
 }: GetPhotosByDateArgs) {
-  const trace = createPerfTrace({ route: "action.siteDiary.getPhotosByDate", category: "action", siteId });
+  const trace = createPerfTrace({
+    route: "action.siteDiary.getPhotosByDate",
+    category: "action",
+    siteId,
+  });
   const start = new Date(startISO);
   const end = new Date(endISO);
 
@@ -4156,7 +4718,10 @@ export async function getPhotosByDate({
               gte: start,
               lt: end,
             },
-            AND: [{ originalAudioUrl: { not: null } }, { originalAudioUrl: { not: "" } }],
+            AND: [
+              { originalAudioUrl: { not: null } },
+              { originalAudioUrl: { not: "" } },
+            ],
           },
           orderBy: { Date: "desc" },
           select: {
@@ -4248,7 +4813,9 @@ export async function movePhotoToDate({
   }
 
   if (photo.mediaPurpose === PHOTO_MEDIA_PURPOSE_WAREHOUSE_INVOICE) {
-    throw new Error("Warehouse invoice photos cannot be moved in the site diary.");
+    throw new Error(
+      "Warehouse invoice photos cannot be moved in the site diary.",
+    );
   }
 
   const updated = await prisma.photos.update({
@@ -4293,7 +4860,10 @@ export async function movePhotosToDate({
     },
   });
 
-  if (photos.length !== normalizedPhotoIds.length || photos.some((photo) => !photo.siteId)) {
+  if (
+    photos.length !== normalizedPhotoIds.length ||
+    photos.some((photo) => !photo.siteId)
+  ) {
     throw new Error("Some photos were not found");
   }
 
@@ -4309,8 +4879,14 @@ export async function movePhotosToDate({
     if (!site) throw new Error("Some photos were not found");
   }
 
-  if (photos.some((photo) => photo.mediaPurpose === PHOTO_MEDIA_PURPOSE_WAREHOUSE_INVOICE)) {
-    throw new Error("Warehouse invoice photos cannot be moved in the site diary.");
+  if (
+    photos.some(
+      (photo) => photo.mediaPurpose === PHOTO_MEDIA_PURPOSE_WAREHOUSE_INVOICE,
+    )
+  ) {
+    throw new Error(
+      "Warehouse invoice photos cannot be moved in the site diary.",
+    );
   }
 
   const updated = await prisma.photos.updateMany({

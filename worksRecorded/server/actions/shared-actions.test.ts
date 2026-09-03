@@ -1,47 +1,47 @@
 const redirectMock = jest.fn((url: string) => {
-	const error = new Error("NEXT_REDIRECT") as Error & { digest: string };
-	error.digest = `NEXT_REDIRECT;replace;${url}`;
-	throw error;
+  const error = new Error("NEXT_REDIRECT") as Error & { digest: string };
+  error.digest = `NEXT_REDIRECT;replace;${url}`;
+  throw error;
 });
 
 jest.mock("next/navigation", () => ({
-	redirect: redirectMock,
+  redirect: redirectMock,
 }));
 
 jest.mock("@/lib/utils/db", () => ({
-	prisma: {
-		user: {
-			findUnique: jest.fn(),
-		},
-		organization: {
-			findUnique: jest.fn(),
-		},
-		site: {
-			create: jest.fn(),
-			findFirst: jest.fn(),
-			findMany: jest.fn(),
-		},
-		subscription: {
-			findUnique: jest.fn(),
-		},
-	},
+  prisma: {
+    user: {
+      findUnique: jest.fn(),
+    },
+    organization: {
+      findUnique: jest.fn(),
+    },
+    site: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+    },
+    subscription: {
+      findUnique: jest.fn(),
+    },
+  },
 }));
 
 jest.mock("@/lib/utils/requireUser", () => ({
-	requireUser: jest.fn(),
+  requireUser: jest.fn(),
 }));
 
 jest.mock("@/lib/utils/stripe", () => ({
-	stripe: {
-		customers: {
-			create: jest.fn(),
-		},
-		checkout: {
-			sessions: {
-				create: jest.fn(),
-			},
-		},
-	},
+  stripe: {
+    customers: {
+      create: jest.fn(),
+    },
+    checkout: {
+      sessions: {
+        create: jest.fn(),
+      },
+    },
+  },
 }));
 
 import defaultConfigLV from "@/components/sitediary/configs/defaultConfigLV_27042026.json";
@@ -52,112 +52,140 @@ import { requireUser } from "@/lib/utils/requireUser";
 import { CreateSiteAction, orgCheck } from "./shared-actions";
 
 beforeAll(() => {
-	if (!globalThis.structuredClone) {
-		globalThis.structuredClone = <T>(value: T) =>
-			JSON.parse(JSON.stringify(value)) as T;
-	}
+  if (!globalThis.structuredClone) {
+    globalThis.structuredClone = <T>(value: T) =>
+      JSON.parse(JSON.stringify(value)) as T;
+  }
 });
 
 function createSiteFormData(
-	overrides: Partial<
-		Record<"name" | "description" | "subdirectory", string>
-	> = {},
+  overrides: Partial<
+    Record<"name" | "description" | "subdirectory", string>
+  > = {},
 ) {
-	const formData = new FormData();
-	formData.set("name", overrides.name ?? "Jauns projekts");
-	formData.set("description", overrides.description ?? "Projekta apraksts");
-	formData.set("subdirectory", overrides.subdirectory ?? "Brivibas 10");
-	return formData;
+  const formData = new FormData();
+  formData.set("name", overrides.name ?? "Jauns projekts");
+  formData.set("description", overrides.description ?? "Projekta apraksts");
+  formData.set("subdirectory", overrides.subdirectory ?? "Brivibas 10");
+  return formData;
 }
 
 describe("CreateSiteAction", () => {
-	beforeEach(() => {
-		jest.clearAllMocks();
+  beforeEach(() => {
+    jest.clearAllMocks();
 
-		jest.mocked(requireUser).mockResolvedValue({
-			id: "user-1",
-		} as Awaited<ReturnType<typeof requireUser>>);
+    jest.mocked(requireUser).mockResolvedValue({
+      id: "user-1",
+    } as Awaited<ReturnType<typeof requireUser>>);
 
-		jest.mocked(prisma.user.findUnique).mockResolvedValue({
-			organizationId: "org-1",
-		});
+    jest.mocked(prisma.user.findUnique).mockResolvedValue({
+      organizationId: "org-1",
+    } as never);
 
-		jest.mocked(prisma.organization.findUnique).mockResolvedValue({
-			orgLanguage: "lv",
-		});
-	});
+    jest.mocked(prisma.organization.findUnique).mockResolvedValue({
+      orgLanguage: "lv",
+    } as never);
+  });
 
-	it("creates another site for a user without checking subscription or existing site count", async () => {
-		await expect(
-			CreateSiteAction(undefined, createSiteFormData()),
-		).rejects.toMatchObject({
-			digest: "NEXT_REDIRECT;replace;/dashboard/sites",
-		});
+  it("creates another site for a user without checking subscription or existing site count", async () => {
+    await expect(
+      CreateSiteAction(undefined, createSiteFormData()),
+    ).rejects.toMatchObject({
+      digest: "NEXT_REDIRECT;replace;/dashboard/sites",
+    });
 
-		expect(prisma.subscription.findUnique).not.toHaveBeenCalled();
-		expect(prisma.site.findMany).not.toHaveBeenCalled();
-		expect(prisma.site.create).toHaveBeenCalledWith({
-			data: {
-				description: "Projekta apraksts",
-				name: "Jauns projekts",
-				subdirectory: "Brivibas 10",
-				userId: "user-1",
-				organizationId: "org-1",
-				siteDiaryRecordsMap: defaultConfigLV,
-				sitediarysettings: {
-					create: {
-						userId: "user-1",
-						organizationId: "org-1",
-						schema: JSON.stringify(defaultProgram),
-					},
-				},
-			},
-		});
-		expect(redirectMock).toHaveBeenCalledWith("/dashboard/sites");
-	});
+    expect(prisma.subscription.findUnique).not.toHaveBeenCalled();
+    expect(prisma.site.findMany).not.toHaveBeenCalled();
+    expect(prisma.site.create).toHaveBeenCalledWith({
+      data: {
+        description: "Projekta apraksts",
+        name: "Jauns projekts",
+        subdirectory: "Brivibas 10",
+        userId: "user-1",
+        organizationId: "org-1",
+        siteDiaryRecordsMap: defaultConfigLV,
+        sitediarysettings: {
+          create: {
+            userId: "user-1",
+            organizationId: "org-1",
+            schema: JSON.stringify(defaultProgram),
+          },
+        },
+      },
+    });
+    expect(redirectMock).toHaveBeenCalledWith("/dashboard/sites");
+  });
 
-	it("returns validation errors without creating a site", async () => {
-		const result = await CreateSiteAction(
-			undefined,
-			createSiteFormData({ name: "" }),
-		);
+  it("returns validation errors without creating a site", async () => {
+    const result = await CreateSiteAction(
+      undefined,
+      createSiteFormData({ name: "" }),
+    );
 
-		expect(result).toEqual(
-			expect.objectContaining({
-				status: "error",
-			}),
-		);
-		expect(prisma.site.create).not.toHaveBeenCalled();
-		expect(redirectMock).not.toHaveBeenCalled();
-	});
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "error",
+      }),
+    );
+    expect(prisma.site.create).not.toHaveBeenCalled();
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("inherits the quantity profile from another organization project", async () => {
+    jest
+      .mocked(prisma.site.findFirst)
+      .mockResolvedValueOnce({ id: "site-1" } as never);
+
+    await expect(
+      CreateSiteAction(undefined, createSiteFormData()),
+    ).rejects.toMatchObject({
+      digest: "NEXT_REDIRECT;replace;/dashboard/sites",
+    });
+
+    expect(prisma.site.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        siteDiaryRecordsMap: expect.objectContaining({
+          otherSettings: expect.objectContaining({
+            defaultConstructionQuantityPlanActual: { enabled: true },
+          }),
+        }),
+      }),
+    });
+  });
 });
 
 describe("orgCheck", () => {
-	beforeEach(() => {
-		jest.clearAllMocks();
-	});
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
-	it("allows the configured superuser to open any project", async () => {
-		const site = { id: "site-2", name: "Other project", organizationId: "org-2" };
-		jest.mocked(prisma.site.findFirst).mockResolvedValue(site);
+  it("allows the configured superuser to open any project", async () => {
+    const site = {
+      id: "site-2",
+      name: "Other project",
+      organizationId: "org-2",
+    };
+    jest.mocked(prisma.site.findFirst).mockResolvedValue(site as never);
 
-		await expect(orgCheck(FLOW_CONFIG_ADMIN_USER_ID, "site-2")).resolves.toEqual(site);
-		expect(prisma.site.findFirst).toHaveBeenCalledWith({
-			where: { id: "site-2" },
-			select: { id: true, name: true, organizationId: true },
-		});
-	});
+    await expect(
+      orgCheck(FLOW_CONFIG_ADMIN_USER_ID, "site-2"),
+    ).resolves.toEqual(site);
+    expect(prisma.site.findFirst).toHaveBeenCalledWith({
+      where: { id: "site-2" },
+      select: { id: true, name: true, organizationId: true },
+    });
+  });
 
-	it("keeps organization membership checks for regular users", async () => {
-		jest.mocked(prisma.site.findFirst).mockResolvedValue(null);
+  it("keeps organization membership checks for regular users", async () => {
+    jest.mocked(prisma.site.findFirst).mockResolvedValue(null);
 
-		await expect(orgCheck("regular-user", "site-2")).resolves.toBe(false);
-		expect(prisma.site.findFirst).toHaveBeenCalledWith({
-			where: {
-				id: "site-2",
-				organization: { users: { some: { id: "regular-user" } } },
-			},
-			select: { id: true, name: true, organizationId: true },
-		});
-	});
+    await expect(orgCheck("regular-user", "site-2")).resolves.toBe(false);
+    expect(prisma.site.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "site-2",
+        organization: { users: { some: { id: "regular-user" } } },
+      },
+      select: { id: true, name: true, organizationId: true },
+    });
+  });
 });

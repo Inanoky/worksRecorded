@@ -1,15 +1,23 @@
 "use client";
 
-import React from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils/utils";
-import DialogWindow from "@/components/sitediary/DialogWindow";
-import { getFilledDays, getSitediaryRecordsBySiteIdForExcel } from "@/server/actions/site-diary-actions";
-import { Label } from "@/components/ui/label";
 import { MessageCircle } from "lucide-react";
+import React from "react";
 import TourRunner from "@/components/joyride/TourRunner";
-import { applyZtcExcelNumberFormats, formatZtcRowsForExcel } from "@/flows/ztc-production/lib/ztc-excel-export";
+import DialogWindow from "@/components/sitediary/DialogWindow";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { formatDefaultConstructionQuantityRowsForExcel } from "@/flows/default-construction/lib/quantity-plan-actual";
+import {
+  applyZtcExcelNumberFormats,
+  formatZtcRowsForExcel,
+} from "@/flows/ztc-production/lib/ztc-excel-export";
+import { cn } from "@/lib/utils/utils";
+import {
+  getConfig,
+  getFilledDays,
+  getSitediaryRecordsBySiteIdForExcel,
+} from "@/server/actions/site-diary-actions";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WhatsAppIcon = ({ size = 22 }) => (
@@ -65,16 +73,24 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false }) {
   const [filledDays, setFilledDays] = React.useState<number[]>([]);
 
   const weeks = getCalendarGrid(currentYear, currentMonth);
-  const monthName = new Date(currentYear, currentMonth).toLocaleString("default", {
-    month: "long",
-  });
+  const monthName = new Date(currentYear, currentMonth).toLocaleString(
+    "default",
+    {
+      month: "long",
+    },
+  );
 
   async function exportToExcel() {
     const XLSX = await import("xlsx");
-    const rows = await getSitediaryRecordsBySiteIdForExcel(siteId, {
-      flowId: isZtcFlow ? "ztc" : undefined,
-    });
-    const exportRows = isZtcFlow ? formatZtcRowsForExcel(rows) : rows;
+    const [rows, config] = await Promise.all([
+      getSitediaryRecordsBySiteIdForExcel(siteId, {
+        flowId: isZtcFlow ? "ztc" : undefined,
+      }),
+      isZtcFlow ? Promise.resolve(null) : getConfig(siteId),
+    ]);
+    const exportRows = isZtcFlow
+      ? formatZtcRowsForExcel(rows)
+      : formatDefaultConstructionQuantityRowsForExcel(rows, config);
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
     if (isZtcFlow) {
       applyZtcExcelNumberFormats(XLSX, worksheet);
@@ -86,14 +102,24 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false }) {
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) return setFilledDays([]);
-    getFilledDays({ siteId, year: currentYear, month: currentMonth, flowId: isZtcFlow ? "ztc" : undefined }).then(setFilledDays);
+    getFilledDays({
+      siteId,
+      year: currentYear,
+      month: currentMonth,
+      flowId: isZtcFlow ? "ztc" : undefined,
+    }).then(setFilledDays);
   }, [siteId, currentMonth, currentYear, isZtcFlow]);
 
   React.useEffect(() => {
     let cancelled = false;
     async function fetchFilledDays() {
       if (!siteId) return setFilledDays([]);
-      const days = await getFilledDays({ siteId, year: currentYear, month: currentMonth, flowId: isZtcFlow ? "ztc" : undefined });
+      const days = await getFilledDays({
+        siteId,
+        year: currentYear,
+        month: currentMonth,
+        flowId: isZtcFlow ? "ztc" : undefined,
+      });
       if (!cancelled) setFilledDays(days);
     }
     fetchFilledDays();
@@ -109,23 +135,20 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false }) {
 
   return (
     <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 py-4">
-      
-
       <div className="flex flex-row justify-between">
-        <h2 className="text-xl sm:text-2xl gap-5 font-semibold mb-2">Site Diary</h2>
-<div>
-  <button
-    type="button"
-    onClick={() => window.open("https://wa.me/37127445304", "_blank")}
-    className="flex items-center gap-2 text-sm font-medium
-               text-green-600 hover:text-green-700 
-               cursor-pointer px-2 py-1 rounded-md 
-               hover:bg-green-50 transition"
-  >
-    <WhatsAppIcon />
-    Click here to record site work via WhatsApp
-  </button>
-</div>
+        <h2 className="text-xl sm:text-2xl gap-5 font-semibold mb-2">
+          Site Diary
+        </h2>
+        <div>
+          <button
+            type="button"
+            onClick={() => window.open("https://wa.me/37127445304", "_blank")}
+            className="flex items-center gap-2 rounded-md px-2 py-1 text-sm font-medium text-green-600 transition hover:bg-green-50 hover:text-green-700"
+          >
+            <WhatsAppIcon />
+            Click here to record site work via WhatsApp
+          </button>
+        </div>
         <div>
           <Button className="ml-2" variant="outline" onClick={exportToExcel}>
             Export to Excel
@@ -199,7 +222,7 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false }) {
                   "aspect-square min-h-[32px] sm:min-h-[64px] flex items-center justify-center transition-all",
                   !dateObj && "bg-transparent border-0 shadow-none",
                   isFilled && "bg-green-50",
-                  dateObj && "hover:shadow-md cursor-pointer"
+                  dateObj && "hover:shadow-md cursor-pointer",
                 )}
                 onClick={() => {
                   if (dateObj) {
@@ -213,7 +236,7 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false }) {
                     <span
                       className={cn(
                         "text-xs sm:text-sm",
-                        isFilled ? "text-green-700" : "text-gray-700"
+                        isFilled ? "text-green-700" : "text-gray-700",
                       )}
                     >
                       {dateObj.getDate()}
@@ -225,7 +248,7 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false }) {
                 </CardContent>
               </Card>
             );
-          })
+          }),
         )}
       </div>
 

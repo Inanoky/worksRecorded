@@ -9,10 +9,9 @@ import {
 
 describe("default-construction productivity settings", () => {
   it("adds default works and blank tracker fields when no settings exist", () => {
-    const result =
-      getDefaultConstructionProductivitySettings({
-        Works: { DropDownOptions: { Masonry: "Masonry" } },
-      }).works;
+    const result = getDefaultConstructionProductivitySettings({
+      Works: { DropDownOptions: { Masonry: "Masonry" } },
+    }).works;
 
     expect(result).toEqual(
       expect.arrayContaining([
@@ -313,5 +312,36 @@ describe("default-construction productivity settings", () => {
         TimeInvolved: "2",
       }).actualCost,
     ).toBe(90);
+
+    const calculateProfileRecordCost =
+      createDefaultConstructionRecordCostCalculator({
+        Works: {
+          DropDownOptions: { output: "Masonry" },
+        },
+        otherSettings: {
+          defaultConstructionProductivity: {
+            version: 4,
+            works: [
+              {
+                work: "Masonry",
+                unit: "m2",
+                laborNormHoursPerUnit: 0.5,
+                hourlyCost: 20,
+                costCalculationMode: "output",
+              },
+            ],
+          },
+          defaultConstructionQuantityPlanActual: { enabled: true },
+        },
+      });
+
+    expect(
+      calculateProfileRecordCost({
+        Works: "Masonry",
+        Units: "m2",
+        Amounts: "100",
+        Comments_Custom_1: "12",
+      }).actualCost,
+    ).toBe(120);
   });
 });

@@ -1,5 +1,9 @@
 import { getDefaultConstructionForma2SourceByWork } from "./forma2-work-options-manifest";
 import {
+  DEFAULT_CONSTRUCTION_ACTUAL_QUANTITY_FIELD,
+  hasDefaultConstructionQuantityProfile,
+} from "./quantity-plan-actual";
+import {
   DEFAULT_CONSTRUCTION_SYSTEM_WORKS,
   sortDefaultConstructionSiteDiaryWorks,
 } from "./site-diary-work-order";
@@ -44,7 +48,10 @@ const normalizedKey = (value: unknown) =>
 
 function defaultSystemWorkByKey() {
   return new Map(
-    DEFAULT_CONSTRUCTION_SYSTEM_WORKS.map((work) => [normalizedKey(work), work]),
+    DEFAULT_CONSTRUCTION_SYSTEM_WORKS.map((work) => [
+      normalizedKey(work),
+      work,
+    ]),
   );
 }
 
@@ -80,7 +87,9 @@ export function setDefaultConstructionWorkDropdownOptions(
         ...config,
         Works: {
           ...(config.Works ?? {}),
-          DropDownOptions: Object.fromEntries(works.map((work) => [work, work])),
+          DropDownOptions: Object.fromEntries(
+            works.map((work) => [work, work]),
+          ),
         },
       }).map((work) => [work, work]),
     ),
@@ -99,7 +108,9 @@ export function getDefaultConstructionSystemWorkSourceByWork() {
 export function assertDefaultConstructionSystemWorksPreserved(
   works: DefaultConstructionWorkProductivitySetting[],
 ) {
-  const savedKeys = new Set(works.map((setting) => normalizedKey(setting.work)));
+  const savedKeys = new Set(
+    works.map((setting) => normalizedKey(setting.work)),
+  );
   for (const work of DEFAULT_CONSTRUCTION_SYSTEM_WORKS) {
     if (!savedKeys.has(normalizedKey(work))) {
       throw new Error("Default work names cannot be renamed or deleted");
@@ -204,6 +215,7 @@ export type DefaultConstructionCostRecord = {
   Works?: string | null;
   Units?: string | null;
   Amounts?: number | string | null;
+  Comments_Custom_1?: number | string | null;
   WorkersInvolved?: number | string | null;
   TimeInvolved?: number | string | null;
 };
@@ -211,6 +223,8 @@ export type DefaultConstructionCostRecord = {
 export function createDefaultConstructionRecordCostCalculator(
   config: Record<string, unknown>,
 ) {
+  const useProfileActualQuantity =
+    hasDefaultConstructionQuantityProfile(config);
   const settingsByWork = new Map(
     getDefaultConstructionProductivitySettings(config).works.map((setting) => [
       normalizedKey(setting.work),
@@ -221,13 +235,16 @@ export function createDefaultConstructionRecordCostCalculator(
   return (record: DefaultConstructionCostRecord) => {
     const workers = readFiniteNumber(record.WorkersInvolved);
     const time = readFiniteNumber(record.TimeInvolved);
-    const manHours =
-      workers != null && time != null ? workers * time : null;
+    const manHours = workers != null && time != null ? workers * time : null;
 
     return calculateDefaultConstructionWorkCost({
       setting: settingsByWork.get(normalizedKey(record.Works)),
       unit: record.Units,
-      amount: readFiniteNumber(record.Amounts),
+      amount: readFiniteNumber(
+        useProfileActualQuantity
+          ? record[DEFAULT_CONSTRUCTION_ACTUAL_QUANTITY_FIELD]
+          : record.Amounts,
+      ),
       hours: manHours,
     });
   };

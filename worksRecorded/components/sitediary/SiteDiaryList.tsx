@@ -1,48 +1,13 @@
 "use client";
 
-import React from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils/utils";
-import { SiteDiaryOptionsManager } from "@/components/sitediary/SiteDiaryOptionsManager";
-import { useDefaultConstructionSiteDiarySummary } from "@/flows/default-construction/frontend/useDefaultConstructionSiteDiarySummary";
-import { OriginalSourceContent } from "@/components/sitediary/OriginalSourceContent";
-import { hasSiteDiaryDisplayableMedia } from "@/components/sitediary/siteDiaryMediaDisplay";
-import {
-  copySiteDiaryRecordsToProject,
-  copySiteDiaryRecordToDate,
-  deleteSiteDiaryRecord,
-  getBisCaseAvailableMaterials,
-  getBisCharacterMeasures,
-  getBisAvailableResponsiblePersons,
-  getSiteDiaryRecordBisUrl,
-  getSiteDayWeather,
-  getFilledDays,
-  getPossibleSiteDiaryBisApprovers,
-  getSiteDiaryBisApprovalStatus,
-  getSiteGalleryAttachments,
-  getSiteDiaryRecordsPage,
-  getSiteDiaryMediaOnlyDays,
-  getSiteDiaryProjectCopyTargets,
-  getSitediaryRecordsBySiteIdForExcel,
-  sendSiteDiaryRecordToBis,
-  syncDeletedSiteDiaryBisRecords,
-  submitSiteDiaryRecordToBisApproval,
-} from "@/server/actions/site-diary-actions";
-import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
 import {
   CalendarIcon,
   Check,
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
-  Copy,
   CloudSun,
+  Copy,
   Ellipsis,
   ExternalLink,
   Filter,
@@ -53,38 +18,18 @@ import {
   ShieldCheck,
   Trash2,
 } from "lucide-react";
-
-
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
+import React from "react";
+import { toast } from "sonner";
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
+import ImageGallery from "@/components/sitediary/ImageGallery";
+import { OriginalSourceContent } from "@/components/sitediary/OriginalSourceContent";
+import { SiteDiaryOptionsManager } from "@/components/sitediary/SiteDiaryOptionsManager";
+import { hasSiteDiaryDisplayableMedia } from "@/components/sitediary/siteDiaryMediaDisplay";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-} from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -92,38 +37,86 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import ImageGallery from "@/components/sitediary/ImageGallery";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import {
   Pagination,
   PaginationContent,
   PaginationItem,
   PaginationLink,
 } from "@/components/ui/pagination";
-
-import { getConfig } from "@/server/actions/site-diary-actions";
-import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
-import { ZtcCommentPopoverContent } from "@/flows/ztc-production/frontend/ZtcCommentPopoverContent";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useDefaultConstructionSiteDiarySummary } from "@/flows/default-construction/frontend/useDefaultConstructionSiteDiarySummary";
+import {
+  formatDefaultConstructionQuantityRowsForExcel,
+  getDefaultConstructionQuantityComparison,
+  getDefaultConstructionQuantityStatusLabel,
+  getDefaultConstructionQuantityToneClass,
+  isDefaultConstructionActualQuantityField,
+} from "@/flows/default-construction/lib/quantity-plan-actual";
+import { createDefaultConstructionRecordCostCalculator } from "@/flows/default-construction/lib/site-diary-productivity-settings";
+import { calculateDefaultConstructionManHours } from "@/flows/default-construction/lib/site-diary-summary";
+import {
+  compareSiteDiaryWorks,
+  groupDefaultConstructionSiteDiaryWorks,
+  sortDefaultConstructionSiteDiaryWorks,
+} from "@/flows/default-construction/lib/site-diary-work-order";
+import {
+  getZtcDefaultTaskRates,
+  getZtcFilterOptions,
+  getZtcScopeSummary,
+} from "@/flows/ztc-production/backend/actions";
 import { useZtcSiteDiaryFlow } from "@/flows/ztc-production/frontend/useZtcSiteDiaryFlow";
-import { getZtcDefaultTaskRates, getZtcFilterOptions, getZtcScopeSummary } from "@/flows/ztc-production/backend/actions";
+import { ZtcCommentPopoverContent } from "@/flows/ztc-production/frontend/ZtcCommentPopoverContent";
+import { exportZtcElementsToExcel } from "@/flows/ztc-production/lib/ztc-element-export";
+import {
+  applyZtcExcelNumberFormats,
+  formatZtcRowsForExcel,
+} from "@/flows/ztc-production/lib/ztc-excel-export";
+import {
+  getZtcRateTaskDisplayForRow,
+  ztcRowMatchesConfiguredWorkFilter,
+} from "@/flows/ztc-production/lib/ztc-rate-resolver";
 import {
   buildZtcQualityDisplayStateByRowId,
+  exportZtcPayrollToExcel,
+  exportZtcProductivityToExcel,
   formatZtcLaborNorm,
   formatZtcMoney,
   getZtcActivePauseStartedAt,
@@ -133,27 +126,40 @@ import {
   getZtcQualityRowToneClass,
   isZtcQualityRow,
   splitZtcWorkerDisplayName,
-  exportZtcPayrollToExcel,
-  exportZtcProductivityToExcel,
 } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
-import { applyZtcExcelNumberFormats, formatZtcRowsForExcel } from "@/flows/ztc-production/lib/ztc-excel-export";
-import { exportZtcElementsToExcel } from "@/flows/ztc-production/lib/ztc-element-export";
 import {
-  getZtcRateTaskDisplayForRow,
-  ztcRowMatchesConfiguredWorkFilter,
-} from "@/flows/ztc-production/lib/ztc-rate-resolver";
+  getSiteDiaryListMessages,
+  getToastMessages,
+  normalizeOrganizationLanguage,
+} from "@/lib/dashboard-i18n";
+import { cn } from "@/lib/utils/utils";
+import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
 import {
-  compareSiteDiaryWorks,
-  groupDefaultConstructionSiteDiaryWorks,
-  sortDefaultConstructionSiteDiaryWorks,
-} from "@/flows/default-construction/lib/site-diary-work-order";
-import { createDefaultConstructionRecordCostCalculator } from "@/flows/default-construction/lib/site-diary-productivity-settings";
-import { calculateDefaultConstructionManHours } from "@/flows/default-construction/lib/site-diary-summary";
+  copySiteDiaryRecordsToProject,
+  copySiteDiaryRecordToDate,
+  deleteSiteDiaryRecord,
+  getBisAvailableResponsiblePersons,
+  getBisCaseAvailableMaterials,
+  getBisCharacterMeasures,
+  getConfig,
+  getFilledDays,
+  getPossibleSiteDiaryBisApprovers,
+  getSiteDayWeather,
+  getSiteDiaryBisApprovalStatus,
+  getSiteDiaryMediaOnlyDays,
+  getSiteDiaryProjectCopyTargets,
+  getSiteDiaryRecordBisUrl,
+  getSiteDiaryRecordsPage,
+  getSitediaryRecordsBySiteIdForExcel,
+  getSiteGalleryAttachments,
+  sendSiteDiaryRecordToBis,
+  submitSiteDiaryRecordToBisApproval,
+  syncDeletedSiteDiaryBisRecords,
+} from "@/server/actions/site-diary-actions";
 
-import { toast } from "sonner";
-import { getSiteDiaryListMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
-
-const DialogWindow = React.lazy(() => import("@/components/sitediary/DialogWindow"));
+const DialogWindow = React.lazy(
+  () => import("@/components/sitediary/DialogWindow"),
+);
 const FullPhotoGallery = React.lazy(
   () => import("@/components/sitediary/FullGalleryView"),
 );
@@ -220,15 +226,23 @@ type DayGroup = {
   mediaSearchableText?: string;
 };
 
-type MediaOnlyDaySummary = Awaited<ReturnType<typeof getSiteDiaryMediaOnlyDays>>[number];
-type SiteDiaryProjectCopyTarget = Awaited<ReturnType<typeof getSiteDiaryProjectCopyTargets>>[number];
+type MediaOnlyDaySummary = Awaited<
+  ReturnType<typeof getSiteDiaryMediaOnlyDays>
+>[number];
+type SiteDiaryProjectCopyTarget = Awaited<
+  ReturnType<typeof getSiteDiaryProjectCopyTargets>
+>[number];
 
-type ZtcScopeSummary = NonNullable<Awaited<ReturnType<typeof getZtcScopeSummary>>>;
+type ZtcScopeSummary = NonNullable<
+  Awaited<ReturnType<typeof getZtcScopeSummary>>
+>;
 type ZtcFilterOptions = Awaited<ReturnType<typeof getZtcFilterOptions>>;
-type ExcelExportKind = "siteDiary" | "ztcElements" | "ztcPayroll" | "ztcProductivity";
+type ExcelExportKind =
+  "siteDiary" | "ztcElements" | "ztcPayroll" | "ztcProductivity";
 
 function withSelectedOption(options: string[], selected: string) {
-  if (!selected || selected === "__ALL__" || options.includes(selected)) return options;
+  if (!selected || selected === "__ALL__" || options.includes(selected))
+    return options;
   return [selected, ...options].sort(compareSiteDiaryWorks);
 }
 
@@ -273,20 +287,22 @@ function SiteDiaryListSkeleton({ label }: { label: string }) {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2 px-3 pb-3 sm:px-4">
-                {Array.from({ length: groupIndex === 0 ? 5 : 3 }).map((_, rowIndex) => (
-                  <div
-                    key={rowIndex}
-                    className="grid min-h-12 grid-cols-[28px_minmax(0,1.4fr)_minmax(0,1fr)_90px] items-center gap-3 rounded-md border px-3 py-2"
-                  >
-                    <Skeleton className="h-4 w-4 rounded-sm" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-[75%]" />
-                      <Skeleton className="h-3 w-[48%]" />
+                {Array.from({ length: groupIndex === 0 ? 5 : 3 }).map(
+                  (_, rowIndex) => (
+                    <div
+                      key={rowIndex}
+                      className="grid min-h-12 grid-cols-[28px_minmax(0,1.4fr)_minmax(0,1fr)_90px] items-center gap-3 rounded-md border px-3 py-2"
+                    >
+                      <Skeleton className="h-4 w-4 rounded-sm" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-[75%]" />
+                        <Skeleton className="h-3 w-[48%]" />
+                      </div>
+                      <Skeleton className="h-4 w-[70%]" />
+                      <Skeleton className="h-8 w-20 justify-self-end rounded-md" />
                     </div>
-                    <Skeleton className="h-4 w-[70%]" />
-                    <Skeleton className="h-8 w-20 justify-self-end rounded-md" />
-                  </div>
-                ))}
+                  ),
+                )}
               </CardContent>
             </Card>
           ))}
@@ -298,7 +314,11 @@ function SiteDiaryListSkeleton({ label }: { label: string }) {
 
 function SiteDiaryListUpdatingSkeleton({ label }: { label: string }) {
   return (
-    <div className="rounded-md border bg-background px-3 py-2 shadow-sm" role="status" aria-label={label}>
+    <div
+      className="rounded-md border bg-background px-3 py-2 shadow-sm"
+      role="status"
+      aria-label={label}
+    >
       <span className="sr-only">{label}</span>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-2">
@@ -365,7 +385,9 @@ function ZtcHoursWithPausePopover({
           </div>
           {activePauseStartedAt ? (
             <div className="rounded-md border bg-muted/30 p-2">
-              <div className="text-xs text-muted-foreground">Aktīva pauze no</div>
+              <div className="text-xs text-muted-foreground">
+                Aktīva pauze no
+              </div>
               <div className="font-medium">
                 {formatZtcPauseTime(activePauseStartedAt, dateLocale)}
               </div>
@@ -376,7 +398,8 @@ function ZtcHoursWithPausePopover({
               {intervals.map((interval, index) => {
                 const hours = Math.max(
                   0,
-                  (interval.end.getTime() - interval.start.getTime()) / 3_600_000,
+                  (interval.end.getTime() - interval.start.getTime()) /
+                    3_600_000,
                 );
                 return (
                   <div
@@ -432,7 +455,9 @@ function SearchableFilterSelect({
   const selectedLabel =
     value === "__ALL__"
       ? allLabel
-      : options.find((option) => option.value === value)?.label ?? value ?? placeholder;
+      : (options.find((option) => option.value === value)?.label ??
+        value ??
+        placeholder);
 
   return (
     <Popover
@@ -449,9 +474,17 @@ function SearchableFilterSelect({
           size="sm"
           role="combobox"
           aria-expanded={open}
-          className={cn("h-9 w-full justify-between text-left font-normal", className)}
+          className={cn(
+            "h-9 w-full justify-between text-left font-normal",
+            className,
+          )}
         >
-          <span className={cn("truncate", value === "__ALL__" && "text-muted-foreground")}>
+          <span
+            className={cn(
+              "truncate",
+              value === "__ALL__" && "text-muted-foreground",
+            )}
+          >
             {selectedLabel || placeholder}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -486,7 +519,9 @@ function SearchableFilterSelect({
               setOpen(false);
             }}
           >
-            <Check className={`mt-0.5 h-4 w-4 shrink-0 ${value === "__ALL__" ? "opacity-100" : "opacity-0"}`} />
+            <Check
+              className={`mt-0.5 h-4 w-4 shrink-0 ${value === "__ALL__" ? "opacity-100" : "opacity-0"}`}
+            />
             <span className="min-w-0 truncate">{allLabel}</span>
           </button>
           {filteredOptions.map((option) => (
@@ -499,8 +534,12 @@ function SearchableFilterSelect({
                 setOpen(false);
               }}
             >
-              <Check className={`mt-0.5 h-4 w-4 shrink-0 ${value === option.value ? "opacity-100" : "opacity-0"}`} />
-              <span className="min-w-0 whitespace-normal break-words">{option.label}</span>
+              <Check
+                className={`mt-0.5 h-4 w-4 shrink-0 ${value === option.value ? "opacity-100" : "opacity-0"}`}
+              />
+              <span className="min-w-0 whitespace-normal break-words">
+                {option.label}
+              </span>
             </button>
           ))}
           {filteredOptions.length === 0 ? (
@@ -627,15 +666,22 @@ export default function SiteDiaryCalendar({
   );
 
   // 👇 add "gallery" to view mode
-  const [viewMode, setViewMode] =
-    React.useState<"calendar" | "list" | "gallery">("list");
+  const [viewMode, setViewMode] = React.useState<
+    "calendar" | "list" | "gallery"
+  >("list");
 
   // Shared dialog for editing a day
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogDate, setDialogDate] = React.useState<Date | null>(null);
-  const [dialogInitialRows, setDialogInitialRows] = React.useState<DiaryRow[] | null>(null);
-  const [dialogRecordId, setDialogRecordId] = React.useState<string | null>(null);
-  const [dialogInitialTab, setDialogInitialTab] = React.useState<"records" | "media">("records");
+  const [dialogInitialRows, setDialogInitialRows] = React.useState<
+    DiaryRow[] | null
+  >(null);
+  const [dialogRecordId, setDialogRecordId] = React.useState<string | null>(
+    null,
+  );
+  const [dialogInitialTab, setDialogInitialTab] = React.useState<
+    "records" | "media"
+  >("records");
   const [optionsRevision, setOptionsRevision] = React.useState(0);
 
   // Photos dialog
@@ -646,7 +692,10 @@ export default function SiteDiaryCalendar({
   const [weatherLoading, setWeatherLoading] = React.useState(false);
   const [weatherError, setWeatherError] = React.useState<string | null>(null);
   const [weatherHours, setWeatherHours] = React.useState<WeatherHour[]>([]);
-  const [weatherLocation, setWeatherLocation] = React.useState<{ latitude: number; longitude: number } | null>(null);
+  const [weatherLocation, setWeatherLocation] = React.useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   // Calendar state
   const [currentMonth, setCurrentMonth] = React.useState(today.getMonth());
@@ -654,16 +703,22 @@ export default function SiteDiaryCalendar({
   const [calendarDate, setCalendarDate] = React.useState<Date | null>(null);
   const [filledDays, setFilledDays] = React.useState<number[]>([]);
   const weeks = getCalendarGrid(currentYear, currentMonth);
-  const monthName = new Date(currentYear, currentMonth).toLocaleString(dateLocale, {
-    month: "long",
-  });
+  const monthName = new Date(currentYear, currentMonth).toLocaleString(
+    dateLocale,
+    {
+      month: "long",
+    },
+  );
 
   // List view state
   const [rows, setRows] = React.useState<DiaryRow[]>([]);
-  const [mediaOnlyDays, setMediaOnlyDays] = React.useState<MediaOnlyDaySummary[]>([]);
+  const [mediaOnlyDays, setMediaOnlyDays] = React.useState<
+    MediaOnlyDaySummary[]
+  >([]);
   const [loading, setLoading] = React.useState(Boolean(siteId));
   const [hasLoadedRowsOnce, setHasLoadedRowsOnce] = React.useState(false);
-  const [showDelayedListSkeleton, setShowDelayedListSkeleton] = React.useState(false);
+  const [showDelayedListSkeleton, setShowDelayedListSkeleton] =
+    React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [dateFrom, setDateFrom] = React.useState<Date | null>(null);
   const [dateTo, setDateTo] = React.useState<Date | null>(null);
@@ -672,12 +727,13 @@ export default function SiteDiaryCalendar({
   const [elementFilter, setElementFilter] = React.useState<string>("__ALL__");
   const [workerFilter, setWorkerFilter] = React.useState<string>("__ALL__");
   const [keywordFilter, setKeywordFilter] = React.useState<string>("");
-  const [ztcFilterOptions, setZtcFilterOptions] = React.useState<ZtcFilterOptions>({
-    projects: [],
-    elements: [],
-    works: [],
-    workers: [],
-  });
+  const [ztcFilterOptions, setZtcFilterOptions] =
+    React.useState<ZtcFilterOptions>({
+      projects: [],
+      elements: [],
+      works: [],
+      workers: [],
+    });
   const [listPage, setListPage] = React.useState(1);
   const [listTotalCount, setListTotalCount] = React.useState(0);
   const [listTotalPages, setListTotalPages] = React.useState(1);
@@ -688,7 +744,8 @@ export default function SiteDiaryCalendar({
 
   //----------------------Table---------------------------------------------------
 
-  const [defaultMap, setMap] = React.useState<Record<string, any>>(defaultConfig);
+  const [defaultMap, setMap] =
+    React.useState<Record<string, any>>(defaultConfig);
   const calculateDefaultConstructionRecordCost = React.useMemo(
     () => createDefaultConstructionRecordCostCalculator(defaultMap),
     [defaultMap],
@@ -723,8 +780,13 @@ export default function SiteDiaryCalendar({
 
   type ConfigMap = Record<string, any>;
 
-  function shouldDisplayZeroAsDashes(key: string) {
-    return key === "Amounts" || key === "WorkersInvolved" || key === "TimeInvolved";
+  function shouldDisplayZeroAsDashes(key: string, config?: ConfigMap) {
+    return (
+      key === "Amounts" ||
+      key === "WorkersInvolved" ||
+      key === "TimeInvolved" ||
+      isDefaultConstructionActualQuantityField(config, key)
+    );
   }
 
   function isNumericZero(value: unknown) {
@@ -739,12 +801,25 @@ export default function SiteDiaryCalendar({
     return Number.isFinite(numericValue) && numericValue === 0;
   }
 
-  function formatZeroDisplayValue(key: string, value: unknown) {
-    return shouldDisplayZeroAsDashes(key) && isNumericZero(value) ? "—" : null;
+  function formatZeroDisplayValue(
+    key: string,
+    value: unknown,
+    config?: ConfigMap,
+  ) {
+    return shouldDisplayZeroAsDashes(key, config) && isNumericZero(value)
+      ? "—"
+      : null;
   }
 
-  function formatSiteDiaryDisplayValue(key: string, value: unknown, config: ConfigMap): string {
-    return formatZeroDisplayValue(key, value) ?? formatValueByConfig(key, value, config);
+  function formatSiteDiaryDisplayValue(
+    key: string,
+    value: unknown,
+    config: ConfigMap,
+  ): string {
+    return (
+      formatZeroDisplayValue(key, value, config) ??
+      formatValueByConfig(key, value, config)
+    );
   }
 
   function formatSiteDiaryCompactMetric(key: string, value: unknown): string {
@@ -752,13 +827,20 @@ export default function SiteDiaryCalendar({
     return formatZeroDisplayValue(key, value) ?? String(value);
   }
 
-  function formatSiteDiaryCompactHours(value: unknown, options?: { withUnit?: boolean }): string {
+  function formatSiteDiaryCompactHours(
+    value: unknown,
+    options?: { withUnit?: boolean },
+  ): string {
     const formatted = formatSiteDiaryCompactMetric("TimeInvolved", value);
     if (!options?.withUnit || formatted === "—") return formatted;
     return `${formatted} st`;
   }
 
-  function formatValueByConfig(key: string, value: any, config: ConfigMap): string {
+  function formatValueByConfig(
+    key: string,
+    value: any,
+    config: ConfigMap,
+  ): string {
     if (value === null || value === undefined || value === "") {
       return "";
     }
@@ -815,25 +897,35 @@ export default function SiteDiaryCalendar({
 
   function getDisplayNameByKey(key) {
     if (
+      defaultMap[key]?.customSettings?.forceDisplayName === true &&
+      defaultMap[key]?.DisplayName
+    ) {
+      return defaultMap[key].DisplayName;
+    }
+
+    if (
       defaultMap?.otherSettings?.preferConfigDisplayNames === true &&
       defaultMap[key]?.DisplayName
     ) {
       return defaultMap[key].DisplayName;
     }
 
-    if (Object.prototype.hasOwnProperty.call(localizedHeaderMap, key)) return localizedHeaderMap[key as keyof typeof localizedHeaderMap];
+    if (Object.hasOwn(localizedHeaderMap, key))
+      return localizedHeaderMap[key as keyof typeof localizedHeaderMap];
     return defaultMap[key]?.DisplayName ?? key;
   }
 
-
-  const localizedHeaderMap = language === "lv" ? {
-    Works: "Darbi",
-    Location: "Lokācija",
-    Comments: "Komentāri",
-    NumberOfWorkers: "Darbinieku skaits",
-    Hours: "Stundas",
-    CreatedBy: "Izveidoja",
-  } : {};
+  const localizedHeaderMap =
+    language === "lv"
+      ? {
+          Works: "Darbi",
+          Location: "Lokācija",
+          Comments: "Komentāri",
+          NumberOfWorkers: "Darbinieku skaits",
+          Hours: "Stundas",
+          CreatedBy: "Izveidoja",
+        }
+      : {};
 
   function getCellWidthByKey(
     key: string,
@@ -856,49 +948,82 @@ export default function SiteDiaryCalendar({
 
   // PDF loading per day (key = yyyy-mm-dd)
   const [pdfLoadingKey, setPdfLoadingKey] = React.useState<string | null>(null);
-  const [bisSendingRowId, setBisSendingRowId] = React.useState<string | null>(null);
+  const [bisSendingRowId, setBisSendingRowId] = React.useState<string | null>(
+    null,
+  );
 
-  const [bisSentRowIds, setBisSentRowIds] = React.useState<Set<string>>(new Set());
+  const [bisSentRowIds, setBisSentRowIds] = React.useState<Set<string>>(
+    new Set(),
+  );
   const [bisPickerOpen, setBisPickerOpen] = React.useState(false);
-  const [selectedRowForBis, setSelectedRowForBis] = React.useState<DiaryRow | null>(null);
-  const [bisMaterialOptions, setBisMaterialOptions] = React.useState<BisMaterialOption[]>([]);
-  const [galleryAttachmentOptions, setGalleryAttachmentOptions] = React.useState<GalleryAttachmentOption[]>([]);
-  const [selectedAttachmentUrls, setSelectedAttachmentUrls] = React.useState<string[]>([]);
+  const [selectedRowForBis, setSelectedRowForBis] =
+    React.useState<DiaryRow | null>(null);
+  const [bisMaterialOptions, setBisMaterialOptions] = React.useState<
+    BisMaterialOption[]
+  >([]);
+  const [galleryAttachmentOptions, setGalleryAttachmentOptions] =
+    React.useState<GalleryAttachmentOption[]>([]);
+  const [selectedAttachmentUrls, setSelectedAttachmentUrls] = React.useState<
+    string[]
+  >([]);
   const materialQuantitiesRef = React.useRef<Record<string, string>>({});
   const [bisPickerLoading, setBisPickerLoading] = React.useState(false);
-  const [attachmentGalleryOpen, setAttachmentGalleryOpen] = React.useState(false);
+  const [attachmentGalleryOpen, setAttachmentGalleryOpen] =
+    React.useState(false);
   const [approverDialogOpen, setApproverDialogOpen] = React.useState(false);
   const [approvalLoading, setApprovalLoading] = React.useState(false);
-  const [approverOptions, setApproverOptions] = React.useState<BisApprover[]>([]);
-  const [selectedApproverKeys, setSelectedApproverKeys] = React.useState<string[]>([]);
+  const [approverOptions, setApproverOptions] = React.useState<BisApprover[]>(
+    [],
+  );
+  const [selectedApproverKeys, setSelectedApproverKeys] = React.useState<
+    string[]
+  >([]);
   const [approvalRow, setApprovalRow] = React.useState<DiaryRow | null>(null);
-  const [bisApprovalStatusByRowId, setBisApprovalStatusByRowId] = React.useState<Record<string, string>>({});
+  const [bisApprovalStatusByRowId, setBisApprovalStatusByRowId] =
+    React.useState<Record<string, string>>({});
   const [copyDialogOpen, setCopyDialogOpen] = React.useState(false);
-  const [copyTargetRow, setCopyTargetRow] = React.useState<DiaryRow | null>(null);
+  const [copyTargetRow, setCopyTargetRow] = React.useState<DiaryRow | null>(
+    null,
+  );
   const [copyTargetDate, setCopyTargetDate] = React.useState<Date | null>(null);
   const [copyLoading, setCopyLoading] = React.useState(false);
   const [bisSubmitDate, setBisSubmitDate] = React.useState<Date | null>(null);
   const [bisMultipleDayJob, setBisMultipleDayJob] = React.useState(false);
-  const [bisSubmitDateTo, setBisSubmitDateTo] = React.useState<Date | null>(null);
+  const [bisSubmitDateTo, setBisSubmitDateTo] = React.useState<Date | null>(
+    null,
+  );
   const bisSubmitWorksRef = React.useRef("");
   const [bisSubmitAmount, setBisSubmitAmount] = React.useState<string>("1");
   const [bisInputResetKey, setBisInputResetKey] = React.useState(0);
-  const [bisSubmitMeasurement, setBisSubmitMeasurement] = React.useState<string>("12");
-  const [bisMeasurementOptions, setBisMeasurementOptions] = React.useState<Array<{ id: string; name: string }>>([]);
-  const [bisResponsiblePersonOptions, setBisResponsiblePersonOptions] = React.useState<BisResponsiblePersonOption[]>([]);
-  const [selectedBisResponsiblePersonKey, setSelectedBisResponsiblePersonKey] = React.useState<string>("");
-  const [recordsRefreshLoading, setRecordsRefreshLoading] = React.useState(false);
+  const [bisSubmitMeasurement, setBisSubmitMeasurement] =
+    React.useState<string>("12");
+  const [bisMeasurementOptions, setBisMeasurementOptions] = React.useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [bisResponsiblePersonOptions, setBisResponsiblePersonOptions] =
+    React.useState<BisResponsiblePersonOption[]>([]);
+  const [selectedBisResponsiblePersonKey, setSelectedBisResponsiblePersonKey] =
+    React.useState<string>("");
+  const [recordsRefreshLoading, setRecordsRefreshLoading] =
+    React.useState(false);
   const [bisSyncLoading, setBisSyncLoading] = React.useState(false);
   const [galleryAttachmentPage, setGalleryAttachmentPage] = React.useState(1);
   const [showBisUi, setShowBisUi] = React.useState(true);
-  const [selectedRecordIds, setSelectedRecordIds] = React.useState<Set<string>>(new Set());
+  const [selectedRecordIds, setSelectedRecordIds] = React.useState<Set<string>>(
+    new Set(),
+  );
   const [bulkDeleteLoading, setBulkDeleteLoading] = React.useState(false);
-  const [projectCopyTargets, setProjectCopyTargets] = React.useState<SiteDiaryProjectCopyTarget[]>([]);
-  const [projectCopyDialogOpen, setProjectCopyDialogOpen] = React.useState(false);
+  const [projectCopyTargets, setProjectCopyTargets] = React.useState<
+    SiteDiaryProjectCopyTarget[]
+  >([]);
+  const [projectCopyDialogOpen, setProjectCopyDialogOpen] =
+    React.useState(false);
   const [projectCopyTargetId, setProjectCopyTargetId] = React.useState("");
   const [projectCopyLoading, setProjectCopyLoading] = React.useState(false);
-  const [projectCopyTargetsLoading, setProjectCopyTargetsLoading] = React.useState(false);
-  const [excelExportLoading, setExcelExportLoading] = React.useState<ExcelExportKind | null>(null);
+  const [projectCopyTargetsLoading, setProjectCopyTargetsLoading] =
+    React.useState(false);
+  const [excelExportLoading, setExcelExportLoading] =
+    React.useState<ExcelExportKind | null>(null);
   const bisUiEnabled = bisEnabled && showBisUi;
   const isZtcSite = isZtcFlow;
   const siteDiaryFlowId = isZtcSite ? "ztc" : "default";
@@ -918,14 +1043,18 @@ export default function SiteDiaryCalendar({
         if (cancelled) return;
         setProjectCopyTargets(targets);
         setProjectCopyTargetId((current) =>
-          current && targets.some((target) => target.id === current) ? current : "",
+          current && targets.some((target) => target.id === current)
+            ? current
+            : "",
         );
       })
       .catch((error: any) => {
         if (cancelled) return;
         setProjectCopyTargets([]);
         setProjectCopyTargetId("");
-        toast.error(error?.message ?? toastMessages.failedLoadProjectCopyTargets);
+        toast.error(
+          error?.message ?? toastMessages.failedLoadProjectCopyTargets,
+        );
       })
       .finally(() => {
         if (!cancelled) {
@@ -945,10 +1074,7 @@ export default function SiteDiaryCalendar({
   ]);
 
   const ztcQualityDisplayStateByRowId = React.useMemo(
-    () =>
-      isZtcSite
-        ? buildZtcQualityDisplayStateByRowId(rows)
-        : new Map(),
+    () => (isZtcSite ? buildZtcQualityDisplayStateByRowId(rows) : new Map()),
     [isZtcSite, rows],
   );
   const ztcDatePickerProps = React.useMemo(() => {
@@ -1005,12 +1131,9 @@ export default function SiteDiaryCalendar({
     },
     [ztc.defaultRates],
   );
-  const handleZtcWorkerFilterChange = React.useCallback(
-    (value: string) => {
-      setWorkerFilter(value);
-    },
-    [],
-  );
+  const handleZtcWorkerFilterChange = React.useCallback((value: string) => {
+    setWorkerFilter(value);
+  }, []);
   const openZtcWorkerDetails = React.useCallback(
     (workerName: string | null | undefined) => {
       const normalizedWorker = String(workerName ?? "").trim();
@@ -1026,84 +1149,101 @@ export default function SiteDiaryCalendar({
       setFilledDays([]);
       return;
     }
-    getFilledDays({ siteId, year: currentYear, month: currentMonth, flowId: siteDiaryFlowId }).then(
-      setFilledDays,
-    );
+    getFilledDays({
+      siteId,
+      year: currentYear,
+      month: currentMonth,
+      flowId: siteDiaryFlowId,
+    }).then(setFilledDays);
   }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode]);
 
-  const refreshRowsWithBisSync = React.useCallback(async (options?: { skipSync?: boolean }) => {
-    if (!siteId) {
-      setMediaOnlyDays([]);
-      return [];
-    }
-    if (bisUiEnabled && !options?.skipSync) {
-      await syncDeletedSiteDiaryBisRecords(siteId);
-    }
-    const commonOptions = {
-      flowId: siteDiaryFlowId,
-      dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
-      dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
-      workFilter,
-      floorFilter,
-      elementFilter: isZtcSite ? elementFilter : undefined,
-      workerFilter: isZtcSite ? workerFilter : undefined,
-      keyword: keywordFilter,
-    };
-    const canShowMediaOnlyDays =
-      workFilter === "__ALL__" &&
-      (!isZtcSite || elementFilter === "__ALL__") &&
-      (!isZtcSite || workerFilter === "__ALL__") &&
-      (!isZtcSite || floorFilter === "__ALL__");
-    const result = await getSiteDiaryRecordsPage(siteId, {
-      ...commonOptions,
-      page: listPage,
-      pageSize: SITE_DIARY_LIST_PAGE_SIZE,
-    });
-    const data: DiaryRow[] = result.rows || [];
-    setRows(data || []);
-    setListTotalCount(result.totalCount ?? 0);
-    setListTotalPages(result.totalPages ?? 1);
-    setBisApprovalStatusByRowId(
-      Object.fromEntries(
-        (data || [])
-          .filter((row) => row.id)
-          .map((row) => [row.id as string, row.bisStatus ?? ""]),
-      ),
-    );
+  const refreshRowsWithBisSync = React.useCallback(
+    async (options?: { skipSync?: boolean }) => {
+      if (!siteId) {
+        setMediaOnlyDays([]);
+        return [];
+      }
+      if (bisUiEnabled && !options?.skipSync) {
+        await syncDeletedSiteDiaryBisRecords(siteId);
+      }
+      const commonOptions = {
+        flowId: siteDiaryFlowId,
+        dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
+        dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
+        workFilter,
+        floorFilter,
+        elementFilter: isZtcSite ? elementFilter : undefined,
+        workerFilter: isZtcSite ? workerFilter : undefined,
+        keyword: keywordFilter,
+      };
+      const canShowMediaOnlyDays =
+        workFilter === "__ALL__" &&
+        (!isZtcSite || elementFilter === "__ALL__") &&
+        (!isZtcSite || workerFilter === "__ALL__") &&
+        (!isZtcSite || floorFilter === "__ALL__");
+      const result = await getSiteDiaryRecordsPage(siteId, {
+        ...commonOptions,
+        page: listPage,
+        pageSize: SITE_DIARY_LIST_PAGE_SIZE,
+      });
+      const data: DiaryRow[] = result.rows || [];
+      setRows(data || []);
+      setListTotalCount(result.totalCount ?? 0);
+      setListTotalPages(result.totalPages ?? 1);
+      setBisApprovalStatusByRowId(
+        Object.fromEntries(
+          (data || [])
+            .filter((row) => row.id)
+            .map((row) => [row.id as string, row.bisStatus ?? ""]),
+        ),
+      );
 
-    const mediaRequestId = ++mediaOnlyRequestRef.current;
-    if (!canShowMediaOnlyDays) {
-      setMediaOnlyDays([]);
-    } else {
-      void getSiteDiaryMediaOnlyDays(siteId, commonOptions)
-        .then((mediaOnlyResult) => {
-          if (mediaOnlyRequestRef.current === mediaRequestId) {
-            setMediaOnlyDays(mediaOnlyResult);
-          }
-        })
-        .catch((mediaError) => {
-          console.warn("[site-diary] deferred media summary failed", mediaError);
-        });
-    }
-    return data;
-  }, [
-    bisUiEnabled,
-    dateFrom,
-    dateTo,
-    elementFilter,
-    floorFilter,
-    isZtcSite,
-    keywordFilter,
-    listPage,
-    siteDiaryFlowId,
-    siteId,
-    workFilter,
-    workerFilter,
-  ]);
+      const mediaRequestId = ++mediaOnlyRequestRef.current;
+      if (!canShowMediaOnlyDays) {
+        setMediaOnlyDays([]);
+      } else {
+        void getSiteDiaryMediaOnlyDays(siteId, commonOptions)
+          .then((mediaOnlyResult) => {
+            if (mediaOnlyRequestRef.current === mediaRequestId) {
+              setMediaOnlyDays(mediaOnlyResult);
+            }
+          })
+          .catch((mediaError) => {
+            console.warn(
+              "[site-diary] deferred media summary failed",
+              mediaError,
+            );
+          });
+      }
+      return data;
+    },
+    [
+      bisUiEnabled,
+      dateFrom,
+      dateTo,
+      elementFilter,
+      floorFilter,
+      isZtcSite,
+      keywordFilter,
+      listPage,
+      siteDiaryFlowId,
+      siteId,
+      workFilter,
+      workerFilter,
+    ],
+  );
 
   React.useEffect(() => {
     setListPage(1);
-  }, [dateFrom, dateTo, workFilter, floorFilter, elementFilter, workerFilter, keywordFilter]);
+  }, [
+    dateFrom,
+    dateTo,
+    workFilter,
+    floorFilter,
+    elementFilter,
+    workerFilter,
+    keywordFilter,
+  ]);
 
   React.useEffect(() => {
     setHasLoadedRowsOnce(false);
@@ -1168,7 +1308,9 @@ export default function SiteDiaryCalendar({
       setLoading(true);
       setError(null);
       try {
-        function getRenderableFieldsOrdered(map: Record<string, any>): string[] {
+        function getRenderableFieldsOrdered(
+          map: Record<string, any>,
+        ): string[] {
           return Object.entries(map)
             .filter(([_, cfg]) => {
               return cfg?.customSettings?.displayinSiteList === "yes";
@@ -1195,7 +1337,7 @@ export default function SiteDiaryCalendar({
           getConfig(siteId, { flowId: siteDiaryFlowId }),
           refreshRowsWithBisSync({ skipSync: true }),
         ]);
-        const cfg = ((loadedConfig ?? defaultConfig) as ConfigMap);
+        const cfg = (loadedConfig ?? defaultConfig) as ConfigMap;
         if (cancelled) return;
 
         const screenWidth = cfg?.otherSettings?.displaySiteListWidth ?? 140;
@@ -1242,7 +1384,10 @@ export default function SiteDiaryCalendar({
               await refreshRowsWithBisSync({ skipSync: true });
             })
             .catch((syncError) => {
-              console.warn("[site-diary] deferred BIS cleanup failed", syncError);
+              console.warn(
+                "[site-diary] deferred BIS cleanup failed",
+                syncError,
+              );
             });
         }
       } catch (e: any) {
@@ -1266,7 +1411,12 @@ export default function SiteDiaryCalendar({
 
   React.useEffect(() => {
     if (!isZtcSite || !siteId) {
-      setZtcFilterOptions({ projects: [], elements: [], works: [], workers: [] });
+      setZtcFilterOptions({
+        projects: [],
+        elements: [],
+        works: [],
+        workers: [],
+      });
       return;
     }
 
@@ -1330,10 +1480,7 @@ export default function SiteDiaryCalendar({
   }, [rows, isZtcSite, floorFilter, elementFilter]);
 
   const worksOptions = React.useMemo(
-    () =>
-      isZtcSite
-        ? ztcFilterOptions.works
-        : pageWorksOptions,
+    () => (isZtcSite ? ztcFilterOptions.works : pageWorksOptions),
     [isZtcSite, pageWorksOptions, ztcFilterOptions.works],
   );
   const groupedWorksOptions = React.useMemo(
@@ -1439,14 +1586,16 @@ export default function SiteDiaryCalendar({
       if (
         workFilter !== "__ALL__" &&
         !ztcRowMatchesConfiguredWorkFilter(r, workFilter, ztc.defaultRates)
-      ) return false;
+      )
+        return false;
 
       if (floorFilter !== "__ALL__") {
         if (!r.Location || r.Location !== floorFilter) return false;
       }
 
       if (isZtcSite && elementFilter !== "__ALL__") {
-        if (!r.Location_Custom_1 || r.Location_Custom_1 !== elementFilter) return false;
+        if (!r.Location_Custom_1 || r.Location_Custom_1 !== elementFilter)
+          return false;
       }
 
       if (isZtcSite && workerFilter !== "__ALL__") {
@@ -1496,7 +1645,8 @@ export default function SiteDiaryCalendar({
           };
           const dateDiff = ztcTime(b.Date) - ztcTime(a.Date);
           if (dateDiff !== 0) return dateDiff;
-          const customDateDiff = ztcTime(b.Date_Custom_1) - ztcTime(a.Date_Custom_1);
+          const customDateDiff =
+            ztcTime(b.Date_Custom_1) - ztcTime(a.Date_Custom_1);
           if (customDateDiff !== 0) return customDateDiff;
           const createdDiff = ztcTime(b.createdAt) - ztcTime(a.createdAt);
           if (createdDiff !== 0) return createdDiff;
@@ -1513,7 +1663,9 @@ export default function SiteDiaryCalendar({
         return timeB - timeA;
       });
     });
-    return Object.values(res).sort((a, b) => b.date.getTime() - a.date.getTime());
+    return Object.values(res).sort(
+      (a, b) => b.date.getTime() - a.date.getTime(),
+    );
   }, [filteredRows, isZtcSite, mediaOnlyDays]);
 
   const mediaOnlyDayGroups: DayGroup[] = React.useMemo(
@@ -1556,12 +1708,16 @@ export default function SiteDiaryCalendar({
   }, [dayGroups, keywordFilter, mediaOnlyDayGroups]);
 
   const showInitialListSkeleton = loading && !hasLoadedRowsOnce && !error;
-  const showUpdatingListSkeleton = loading && hasLoadedRowsOnce && showDelayedListSkeleton && !error;
+  const showUpdatingListSkeleton =
+    loading && hasLoadedRowsOnce && showDelayedListSkeleton && !error;
 
   const [ztcSelectedScopeSummary, setZtcSelectedScopeSummary] =
     React.useState<ZtcScopeSummary | null>(null);
-  const [ztcScopeSummaryLoading, setZtcScopeSummaryLoading] = React.useState(false);
-  const [ztcScopeSummaryError, setZtcScopeSummaryError] = React.useState<string | null>(null);
+  const [ztcScopeSummaryLoading, setZtcScopeSummaryLoading] =
+    React.useState(false);
+  const [ztcScopeSummaryError, setZtcScopeSummaryError] = React.useState<
+    string | null
+  >(null);
 
   React.useEffect(() => {
     const workerName = workerFilter !== "__ALL__" ? workerFilter : null;
@@ -1601,7 +1757,9 @@ export default function SiteDiaryCalendar({
       .catch((error: any) => {
         if (cancelled) return;
         setZtcSelectedScopeSummary(null);
-        setZtcScopeSummaryError(error?.message ?? "Neizdevās ielādēt kopsavilkumu.");
+        setZtcScopeSummaryError(
+          error?.message ?? "Neizdevās ielādēt kopsavilkumu.",
+        );
       })
       .finally(() => {
         if (!cancelled) {
@@ -1641,10 +1799,13 @@ export default function SiteDiaryCalendar({
   );
 
   const allVisibleSelected =
-    visibleRecordIds.length > 0 && selectedVisibleCount === visibleRecordIds.length;
+    visibleRecordIds.length > 0 &&
+    selectedVisibleCount === visibleRecordIds.length;
 
   React.useEffect(() => {
-    const knownIds = new Set(rows.map((row) => row.id).filter((id): id is string => Boolean(id)));
+    const knownIds = new Set(
+      rows.map((row) => row.id).filter((id): id is string => Boolean(id)),
+    );
     setSelectedRecordIds((prev) => {
       let changed = false;
       const next = new Set<string>();
@@ -1731,7 +1892,9 @@ export default function SiteDiaryCalendar({
           deleteSiteDiaryRecord({ id, siteId, flowId: siteDiaryFlowId }),
         ),
       );
-      const deletedIds = recordIds.filter((_, index) => results[index].status === "fulfilled");
+      const deletedIds = recordIds.filter(
+        (_, index) => results[index].status === "fulfilled",
+      );
       const failedCount = results.length - deletedIds.length;
 
       if (deletedIds.length > 0) {
@@ -1753,7 +1916,9 @@ export default function SiteDiaryCalendar({
       if (deletedIds.length > 0 && failedCount === 0) {
         toast.success(toastMessages.deletedRecords(deletedIds.length));
       } else if (deletedIds.length > 0) {
-        toast.warning(toastMessages.deletedRecordsPartial(deletedIds.length, failedCount));
+        toast.warning(
+          toastMessages.deletedRecordsPartial(deletedIds.length, failedCount),
+        );
       } else {
         toast.error(toastMessages.failedDeleteSelectedRecords);
       }
@@ -1778,7 +1943,9 @@ export default function SiteDiaryCalendar({
       return;
     }
 
-    const target = projectCopyTargets.find((project) => project.id === projectCopyTargetId);
+    const target = projectCopyTargets.find(
+      (project) => project.id === projectCopyTargetId,
+    );
     if (!target) {
       toast.error(toastMessages.selectProjectCopyTarget);
       return;
@@ -1799,7 +1966,9 @@ export default function SiteDiaryCalendar({
         recordIds.forEach((id) => next.delete(id));
         return next;
       });
-      toast.success(toastMessages.recordsCopiedToProject(result.count, target.name));
+      toast.success(
+        toastMessages.recordsCopiedToProject(result.count, target.name),
+      );
       setProjectCopyDialogOpen(false);
     } catch (e: any) {
       toast.error(e?.message ?? toastMessages.failedCopyRecordsToProject);
@@ -1827,7 +1996,7 @@ export default function SiteDiaryCalendar({
 
   const loadAllFilteredRowsForExport = React.useCallback(async () => {
     if (!siteId) return [];
-    const allRows = await getSitediaryRecordsBySiteIdForExcel(siteId, {
+    const allRows = (await getSitediaryRecordsBySiteIdForExcel(siteId, {
       flowId: siteDiaryFlowId,
       dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
       dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
@@ -1836,16 +2005,28 @@ export default function SiteDiaryCalendar({
       elementFilter: isZtcSite ? elementFilter : undefined,
       workerFilter: isZtcSite ? workerFilter : undefined,
       keyword: keywordFilter || undefined,
-    }) as DiaryRow[];
+    })) as DiaryRow[];
     const normalizedKeyword = keywordFilter.trim().toLowerCase();
     return allRows.filter((row) => {
       if (
         workFilter !== "__ALL__" &&
         !ztcRowMatchesConfiguredWorkFilter(row, workFilter, ztc.defaultRates)
-      ) return false;
-      if (floorFilter !== "__ALL__" && row.Location !== floorFilter) return false;
-      if (isZtcSite && elementFilter !== "__ALL__" && row.Location_Custom_1 !== elementFilter) return false;
-      if (isZtcSite && workerFilter !== "__ALL__" && row.createdBy !== workerFilter) return false;
+      )
+        return false;
+      if (floorFilter !== "__ALL__" && row.Location !== floorFilter)
+        return false;
+      if (
+        isZtcSite &&
+        elementFilter !== "__ALL__" &&
+        row.Location_Custom_1 !== elementFilter
+      )
+        return false;
+      if (
+        isZtcSite &&
+        workerFilter !== "__ALL__" &&
+        row.createdBy !== workerFilter
+      )
+        return false;
       if (!normalizedKeyword) return true;
       return getDiaryRowSearchableText(row).includes(normalizedKeyword);
     });
@@ -1884,10 +2065,17 @@ export default function SiteDiaryCalendar({
     await runExcelExport("siteDiary", async () => {
       const XLSX = await import("xlsx");
       const exportFilteredRows = await loadAllFilteredRowsForExport();
-      const ztcDefaultRates = isZtcSite && siteId ? await getZtcDefaultTaskRates(siteId) : [];
+      const ztcDefaultRates =
+        isZtcSite && siteId ? await getZtcDefaultTaskRates(siteId) : [];
       const exportRows = isZtcSite
-        ? formatZtcRowsForExcel(exportFilteredRows, { defaultRates: ztcDefaultRates })
-        : exportFilteredRows;
+        ? formatZtcRowsForExcel(exportFilteredRows, {
+            defaultRates: ztcDefaultRates,
+          })
+        : formatDefaultConstructionQuantityRowsForExcel(
+            exportFilteredRows,
+            defaultMap,
+            language,
+          );
       const worksheet = XLSX.utils.json_to_sheet(exportRows);
       if (isZtcSite) {
         applyZtcExcelNumberFormats(XLSX, worksheet);
@@ -1907,13 +2095,17 @@ export default function SiteDiaryCalendar({
 
   const exportZtcPayroll = async () => {
     await runExcelExport("ztcPayroll", async () => {
-      await exportZtcPayrollToExcel({ rows: await loadAllFilteredRowsForExport() });
+      await exportZtcPayrollToExcel({
+        rows: await loadAllFilteredRowsForExport(),
+      });
     });
   };
 
   const exportZtcElements = async () => {
     await runExcelExport("ztcElements", async () => {
-      await exportZtcElementsToExcel({ rows: await loadAllFilteredRowsForExport() });
+      await exportZtcElementsToExcel({
+        rows: await loadAllFilteredRowsForExport(),
+      });
     });
   };
 
@@ -1921,13 +2113,17 @@ export default function SiteDiaryCalendar({
     const dateKey = toLocalDateKey(date);
     const cachedRows = rows.filter((row) => {
       const rowDate = new Date(row.Date);
-      return !Number.isNaN(rowDate.getTime()) && toLocalDateKey(rowDate) === dateKey;
+      return (
+        !Number.isNaN(rowDate.getTime()) && toLocalDateKey(rowDate) === dateKey
+      );
     });
     const hasMediaOnlyDay = mediaOnlyDays.some((day) => day.key === dateKey);
 
     setDialogInitialRows(cachedRows.length ? cachedRows : null);
     setDialogRecordId(null);
-    setDialogInitialTab(!cachedRows.length && hasMediaOnlyDay ? "media" : "records");
+    setDialogInitialTab(
+      !cachedRows.length && hasMediaOnlyDay ? "media" : "records",
+    );
     setDialogDate(date);
     setCalendarDate(date);
     setDialogOpen(true);
@@ -1981,7 +2177,8 @@ export default function SiteDiaryCalendar({
     });
 
   const renderListPagination = () => {
-    if (listTotalPages <= 1 && listTotalCount <= SITE_DIARY_LIST_PAGE_SIZE) return null;
+    if (listTotalPages <= 1 && listTotalCount <= SITE_DIARY_LIST_PAGE_SIZE)
+      return null;
     const pageWindow = 2;
     const startPage = Math.max(1, listPage - pageWindow);
     const endPage = Math.min(listTotalPages, listPage + pageWindow);
@@ -1989,15 +2186,22 @@ export default function SiteDiaryCalendar({
       { length: endPage - startPage + 1 },
       (_, index) => startPage + index,
     );
-    const firstRecord = listTotalCount === 0 ? 0 : (listPage - 1) * SITE_DIARY_LIST_PAGE_SIZE + 1;
-    const lastRecord = Math.min(listTotalCount, listPage * SITE_DIARY_LIST_PAGE_SIZE);
+    const firstRecord =
+      listTotalCount === 0 ? 0 : (listPage - 1) * SITE_DIARY_LIST_PAGE_SIZE + 1;
+    const lastRecord = Math.min(
+      listTotalCount,
+      listPage * SITE_DIARY_LIST_PAGE_SIZE,
+    );
 
     return (
       <div className="flex flex-col gap-2 rounded-md border bg-background px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="text-xs text-muted-foreground sm:text-sm">
           {t.listPaginationSummary(firstRecord, lastRecord, listTotalCount)}
         </div>
-        <Pagination aria-label={t.recordsPagination} className="mx-0 w-auto justify-start sm:justify-end">
+        <Pagination
+          aria-label={t.recordsPagination}
+          className="mx-0 w-auto justify-start sm:justify-end"
+        >
           <PaginationContent>
             <PaginationItem>
               <PaginationLink
@@ -2007,7 +2211,8 @@ export default function SiteDiaryCalendar({
                 aria-disabled={listPage <= 1 || loading}
                 className={cn(
                   "gap-1 px-2.5 sm:pl-2.5",
-                  (listPage <= 1 || loading) && "pointer-events-none opacity-50",
+                  (listPage <= 1 || loading) &&
+                    "pointer-events-none opacity-50",
                 )}
                 onClick={(event) => {
                   event.preventDefault();
@@ -2067,7 +2272,8 @@ export default function SiteDiaryCalendar({
                 aria-disabled={listPage >= listTotalPages || loading}
                 className={cn(
                   "gap-1 px-2.5 sm:pr-2.5",
-                  (listPage >= listTotalPages || loading) && "pointer-events-none opacity-50",
+                  (listPage >= listTotalPages || loading) &&
+                    "pointer-events-none opacity-50",
                 )}
                 onClick={(event) => {
                   event.preventDefault();
@@ -2086,7 +2292,6 @@ export default function SiteDiaryCalendar({
   };
 
   // Call server action and download PDF
-
 
   const openBisPicker = async (row: DiaryRow) => {
     if (!bisUiEnabled) {
@@ -2114,21 +2319,25 @@ export default function SiteDiaryCalendar({
     setBisPickerLoading(true);
 
     try {
-      const [materials, attachments, measurements, responsiblePeople] = await Promise.all([
-        getBisCaseAvailableMaterials(siteId),
-        getSiteGalleryAttachments(siteId),
-        getBisCharacterMeasures(siteId),
-        getBisAvailableResponsiblePersons(siteId),
-      ]);
+      const [materials, attachments, measurements, responsiblePeople] =
+        await Promise.all([
+          getBisCaseAvailableMaterials(siteId),
+          getSiteGalleryAttachments(siteId),
+          getBisCharacterMeasures(siteId),
+          getBisAvailableResponsiblePersons(siteId),
+        ]);
 
       const materialOptions = materials.filter(
-        (material): material is NonNullable<(typeof materials)[number]> => material !== null,
+        (material): material is NonNullable<(typeof materials)[number]> =>
+          material !== null,
       );
       setBisMaterialOptions(materialOptions);
       setGalleryAttachmentOptions(attachments);
       setGalleryAttachmentPage(1);
       setSelectedAttachmentUrls([]);
-      materialQuantitiesRef.current = Object.fromEntries(materialOptions.map((material) => [material.id, ""]));
+      materialQuantitiesRef.current = Object.fromEntries(
+        materialOptions.map((material) => [material.id, ""]),
+      );
       setBisMeasurementOptions(measurements);
       setBisResponsiblePersonOptions(responsiblePeople);
       const defaultResponsible = responsiblePeople[0];
@@ -2138,7 +2347,9 @@ export default function SiteDiaryCalendar({
           : "",
       );
       if (measurements.length > 0) {
-        const current = measurements.find((item) => item.id === bisSubmitMeasurement);
+        const current = measurements.find(
+          (item) => item.id === bisSubmitMeasurement,
+        );
         setBisSubmitMeasurement(current?.id ?? measurements[0]?.id ?? "12");
       }
     } catch (e: any) {
@@ -2177,45 +2388,64 @@ export default function SiteDiaryCalendar({
     [approverKey],
   );
 
-  const normalizeApprovalStatus = React.useCallback((status: string | null | undefined) => {
-    return (status ?? "").trim().toLowerCase();
-  }, []);
+  const normalizeApprovalStatus = React.useCallback(
+    (status: string | null | undefined) => {
+      return (status ?? "").trim().toLowerCase();
+    },
+    [],
+  );
 
-  const isApprovedStatus = React.useCallback((status: string | null | undefined) => {
-    return normalizeApprovalStatus(status) === "approved";
-  }, [normalizeApprovalStatus]);
+  const isApprovedStatus = React.useCallback(
+    (status: string | null | undefined) => {
+      return normalizeApprovalStatus(status) === "approved";
+    },
+    [normalizeApprovalStatus],
+  );
 
-  const isApprovalPendingStatus = React.useCallback((status: string | null | undefined) => {
-    const normalized = normalizeApprovalStatus(status);
-    return [
-      "approving",
-      "submitted_to_approve",
-      "submitted",
-      "pending",
-      "pending_approval",
-      "on_approval",
-      "approval_in_progress",
-      "ready_for_approval",
-    ].includes(normalized);
-  }, [normalizeApprovalStatus]);
+  const isApprovalPendingStatus = React.useCallback(
+    (status: string | null | undefined) => {
+      const normalized = normalizeApprovalStatus(status);
+      return [
+        "approving",
+        "submitted_to_approve",
+        "submitted",
+        "pending",
+        "pending_approval",
+        "on_approval",
+        "approval_in_progress",
+        "ready_for_approval",
+      ].includes(normalized);
+    },
+    [normalizeApprovalStatus],
+  );
 
-  const getBisStatusLabel = React.useCallback((status: string | null | undefined) => {
-    const normalized = normalizeApprovalStatus(status);
-    if (!normalized) return "WorksRecorded";
-    if (normalized === "approved") return t.bisApproved;
-    if (isApprovalPendingStatus(status)) return t.bisPending;
-    if (["sent", "draft", "created"].includes(normalized)) return t.bisDraft;
-    return t.bisDraft;
-  }, [isApprovalPendingStatus, normalizeApprovalStatus, t]);
+  const getBisStatusLabel = React.useCallback(
+    (status: string | null | undefined) => {
+      const normalized = normalizeApprovalStatus(status);
+      if (!normalized) return "WorksRecorded";
+      if (normalized === "approved") return t.bisApproved;
+      if (isApprovalPendingStatus(status)) return t.bisPending;
+      if (["sent", "draft", "created"].includes(normalized)) return t.bisDraft;
+      return t.bisDraft;
+    },
+    [isApprovalPendingStatus, normalizeApprovalStatus, t],
+  );
 
-  const getBisStatusClassName = React.useCallback((status: string | null | undefined) => {
-    const normalized = normalizeApprovalStatus(status);
-    if (!normalized) return "border border-slate-200 bg-slate-50 text-slate-700";
-    if (normalized === "approved") return "border border-emerald-200 bg-emerald-50 text-emerald-700";
-    if (isApprovalPendingStatus(status)) return "border border-sky-200 bg-sky-50 text-sky-700";
-    if (["sent", "draft", "created"].includes(normalized)) return "border border-blue-200 bg-blue-50 text-blue-700";
-    return "border border-blue-200 bg-blue-50 text-blue-700";
-  }, [isApprovalPendingStatus, normalizeApprovalStatus]);
+  const getBisStatusClassName = React.useCallback(
+    (status: string | null | undefined) => {
+      const normalized = normalizeApprovalStatus(status);
+      if (!normalized)
+        return "border border-slate-200 bg-slate-50 text-slate-700";
+      if (normalized === "approved")
+        return "border border-emerald-200 bg-emerald-50 text-emerald-700";
+      if (isApprovalPendingStatus(status))
+        return "border border-sky-200 bg-sky-50 text-sky-700";
+      if (["sent", "draft", "created"].includes(normalized))
+        return "border border-blue-200 bg-blue-50 text-blue-700";
+      return "border border-blue-200 bg-blue-50 text-blue-700";
+    },
+    [isApprovalPendingStatus, normalizeApprovalStatus],
+  );
 
   const sortedGalleryAttachmentOptions = React.useMemo(
     () =>
@@ -2235,7 +2465,10 @@ export default function SiteDiaryCalendar({
   const pagedGalleryAttachments = React.useMemo(() => {
     const safePage = Math.min(galleryAttachmentPage, galleryTotalPages);
     const start = (safePage - 1) * GALLERY_PAGE_SIZE;
-    return sortedGalleryAttachmentOptions.slice(start, start + GALLERY_PAGE_SIZE);
+    return sortedGalleryAttachmentOptions.slice(
+      start,
+      start + GALLERY_PAGE_SIZE,
+    );
   }, [
     GALLERY_PAGE_SIZE,
     galleryAttachmentPage,
@@ -2258,9 +2491,15 @@ export default function SiteDiaryCalendar({
     try {
       const currentStatus = await getSiteDiaryBisApprovalStatus(row.id);
       if (currentStatus) {
-        setBisApprovalStatusByRowId((prev) => ({ ...prev, [row.id as string]: currentStatus }));
+        setBisApprovalStatusByRowId((prev) => ({
+          ...prev,
+          [row.id as string]: currentStatus,
+        }));
       }
-      if (isApprovedStatus(currentStatus) || isApprovalPendingStatus(currentStatus)) {
+      if (
+        isApprovedStatus(currentStatus) ||
+        isApprovalPendingStatus(currentStatus)
+      ) {
         return;
       }
 
@@ -2300,7 +2539,10 @@ export default function SiteDiaryCalendar({
           level: approver.level,
         })),
       );
-      setBisApprovalStatusByRowId((prev) => ({ ...prev, [approvalRow.id as string]: result.status }));
+      setBisApprovalStatusByRowId((prev) => ({
+        ...prev,
+        [approvalRow.id as string]: result.status,
+      }));
       await refreshRowsWithBisSync({ skipSync: true });
       toast.success(toastMessages.siteDiarySubmittedForApproval);
       setApproverDialogOpen(false);
@@ -2345,11 +2587,17 @@ export default function SiteDiaryCalendar({
 
   const handleDeleteRecord = async (row: DiaryRow) => {
     if (!row.id) return;
-    const confirmed = window.confirm("Delete this site diary record? This action cannot be undone.");
+    const confirmed = window.confirm(
+      "Delete this site diary record? This action cannot be undone.",
+    );
     if (!confirmed) return;
 
     try {
-      await deleteSiteDiaryRecord({ id: row.id, siteId, flowId: siteDiaryFlowId });
+      await deleteSiteDiaryRecord({
+        id: row.id,
+        siteId,
+        flowId: siteDiaryFlowId,
+      });
       await refreshRowsWithBisSync({ skipSync: true });
       reloadFilledDays();
       toast.success(toastMessages.recordDeleted);
@@ -2422,7 +2670,9 @@ export default function SiteDiaryCalendar({
     const selectedMaterials = bisMaterialOptions
       .map((material) => {
         const available = Number(material.availableQuantity ?? 0);
-        const requested = Number.parseFloat(materialQuantitiesRef.current[material.id] ?? "");
+        const requested = Number.parseFloat(
+          materialQuantitiesRef.current[material.id] ?? "",
+        );
         const normalizedRequested = Number.isFinite(requested) ? requested : 0;
         return {
           constructionMaterialId: material.id,
@@ -2433,9 +2683,13 @@ export default function SiteDiaryCalendar({
 
     const selectedResponsiblePerson = bisResponsiblePersonOptions.find(
       (item) =>
-        `${item.responsiblePersonId}:${item.responsiblePersonType}` === selectedBisResponsiblePersonKey,
+        `${item.responsiblePersonId}:${item.responsiblePersonType}` ===
+        selectedBisResponsiblePersonKey,
     );
-    if (!selectedResponsiblePerson?.responsiblePersonId || !selectedResponsiblePerson?.responsiblePersonType) {
+    if (
+      !selectedResponsiblePerson?.responsiblePersonId ||
+      !selectedResponsiblePerson?.responsiblePersonType
+    ) {
       toast.error(toastMessages.selectResponsiblePerson);
       return;
     }
@@ -2466,7 +2720,9 @@ export default function SiteDiaryCalendar({
         attachments: selectedAttachmentUrls.map((url) => ({ url })),
         eventDate: bisSubmitDate ? toLocalDateKey(bisSubmitDate) : undefined,
         eventDateTo:
-          bisMultipleDayJob && bisSubmitDateTo ? toLocalDateKey(bisSubmitDateTo) : undefined,
+          bisMultipleDayJob && bisSubmitDateTo
+            ? toLocalDateKey(bisSubmitDateTo)
+            : undefined,
         worksDescription: bisSubmitWorksRef.current,
         amount: Number.isFinite(parsedAmount) ? parsedAmount : undefined,
         measurement: bisSubmitMeasurement,
@@ -2474,11 +2730,18 @@ export default function SiteDiaryCalendar({
         responsiblePersonType: selectedResponsiblePerson.responsiblePersonType,
       });
 
-      const bisStatus = selectedRowForBis.id ? bisApprovalStatusByRowId[selectedRowForBis.id] : null;
+      const bisStatus = selectedRowForBis.id
+        ? bisApprovalStatusByRowId[selectedRowForBis.id]
+        : null;
       if (selectedRowForBis.id && !bisStatus) {
-        setBisApprovalStatusByRowId((prev) => ({ ...prev, [selectedRowForBis.id as string]: "draft" }));
+        setBisApprovalStatusByRowId((prev) => ({
+          ...prev,
+          [selectedRowForBis.id as string]: "draft",
+        }));
       }
-      setBisSentRowIds((prev) => new Set(prev).add(selectedRowForBis.id as string));
+      setBisSentRowIds((prev) =>
+        new Set(prev).add(selectedRowForBis.id as string),
+      );
       await refreshRowsWithBisSync();
       setBisPickerOpen(false);
       toast.success(toastMessages.siteDiarySentToBis);
@@ -2565,9 +2828,7 @@ export default function SiteDiaryCalendar({
               <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">
                 {isZtcSite ? t.productionJournalTitle : t.title}
               </h2>
-              <p className="text-sm text-muted-foreground">
-                {t.subtitle}
-              </p>
+              <p className="text-sm text-muted-foreground">{t.subtitle}</p>
             </div>
 
             <div className="flex flex-col items-stretch gap-2 sm:items-end">
@@ -2581,7 +2842,9 @@ export default function SiteDiaryCalendar({
                 {!isZtcSite ? (
                   <button
                     type="button"
-                    onClick={() => window.open("https://wa.me/37127445304", "_blank")}
+                    onClick={() =>
+                      window.open("https://wa.me/37127445304", "_blank")
+                    }
                     className="inline-flex items-center justify-center gap-2 rounded-md border border-green-100 bg-white px-3 py-1.5 text-sm font-medium text-green-600 shadow-sm transition hover:bg-green-50 hover:text-green-700"
                     data-tour="calendar"
                   >
@@ -2589,7 +2852,9 @@ export default function SiteDiaryCalendar({
                     <span className="hidden sm:inline">
                       {t.recordViaWhatsApp}
                     </span>
-                    <span className="sm:hidden">{t.recordViaWhatsAppShort}</span>
+                    <span className="sm:hidden">
+                      {t.recordViaWhatsAppShort}
+                    </span>
                   </button>
                 ) : null}
 
@@ -2607,7 +2872,9 @@ export default function SiteDiaryCalendar({
                   <SiteDiaryOptionsManager
                     siteId={siteId}
                     organizationLanguage={organizationLanguage}
-                    onSaved={() => setOptionsRevision((revision) => revision + 1)}
+                    onSaved={() =>
+                      setOptionsRevision((revision) => revision + 1)
+                    }
                   />
                 ) : null}
                 {isZtcSite ? (
@@ -2648,13 +2915,31 @@ export default function SiteDiaryCalendar({
                   </>
                 ) : null}
                 {bisUiEnabled ? (
-                  <Button variant="outline" onClick={handleSyncBisRecords} disabled={bisSyncLoading}>
-                    <RefreshCw className={cn("mr-2 h-4 w-4", bisSyncLoading ? "animate-spin" : "")} />
+                  <Button
+                    variant="outline"
+                    onClick={handleSyncBisRecords}
+                    disabled={bisSyncLoading}
+                  >
+                    <RefreshCw
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        bisSyncLoading ? "animate-spin" : "",
+                      )}
+                    />
                     {bisSyncLoading ? t.refreshing : t.refreshBisSync}
                   </Button>
                 ) : (
-                  <Button variant="outline" onClick={handleRefreshRecords} disabled={recordsRefreshLoading}>
-                    <RefreshCw className={cn("mr-2 h-4 w-4", recordsRefreshLoading ? "animate-spin" : "")} />
+                  <Button
+                    variant="outline"
+                    onClick={handleRefreshRecords}
+                    disabled={recordsRefreshLoading}
+                  >
+                    <RefreshCw
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        recordsRefreshLoading ? "animate-spin" : "",
+                      )}
+                    />
                     {recordsRefreshLoading ? t.refreshing : t.refreshRecords}
                   </Button>
                 )}
@@ -2784,10 +3069,10 @@ export default function SiteDiaryCalendar({
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateFrom
                             ? dateFrom.toLocaleDateString(dateLocale, {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            })
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              })
                             : t.fromDate}
                         </Button>
                       </PopoverTrigger>
@@ -2816,10 +3101,10 @@ export default function SiteDiaryCalendar({
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateTo
                             ? dateTo.toLocaleDateString(dateLocale, {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            })
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              })
                             : t.toDate}
                         </Button>
                       </PopoverTrigger>
@@ -2843,7 +3128,10 @@ export default function SiteDiaryCalendar({
                             setElementFilter("__ALL__");
                             setWorkFilter("__ALL__");
                           }}
-                          options={floorOptions.map((value) => ({ value, label: value }))}
+                          options={floorOptions.map((value) => ({
+                            value,
+                            label: value,
+                          }))}
                           allLabel="Visi projekti"
                           placeholder="Projekts"
                           searchPlaceholder="Meklēt projektu..."
@@ -2853,7 +3141,10 @@ export default function SiteDiaryCalendar({
                         <SearchableFilterSelect
                           value={elementFilter}
                           onValueChange={setElementFilter}
-                          options={elementOptions.map((value) => ({ value, label: value }))}
+                          options={elementOptions.map((value) => ({
+                            value,
+                            label: value,
+                          }))}
                           allLabel="Visi elementi"
                           placeholder="Elements"
                           searchPlaceholder="Meklēt elementu..."
@@ -2863,7 +3154,10 @@ export default function SiteDiaryCalendar({
                         <SearchableFilterSelect
                           value={workerFilter}
                           onValueChange={handleZtcWorkerFilterChange}
-                          options={workerOptions.map((value) => ({ value, label: value }))}
+                          options={workerOptions.map((value) => ({
+                            value,
+                            label: value,
+                          }))}
                           allLabel="Visi darbinieki"
                           placeholder="Darbinieks"
                           searchPlaceholder="Meklēt darbinieku..."
@@ -2873,7 +3167,10 @@ export default function SiteDiaryCalendar({
                         <SearchableFilterSelect
                           value={workFilter}
                           onValueChange={setWorkFilter}
-                          options={worksOptions.map((value) => ({ value, label: value }))}
+                          options={worksOptions.map((value) => ({
+                            value,
+                            label: value,
+                          }))}
                           allLabel="Visi darbi"
                           placeholder="Darbi"
                           searchPlaceholder="Meklēt darbu..."
@@ -2891,7 +3188,9 @@ export default function SiteDiaryCalendar({
                             <SelectValue placeholder={t.filterByWorks} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="__ALL__">{t.allWorks}</SelectItem>
+                            <SelectItem value="__ALL__">
+                              {t.allWorks}
+                            </SelectItem>
                             {groupedWorksOptions.customWorks.length ? (
                               <SelectGroup>
                                 <SelectLabel>{t.customWorksGroup}</SelectLabel>
@@ -2921,7 +3220,9 @@ export default function SiteDiaryCalendar({
                           onValueChange={(val) => setFloorFilter(val)}
                         >
                           <SelectTrigger className="h-9 w-full text-sm sm:w-[200px]">
-                            <SelectValue placeholder={t.filterByFloorLocation} />
+                            <SelectValue
+                              placeholder={t.filterByFloorLocation}
+                            />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="__ALL__">
@@ -3116,43 +3417,59 @@ export default function SiteDiaryCalendar({
                       "grid gap-2 text-sm",
                       ztcSelectedScopeSummary.worker &&
                         ztcSelectedScopeSummary.elementM2 != null &&
-                        ztcSelectedScopeSummary.laborNormTotal?.actual != null &&
+                        ztcSelectedScopeSummary.laborNormTotal?.actual !=
+                          null &&
                         ztcSelectedScopeSummary.productivity
                         ? "grid-cols-1 sm:grid-cols-7 sm:min-w-[1120px]"
                         : ztcSelectedScopeSummary.worker &&
-                            ztcSelectedScopeSummary.laborNormTotal?.actual != null &&
+                            ztcSelectedScopeSummary.laborNormTotal?.actual !=
+                              null &&
                             ztcSelectedScopeSummary.productivity
                           ? "grid-cols-1 sm:grid-cols-5 sm:min-w-[860px]"
-                        : ztcSelectedScopeSummary.worker && ztcSelectedScopeSummary.productivity
-                          ? "grid-cols-1 sm:grid-cols-4 sm:min-w-[700px]"
-                        : ztcSelectedScopeSummary.elementM2 != null &&
-                        ztcSelectedScopeSummary.laborNormTotal?.actual != null &&
-                        ztcSelectedScopeSummary.costPerM2 != null &&
-                        !ztcSelectedScopeSummary.worker
-                        ? "grid-cols-1 sm:grid-cols-6 sm:min-w-[980px]"
-                        : ztcSelectedScopeSummary.elementM2 != null &&
-                            ztcSelectedScopeSummary.laborNormTotal?.actual != null &&
-                            !ztcSelectedScopeSummary.worker
-                          ? "grid-cols-1 sm:grid-cols-5 sm:min-w-[820px]"
-                        : ztcSelectedScopeSummary.elementM2 != null && ztcSelectedScopeSummary.laborNormTotal?.actual != null
-                        ? "grid-cols-1 sm:grid-cols-4 sm:min-w-[620px]"
-                        : ztcSelectedScopeSummary.elementM2 != null &&
-                            ztcSelectedScopeSummary.costPerM2 != null &&
-                            !ztcSelectedScopeSummary.worker
-                          ? "grid-cols-1 sm:grid-cols-5 sm:min-w-[820px]"
-                          : ztcSelectedScopeSummary.elementM2 != null || ztcSelectedScopeSummary.laborNormTotal?.actual != null
-                          ? "grid-cols-1 sm:grid-cols-3 sm:min-w-[460px]"
-                          : "grid-cols-1 sm:grid-cols-2 sm:min-w-[320px]",
+                          : ztcSelectedScopeSummary.worker &&
+                              ztcSelectedScopeSummary.productivity
+                            ? "grid-cols-1 sm:grid-cols-4 sm:min-w-[700px]"
+                            : ztcSelectedScopeSummary.elementM2 != null &&
+                                ztcSelectedScopeSummary.laborNormTotal
+                                  ?.actual != null &&
+                                ztcSelectedScopeSummary.costPerM2 != null &&
+                                !ztcSelectedScopeSummary.worker
+                              ? "grid-cols-1 sm:grid-cols-6 sm:min-w-[980px]"
+                              : ztcSelectedScopeSummary.elementM2 != null &&
+                                  ztcSelectedScopeSummary.laborNormTotal
+                                    ?.actual != null &&
+                                  !ztcSelectedScopeSummary.worker
+                                ? "grid-cols-1 sm:grid-cols-5 sm:min-w-[820px]"
+                                : ztcSelectedScopeSummary.elementM2 != null &&
+                                    ztcSelectedScopeSummary.laborNormTotal
+                                      ?.actual != null
+                                  ? "grid-cols-1 sm:grid-cols-4 sm:min-w-[620px]"
+                                  : ztcSelectedScopeSummary.elementM2 != null &&
+                                      ztcSelectedScopeSummary.costPerM2 !=
+                                        null &&
+                                      !ztcSelectedScopeSummary.worker
+                                    ? "grid-cols-1 sm:grid-cols-5 sm:min-w-[820px]"
+                                    : ztcSelectedScopeSummary.elementM2 !=
+                                          null ||
+                                        ztcSelectedScopeSummary.laborNormTotal
+                                          ?.actual != null
+                                      ? "grid-cols-1 sm:grid-cols-3 sm:min-w-[460px]"
+                                      : "grid-cols-1 sm:grid-cols-2 sm:min-w-[320px]",
                     )}
                   >
                     {ztcSelectedScopeSummary.elementM2 != null ? (
                       <div className="rounded-md border bg-muted/30 px-3 py-2">
-                        <div className="text-xs text-muted-foreground">Elementa laukums</div>
+                        <div className="text-xs text-muted-foreground">
+                          Elementa laukums
+                        </div>
                         <div className="text-lg font-semibold tabular-nums">
-                          {ztcSelectedScopeSummary.elementM2.toLocaleString(dateLocale, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
+                          {ztcSelectedScopeSummary.elementM2.toLocaleString(
+                            dateLocale,
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            },
+                          )}{" "}
                           m²
                         </div>
                       </div>
@@ -3160,11 +3477,15 @@ export default function SiteDiaryCalendar({
                     <div
                       className={cn(
                         "rounded-md border bg-muted/30 px-3 py-2",
-                        ztcSelectedScopeSummary.laborNormTotal?.hoursDifference != null &&
-                          ztcSelectedScopeSummary.laborNormTotal.hoursDifference > 0
+                        ztcSelectedScopeSummary.laborNormTotal
+                          ?.hoursDifference != null &&
+                          ztcSelectedScopeSummary.laborNormTotal
+                            .hoursDifference > 0
                           ? "border-red-200 bg-red-50"
-                          : ztcSelectedScopeSummary.laborNormTotal?.hoursDifference != null &&
-                              ztcSelectedScopeSummary.laborNormTotal.hoursDifference <= 0
+                          : ztcSelectedScopeSummary.laborNormTotal
+                                ?.hoursDifference != null &&
+                              ztcSelectedScopeSummary.laborNormTotal
+                                .hoursDifference <= 0
                             ? "border-emerald-200 bg-emerald-50"
                             : "",
                       )}
@@ -3173,19 +3494,27 @@ export default function SiteDiaryCalendar({
                         Tehniskās stundas
                       </div>
                       <div className="text-lg font-semibold tabular-nums">
-                        {(ztcSelectedScopeSummary.technicalHours ?? ztcSelectedScopeSummary.laborNormTotal?.hours ?? ztcSelectedScopeSummary.hours).toLocaleString(dateLocale, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
-                          st
+                        {(
+                          ztcSelectedScopeSummary.technicalHours ??
+                          ztcSelectedScopeSummary.laborNormTotal?.hours ??
+                          ztcSelectedScopeSummary.hours
+                        ).toLocaleString(dateLocale, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        st
                       </div>
-                      {ztcSelectedScopeSummary.laborNormTotal?.plannedHours != null ? (
+                      {ztcSelectedScopeSummary.laborNormTotal?.plannedHours !=
+                      null ? (
                         <div className="text-xs text-muted-foreground">
                           Plāns{" "}
-                          {ztcSelectedScopeSummary.laborNormTotal.plannedHours.toLocaleString(dateLocale, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
+                          {ztcSelectedScopeSummary.laborNormTotal.plannedHours.toLocaleString(
+                            dateLocale,
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            },
+                          )}{" "}
                           st
                         </div>
                       ) : null}
@@ -3194,73 +3523,110 @@ export default function SiteDiaryCalendar({
                       <div
                         className={cn(
                           "rounded-md border bg-muted/30 px-3 py-2",
-                          ztcSelectedScopeSummary.laborNormTotal?.difference != null &&
-                            ztcSelectedScopeSummary.laborNormTotal.difference > 0
+                          ztcSelectedScopeSummary.laborNormTotal?.difference !=
+                            null &&
+                            ztcSelectedScopeSummary.laborNormTotal.difference >
+                              0
                             ? "border-red-200 bg-red-50"
-                            : ztcSelectedScopeSummary.laborNormTotal?.difference != null &&
-                                ztcSelectedScopeSummary.laborNormTotal.difference <= 0
+                            : ztcSelectedScopeSummary.laborNormTotal
+                                  ?.difference != null &&
+                                ztcSelectedScopeSummary.laborNormTotal
+                                  .difference <= 0
                               ? "border-emerald-200 bg-emerald-50"
                               : "",
                         )}
                       >
-                        <div className="text-xs text-muted-foreground">Faktiskā izstrāde uz m²</div>
+                        <div className="text-xs text-muted-foreground">
+                          Faktiskā izstrāde uz m²
+                        </div>
                         <div className="text-lg font-semibold tabular-nums">
-                          {formatZtcLaborNorm(ztcSelectedScopeSummary.laborNormTotal.actual, dateLocale)} st/m²
+                          {formatZtcLaborNorm(
+                            ztcSelectedScopeSummary.laborNormTotal.actual,
+                            dateLocale,
+                          )}{" "}
+                          st/m²
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {ztcSelectedScopeSummary.laborNormTotal?.planned != null
+                          {ztcSelectedScopeSummary.laborNormTotal?.planned !=
+                          null
                             ? `Plāns ${formatZtcLaborNorm(ztcSelectedScopeSummary.laborNormTotal.planned, dateLocale)} st/m²`
                             : "st/m²"}
                         </div>
                       </div>
                     ) : null}
-                    {ztcSelectedScopeSummary.worker && ztcSelectedScopeSummary.productivity ? (
+                    {ztcSelectedScopeSummary.worker &&
+                    ztcSelectedScopeSummary.productivity ? (
                       <div className="rounded-md border bg-muted/30 px-3 py-2">
-                        <div className="text-xs text-muted-foreground">Produktīvais / kopējais laiks</div>
+                        <div className="text-xs text-muted-foreground">
+                          Produktīvais / kopējais laiks
+                        </div>
                         <div className="text-lg font-semibold tabular-nums">
-                          {ztcSelectedScopeSummary.productivity.productiveHours.toLocaleString(dateLocale, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
+                          {ztcSelectedScopeSummary.productivity.productiveHours.toLocaleString(
+                            dateLocale,
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            },
+                          )}{" "}
                           /{" "}
-                          {ztcSelectedScopeSummary.productivity.totalWorkedHours.toLocaleString(dateLocale, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
+                          {ztcSelectedScopeSummary.productivity.totalWorkedHours.toLocaleString(
+                            dateLocale,
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            },
+                          )}{" "}
                           st
                         </div>
                         <div className="text-xs text-muted-foreground">
                           Neuzskaitīts{" "}
-                          {ztcSelectedScopeSummary.productivity.unaccountedHours.toLocaleString(dateLocale, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
+                          {ztcSelectedScopeSummary.productivity.unaccountedHours.toLocaleString(
+                            dateLocale,
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            },
+                          )}{" "}
                           st · Pauze{" "}
-                          {ztcSelectedScopeSummary.productivity.pausedHours.toLocaleString(dateLocale, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
+                          {ztcSelectedScopeSummary.productivity.pausedHours.toLocaleString(
+                            dateLocale,
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            },
+                          )}{" "}
                           st
                         </div>
                       </div>
                     ) : null}
                     {!ztcSelectedScopeSummary.worker ? (
                       <div className="rounded-md border bg-muted/30 px-3 py-2">
-                        <div className="text-xs text-muted-foreground">Kopējās stundas</div>
+                        <div className="text-xs text-muted-foreground">
+                          Kopējās stundas
+                        </div>
                         <div className="text-lg font-semibold tabular-nums">
-                          {ztcSelectedScopeSummary.hours.toLocaleString(dateLocale, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
+                          {ztcSelectedScopeSummary.hours.toLocaleString(
+                            dateLocale,
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            },
+                          )}{" "}
                           st
                         </div>
                       </div>
                     ) : null}
                     {ztcSelectedScopeSummary.worker ? (
                       <div className="rounded-md border bg-muted/30 px-3 py-2">
-                        <div className="text-xs text-muted-foreground">Kopējās nostrādātās stundas</div>
+                        <div className="text-xs text-muted-foreground">
+                          Kopējās nostrādātās stundas
+                        </div>
                         <div className="text-lg font-semibold tabular-nums">
-                          {(ztcSelectedScopeSummary.productivity?.totalWorkedHours ?? ztcSelectedScopeSummary.hours).toLocaleString(dateLocale, {
+                          {(
+                            ztcSelectedScopeSummary.productivity
+                              ?.totalWorkedHours ??
+                            ztcSelectedScopeSummary.hours
+                          ).toLocaleString(dateLocale, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })}{" "}
@@ -3270,17 +3636,23 @@ export default function SiteDiaryCalendar({
                     ) : null}
                     <div className="rounded-md border bg-muted/30 px-3 py-2">
                       <div className="text-xs text-muted-foreground">
-                        {ztcSelectedScopeSummary.worker ? "Kopējās izmaksas" : "Kopējās elementa izmaksas"}
+                        {ztcSelectedScopeSummary.worker
+                          ? "Kopējās izmaksas"
+                          : "Kopējās elementa izmaksas"}
                       </div>
                       <div className="text-lg font-semibold tabular-nums">
                         {formatZtcMoney(ztcSelectedScopeSummary.money)} €
                       </div>
                     </div>
-                    {!ztcSelectedScopeSummary.worker && ztcSelectedScopeSummary.costPerM2 != null ? (
+                    {!ztcSelectedScopeSummary.worker &&
+                    ztcSelectedScopeSummary.costPerM2 != null ? (
                       <div className="rounded-md border bg-muted/30 px-3 py-2">
-                        <div className="text-xs text-muted-foreground">Izmaksas uz m²</div>
+                        <div className="text-xs text-muted-foreground">
+                          Izmaksas uz m²
+                        </div>
                         <div className="text-lg font-semibold tabular-nums">
-                          {formatZtcMoney(ztcSelectedScopeSummary.costPerM2)} €/m²
+                          {formatZtcMoney(ztcSelectedScopeSummary.costPerM2)}{" "}
+                          €/m²
                         </div>
                       </div>
                     ) : null}
@@ -3290,70 +3662,72 @@ export default function SiteDiaryCalendar({
                   <div className="mt-3 overflow-x-auto rounded-md border">
                     <div className="min-w-[850px]">
                       <div className="grid grid-cols-[minmax(0,1fr)_95px_90px_90px_100px_110px_90px] bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
-                      <div>Darbs</div>
-                      <div className="text-right">Daudzums</div>
-                      <div className="text-right">Plāna st.</div>
-                      <div className="text-right">Fakt. st.</div>
-                      <div className="text-right">Plāns</div>
-                      <div className="text-right">Fakts</div>
-                      <div className="text-right">Starpība</div>
-                    </div>
-                    {ztcSelectedScopeSummary.laborNormRows.map((row) => (
-                      <div
-                        key={row.task}
-                        className="grid grid-cols-[minmax(0,1fr)_95px_90px_90px_100px_110px_90px] border-t px-3 py-2 text-sm"
-                      >
-                        <div className="truncate pr-2">{row.task}</div>
-                        <div className="text-right tabular-nums">
-                          {row.amount.toLocaleString(dateLocale, {
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 2,
-                          })}{" "}
-                          m²
-                        </div>
-                        <div className="text-right tabular-nums">
-                          {row.plannedHours != null
-                            ? row.plannedHours.toLocaleString(dateLocale, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })
-                            : "—"}
-                        </div>
-                        <div
-                          className={cn(
-                            "text-right tabular-nums",
-                            row.hoursDifference != null && row.hoursDifference > 0
-                              ? "text-red-600"
-                              : row.hoursDifference != null && row.hoursDifference <= 0
-                                ? "text-emerald-700"
-                                : "",
-                          )}
-                        >
-                          {row.hours.toLocaleString(dateLocale, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </div>
-                        <div className="text-right tabular-nums">
-                          {formatZtcLaborNorm(row.planned, dateLocale)}
-                        </div>
-                        <div className="text-right tabular-nums">
-                          {formatZtcLaborNorm(row.actual, dateLocale)}
-                        </div>
-                        <div
-                          className={cn(
-                            "text-right tabular-nums",
-                            row.difference != null && row.difference > 0
-                              ? "text-red-600"
-                              : row.difference != null && row.difference < 0
-                                ? "text-emerald-700"
-                                : "",
-                          )}
-                        >
-                          {formatZtcLaborNorm(row.difference, dateLocale)}
-                        </div>
+                        <div>Darbs</div>
+                        <div className="text-right">Daudzums</div>
+                        <div className="text-right">Plāna st.</div>
+                        <div className="text-right">Fakt. st.</div>
+                        <div className="text-right">Plāns</div>
+                        <div className="text-right">Fakts</div>
+                        <div className="text-right">Starpība</div>
                       </div>
-                    ))}
+                      {ztcSelectedScopeSummary.laborNormRows.map((row) => (
+                        <div
+                          key={row.task}
+                          className="grid grid-cols-[minmax(0,1fr)_95px_90px_90px_100px_110px_90px] border-t px-3 py-2 text-sm"
+                        >
+                          <div className="truncate pr-2">{row.task}</div>
+                          <div className="text-right tabular-nums">
+                            {row.amount.toLocaleString(dateLocale, {
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 2,
+                            })}{" "}
+                            m²
+                          </div>
+                          <div className="text-right tabular-nums">
+                            {row.plannedHours != null
+                              ? row.plannedHours.toLocaleString(dateLocale, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })
+                              : "—"}
+                          </div>
+                          <div
+                            className={cn(
+                              "text-right tabular-nums",
+                              row.hoursDifference != null &&
+                                row.hoursDifference > 0
+                                ? "text-red-600"
+                                : row.hoursDifference != null &&
+                                    row.hoursDifference <= 0
+                                  ? "text-emerald-700"
+                                  : "",
+                            )}
+                          >
+                            {row.hours.toLocaleString(dateLocale, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </div>
+                          <div className="text-right tabular-nums">
+                            {formatZtcLaborNorm(row.planned, dateLocale)}
+                          </div>
+                          <div className="text-right tabular-nums">
+                            {formatZtcLaborNorm(row.actual, dateLocale)}
+                          </div>
+                          <div
+                            className={cn(
+                              "text-right tabular-nums",
+                              row.difference != null && row.difference > 0
+                                ? "text-red-600"
+                                : row.difference != null && row.difference < 0
+                                  ? "text-emerald-700"
+                                  : "",
+                            )}
+                          >
+                            {formatZtcLaborNorm(row.difference, dateLocale)}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ) : null}
@@ -3367,29 +3741,35 @@ export default function SiteDiaryCalendar({
                         <div className="text-right">Stundas</div>
                         <div className="text-right">Summa</div>
                       </div>
-                      {ztcSelectedScopeSummary.relatedAdditionalRows.map((row) => (
-                        <div
-                          key={`${row.type}-${row.task}-${row.unit}`}
-                          className="grid grid-cols-[120px_minmax(0,1fr)_95px_80px_90px] border-t px-3 py-2 text-sm"
-                        >
-                          <div className="truncate pr-2 font-medium">{row.type}</div>
-                          <div className="truncate pr-2">{row.task}</div>
-                          <div className="text-right tabular-nums">
-                            {row.amount.toLocaleString(dateLocale, {
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 2,
-                            })}{" "}
-                            {row.unit}
+                      {ztcSelectedScopeSummary.relatedAdditionalRows.map(
+                        (row) => (
+                          <div
+                            key={`${row.type}-${row.task}-${row.unit}`}
+                            className="grid grid-cols-[120px_minmax(0,1fr)_95px_80px_90px] border-t px-3 py-2 text-sm"
+                          >
+                            <div className="truncate pr-2 font-medium">
+                              {row.type}
+                            </div>
+                            <div className="truncate pr-2">{row.task}</div>
+                            <div className="text-right tabular-nums">
+                              {row.amount.toLocaleString(dateLocale, {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                              {row.unit}
+                            </div>
+                            <div className="text-right tabular-nums">
+                              {row.hours.toLocaleString(dateLocale, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </div>
+                            <div className="text-right tabular-nums">
+                              {formatZtcMoney(row.sum)}
+                            </div>
                           </div>
-                          <div className="text-right tabular-nums">
-                            {row.hours.toLocaleString(dateLocale, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </div>
-                          <div className="text-right tabular-nums">{formatZtcMoney(row.sum)}</div>
-                        </div>
-                      ))}
+                        ),
+                      )}
                     </div>
                   </div>
                 ) : null}
@@ -3438,7 +3818,8 @@ export default function SiteDiaryCalendar({
                       const defaultConstructionDayCosts = group.rows
                         .map(
                           (row) =>
-                            calculateDefaultConstructionRecordCost(row).actualCost,
+                            calculateDefaultConstructionRecordCost(row)
+                              .actualCost,
                         )
                         .filter((cost): cost is number => cost != null);
                       const defaultConstructionDayCost =
@@ -3456,7 +3837,8 @@ export default function SiteDiaryCalendar({
                           : undefined;
 
                       const isPdfLoading = pdfLoadingKey === group.key;
-                      const hasDisplayableMedia = hasSiteDiaryDisplayableMedia(group);
+                      const hasDisplayableMedia =
+                        hasSiteDiaryDisplayableMedia(group);
 
                       return (
                         <Card
@@ -3464,807 +3846,1916 @@ export default function SiteDiaryCalendar({
                           data-tour={dataTour}
                           className="border-border/80 shadow-sm transition-shadow hover:shadow-md"
                         >
-                      <CardHeader className="flex flex-col gap-2 py-3 px-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-                        <div className="space-y-1">
-                          <CardTitle className="text-base font-semibold sm:text-lg">
-                            {dayLabel(group.date)}
-                          </CardTitle>
-                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground sm:text-sm">
-                            <span>
-                              {totalTasks} {totalTasks === 1 ? t.taskSingular : t.taskPlural}
-                            </span>
-                            {isMediaOnlyGroup ? (
-                              <Badge variant="secondary" className="h-5 rounded-full px-2 text-[11px]">
-                                {t.photosOnly}
-                              </Badge>
-                            ) : null}
-                            {group.photoCount ? (
-                              <button
-                                type="button"
-                                className="cursor-pointer font-medium underline decoration-dotted underline-offset-2"
-                                onClick={() => openPhotos(group.date)}
-                                aria-label={t.viewPhotosForDay}
-                              >
-                                {group.photoCount} {t.photosCount}
-                              </button>
-                            ) : null}
-                            {isZtcSite ? (
-                              <span>
-                                Dienas summa: {formatZtcMoney(ztcDayPayrollSum)}
-                              </span>
-                            ) : (
-                              <span>
-                                {t.dailyCost}: {defaultConstructionDayCost == null
-                                  ? "—"
-                                  : costFormatter.format(defaultConstructionDayCost)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {hasDisplayableMedia ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="rounded-full"
-                                  onClick={() => openPhotos(group.date)}
-                                >
-                                  <Images className="h-5 w-5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>{t.viewPhotosForDay}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : null}
-
-                          {!isZtcSite ? (
-                            <>
-                              {!isMediaOnlyGroup ? (
-                                <>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        className="rounded-full"
-                                        onClick={() => openWeather(group.date)}
-                                      >
-                                        <CloudSun className="h-5 w-5" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>
-                                        {t.viewWeatherForDay}
-                                      </p>
-                                    </TooltipContent>
-                                  </Tooltip>
-
-                                  <Button
-                                    size="sm"
+                          <CardHeader className="flex flex-col gap-2 py-3 px-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                            <div className="space-y-1">
+                              <CardTitle className="text-base font-semibold sm:text-lg">
+                                {dayLabel(group.date)}
+                              </CardTitle>
+                              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground sm:text-sm">
+                                <span>
+                                  {totalTasks}{" "}
+                                  {totalTasks === 1
+                                    ? t.taskSingular
+                                    : t.taskPlural}
+                                </span>
+                                {isMediaOnlyGroup ? (
+                                  <Badge
                                     variant="secondary"
-                                    disabled={isPdfLoading}
-                                    onClick={() => handleDownloadPdf(group.key, group.date)}
+                                    className="h-5 rounded-full px-2 text-[11px]"
                                   >
-                                    {isPdfLoading ? (
-                                      <>
-                                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                        {t.generating}
-                                      </>
-                                    ) : (
-                                      t.pdfReport
-                                    )}
-                                  </Button>
+                                    {t.photosOnly}
+                                  </Badge>
+                                ) : null}
+                                {group.photoCount ? (
+                                  <button
+                                    type="button"
+                                    className="cursor-pointer font-medium underline decoration-dotted underline-offset-2"
+                                    onClick={() => openPhotos(group.date)}
+                                    aria-label={t.viewPhotosForDay}
+                                  >
+                                    {group.photoCount} {t.photosCount}
+                                  </button>
+                                ) : null}
+                                {isZtcSite ? (
+                                  <span>
+                                    Dienas summa:{" "}
+                                    {formatZtcMoney(ztcDayPayrollSum)}
+                                  </span>
+                                ) : (
+                                  <span>
+                                    {t.dailyCost}:{" "}
+                                    {defaultConstructionDayCost == null
+                                      ? "—"
+                                      : costFormatter.format(
+                                          defaultConstructionDayCost,
+                                        )}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {hasDisplayableMedia ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="rounded-full"
+                                      onClick={() => openPhotos(group.date)}
+                                    >
+                                      <Images className="h-5 w-5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{t.viewPhotosForDay}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : null}
+
+                              {!isZtcSite ? (
+                                <>
+                                  {!isMediaOnlyGroup ? (
+                                    <>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="rounded-full"
+                                            onClick={() =>
+                                              openWeather(group.date)
+                                            }
+                                          >
+                                            <CloudSun className="h-5 w-5" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>{t.viewWeatherForDay}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        disabled={isPdfLoading}
+                                        onClick={() =>
+                                          handleDownloadPdf(
+                                            group.key,
+                                            group.date,
+                                          )
+                                        }
+                                      >
+                                        {isPdfLoading ? (
+                                          <>
+                                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                            {t.generating}
+                                          </>
+                                        ) : (
+                                          t.pdfReport
+                                        )}
+                                      </Button>
+                                    </>
+                                  ) : null}
                                 </>
                               ) : null}
-                            </>
-                          ) : null}
 
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openDayDialog(group.date)}
-                          >
-                            {t.openDiary}
-                          </Button>
-                        </div>
-                      </CardHeader>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openDayDialog(group.date)}
+                              >
+                                {t.openDiary}
+                              </Button>
+                            </div>
+                          </CardHeader>
 
-                      <CardContent className="px-2 pb-3 sm:px-4">
-                        {isMediaOnlyGroup ? (
-                          <div className="rounded-md border border-dashed bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
-                            {t.photosOnlyEmptyRows}
-                          </div>
-                        ) : null}
+                          <CardContent className="px-2 pb-3 sm:px-4">
+                            {isMediaOnlyGroup ? (
+                              <div className="rounded-md border border-dashed bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
+                                {t.photosOnlyEmptyRows}
+                              </div>
+                            ) : null}
 
-                        {/* MOBILE: stacked record cards */}
-                        <div className={cn("space-y-2 lg:hidden", isMediaOnlyGroup && "hidden")}>
-                          {group.rows.map((r, idx) => (
+                            {/* MOBILE: stacked record cards */}
                             <div
-                              key={r.id ?? `${group.key}-${idx}`}
                               className={cn(
-                                "rounded-md border bg-muted/40 p-2 text-[11px]",
-                                isZtcSite
-                                  ? r.id
-                                    ? ztcQualityDisplayStateByRowId.get(r.id)?.toneClass ?? ""
-                                    : getZtcQualityRowToneClass(r)
-                                  : "",
+                                "space-y-2 lg:hidden",
+                                isMediaOnlyGroup && "hidden",
                               )}
                             >
-                              {r.id ? (
-                                <div className="mb-2 flex justify-end">
-                                  <Checkbox
-                                    checked={selectedRecordIds.has(r.id)}
-                                    onCheckedChange={(checked) =>
-                                      toggleRecordSelection(r.id as string, checked === true)
-                                    }
-                                    aria-label={`Select record ${r.id}`}
-                                  />
-                                </div>
-                              ) : null}
-                              <div className="flex flex-wrap items-baseline justify-between gap-1">
-                                {isZtcSite && r.Location ? (
-                                  <button
-                                    type="button"
-                                    className="font-medium underline-offset-2 hover:text-blue-700 hover:underline"
-                                    onClick={() => ztc.openProjectDetails(r.Location)}
-                                  >
-                                    {r.Location}
-                                  </button>
-                                ) : (
-                                  r.Location ? (
-                                    <button
-                                      type="button"
-                                      className="font-medium underline-offset-2 hover:text-blue-700 hover:underline"
-                                      onClick={() =>
-                                        defaultConstructionSummary.openLocationSummary(r.Location)
-                                      }
-                                    >
-                                      {r.Location}
-                                    </button>
-                                  ) : (
-                                    <span className="font-medium">{t.noLocation}</span>
-                                  )
-                                )}
-                                <span className="text-[10px] text-muted-foreground">
-                                  {r.Units && r.Amounts != null
-                                    ? `${r.Amounts} ${r.Units}`
-                                    : r.Units || r.Amounts || ""}
-                                </span>
-                              </div>
-                              {isZtcSite && r.Location_Custom_1 ? (
-                                <button
-                                  type="button"
-                                  className="mt-1 block text-left text-[10px] font-medium text-blue-700 underline-offset-2 hover:underline"
-                                  onClick={() => ztc.openElementDetails(r.Location_Custom_1, r.Location)}
-                                >
-                                  Elements: {r.Location_Custom_1}
-                                </button>
-                              ) : null}
-
-                              <div className="mt-1 text-[11px]">
-                                {isZtcSite ? (
-                                  <button
-                                    type="button"
-                                    className="block text-left font-semibold underline-offset-2 hover:text-blue-700 hover:underline"
-                                    onClick={() => ztc.openRowImages(r)}
-                                  >
-                                    <span className="inline-flex items-center gap-1">
-                                      {renderZtcWorkName(r, t.noWorksRecorded)}
-                                      {r.id &&
-                                      ztcQualityDisplayStateByRowId.get(r.id)
-                                        ?.hasResolvedDefect ? (
-                                        <span
-                                          className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold leading-none text-white"
-                                          title="Iepriekš konstatēts defekts, kas vēlāk novērsts un pieņemts"
-                                          aria-label="Iepriekš konstatēts un novērsts defekts"
-                                        >
-                                          !
-                                        </span>
-                                      ) : null}
-                                    </span>
-                                  </button>
-                                ) : (
-                                  r.Works ? (
-                                    <button
-                                      type="button"
-                                      className="block text-left font-semibold underline-offset-2 hover:text-blue-700 hover:underline"
-                                      onClick={() =>
-                                        defaultConstructionSummary.openWorkSummary(r.Works)
-                                      }
-                                    >
-                                      {r.Works}
-                                    </button>
-                                  ) : (
-                                    <div className="font-semibold">{t.noWorksRecorded}</div>
-                                  )
-                                )}
-                              </div>
-
-                              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-                                {isZtcSite && r.createdBy ? (
-                                  <span>
-                                    Darbinieks:{" "}
-                                    <button
-                                      type="button"
-                                      className="font-medium text-foreground underline-offset-2 hover:text-blue-700 hover:underline"
-                                      onClick={() => openZtcWorkerDetails(r.createdBy)}
-                                    >
-                                      {r.createdBy}
-                                    </button>
-                                  </span>
-                                ) : !isZtcSite ? (
-                                <span>
-                                  {t.workers}:{" "}
-                                  <span className="font-medium text-foreground">
-                                    {formatSiteDiaryCompactMetric("WorkersInvolved", r.WorkersInvolved)}
-                                  </span>
-                                </span>
-                                ) : null}
-                                <span>
-                                  {t.hours}:{" "}
-                                  <span className="font-medium text-foreground">
-                                    {isZtcSite ? (
-                                      <ZtcHoursWithPausePopover
-                                        row={r}
-                                        value={formatSiteDiaryCompactHours(r.TimeInvolved)}
-                                        dateLocale={dateLocale}
-                                      />
-                                    ) : (
-                                      formatSiteDiaryCompactHours(r.TimeInvolved)
-                                    )}
-                                  </span>
-                                </span>
-                                {!isZtcSite ? (
-                                  <span>
-                                    {t.manHours}:{" "}
-                                    <span className="font-medium text-foreground">
-                                      {(() => {
-                                        const manHours = calculateDefaultConstructionManHours(r);
-                                        return manHours == null
-                                          ? "—"
-                                          : `${manHours.toLocaleString(dateLocale, {
-                                              maximumFractionDigits: 2,
-                                            })} h`;
-                                      })()}
-                                    </span>
-                                  </span>
-                                ) : null}
-                                {!isZtcSite ? (
-                                  <span>
-                                    {t.cost}:{" "}
-                                    <span className="font-medium text-foreground">
-                                      {(() => {
-                                        const cost =
-                                          calculateDefaultConstructionRecordCost(
+                              {group.rows.map((r, idx) => (
+                                <div
+                                  key={r.id ?? `${group.key}-${idx}`}
+                                  className={cn(
+                                    "rounded-md border bg-muted/40 p-2 text-[11px]",
+                                    isZtcSite
+                                      ? r.id
+                                        ? (ztcQualityDisplayStateByRowId.get(
+                                            r.id,
+                                          )?.toneClass ?? "")
+                                        : getZtcQualityRowToneClass(r)
+                                      : getDefaultConstructionQuantityToneClass(
+                                          getDefaultConstructionQuantityComparison(
                                             r,
-                                          ).actualCost;
-                                        return cost == null
-                                          ? "—"
-                                          : costFormatter.format(cost);
-                                      })()}
-                                    </span>
-                                  </span>
-                                ) : null}
-                                {(() => {
-                                  const laborNorm = getZtcPayrollValues(r).laborNorm;
-                                  if (laborNorm.planned == null && laborNorm.actual == null) return null;
-                                  return (
-                                    <span>
-                                      Norma:{" "}
-                                      <span className="font-medium text-foreground">
-                                        {formatZtcLaborNorm(laborNorm.planned, dateLocale)} /{" "}
-                                        {formatZtcLaborNorm(laborNorm.actual, dateLocale)}
-                                      </span>
-                                    </span>
-                                  );
-                                })()}
-                              </div>
-
-                              {isZtcSite ? (
-                                <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
-                                  <label className="space-y-1">
-                                    <span>Likme</span>
-                                    {ztc.renderPayrollInput(r, "rate", r.Location_Custom_2, "w-full")}
-                                  </label>
-                                  <label className="space-y-1">
-                                    <span>Koef.</span>
-                                    {ztc.renderPayrollInput(r, "coefficient", r.Works_Custom_2, "w-full")}
-                                  </label>
-                                  <label className="space-y-1">
-                                    <span>Sarežģītība</span>
-                                    {ztc.renderPayrollInput(r, "complexity", r.WorkersInvolved, "w-full")}
-                                  </label>
-                                  <div className="space-y-1">
-                                    <span>Summa</span>
-                                    <div className="flex h-8 items-center justify-end rounded-md border bg-background px-2 font-medium text-foreground">
-                                      {formatZtcMoney(getZtcPayrollValues(r).sum)}
+                                            defaultMap,
+                                          ).status,
+                                        ),
+                                  )}
+                                  aria-label={
+                                    isZtcSite
+                                      ? undefined
+                                      : (getDefaultConstructionQuantityStatusLabel(
+                                          getDefaultConstructionQuantityComparison(
+                                            r,
+                                            defaultMap,
+                                          ).status,
+                                          language,
+                                        ) ?? undefined)
+                                  }
+                                >
+                                  {r.id ? (
+                                    <div className="mb-2 flex justify-end">
+                                      <Checkbox
+                                        checked={selectedRecordIds.has(r.id)}
+                                        onCheckedChange={(checked) =>
+                                          toggleRecordSelection(
+                                            r.id as string,
+                                            checked === true,
+                                          )
+                                        }
+                                        aria-label={`Select record ${r.id}`}
+                                      />
                                     </div>
-                                  </div>
-                                  {r.id && ztc.payrollDirtyRowIds.has(r.id) ? (
-                                      <Button
-                                      size="sm"
-                                      className="col-span-2 h-8"
-                                      disabled={ztc.payrollSavingRowId === r.id}
-                                      onClick={() => ztc.savePayrollDraft(r)}
-                                    >
-                                      {ztc.payrollSavingRowId === r.id ? (
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                      ) : (
-                                        "Saglabāt"
-                                      )}
-                                    </Button>
                                   ) : null}
-                                </div>
-                              ) : null}
-
-                              <div className="mt-1">
-                                {r.Comments || r.originalAudioUrl ? (
-                                  <Popover>
-                                    <PopoverTrigger asChild>
+                                  <div className="flex flex-wrap items-baseline justify-between gap-1">
+                                    {isZtcSite && r.Location ? (
                                       <button
                                         type="button"
-                                        className="block w-full text-left"
+                                        className="font-medium underline-offset-2 hover:text-blue-700 hover:underline"
+                                        onClick={() =>
+                                          ztc.openProjectDetails(r.Location)
+                                        }
                                       >
-                                        <span className="line-clamp-2 overflow-hidden whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground hover:text-blue-700">
-                                          {r.Comments || "Balss ziņa"}
+                                        {r.Location}
+                                      </button>
+                                    ) : r.Location ? (
+                                      <button
+                                        type="button"
+                                        className="font-medium underline-offset-2 hover:text-blue-700 hover:underline"
+                                        onClick={() =>
+                                          defaultConstructionSummary.openLocationSummary(
+                                            r.Location,
+                                          )
+                                        }
+                                      >
+                                        {r.Location}
+                                      </button>
+                                    ) : (
+                                      <span className="font-medium">
+                                        {t.noLocation}
+                                      </span>
+                                    )}
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {(() => {
+                                        const comparison =
+                                          getDefaultConstructionQuantityComparison(
+                                            r,
+                                            defaultMap,
+                                          );
+                                        if (!isZtcSite && comparison.enabled) {
+                                          const planned =
+                                            formatSiteDiaryCompactMetric(
+                                              "Amounts",
+                                              comparison.plannedAmount,
+                                            );
+                                          const actual =
+                                            formatSiteDiaryCompactMetric(
+                                              "Amounts",
+                                              comparison.actualAmount,
+                                            );
+                                          const unit = r.Units
+                                            ? ` ${r.Units}`
+                                            : "";
+                                          return language === "lv"
+                                            ? `Plāns: ${planned}${planned === "—" ? "" : unit} · Fakts: ${actual}${actual === "—" ? "" : unit}`
+                                            : `Plan: ${planned}${planned === "—" ? "" : unit} · Actual: ${actual}${actual === "—" ? "" : unit}`;
+                                        }
+                                        return r.Units && r.Amounts != null
+                                          ? `${r.Amounts} ${r.Units}`
+                                          : r.Units || r.Amounts || "";
+                                      })()}
+                                    </span>
+                                  </div>
+                                  {!isZtcSite
+                                    ? (() => {
+                                        const comparison =
+                                          getDefaultConstructionQuantityComparison(
+                                            r,
+                                            defaultMap,
+                                          );
+                                        const label =
+                                          getDefaultConstructionQuantityStatusLabel(
+                                            comparison.status,
+                                            language,
+                                          );
+                                        return label &&
+                                          comparison.status !== "on-plan" ? (
+                                          <div className="mt-1 text-[10px] font-semibold">
+                                            {label}
+                                          </div>
+                                        ) : null;
+                                      })()
+                                    : null}
+                                  {isZtcSite && r.Location_Custom_1 ? (
+                                    <button
+                                      type="button"
+                                      className="mt-1 block text-left text-[10px] font-medium text-blue-700 underline-offset-2 hover:underline"
+                                      onClick={() =>
+                                        ztc.openElementDetails(
+                                          r.Location_Custom_1,
+                                          r.Location,
+                                        )
+                                      }
+                                    >
+                                      Elements: {r.Location_Custom_1}
+                                    </button>
+                                  ) : null}
+
+                                  <div className="mt-1 text-[11px]">
+                                    {isZtcSite ? (
+                                      <button
+                                        type="button"
+                                        className="block text-left font-semibold underline-offset-2 hover:text-blue-700 hover:underline"
+                                        onClick={() => ztc.openRowImages(r)}
+                                      >
+                                        <span className="inline-flex items-center gap-1">
+                                          {renderZtcWorkName(
+                                            r,
+                                            t.noWorksRecorded,
+                                          )}
+                                          {r.id &&
+                                          ztcQualityDisplayStateByRowId.get(
+                                            r.id,
+                                          )?.hasResolvedDefect ? (
+                                            <span
+                                              className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold leading-none text-white"
+                                              title="Iepriekš konstatēts defekts, kas vēlāk novērsts un pieņemts"
+                                              aria-label="Iepriekš konstatēts un novērsts defekts"
+                                            >
+                                              !
+                                            </span>
+                                          ) : null}
                                         </span>
                                       </button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[calc(100vw-2rem)] max-w-2xl">
-                                      <ZtcCommentPopoverContent row={r} />
-                                    </PopoverContent>
-                                  </Popover>
-                                ) : (
-                                  <p className="line-clamp-2 overflow-hidden whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
-                                    {t.noComments}
-                                  </p>
-                                )}
-                              </div>
+                                    ) : r.Works ? (
+                                      <button
+                                        type="button"
+                                        className="block text-left font-semibold underline-offset-2 hover:text-blue-700 hover:underline"
+                                        onClick={() =>
+                                          defaultConstructionSummary.openWorkSummary(
+                                            r.Works,
+                                          )
+                                        }
+                                      >
+                                        {r.Works}
+                                      </button>
+                                    ) : (
+                                      <div className="font-semibold">
+                                        {t.noWorksRecorded}
+                                      </div>
+                                    )}
+                                  </div>
 
-                              {bisUiEnabled ? (
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  {(() => {
-                                    const approvalStatus = r.id ? bisApprovalStatusByRowId[r.id] : null;
-                                    const isPendingApproval = isApprovalPendingStatus(approvalStatus);
-                                    const isApproved = isApprovedStatus(approvalStatus);
-                                    const isSent = Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false);
+                                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+                                    {isZtcSite && r.createdBy ? (
+                                      <span>
+                                        Darbinieks:{" "}
+                                        <button
+                                          type="button"
+                                          className="font-medium text-foreground underline-offset-2 hover:text-blue-700 hover:underline"
+                                          onClick={() =>
+                                            openZtcWorkerDetails(r.createdBy)
+                                          }
+                                        >
+                                          {r.createdBy}
+                                        </button>
+                                      </span>
+                                    ) : !isZtcSite ? (
+                                      <span>
+                                        {t.workers}:{" "}
+                                        <span className="font-medium text-foreground">
+                                          {formatSiteDiaryCompactMetric(
+                                            "WorkersInvolved",
+                                            r.WorkersInvolved,
+                                          )}
+                                        </span>
+                                      </span>
+                                    ) : null}
+                                    <span>
+                                      {t.hours}:{" "}
+                                      <span className="font-medium text-foreground">
+                                        {isZtcSite ? (
+                                          <ZtcHoursWithPausePopover
+                                            row={r}
+                                            value={formatSiteDiaryCompactHours(
+                                              r.TimeInvolved,
+                                            )}
+                                            dateLocale={dateLocale}
+                                          />
+                                        ) : (
+                                          formatSiteDiaryCompactHours(
+                                            r.TimeInvolved,
+                                          )
+                                        )}
+                                      </span>
+                                    </span>
+                                    {!isZtcSite ? (
+                                      <span>
+                                        {t.manHours}:{" "}
+                                        <span className="font-medium text-foreground">
+                                          {(() => {
+                                            const manHours =
+                                              calculateDefaultConstructionManHours(
+                                                r,
+                                              );
+                                            return manHours == null
+                                              ? "—"
+                                              : `${manHours.toLocaleString(
+                                                  dateLocale,
+                                                  {
+                                                    maximumFractionDigits: 2,
+                                                  },
+                                                )} h`;
+                                          })()}
+                                        </span>
+                                      </span>
+                                    ) : null}
+                                    {!isZtcSite ? (
+                                      <span>
+                                        {t.cost}:{" "}
+                                        <span className="font-medium text-foreground">
+                                          {(() => {
+                                            const cost =
+                                              calculateDefaultConstructionRecordCost(
+                                                r,
+                                              ).actualCost;
+                                            return cost == null
+                                              ? "—"
+                                              : costFormatter.format(cost);
+                                          })()}
+                                        </span>
+                                      </span>
+                                    ) : null}
+                                    {(() => {
+                                      const laborNorm =
+                                        getZtcPayrollValues(r).laborNorm;
+                                      if (
+                                        laborNorm.planned == null &&
+                                        laborNorm.actual == null
+                                      )
+                                        return null;
+                                      return (
+                                        <span>
+                                          Norma:{" "}
+                                          <span className="font-medium text-foreground">
+                                            {formatZtcLaborNorm(
+                                              laborNorm.planned,
+                                              dateLocale,
+                                            )}{" "}
+                                            /{" "}
+                                            {formatZtcLaborNorm(
+                                              laborNorm.actual,
+                                              dateLocale,
+                                            )}
+                                          </span>
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
 
-                                    return (
-                                      <>
+                                  {isZtcSite ? (
+                                    <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
+                                      <label className="space-y-1">
+                                        <span>Likme</span>
+                                        {ztc.renderPayrollInput(
+                                          r,
+                                          "rate",
+                                          r.Location_Custom_2,
+                                          "w-full",
+                                        )}
+                                      </label>
+                                      <label className="space-y-1">
+                                        <span>Koef.</span>
+                                        {ztc.renderPayrollInput(
+                                          r,
+                                          "coefficient",
+                                          r.Works_Custom_2,
+                                          "w-full",
+                                        )}
+                                      </label>
+                                      <label className="space-y-1">
+                                        <span>Sarežģītība</span>
+                                        {ztc.renderPayrollInput(
+                                          r,
+                                          "complexity",
+                                          r.WorkersInvolved,
+                                          "w-full",
+                                        )}
+                                      </label>
+                                      <div className="space-y-1">
+                                        <span>Summa</span>
+                                        <div className="flex h-8 items-center justify-end rounded-md border bg-background px-2 font-medium text-foreground">
+                                          {formatZtcMoney(
+                                            getZtcPayrollValues(r).sum,
+                                          )}
+                                        </div>
+                                      </div>
+                                      {r.id &&
+                                      ztc.payrollDirtyRowIds.has(r.id) ? (
                                         <Button
                                           size="sm"
-                                          variant="outline"
-                                          className={cn(
-                                            "h-7 text-[10px]",
-                                            isSent
-                                              ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
-                                              : "bg-green-600 text-white hover:bg-green-700",
-                                          )}
-                                          disabled={!r.id || bisSendingRowId === r.id || isSent}
-                                          onClick={() => openBisPicker(r)}
+                                          className="col-span-2 h-8"
+                                          disabled={
+                                            ztc.payrollSavingRowId === r.id
+                                          }
+                                          onClick={() =>
+                                            ztc.savePayrollDraft(r)
+                                          }
                                         >
-                                          {isSent ? t.sentToBis : bisSendingRowId === r.id ? (
-                                            <>
-                                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                              {t.sending}
-                                            </>
-                                          ) : t.sendToBis}
+                                          {ztc.payrollSavingRowId === r.id ? (
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                          ) : (
+                                            "Saglabāt"
+                                          )}
                                         </Button>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
 
-                                        {isSent ? (
+                                  <div className="mt-1">
+                                    {r.Comments || r.originalAudioUrl ? (
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <button
+                                            type="button"
+                                            className="block w-full text-left"
+                                          >
+                                            <span className="line-clamp-2 overflow-hidden whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground hover:text-blue-700">
+                                              {r.Comments || "Balss ziņa"}
+                                            </span>
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[calc(100vw-2rem)] max-w-2xl">
+                                          <ZtcCommentPopoverContent row={r} />
+                                        </PopoverContent>
+                                      </Popover>
+                                    ) : (
+                                      <p className="line-clamp-2 overflow-hidden whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
+                                        {t.noComments}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {bisUiEnabled ? (
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      {(() => {
+                                        const approvalStatus = r.id
+                                          ? bisApprovalStatusByRowId[r.id]
+                                          : null;
+                                        const isPendingApproval =
+                                          isApprovalPendingStatus(
+                                            approvalStatus,
+                                          );
+                                        const isApproved =
+                                          isApprovedStatus(approvalStatus);
+                                        const isSent =
+                                          Boolean(r.BISId) ||
+                                          (r.id
+                                            ? bisSentRowIds.has(r.id)
+                                            : false);
+
+                                        return (
+                                          <>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className={cn(
+                                                "h-7 text-[10px]",
+                                                isSent
+                                                  ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                                  : "bg-green-600 text-white hover:bg-green-700",
+                                              )}
+                                              disabled={
+                                                !r.id ||
+                                                bisSendingRowId === r.id ||
+                                                isSent
+                                              }
+                                              onClick={() => openBisPicker(r)}
+                                            >
+                                              {isSent ? (
+                                                t.sentToBis
+                                              ) : bisSendingRowId === r.id ? (
+                                                <>
+                                                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                                  {t.sending}
+                                                </>
+                                              ) : (
+                                                t.sendToBis
+                                              )}
+                                            </Button>
+
+                                            {isSent ? (
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className={cn(
+                                                  "h-7 text-[10px]",
+                                                  isApproved
+                                                    ? "bg-green-600 text-white hover:bg-green-600"
+                                                    : isPendingApproval
+                                                      ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                                      : "bg-blue-600 text-white hover:bg-blue-700",
+                                                )}
+                                                disabled={
+                                                  !r.id ||
+                                                  isPendingApproval ||
+                                                  isApproved
+                                                }
+                                                onClick={() =>
+                                                  openApprovalDialog(r)
+                                                }
+                                              >
+                                                {isApproved
+                                                  ? t.approved
+                                                  : isPendingApproval
+                                                    ? t.sentForApproval
+                                                    : t.sendForApproval}
+                                              </Button>
+                                            ) : null}
+                                          </>
+                                        );
+                                      })()}
+
+                                      <Badge
+                                        className={cn(
+                                          "h-7 rounded-full px-3 text-[10px] font-medium",
+                                          getBisStatusClassName(
+                                            r.id
+                                              ? (bisApprovalStatusByRowId[
+                                                  r.id
+                                                ] ?? r.bisStatus)
+                                              : r.bisStatus,
+                                          ),
+                                        )}
+                                      >
+                                        {getBisStatusLabel(
+                                          r.id
+                                            ? (bisApprovalStatusByRowId[r.id] ??
+                                                r.bisStatus)
+                                            : r.bisStatus,
+                                        )}
+                                      </Badge>
+
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
                                           <Button
                                             size="sm"
                                             variant="outline"
-                                            className={cn(
-                                              "h-7 text-[10px]",
-                                              isApproved
-                                                ? "bg-green-600 text-white hover:bg-green-600"
-                                                : isPendingApproval
-                                                  ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
-                                                  : "bg-blue-600 text-white hover:bg-blue-700",
-                                            )}
-                                            disabled={!r.id || isPendingApproval || isApproved}
-                                            onClick={() => openApprovalDialog(r)}
+                                            className="h-7 px-2"
                                           >
-                                            {isApproved ? t.approved : isPendingApproval ? t.sentForApproval : t.sendForApproval}
+                                            <Ellipsis className="h-3 w-3" />
                                           </Button>
-                                        ) : null}
-                                      </>
-                                    );
-                                  })()}
-
-                                  <Badge className={cn("h-7 rounded-full px-3 text-[10px] font-medium", getBisStatusClassName(r.id ? bisApprovalStatusByRowId[r.id] ?? r.bisStatus : r.bisStatus))}>
-                                    {getBisStatusLabel(r.id ? bisApprovalStatusByRowId[r.id] ?? r.bisStatus : r.bisStatus)}
-                                  </Badge>
-
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button size="sm" variant="outline" className="h-7 px-2">
-                                        <Ellipsis className="h-3 w-3" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem
-                                        onClick={() => openRecordDialog(r, group.date)}
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          <DropdownMenuItem
+                                            onClick={() =>
+                                              openRecordDialog(r, group.date)
+                                            }
+                                          >
+                                            {t.edit}
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onClick={() => openCopyDialog(r)}
+                                            disabled={!r.id}
+                                          >
+                                            {t.copyToDate}
+                                          </DropdownMenuItem>
+                                          {!isZtcSite ? (
+                                            <DropdownMenuItem
+                                              onClick={() =>
+                                                selectRecordForProjectCopy(r)
+                                              }
+                                              disabled={!r.id}
+                                            >
+                                              {t.copyToProject}
+                                            </DropdownMenuItem>
+                                          ) : null}
+                                          <DropdownMenuItem
+                                            onClick={() =>
+                                              handleDeleteRecord(r)
+                                            }
+                                            disabled={!r.id}
+                                          >
+                                            Delete
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onClick={() =>
+                                              handleOpenRecordInBis(r)
+                                            }
+                                            disabled={!r.BISId}
+                                          >
+                                            <ExternalLink className="mr-2 h-3 w-3" />
+                                            {t.openInBis}
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </div>
+                                  ) : (
+                                    <div className="mt-2">
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        className="h-7 text-[10px]"
+                                        disabled={!r.id}
+                                        onClick={() => openCopyDialog(r)}
                                       >
-                                        {t.edit}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => openCopyDialog(r)} disabled={!r.id}>
+                                        <Copy className="mr-1 h-3 w-3" />
                                         {t.copyToDate}
-                                      </DropdownMenuItem>
-                                      {!isZtcSite ? (
-                                        <DropdownMenuItem
-                                          onClick={() => selectRecordForProjectCopy(r)}
-                                          disabled={!r.id}
+                                      </Button>
+                                    </div>
+                                  )}
+
+                                  {r.originalUserComment ||
+                                  r.originalAudioUrl ? (
+                                    <div className="mt-2">
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <button
+                                            type="button"
+                                            className="font-bold text-blue-600 hover:text-blue-800"
+                                          >
+                                            ?
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent
+                                          className={sourcePopoverClassName}
                                         >
-                                          {t.copyToProject}
-                                        </DropdownMenuItem>
-                                      ) : null}
-                                      <DropdownMenuItem onClick={() => handleDeleteRecord(r)} disabled={!r.id}>
-                                        Delete
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleOpenRecordInBis(r)} disabled={!r.BISId}>
-                                        <ExternalLink className="mr-2 h-3 w-3" />
-                                        {t.openInBis}
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
+                                          <OriginalSourceContent
+                                            originalUserComment={
+                                              r.originalUserComment
+                                            }
+                                            originalAudioUrl={
+                                              r.originalAudioUrl
+                                            }
+                                          />
+                                        </PopoverContent>
+                                      </Popover>
+                                    </div>
+                                  ) : null}
                                 </div>
-                              ) : (
-                                <div className="mt-2">
-                                  <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    className="h-7 text-[10px]"
-                                    disabled={!r.id}
-                                    onClick={() => openCopyDialog(r)}
-                                  >
-                                    <Copy className="mr-1 h-3 w-3" />
-                                    {t.copyToDate}
-                                  </Button>
-                                </div>
-                              )}
-
-                              {r.originalUserComment || r.originalAudioUrl ? (
-                                <div className="mt-2">
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <button
-                                        type="button"
-                                        className="font-bold text-blue-600 hover:text-blue-800"
-                                      >
-                                        ?
-                                      </button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className={sourcePopoverClassName}>
-                                      <OriginalSourceContent
-                                        originalUserComment={r.originalUserComment}
-                                        originalAudioUrl={r.originalAudioUrl}
-                                      />
-                                    </PopoverContent>
-                                  </Popover>
-                                </div>
-                              ) : null}
+                              ))}
                             </div>
-                          ))}
-                        </div>
 
-                        {/* DESKTOP: table view */}
-                        <div className={cn("hidden overflow-x-auto lg:block", isMediaOnlyGroup && "lg:hidden")}>
-                          {(() => {
-                            const dayRecordIds = group.rows
-                              .map((r) => r.id)
-                              .filter((id): id is string => Boolean(id));
-                            const selectedDayCount = dayRecordIds.filter((id) =>
-                              selectedRecordIds.has(id),
-                            ).length;
-                            const allDaySelected =
-                              dayRecordIds.length > 0 && selectedDayCount === dayRecordIds.length;
+                            {/* DESKTOP: table view */}
+                            <div
+                              className={cn(
+                                "hidden overflow-x-auto lg:block",
+                                isMediaOnlyGroup && "lg:hidden",
+                              )}
+                            >
+                              {(() => {
+                                const dayRecordIds = group.rows
+                                  .map((r) => r.id)
+                                  .filter((id): id is string => Boolean(id));
+                                const selectedDayCount = dayRecordIds.filter(
+                                  (id) => selectedRecordIds.has(id),
+                                ).length;
+                                const allDaySelected =
+                                  dayRecordIds.length > 0 &&
+                                  selectedDayCount === dayRecordIds.length;
 
-                            if (isZtcSite) {
-                              return (
-                                <Table className="table-fixed min-w-[1320px] text-sm">
-                                  <TableHeader className="sticky top-0 z-10 bg-background">
-                                    <TableRow className="hover:bg-transparent">
-                                      <TableHead className="text-center" style={{ width: 44 }}>
-                                        <Checkbox
-                                          checked={allDaySelected}
-                                          onCheckedChange={(checked) =>
-                                            handleToggleSelectForDay(dayRecordIds, checked === true)
+                                if (isZtcSite) {
+                                  return (
+                                    <Table className="table-fixed min-w-[1320px] text-sm">
+                                      <TableHeader className="sticky top-0 z-10 bg-background">
+                                        <TableRow className="hover:bg-transparent">
+                                          <TableHead
+                                            className="text-center"
+                                            style={{ width: 44 }}
+                                          >
+                                            <Checkbox
+                                              checked={allDaySelected}
+                                              onCheckedChange={(checked) =>
+                                                handleToggleSelectForDay(
+                                                  dayRecordIds,
+                                                  checked === true,
+                                                )
+                                              }
+                                              aria-label={`Select all records for ${dayLabel(group.date)}`}
+                                            />
+                                          </TableHead>
+                                          <TableHead style={{ width: 235 }}>
+                                            Projekts / elements
+                                          </TableHead>
+                                          <TableHead style={{ width: 175 }}>
+                                            Darbi
+                                          </TableHead>
+                                          <TableHead style={{ width: 105 }}>
+                                            Darbinieks
+                                          </TableHead>
+                                          <TableHead style={{ width: 105 }}>
+                                            Sākums / beigas
+                                          </TableHead>
+                                          <TableHead
+                                            className="text-right"
+                                            style={{ width: 76 }}
+                                          >
+                                            Daudz. / mērv.
+                                          </TableHead>
+                                          <TableHead
+                                            className="text-right"
+                                            style={{ width: 96 }}
+                                          >
+                                            Laika norma
+                                          </TableHead>
+                                          <TableHead
+                                            className="px-2 text-right text-[11px]"
+                                            style={{ width: 68 }}
+                                          >
+                                            Likme
+                                          </TableHead>
+                                          <TableHead
+                                            className="px-2 text-right text-[11px]"
+                                            style={{ width: 72 }}
+                                          >
+                                            Koef.
+                                          </TableHead>
+                                          <TableHead
+                                            className="px-2 text-right text-[11px]"
+                                            style={{ width: 92 }}
+                                          >
+                                            Sarežģītība
+                                          </TableHead>
+                                          <TableHead
+                                            className="text-right"
+                                            style={{ width: 82 }}
+                                          >
+                                            Summa
+                                          </TableHead>
+                                          <TableHead
+                                            className="text-center"
+                                            style={{ width: 72 }}
+                                          >
+                                            Saglabāt
+                                          </TableHead>
+                                          <TableHead style={{ width: 270 }}>
+                                            Komentāri
+                                          </TableHead>
+                                          {bisUiEnabled ? (
+                                            <TableHead
+                                              className="text-center"
+                                              style={{ width: 122 }}
+                                            >
+                                              BIS
+                                            </TableHead>
+                                          ) : null}
+                                          {bisUiEnabled ? (
+                                            <TableHead
+                                              className="text-center"
+                                              style={{ width: 118 }}
+                                            >
+                                              {t.status}
+                                            </TableHead>
+                                          ) : null}
+                                          <TableHead
+                                            className="text-center"
+                                            style={{ width: 72 }}
+                                          >
+                                            {t.action}
+                                          </TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {group.rows.map((row, i) => {
+                                          const payroll =
+                                            getZtcPayrollValues(row);
+                                          const workerName =
+                                            splitZtcWorkerDisplayName(
+                                              row.createdBy,
+                                            );
+                                          const payrollDirty = row.id
+                                            ? ztc.payrollDirtyRowIds.has(row.id)
+                                            : false;
+                                          const payrollSaving = row.id
+                                            ? ztc.payrollSavingRowId === row.id
+                                            : false;
+                                          const startTime =
+                                            formatZtcTimeValue(row.Date) || "—";
+                                          const endTime =
+                                            formatZtcTimeValue(
+                                              row.Date_Custom_2,
+                                            ) || "—";
+                                          const amount =
+                                            formatSiteDiaryCompactMetric(
+                                              "Amounts",
+                                              row.Amounts,
+                                            );
+                                          const unit = row.Units || "m2";
+                                          const approvalStatus = row.id
+                                            ? bisApprovalStatusByRowId[row.id]
+                                            : null;
+                                          const isPendingApproval =
+                                            isApprovalPendingStatus(
+                                              approvalStatus,
+                                            );
+                                          const isApproved =
+                                            isApprovedStatus(approvalStatus);
+                                          const isSent =
+                                            Boolean(row.BISId) ||
+                                            (row.id
+                                              ? bisSentRowIds.has(row.id)
+                                              : false);
+
+                                          return (
+                                            <TableRow
+                                              key={
+                                                row.id ?? `${group.key}-${i}`
+                                              }
+                                              className={cn(
+                                                "align-top hover:bg-muted/30",
+                                                isZtcSite
+                                                  ? row.id
+                                                    ? (ztcQualityDisplayStateByRowId.get(
+                                                        row.id,
+                                                      )?.toneClass ?? "")
+                                                    : getZtcQualityRowToneClass(
+                                                        row,
+                                                      )
+                                                  : "",
+                                              )}
+                                            >
+                                              <TableCell
+                                                className="px-2 py-3 text-center"
+                                                style={{ width: 44 }}
+                                              >
+                                                {row.id ? (
+                                                  <Checkbox
+                                                    checked={selectedRecordIds.has(
+                                                      row.id,
+                                                    )}
+                                                    onCheckedChange={(
+                                                      checked,
+                                                    ) =>
+                                                      toggleRecordSelection(
+                                                        row.id as string,
+                                                        checked === true,
+                                                      )
+                                                    }
+                                                    aria-label={`Select record ${row.id}`}
+                                                  />
+                                                ) : null}
+                                              </TableCell>
+                                              <TableCell
+                                                className="px-3 py-3"
+                                                style={{ width: 235 }}
+                                              >
+                                                <div className="space-y-1 leading-snug">
+                                                  <div className="line-clamp-2">
+                                                    <span className="text-[11px] font-medium text-muted-foreground">
+                                                      Projekts:{" "}
+                                                    </span>
+                                                    {row.Location ? (
+                                                      <button
+                                                        type="button"
+                                                        className="font-medium text-foreground underline-offset-2 hover:text-blue-700 hover:underline"
+                                                        onClick={() =>
+                                                          ztc.openProjectDetails(
+                                                            row.Location,
+                                                          )
+                                                        }
+                                                      >
+                                                        {row.Location}
+                                                      </button>
+                                                    ) : (
+                                                      <span className="font-medium text-foreground">
+                                                        —
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  <div className="line-clamp-1">
+                                                    <span className="text-[11px] font-medium text-muted-foreground">
+                                                      Elements:{" "}
+                                                    </span>
+                                                    {row.Location_Custom_1 ? (
+                                                      <button
+                                                        type="button"
+                                                        className="font-medium text-foreground underline-offset-2 hover:text-blue-700 hover:underline"
+                                                        onClick={() =>
+                                                          ztc.openElementDetails(
+                                                            row.Location_Custom_1,
+                                                            row.Location,
+                                                          )
+                                                        }
+                                                      >
+                                                        {row.Location_Custom_1}
+                                                      </button>
+                                                    ) : (
+                                                      <span>—</span>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              </TableCell>
+                                              <TableCell
+                                                className="px-3 py-3"
+                                                style={{ width: 175 }}
+                                              >
+                                                <div className="flex items-start gap-1">
+                                                  <button
+                                                    type="button"
+                                                    className="min-w-0 whitespace-normal break-words text-left leading-snug underline-offset-2 hover:text-blue-700 hover:underline"
+                                                    onClick={() =>
+                                                      ztc.openRowImages(row)
+                                                    }
+                                                  >
+                                                    {renderZtcWorkName(
+                                                      row,
+                                                      "—",
+                                                    )}
+                                                  </button>
+                                                  {row.id &&
+                                                  ztcQualityDisplayStateByRowId.get(
+                                                    row.id,
+                                                  )?.hasResolvedDefect ? (
+                                                    <span
+                                                      className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold leading-none text-white"
+                                                      title="Iepriekš konstatēts defekts, kas vēlāk novērsts un pieņemts"
+                                                      aria-label="Iepriekš konstatēts un novērsts defekts"
+                                                    >
+                                                      !
+                                                    </span>
+                                                  ) : null}
+                                                </div>
+                                              </TableCell>
+                                              <TableCell
+                                                className="px-3 py-3"
+                                                style={{ width: 105 }}
+                                              >
+                                                <button
+                                                  type="button"
+                                                  className="block text-left leading-snug underline-offset-2 hover:text-blue-700 hover:underline"
+                                                  onClick={() =>
+                                                    openZtcWorkerDetails(
+                                                      row.createdBy,
+                                                    )
+                                                  }
+                                                >
+                                                  <div className="font-medium">
+                                                    {workerName.name}
+                                                  </div>
+                                                  {workerName.surname ? (
+                                                    <div>
+                                                      {workerName.surname}
+                                                    </div>
+                                                  ) : null}
+                                                </button>
+                                              </TableCell>
+                                              <TableCell
+                                                className="px-3 py-3"
+                                                style={{ width: 105 }}
+                                              >
+                                                <div className="space-y-1 leading-tight">
+                                                  <div>
+                                                    <span className="text-muted-foreground">
+                                                      Sākums:{" "}
+                                                    </span>
+                                                    {startTime}
+                                                  </div>
+                                                  <div>
+                                                    <span className="text-muted-foreground">
+                                                      Beigas:{" "}
+                                                    </span>
+                                                    {endTime}
+                                                  </div>
+                                                  <div className="text-[11px] font-medium text-muted-foreground">
+                                                    <ZtcHoursWithPausePopover
+                                                      row={row}
+                                                      value={formatSiteDiaryCompactHours(
+                                                        row.TimeInvolved,
+                                                        { withUnit: true },
+                                                      )}
+                                                      dateLocale={dateLocale}
+                                                    />
+                                                  </div>
+                                                </div>
+                                              </TableCell>
+                                              <TableCell
+                                                className="px-3 py-3 text-right"
+                                                style={{ width: 76 }}
+                                              >
+                                                <div className="font-medium tabular-nums">
+                                                  {amount}
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground">
+                                                  {unit}
+                                                </div>
+                                              </TableCell>
+                                              <TableCell
+                                                className="px-3 py-3 text-right"
+                                                style={{ width: 96 }}
+                                              >
+                                                <div className="font-medium tabular-nums">
+                                                  {formatZtcLaborNorm(
+                                                    payroll.laborNorm.actual,
+                                                    dateLocale,
+                                                  )}
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground">
+                                                  Plāns{" "}
+                                                  {formatZtcLaborNorm(
+                                                    payroll.laborNorm.planned,
+                                                    dateLocale,
+                                                  )}
+                                                </div>
+                                              </TableCell>
+                                              <TableCell
+                                                className="px-1.5 py-2 text-right"
+                                                style={{ width: 68 }}
+                                              >
+                                                {ztc.renderPayrollInput(
+                                                  row,
+                                                  "rate",
+                                                  row.Location_Custom_2,
+                                                  "w-full",
+                                                )}
+                                              </TableCell>
+                                              <TableCell
+                                                className="px-1.5 py-2 text-right"
+                                                style={{ width: 72 }}
+                                              >
+                                                {ztc.renderPayrollInput(
+                                                  row,
+                                                  "coefficient",
+                                                  row.Works_Custom_2,
+                                                  "w-full",
+                                                )}
+                                              </TableCell>
+                                              <TableCell
+                                                className="px-1.5 py-2 text-right"
+                                                style={{ width: 92 }}
+                                              >
+                                                {ztc.renderPayrollInput(
+                                                  row,
+                                                  "complexity",
+                                                  row.WorkersInvolved,
+                                                  "w-full",
+                                                )}
+                                              </TableCell>
+                                              <TableCell
+                                                className="px-3 py-3 text-right font-semibold tabular-nums"
+                                                style={{ width: 82 }}
+                                              >
+                                                {formatZtcMoney(payroll.sum)}
+                                              </TableCell>
+                                              <TableCell
+                                                className="px-2 py-2 text-center"
+                                                style={{ width: 72 }}
+                                              >
+                                                {payrollDirty ? (
+                                                  <Button
+                                                    size="sm"
+                                                    className="h-8 px-3"
+                                                    disabled={
+                                                      !row.id || payrollSaving
+                                                    }
+                                                    onClick={() =>
+                                                      ztc.savePayrollDraft(row)
+                                                    }
+                                                  >
+                                                    {payrollSaving ? (
+                                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    ) : (
+                                                      "Saglabāt"
+                                                    )}
+                                                  </Button>
+                                                ) : null}
+                                              </TableCell>
+                                              <TableCell
+                                                className="px-3 py-3"
+                                                style={{ width: 270 }}
+                                              >
+                                                {row.Comments ||
+                                                row.originalAudioUrl ? (
+                                                  <Popover>
+                                                    <PopoverTrigger asChild>
+                                                      <button
+                                                        type="button"
+                                                        className="block w-full overflow-hidden text-left leading-snug line-clamp-2 whitespace-normal break-words hover:text-blue-700"
+                                                      >
+                                                        {row.Comments ||
+                                                          "Balss ziņa"}
+                                                      </button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-[calc(100vw-2rem)] max-w-2xl">
+                                                      <ZtcCommentPopoverContent
+                                                        row={row}
+                                                      />
+                                                    </PopoverContent>
+                                                  </Popover>
+                                                ) : (
+                                                  <span className="text-muted-foreground">
+                                                    —
+                                                  </span>
+                                                )}
+                                              </TableCell>
+                                              {bisUiEnabled ? (
+                                                <TableCell
+                                                  className="px-3 py-3 text-center"
+                                                  style={{ width: 122 }}
+                                                >
+                                                  {!isSent ? (
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      className="h-8 bg-green-600 text-white hover:bg-green-700"
+                                                      disabled={
+                                                        !row.id ||
+                                                        bisSendingRowId ===
+                                                          row.id
+                                                      }
+                                                      onClick={() =>
+                                                        openBisPicker(row)
+                                                      }
+                                                    >
+                                                      {bisSendingRowId ===
+                                                      row.id ? (
+                                                        <>
+                                                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                                          {t.sending}
+                                                        </>
+                                                      ) : (
+                                                        t.sendToBis
+                                                      )}
+                                                    </Button>
+                                                  ) : (
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      className={cn(
+                                                        "h-8",
+                                                        isApproved
+                                                          ? "bg-green-600 text-white hover:bg-green-600"
+                                                          : isPendingApproval
+                                                            ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                                            : "bg-blue-600 text-white hover:bg-blue-700",
+                                                      )}
+                                                      disabled={
+                                                        !row.id ||
+                                                        isPendingApproval ||
+                                                        isApproved
+                                                      }
+                                                      onClick={() =>
+                                                        openApprovalDialog(row)
+                                                      }
+                                                    >
+                                                      {isApproved ? (
+                                                        <>
+                                                          <ShieldCheck className="mr-1 h-3 w-3" />
+                                                          {t.approved}
+                                                        </>
+                                                      ) : isPendingApproval ? (
+                                                        t.sentForApproval
+                                                      ) : (
+                                                        t.sendForApproval
+                                                      )}
+                                                    </Button>
+                                                  )}
+                                                </TableCell>
+                                              ) : null}
+                                              {bisUiEnabled ? (
+                                                <TableCell
+                                                  className="px-3 py-3 text-center"
+                                                  style={{ width: 118 }}
+                                                >
+                                                  <Badge
+                                                    className={cn(
+                                                      "inline-flex items-center justify-center rounded-full px-3 py-1 font-medium capitalize",
+                                                      getBisStatusClassName(
+                                                        row.id
+                                                          ? (bisApprovalStatusByRowId[
+                                                              row.id
+                                                            ] ?? row.bisStatus)
+                                                          : row.bisStatus,
+                                                      ),
+                                                    )}
+                                                  >
+                                                    {getBisStatusLabel(
+                                                      row.id
+                                                        ? (bisApprovalStatusByRowId[
+                                                            row.id
+                                                          ] ?? row.bisStatus)
+                                                        : row.bisStatus,
+                                                    )}
+                                                  </Badge>
+                                                </TableCell>
+                                              ) : null}
+                                              <TableCell
+                                                className="px-3 py-3 text-center"
+                                                style={{ width: 72 }}
+                                              >
+                                                <DropdownMenu>
+                                                  <DropdownMenuTrigger asChild>
+                                                    <Button
+                                                      size="icon"
+                                                      variant="ghost"
+                                                      className="h-8 w-8"
+                                                      disabled={!row.id}
+                                                    >
+                                                      <Ellipsis className="h-4 w-4" />
+                                                    </Button>
+                                                  </DropdownMenuTrigger>
+                                                  <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem
+                                                      onClick={() =>
+                                                        openRecordDialog(
+                                                          row,
+                                                          group.date,
+                                                        )
+                                                      }
+                                                    >
+                                                      {t.edit}
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                      onClick={() =>
+                                                        openCopyDialog(row)
+                                                      }
+                                                      disabled={!row.id}
+                                                    >
+                                                      {t.copyToDate}
+                                                    </DropdownMenuItem>
+                                                    {!isZtcSite ? (
+                                                      <DropdownMenuItem
+                                                        onClick={() =>
+                                                          selectRecordForProjectCopy(
+                                                            row,
+                                                          )
+                                                        }
+                                                        disabled={!row.id}
+                                                      >
+                                                        {t.copyToProject}
+                                                      </DropdownMenuItem>
+                                                    ) : null}
+                                                    <DropdownMenuItem
+                                                      onClick={() =>
+                                                        handleDeleteRecord(row)
+                                                      }
+                                                      disabled={!row.id}
+                                                    >
+                                                      Delete
+                                                    </DropdownMenuItem>
+                                                    {bisUiEnabled ? (
+                                                      <DropdownMenuItem
+                                                        onClick={() =>
+                                                          handleOpenRecordInBis(
+                                                            row,
+                                                          )
+                                                        }
+                                                        disabled={!row.BISId}
+                                                      >
+                                                        <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                                                        {t.openInBis}
+                                                      </DropdownMenuItem>
+                                                    ) : null}
+                                                  </DropdownMenuContent>
+                                                </DropdownMenu>
+                                              </TableCell>
+                                            </TableRow>
+                                          );
+                                        })}
+                                      </TableBody>
+                                    </Table>
+                                  );
+                                }
+
+                                const formattedGroupRows = group.rows.map(
+                                  (r) => ({
+                                    id: r.id ?? undefined,
+                                    originalUserComment:
+                                      r.originalUserComment ?? "",
+                                    originalAudioUrl: r.originalAudioUrl ?? "",
+                                    ...Object.fromEntries(
+                                      tableHeads.map((f) => [
+                                        f,
+                                        r[f as keyof DiaryRow] ?? "",
+                                      ]),
+                                    ),
+                                  }),
+                                );
+
+                                return (
+                                  <Table
+                                    className={`table-fixed ${isZtcSite ? "min-w-[1180px]" : "min-w-[985px]"} text-xs sm:text-sm`}
+                                  >
+                                    {/* HEADER */}
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead
+                                          className="text-center"
+                                          style={{ width: 52 }}
+                                        >
+                                          <Checkbox
+                                            checked={allDaySelected}
+                                            onCheckedChange={(checked) =>
+                                              handleToggleSelectForDay(
+                                                dayRecordIds,
+                                                checked === true,
+                                              )
+                                            }
+                                            aria-label={`Select all records for ${dayLabel(group.date)}`}
+                                          />
+                                        </TableHead>
+                                        {tableHeads.map((head) => {
+                                          if (head === "createdAt") {
+                                            return (
+                                              <TableHead
+                                                key={head}
+                                                className="text-left"
+                                                style={{ width: 120 }}
+                                              >
+                                                {t.time}
+                                              </TableHead>
+                                            );
                                           }
-                                          aria-label={`Select all records for ${dayLabel(group.date)}`}
-                                        />
-                                      </TableHead>
-                                      <TableHead style={{ width: 235 }}>Projekts / elements</TableHead>
-                                      <TableHead style={{ width: 175 }}>Darbi</TableHead>
-                                      <TableHead style={{ width: 105 }}>Darbinieks</TableHead>
-                                      <TableHead style={{ width: 105 }}>Sākums / beigas</TableHead>
-                                      <TableHead className="text-right" style={{ width: 76 }}>Daudz. / mērv.</TableHead>
-                                      <TableHead className="text-right" style={{ width: 96 }}>Laika norma</TableHead>
-                                      <TableHead className="px-2 text-right text-[11px]" style={{ width: 68 }}>Likme</TableHead>
-                                      <TableHead className="px-2 text-right text-[11px]" style={{ width: 72 }}>Koef.</TableHead>
-                                      <TableHead className="px-2 text-right text-[11px]" style={{ width: 92 }}>Sarežģītība</TableHead>
-                                      <TableHead className="text-right" style={{ width: 82 }}>Summa</TableHead>
-                                      <TableHead className="text-center" style={{ width: 72 }}>Saglabāt</TableHead>
-                                      <TableHead style={{ width: 270 }}>Komentāri</TableHead>
-                                      {bisUiEnabled ? (
-                                        <TableHead className="text-center" style={{ width: 122 }}>BIS</TableHead>
-                                      ) : null}
-                                      {bisUiEnabled ? (
-                                        <TableHead className="text-center" style={{ width: 118 }}>{t.status}</TableHead>
-                                      ) : null}
-                                      <TableHead className="text-center" style={{ width: 72 }}>{t.action}</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {group.rows.map((row, i) => {
-                                      const payroll = getZtcPayrollValues(row);
-                                      const workerName = splitZtcWorkerDisplayName(row.createdBy);
-                                      const payrollDirty = row.id ? ztc.payrollDirtyRowIds.has(row.id) : false;
-                                      const payrollSaving = row.id ? ztc.payrollSavingRowId === row.id : false;
-                                      const startTime = formatZtcTimeValue(row.Date) || "—";
-                                      const endTime = formatZtcTimeValue(row.Date_Custom_2) || "—";
-                                      const amount = formatSiteDiaryCompactMetric("Amounts", row.Amounts);
-                                      const unit = row.Units || "m2";
-                                      const approvalStatus = row.id ? bisApprovalStatusByRowId[row.id] : null;
-                                      const isPendingApproval = isApprovalPendingStatus(approvalStatus);
-                                      const isApproved = isApprovedStatus(approvalStatus);
-                                      const isSent = Boolean(row.BISId) || (row.id ? bisSentRowIds.has(row.id) : false);
 
-                                      return (
+                                          const align =
+                                            getSiteListTextAlignmentByKey(
+                                              head,
+                                              defaultMap,
+                                            );
+
+                                          return (
+                                            <React.Fragment key={head}>
+                                              <TableHead
+                                                className={`text-${align}`}
+                                                style={{
+                                                  width: getCellWidthByKey(
+                                                    head,
+                                                    defaultMap,
+                                                  ),
+                                                }}
+                                              >
+                                                {getDisplayNameByKey(head)}
+                                              </TableHead>
+                                              {isZtcSite &&
+                                              head === "TimeInvolved" ? (
+                                                <>
+                                                  <TableHead
+                                                    className="text-right"
+                                                    style={{ width: 90 }}
+                                                  >
+                                                    Likme
+                                                  </TableHead>
+                                                  <TableHead
+                                                    className="text-right"
+                                                    style={{ width: 105 }}
+                                                  >
+                                                    Koeficients
+                                                  </TableHead>
+                                                  <TableHead
+                                                    className="text-right"
+                                                    style={{ width: 105 }}
+                                                  >
+                                                    Sarežģītība
+                                                  </TableHead>
+                                                  <TableHead
+                                                    className="text-right"
+                                                    style={{ width: 95 }}
+                                                  >
+                                                    Summa
+                                                  </TableHead>
+                                                </>
+                                              ) : null}
+                                              {!isZtcSite &&
+                                              head === "TimeInvolved" ? (
+                                                <>
+                                                  <TableHead
+                                                    className="text-center"
+                                                    style={{ width: 105 }}
+                                                  >
+                                                    {t.manHours}
+                                                  </TableHead>
+                                                  <TableHead
+                                                    className="text-right"
+                                                    style={{ width: 120 }}
+                                                  >
+                                                    {t.cost}
+                                                  </TableHead>
+                                                </>
+                                              ) : null}
+                                            </React.Fragment>
+                                          );
+                                        })}
+
+                                        {bisUiEnabled ? (
+                                          <TableHead
+                                            className="text-center"
+                                            style={{ width: 140 }}
+                                          >
+                                            BIS
+                                          </TableHead>
+                                        ) : null}
+                                        {bisUiEnabled ? (
+                                          <TableHead
+                                            className="text-center"
+                                            style={{ width: 140 }}
+                                          >
+                                            {t.status}
+                                          </TableHead>
+                                        ) : null}
+
+                                        <TableHead
+                                          className="text-center"
+                                          style={{ width: 100 }}
+                                        >
+                                          {t.action}
+                                        </TableHead>
+
+                                        <TableHead
+                                          className="text-center"
+                                          style={{ width: 60 }}
+                                        >
+                                          {t.source}
+                                        </TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+
+                                    {/* BODY */}
+                                    <TableBody>
+                                      {formattedGroupRows.map((row, i) => (
                                         <TableRow
                                           key={row.id ?? `${group.key}-${i}`}
-                                          className={cn(
-                                            "align-top hover:bg-muted/30",
-                                            isZtcSite
-                                              ? row.id
-                                                ? ztcQualityDisplayStateByRowId.get(row.id)?.toneClass ?? ""
-                                                : getZtcQualityRowToneClass(row)
-                                              : "",
+                                          className={getDefaultConstructionQuantityToneClass(
+                                            getDefaultConstructionQuantityComparison(
+                                              group.rows[i] ?? row,
+                                              defaultMap,
+                                            ).status,
                                           )}
+                                          aria-label={
+                                            getDefaultConstructionQuantityStatusLabel(
+                                              getDefaultConstructionQuantityComparison(
+                                                group.rows[i] ?? row,
+                                                defaultMap,
+                                              ).status,
+                                              language,
+                                            ) ?? undefined
+                                          }
                                         >
-                                          <TableCell className="px-2 py-3 text-center" style={{ width: 44 }}>
+                                          <TableCell
+                                            className="align-top px-3 py-3 text-center"
+                                            style={{ width: 52 }}
+                                          >
                                             {row.id ? (
                                               <Checkbox
-                                                checked={selectedRecordIds.has(row.id)}
+                                                checked={selectedRecordIds.has(
+                                                  row.id,
+                                                )}
                                                 onCheckedChange={(checked) =>
-                                                  toggleRecordSelection(row.id as string, checked === true)
+                                                  toggleRecordSelection(
+                                                    row.id as string,
+                                                    checked === true,
+                                                  )
                                                 }
                                                 aria-label={`Select record ${row.id}`}
                                               />
                                             ) : null}
                                           </TableCell>
-                                          <TableCell className="px-3 py-3" style={{ width: 235 }}>
-                                            <div className="space-y-1 leading-snug">
-                                              <div className="line-clamp-2">
-                                                <span className="text-[11px] font-medium text-muted-foreground">Projekts: </span>
-                                                {row.Location ? (
-                                                  <button
-                                                    type="button"
-                                                    className="font-medium text-foreground underline-offset-2 hover:text-blue-700 hover:underline"
-                                                    onClick={() => ztc.openProjectDetails(row.Location)}
-                                                  >
-                                                    {row.Location}
-                                                  </button>
-                                                ) : (
-                                                  <span className="font-medium text-foreground">—</span>
-                                                )}
-                                              </div>
-                                              <div className="line-clamp-1">
-                                                <span className="text-[11px] font-medium text-muted-foreground">Elements: </span>
-                                                {row.Location_Custom_1 ? (
-                                                  <button
-                                                    type="button"
-                                                    className="font-medium text-foreground underline-offset-2 hover:text-blue-700 hover:underline"
-                                                    onClick={() => ztc.openElementDetails(row.Location_Custom_1, row.Location)}
-                                                  >
-                                                    {row.Location_Custom_1}
-                                                  </button>
-                                                ) : (
-                                                  <span>—</span>
-                                                )}
-                                              </div>
-                                            </div>
-                                          </TableCell>
-                                          <TableCell className="px-3 py-3" style={{ width: 175 }}>
-                                            <div className="flex items-start gap-1">
-                                              <button
-                                                type="button"
-                                                className="min-w-0 whitespace-normal break-words text-left leading-snug underline-offset-2 hover:text-blue-700 hover:underline"
-                                                onClick={() => ztc.openRowImages(row)}
-                                              >
-                                                {renderZtcWorkName(row, "—")}
-                                              </button>
-                                              {row.id &&
-                                              ztcQualityDisplayStateByRowId.get(row.id)
-                                                ?.hasResolvedDefect ? (
-                                                <span
-                                                  className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold leading-none text-white"
-                                                  title="Iepriekš konstatēts defekts, kas vēlāk novērsts un pieņemts"
-                                                  aria-label="Iepriekš konstatēts un novērsts defekts"
+                                          {tableHeads.map((field) => {
+                                            if (field === "createdAt") {
+                                              return (
+                                                <TableCell
+                                                  key={field}
+                                                  className="align-top px-3 py-3 whitespace-normal break-words text-left"
+                                                  style={{ width: 120 }}
                                                 >
-                                                  !
-                                                </span>
-                                              ) : null}
-                                            </div>
-                                          </TableCell>
-                                          <TableCell className="px-3 py-3" style={{ width: 105 }}>
-                                            <button
-                                              type="button"
-                                              className="block text-left leading-snug underline-offset-2 hover:text-blue-700 hover:underline"
-                                              onClick={() => openZtcWorkerDetails(row.createdBy)}
-                                            >
-                                              <div className="font-medium">{workerName.name}</div>
-                                              {workerName.surname ? (
-                                                <div>{workerName.surname}</div>
-                                              ) : null}
-                                            </button>
-                                          </TableCell>
-                                          <TableCell className="px-3 py-3" style={{ width: 105 }}>
-                                            <div className="space-y-1 leading-tight">
-                                              <div><span className="text-muted-foreground">Sākums: </span>{startTime}</div>
-                                              <div><span className="text-muted-foreground">Beigas: </span>{endTime}</div>
-                                              <div className="text-[11px] font-medium text-muted-foreground">
-                                                <ZtcHoursWithPausePopover
-                                                  row={row}
-                                                  value={formatSiteDiaryCompactHours(row.TimeInvolved, { withUnit: true })}
-                                                  dateLocale={dateLocale}
-                                                />
-                                              </div>
-                                            </div>
-                                          </TableCell>
-                                          <TableCell className="px-3 py-3 text-right" style={{ width: 76 }}>
-                                            <div className="font-medium tabular-nums">{amount}</div>
-                                            <div className="text-[11px] text-muted-foreground">{unit}</div>
-                                          </TableCell>
-                                          <TableCell className="px-3 py-3 text-right" style={{ width: 96 }}>
-                                            <div className="font-medium tabular-nums">
-                                              {formatZtcLaborNorm(payroll.laborNorm.actual, dateLocale)}
-                                            </div>
-                                            <div className="text-[11px] text-muted-foreground">
-                                              Plāns {formatZtcLaborNorm(payroll.laborNorm.planned, dateLocale)}
-                                            </div>
-                                          </TableCell>
-                                          <TableCell className="px-1.5 py-2 text-right" style={{ width: 68 }}>
-                                            {ztc.renderPayrollInput(row, "rate", row.Location_Custom_2, "w-full")}
-                                          </TableCell>
-                                          <TableCell className="px-1.5 py-2 text-right" style={{ width: 72 }}>
-                                            {ztc.renderPayrollInput(row, "coefficient", row.Works_Custom_2, "w-full")}
-                                          </TableCell>
-                                          <TableCell className="px-1.5 py-2 text-right" style={{ width: 92 }}>
-                                            {ztc.renderPayrollInput(row, "complexity", row.WorkersInvolved, "w-full")}
-                                          </TableCell>
-                                          <TableCell className="px-3 py-3 text-right font-semibold tabular-nums" style={{ width: 82 }}>
-                                            {formatZtcMoney(payroll.sum)}
-                                          </TableCell>
-                                          <TableCell className="px-2 py-2 text-center" style={{ width: 72 }}>
-                                            {payrollDirty ? (
-                                              <Button
-                                                size="sm"
-                                                className="h-8 px-3"
-                                                disabled={!row.id || payrollSaving}
-                                                onClick={() => ztc.savePayrollDraft(row)}
-                                              >
-                                                {payrollSaving ? (
-                                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                ) : (
-                                                  "Saglabāt"
-                                                )}
-                                              </Button>
-                                            ) : null}
-                                          </TableCell>
-                                          <TableCell className="px-3 py-3" style={{ width: 270 }}>
-                                            {row.Comments || row.originalAudioUrl ? (
-                                              <Popover>
-                                                <PopoverTrigger asChild>
-                                                  <button
-                                                    type="button"
-                                                    className="block w-full overflow-hidden text-left leading-snug line-clamp-2 whitespace-normal break-words hover:text-blue-700"
-                                                  >
-                                                    {row.Comments || "Balss ziņa"}
-                                                  </button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-[calc(100vw-2rem)] max-w-2xl">
-                                                  <ZtcCommentPopoverContent row={row} />
-                                                </PopoverContent>
-                                              </Popover>
-                                            ) : (
-                                              <span className="text-muted-foreground">—</span>
-                                            )}
-                                          </TableCell>
+                                                  {row[field] ? (
+                                                    <div className="line-clamp-4">
+                                                      {new Date(
+                                                        row[field],
+                                                      ).toLocaleTimeString(
+                                                        dateLocale,
+                                                        {
+                                                          hour: "2-digit",
+                                                          minute: "2-digit",
+                                                          hour12: false,
+                                                        },
+                                                      )}
+                                                    </div>
+                                                  ) : (
+                                                    "—"
+                                                  )}
+                                                </TableCell>
+                                              );
+                                            }
+
+                                            const align =
+                                              getSiteListTextAlignmentByKey(
+                                                field,
+                                                defaultMap,
+                                              );
+                                            const originalRow =
+                                              group.rows[i] ?? row;
+                                            const payroll =
+                                              getZtcPayrollValues(originalRow);
+
+                                            return (
+                                              <React.Fragment key={field}>
+                                                <TableCell
+                                                  className={`align-top px-3 py-3 whitespace-normal break-words text-${align}`}
+                                                  style={{
+                                                    width: getCellWidthByKey(
+                                                      field,
+                                                      defaultMap,
+                                                    ),
+                                                  }}
+                                                >
+                                                  {row[field] === null ||
+                                                  row[field] === undefined ||
+                                                  row[field] === "" ? (
+                                                    "—"
+                                                  ) : isZtcSite &&
+                                                    field === "TimeInvolved" ? (
+                                                    <ZtcHoursWithPausePopover
+                                                      row={originalRow}
+                                                      value={formatSiteDiaryDisplayValue(
+                                                        field,
+                                                        row[field],
+                                                        defaultMap,
+                                                      )}
+                                                      dateLocale={dateLocale}
+                                                    />
+                                                  ) : !isZtcSite &&
+                                                    (field === "Location" ||
+                                                      field === "Works") ? (
+                                                    <button
+                                                      type="button"
+                                                      className="line-clamp-4 text-left underline-offset-2 hover:text-blue-700 hover:underline"
+                                                      onClick={() =>
+                                                        field === "Location"
+                                                          ? defaultConstructionSummary.openLocationSummary(
+                                                              String(
+                                                                row[field],
+                                                              ),
+                                                            )
+                                                          : defaultConstructionSummary.openWorkSummary(
+                                                              String(
+                                                                row[field],
+                                                              ),
+                                                            )
+                                                      }
+                                                    >
+                                                      {formatSiteDiaryDisplayValue(
+                                                        field,
+                                                        row[field],
+                                                        defaultMap,
+                                                      )}
+                                                    </button>
+                                                  ) : (
+                                                    <div className="line-clamp-4">
+                                                      {formatSiteDiaryDisplayValue(
+                                                        field,
+                                                        row[field],
+                                                        defaultMap,
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </TableCell>
+                                                {isZtcSite &&
+                                                field === "TimeInvolved" ? (
+                                                  <>
+                                                    <TableCell
+                                                      className="align-top px-2 py-2 text-right"
+                                                      style={{ width: 90 }}
+                                                    >
+                                                      {ztc.renderPayrollInput(
+                                                        originalRow,
+                                                        "rate",
+                                                        originalRow.Location_Custom_2,
+                                                      )}
+                                                    </TableCell>
+                                                    <TableCell
+                                                      className="align-top px-2 py-2 text-right"
+                                                      style={{ width: 105 }}
+                                                    >
+                                                      {ztc.renderPayrollInput(
+                                                        originalRow,
+                                                        "coefficient",
+                                                        originalRow.Works_Custom_2,
+                                                      )}
+                                                    </TableCell>
+                                                    <TableCell
+                                                      className="align-top px-2 py-2 text-right"
+                                                      style={{ width: 95 }}
+                                                    >
+                                                      {ztc.renderPayrollInput(
+                                                        originalRow,
+                                                        "complexity",
+                                                        originalRow.WorkersInvolved,
+                                                      )}
+                                                    </TableCell>
+                                                    <TableCell
+                                                      className="align-top px-3 py-3 text-right font-medium"
+                                                      style={{ width: 95 }}
+                                                    >
+                                                      {formatZtcMoney(
+                                                        payroll.sum,
+                                                      )}
+                                                    </TableCell>
+                                                  </>
+                                                ) : null}
+                                                {!isZtcSite &&
+                                                field === "TimeInvolved" ? (
+                                                  <>
+                                                    <TableCell
+                                                      className="align-top px-3 py-3 text-center tabular-nums"
+                                                      style={{ width: 105 }}
+                                                    >
+                                                      {(() => {
+                                                        const manHours =
+                                                          calculateDefaultConstructionManHours(
+                                                            originalRow,
+                                                          );
+                                                        return manHours == null
+                                                          ? "—"
+                                                          : manHours.toLocaleString(
+                                                              dateLocale,
+                                                              {
+                                                                maximumFractionDigits: 2,
+                                                              },
+                                                            );
+                                                      })()}
+                                                    </TableCell>
+                                                    <TableCell
+                                                      className="align-top whitespace-nowrap px-3 py-3 text-right tabular-nums"
+                                                      style={{ width: 120 }}
+                                                    >
+                                                      {(() => {
+                                                        const cost =
+                                                          calculateDefaultConstructionRecordCost(
+                                                            originalRow,
+                                                          ).actualCost;
+                                                        return cost == null
+                                                          ? "—"
+                                                          : costFormatter.format(
+                                                              cost,
+                                                            );
+                                                      })()}
+                                                    </TableCell>
+                                                  </>
+                                                ) : null}
+                                              </React.Fragment>
+                                            );
+                                          })}
+
                                           {bisUiEnabled ? (
-                                            <TableCell className="px-3 py-3 text-center" style={{ width: 122 }}>
-                                              {!isSent ? (
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  className="h-8 bg-green-600 text-white hover:bg-green-700"
-                                                  disabled={!row.id || bisSendingRowId === row.id}
-                                                  onClick={() => openBisPicker(row)}
-                                                >
-                                                  {bisSendingRowId === row.id ? (
-                                                    <>
-                                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                                      {t.sending}
-                                                    </>
-                                                  ) : (
-                                                    t.sendToBis
-                                                  )}
-                                                </Button>
-                                              ) : (
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  className={cn(
-                                                    "h-8",
-                                                    isApproved
-                                                      ? "bg-green-600 text-white hover:bg-green-600"
-                                                      : isPendingApproval
-                                                        ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
-                                                        : "bg-blue-600 text-white hover:bg-blue-700",
-                                                  )}
-                                                  disabled={!row.id || isPendingApproval || isApproved}
-                                                  onClick={() => openApprovalDialog(row)}
-                                                >
-                                                  {isApproved ? (
-                                                    <>
-                                                      <ShieldCheck className="mr-1 h-3 w-3" />
-                                                      {t.approved}
-                                                    </>
-                                                  ) : isPendingApproval ? (
-                                                    t.sentForApproval
-                                                  ) : (
-                                                    t.sendForApproval
-                                                  )}
-                                                </Button>
-                                              )}
+                                            <TableCell
+                                              className="align-middle px-3 py-3 text-center"
+                                              style={{ width: 140 }}
+                                            >
+                                              {(() => {
+                                                const originalRow =
+                                                  group.rows[i] ?? row;
+                                                const approvalStatus = row.id
+                                                  ? bisApprovalStatusByRowId[
+                                                      row.id
+                                                    ]
+                                                  : null;
+                                                const isPendingApproval =
+                                                  isApprovalPendingStatus(
+                                                    approvalStatus,
+                                                  );
+                                                const isApproved =
+                                                  isApprovedStatus(
+                                                    approvalStatus,
+                                                  );
+                                                const isSent =
+                                                  Boolean(
+                                                    group.rows[i]?.BISId,
+                                                  ) ||
+                                                  (row.id
+                                                    ? bisSentRowIds.has(row.id)
+                                                    : false);
+
+                                                if (!isSent) {
+                                                  return (
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      className="h-8 bg-green-600 text-white hover:bg-green-700"
+                                                      disabled={
+                                                        !row.id ||
+                                                        bisSendingRowId ===
+                                                          row.id
+                                                      }
+                                                      onClick={() =>
+                                                        openBisPicker(
+                                                          originalRow,
+                                                        )
+                                                      }
+                                                    >
+                                                      {bisSendingRowId ===
+                                                      row.id ? (
+                                                        <>
+                                                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                                          {t.sending}
+                                                        </>
+                                                      ) : (
+                                                        t.sendToBis
+                                                      )}
+                                                    </Button>
+                                                  );
+                                                }
+
+                                                return (
+                                                  <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className={cn(
+                                                      "h-8",
+                                                      isApproved
+                                                        ? "bg-green-600 text-white hover:bg-green-600"
+                                                        : isPendingApproval
+                                                          ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                                          : "bg-blue-600 text-white hover:bg-blue-700",
+                                                    )}
+                                                    disabled={
+                                                      !row.id ||
+                                                      isPendingApproval ||
+                                                      isApproved
+                                                    }
+                                                    onClick={() =>
+                                                      openApprovalDialog(
+                                                        originalRow,
+                                                      )
+                                                    }
+                                                  >
+                                                    {isApproved ? (
+                                                      <>
+                                                        <ShieldCheck className="mr-1 h-3 w-3" />
+                                                        {t.approved}
+                                                      </>
+                                                    ) : isPendingApproval ? (
+                                                      t.sentForApproval
+                                                    ) : (
+                                                      t.sendForApproval
+                                                    )}
+                                                  </Button>
+                                                );
+                                              })()}
                                             </TableCell>
                                           ) : null}
+
                                           {bisUiEnabled ? (
-                                            <TableCell className="px-3 py-3 text-center" style={{ width: 118 }}>
+                                            <TableCell
+                                              className="align-middle px-3 py-3 text-center"
+                                              style={{ width: 140 }}
+                                            >
                                               <Badge
                                                 className={cn(
                                                   "inline-flex items-center justify-center rounded-full px-3 py-1 font-medium capitalize",
-                                                  getBisStatusClassName(row.id ? bisApprovalStatusByRowId[row.id] ?? row.bisStatus : row.bisStatus),
+                                                  getBisStatusClassName(
+                                                    row.id
+                                                      ? (bisApprovalStatusByRowId[
+                                                          row.id
+                                                        ] ??
+                                                          group.rows[i]
+                                                            ?.bisStatus)
+                                                      : group.rows[i]
+                                                          ?.bisStatus,
+                                                  ),
                                                 )}
                                               >
-                                                {getBisStatusLabel(row.id ? bisApprovalStatusByRowId[row.id] ?? row.bisStatus : row.bisStatus)}
+                                                {getBisStatusLabel(
+                                                  row.id
+                                                    ? (bisApprovalStatusByRowId[
+                                                        row.id
+                                                      ] ??
+                                                        group.rows[i]
+                                                          ?.bisStatus)
+                                                    : group.rows[i]?.bisStatus,
+                                                )}
                                               </Badge>
                                             </TableCell>
                                           ) : null}
-                                          <TableCell className="px-3 py-3 text-center" style={{ width: 72 }}>
+
+                                          <TableCell
+                                            className="align-top px-3 py-3 text-center"
+                                            style={{ width: 100 }}
+                                          >
                                             <DropdownMenu>
                                               <DropdownMenuTrigger asChild>
-                                                <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!row.id}>
+                                                <Button
+                                                  size="icon"
+                                                  variant="ghost"
+                                                  className="h-8 w-8"
+                                                  disabled={!row.id}
+                                                >
                                                   <Ellipsis className="h-4 w-4" />
                                                 </Button>
                                               </DropdownMenuTrigger>
                                               <DropdownMenuContent align="end">
                                                 <DropdownMenuItem
-                                                  onClick={() => openRecordDialog(row, group.date)}
+                                                  onClick={() =>
+                                                    openRecordDialog(
+                                                      group.rows[i] ?? row,
+                                                      group.date,
+                                                    )
+                                                  }
                                                 >
                                                   {t.edit}
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => openCopyDialog(row)} disabled={!row.id}>
+                                                <DropdownMenuItem
+                                                  onClick={() =>
+                                                    openCopyDialog(
+                                                      group.rows[i] ?? row,
+                                                    )
+                                                  }
+                                                  disabled={!row.id}
+                                                >
                                                   {t.copyToDate}
                                                 </DropdownMenuItem>
                                                 {!isZtcSite ? (
                                                   <DropdownMenuItem
-                                                    onClick={() => selectRecordForProjectCopy(row)}
+                                                    onClick={() =>
+                                                      selectRecordForProjectCopy(
+                                                        group.rows[i] ?? row,
+                                                      )
+                                                    }
                                                     disabled={!row.id}
                                                   >
                                                     {t.copyToProject}
                                                   </DropdownMenuItem>
                                                 ) : null}
-                                                <DropdownMenuItem onClick={() => handleDeleteRecord(row)} disabled={!row.id}>
+                                                <DropdownMenuItem
+                                                  onClick={() =>
+                                                    handleDeleteRecord(
+                                                      group.rows[i] ?? row,
+                                                    )
+                                                  }
+                                                  disabled={!row.id}
+                                                >
                                                   Delete
                                                 </DropdownMenuItem>
                                                 {bisUiEnabled ? (
-                                                  <DropdownMenuItem onClick={() => handleOpenRecordInBis(row)} disabled={!row.BISId}>
+                                                  <DropdownMenuItem
+                                                    onClick={() =>
+                                                      handleOpenRecordInBis(
+                                                        group.rows[i] ?? row,
+                                                      )
+                                                    }
+                                                    disabled={
+                                                      !group.rows[i]?.BISId
+                                                    }
+                                                  >
                                                     <ExternalLink className="mr-2 h-3.5 w-3.5" />
                                                     {t.openInBis}
                                                   </DropdownMenuItem>
@@ -4272,465 +5763,56 @@ export default function SiteDiaryCalendar({
                                               </DropdownMenuContent>
                                             </DropdownMenu>
                                           </TableCell>
-                                        </TableRow>
-                                      );
-                                    })}
-                                  </TableBody>
-                                </Table>
-                              );
-                            }
 
-                            const formattedGroupRows = group.rows.map((r) => ({
-                              id: r.id ?? undefined,
-                              originalUserComment: r.originalUserComment ?? "",
-                              originalAudioUrl: r.originalAudioUrl ?? "",
-                              ...Object.fromEntries(
-                                tableHeads.map((f) => [
-                                  f,
-                                  r[f as keyof DiaryRow] ?? "",
-                                ]),
-                              ),
-                            }));
-
-                            return (
-                              <Table className={`table-fixed ${isZtcSite ? "min-w-[1180px]" : "min-w-[985px]"} text-xs sm:text-sm`}>
-                                {/* HEADER */}
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead
-                                      className="text-center"
-                                      style={{ width: 52 }}
-                                    >
-                                      <Checkbox
-                                        checked={allDaySelected}
-                                        onCheckedChange={(checked) =>
-                                          handleToggleSelectForDay(dayRecordIds, checked === true)
-                                        }
-                                        aria-label={`Select all records for ${dayLabel(group.date)}`}
-                                      />
-                                    </TableHead>
-                                    {tableHeads.map((head) => {
-                                      if (head === "createdAt") {
-                                        return (
-                                          <TableHead
-                                            key={head}
-                                            className="text-left"
-                                            style={{ width: 120 }}
-                                          >
-                                            {t.time}
-                                          </TableHead>
-                                        );
-                                      }
-
-                                      const align = getSiteListTextAlignmentByKey(
-                                        head,
-                                        defaultMap,
-                                      );
-
-                                      return (
-                                        <React.Fragment key={head}>
-                                          <TableHead
-                                            className={`text-${align}`}
-                                            style={{
-                                              width: getCellWidthByKey(head, defaultMap),
-                                            }}
-                                          >
-                                            {getDisplayNameByKey(head)}
-                                          </TableHead>
-                                          {isZtcSite && head === "TimeInvolved" ? (
-                                            <>
-                                              <TableHead className="text-right" style={{ width: 90 }}>Likme</TableHead>
-                                              <TableHead className="text-right" style={{ width: 105 }}>Koeficients</TableHead>
-                                              <TableHead className="text-right" style={{ width: 105 }}>Sarežģītība</TableHead>
-                                              <TableHead className="text-right" style={{ width: 95 }}>Summa</TableHead>
-                                            </>
-                                          ) : null}
-                                          {!isZtcSite && head === "TimeInvolved" ? (
-                                            <>
-                                              <TableHead className="text-center" style={{ width: 105 }}>
-                                                {t.manHours}
-                                              </TableHead>
-                                              <TableHead className="text-right" style={{ width: 120 }}>
-                                                {t.cost}
-                                              </TableHead>
-                                            </>
-                                          ) : null}
-                                        </React.Fragment>
-                                      );
-                                    })}
-
-                                    {bisUiEnabled ? (
-                                      <TableHead
-                                        className="text-center"
-                                        style={{ width: 140 }}
-                                      >
-                                        BIS
-                                      </TableHead>
-                                    ) : null}
-                                    {bisUiEnabled ? (
-                                      <TableHead
-                                        className="text-center"
-                                        style={{ width: 140 }}
-                                      >
-                                        {t.status}
-                                      </TableHead>
-                                    ) : null}
-
-                                    <TableHead
-                                      className="text-center"
-                                      style={{ width: 100 }}
-                                    >
-                                      {t.action}
-                                    </TableHead>
-
-                                    <TableHead
-                                      className="text-center"
-                                      style={{ width: 60 }}
-                                    >
-                                      {t.source}
-                                    </TableHead>
-                                  </TableRow>
-                                </TableHeader>
-
-                                {/* BODY */}
-                                <TableBody>
-                                  {formattedGroupRows.map((row, i) => (
-                                    <TableRow key={row.id ?? `${group.key}-${i}`}>
-                                      <TableCell
-                                        className="align-top px-3 py-3 text-center"
-                                        style={{ width: 52 }}
-                                      >
-                                        {row.id ? (
-                                          <Checkbox
-                                            checked={selectedRecordIds.has(row.id)}
-                                            onCheckedChange={(checked) =>
-                                              toggleRecordSelection(row.id as string, checked === true)
-                                            }
-                                            aria-label={`Select record ${row.id}`}
-                                          />
-                                        ) : null}
-                                      </TableCell>
-                                      {tableHeads.map((field) => {
-                                        if (field === "createdAt") {
-                                          return (
-                                            <TableCell
-                                              key={field}
-                                              className="align-top px-3 py-3 whitespace-normal break-words text-left"
-                                              style={{ width: 120 }}
-                                            >
-                                              {row[field] ? (
-                                                <div className="line-clamp-4">
-                                                  {new Date(row[field]).toLocaleTimeString(dateLocale, {
-                                                    hour: "2-digit",
-                                                    minute: "2-digit",
-                                                    hour12: false,
-                                                  })}
-                                                </div>
-                                              ) : (
-                                                "—"
-                                              )}
-                                            </TableCell>
-                                          );
-                                        }
-
-                                        const align =
-                                          getSiteListTextAlignmentByKey(
-                                            field,
-                                            defaultMap,
-                                          );
-                                        const originalRow = group.rows[i] ?? row;
-                                        const payroll = getZtcPayrollValues(originalRow);
-
-                                        return (
-                                          <React.Fragment key={field}>
                                           <TableCell
-                                            className={`align-top px-3 py-3 whitespace-normal break-words text-${align}`}
-                                            style={{
-                                              width: getCellWidthByKey(
-                                                field,
-                                                defaultMap,
-                                              ),
-                                            }}
+                                            className="align-top px-3 py-3 text-center"
+                                            style={{ width: 60 }}
                                           >
-                                            {row[field] === null ||
-                                              row[field] === undefined ||
-                                              row[field] === "" ? (
-                                              "—"
-                                            ) : (
-                                              isZtcSite && field === "TimeInvolved" ? (
-                                                <ZtcHoursWithPausePopover
-                                                  row={originalRow}
-                                                  value={formatSiteDiaryDisplayValue(
-                                                    field,
-                                                    row[field],
-                                                    defaultMap,
-                                                  )}
-                                                  dateLocale={dateLocale}
-                                                />
-                                              ) : !isZtcSite &&
-                                                (field === "Location" || field === "Works") ? (
-                                                <button
-                                                  type="button"
-                                                  className="line-clamp-4 text-left underline-offset-2 hover:text-blue-700 hover:underline"
-                                                  onClick={() =>
-                                                    field === "Location"
-                                                      ? defaultConstructionSummary.openLocationSummary(
-                                                          String(row[field]),
-                                                        )
-                                                      : defaultConstructionSummary.openWorkSummary(
-                                                          String(row[field]),
-                                                        )
+                                            {row.originalUserComment ||
+                                            row.originalAudioUrl ? (
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <button
+                                                    type="button"
+                                                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-blue-600 text-sm font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-800"
+                                                  >
+                                                    ?
+                                                  </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent
+                                                  className={
+                                                    sourcePopoverClassName
                                                   }
                                                 >
-                                                  {formatSiteDiaryDisplayValue(
-                                                    field,
-                                                    row[field],
-                                                    defaultMap,
-                                                  )}
-                                                </button>
-                                              ) : (
-                                                <div className="line-clamp-4">
-                                                  {formatSiteDiaryDisplayValue(
-                                                    field,
-                                                    row[field],
-                                                    defaultMap,
-                                                  )}
-                                                </div>
-                                              )
+                                                  <OriginalSourceContent
+                                                    originalUserComment={
+                                                      row.originalUserComment
+                                                    }
+                                                    originalAudioUrl={
+                                                      row.originalAudioUrl
+                                                    }
+                                                  />
+                                                </PopoverContent>
+                                              </Popover>
+                                            ) : (
+                                              "—"
                                             )}
                                           </TableCell>
-                                          {isZtcSite && field === "TimeInvolved" ? (
-                                            <>
-                                              <TableCell className="align-top px-2 py-2 text-right" style={{ width: 90 }}>
-                                                {ztc.renderPayrollInput(originalRow, "rate", originalRow.Location_Custom_2)}
-                                              </TableCell>
-                                              <TableCell className="align-top px-2 py-2 text-right" style={{ width: 105 }}>
-                                                {ztc.renderPayrollInput(originalRow, "coefficient", originalRow.Works_Custom_2)}
-                                              </TableCell>
-                                              <TableCell className="align-top px-2 py-2 text-right" style={{ width: 95 }}>
-                                                {ztc.renderPayrollInput(originalRow, "complexity", originalRow.WorkersInvolved)}
-                                              </TableCell>
-                                              <TableCell className="align-top px-3 py-3 text-right font-medium" style={{ width: 95 }}>
-                                                {formatZtcMoney(payroll.sum)}
-                                              </TableCell>
-                                            </>
-                                          ) : null}
-                                          {!isZtcSite && field === "TimeInvolved" ? (
-                                            <>
-                                              <TableCell
-                                                className="align-top px-3 py-3 text-center tabular-nums"
-                                                style={{ width: 105 }}
-                                              >
-                                                {(() => {
-                                                  const manHours = calculateDefaultConstructionManHours(
-                                                    originalRow,
-                                                  );
-                                                  return manHours == null
-                                                    ? "—"
-                                                    : manHours.toLocaleString(dateLocale, {
-                                                        maximumFractionDigits: 2,
-                                                      });
-                                                })()}
-                                              </TableCell>
-                                              <TableCell
-                                                className="align-top whitespace-nowrap px-3 py-3 text-right tabular-nums"
-                                                style={{ width: 120 }}
-                                              >
-                                                {(() => {
-                                                  const cost =
-                                                    calculateDefaultConstructionRecordCost(
-                                                      originalRow,
-                                                    ).actualCost;
-                                                  return cost == null
-                                                    ? "—"
-                                                    : costFormatter.format(cost);
-                                                })()}
-                                              </TableCell>
-                                            </>
-                                          ) : null}
-                                          </React.Fragment>
-                                        );
-                                      })}
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                );
+                              })()}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
 
-                                      {bisUiEnabled ? (
-                                        <TableCell
-                                          className="align-middle px-3 py-3 text-center"
-                                          style={{ width: 140 }}
-                                        >
-                                          {(() => {
-                                            const originalRow = group.rows[i] ?? row;
-                                            const approvalStatus = row.id ? bisApprovalStatusByRowId[row.id] : null;
-                                            const isPendingApproval = isApprovalPendingStatus(approvalStatus);
-                                            const isApproved = isApprovedStatus(approvalStatus);
-                                            const isSent = Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false);
-
-                                            if (!isSent) {
-                                              return (
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  className="h-8 bg-green-600 text-white hover:bg-green-700"
-                                                  disabled={!row.id || bisSendingRowId === row.id}
-                                                  onClick={() => openBisPicker(originalRow)}
-                                                >
-                                                  {bisSendingRowId === row.id ? (
-                                                    <>
-                                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                                      {t.sending}
-                                                    </>
-                                                  ) : (
-                                                    t.sendToBis
-                                                  )}
-                                                </Button>
-                                              );
-                                            }
-
-                                            return (
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className={cn(
-                                                  "h-8",
-                                                  isApproved
-                                                    ? "bg-green-600 text-white hover:bg-green-600"
-                                                    : isPendingApproval
-                                                      ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
-                                                      : "bg-blue-600 text-white hover:bg-blue-700",
-                                                )}
-                                                disabled={!row.id || isPendingApproval || isApproved}
-                                                onClick={() => openApprovalDialog(originalRow)}
-                                              >
-                                                {isApproved ? (
-                                                  <>
-                                                    <ShieldCheck className="mr-1 h-3 w-3" />
-                                                    {t.approved}
-                                                  </>
-                                                ) : isPendingApproval ? (
-                                                  t.sentForApproval
-                                                ) : (
-                                                  t.sendForApproval
-                                                )}
-                                              </Button>
-                                            );
-                                          })()}
-                                        </TableCell>
-                                      ) : null}
-
-                                      {bisUiEnabled ? (
-                                        <TableCell
-                                          className="align-middle px-3 py-3 text-center"
-                                          style={{ width: 140 }}
-                                        >
-                                          <Badge
-                                            className={cn(
-                                              "inline-flex items-center justify-center rounded-full px-3 py-1 font-medium capitalize",
-                                              getBisStatusClassName(
-                                                row.id
-                                                  ? bisApprovalStatusByRowId[row.id] ?? group.rows[i]?.bisStatus
-                                                  : group.rows[i]?.bisStatus,
-                                              ),
-                                            )}
-                                          >
-                                            {getBisStatusLabel(
-                                              row.id
-                                                ? bisApprovalStatusByRowId[row.id] ?? group.rows[i]?.bisStatus
-                                                : group.rows[i]?.bisStatus,
-                                            )}
-                                          </Badge>
-                                        </TableCell>
-                                      ) : null}
-
-                                      <TableCell
-                                        className="align-top px-3 py-3 text-center"
-                                        style={{ width: 100 }}
-                                      >
-                                        <DropdownMenu>
-                                          <DropdownMenuTrigger asChild>
-                                            <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!row.id}>
-                                              <Ellipsis className="h-4 w-4" />
-                                            </Button>
-                                          </DropdownMenuTrigger>
-                                          <DropdownMenuContent align="end">
-                                            <DropdownMenuItem
-                                              onClick={() =>
-                                                openRecordDialog(group.rows[i] ?? row, group.date)
-                                              }
-                                            >
-                                              {t.edit}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                              onClick={() => openCopyDialog(group.rows[i] ?? row)}
-                                              disabled={!row.id}
-                                            >
-                                              {t.copyToDate}
-                                            </DropdownMenuItem>
-                                            {!isZtcSite ? (
-                                              <DropdownMenuItem
-                                                onClick={() => selectRecordForProjectCopy(group.rows[i] ?? row)}
-                                                disabled={!row.id}
-                                              >
-                                                {t.copyToProject}
-                                              </DropdownMenuItem>
-                                            ) : null}
-                                            <DropdownMenuItem
-                                              onClick={() => handleDeleteRecord(group.rows[i] ?? row)}
-                                              disabled={!row.id}
-                                            >
-                                              Delete
-                                            </DropdownMenuItem>
-                                            {bisUiEnabled ? (
-                                              <DropdownMenuItem
-                                                onClick={() => handleOpenRecordInBis(group.rows[i] ?? row)}
-                                                disabled={!group.rows[i]?.BISId}
-                                              >
-                                                <ExternalLink className="mr-2 h-3.5 w-3.5" />
-                                                {t.openInBis}
-                                              </DropdownMenuItem>
-                                            ) : null}
-                                          </DropdownMenuContent>
-                                        </DropdownMenu>
-                                      </TableCell>
-
-                                      <TableCell
-                                        className="align-top px-3 py-3 text-center"
-                                        style={{ width: 60 }}
-                                      >
-                                        {row.originalUserComment || row.originalAudioUrl ? (
-                                          <Popover>
-                                            <PopoverTrigger asChild>
-                                              <button
-                                                type="button"
-                                                className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-blue-600 text-sm font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-800"
-                                              >
-                                                ?
-                                              </button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className={sourcePopoverClassName}>
-                                              <OriginalSourceContent
-                                                originalUserComment={row.originalUserComment}
-                                                originalAudioUrl={row.originalAudioUrl}
-                                              />
-                                            </PopoverContent>
-                                          </Popover>
-                                        ) : (
-                                          "—"
-                                        )}
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            );
-                          })()}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-
-            <div className="mt-3">{renderListPagination()}</div>
+                <div className="mt-3">{renderListPagination()}</div>
               </>
             )}
           </TabsContent>
@@ -4760,54 +5842,59 @@ export default function SiteDiaryCalendar({
               focusedRecordId={dialogRecordId}
               initialTab={dialogInitialTab}
               onSaved={async () => {
-            reloadFilledDays();
+                reloadFilledDays();
 
-            if (!siteId) return;
-            setLoading(true);
-            try {
-              const refreshedRows = await refreshRowsWithBisSync();
-              const activeDialogDate = dialogDate ?? calendarDate;
-              if (activeDialogDate) {
-                const dateKey = toLocalDateKey(activeDialogDate);
-                const refreshedDayRows = refreshedRows.filter((row) => {
-                  const rowDate = new Date(row.Date);
-                  return !Number.isNaN(rowDate.getTime()) && toLocalDateKey(rowDate) === dateKey;
-                });
-                setDialogInitialRows((currentRows) => {
-                  if (dialogRecordId) {
-                    const refreshedRecord = refreshedDayRows.find(
-                      (row) => row.id === dialogRecordId,
-                    );
-                    return refreshedRecord ? [refreshedRecord] : null;
+                if (!siteId) return;
+                setLoading(true);
+                try {
+                  const refreshedRows = await refreshRowsWithBisSync();
+                  const activeDialogDate = dialogDate ?? calendarDate;
+                  if (activeDialogDate) {
+                    const dateKey = toLocalDateKey(activeDialogDate);
+                    const refreshedDayRows = refreshedRows.filter((row) => {
+                      const rowDate = new Date(row.Date);
+                      return (
+                        !Number.isNaN(rowDate.getTime()) &&
+                        toLocalDateKey(rowDate) === dateKey
+                      );
+                    });
+                    setDialogInitialRows((currentRows) => {
+                      if (dialogRecordId) {
+                        const refreshedRecord = refreshedDayRows.find(
+                          (row) => row.id === dialogRecordId,
+                        );
+                        return refreshedRecord ? [refreshedRecord] : null;
+                      }
+                      if (!refreshedDayRows.length) return null;
+                      if (!currentRows?.length) return refreshedDayRows;
+
+                      const refreshedById = new Map(
+                        refreshedDayRows
+                          .filter((row) => row.id)
+                          .map((row) => [String(row.id), row]),
+                      );
+                      const currentIds = new Set(
+                        currentRows
+                          .filter((row) => row.id)
+                          .map((row) => String(row.id)),
+                      );
+                      return [
+                        ...currentRows.flatMap((row) => {
+                          if (!row.id) return [row];
+                          const refreshedRow = refreshedById.get(
+                            String(row.id),
+                          );
+                          return refreshedRow ? [refreshedRow] : [];
+                        }),
+                        ...refreshedDayRows.filter(
+                          (row) => row.id && !currentIds.has(String(row.id)),
+                        ),
+                      ];
+                    });
                   }
-                  if (!refreshedDayRows.length) return null;
-                  if (!currentRows?.length) return refreshedDayRows;
-
-                  const refreshedById = new Map(
-                    refreshedDayRows
-                      .filter((row) => row.id)
-                      .map((row) => [String(row.id), row]),
-                  );
-                  const currentIds = new Set(
-                    currentRows
-                      .filter((row) => row.id)
-                      .map((row) => String(row.id)),
-                  );
-                  return [
-                    ...currentRows.flatMap((row) => {
-                      if (!row.id) return [row];
-                      const refreshedRow = refreshedById.get(String(row.id));
-                      return refreshedRow ? [refreshedRow] : [];
-                    }),
-                    ...refreshedDayRows.filter(
-                      (row) => row.id && !currentIds.has(String(row.id)),
-                    ),
-                  ];
-                });
-              }
-            } finally {
-              setLoading(false);
-            }
+                } finally {
+                  setLoading(false);
+                }
               }}
             >
               <div className="grid gap-3" />
@@ -4833,16 +5920,21 @@ export default function SiteDiaryCalendar({
               ) : (
                 <div className="space-y-6">
                   <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-                    Selected attachments: {selectedAttachmentUrls.length} (optional)
+                    Selected attachments: {selectedAttachmentUrls.length}{" "}
+                    (optional)
                   </div>
 
                   <div className="grid gap-4 lg:grid-cols-3">
                     <div className="rounded-md border p-4 lg:col-span-2">
-                      <h3 className="mb-3 text-sm font-semibold">{t.performedWorkDetails}</h3>
+                      <h3 className="mb-3 text-sm font-semibold">
+                        {t.performedWorkDetails}
+                      </h3>
                       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <div className="flex flex-col gap-3">
                           <div className="space-y-1">
-                            <label className="text-xs font-medium text-foreground">{t.bisEventDate}</label>
+                            <label className="text-xs font-medium text-foreground">
+                              {t.bisEventDate}
+                            </label>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <Button
@@ -4852,11 +5944,16 @@ export default function SiteDiaryCalendar({
                                 >
                                   <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
                                   {bisSubmitDate
-                                    ? bisSubmitDate.toLocaleDateString(dateLocale)
+                                    ? bisSubmitDate.toLocaleDateString(
+                                        dateLocale,
+                                      )
                                     : t.pickBisEventDate}
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
+                              <PopoverContent
+                                className="w-auto p-0"
+                                align="start"
+                              >
                                 <Calendar
                                   mode="single"
                                   selected={bisSubmitDate || undefined}
@@ -4901,7 +5998,9 @@ export default function SiteDiaryCalendar({
                             <label
                               className={cn(
                                 "text-xs font-medium",
-                                bisMultipleDayJob ? "text-foreground" : "text-muted-foreground",
+                                bisMultipleDayJob
+                                  ? "text-foreground"
+                                  : "text-muted-foreground",
                               )}
                             >
                               {t.bisEventDateTo}
@@ -4916,15 +6015,22 @@ export default function SiteDiaryCalendar({
                                 >
                                   <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
                                   {bisSubmitDateTo
-                                    ? bisSubmitDateTo.toLocaleDateString(dateLocale)
+                                    ? bisSubmitDateTo.toLocaleDateString(
+                                        dateLocale,
+                                      )
                                     : t.pickBisEventDateTo}
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
+                              <PopoverContent
+                                className="w-auto p-0"
+                                align="start"
+                              >
                                 <Calendar
                                   mode="single"
                                   selected={bisSubmitDateTo || undefined}
-                                  onSelect={(value) => setBisSubmitDateTo(value ?? null)}
+                                  onSelect={(value) =>
+                                    setBisSubmitDateTo(value ?? null)
+                                  }
                                   disabled={(date) => {
                                     if (!bisMultipleDayJob) return true;
                                     if (!bisSubmitDate) return false;
@@ -4942,12 +6048,17 @@ export default function SiteDiaryCalendar({
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs font-medium text-foreground">{t.worksDescription}</label>
+                          <label className="text-xs font-medium text-foreground">
+                            {t.worksDescription}
+                          </label>
                           <Textarea
                             key={`works-${bisInputResetKey}`}
                             defaultValue={bisSubmitWorksRef.current}
                             onChange={(event) => {
-                              const truncatedValue = event.target.value.slice(0, 200);
+                              const truncatedValue = event.target.value.slice(
+                                0,
+                                200,
+                              );
                               if (event.target.value !== truncatedValue) {
                                 event.target.value = truncatedValue;
                               }
@@ -4958,11 +6069,16 @@ export default function SiteDiaryCalendar({
                             maxLength={200}
                             className="min-h-[84px]"
                           />
-                          <p className="text-[11px] text-muted-foreground">{t.worksDescriptionLimit}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {t.worksDescriptionLimit}
+                          </p>
                         </div>
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-foreground">
-                            Amount {selectedRowForBis?.Units ? `(${selectedRowForBis.Units})` : ""}
+                            Amount{" "}
+                            {selectedRowForBis?.Units
+                              ? `(${selectedRowForBis.Units})`
+                              : ""}
                           </label>
                           <Input
                             key={`amount-${bisInputResetKey}`}
@@ -4976,8 +6092,13 @@ export default function SiteDiaryCalendar({
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs font-medium text-foreground">{t.bisMeasurementUnit}</label>
-                          <Select value={bisSubmitMeasurement} onValueChange={setBisSubmitMeasurement}>
+                          <label className="text-xs font-medium text-foreground">
+                            {t.bisMeasurementUnit}
+                          </label>
+                          <Select
+                            value={bisSubmitMeasurement}
+                            onValueChange={setBisSubmitMeasurement}
+                          >
                             <SelectTrigger>
                               <SelectValue placeholder="Select measurement" />
                             </SelectTrigger>
@@ -4991,7 +6112,9 @@ export default function SiteDiaryCalendar({
                           </Select>
                         </div>
                         <div className="space-y-1 xl:col-span-2">
-                          <label className="text-xs font-medium text-foreground">Responsible person</label>
+                          <label className="text-xs font-medium text-foreground">
+                            Responsible person
+                          </label>
                           <Select
                             value={selectedBisResponsiblePersonKey}
                             onValueChange={setSelectedBisResponsiblePersonKey}
@@ -5002,10 +6125,14 @@ export default function SiteDiaryCalendar({
                             <SelectContent>
                               {bisResponsiblePersonOptions.map((person) => {
                                 const key = `${person.responsiblePersonId}:${person.responsiblePersonType}`;
-                                const roleLabel = person.role ? ` (${person.role})` : "";
+                                const roleLabel = person.role
+                                  ? ` (${person.role})`
+                                  : "";
                                 return (
                                   <SelectItem key={key} value={key}>
-                                    {(person.fullName || `Person #${person.personId ?? "?"}`) + roleLabel}
+                                    {(person.fullName ||
+                                      `Person #${person.personId ?? "?"}`) +
+                                      roleLabel}
                                   </SelectItem>
                                 );
                               })}
@@ -5015,7 +6142,9 @@ export default function SiteDiaryCalendar({
                       </div>
                     </div>
                     <div className="rounded-md border p-4">
-                      <h3 className="mb-2 text-sm font-semibold">{t.attachments}</h3>
+                      <h3 className="mb-2 text-sm font-semibold">
+                        {t.attachments}
+                      </h3>
                       <p className="text-xs text-muted-foreground">
                         {t.attachmentsOptionalHelp}
                       </p>
@@ -5032,44 +6161,78 @@ export default function SiteDiaryCalendar({
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold">{t.materialsFromCurrentBisCase}</h3>
+                    <h3 className="text-sm font-semibold">
+                      {t.materialsFromCurrentBisCase}
+                    </h3>
                     <div className="max-h-[52vh] overflow-y-auto rounded-md border">
                       {bisMaterialOptions.length === 0 ? (
-                        <p className="p-3 text-xs text-muted-foreground">{t.noBisMaterialsAvailable}</p>
+                        <p className="p-3 text-xs text-muted-foreground">
+                          {t.noBisMaterialsAvailable}
+                        </p>
                       ) : (
                         <table className="w-full text-sm">
                           <thead className="bg-muted/50 text-xs text-muted-foreground">
                             <tr>
-                              <th className="px-3 py-2 text-left font-medium">{t.material}</th>
-                              <th className="px-3 py-2 text-left font-medium">{t.unit}</th>
-                              <th className="px-3 py-2 text-right font-medium">{t.total}</th>
-                              <th className="px-3 py-2 text-right font-medium">{t.used}</th>
-                              <th className="px-3 py-2 text-right font-medium">{t.available}</th>
-                              <th className="px-3 py-2 text-right font-medium">{t.sendQty}</th>
+                              <th className="px-3 py-2 text-left font-medium">
+                                {t.material}
+                              </th>
+                              <th className="px-3 py-2 text-left font-medium">
+                                {t.unit}
+                              </th>
+                              <th className="px-3 py-2 text-right font-medium">
+                                {t.total}
+                              </th>
+                              <th className="px-3 py-2 text-right font-medium">
+                                {t.used}
+                              </th>
+                              <th className="px-3 py-2 text-right font-medium">
+                                {t.available}
+                              </th>
+                              <th className="px-3 py-2 text-right font-medium">
+                                {t.sendQty}
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
                             {bisMaterialOptions.map((material) => (
                               <tr key={material.id} className="border-t">
                                 <td className="px-3 py-2 align-top">
-                                  <div className="font-medium">{material.label}</div>
+                                  <div className="font-medium">
+                                    {material.label}
+                                  </div>
                                 </td>
-                                <td className="px-3 py-2">{material.measurementUnit || "—"}</td>
-                                <td className="px-3 py-2 text-right">{material.deliveredQuantity ?? "—"}</td>
-                                <td className="px-3 py-2 text-right">{material.usedQuantity ?? "—"}</td>
+                                <td className="px-3 py-2">
+                                  {material.measurementUnit || "—"}
+                                </td>
+                                <td className="px-3 py-2 text-right">
+                                  {material.deliveredQuantity ?? "—"}
+                                </td>
+                                <td className="px-3 py-2 text-right">
+                                  {material.usedQuantity ?? "—"}
+                                </td>
                                 <td className="px-3 py-2 text-right font-semibold">
-                                  {material.availableQuantity} {material.measurementUnit || ""}
+                                  {material.availableQuantity}{" "}
+                                  {material.measurementUnit || ""}
                                 </td>
                                 <td className="px-3 py-2 text-right">
                                   <Input
                                     type="text"
                                     inputMode="decimal"
                                     className="ml-auto w-28"
-                                    defaultValue={materialQuantitiesRef.current[material.id] ?? ""}
+                                    defaultValue={
+                                      materialQuantitiesRef.current[
+                                        material.id
+                                      ] ?? ""
+                                    }
                                     onChange={(e) => {
-                                      const rawValue = e.target.value.replace(",", ".");
+                                      const rawValue = e.target.value.replace(
+                                        ",",
+                                        ".",
+                                      );
                                       if (!/^\d*\.?\d*$/.test(rawValue)) return;
-                                      materialQuantitiesRef.current[material.id] = rawValue;
+                                      materialQuantitiesRef.current[
+                                        material.id
+                                      ] = rawValue;
                                     }}
                                   />
                                 </td>
@@ -5083,17 +6246,28 @@ export default function SiteDiaryCalendar({
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-sm font-semibold">{t.selectedGalleryAttachments}</h3>
+                      <h3 className="text-sm font-semibold">
+                        {t.selectedGalleryAttachments}
+                      </h3>
                     </div>
 
                     {selectedAttachmentUrls.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">{t.noAttachmentsSelected}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t.noAttachmentsSelected}
+                      </p>
                     ) : (
                       <div className="max-h-56 overflow-y-auto rounded-md border p-2">
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
                           {selectedAttachmentUrls.map((url) => (
-                            <div key={url} className="relative overflow-hidden rounded border">
-                              <img src={url} alt="Selected attachment" className="h-24 w-full object-cover" />
+                            <div
+                              key={url}
+                              className="relative overflow-hidden rounded border"
+                            >
+                              <img
+                                src={url}
+                                alt="Selected attachment"
+                                className="h-24 w-full object-cover"
+                              />
                               <button
                                 type="button"
                                 onClick={() => toggleAttachment(url, false)}
@@ -5109,18 +6283,25 @@ export default function SiteDiaryCalendar({
                   </div>
 
                   <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setBisPickerOpen(false)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => setBisPickerOpen(false)}
+                    >
                       {t.cancel}
                     </Button>
                     <Button
                       onClick={handleSendRowToBis}
                       disabled={
-                        Boolean(selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id) ||
+                        Boolean(
+                          selectedRowForBis?.id &&
+                          bisSendingRowId === selectedRowForBis.id,
+                        ) ||
                         (Number.parseFloat(bisSubmitAmount || "") || 0) <= 0 ||
                         (bisMultipleDayJob && !bisSubmitDateTo)
                       }
                     >
-                      {selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id ? (
+                      {selectedRowForBis?.id &&
+                      bisSendingRowId === selectedRowForBis.id ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           {t.sending}
@@ -5157,25 +6338,35 @@ export default function SiteDiaryCalendar({
 
             <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
               {approverOptions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No BIS approvers returned for this record.</p>
+                <p className="text-sm text-muted-foreground">
+                  No BIS approvers returned for this record.
+                </p>
               ) : (
                 approverOptions.map((approver) => {
                   const key = approverKey(approver);
                   const checked = selectedApproverKeys.includes(key);
                   return (
-                    <label key={key} className="flex items-start gap-3 rounded-lg border p-3">
+                    <label
+                      key={key}
+                      className="flex items-start gap-3 rounded-lg border p-3"
+                    >
                       <Checkbox
                         checked={checked}
                         onCheckedChange={(value) =>
                           setSelectedApproverKeys((current) =>
-                            value ? [...current, key] : current.filter((item) => item !== key),
+                            value
+                              ? [...current, key]
+                              : current.filter((item) => item !== key),
                           )
                         }
                       />
                       <div className="space-y-1 text-sm">
-                        <p className="font-medium">{approver.name || "Unnamed approver"}</p>
+                        <p className="font-medium">
+                          {approver.name || "Unnamed approver"}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          Member ID: {approver.memberId} • Level: {approver.level ?? "—"}
+                          Member ID: {approver.memberId} • Level:{" "}
+                          {approver.level ?? "—"}
                         </p>
                       </div>
                     </label>
@@ -5185,10 +6376,16 @@ export default function SiteDiaryCalendar({
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setApproverDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setApproverDialogOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={submitApproval} disabled={approvalLoading || selectedApproverKeys.length === 0}>
+              <Button
+                onClick={submitApproval}
+                disabled={approvalLoading || selectedApproverKeys.length === 0}
+              >
                 {approvalLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -5207,7 +6404,8 @@ export default function SiteDiaryCalendar({
             <DialogHeader>
               <DialogTitle>Copy record to another date</DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
-                This creates a local copy only. If the original was sent to BIS, copied record must be sent again.
+                This creates a local copy only. If the original was sent to BIS,
+                copied record must be sent again.
               </DialogDescription>
             </DialogHeader>
 
@@ -5221,10 +6419,16 @@ export default function SiteDiaryCalendar({
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setCopyDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setCopyDialogOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleCopyRecord} disabled={!copyTargetDate || copyLoading}>
+              <Button
+                onClick={handleCopyRecord}
+                disabled={!copyTargetDate || copyLoading}
+              >
                 {copyLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -5238,7 +6442,10 @@ export default function SiteDiaryCalendar({
           </DialogContent>
         </Dialog>
 
-        <Dialog open={projectCopyDialogOpen} onOpenChange={setProjectCopyDialogOpen}>
+        <Dialog
+          open={projectCopyDialogOpen}
+          onOpenChange={setProjectCopyDialogOpen}
+        >
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>{t.copyToProject}</DialogTitle>
@@ -5248,7 +6455,9 @@ export default function SiteDiaryCalendar({
             </DialogHeader>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">{t.selectTargetProject}</label>
+              <label className="text-sm font-medium">
+                {t.selectTargetProject}
+              </label>
               {projectCopyTargetsLoading ? (
                 <div className="inline-flex items-center gap-1 text-sm text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -5307,7 +6516,10 @@ export default function SiteDiaryCalendar({
           </DialogContent>
         </Dialog>
 
-        <Dialog open={attachmentGalleryOpen} onOpenChange={setAttachmentGalleryOpen}>
+        <Dialog
+          open={attachmentGalleryOpen}
+          onOpenChange={setAttachmentGalleryOpen}
+        >
           <DialogContent className="w-[98vw] max-w-[98vw] lg:max-w-7xl max-h-[94vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{t.selectAttachmentsFromGalleryTitle}</DialogTitle>
@@ -5317,12 +6529,16 @@ export default function SiteDiaryCalendar({
             </DialogHeader>
 
             {galleryAttachmentOptions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t.noGalleryPhotos}</p>
+              <p className="text-sm text-muted-foreground">
+                {t.noGalleryPhotos}
+              </p>
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
                   {pagedGalleryAttachments.map((attachment) => {
-                    const checked = selectedAttachmentUrls.includes(attachment.url);
+                    const checked = selectedAttachmentUrls.includes(
+                      attachment.url,
+                    );
                     return (
                       <label
                         key={attachment.id}
@@ -5348,7 +6564,9 @@ export default function SiteDiaryCalendar({
                         </div>
                         <div className="p-2 text-[11px] text-muted-foreground">
                           {attachment.date
-                            ? new Date(attachment.date).toLocaleDateString(dateLocale)
+                            ? new Date(attachment.date).toLocaleDateString(
+                                dateLocale,
+                              )
                             : ""}
                         </div>
                       </label>
@@ -5358,7 +6576,8 @@ export default function SiteDiaryCalendar({
 
                 <div className="flex items-center justify-between rounded border bg-muted/20 px-3 py-2 text-xs">
                   <span>
-                    Page {galleryAttachmentPage} of {galleryTotalPages} • {sortedGalleryAttachmentOptions.length} photos
+                    Page {galleryAttachmentPage} of {galleryTotalPages} •{" "}
+                    {sortedGalleryAttachmentOptions.length} photos
                   </span>
                   <div className="flex gap-2">
                     <Button
@@ -5366,7 +6585,11 @@ export default function SiteDiaryCalendar({
                       variant="outline"
                       size="sm"
                       disabled={galleryAttachmentPage <= 1}
-                      onClick={() => setGalleryAttachmentPage((prev) => Math.max(1, prev - 1))}
+                      onClick={() =>
+                        setGalleryAttachmentPage((prev) =>
+                          Math.max(1, prev - 1),
+                        )
+                      }
                     >
                       {t.previous}
                     </Button>
@@ -5376,7 +6599,9 @@ export default function SiteDiaryCalendar({
                       size="sm"
                       disabled={galleryAttachmentPage >= galleryTotalPages}
                       onClick={() =>
-                        setGalleryAttachmentPage((prev) => Math.min(galleryTotalPages, prev + 1))
+                        setGalleryAttachmentPage((prev) =>
+                          Math.min(galleryTotalPages, prev + 1),
+                        )
                       }
                     >
                       {t.next}
@@ -5387,7 +6612,10 @@ export default function SiteDiaryCalendar({
             )}
 
             <div className="flex justify-end">
-              <Button type="button" onClick={() => setAttachmentGalleryOpen(false)}>
+              <Button
+                type="button"
+                onClick={() => setAttachmentGalleryOpen(false)}
+              >
                 {t.done}
               </Button>
             </div>
@@ -5404,10 +6632,10 @@ export default function SiteDiaryCalendar({
                 Photos & audio –{" "}
                 {photosDate
                   ? photosDate.toLocaleDateString(dateLocale, {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })
                   : t.noDateSelected}
               </DialogTitle>
               <DialogDescription className="sr-only">
@@ -5433,10 +6661,10 @@ export default function SiteDiaryCalendar({
                 {t.weatherFor}{" "}
                 {weatherDate
                   ? weatherDate.toLocaleDateString(dateLocale, {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })
                   : t.noDateSelected}
               </DialogTitle>
               <DialogDescription className="sr-only">
@@ -5461,14 +6689,19 @@ export default function SiteDiaryCalendar({
               <div className="space-y-3">
                 {weatherLocation ? (
                   <p className="text-xs text-muted-foreground">
-                    Lat: {weatherLocation.latitude.toFixed(6)} • Lon: {weatherLocation.longitude.toFixed(6)}
+                    Lat: {weatherLocation.latitude.toFixed(6)} • Lon:{" "}
+                    {weatherLocation.longitude.toFixed(6)}
                   </p>
                 ) : null}
 
                 <div className="rounded-md border p-3">
-                  <p className="mb-2 text-sm font-medium">{t.weather} • {t.weatherTemperature} / {t.weatherWind}</p>
+                  <p className="mb-2 text-sm font-medium">
+                    {t.weather} • {t.weatherTemperature} / {t.weatherWind}
+                  </p>
                   <div className="h-56 w-full">
-                    <React.Suspense fallback={<Skeleton className="h-full w-full" />}>
+                    <React.Suspense
+                      fallback={<Skeleton className="h-full w-full" />}
+                    >
                       <SiteDiaryWeatherChart
                         hours={weatherHours}
                         temperatureLabel={t.weatherTemperature}
@@ -5491,7 +6724,9 @@ export default function SiteDiaryCalendar({
                     <TableBody>
                       {weatherHours.map((h) => (
                         <TableRow key={h.hour}>
-                          <TableCell>{String(h.hour).padStart(2, "0")}:00</TableCell>
+                          <TableCell>
+                            {String(h.hour).padStart(2, "0")}:00
+                          </TableCell>
                           <TableCell>{h.temperatureC ?? "—"}</TableCell>
                           <TableCell>{h.windSpeedMs ?? "—"}</TableCell>
                           <TableCell>{h.precipitationMm ?? "—"}</TableCell>
