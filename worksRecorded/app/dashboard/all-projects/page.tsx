@@ -202,7 +202,7 @@ export default async function AllProjectsPage({
   });
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] space-y-6 py-4">
+    <div className="mx-auto w-full max-w-[1900px] space-y-6 px-2 py-4 sm:px-4">
       <div className="space-y-2">
         <Button asChild variant="ghost" className="px-0">
           <Link href="/dashboard">← {messages.back}</Link>
@@ -444,40 +444,40 @@ export default async function AllProjectsPage({
               className={cn(
                 "table-fixed",
                 data.quantityPlanFactEnabled
-                  ? "min-w-[1420px]"
-                  : "min-w-[1300px]",
+                  ? "min-w-[1760px]"
+                  : "min-w-[1620px]",
               )}
             >
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[104px]">{messages.date}</TableHead>
-                  <TableHead className="w-[240px]">
+                  <TableHead className="w-[100px]">{messages.date}</TableHead>
+                  <TableHead className="w-[200px]">
                     {messages.project}
                   </TableHead>
                   <TableHead className="w-[140px]">
                     {messages.location}
                   </TableHead>
-                  <TableHead className="w-[260px]">{messages.work}</TableHead>
+                  <TableHead className="w-[240px]">{messages.work}</TableHead>
                   {data.quantityPlanFactEnabled ? (
-                    <TableHead className="w-[120px] text-right">
+                    <TableHead className="w-[140px] whitespace-nowrap text-right">
                       {messages.plannedAmount}
                     </TableHead>
                   ) : null}
-                  <TableHead className="w-[120px] text-right">
+                  <TableHead className="w-[140px] whitespace-nowrap text-right">
                     {data.quantityPlanFactEnabled
                       ? messages.actualAmount
                       : messages.amount}
                   </TableHead>
-                  <TableHead className="w-[96px] text-right">
+                  <TableHead className="w-[104px] whitespace-nowrap text-right">
                     {messages.workers}
                   </TableHead>
-                  <TableHead className="w-[96px] text-right">
+                  <TableHead className="w-[96px] whitespace-nowrap text-right">
                     {messages.hours}
                   </TableHead>
-                  <TableHead className="w-[120px] text-right">
+                  <TableHead className="w-[130px] whitespace-nowrap text-right">
                     {messages.cost}
                   </TableHead>
-                  <TableHead className="w-[260px]">
+                  <TableHead className="w-[400px]">
                     {messages.comments}
                   </TableHead>
                   <TableHead className="w-[72px] text-center">
@@ -566,11 +566,8 @@ export default async function AllProjectsPage({
                           ? "—"
                           : currencyFormatter.format(record.actualCost)}
                       </TableCell>
-                      <TableCell className="min-w-0 overflow-hidden">
-                        <span
-                          className="block truncate"
-                          title={record.Comments || undefined}
-                        >
+                      <TableCell className="min-w-0 align-top">
+                        <span className="block whitespace-pre-wrap break-words text-sm leading-5">
                           {record.Comments || "—"}
                         </span>
                       </TableCell>
