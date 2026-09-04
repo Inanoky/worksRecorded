@@ -32,6 +32,18 @@ export default function Page() {
 	const t = useTranslations("Pricing");
 	const landing = useTranslations("LandingPageDesktop");
 	const locale = useLocale();
+	const additionalServices = [
+		{
+			title: t("warehouseService.title"),
+			price: t("warehouseService.price"),
+			period: t("warehouseService.period"),
+		},
+		{
+			title: t("bisService.title"),
+			price: t("bisService.price"),
+			period: t("bisService.period"),
+		},
+	];
 
 	return (
 		<MarketingPageShell>
@@ -40,7 +52,9 @@ export default function Page() {
 					<PageEyebrow>WorksRecorded</PageEyebrow>
 					<h1 className="mt-5 text-balance text-5xl font-bold leading-[1.03] tracking-[-0.04em] sm:text-6xl lg:text-[4.35rem]">
 						{t("title.prefix")}{" "}
-						<span className="text-[#087a49]">{t("title.highlight")}</span>
+						<span className="text-[#087a49]">
+							{t("title.highlight")}
+						</span>
 					</h1>
 					<p className="mt-6 text-lg leading-8 text-slate-600 sm:text-xl dark:text-slate-300">
 						{t("description")}
@@ -59,24 +73,34 @@ export default function Page() {
 								</p>
 							</div>
 							<span className="grid size-12 shrink-0 place-items-center rounded-full bg-emerald-100 text-[#087a49]">
-								<Sparkles className="size-6" aria-hidden="true" />
+								<Sparkles
+									className="size-6"
+									aria-hidden="true"
+								/>
 							</span>
 						</div>
 						<p className="mt-5 text-xl font-semibold text-[#087a49]">
 							{t("title.highlight")}
 						</p>
-						<div className="mt-7 rounded-2xl bg-[#f1f8f4] p-5 ring-1 ring-emerald-900/10 dark:bg-emerald-950/50 dark:ring-emerald-200/10">
-							<p className="text-sm font-bold uppercase tracking-[0.15em] text-[#087a49]">
-								{t("bisService.title")}
-							</p>
-							<div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-								<p className="text-4xl font-bold tracking-[-0.04em]">
-									{t("bisService.price")}
-								</p>
-								<p className="text-base font-medium text-slate-600 dark:text-slate-300">
-									{t("bisService.period")}
-								</p>
-							</div>
+						<div className="mt-7 grid gap-3 sm:grid-cols-2">
+							{additionalServices.map((service) => (
+								<div
+									key={service.title}
+									className="rounded-2xl bg-[#f1f8f4] p-5 ring-1 ring-emerald-900/10 dark:bg-emerald-950/50 dark:ring-emerald-200/10"
+								>
+									<p className="text-sm font-bold uppercase tracking-[0.15em] text-[#087a49]">
+										{service.title}
+									</p>
+									<div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+										<p className="text-4xl font-bold tracking-[-0.04em]">
+											{service.price}
+										</p>
+										<p className="text-base font-medium text-slate-600 dark:text-slate-300">
+											{service.period}
+										</p>
+									</div>
+								</div>
+							))}
 						</div>
 						<div className="my-8 h-px bg-slate-200 dark:bg-slate-800" />
 						<ul className="grid gap-4">
@@ -86,7 +110,10 @@ export default function Page() {
 									className="flex items-center gap-3 text-lg font-medium text-slate-700 dark:text-slate-200"
 								>
 									<span className="grid size-7 place-items-center rounded-full bg-emerald-100 text-[#087a49]">
-										<Check className="size-4" aria-hidden="true" />
+										<Check
+											className="size-4"
+											aria-hidden="true"
+										/>
 									</span>
 									{item}
 								</li>
