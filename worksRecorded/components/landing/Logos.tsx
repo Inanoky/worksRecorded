@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import DepromLogo from "@/public/logos/deprom.webp";
 import LecLogo from "@/public/logos/lec.png";
+import LimeniLogo from "@/public/logos/limeni.svg";
 import ZtcLogo from "@/public/logos/ztc.jpg";
 
 type Client = {
@@ -43,6 +44,12 @@ const CLIENTS: Client[] = [
 		logo: "/logos/stone-and-tree.svg",
 		logoWidth: 844,
 		logoHeight: 300,
+	},
+	{
+		name: "Līmenī",
+		descriptionKey: "clientLimeniDescription",
+		href: "https://www.limeni.lv/",
+		logo: LimeniLogo,
 	},
 ];
 
@@ -117,7 +124,8 @@ export function Logos() {
 						const rawParagraphs = t.raw(client.descriptionKey);
 						const paragraphs = Array.isArray(rawParagraphs)
 							? rawParagraphs.filter(
-									(paragraph): paragraph is string => typeof paragraph === "string",
+									(paragraph): paragraph is string =>
+										typeof paragraph === "string",
 								)
 							: [];
 						return (
