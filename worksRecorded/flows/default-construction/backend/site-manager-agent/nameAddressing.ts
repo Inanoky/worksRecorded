@@ -18,6 +18,7 @@ export const vocativeOverrides: Readonly<Record<string, string>> = Object.freeze
   Valdis: "Valdi",
   Sandis: "Sandi",
   Markus: "Marku",
+  Kristaps: "Kristap",
 });
 
 export function toLatvianVocative(firstName: string) {
