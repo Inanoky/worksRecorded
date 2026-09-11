@@ -8,6 +8,17 @@ export type TgemOcrPoint = {
 export type TgemOcrBlock = {
 	text: string;
 	confidence: number | null;
+	kind: "token" | "line";
+	readingOrder: number;
+	left: number;
+	top: number;
+	width: number;
+	height: number;
+	polygon: TgemOcrPoint[];
+};
+
+export type TgemOcrSourceAnchor = {
+	pageNumber: number;
 	left: number;
 	top: number;
 	width: number;
@@ -29,6 +40,7 @@ export type TgemInvoiceOcrField = {
 	rawText: string;
 	value: string | number | null;
 	confidence: number | null;
+	sourceAnchor: TgemOcrSourceAnchor | null;
 };
 
 export type TgemInvoiceOcrLineItem = {
@@ -126,13 +138,15 @@ function getPolygon(
 }
 
 function toBlock(
-	line: unknown,
+	item: unknown,
 	documentText: string,
 	width: number | null,
 	height: number | null,
+	kind: TgemOcrBlock["kind"],
+	readingOrder: number,
 ): TgemOcrBlock | null {
-	const lineRecord = asRecord(line);
-	const layout = asRecord(lineRecord?.layout);
+	const itemRecord = asRecord(item);
+	const layout = asRecord(itemRecord?.layout);
 	if (!layout) return null;
 
 	const text = getTextAnchorText(layout.textAnchor, documentText).trim();
@@ -149,6 +163,43 @@ function toBlock(
 	return {
 		text,
 		confidence: asNumber(layout.confidence),
+		kind,
+		readingOrder,
+		left,
+		top,
+		width: right - left,
+		height: bottom - top,
+		polygon,
+	};
+}
+
+function getSourceAnchor(
+	entity: JsonRecord,
+	pageDimensions: Map<number, { width: number | null; height: number | null }>,
+): TgemOcrSourceAnchor | null {
+	const pageAnchor = asRecord(entity.pageAnchor);
+	const pageRef = asRecord(asArray(pageAnchor?.pageRefs)[0]);
+	if (!pageRef) return null;
+
+	const zeroBasedPage = Number(pageRef.page ?? 0);
+	const pageNumber = Number.isFinite(zeroBasedPage) ? zeroBasedPage + 1 : 1;
+	const dimensions = pageDimensions.get(pageNumber);
+	const polygon = getPolygon(
+		pageRef.boundingPoly,
+		dimensions?.width ?? null,
+		dimensions?.height ?? null,
+	);
+	if (polygon.length === 0) return null;
+
+	const xs = polygon.map((point) => point.x);
+	const ys = polygon.map((point) => point.y);
+	const left = Math.min(...xs);
+	const top = Math.min(...ys);
+	const right = Math.max(...xs);
+	const bottom = Math.max(...ys);
+
+	return {
+		pageNumber,
 		left,
 		top,
 		width: right - left,
@@ -204,7 +255,11 @@ function toNumberValue(value: string | number | null) {
 	return Number.isFinite(parsed) ? parsed : null;
 }
 
-function mapFields(document: JsonRecord, documentText: string) {
+function mapFields(
+	document: JsonRecord,
+	documentText: string,
+	pageDimensions: Map<number, { width: number | null; height: number | null }>,
+) {
 	const fieldNames: Record<string, string> = {
 		invoice_id: "invoiceNumber",
 		supplier_name: "supplierName",
@@ -237,6 +292,7 @@ function mapFields(document: JsonRecord, documentText: string) {
 						rawText,
 						value: getEntityValue(record, rawText),
 						confidence: asNumber(record.confidence),
+						sourceAnchor: getSourceAnchor(record, pageDimensions),
 					},
 				];
 			})
@@ -292,13 +348,30 @@ export function mapGoogleDocumentAiInvoiceResponse(
 	const responseRecord = asRecord(response);
 	const document = asRecord(responseRecord?.document) ?? responseRecord ?? {};
 	const documentText = typeof document.text === "string" ? document.text : "";
+	const pageDimensions = new Map(
+		asArray(document.pages).map((page, pageIndex) => {
+			const pageRecord = asRecord(page) ?? {};
+			return [
+				Number(pageRecord.pageNumber ?? pageIndex + 1),
+				{
+					width: asNumber(pageRecord.width),
+					height: asNumber(pageRecord.height),
+				},
+			] as const;
+		}),
+	);
 
 	const pages = asArray(document.pages).map((page, pageIndex) => {
 		const pageRecord = asRecord(page) ?? {};
 		const width = asNumber(pageRecord.width);
 		const height = asNumber(pageRecord.height);
-		const blocks = asArray(pageRecord.lines)
-			.map((line) => toBlock(line, documentText, width, height))
+		const tokens = asArray(pageRecord.tokens);
+		const blockKind = tokens.length > 0 ? "token" : "line";
+		const sourceItems = tokens.length > 0 ? tokens : asArray(pageRecord.lines);
+		const blocks = sourceItems
+			.map((item, readingOrder) =>
+				toBlock(item, documentText, width, height, blockKind, readingOrder),
+			)
 			.filter((block): block is TgemOcrBlock => block !== null);
 		const layout = asRecord(pageRecord.layout);
 		const layoutText = getTextAnchorText(
@@ -320,7 +393,7 @@ export function mapGoogleDocumentAiInvoiceResponse(
 	return {
 		provider: "google-document-ai",
 		pages,
-		fields: mapFields(document, documentText),
+		fields: mapFields(document, documentText, pageDimensions),
 		lineItems: mapLineItems(document, documentText),
 	};
 }

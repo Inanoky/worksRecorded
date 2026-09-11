@@ -39,6 +39,8 @@ model Organization {
       siteWeatherHourly SiteWeatherHourly[]
       tgemInvoiceCases TgemInvoiceCase[]
       tgemInvoiceAuditEvents TgemInvoiceAuditEvent[]
+      tgemInvoiceApprovalTemplates TgemInvoiceApprovalTemplate[]
+      tgemInvoiceWorkflowManagers TgemInvoiceWorkflowManager[]
 
       
 
@@ -81,6 +83,8 @@ model User {
   whatsappIdentities WhatsAppIdentity[]
   tgemInvoiceCasesSubmitted TgemInvoiceCase[] @relation("TgemInvoiceSubmittedBy")
   tgemInvoiceApprovalSteps TgemInvoiceApprovalStep[] @relation("TgemInvoiceApprover")
+  tgemInvoiceTemplateSteps TgemInvoiceApprovalTemplateStep[] @relation("TgemInvoiceTemplateApprover")
+  tgemInvoiceWorkflowManagers TgemInvoiceWorkflowManager[] @relation("TgemInvoiceWorkflowManagerUser")
   tgemInvoiceAuditEvents TgemInvoiceAuditEvent[] @relation("TgemInvoiceAuditActor")
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -124,6 +128,8 @@ model Site {
   ztcRecords        ZtcRecords[]
   BISmaterialRecords BISmaterialRecords[] //on site can have many BIS material records. 
   tgemInvoiceCases TgemInvoiceCase[]
+  tgemInvoiceApprovalTemplates TgemInvoiceApprovalTemplate[]
+  tgemInvoiceWorkflowManagers TgemInvoiceWorkflowManager[]
   
   sitediarysettings sitediarysettings? //One site can have one site diary setting
   analytics analytics?
@@ -240,6 +246,7 @@ model TgemInvoiceCase {
   receivedAt                DateTime @default(now())
   processedAt               DateTime?
   approvedAt                DateTime?
+  approvalRound             Int      @default(0)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
@@ -327,8 +334,14 @@ model TgemInvoiceApprovalStep {
   id                 String   @id @default(uuid())
   invoiceCaseId      String
   stepOrder          Int
-  role               String
+  approvalRound      Int      @default(1)
+  roleKey            String   @default("project_review")
+  role               String?
   approverUserId     String?
+  approverName       String?
+  templateRevision   Int?
+  minimumInvoiceTotal Decimal? @db.Decimal(14, 2)
+  thresholdCurrency  String?
   status             String   @default("waiting")
   comment            String?
   dueAt              DateTime?
@@ -339,8 +352,61 @@ model TgemInvoiceApprovalStep {
   invoiceCase        TgemInvoiceCase @relation(fields: [invoiceCaseId], references: [id], onDelete: Cascade)
   approver           User? @relation("TgemInvoiceApprover", fields: [approverUserId], references: [id], onDelete: SetNull)
 
-  @@unique([invoiceCaseId, stepOrder])
+  @@unique([invoiceCaseId, approvalRound, stepOrder])
   @@index([approverUserId, status, dueAt])
+}
+
+model TgemInvoiceApprovalTemplate {
+  id                 String   @id @default(uuid())
+  organizationId     String
+  siteId             String
+  revision           Int
+  isCurrent          Boolean  @default(true)
+  currency           String   @default("EUR")
+  createdByUserId    String
+  createdAt          DateTime @default(now())
+
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site               Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  steps              TgemInvoiceApprovalTemplateStep[]
+
+  @@unique([siteId, revision])
+  @@index([organizationId, siteId, isCurrent])
+}
+
+model TgemInvoiceApprovalTemplateStep {
+  id                 String   @id @default(uuid())
+  templateId         String
+  stepOrder          Int
+  roleKey            String   @default("project_review")
+  role               String?
+  approverUserId     String
+  minimumInvoiceTotal Decimal? @db.Decimal(14, 2)
+  createdAt          DateTime @default(now())
+
+  template           TgemInvoiceApprovalTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  approver           User @relation("TgemInvoiceTemplateApprover", fields: [approverUserId], references: [id], onDelete: Restrict)
+
+  @@unique([templateId, stepOrder])
+  @@unique([templateId, approverUserId])
+  @@index([approverUserId])
+}
+
+model TgemInvoiceWorkflowManager {
+  id                 String   @id @default(uuid())
+  organizationId     String
+  siteId             String
+  userId             String
+  createdByUserId    String
+  createdAt          DateTime @default(now())
+
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site               Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  user               User @relation("TgemInvoiceWorkflowManagerUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, userId])
+  @@index([organizationId, siteId])
+  @@index([userId])
 }
 
 model TgemInvoiceAuditEvent {

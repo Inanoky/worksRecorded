@@ -22,11 +22,13 @@ describe("persistTgemInvoiceOcrResult", () => {
 							rawText: "INV-1",
 							value: "INV-1",
 							confidence: 0.98,
+							sourceAnchor: null,
 						},
 						total: {
 							rawText: "1280.00",
 							value: 1280,
 							confidence: 0.97,
+							sourceAnchor: null,
 						},
 					},
 					lineItems: [

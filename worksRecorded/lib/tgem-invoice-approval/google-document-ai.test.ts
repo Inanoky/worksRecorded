@@ -14,7 +14,7 @@ describe("Google Document AI invoice adapter", () => {
 						pageNumber: 1,
 						width: 3024,
 						height: 4032,
-						lines: [
+						tokens: [
 							{
 								layout: {
 									textAnchor: {
@@ -39,6 +39,21 @@ describe("Google Document AI invoice adapter", () => {
 						type: "invoice_date",
 						confidence: 0.96,
 						textAnchor: { content: "18/01/24" },
+						pageAnchor: {
+							pageRefs: [
+								{
+									page: "0",
+									boundingPoly: {
+										normalizedVertices: [
+											{ x: 0.6, y: 0.31 },
+											{ x: 0.85, y: 0.31 },
+											{ x: 0.85, y: 0.33 },
+											{ x: 0.6, y: 0.33 },
+										],
+									},
+								},
+							],
+						},
 						normalizedValue: { text: "2024-01-18" },
 					},
 					{
@@ -87,6 +102,8 @@ describe("Google Document AI invoice adapter", () => {
 			height: 4032,
 		});
 		expect(result.pages[0].blocks[0].text).toBe("Invoice Date: 18/01/24");
+		expect(result.pages[0].blocks[0].kind).toBe("token");
+		expect(result.pages[0].blocks[0].readingOrder).toBe(0);
 		expect(result.pages[0].blocks[0].left).toBeCloseTo(0.1);
 		expect(result.pages[0].blocks[0].top).toBeCloseTo(0.1);
 		expect(result.pages[0].blocks[0].width).toBeCloseTo(0.4);
@@ -94,6 +111,11 @@ describe("Google Document AI invoice adapter", () => {
 		expect(result.fields.invoiceDate).toMatchObject({
 			rawText: "18/01/24",
 			value: "2024-01-18",
+			sourceAnchor: {
+				pageNumber: 1,
+				left: 0.6,
+				top: 0.31,
+			},
 		});
 		expect(result.fields.total.value).toBe(216);
 		expect(result.lineItems).toEqual([

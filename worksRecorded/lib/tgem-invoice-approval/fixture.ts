@@ -21,6 +21,8 @@ Bank Details: Name: BNP PARIBAS UK Account: 89873171`,
 		{
 			text: "Moxy Edinburgh Fountainbridge",
 			confidence: 0.99,
+			kind: "line",
+			readingOrder: 0,
 			left: 0.58,
 			top: 0.06,
 			width: 0.27,
@@ -35,6 +37,8 @@ Bank Details: Name: BNP PARIBAS UK Account: 89873171`,
 		{
 			text: "INFORMATION STATEMENT",
 			confidence: 0.98,
+			kind: "line",
+			readingOrder: 1,
 			left: 0.1,
 			top: 0.27,
 			width: 0.24,
@@ -49,6 +53,8 @@ Bank Details: Name: BNP PARIBAS UK Account: 89873171`,
 		{
 			text: "Invoice Date: 18/01/24",
 			confidence: 0.97,
+			kind: "line",
+			readingOrder: 2,
 			left: 0.6,
 			top: 0.31,
 			width: 0.25,
@@ -63,6 +69,8 @@ Bank Details: Name: BNP PARIBAS UK Account: 89873171`,
 		{
 			text: "Package 72.00 GBP",
 			confidence: 0.95,
+			kind: "line",
+			readingOrder: 3,
 			left: 0.18,
 			top: 0.43,
 			width: 0.55,
@@ -77,6 +85,8 @@ Bank Details: Name: BNP PARIBAS UK Account: 89873171`,
 		{
 			text: "Total incl. tax 216.00 GBP",
 			confidence: 0.98,
+			kind: "line",
+			readingOrder: 4,
 			left: 0.55,
 			top: 0.55,
 			width: 0.3,
@@ -145,6 +155,28 @@ export async function ensureTgemInvoiceFixture(
 			extractionSummary: {
 				provider: "fixture",
 				confidence: 0.98,
+				fields: {
+					invoiceDate: {
+						sourceAnchor: {
+							pageNumber: 1,
+							left: 0.6,
+							top: 0.31,
+							width: 0.25,
+							height: 0.02,
+							polygon: [],
+						},
+					},
+					total: {
+						sourceAnchor: {
+							pageNumber: 1,
+							left: 0.55,
+							top: 0.55,
+							width: 0.3,
+							height: 0.02,
+							polygon: [],
+						},
+					},
+				},
 			},
 			documents: {
 				create: {
@@ -205,6 +237,7 @@ export async function ensureTgemInvoiceFixture(
 			approvalSteps: {
 				create: {
 					stepOrder: 1,
+					roleKey: "project_review",
 					role: "Project manager",
 					status: "waiting",
 				},

@@ -8,6 +8,8 @@ import {
 	Copy,
 	FileText,
 	Loader2,
+	LocateFixed,
+	Settings2,
 } from "lucide-react";
 import Image from "next/image";
 import * as React from "react";
@@ -18,8 +20,11 @@ import { Separator } from "@/components/ui/separator";
 import type {
 	TgemDashboardData,
 	TgemDashboardInvoice,
+	TgemDashboardSourceAnchor,
 } from "@/lib/tgem-invoice-approval/dashboard-types";
 import { getTgemInvoiceDashboardData } from "@/server/actions/tgem-invoice-actions";
+import { TgemApprovalControls } from "./TgemApprovalControls";
+import { TgemApprovalSetup } from "./TgemApprovalSetup";
 import { TgemInvoiceUpload } from "./TgemInvoiceUpload";
 
 type Props = {
@@ -54,6 +59,9 @@ function getCopy(language?: string | null) {
 			copyText: "Kopēt tekstu",
 			copied: "Nokopēts",
 			noOcrText: "OCR teksts vēl nav pieejams.",
+			showSource: "Parādīt dokumentā",
+			sourceHint: "Izvēlieties tekstu tieši dokumentā, lai to kopētu.",
+			approvalSetup: "Apstiprināšanas iestatījumi",
 		};
 	}
 
@@ -83,6 +91,9 @@ function getCopy(language?: string | null) {
 			copyText: "Копировать текст",
 			copied: "Скопировано",
 			noOcrText: "Текст OCR пока недоступен.",
+			showSource: "Показать в документе",
+			sourceHint: "Выделите текст прямо в документе, чтобы скопировать его.",
+			approvalSetup: "Настройки согласования",
 		};
 	}
 
@@ -111,6 +122,9 @@ function getCopy(language?: string | null) {
 		copyText: "Copy text",
 		copied: "Copied",
 		noOcrText: "OCR text is not available yet.",
+		showSource: "Show in document",
+		sourceHint: "Select text directly on the document to copy it.",
+		approvalSetup: "Approval setup",
 	};
 }
 
@@ -144,11 +158,49 @@ function statusLabel(status: string) {
 	return status.replaceAll("_", " ");
 }
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
+function Field({
+	label,
+	value,
+	onLocate,
+	active,
+	locateLabel,
+}: {
+	label: string;
+	value: React.ReactNode;
+	onLocate?: () => void;
+	active?: boolean;
+	locateLabel?: string;
+}) {
+	const content = (
+		<>
+			<div className="min-w-0 flex-1">
+				<div className="text-xs text-muted-foreground">{label}</div>
+				<div className="truncate text-sm font-medium">{value || "—"}</div>
+			</div>
+			{onLocate ? (
+				<LocateFixed
+					className={`h-4 w-4 shrink-0 ${active ? "text-blue-700" : "text-blue-500"}`}
+				/>
+			) : null}
+		</>
+	);
+
+	if (onLocate) {
+		return (
+			<button
+				type="button"
+				onClick={onLocate}
+				aria-label={`${locateLabel}: ${label}`}
+				className={`flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${active ? "border-blue-500 bg-blue-50 ring-1 ring-blue-200" : "bg-background hover:border-blue-300 hover:bg-blue-50/50"}`}
+			>
+				{content}
+			</button>
+		);
+	}
+
 	return (
-		<div className="rounded-md border bg-background px-3 py-2">
-			<div className="text-xs text-muted-foreground">{label}</div>
-			<div className="truncate text-sm font-medium">{value || "—"}</div>
+		<div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+			{content}
 		</div>
 	);
 }
@@ -156,12 +208,17 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 function OcrDocumentViewer({
 	document,
 	copy,
+	activeSource,
 }: {
 	document: TgemDashboardInvoice["documents"][number];
 	copy: ReturnType<typeof getCopy>;
+	activeSource: TgemDashboardSourceAnchor | null;
 }) {
 	const [copied, setCopied] = React.useState(false);
+	const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 	const firstPage = document.ocrPages[0];
+	const pageWidth = firstPage?.width ?? 1;
+	const pageHeight = firstPage?.height ?? 1;
 	const ocrText = document.ocrPages
 		.map((page) => page.text?.trim())
 		.filter(Boolean)
@@ -172,6 +229,20 @@ function OcrDocumentViewer({
 			firstPage.height &&
 			firstPage.blocks.length,
 	);
+	const visibleSource =
+		activeSource?.pageNumber === firstPage?.pageNumber ? activeSource : null;
+
+	React.useEffect(() => {
+		const container = scrollContainerRef.current;
+		if (!container || !visibleSource) return;
+		const targetTop = visibleSource.top * container.scrollHeight;
+		const top = Math.max(0, targetTop - container.clientHeight / 2);
+		if (typeof container.scrollTo === "function") {
+			container.scrollTo({ top, behavior: "smooth" });
+		} else {
+			container.scrollTop = top;
+		}
+	}, [visibleSource]);
 
 	async function copyText() {
 		if (!ocrText) return;
@@ -203,11 +274,15 @@ function OcrDocumentViewer({
 					className="min-h-0 flex-1 rounded-md border bg-white"
 				/>
 			) : hasOverlay ? (
-				<div className="min-h-0 flex-1 overflow-auto rounded-md border bg-muted/20 p-2">
+				<div
+					ref={scrollContainerRef}
+					className="min-h-0 flex-1 overflow-auto rounded-md border bg-muted/20 p-2"
+				>
 					<div
-						className="relative mx-auto w-full overflow-hidden"
+						className="relative mx-auto w-full overflow-hidden bg-white"
 						style={{
-							aspectRatio: `${firstPage.width} / ${firstPage.height}`,
+							aspectRatio: `${pageWidth} / ${pageHeight}`,
+							containerType: "inline-size",
 						}}
 					>
 						<Image
@@ -222,18 +297,32 @@ function OcrDocumentViewer({
 							{firstPage.blocks.map((block, index) => (
 								<span
 									key={`${firstPage.pageNumber}-${index}-${block.text}`}
-									className="pointer-events-auto absolute overflow-hidden whitespace-nowrap rounded-sm bg-yellow-200/20 px-0.5 text-[10px] leading-none text-black/50 select-text"
+									data-ocr-kind={block.kind}
+									className="pointer-events-auto absolute z-10 origin-top-left cursor-text overflow-visible whitespace-nowrap text-transparent leading-none select-text selection:bg-blue-400/35 selection:text-transparent hover:bg-blue-300/15"
 									style={{
 										left: `${block.left * 100}%`,
 										top: `${block.top * 100}%`,
 										width: `${block.width * 100}%`,
 										height: `${block.height * 100}%`,
+										fontSize: `${Math.max(block.height * (pageHeight / pageWidth) * 100, 0.45)}cqw`,
 									}}
 									title={block.text}
 								>
 									{block.text}
 								</span>
 							))}
+							{visibleSource ? (
+								<div
+									data-testid="tgem-field-source-highlight"
+									className="pointer-events-none absolute z-20 rounded-sm border-2 border-blue-600 bg-blue-300/20 shadow-[0_0_0_2px_rgba(255,255,255,0.75)]"
+									style={{
+										left: `${visibleSource.left * 100}%`,
+										top: `${visibleSource.top * 100}%`,
+										width: `${visibleSource.width * 100}%`,
+										height: `${visibleSource.height * 100}%`,
+									}}
+								/>
+							) : null}
 						</div>
 					</div>
 				</div>
@@ -250,6 +339,7 @@ function OcrDocumentViewer({
 				</div>
 			)}
 			<div className="rounded-md border bg-background p-3">
+				<p className="mb-2 text-xs text-blue-700">{copy.sourceHint}</p>
 				<div className="mb-2 flex items-center justify-between gap-2">
 					<div className="text-xs font-medium text-muted-foreground">
 						{copy.ocrText}
@@ -283,31 +373,67 @@ function OcrDocumentViewer({
 function InvoiceDetails({
 	invoice,
 	copy,
+	currentUserId,
+	hasTemplate,
+	organizationLanguage,
+	onChanged,
 }: {
 	invoice: TgemDashboardInvoice;
 	copy: ReturnType<typeof getCopy>;
+	currentUserId: string;
+	hasTemplate: boolean;
+	organizationLanguage?: string | null;
+	onChanged: () => Promise<void>;
 }) {
 	const document = invoice.documents[0];
+	const [activeField, setActiveField] = React.useState<string | null>(null);
+	const activeSource = activeField
+		? (invoice.fieldAnchors[activeField] ?? null)
+		: null;
+	const sourceField = (name: string, label: string, value: React.ReactNode) => (
+		<Field
+			label={label}
+			value={value}
+			onLocate={
+				invoice.fieldAnchors[name] ? () => setActiveField(name) : undefined
+			}
+			active={activeField === name}
+			locateLabel={copy.showSource}
+		/>
+	);
 
 	return (
 		<div className="grid gap-4 xl:grid-cols-[minmax(20rem,0.8fr)_minmax(28rem,1.2fr)]">
 			<div className="space-y-4">
+				<TgemApprovalControls
+					invoice={invoice}
+					currentUserId={currentUserId}
+					hasTemplate={hasTemplate}
+					organizationLanguage={organizationLanguage}
+					onChanged={onChanged}
+				/>
 				<Card>
 					<CardHeader>
 						<CardTitle className="text-base">{copy.details}</CardTitle>
 					</CardHeader>
 					<CardContent className="grid gap-3 sm:grid-cols-2">
-						<Field label={copy.supplier} value={invoice.supplierName} />
-						<Field label={copy.invoiceNumber} value={invoice.invoiceNumber} />
-						<Field
-							label={copy.invoiceDate}
-							value={formatDate(invoice.invoiceDate)}
-						/>
-						<Field label={copy.dueDate} value={formatDate(invoice.dueDate)} />
-						<Field
-							label={copy.total}
-							value={formatMoney(invoice.total, invoice.currency)}
-						/>
+						{sourceField("supplierName", copy.supplier, invoice.supplierName)}
+						{sourceField(
+							"invoiceNumber",
+							copy.invoiceNumber,
+							invoice.invoiceNumber,
+						)}
+						{sourceField(
+							"invoiceDate",
+							copy.invoiceDate,
+							formatDate(invoice.invoiceDate),
+						)}
+						{sourceField("dueDate", copy.dueDate, formatDate(invoice.dueDate))}
+						{sourceField(
+							"total",
+							copy.total,
+							formatMoney(invoice.total, invoice.currency),
+						)}
 						<Field label={copy.source} value={invoice.source} />
 						<Field label={copy.ocr} value={invoice.ocrStatus} />
 						<Field label={copy.extraction} value={invoice.extractionStatus} />
@@ -372,7 +498,11 @@ function InvoiceDetails({
 				<CardContent className="h-[calc(100%-5rem)]">
 					{document ? (
 						<div className="flex h-full min-h-[32rem] flex-col gap-3">
-							<OcrDocumentViewer document={document} copy={copy} />
+							<OcrDocumentViewer
+								document={document}
+								copy={copy}
+								activeSource={activeSource}
+							/>
 							<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
 								<span>{document.originalFilename}</span>
 								<span>·</span>
@@ -404,6 +534,7 @@ export function TgemInvoiceApprovalDashboard({
 		string | null
 	>(null);
 	const [error, setError] = React.useState(false);
+	const [showApprovalSetup, setShowApprovalSetup] = React.useState(false);
 	const loadData = React.useCallback(
 		async (preferredInvoiceId?: string) => {
 			setError(false);
@@ -455,9 +586,25 @@ export function TgemInvoiceApprovalDashboard({
 
 	return (
 		<div className="mx-auto flex min-h-[calc(100dvh-5rem)] w-full max-w-[116rem] flex-col gap-4 px-3 py-4 sm:px-5">
-			<div className="border-b pb-3">
-				<h1 className="text-2xl font-semibold tracking-normal">{copy.title}</h1>
-				<p className="mt-1 text-sm text-muted-foreground">{copy.description}</p>
+			<div className="flex flex-wrap items-start justify-between gap-3 border-b pb-3">
+				<div>
+					<h1 className="text-2xl font-semibold tracking-normal">
+						{copy.title}
+					</h1>
+					<p className="mt-1 text-sm text-muted-foreground">
+						{copy.description}
+					</p>
+				</div>
+				{data ? (
+					<button
+						type="button"
+						onClick={() => setShowApprovalSetup((current) => !current)}
+						className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition ${showApprovalSetup ? "border-blue-500 bg-blue-50 text-blue-800" : "bg-background hover:bg-muted"}`}
+					>
+						<Settings2 className="h-4 w-4" />
+						{copy.approvalSetup}
+					</button>
+				) : null}
 			</div>
 
 			{data === null && !error ? (
@@ -472,6 +619,14 @@ export function TgemInvoiceApprovalDashboard({
 				</div>
 			) : (
 				<>
+					{showApprovalSetup && data ? (
+						<TgemApprovalSetup
+							siteId={siteId}
+							setup={data.approvalSetup}
+							organizationLanguage={organizationLanguage}
+							onSaved={() => loadData(selectedInvoiceId ?? undefined)}
+						/>
+					) : null}
 					<TgemInvoiceUpload
 						siteId={siteId}
 						organizationLanguage={organizationLanguage}
@@ -520,7 +675,15 @@ export function TgemInvoiceApprovalDashboard({
 						</Card>
 
 						{selectedInvoice ? (
-							<InvoiceDetails invoice={selectedInvoice} copy={copy} />
+							<InvoiceDetails
+								key={selectedInvoice.id}
+								invoice={selectedInvoice}
+								copy={copy}
+								currentUserId={data?.currentUserId ?? ""}
+								hasTemplate={Boolean(data?.approvalSetup.template)}
+								organizationLanguage={organizationLanguage}
+								onChanged={() => loadData(selectedInvoiceId ?? undefined)}
+							/>
 						) : (
 							<Card>
 								<CardContent className="flex min-h-32 items-center justify-center text-sm text-muted-foreground">

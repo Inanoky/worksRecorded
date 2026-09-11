@@ -1,6 +1,19 @@
+import type { TgemApprovalRoleKey } from "@/lib/tgem-invoice-approval/approval";
+
 export type TgemDashboardOcrBlock = {
 	text: string;
 	confidence: number | null;
+	kind: "token" | "line";
+	readingOrder: number;
+	left: number;
+	top: number;
+	width: number;
+	height: number;
+	polygon: Array<{ x: number; y: number }>;
+};
+
+export type TgemDashboardSourceAnchor = {
+	pageNumber: number;
 	left: number;
 	top: number;
 	width: number;
@@ -44,7 +57,9 @@ export type TgemDashboardInvoice = {
 	reference: string | null;
 	validationSummary: unknown;
 	extractionSummary: unknown;
+	fieldAnchors: Record<string, TgemDashboardSourceAnchor>;
 	createdAt: string;
+	approvalRound: number;
 	documents: TgemDashboardInvoiceDocument[];
 	lines: Array<{
 		id: string;
@@ -62,7 +77,14 @@ export type TgemDashboardInvoice = {
 	approvalSteps: Array<{
 		id: string;
 		stepOrder: number;
-		role: string;
+		approvalRound: number;
+		roleKey: TgemApprovalRoleKey;
+		role: string | null;
+		approverUserId: string | null;
+		approverName: string | null;
+		templateRevision: number | null;
+		minimumInvoiceTotal: string | null;
+		thresholdCurrency: string | null;
 		status: string;
 		comment: string | null;
 		decidedAt: string | null;
@@ -78,5 +100,30 @@ export type TgemDashboardInvoice = {
 };
 
 export type TgemDashboardData = {
+	currentUserId: string;
 	invoices: TgemDashboardInvoice[];
+	approvalSetup: {
+		canManageWorkflow: boolean;
+		canManageWorkflowManagers: boolean;
+		ownerUserId: string | null;
+		workflowManagerUserIds: string[];
+		users: Array<{
+			id: string;
+			name: string;
+			role: string | null;
+		}>;
+		template: {
+			id: string;
+			revision: number;
+			currency: string;
+			steps: Array<{
+				id: string;
+				stepOrder: number;
+				roleKey: TgemApprovalRoleKey;
+				role: string | null;
+				approverUserId: string;
+				minimumInvoiceTotal: string | null;
+			}>;
+		} | null;
+	};
 };
