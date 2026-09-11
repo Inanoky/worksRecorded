@@ -68,7 +68,14 @@ const ZtcSiteDiaryFlow = dynamic<FlowSiteDiaryProps>(
 		),
 	{ loading: flowLoading },
 );
-const TgemFlowPlaceholder = dynamic(
+const TgemInvoiceApprovalDashboard = dynamic<FlowDashboardProps>(
+	() =>
+		import("@/flows/tgem-invoice-approval/frontend").then(
+			(module) => module.TgemInvoiceApprovalDashboard,
+		),
+	{ loading: flowLoading },
+);
+const TgemInvoiceApprovalSiteDiary = dynamic<FlowSiteDiaryProps>(
 	() =>
 		import("@/flows/tgem-invoice-approval/frontend").then(
 			(module) => module.TgemFlowPlaceholder,
@@ -83,12 +90,12 @@ const SprinklerAttendanceDashboard = dynamic<FlowDashboardProps>(
 	{ loading: flowLoading },
 );
 
-function TgemDashboard() {
-	return <TgemFlowPlaceholder />;
+function TgemDashboard(props: FlowDashboardProps) {
+	return <TgemInvoiceApprovalDashboard {...props} />;
 }
 
-function TgemSiteDiary() {
-	return <TgemFlowPlaceholder />;
+function TgemSiteDiary(props: FlowSiteDiaryProps) {
+	return <TgemInvoiceApprovalSiteDiary {...props} />;
 }
 
 export const FLOW_FRONTEND_MODULES: Record<string, FlowFrontendModule> = {

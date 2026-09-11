@@ -3,52 +3,45 @@
 export const maxDuration = 300;
 
 import { randomUUID } from "crypto";
-import { prisma } from "@/lib/utils/db";
 import {
-  getString,
-  normalizePhone,
-} from "@/lib/utils/whatsapp-helpers/shared/helpers";
-import { handleWorkerRoute } from "@/flows/default-production/backend";
-import {
-  handleDefaultProductionQualityRoute,
-} from "@/flows/default-production/backend/whatsapp-quality";
-import {
-  handleDefaultProductionWorkerRoute,
-} from "@/flows/default-production/backend/whatsapp-worker";
-
-import { handleSiteManagerRoute } from "@/flows/default-construction/backend";
+	deleteSession,
+	getSession,
+	startSession,
+	updateSession,
+} from "@/app/api/webhook/meta/webhook/helperes";
 import { getSiteManagerPhotoSavingAcknowledgement } from "@/flows/default-construction/backend/site-manager-acknowledgements";
+import { handleWorkerRoute } from "@/flows/default-production/backend";
+import { handleDefaultProductionQualityRoute } from "@/flows/default-production/backend/whatsapp-quality";
+import { handleDefaultProductionWorkerRoute } from "@/flows/default-production/backend/whatsapp-worker";
+import {
+	handleZtcQualityRoute,
+	handleZtcWorkerRoute,
+	isZtcQualityWorkerRole,
+	type ProductionDrawingExtractionProfile,
+} from "@/flows/ztc-production/backend";
+import { routeRegisteredWhatsappUserByFlow } from "@/lib/flows/registered-user-whatsapp-runtime-server";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
-import { runWithMetaReplyContext } from "@/lib/utils/whatsapp-helpers/shared/sender";
-import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import { resolveWorkerFlowRuntime } from "@/lib/flows/worker-runtime-server";
+import { resolveAdvancedProductionWorkflowContextForWorker } from "@/lib/production-flow/runtime-server";
+import { prisma } from "@/lib/utils/db";
 import { getMetaGraphBaseUrl } from "@/lib/utils/whatsapp-helpers/meta/config";
 import {
-  applyMetaUserIdUpdate,
-  extractMetaWebhookIdentity,
-  resolveMetaWhatsAppIdentity,
-  type ResolvedWhatsAppIdentity,
+	applyMetaUserIdUpdate,
+	extractMetaWebhookIdentity,
+	type ResolvedWhatsAppIdentity,
+	resolveMetaWhatsAppIdentity,
 } from "@/lib/utils/whatsapp-helpers/meta/identity";
 import {
-  sendMetaContactRequest,
-  sendMetaGraphMessage,
+	sendMetaContactRequest,
+	sendMetaGraphMessage,
 } from "@/lib/utils/whatsapp-helpers/meta/sender";
 import {
-  getSession,
-  startSession,
-  updateSession,
-  deleteSession,
-} from "@/app/api/webhook/meta/webhook/helperes";
-import {
-  handleZtcWorkerRoute,
-  type ProductionDrawingExtractionProfile,
-} from "@/flows/ztc-production/backend";
-import {
-  handleZtcQualityRoute,
-  isZtcQualityWorkerRole,
-} from "@/flows/ztc-production/backend";
-import { resolveAdvancedProductionWorkflowContextForWorker } from "@/lib/production-flow/runtime-server";
-import { resolveWorkerFlowRuntime } from "@/lib/flows/worker-runtime-server";
+	getString,
+	normalizePhone,
+} from "@/lib/utils/whatsapp-helpers/shared/helpers";
+import { runWithMetaReplyContext } from "@/lib/utils/whatsapp-helpers/shared/sender";
+import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN } = process.env;
 
@@ -60,211 +53,219 @@ const ZTC_IMAGE_BATCH_STALE_MS = 2 * 60_000;
 const DEFAULT_CONSTRUCTION_IMAGE_BATCH_QUIET_MS = 5_000;
 const DEFAULT_CONSTRUCTION_IMAGE_BATCH_STALE_MS = 2 * 60_000;
 const ZTC_DIAGONAL_STATE_PREFIXES = [
-  "__ZTC_DIAGONAL_FIRST_PHOTO_PENDING__",
-  "__ZTC_DIAGONAL_FIRST_MEASURE_PENDING__",
-  "__ZTC_DIAGONAL_SECOND_PHOTO_PENDING__",
-  "__ZTC_DIAGONAL_SECOND_MEASURE_PENDING__",
+	"__ZTC_DIAGONAL_FIRST_PHOTO_PENDING__",
+	"__ZTC_DIAGONAL_FIRST_MEASURE_PENDING__",
+	"__ZTC_DIAGONAL_SECOND_PHOTO_PENDING__",
+	"__ZTC_DIAGONAL_SECOND_MEASURE_PENDING__",
 ];
 
 function getDrawingProfileForProductionConfig(
-  config: Awaited<ReturnType<typeof resolveWorkerFlowRuntime>>["productionConfig"],
+	config: Awaited<
+		ReturnType<typeof resolveWorkerFlowRuntime>
+	>["productionConfig"],
 ): ProductionDrawingExtractionProfile {
-  return config?.flowModuleKey === "default-production" ? "default-production" : "ztc";
+	return config?.flowModuleKey === "default-production"
+		? "default-production"
+		: "ztc";
 }
 
 function logMetaWebhookTiming(
-  event: string,
-  startedAt: number,
-  details: Record<string, unknown> = {},
+	event: string,
+	startedAt: number,
+	details: Record<string, unknown> = {},
 ) {
-  console.log("[Meta webhook timing]", {
-    event,
-    durationMs: Date.now() - startedAt,
-    ...details,
-  });
+	console.log("[Meta webhook timing]", {
+		event,
+		durationMs: Date.now() - startedAt,
+		...details,
+	});
 }
 
 function isUniqueViolation(e: any) {
-  return e?.code === "P2002";
+	return e?.code === "P2002";
 }
 
 async function cleanupStaleLock(phone: string) {
-  const cutoff = new Date(Date.now() - LOCK_TTL_MS);
+	const cutoff = new Date(Date.now() - LOCK_TTL_MS);
 
-  await prisma.whatsappTextLock.deleteMany({
-    where: {
-      phone,
-      lockedAt: { lt: cutoff },
-    },
-  });
+	await prisma.whatsappTextLock.deleteMany({
+		where: {
+			phone,
+			lockedAt: { lt: cutoff },
+		},
+	});
 }
 
 async function tryAcquireTextLock(phone: string, messageId?: string | null) {
-  await cleanupStaleLock(phone);
+	await cleanupStaleLock(phone);
 
-  try {
-    await prisma.whatsappTextLock.create({
-      data: {
-        phone,
-        messageId: messageId || undefined,
-      },
-    });
+	try {
+		await prisma.whatsappTextLock.create({
+			data: {
+				phone,
+				messageId: messageId || undefined,
+			},
+		});
 
-    return true;
-  } catch (e: any) {
-    if (isUniqueViolation(e)) return false;
-    throw e;
-  }
+		return true;
+	} catch (e: any) {
+		if (isUniqueViolation(e)) return false;
+		throw e;
+	}
 }
 
 function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function acquireRoutingLock(phone: string, messageId?: string | null) {
-  const deadline = Date.now() + ROUTING_LOCK_WAIT_MS;
+	const deadline = Date.now() + ROUTING_LOCK_WAIT_MS;
 
-  while (Date.now() < deadline) {
-    const acquired = await tryAcquireTextLock(phone, messageId);
-    if (acquired) return true;
-    await sleep(ROUTING_LOCK_RETRY_MS);
-  }
+	while (Date.now() < deadline) {
+		const acquired = await tryAcquireTextLock(phone, messageId);
+		if (acquired) return true;
+		await sleep(ROUTING_LOCK_RETRY_MS);
+	}
 
-  return false;
+	return false;
 }
 
 async function releaseTextLock(phone: string) {
-  await prisma.whatsappTextLock.deleteMany({
-    where: { phone },
-  });
+	await prisma.whatsappTextLock.deleteMany({
+		where: { phone },
+	});
 }
 
 async function claimMetaInboundMessage(args: {
-  messageId: string;
-  messageType?: string | null;
-  sender?: string | null;
-  businessPhoneNumberId?: string | null;
+	messageId: string;
+	messageType?: string | null;
+	sender?: string | null;
+	businessPhoneNumberId?: string | null;
 }) {
-  try {
-    await prisma.metaInboundMessage.create({
-      data: {
-        messageId: args.messageId,
-        messageType: args.messageType ?? null,
-        sender: args.sender ?? null,
-        businessPhoneNumberId: args.businessPhoneNumberId ?? null,
-      },
-    });
-    return true;
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      console.log("[Meta webhook] duplicate_meta_message", {
-        messageId: args.messageId,
-        messageType: args.messageType ?? null,
-        sender: args.sender ?? null,
-      });
-      return false;
-    }
-    throw error;
-  }
+	try {
+		await prisma.metaInboundMessage.create({
+			data: {
+				messageId: args.messageId,
+				messageType: args.messageType ?? null,
+				sender: args.sender ?? null,
+				businessPhoneNumberId: args.businessPhoneNumberId ?? null,
+			},
+		});
+		return true;
+	} catch (error) {
+		if (isUniqueViolation(error)) {
+			console.log("[Meta webhook] duplicate_meta_message", {
+				messageId: args.messageId,
+				messageType: args.messageType ?? null,
+				sender: args.sender ?? null,
+			});
+			return false;
+		}
+		throw error;
+	}
 }
 
 async function finishMetaInboundMessage(messageId: string, error?: unknown) {
-  const failed = error !== undefined;
-  const lastError = failed
-    ? String(error instanceof Error ? error.message : error).slice(0, 2_000)
-    : null;
-  await prisma.metaInboundMessage.update({
-    where: { messageId },
-    data: {
-      status: failed ? "failed" : "completed",
-      completedAt: new Date(),
-      lastError,
-    },
-  });
+	const failed = error !== undefined;
+	const lastError = failed
+		? String(error instanceof Error ? error.message : error).slice(0, 2_000)
+		: null;
+	await prisma.metaInboundMessage.update({
+		where: { messageId },
+		data: {
+			status: failed ? "failed" : "completed",
+			completedAt: new Date(),
+			lastError,
+		},
+	});
 }
 
 function isRoutableMetaMessage(message: any) {
-  return message?.type === "text" || message?.type === "image" || message?.type === "audio";
+	return (
+		message?.type === "text" ||
+		message?.type === "image" ||
+		message?.type === "audio"
+	);
 }
 
 function isReadableMetaMessage(message: any) {
-  return isRoutableMetaMessage(message) || message?.type === "contacts";
+	return isRoutableMetaMessage(message) || message?.type === "contacts";
 }
 
 function logUnsupportedMetaMessage(message: any) {
-  console.warn("Meta unsupported webhook message skipped", {
-    id: message?.id,
-    from: message?.from,
-    type: message?.type,
-    unsupportedType: message?.unsupported?.type,
-    errors: Array.isArray(message?.errors)
-      ? message.errors.map((error: any) => ({
-          code: error?.code,
-          title: error?.title,
-          message: error?.message,
-          details: error?.error_data?.details,
-        }))
-      : undefined,
-  });
+	console.warn("Meta unsupported webhook message skipped", {
+		id: message?.id,
+		from: message?.from,
+		type: message?.type,
+		unsupportedType: message?.unsupported?.type,
+		errors: Array.isArray(message?.errors)
+			? message.errors.map((error: any) => ({
+					code: error?.code,
+					title: error?.title,
+					message: error?.message,
+					details: error?.error_data?.details,
+				}))
+			: undefined,
+	});
 }
 
 function mustGetEnv(name: string, value: string | undefined): string {
-  if (!value) throw new Error(`Missing env var: ${name}`);
-  return value;
+	if (!value) throw new Error(`Missing env var: ${name}`);
+	return value;
 }
 
 function describeUrlForLog(url: string | null | undefined) {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url);
-    return `${parsed.hostname}${parsed.pathname}`;
-  } catch {
-    return "<invalid-url>";
-  }
+	if (!url) return null;
+	try {
+		const parsed = new URL(url);
+		return `${parsed.hostname}${parsed.pathname}`;
+	} catch {
+		return "<invalid-url>";
+	}
 }
 
 async function graphSendMessage(
-  businessPhoneNumberId: string,
-  body: unknown
+	businessPhoneNumberId: string,
+	body: unknown,
 ): Promise<void> {
-  const token = mustGetEnv("META_ACCESS_TOKEN", META_ACCESS_TOKEN);
+	const token = mustGetEnv("META_ACCESS_TOKEN", META_ACCESS_TOKEN);
 
-  const res = await fetch(
-    `${getMetaGraphBaseUrl()}/${businessPhoneNumberId}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    }
-  );
+	const res = await fetch(
+		`${getMetaGraphBaseUrl()}/${businessPhoneNumberId}/messages`,
+		{
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(body),
+		},
+	);
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Graph API error ${res.status} ${res.statusText}: ${text || "<no body>"}`
-    );
-  }
+	if (!res.ok) {
+		const text = await res.text().catch(() => "");
+		throw new Error(
+			`Graph API error ${res.status} ${res.statusText}: ${text || "<no body>"}`,
+		);
+	}
 }
 
 async function sendMetaTypingIndicator(
-  businessPhoneNumberId: string,
-  messageId: string,
-  to: string | null
+	businessPhoneNumberId: string,
+	messageId: string,
+	to: string | null,
 ): Promise<void> {
-  const body: Record<string, unknown> = {
-    messaging_product: "whatsapp",
-    status: "read",
-    message_id: messageId,
-    typing_indicator: {
-      type: "text",
-    },
-  };
+	const body: Record<string, unknown> = {
+		messaging_product: "whatsapp",
+		status: "read",
+		message_id: messageId,
+		typing_indicator: {
+			type: "text",
+		},
+	};
 
-  if (to) body.to = to;
-  await graphSendMessage(businessPhoneNumberId, body);
+	if (to) body.to = to;
+	await graphSendMessage(businessPhoneNumberId, body);
 }
 
 /**
@@ -272,248 +273,289 @@ async function sendMetaTypingIndicator(
  * Meta webhook verification handshake.
  */
 export async function GET(req: Request): Promise<Response> {
-  const verifyToken = mustGetEnv("WEBHOOK_VERIFY_TOKEN", WEBHOOK_VERIFY_TOKEN);
+	const verifyToken = mustGetEnv("WEBHOOK_VERIFY_TOKEN", WEBHOOK_VERIFY_TOKEN);
 
-  const { searchParams } = new URL(req.url);
-  const mode = searchParams.get("hub.mode");
-  const token = searchParams.get("hub.verify_token");
-  const challenge = searchParams.get("hub.challenge");
+	const { searchParams } = new URL(req.url);
+	const mode = searchParams.get("hub.mode");
+	const token = searchParams.get("hub.verify_token");
+	const challenge = searchParams.get("hub.challenge");
 
-  if (mode === "subscribe" && token === verifyToken && challenge) {
-    console.log("Webhook verified successfully!");
-    return new Response(challenge, { status: 200 });
-  }
+	if (mode === "subscribe" && token === verifyToken && challenge) {
+		console.log("Webhook verified successfully!");
+		return new Response(challenge, { status: 200 });
+	}
 
-  return new Response("Forbidden", { status: 403 });
+	return new Response("Forbidden", { status: 403 });
 }
 
-async function getMetaMediaInfo(mediaId: string): Promise<{ url: string; mimeType: string } | null> {
-  const token = mustGetEnv("META_ACCESS_TOKEN", META_ACCESS_TOKEN);
+async function getMetaMediaInfo(
+	mediaId: string,
+): Promise<{ url: string; mimeType: string } | null> {
+	const token = mustGetEnv("META_ACCESS_TOKEN", META_ACCESS_TOKEN);
 
-  const res = await fetch(`${getMetaGraphBaseUrl()}/${mediaId}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+	const res = await fetch(`${getMetaGraphBaseUrl()}/${mediaId}`, {
+		method: "GET",
+		headers: {
+			Authorization: `Bearer ${token}`,
+		},
+	});
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    console.error("Failed to resolve Meta media info", res.status, text);
-    return null;
-  }
+	if (!res.ok) {
+		const text = await res.text().catch(() => "");
+		console.error("Failed to resolve Meta media info", res.status, text);
+		return null;
+	}
 
-  const data = await res.json().catch(() => null);
-  const url = data?.url;
-  const mimeType = data?.mime_type;
+	const data = await res.json().catch(() => null);
+	const url = data?.url;
+	const mimeType = data?.mime_type;
 
-  if (!url) return null;
-  return { url, mimeType: mimeType || "image/jpeg" };
+	if (!url) return null;
+	return { url, mimeType: mimeType || "image/jpeg" };
 }
 
-async function toWhatsAppFormData(message: any, resolved: ResolvedWhatsAppIdentity): Promise<FormData> {
-  const startedAt = Date.now();
-  const formData = new FormData();
-  const textBody = typeof message?.text?.body === "string" ? message.text.body : "";
-  const imageCaption =
-    typeof message?.image?.caption === "string" ? message.image.caption : "";
-  const body = textBody || imageCaption;
-  const from = resolved.fromForHandlers || "";
-  const hasImage = Boolean(message?.image?.id);
-  const hasAudio = Boolean(message?.audio?.id);
-  const numMedia = hasImage || hasAudio ? "1" : "0";
+async function toWhatsAppFormData(
+	message: any,
+	resolved: ResolvedWhatsAppIdentity,
+): Promise<FormData> {
+	const startedAt = Date.now();
+	const formData = new FormData();
+	const textBody =
+		typeof message?.text?.body === "string" ? message.text.body : "";
+	const imageCaption =
+		typeof message?.image?.caption === "string" ? message.image.caption : "";
+	const body = textBody || imageCaption;
+	const from = resolved.fromForHandlers || "";
+	const hasImage = Boolean(message?.image?.id);
+	const hasAudio = Boolean(message?.audio?.id);
+	const numMedia = hasImage || hasAudio ? "1" : "0";
 
-  formData.set("SmsStatus", "received");
-  formData.set("From", from);
-  formData.set("WaId", resolved.webhookIdentity.phone ?? "");
-  formData.set("MetaUserId", resolved.webhookIdentity.bsuid ?? "");
-  formData.set("MetaParentUserId", resolved.webhookIdentity.parentBsuid ?? "");
-  formData.set("MetaUsername", resolved.webhookIdentity.username ?? "");
-  formData.set("Body", body);
-  formData.set("MessageId", message?.id ?? "");
-  formData.set("MessageTimestamp", message?.timestamp ?? "");
-  formData.set("NumMedia", numMedia);
+	formData.set("SmsStatus", "received");
+	formData.set("From", from);
+	formData.set("WaId", resolved.webhookIdentity.phone ?? "");
+	formData.set("MetaUserId", resolved.webhookIdentity.bsuid ?? "");
+	formData.set("MetaParentUserId", resolved.webhookIdentity.parentBsuid ?? "");
+	formData.set("MetaUsername", resolved.webhookIdentity.username ?? "");
+	formData.set("Body", body);
+	formData.set("MessageId", message?.id ?? "");
+	formData.set("MessageTimestamp", message?.timestamp ?? "");
+	formData.set("NumMedia", numMedia);
 
-  if (hasImage) {
-    const mediaStartedAt = Date.now();
-    const mediaInfo = await getMetaMediaInfo(message.image.id);
-    logMetaWebhookTiming("meta_image_media_info", mediaStartedAt, {
-      messageId: message?.id ?? null,
-      mediaId: message.image.id,
-      hasUrl: Boolean(mediaInfo?.url),
-      selectedUrl: describeUrlForLog(mediaInfo?.url),
-    });
+	if (hasImage) {
+		const mediaStartedAt = Date.now();
+		const mediaInfo = await getMetaMediaInfo(message.image.id);
+		logMetaWebhookTiming("meta_image_media_info", mediaStartedAt, {
+			messageId: message?.id ?? null,
+			mediaId: message.image.id,
+			hasUrl: Boolean(mediaInfo?.url),
+			selectedUrl: describeUrlForLog(mediaInfo?.url),
+		});
 
-    if (mediaInfo) {
-      formData.set("MediaUrl0", mediaInfo.url);
-      formData.set("MediaContentType0", mediaInfo.mimeType);
-      formData.set("MediaProvider0", "meta");
-    }
-  }
+		if (mediaInfo) {
+			formData.set("MediaUrl0", mediaInfo.url);
+			formData.set("MediaContentType0", mediaInfo.mimeType);
+			formData.set("MediaProvider0", "meta");
+		}
+	}
 
-  if (hasAudio) {
-    const mediaStartedAt = Date.now();
-    const mediaInfo = await getMetaMediaInfo(message.audio.id);
-    logMetaWebhookTiming("meta_audio_media_info", mediaStartedAt, {
-      messageId: message?.id ?? null,
-      mediaId: message.audio?.id,
-      hasUrl: Boolean(mediaInfo?.url),
-      selectedUrl: describeUrlForLog(mediaInfo?.url),
-    });
+	if (hasAudio) {
+		const mediaStartedAt = Date.now();
+		const mediaInfo = await getMetaMediaInfo(message.audio.id);
+		logMetaWebhookTiming("meta_audio_media_info", mediaStartedAt, {
+			messageId: message?.id ?? null,
+			mediaId: message.audio?.id,
+			hasUrl: Boolean(mediaInfo?.url),
+			selectedUrl: describeUrlForLog(mediaInfo?.url),
+		});
 
-    const mediaUrl = mediaInfo?.url || (typeof message.audio?.url === "string" ? message.audio.url : "");
-    const mimeType =
-      mediaInfo?.mimeType ||
-      (typeof message.audio?.mime_type === "string" ? message.audio.mime_type : "audio/ogg");
+		const mediaUrl =
+			mediaInfo?.url ||
+			(typeof message.audio?.url === "string" ? message.audio.url : "");
+		const mimeType =
+			mediaInfo?.mimeType ||
+			(typeof message.audio?.mime_type === "string"
+				? message.audio.mime_type
+				: "audio/ogg");
 
-    console.log("[originalAudioUrl][webhook] audio media resolved", {
-      messageId: message?.id,
-      mediaId: message.audio?.id,
-      hasGraphUrl: Boolean(mediaInfo?.url),
-      hasPayloadUrl: typeof message.audio?.url === "string" && message.audio.url.length > 0,
-      selectedUrl: describeUrlForLog(mediaUrl),
-      mimeType,
-    });
+		console.log("[originalAudioUrl][webhook] audio media resolved", {
+			messageId: message?.id,
+			mediaId: message.audio?.id,
+			hasGraphUrl: Boolean(mediaInfo?.url),
+			hasPayloadUrl:
+				typeof message.audio?.url === "string" && message.audio.url.length > 0,
+			selectedUrl: describeUrlForLog(mediaUrl),
+			mimeType,
+		});
 
-    if (mediaUrl) {
-      formData.set("MediaUrl0", mediaUrl);
-      formData.set("MediaContentType0", mimeType);
-      formData.set("MediaProvider0", "meta");
-    } else {
-      console.warn("[originalAudioUrl][webhook] audio message has no usable media URL", {
-        messageId: message?.id,
-        mediaId: message.audio?.id,
-      });
-    }
-  }
+		if (mediaUrl) {
+			formData.set("MediaUrl0", mediaUrl);
+			formData.set("MediaContentType0", mimeType);
+			formData.set("MediaProvider0", "meta");
+		} else {
+			console.warn(
+				"[originalAudioUrl][webhook] audio message has no usable media URL",
+				{
+					messageId: message?.id,
+					mediaId: message.audio?.id,
+				},
+			);
+		}
+	}
 
-  logMetaWebhookTiming("to_whatsapp_form_data", startedAt, {
-    messageId: message?.id ?? null,
-    type: message?.type ?? null,
-    hasImage,
-    hasAudio,
-    numMedia,
-  });
+	logMetaWebhookTiming("to_whatsapp_form_data", startedAt, {
+		messageId: message?.id ?? null,
+		type: message?.type ?? null,
+		hasImage,
+		hasAudio,
+		numMedia,
+	});
 
-  return formData;
+	return formData;
 }
 
 type ZtcImageBatchMode = "ztc_worker" | "ztc_quality";
 
 type SerializedZtcImageMessage = {
-  messageId: string;
-  receivedAt: string;
-  entries: Array<[string, string]>;
+	messageId: string;
+	receivedAt: string;
+	entries: Array<[string, string]>;
 };
 
 function serializeFormData(formData: FormData): Array<[string, string]> {
-  return Array.from(formData.entries()).map(([key, value]) => [
-    key,
-    typeof value === "string" ? value : String(value),
-  ]);
+	return Array.from(formData.entries()).map(([key, value]) => [
+		key,
+		typeof value === "string" ? value : String(value),
+	]);
 }
 
 function getSerializedEntry(item: SerializedZtcImageMessage, key: string) {
-  return item.entries.find(([entryKey]) => entryKey === key)?.[1] ?? "";
+	return item.entries.find(([entryKey]) => entryKey === key)?.[1] ?? "";
 }
 
 function buildBatchedImageFormData(items: SerializedZtcImageMessage[]) {
-  const formData = new FormData();
-  const first = items[0];
-  if (!first) return formData;
+	const formData = new FormData();
+	const first = items[0];
+	if (!first) return formData;
 
-  for (const [key, value] of first.entries) {
-    if (/^Media(?:Url|ContentType|Provider)\d+$/i.test(key)) continue;
-    if (key === "NumMedia" || key === "MessageId" || key === "MessageTimestamp" || key === "Body") continue;
-    formData.set(key, value);
-  }
+	for (const [key, value] of first.entries) {
+		if (/^Media(?:Url|ContentType|Provider)\d+$/i.test(key)) continue;
+		if (
+			key === "NumMedia" ||
+			key === "MessageId" ||
+			key === "MessageTimestamp" ||
+			key === "Body"
+		)
+			continue;
+		formData.set(key, value);
+	}
 
-  const body = items
-    .map((item) => getSerializedEntry(item, "Body").trim())
-    .find(Boolean) ?? "";
-  const messageIds = items.map((item) => item.messageId).filter(Boolean);
-  const timestamps = items
-    .map((item) => Number(getSerializedEntry(item, "MessageTimestamp")))
-    .filter((value) => Number.isFinite(value) && value > 0);
+	const body =
+		items
+			.map((item) => getSerializedEntry(item, "Body").trim())
+			.find(Boolean) ?? "";
+	const messageIds = items.map((item) => item.messageId).filter(Boolean);
+	const timestamps = items
+		.map((item) => Number(getSerializedEntry(item, "MessageTimestamp")))
+		.filter((value) => Number.isFinite(value) && value > 0);
 
-  formData.set("Body", body);
-  formData.set("MessageId", messageIds.join(","));
-  formData.set("MessageTimestamp", timestamps.length > 0 ? String(Math.min(...timestamps)) : "");
-  formData.set("MetaBatchMessageIds", JSON.stringify(messageIds));
-  formData.set("MetaBatchSize", String(items.length));
-  formData.set("NumMedia", String(items.length));
+	formData.set("Body", body);
+	formData.set("MessageId", messageIds.join(","));
+	formData.set(
+		"MessageTimestamp",
+		timestamps.length > 0 ? String(Math.min(...timestamps)) : "",
+	);
+	formData.set("MetaBatchMessageIds", JSON.stringify(messageIds));
+	formData.set("MetaBatchSize", String(items.length));
+	formData.set("NumMedia", String(items.length));
 
-  items.forEach((item, index) => {
-    formData.set(`MediaUrl${index}`, getSerializedEntry(item, "MediaUrl0"));
-    formData.set(`MediaContentType${index}`, getSerializedEntry(item, "MediaContentType0"));
-    formData.set(`MediaProvider${index}`, getSerializedEntry(item, "MediaProvider0"));
-    formData.set(`MediaBody${index}`, getSerializedEntry(item, "Body"));
-    formData.set(`MediaMessageId${index}`, item.messageId);
-  });
+	items.forEach((item, index) => {
+		formData.set(`MediaUrl${index}`, getSerializedEntry(item, "MediaUrl0"));
+		formData.set(
+			`MediaContentType${index}`,
+			getSerializedEntry(item, "MediaContentType0"),
+		);
+		formData.set(
+			`MediaProvider${index}`,
+			getSerializedEntry(item, "MediaProvider0"),
+		);
+		formData.set(`MediaBody${index}`, getSerializedEntry(item, "Body"));
+		formData.set(`MediaMessageId${index}`, item.messageId);
+	});
 
-  return formData;
+	return formData;
 }
 
 function isSingleMetaImageFormData(formData: FormData) {
-  return (
-    getString(formData, "NumMedia") === "1" &&
-    getString(formData, "MediaContentType0").startsWith("image/")
-  );
+	return (
+		getString(formData, "NumMedia") === "1" &&
+		getString(formData, "MediaContentType0").startsWith("image/")
+	);
 }
 
 function isZtcDiagonalState(state: string | null | undefined) {
-  return ZTC_DIAGONAL_STATE_PREFIXES.some((prefix) => state?.startsWith(prefix));
+	return ZTC_DIAGONAL_STATE_PREFIXES.some((prefix) =>
+		state?.startsWith(prefix),
+	);
 }
 
 async function shouldSendZtcImageBatchAcknowledgement(args: {
-  workerId: string;
-  mode: ZtcImageBatchMode;
+	workerId: string;
+	mode: ZtcImageBatchMode;
 }) {
-  const activeSession = await prisma.ztcRecords.findFirst({
-    where: {
-      workerId: args.workerId,
-      Date_Custom_2: null,
-    },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      Works: true,
-      Comments_Custom_1: true,
-    },
-  });
+	const activeSession = await prisma.ztcRecords.findFirst({
+		where: {
+			workerId: args.workerId,
+			Date_Custom_2: null,
+		},
+		orderBy: { createdAt: "desc" },
+		select: {
+			id: true,
+			Works: true,
+			Comments_Custom_1: true,
+		},
+	});
 
-  if (!activeSession) return false;
-  if (isZtcDiagonalState(activeSession.Comments_Custom_1)) return false;
+	if (!activeSession) return false;
+	if (isZtcDiagonalState(activeSession.Comments_Custom_1)) return false;
 
-  if (args.mode === "ztc_quality") {
-    return activeSession.Comments_Custom_1?.startsWith("__ZTC_QA_PENDING__") ?? false;
-  }
+	if (args.mode === "ztc_quality") {
+		return (
+			activeSession.Comments_Custom_1?.startsWith("__ZTC_QA_PENDING__") ?? false
+		);
+	}
 
-  return Boolean(activeSession.Works);
+	return Boolean(activeSession.Works);
 }
 
 async function stageZtcImageBatch(args: {
-  identityKey: string;
-  worker: { id: string; organizationId?: string | null };
-  mode: ZtcImageBatchMode;
-  formData: FormData;
-  businessPhoneNumberId: string;
-  ackRecipient?: string | null;
+	identityKey: string;
+	worker: { id: string; organizationId?: string | null };
+	mode: ZtcImageBatchMode;
+	formData: FormData;
+	businessPhoneNumberId: string;
+	ackRecipient?: string | null;
 }) {
-  if (!isSingleMetaImageFormData(args.formData)) {
-    return { ready: true as const, formData: args.formData, batchId: null, batchSize: 1 };
-  }
+	if (!isSingleMetaImageFormData(args.formData)) {
+		return {
+			ready: true as const,
+			formData: args.formData,
+			batchId: null,
+			batchSize: 1,
+		};
+	}
 
-  const messageId = getString(args.formData, "MessageId");
-  const batchKey = `${args.mode}:${args.identityKey}`;
-  const item: SerializedZtcImageMessage = {
-    messageId,
-    receivedAt: new Date().toISOString(),
-    entries: serializeFormData(args.formData),
-  };
+	const messageId = getString(args.formData, "MessageId");
+	const batchKey = `${args.mode}:${args.identityKey}`;
+	const item: SerializedZtcImageMessage = {
+		messageId,
+		receivedAt: new Date().toISOString(),
+		entries: serializeFormData(args.formData),
+	};
 
-  const stageStartedAt = Date.now();
-  const stagedRows = await prisma.$queryRaw<Array<{ itemCount: number | bigint }>>`
+	const stageStartedAt = Date.now();
+	const stagedRows = await prisma.$queryRaw<
+		Array<{ itemCount: number | bigint }>
+	>`
     INSERT INTO "ZtcInboundMediaBatch" (
       "id",
       "batchKey",
@@ -561,53 +603,55 @@ async function stageZtcImageBatch(args: {
       "updatedAt" = NOW()
     RETURNING jsonb_array_length("items") AS "itemCount"
   `;
-  const stagedItemCount = Number(stagedRows[0]?.itemCount ?? 0);
-  logMetaWebhookTiming("ztc_image_batch_stage", stageStartedAt, {
-    batchKey,
-    mode: args.mode,
-    workerId: args.worker.id,
-    messageId,
-    stagedItemCount,
-  });
+	const stagedItemCount = Number(stagedRows[0]?.itemCount ?? 0);
+	logMetaWebhookTiming("ztc_image_batch_stage", stageStartedAt, {
+		batchKey,
+		mode: args.mode,
+		workerId: args.worker.id,
+		messageId,
+		stagedItemCount,
+	});
 
-  const shouldSendAck =
-    stagedItemCount === 1 &&
-    args.ackRecipient &&
-    (await shouldSendZtcImageBatchAcknowledgement({
-      workerId: args.worker.id,
-      mode: args.mode,
-    }));
+	const shouldSendAck =
+		stagedItemCount === 1 &&
+		args.ackRecipient &&
+		(await shouldSendZtcImageBatchAcknowledgement({
+			workerId: args.worker.id,
+			mode: args.mode,
+		}));
 
-  if (shouldSendAck) {
-    await sendMetaGraphMessage({
-      businessPhoneNumberId: args.businessPhoneNumberId,
-      recipient: args.ackRecipient,
-      body: {
-        text: {
-          body: "Foto saņemts. Bildes tiek saglabātas, lūdzu uzgaidiet...",
-        },
-      },
-    }).catch((error) => {
-      console.error("ZTC image batch acknowledgement failed", error);
-    });
-  } else if (stagedItemCount === 1) {
-    console.log("[Meta webhook timing]", {
-      event: "ztc_image_batch_ack_suppressed",
-      batchKey,
-      mode: args.mode,
-      workerId: args.worker.id,
-      messageId,
-    });
-  }
+	if (shouldSendAck) {
+		await sendMetaGraphMessage({
+			businessPhoneNumberId: args.businessPhoneNumberId,
+			recipient: args.ackRecipient,
+			body: {
+				text: {
+					body: "Foto saņemts. Bildes tiek saglabātas, lūdzu uzgaidiet...",
+				},
+			},
+		}).catch((error) => {
+			console.error("ZTC image batch acknowledgement failed", error);
+		});
+	} else if (stagedItemCount === 1) {
+		console.log("[Meta webhook timing]", {
+			event: "ztc_image_batch_ack_suppressed",
+			batchKey,
+			mode: args.mode,
+			workerId: args.worker.id,
+			messageId,
+		});
+	}
 
-  await sleep(ZTC_IMAGE_BATCH_QUIET_MS);
+	await sleep(ZTC_IMAGE_BATCH_QUIET_MS);
 
-  const rows = await prisma.$queryRaw<Array<{
-    id: string;
-    items: unknown;
-    lastMessageId: string | null;
-    processAfter: Date;
-  }>>`
+	const rows = await prisma.$queryRaw<
+		Array<{
+			id: string;
+			items: unknown;
+			lastMessageId: string | null;
+			processAfter: Date;
+		}>
+	>`
     SELECT "id", "items", "lastMessageId", "processAfter"
     FROM "ZtcInboundMediaBatch"
     WHERE "batchKey" = ${batchKey}
@@ -615,25 +659,29 @@ async function stageZtcImageBatch(args: {
     LIMIT 1
   `;
 
-  const row = rows[0];
-  if (!row || row.lastMessageId !== messageId) {
-    console.log("[Meta webhook timing]", {
-      event: "ztc_image_batch_deferred_to_later_image",
-      batchKey,
-      mode: args.mode,
-      workerId: args.worker.id,
-      messageId,
-      latestMessageId: row?.lastMessageId ?? null,
-    });
-    return { ready: false as const };
-  }
+	const row = rows[0];
+	if (!row || row.lastMessageId !== messageId) {
+		console.log("[Meta webhook timing]", {
+			event: "ztc_image_batch_deferred_to_later_image",
+			batchKey,
+			mode: args.mode,
+			workerId: args.worker.id,
+			messageId,
+			latestMessageId: row?.lastMessageId ?? null,
+		});
+		return { ready: false as const };
+	}
 
-  const processAfterMs = new Date(row.processAfter).getTime();
-  if (Number.isFinite(processAfterMs) && processAfterMs > Date.now()) {
-    await sleep(Math.min(processAfterMs - Date.now(), ZTC_IMAGE_BATCH_QUIET_MS));
-  }
+	const processAfterMs = new Date(row.processAfter).getTime();
+	if (Number.isFinite(processAfterMs) && processAfterMs > Date.now()) {
+		await sleep(
+			Math.min(processAfterMs - Date.now(), ZTC_IMAGE_BATCH_QUIET_MS),
+		);
+	}
 
-  const claimedRows = await prisma.$queryRaw<Array<{ id: string; items: unknown }>>`
+	const claimedRows = await prisma.$queryRaw<
+		Array<{ id: string; items: unknown }>
+	>`
     UPDATE "ZtcInboundMediaBatch"
     SET "status" = 'processing',
         "updatedAt" = NOW()
@@ -643,66 +691,73 @@ async function stageZtcImageBatch(args: {
     RETURNING "id", "items"
   `;
 
-  const claimed = claimedRows[0];
-  if (!claimed) {
-    return { ready: false as const };
-  }
+	const claimed = claimedRows[0];
+	if (!claimed) {
+		return { ready: false as const };
+	}
 
-  const items = Array.isArray(claimed.items)
-    ? (claimed.items as SerializedZtcImageMessage[])
-    : [];
-  const batchedFormData = buildBatchedImageFormData(items);
+	const items = Array.isArray(claimed.items)
+		? (claimed.items as SerializedZtcImageMessage[])
+		: [];
+	const batchedFormData = buildBatchedImageFormData(items);
 
-  console.log("[Meta webhook timing]", {
-    event: "ztc_image_batch_ready",
-    batchKey,
-    mode: args.mode,
-    workerId: args.worker.id,
-    batchId: claimed.id,
-    batchSize: items.length,
-    messageIds: items.map((image) => image.messageId).filter(Boolean),
-  });
+	console.log("[Meta webhook timing]", {
+		event: "ztc_image_batch_ready",
+		batchKey,
+		mode: args.mode,
+		workerId: args.worker.id,
+		batchId: claimed.id,
+		batchSize: items.length,
+		messageIds: items.map((image) => image.messageId).filter(Boolean),
+	});
 
-  return {
-    ready: true as const,
-    formData: batchedFormData,
-    batchId: claimed.id,
-    batchSize: items.length,
-  };
+	return {
+		ready: true as const,
+		formData: batchedFormData,
+		batchId: claimed.id,
+		batchSize: items.length,
+	};
 }
 
 async function deleteZtcImageBatch(batchId: string | null | undefined) {
-  if (!batchId) return;
-  await prisma.$executeRaw`
+	if (!batchId) return;
+	await prisma.$executeRaw`
     DELETE FROM "ZtcInboundMediaBatch"
     WHERE "id" = ${batchId}
   `;
 }
 
 async function stageDefaultConstructionImageBatch(args: {
-  user: {
-    id: string;
-    organizationId?: string | null;
-    organization?: { orgLanguage?: string | null } | null;
-  };
-  formData: FormData;
-  businessPhoneNumberId: string;
-  ackRecipient?: string | null;
+	user: {
+		id: string;
+		organizationId?: string | null;
+		organization?: { orgLanguage?: string | null } | null;
+	};
+	formData: FormData;
+	businessPhoneNumberId: string;
+	ackRecipient?: string | null;
 }) {
-  if (!isSingleMetaImageFormData(args.formData)) {
-    return { ready: true as const, formData: args.formData, batchId: null, batchSize: 1 };
-  }
+	if (!isSingleMetaImageFormData(args.formData)) {
+		return {
+			ready: true as const,
+			formData: args.formData,
+			batchId: null,
+			batchSize: 1,
+		};
+	}
 
-  const messageId = getString(args.formData, "MessageId");
-  const batchKey = `default_construction_site_manager:${args.user.id}`;
-  const item: SerializedZtcImageMessage = {
-    messageId,
-    receivedAt: new Date().toISOString(),
-    entries: serializeFormData(args.formData),
-  };
+	const messageId = getString(args.formData, "MessageId");
+	const batchKey = `default_construction_site_manager:${args.user.id}`;
+	const item: SerializedZtcImageMessage = {
+		messageId,
+		receivedAt: new Date().toISOString(),
+		entries: serializeFormData(args.formData),
+	};
 
-  const stageStartedAt = Date.now();
-  const stagedRows = await prisma.$queryRaw<Array<{ itemCount: number | bigint }>>`
+	const stageStartedAt = Date.now();
+	const stagedRows = await prisma.$queryRaw<
+		Array<{ itemCount: number | bigint }>
+	>`
     INSERT INTO "DefaultConstructionInboundMediaBatch" (
       "id",
       "batchKey",
@@ -755,15 +810,19 @@ async function stageDefaultConstructionImageBatch(args: {
       "updatedAt" = NOW()
     RETURNING jsonb_array_length("items") AS "itemCount"
   `;
-  const stagedItemCount = Number(stagedRows[0]?.itemCount ?? 0);
-  logMetaWebhookTiming("default_construction_image_batch_stage", stageStartedAt, {
-    batchKey,
-    userId: args.user.id,
-    messageId,
-    stagedItemCount,
-  });
+	const stagedItemCount = Number(stagedRows[0]?.itemCount ?? 0);
+	logMetaWebhookTiming(
+		"default_construction_image_batch_stage",
+		stageStartedAt,
+		{
+			batchKey,
+			userId: args.user.id,
+			messageId,
+			stagedItemCount,
+		},
+	);
 
-  const acknowledgementClaim = await prisma.$queryRaw<Array<{ id: string }>>`
+	const acknowledgementClaim = await prisma.$queryRaw<Array<{ id: string }>>`
     UPDATE "DefaultConstructionInboundMediaBatch"
     SET "acknowledgedAt" = NOW()
     WHERE "batchKey" = ${batchKey}
@@ -772,28 +831,35 @@ async function stageDefaultConstructionImageBatch(args: {
     RETURNING "id"
   `;
 
-  if (acknowledgementClaim.length === 1 && args.ackRecipient) {
-    await sendMetaGraphMessage({
-      businessPhoneNumberId: args.businessPhoneNumberId,
-      recipient: args.ackRecipient,
-      body: {
-        text: {
-          body: getSiteManagerPhotoSavingAcknowledgement(args.user.organization?.orgLanguage),
-        },
-      },
-    }).catch((error) => {
-      console.error("Default construction image batch acknowledgement failed", error);
-    });
-  }
+	if (acknowledgementClaim.length === 1 && args.ackRecipient) {
+		await sendMetaGraphMessage({
+			businessPhoneNumberId: args.businessPhoneNumberId,
+			recipient: args.ackRecipient,
+			body: {
+				text: {
+					body: getSiteManagerPhotoSavingAcknowledgement(
+						args.user.organization?.orgLanguage,
+					),
+				},
+			},
+		}).catch((error) => {
+			console.error(
+				"Default construction image batch acknowledgement failed",
+				error,
+			);
+		});
+	}
 
-  await sleep(DEFAULT_CONSTRUCTION_IMAGE_BATCH_QUIET_MS);
+	await sleep(DEFAULT_CONSTRUCTION_IMAGE_BATCH_QUIET_MS);
 
-  const rows = await prisma.$queryRaw<Array<{
-    id: string;
-    items: unknown;
-    lastMessageId: string | null;
-    processAfter: Date;
-  }>>`
+	const rows = await prisma.$queryRaw<
+		Array<{
+			id: string;
+			items: unknown;
+			lastMessageId: string | null;
+			processAfter: Date;
+		}>
+	>`
     SELECT "id", "items", "lastMessageId", "processAfter"
     FROM "DefaultConstructionInboundMediaBatch"
     WHERE "batchKey" = ${batchKey}
@@ -801,27 +867,31 @@ async function stageDefaultConstructionImageBatch(args: {
     LIMIT 1
   `;
 
-  const row = rows[0];
-  if (!row || row.lastMessageId !== messageId) {
-    console.log("[Meta webhook timing]", {
-      event: "default_construction_image_batch_deferred_to_later_image",
-      batchKey,
-      userId: args.user.id,
-      messageId,
-      latestMessageId: row?.lastMessageId ?? null,
-    });
-    return { ready: false as const };
-  }
+	const row = rows[0];
+	if (!row || row.lastMessageId !== messageId) {
+		console.log("[Meta webhook timing]", {
+			event: "default_construction_image_batch_deferred_to_later_image",
+			batchKey,
+			userId: args.user.id,
+			messageId,
+			latestMessageId: row?.lastMessageId ?? null,
+		});
+		return { ready: false as const };
+	}
 
-  const processAfterMs = new Date(row.processAfter).getTime();
-  if (Number.isFinite(processAfterMs) && processAfterMs > Date.now()) {
-    await sleep(Math.min(
-      processAfterMs - Date.now(),
-      DEFAULT_CONSTRUCTION_IMAGE_BATCH_QUIET_MS,
-    ));
-  }
+	const processAfterMs = new Date(row.processAfter).getTime();
+	if (Number.isFinite(processAfterMs) && processAfterMs > Date.now()) {
+		await sleep(
+			Math.min(
+				processAfterMs - Date.now(),
+				DEFAULT_CONSTRUCTION_IMAGE_BATCH_QUIET_MS,
+			),
+		);
+	}
 
-  const claimedRows = await prisma.$queryRaw<Array<{ id: string; items: unknown }>>`
+	const claimedRows = await prisma.$queryRaw<
+		Array<{ id: string; items: unknown }>
+	>`
     UPDATE "DefaultConstructionInboundMediaBatch"
     SET "status" = 'processing',
         "updatedAt" = NOW()
@@ -831,36 +901,36 @@ async function stageDefaultConstructionImageBatch(args: {
     RETURNING "id", "items"
   `;
 
-  const claimed = claimedRows[0];
-  if (!claimed) return { ready: false as const };
+	const claimed = claimedRows[0];
+	if (!claimed) return { ready: false as const };
 
-  const items = Array.isArray(claimed.items)
-    ? (claimed.items as SerializedZtcImageMessage[])
-    : [];
-  const batchedFormData = buildBatchedImageFormData(items);
+	const items = Array.isArray(claimed.items)
+		? (claimed.items as SerializedZtcImageMessage[])
+		: [];
+	const batchedFormData = buildBatchedImageFormData(items);
 
-  console.log("[Meta webhook timing]", {
-    event: "default_construction_image_batch_ready",
-    batchKey,
-    userId: args.user.id,
-    batchId: claimed.id,
-    batchSize: items.length,
-    messageIds: items.map((image) => image.messageId).filter(Boolean),
-  });
+	console.log("[Meta webhook timing]", {
+		event: "default_construction_image_batch_ready",
+		batchKey,
+		userId: args.user.id,
+		batchId: claimed.id,
+		batchSize: items.length,
+		messageIds: items.map((image) => image.messageId).filter(Boolean),
+	});
 
-  return {
-    ready: true as const,
-    formData: batchedFormData,
-    batchId: claimed.id,
-    batchSize: items.length,
-  };
+	return {
+		ready: true as const,
+		formData: batchedFormData,
+		batchId: claimed.id,
+		batchSize: items.length,
+	};
 }
 
 async function deleteDefaultConstructionImageBatch(
-  batchId: string | null | undefined,
+	batchId: string | null | undefined,
 ) {
-  if (!batchId) return;
-  await prisma.$executeRaw`
+	if (!batchId) return;
+	await prisma.$executeRaw`
     DELETE FROM "DefaultConstructionInboundMediaBatch"
     WHERE "id" = ${batchId}
       AND "status" = 'processing'
@@ -868,588 +938,668 @@ async function deleteDefaultConstructionImageBatch(
 }
 
 async function runWhatsappRoutingForMeta(args: {
-  message: any;
-  value: any;
-  businessPhoneNumberId: string;
+	message: any;
+	value: any;
+	businessPhoneNumberId: string;
 }) {
-  const routingStartedAt = Date.now();
-  const { message, value, businessPhoneNumberId } = args;
-  const messageIdForLog = message?.id ?? null;
-  let routeOutcome = "started";
-  const webhookIdentity = extractMetaWebhookIdentity({
-    value,
-    message,
-    businessPhoneNumberId,
-  });
-  const resolveStartedAt = Date.now();
-  const resolved = await resolveMetaWhatsAppIdentity(webhookIdentity);
-  logMetaWebhookTiming("resolve_meta_identity", resolveStartedAt, {
-    messageId: messageIdForLog,
-    identityKey: resolved.identityKey,
-    hasUser: Boolean(resolved.user),
-    hasWorker: Boolean(resolved.worker),
-    replyTarget: resolved.replyTarget,
-  });
+	const routingStartedAt = Date.now();
+	const { message, value, businessPhoneNumberId } = args;
+	const messageIdForLog = message?.id ?? null;
+	let routeOutcome = "started";
+	const webhookIdentity = extractMetaWebhookIdentity({
+		value,
+		message,
+		businessPhoneNumberId,
+	});
+	const resolveStartedAt = Date.now();
+	const resolved = await resolveMetaWhatsAppIdentity(webhookIdentity);
+	logMetaWebhookTiming("resolve_meta_identity", resolveStartedAt, {
+		messageId: messageIdForLog,
+		identityKey: resolved.identityKey,
+		hasUser: Boolean(resolved.user),
+		hasWorker: Boolean(resolved.worker),
+		replyTarget: resolved.replyTarget,
+	});
 
-  let formData = await toWhatsAppFormData(message, resolved);
+	let formData = await toWhatsAppFormData(message, resolved);
 
-  let lockHeld = false;
-  let lockKey: string | null = null;
-  let ztcImageBatchId: string | null = null;
-  let defaultConstructionImageBatchId: string | null = null;
+	let lockHeld = false;
+	let lockKey: string | null = null;
+	let ztcImageBatchId: string | null = null;
+	let defaultConstructionImageBatchId: string | null = null;
 
-  try {
-    const smsStatus = getString(formData, "SmsStatus");
-    const from = getString(formData, "From");
-    const waId = getString(formData, "WaId");
-    const numMediaRaw = getString(formData, "NumMedia");
-    let numMedia = Number(numMediaRaw || "0");
-    let messageId = getString(formData, "MessageId") || null;
+	try {
+		const smsStatus = getString(formData, "SmsStatus");
+		const from = getString(formData, "From");
+		const waId = getString(formData, "WaId");
+		const numMediaRaw = getString(formData, "NumMedia");
+		let numMedia = Number(numMediaRaw || "0");
+		let messageId = getString(formData, "MessageId") || null;
 
-    if (smsStatus && smsStatus.toLowerCase() !== "received") {
-      return;
-    }
+		if (smsStatus && smsStatus.toLowerCase() !== "received") {
+			return;
+		}
 
-    const normalizeStartedAt = Date.now();
-    const phone = await normalizePhone(waId, from);
-    logMetaWebhookTiming("normalize_phone", normalizeStartedAt, {
-      messageId,
-      waId,
-      from,
-      phone,
-    });
+		const normalizeStartedAt = Date.now();
+		const phone = await normalizePhone(waId, from);
+		logMetaWebhookTiming("normalize_phone", normalizeStartedAt, {
+			messageId,
+			waId,
+			from,
+			phone,
+		});
 
-    const identityKey = resolved.identityKey || waId || from;
-    if (!identityKey) {
-      routeOutcome = "missing_identity";
-      console.warn("Meta webhook message has no usable phone or BSUID", {
-        messageId: message?.id,
-        type: message?.type,
-      });
-      return;
-    }
+		const identityKey = resolved.identityKey || waId || from;
+		if (!identityKey) {
+			routeOutcome = "missing_identity";
+			console.warn("Meta webhook message has no usable phone or BSUID", {
+				messageId: message?.id,
+				type: message?.type,
+			});
+			return;
+		}
 
-    const workerLookupStartedAt = Date.now();
-    const worker = resolved.worker?.id
-      ? resolved.worker
-      : phone
-        ? await prisma.workers.findFirst({
-            where: { phone },
-          })
-        : null;
-    logMetaWebhookTiming("worker_lookup", workerLookupStartedAt, {
-      messageId,
-      phone,
-      reusedResolvedWorker: Boolean(resolved.worker?.id),
-      hasWorker: Boolean(worker),
-      workerId: worker?.id ?? null,
-      organizationId: worker?.organizationId ?? null,
-      role: worker?.role ?? null,
-    });
+		const workerLookupStartedAt = Date.now();
+		const worker = resolved.worker?.id
+			? resolved.worker
+			: phone
+				? await prisma.workers.findFirst({
+						where: { phone },
+					})
+				: null;
+		logMetaWebhookTiming("worker_lookup", workerLookupStartedAt, {
+			messageId,
+			phone,
+			reusedResolvedWorker: Boolean(resolved.worker?.id),
+			hasWorker: Boolean(worker),
+			workerId: worker?.id ?? null,
+			organizationId: worker?.organizationId ?? null,
+			role: worker?.role ?? null,
+		});
 
-    const workerFlowRuntime = worker ? await resolveWorkerFlowRuntime(worker) : null;
-    const usesAdvancedProductionWorkflow =
-      workerFlowRuntime?.productionConfig?.strategies.whatsappWorker === "ztc-worker-v1";
-    const usesAdvancedQualityWorkflow =
-      workerFlowRuntime?.productionConfig?.strategies.whatsappQuality === "ztc-quality-v1";
-    const ztcFlowContext = usesAdvancedProductionWorkflow && worker
-      ? await resolveAdvancedProductionWorkflowContextForWorker(worker)
-      : null;
-    const ztcWorker = ztcFlowContext
-      ? ({ ...worker, ztcFlowContext } as NonNullable<typeof worker> & { ztcFlowContext: typeof ztcFlowContext })
-      : null;
+		const workerFlowRuntime = worker
+			? await resolveWorkerFlowRuntime(worker)
+			: null;
+		const usesAdvancedProductionWorkflow =
+			workerFlowRuntime?.productionConfig?.strategies.whatsappWorker ===
+			"ztc-worker-v1";
+		const usesAdvancedQualityWorkflow =
+			workerFlowRuntime?.productionConfig?.strategies.whatsappQuality ===
+			"ztc-quality-v1";
+		const ztcFlowContext =
+			usesAdvancedProductionWorkflow && worker
+				? await resolveAdvancedProductionWorkflowContextForWorker(worker)
+				: null;
+		const ztcWorker = ztcFlowContext
+			? ({ ...worker, ztcFlowContext } as NonNullable<typeof worker> & {
+					ztcFlowContext: typeof ztcFlowContext;
+				})
+			: null;
 
-    if (ztcWorker && isSingleMetaImageFormData(formData)) {
-      const mode: ZtcImageBatchMode =
-        usesAdvancedQualityWorkflow && isZtcQualityWorkerRole(worker.role)
-          ? "ztc_quality"
-          : "ztc_worker";
-      const batchDecision = await stageZtcImageBatch({
-        identityKey,
-        worker: ztcWorker,
-        mode,
-        formData,
-        businessPhoneNumberId,
-        ackRecipient: resolved.replyTarget || from,
-      });
+		if (ztcWorker && isSingleMetaImageFormData(formData)) {
+			const mode: ZtcImageBatchMode =
+				usesAdvancedQualityWorkflow && isZtcQualityWorkerRole(worker.role)
+					? "ztc_quality"
+					: "ztc_worker";
+			const batchDecision = await stageZtcImageBatch({
+				identityKey,
+				worker: ztcWorker,
+				mode,
+				formData,
+				businessPhoneNumberId,
+				ackRecipient: resolved.replyTarget || from,
+			});
 
-      if (!batchDecision.ready) {
-        routeOutcome = "ztc_image_batch_deferred";
-        return;
-      }
+			if (!batchDecision.ready) {
+				routeOutcome = "ztc_image_batch_deferred";
+				return;
+			}
 
-      formData = batchDecision.formData;
-      ztcImageBatchId = batchDecision.batchId;
-      numMedia = Number(getString(formData, "NumMedia") || "0") || 0;
-      messageId = getString(formData, "MessageId") || messageId;
-    }
+			formData = batchDecision.formData;
+			ztcImageBatchId = batchDecision.batchId;
+			numMedia = Number(getString(formData, "NumMedia") || "0") || 0;
+			messageId = getString(formData, "MessageId") || messageId;
+		}
 
-    const siteManagerUser = !worker ? resolved.user : null;
-    if (siteManagerUser && isSingleMetaImageFormData(formData)) {
-      const flowModuleKey = await resolveFlowModuleKeyForRuntime({
-        organizationId: siteManagerUser.organizationId,
-        siteId: siteManagerUser.lastSelectedSiteIdforWhatsapp,
-      });
+		const siteManagerUser = !worker ? resolved.user : null;
+		const siteManagerFlowModuleKey = siteManagerUser
+			? await resolveFlowModuleKeyForRuntime({
+					organizationId: siteManagerUser.organizationId,
+					siteId: siteManagerUser.lastSelectedSiteIdforWhatsapp,
+				})
+			: null;
+		if (siteManagerUser && isSingleMetaImageFormData(formData)) {
+			if (siteManagerFlowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION) {
+				const batchDecision = await stageDefaultConstructionImageBatch({
+					user: siteManagerUser,
+					formData,
+					businessPhoneNumberId,
+					ackRecipient: resolved.replyTarget || from,
+				});
 
-      if (flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION) {
-        const batchDecision = await stageDefaultConstructionImageBatch({
-          user: siteManagerUser,
-          formData,
-          businessPhoneNumberId,
-          ackRecipient: resolved.replyTarget || from,
-        });
+				if (!batchDecision.ready) {
+					routeOutcome = "default_construction_image_batch_deferred";
+					return;
+				}
 
-        if (!batchDecision.ready) {
-          routeOutcome = "default_construction_image_batch_deferred";
-          return;
-        }
+				formData = batchDecision.formData;
+				defaultConstructionImageBatchId = batchDecision.batchId;
+				numMedia = Number(getString(formData, "NumMedia") || "0") || 0;
+				messageId = getString(formData, "MessageId") || messageId;
+			}
+		}
 
-        formData = batchDecision.formData;
-        defaultConstructionImageBatchId = batchDecision.batchId;
-        numMedia = Number(getString(formData, "NumMedia") || "0") || 0;
-        messageId = getString(formData, "MessageId") || messageId;
-      }
-    }
+		const lockStartedAt = Date.now();
+		const acquired = await acquireRoutingLock(identityKey, messageId);
+		logMetaWebhookTiming("routing_lock_acquire", lockStartedAt, {
+			messageId,
+			identityKey,
+			acquired,
+		});
 
-    const lockStartedAt = Date.now();
-    const acquired = await acquireRoutingLock(identityKey, messageId);
-    logMetaWebhookTiming("routing_lock_acquire", lockStartedAt, {
-      messageId,
-      identityKey,
-      acquired,
-    });
+		if (!acquired) {
+			routeOutcome = "lock_timeout";
+			console.warn("Meta webhook routing lock timed out", {
+				identityKey,
+				messageId,
+				type: message?.type,
+				numMedia,
+			});
+			return;
+		}
 
-    if (!acquired) {
-      routeOutcome = "lock_timeout";
-      console.warn("Meta webhook routing lock timed out", {
-        identityKey,
-        messageId,
-        type: message?.type,
-        numMedia,
-      });
-      return;
-    }
+		lockHeld = true;
+		lockKey = identityKey;
 
-    lockHeld = true;
-    lockKey = identityKey;
+		if (worker) {
+			if (ztcWorker) {
+				const drawingProfile = getDrawingProfileForProductionConfig(
+					workerFlowRuntime?.productionConfig ?? null,
+				);
+				if (
+					usesAdvancedQualityWorkflow &&
+					isZtcQualityWorkerRole(worker.role)
+				) {
+					const handlerStartedAt = Date.now();
+					if (drawingProfile === "default-production") {
+						await handleDefaultProductionQualityRoute({
+							worker: ztcWorker as any,
+							formData,
+						});
+					} else {
+						await handleZtcQualityRoute({
+							worker: ztcWorker as any,
+							formData,
+							drawingProfile,
+						});
+					}
+					routeOutcome = "ztc_quality_worker";
+					logMetaWebhookTiming("ztc_quality_route", handlerStartedAt, {
+						messageId,
+						workerId: worker.id,
+						drawingProfile,
+					});
+					return;
+				}
 
-    if (worker) {
-      if (ztcWorker) {
-        const drawingProfile = getDrawingProfileForProductionConfig(
-          workerFlowRuntime?.productionConfig ?? null,
-        );
-        if (usesAdvancedQualityWorkflow && isZtcQualityWorkerRole(worker.role)) {
-          const handlerStartedAt = Date.now();
-          if (drawingProfile === "default-production") {
-            await handleDefaultProductionQualityRoute({ worker: ztcWorker as any, formData });
-          } else {
-            await handleZtcQualityRoute({ worker: ztcWorker as any, formData, drawingProfile });
-          }
-          routeOutcome = "ztc_quality_worker";
-          logMetaWebhookTiming("ztc_quality_route", handlerStartedAt, {
-            messageId,
-            workerId: worker.id,
-            drawingProfile,
-          });
-          return;
-        }
+				const handlerStartedAt = Date.now();
+				if (drawingProfile === "default-production") {
+					await handleDefaultProductionWorkerRoute({
+						worker: ztcWorker,
+						formData,
+					});
+				} else {
+					await handleZtcWorkerRoute({
+						worker: ztcWorker,
+						formData,
+						drawingProfile,
+					});
+				}
+				routeOutcome = "ztc_worker";
+				logMetaWebhookTiming("ztc_worker_route", handlerStartedAt, {
+					messageId,
+					workerId: worker.id,
+					drawingProfile,
+				});
+				return;
+			}
 
-        const handlerStartedAt = Date.now();
-        if (drawingProfile === "default-production") {
-          await handleDefaultProductionWorkerRoute({ worker: ztcWorker, formData });
-        } else {
-          await handleZtcWorkerRoute({ worker: ztcWorker, formData, drawingProfile });
-        }
-        routeOutcome = "ztc_worker";
-        logMetaWebhookTiming("ztc_worker_route", handlerStartedAt, {
-          messageId,
-          workerId: worker.id,
-          drawingProfile,
-        });
-        return;
-      }
+			const workerPhone = worker.phone || phone;
+			if (workerPhone) {
+				const handlerStartedAt = Date.now();
+				await handleWorkerRoute({ phone: workerPhone, formData });
+				logMetaWebhookTiming("legacy_worker_route", handlerStartedAt, {
+					messageId,
+					workerId: worker.id,
+				});
+			}
+			routeOutcome = "legacy_worker";
+			return;
+		}
 
-      const workerPhone = worker.phone || phone;
-      if (workerPhone) {
-        const handlerStartedAt = Date.now();
-        await handleWorkerRoute({ phone: workerPhone, formData });
-        logMetaWebhookTiming("legacy_worker_route", handlerStartedAt, {
-          messageId,
-          workerId: worker.id,
-        });
-      }
-      routeOutcome = "legacy_worker";
-      return;
-    }
+		const user = resolved.user;
 
-    const user = resolved.user;
+		if (!user) {
+			routeOutcome = "unregistered_contact";
+			if (
+				resolved.webhookIdentity.bsuid &&
+				!resolved.webhookIdentity.phone &&
+				resolved.replyTarget
+			) {
+				await sendMetaContactRequest({
+					businessPhoneNumberId,
+					recipient: resolved.replyTarget,
+				});
+			} else if (resolved.replyTarget) {
+				await sendMetaGraphMessage({
+					businessPhoneNumberId,
+					recipient: resolved.replyTarget,
+					body: {
+						text: {
+							body: "Sorry, this WhatsApp contact is not registered. Please contact admin.",
+						},
+					},
+				});
+			}
+			return;
+		}
 
-    if (!user) {
-      routeOutcome = "unregistered_contact";
-      if (resolved.webhookIdentity.bsuid && !resolved.webhookIdentity.phone && resolved.replyTarget) {
-        await sendMetaContactRequest({
-          businessPhoneNumberId,
-          recipient: resolved.replyTarget,
-        });
-      } else if (resolved.replyTarget) {
-        await sendMetaGraphMessage({
-          businessPhoneNumberId,
-          recipient: resolved.replyTarget,
-          body: {
-            text: {
-              body: "Sorry, this WhatsApp contact is not registered. Please contact admin.",
-            },
-          },
-        });
-      }
-      return;
-    }
+		const handlerStartedAt = Date.now();
+		routeOutcome = await routeRegisteredWhatsappUserByFlow({
+			flowModuleKey:
+				siteManagerFlowModuleKey ?? FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION,
+			from,
+			formData,
+			user,
+		});
+		logMetaWebhookTiming(`${routeOutcome}_route`, handlerStartedAt, {
+			messageId,
+			userId: user.id,
+		});
+	} catch (err) {
+		routeOutcome = "error";
+		console.error("runWhatsappRoutingForMeta error", err);
 
-    const handlerStartedAt = Date.now();
-    await handleSiteManagerRoute({ from, formData, user });
-    routeOutcome = "site_manager";
-    logMetaWebhookTiming("site_manager_route", handlerStartedAt, {
-      messageId,
-      userId: user.id,
-    });
-  } catch (err) {
-    routeOutcome = "error";
-    console.error("runWhatsappRoutingForMeta error", err);
+		const fallbackTarget = resolvedSafeReplyTarget(
+			message,
+			value,
+			businessPhoneNumberId,
+		);
+		if (fallbackTarget) {
+			await sendMetaGraphMessage({
+				businessPhoneNumberId,
+				recipient: fallbackTarget,
+				body: {
+					text: {
+						body: "Sorry, an error occurred processing your message.",
+					},
+				},
+			});
+		}
+		throw err;
+	} finally {
+		if (ztcImageBatchId) {
+			await deleteZtcImageBatch(ztcImageBatchId).catch((e) => {
+				console.error("deleteZtcImageBatch error", e);
+			});
+		}
 
-    const fallbackTarget = resolvedSafeReplyTarget(message, value, businessPhoneNumberId);
-    if (fallbackTarget) {
-      await sendMetaGraphMessage({
-        businessPhoneNumberId,
-        recipient: fallbackTarget,
-        body: {
-          text: {
-            body: "Sorry, an error occurred processing your message.",
-          },
-        },
-      });
-    }
-    throw err;
-  } finally {
-    if (ztcImageBatchId) {
-      await deleteZtcImageBatch(ztcImageBatchId).catch((e) => {
-        console.error("deleteZtcImageBatch error", e);
-      });
-    }
+		if (defaultConstructionImageBatchId) {
+			await deleteDefaultConstructionImageBatch(
+				defaultConstructionImageBatchId,
+			).catch((e) => {
+				console.error("deleteDefaultConstructionImageBatch error", e);
+			});
+		}
 
-    if (defaultConstructionImageBatchId) {
-      await deleteDefaultConstructionImageBatch(defaultConstructionImageBatchId).catch((e) => {
-        console.error("deleteDefaultConstructionImageBatch error", e);
-      });
-    }
+		if (lockHeld && lockKey) {
+			const releaseStartedAt = Date.now();
+			await releaseTextLock(lockKey).catch((e) => {
+				console.error("releaseTextLock error", e);
+			});
+			logMetaWebhookTiming("routing_lock_release", releaseStartedAt, {
+				messageId: messageIdForLog,
+				identityKey: lockKey,
+			});
+		}
 
-    if (lockHeld && lockKey) {
-      const releaseStartedAt = Date.now();
-      await releaseTextLock(lockKey).catch((e) => {
-        console.error("releaseTextLock error", e);
-      });
-      logMetaWebhookTiming("routing_lock_release", releaseStartedAt, {
-        messageId: messageIdForLog,
-        identityKey: lockKey,
-      });
-    }
-
-    logMetaWebhookTiming("run_whatsapp_routing_for_meta_total", routingStartedAt, {
-      messageId: messageIdForLog,
-      type: message?.type ?? null,
-      outcome: routeOutcome,
-    });
-  }
+		logMetaWebhookTiming(
+			"run_whatsapp_routing_for_meta_total",
+			routingStartedAt,
+			{
+				messageId: messageIdForLog,
+				type: message?.type ?? null,
+				outcome: routeOutcome,
+			},
+		);
+	}
 }
 
-function resolvedSafeReplyTarget(message: any, value: any, businessPhoneNumberId: string) {
-  const identity = extractMetaWebhookIdentity({ value, message, businessPhoneNumberId });
-  return identity.phone || identity.parentBsuid || identity.bsuid;
+function resolvedSafeReplyTarget(
+	message: any,
+	value: any,
+	businessPhoneNumberId: string,
+) {
+	const identity = extractMetaWebhookIdentity({
+		value,
+		message,
+		businessPhoneNumberId,
+	});
+	return identity.phone || identity.parentBsuid || identity.bsuid;
 }
 
-async function handleContactsMessage(args: { value: any; message: any; businessPhoneNumberId: string }) {
-  const identity = extractMetaWebhookIdentity({
-    value: args.value,
-    message: args.message,
-    businessPhoneNumberId: args.businessPhoneNumberId,
-  });
-  const resolved = await resolveMetaWhatsAppIdentity(identity);
+async function handleContactsMessage(args: {
+	value: any;
+	message: any;
+	businessPhoneNumberId: string;
+}) {
+	const identity = extractMetaWebhookIdentity({
+		value: args.value,
+		message: args.message,
+		businessPhoneNumberId: args.businessPhoneNumberId,
+	});
+	const resolved = await resolveMetaWhatsAppIdentity(identity);
 
-  if (resolved.replyTarget) {
-    await sendMetaGraphMessage({
-      businessPhoneNumberId: args.businessPhoneNumberId,
-      recipient: resolved.replyTarget,
-      body: {
-        text: {
-          body: "Thanks, your WhatsApp contact info was received.",
-        },
-      },
-    });
-  }
+	if (resolved.replyTarget) {
+		await sendMetaGraphMessage({
+			businessPhoneNumberId: args.businessPhoneNumberId,
+			recipient: resolved.replyTarget,
+			body: {
+				text: {
+					body: "Thanks, your WhatsApp contact info was received.",
+				},
+			},
+		});
+	}
 }
 
-async function handleUserIdUpdate(args: { value: any; businessPhoneNumberId: string }) {
-  const update = Array.isArray(args.value?.user_id_update)
-    ? args.value.user_id_update[0]
-    : null;
-  if (!update) return;
+async function handleUserIdUpdate(args: {
+	value: any;
+	businessPhoneNumberId: string;
+}) {
+	const update = Array.isArray(args.value?.user_id_update)
+		? args.value.user_id_update[0]
+		: null;
+	if (!update) return;
 
-  await applyMetaUserIdUpdate({
-    businessPhoneNumberId: args.businessPhoneNumberId,
-    previousBsuid: update?.user_id?.previous,
-    currentBsuid: update?.user_id?.current,
-    previousParentBsuid: update?.parent_user_id?.previous,
-    currentParentBsuid: update?.parent_user_id?.current,
-    phone: update?.wa_id,
-  });
+	await applyMetaUserIdUpdate({
+		businessPhoneNumberId: args.businessPhoneNumberId,
+		previousBsuid: update?.user_id?.previous,
+		currentBsuid: update?.user_id?.current,
+		previousParentBsuid: update?.parent_user_id?.previous,
+		currentParentBsuid: update?.parent_user_id?.current,
+		phone: update?.wa_id,
+	});
 }
 
 export async function POST(req: Request): Promise<Response> {
-  try {
-    const body = await req.json();
+	try {
+		const body = await req.json();
 
-    console.log("Incoming webhook message:", JSON.stringify(body, null, 2));
+		console.log("Incoming webhook message:", JSON.stringify(body, null, 2));
 
-    const change = body?.entry?.[0]?.changes?.[0];
-    const value = change?.value;
-    const field = change?.field;
-    const messages = Array.isArray(value?.messages) ? value.messages : [];
-    const business_phone_number_id = value?.metadata?.phone_number_id;
+		const change = body?.entry?.[0]?.changes?.[0];
+		const value = change?.value;
+		const field = change?.field;
+		const messages = Array.isArray(value?.messages) ? value.messages : [];
+		const business_phone_number_id = value?.metadata?.phone_number_id;
 
-    if (field === "user_id_update" && business_phone_number_id) {
-      await handleUserIdUpdate({ value, businessPhoneNumberId: business_phone_number_id });
-      return new Response("OK", { status: 200 });
-    }
+		if (field === "user_id_update" && business_phone_number_id) {
+			await handleUserIdUpdate({
+				value,
+				businessPhoneNumberId: business_phone_number_id,
+			});
+			return new Response("OK", { status: 200 });
+		}
 
-    if (Array.isArray(value?.statuses)) {
-      console.log("Meta status webhook received", {
-        field,
-        phoneNumberId: business_phone_number_id,
-        statuses: value.statuses.map((status: any) => ({
-          id: status?.id,
-          status: status?.status,
-          recipientId: status?.recipient_id,
-          recipientUserId: status?.recipient_user_id,
-          recipientParentUserId: status?.recipient_parent_user_id,
-          errors: status?.errors,
-        })),
-      });
-      return new Response("OK", { status: 200 });
-    }
+		if (Array.isArray(value?.statuses)) {
+			console.log("Meta status webhook received", {
+				field,
+				phoneNumberId: business_phone_number_id,
+				statuses: value.statuses.map((status: any) => ({
+					id: status?.id,
+					status: status?.status,
+					recipientId: status?.recipient_id,
+					recipientUserId: status?.recipient_user_id,
+					recipientParentUserId: status?.recipient_parent_user_id,
+					errors: status?.errors,
+				})),
+			});
+			return new Response("OK", { status: 200 });
+		}
 
-    if (messages.length > 1) {
-      console.log("Meta webhook contains multiple messages", {
-        phoneNumberId: business_phone_number_id,
-        messageCount: messages.length,
-        messageIds: messages.map((message: any) => message?.id).filter(Boolean),
-        messageTypes: messages.map((message: any) => message?.type).filter(Boolean),
-      });
-    }
+		if (messages.length > 1) {
+			console.log("Meta webhook contains multiple messages", {
+				phoneNumberId: business_phone_number_id,
+				messageCount: messages.length,
+				messageIds: messages.map((message: any) => message?.id).filter(Boolean),
+				messageTypes: messages
+					.map((message: any) => message?.type)
+					.filter(Boolean),
+			});
+		}
 
-    for (const message of messages) {
-      if (!message || !business_phone_number_id) continue;
+		for (const message of messages) {
+			if (!message || !business_phone_number_id) continue;
 
-      if (!message.id) {
-        console.warn("Meta webhook message has no id; refusing untracked processing", {
-          type: message.type ?? null,
-          sender: message.from ?? null,
-        });
-        continue;
-      }
+			if (!message.id) {
+				console.warn(
+					"Meta webhook message has no id; refusing untracked processing",
+					{
+						type: message.type ?? null,
+						sender: message.from ?? null,
+					},
+				);
+				continue;
+			}
 
-      let claimed: boolean;
-      try {
-        claimed = await claimMetaInboundMessage({
-          messageId: message.id,
-          messageType: message.type,
-          sender: message.from,
-          businessPhoneNumberId: business_phone_number_id,
-        });
-      } catch (error) {
-        console.error("Meta inbound message claim failed", {
-          messageId: message.id,
-          error,
-        });
-        return new Response("Temporary failure", { status: 500 });
-      }
+			let claimed: boolean;
+			try {
+				claimed = await claimMetaInboundMessage({
+					messageId: message.id,
+					messageType: message.type,
+					sender: message.from,
+					businessPhoneNumberId: business_phone_number_id,
+				});
+			} catch (error) {
+				console.error("Meta inbound message claim failed", {
+					messageId: message.id,
+					error,
+				});
+				return new Response("Temporary failure", { status: 500 });
+			}
 
-      if (!claimed) continue;
+			if (!claimed) continue;
 
-      let processingError: unknown;
-      try {
-      if (!isReadableMetaMessage(message)) {
-        logUnsupportedMetaMessage(message);
-        continue;
-      }
+			let processingError: unknown;
+			try {
+				if (!isReadableMetaMessage(message)) {
+					logUnsupportedMetaMessage(message);
+					continue;
+				}
 
-      if (message.id && isRoutableMetaMessage(message)) {
-        await sendMetaTypingIndicator(business_phone_number_id, message.id, message.from || null).catch((error) => {
-          console.error("Meta typing/read indicator failed", error);
-        });
-      }
+				if (message.id && isRoutableMetaMessage(message)) {
+					await sendMetaTypingIndicator(
+						business_phone_number_id,
+						message.id,
+						message.from || null,
+					).catch((error) => {
+						console.error("Meta typing/read indicator failed", error);
+					});
+				}
 
-      if (message.type === "contacts") {
-        await handleContactsMessage({
-          value,
-          message,
-          businessPhoneNumberId: business_phone_number_id,
-        });
-        continue;
-      }
+				if (message.type === "contacts") {
+					await handleContactsMessage({
+						value,
+						message,
+						businessPhoneNumberId: business_phone_number_id,
+					});
+					continue;
+				}
 
-      //-----------------BOOKING APPOINTMENT BOT (PRISMA)-----------------------
+				//-----------------BOOKING APPOINTMENT BOT (PRISMA)-----------------------
 
-      let handledByBooking = false;
+				let handledByBooking = false;
 
-      if (message.type === "text" && typeof message.text?.body === "string") {
-        const text = message.text.body.trim().toLowerCase();
-        const webhookIdentity = extractMetaWebhookIdentity({
-          value,
-          message,
-          businessPhoneNumberId: business_phone_number_id,
-        });
-        const resolvedIdentity = await resolveMetaWhatsAppIdentity(webhookIdentity);
-        const user = resolvedIdentity.identityKey;
-        const replyRecipient = resolvedIdentity.replyTarget;
+				if (message.type === "text" && typeof message.text?.body === "string") {
+					const text = message.text.body.trim().toLowerCase();
+					const webhookIdentity = extractMetaWebhookIdentity({
+						value,
+						message,
+						businessPhoneNumberId: business_phone_number_id,
+					});
+					const resolvedIdentity =
+						await resolveMetaWhatsAppIdentity(webhookIdentity);
+					const user = resolvedIdentity.identityKey;
+					const replyRecipient = resolvedIdentity.replyTarget;
 
-        // START BOOKING
-        if (text === "book" && user && replyRecipient) {
-          await startSession(user);
+					// START BOOKING
+					if (text === "book" && user && replyRecipient) {
+						await startSession(user);
 
-          await sendMetaGraphMessage({
-            businessPhoneNumberId: business_phone_number_id,
-            recipient: replyRecipient,
-            body: {
-              text: {
-                body: "📅 Booking started.\n\nWhat service do you want?",
-              },
-            },
-          });
+						await sendMetaGraphMessage({
+							businessPhoneNumberId: business_phone_number_id,
+							recipient: replyRecipient,
+							body: {
+								text: {
+									body: "📅 Booking started.\n\nWhat service do you want?",
+								},
+							},
+						});
 
-          handledByBooking = true;
-        }
+						handledByBooking = true;
+					}
 
-        const session = !handledByBooking && user ? await getSession(user) : null;
+					const session =
+						!handledByBooking && user ? await getSession(user) : null;
 
-        if (session && user && replyRecipient) {
-          // STEP 1 — SERVICE
-          if (session.step === "service") {
-            await updateSession(user, {
-              service: text,
-              step: "date",
-            });
+					if (session && user && replyRecipient) {
+						// STEP 1 — SERVICE
+						if (session.step === "service") {
+							await updateSession(user, {
+								service: text,
+								step: "date",
+							});
 
-            await sendMetaGraphMessage({
-              businessPhoneNumberId: business_phone_number_id,
-              recipient: replyRecipient,
-              body: {
-                text: {
-                  body: "Great 👍\n\nChoose a date (YYYY-MM-DD)",
-                },
-              },
-            });
+							await sendMetaGraphMessage({
+								businessPhoneNumberId: business_phone_number_id,
+								recipient: replyRecipient,
+								body: {
+									text: {
+										body: "Great 👍\n\nChoose a date (YYYY-MM-DD)",
+									},
+								},
+							});
 
-            handledByBooking = true;
-          }
+							handledByBooking = true;
+						}
 
-          // STEP 2 — DATE
-          if (!handledByBooking && session.step === "date") {
-            await updateSession(user, {
-              date: text,
-              step: "time",
-            });
+						// STEP 2 — DATE
+						if (!handledByBooking && session.step === "date") {
+							await updateSession(user, {
+								date: text,
+								step: "time",
+							});
 
-            await sendMetaGraphMessage({
-              businessPhoneNumberId: business_phone_number_id,
-              recipient: replyRecipient,
-              body: {
-                text: {
-                  body: "Perfect.\n\nChoose a time (HH:MM)",
-                },
-              },
-            });
+							await sendMetaGraphMessage({
+								businessPhoneNumberId: business_phone_number_id,
+								recipient: replyRecipient,
+								body: {
+									text: {
+										body: "Perfect.\n\nChoose a time (HH:MM)",
+									},
+								},
+							});
 
-            handledByBooking = true;
-          }
+							handledByBooking = true;
+						}
 
-          // STEP 3 — TIME
-          if (!handledByBooking && session.step === "time") {
-            await updateSession(user, {
-              time: text,
-            });
+						// STEP 3 — TIME
+						if (!handledByBooking && session.step === "time") {
+							await updateSession(user, {
+								time: text,
+							});
 
-            await sendMetaGraphMessage({
-              businessPhoneNumberId: business_phone_number_id,
-              recipient: replyRecipient,
-              body: {
-                text: {
-                  body: `✅ Booking confirmed!\n\nService: ${session.service}\nDate: ${session.date}\nTime: ${text}\n\nWe will see you soon!`,
-                },
-              },
-            });
+							await sendMetaGraphMessage({
+								businessPhoneNumberId: business_phone_number_id,
+								recipient: replyRecipient,
+								body: {
+									text: {
+										body: `✅ Booking confirmed!\n\nService: ${session.service}\nDate: ${session.date}\nTime: ${text}\n\nWe will see you soon!`,
+									},
+								},
+							});
 
-            await deleteSession(user);
+							await deleteSession(user);
 
-            handledByBooking = true;
-          }
-        }
-      }
+							handledByBooking = true;
+						}
+					}
+				}
 
-      if (handledByBooking) continue;
+				if (handledByBooking) continue;
 
-      // 2) Run the shared role-based WhatsApp routing.
-      if (isRoutableMetaMessage(message)) {
-        await runWithWhatsappSourceContext(
-          {
-            messageId: message.id,
-            replyToMessageId: typeof message.context?.id === "string" ? message.context.id : null,
-            messageType: message.type ?? null,
-            mediaPurpose: message.type === "image" ? "site_diary_caption" : "unknown",
-          },
-          () => runWithMetaReplyContext(
-            {
-              businessPhoneNumberId: business_phone_number_id,
-              incomingMessageId: message.id,
-              incomingFrom: message.from || null,
-            },
-            async () =>
-              runWhatsappRoutingForMeta({
-                message,
-                value,
-                businessPhoneNumberId: business_phone_number_id,
-              })
-          ),
-        );
-      }
+				// 2) Run the shared role-based WhatsApp routing.
+				if (isRoutableMetaMessage(message)) {
+					await runWithWhatsappSourceContext(
+						{
+							messageId: message.id,
+							replyToMessageId:
+								typeof message.context?.id === "string"
+									? message.context.id
+									: null,
+							messageType: message.type ?? null,
+							mediaPurpose:
+								message.type === "image" ? "site_diary_caption" : "unknown",
+						},
+						() =>
+							runWithMetaReplyContext(
+								{
+									businessPhoneNumberId: business_phone_number_id,
+									incomingMessageId: message.id,
+									incomingFrom: message.from || null,
+								},
+								async () =>
+									runWhatsappRoutingForMeta({
+										message,
+										value,
+										businessPhoneNumberId: business_phone_number_id,
+									}),
+							),
+					);
+				}
 
-      // 3) Mark message as read
-      if (message.id && isReadableMetaMessage(message)) {
-        await graphSendMessage(business_phone_number_id, {
-          messaging_product: "whatsapp",
-          status: "read",
-          message_id: message.id,
-        }).catch((error) => {
-          console.error("Meta mark-as-read failed", error);
-        });
-      }
-      } catch (error) {
-        processingError = error;
-        console.error("Meta inbound message processing failed", {
-          messageId: message.id,
-          error,
-        });
-      } finally {
-        await finishMetaInboundMessage(message.id, processingError).catch((error) => {
-          console.error("Meta inbound message status update failed", {
-            messageId: message.id,
-            error,
-          });
-        });
-      }
-    }
+				// 3) Mark message as read
+				if (message.id && isReadableMetaMessage(message)) {
+					await graphSendMessage(business_phone_number_id, {
+						messaging_product: "whatsapp",
+						status: "read",
+						message_id: message.id,
+					}).catch((error) => {
+						console.error("Meta mark-as-read failed", error);
+					});
+				}
+			} catch (error) {
+				processingError = error;
+				console.error("Meta inbound message processing failed", {
+					messageId: message.id,
+					error,
+				});
+			} finally {
+				await finishMetaInboundMessage(message.id, processingError).catch(
+					(error) => {
+						console.error("Meta inbound message status update failed", {
+							messageId: message.id,
+							error,
+						});
+					},
+				);
+			}
+		}
 
-    return new Response("OK", { status: 200 });
-  } catch (err) {
-    console.error("Webhook handler error:", err);
-    return new Response("OK", { status: 200 });
-  }
+		return new Response("OK", { status: 200 });
+	} catch (err) {
+		console.error("Webhook handler error:", err);
+		return new Response("OK", { status: 200 });
+	}
 }
