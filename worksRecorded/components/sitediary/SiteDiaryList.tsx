@@ -19,6 +19,7 @@ import {
   Trash2,
 } from "lucide-react";
 import React from "react";
+import { BeginHoursCost, BeginHoursImport, useBeginHours } from "@/components/sitediary/BeginHours";
 import { toast } from "sonner";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import ImageGallery from "@/components/sitediary/ImageGallery";
@@ -712,6 +713,7 @@ export default function SiteDiaryCalendar({
 
   // List view state
   const [rows, setRows] = React.useState<DiaryRow[]>([]);
+  const beginHours = useBeginHours(siteId, rows);
   const [mediaOnlyDays, setMediaOnlyDays] = React.useState<
     MediaOnlyDaySummary[]
   >([]);
@@ -1702,10 +1704,20 @@ export default function SiteDiaryCalendar({
           group.mediaSearchableText?.includes(normalizedKeyword),
         );
 
-    return [...recordGroups, ...mediaGroups].sort(
+    const combinedGroups = [...recordGroups, ...mediaGroups];
+    if (beginHours.enabled && listPage === 1 && workFilter === "__ALL__" && floorFilter === "__ALL__") {
+      for (const day of beginHours.days) {
+        if (!day.entries.length || beginHours.diaryDates.includes(day.date) || combinedGroups.some(group => group.key === day.date)) continue;
+        if (dateFrom && day.date < toLocalDateKey(dateFrom)) continue;
+        if (dateTo && day.date > toLocalDateKey(dateTo)) continue;
+        if (normalizedKeyword && !day.entries.some(entry => `${entry.worker} ${entry.comment} ${entry.object}`.toLowerCase().includes(normalizedKeyword))) continue;
+        combinedGroups.push({ key: day.date, date: new Date(`${day.date}T12:00:00`), rows: [] });
+      }
+    }
+    return combinedGroups.sort(
       (a, b) => b.date.getTime() - a.date.getTime(),
     );
-  }, [dayGroups, keywordFilter, mediaOnlyDayGroups]);
+  }, [dayGroups, keywordFilter, mediaOnlyDayGroups, beginHours.enabled, beginHours.days, beginHours.diaryDates, listPage, workFilter, floorFilter, dateFrom, dateTo]);
 
   const showInitialListSkeleton = loading && !hasLoadedRowsOnce && !error;
   const showUpdatingListSkeleton =
@@ -2839,6 +2851,8 @@ export default function SiteDiaryCalendar({
               </TabsList>
 
               <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                {beginHours.enabled && siteId ? <BeginHoursImport key={siteId} siteId={siteId} onSaved={beginHours.reload} /> : null}
+                {beginHours.error ? <span role="alert" className="text-sm text-destructive">{beginHours.error}</span> : null}
                 {!isZtcSite ? (
                   <button
                     type="button"
@@ -3883,7 +3897,7 @@ export default function SiteDiaryCalendar({
                                   </span>
                                 ) : (
                                   <span>
-                                    {t.dailyCost}:{" "}
+                                    <span title={beginHours.enabled ? "Dienas darbu summu kopsumma pēc esošā aprēķina." : undefined}>{beginHours.enabled ? "Ieņēmumi" : t.dailyCost}</span>:{" "}
                                     {defaultConstructionDayCost == null
                                       ? "—"
                                       : costFormatter.format(
@@ -3891,6 +3905,7 @@ export default function SiteDiaryCalendar({
                                         )}
                                   </span>
                                 )}
+                                {beginHours.enabled ? <BeginHoursCost day={beginHours.days.find(day => day.date === group.key)} /> : null}
                               </div>
                             </div>
 
