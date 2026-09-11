@@ -1,1 +1,5 @@
 .vercel
+
+# Installed dependencies and temporary sales-research workspace
+node_modules/
+/.research-sales/
