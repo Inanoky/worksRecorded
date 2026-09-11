@@ -1,8 +1,12 @@
 const mockRequireUser = jest.fn();
+const mockProcessTgemInvoice = jest.fn();
+const mockPersistTgemInvoiceOcrResult = jest.fn();
 const mockPrisma = {
 	site: { findFirst: jest.fn() },
-	tgemInvoiceCase: { findMany: jest.fn() },
-	user: { findMany: jest.fn() },
+	tgemInvoiceCase: { findMany: jest.fn(), update: jest.fn() },
+	tgemInvoiceDocument: { findFirst: jest.fn() },
+	tgemInvoiceAuditEvent: { create: jest.fn() },
+	user: { findMany: jest.fn(), findUnique: jest.fn() },
 	tgemInvoiceApprovalTemplate: { findFirst: jest.fn() },
 	tgemInvoiceWorkflowManager: { findMany: jest.fn() },
 };
@@ -15,8 +19,18 @@ jest.mock("@/lib/tgem-invoice-approval/fixture", () => ({
 	isTgemInvoiceFixtureModeEnabled: () => false,
 	ensureTgemInvoiceFixture: jest.fn(),
 }));
+jest.mock("@/lib/tgem-invoice-approval/processor", () => ({
+	processTgemInvoice: (...args: unknown[]) => mockProcessTgemInvoice(...args),
+}));
+jest.mock("@/lib/tgem-invoice-approval/ocr", () => ({
+	persistTgemInvoiceOcrResult: (...args: unknown[]) =>
+		mockPersistTgemInvoiceOcrResult(...args),
+}));
 
-import { getTgemInvoiceDashboardData } from "@/server/actions/tgem-invoice-actions";
+import {
+	getTgemInvoiceDashboardData,
+	runTgemInvoiceOcr,
+} from "@/server/actions/tgem-invoice-actions";
 
 describe("TGEM invoice dashboard authorization data", () => {
 	beforeEach(() => {
@@ -118,5 +132,66 @@ describe("TGEM invoice dashboard authorization data", () => {
 				canManageWorkflowManagers: false,
 			}),
 		);
+	});
+});
+
+describe("TGEM invoice processing", () => {
+	const originalFetch = global.fetch;
+
+	beforeEach(() => {
+		jest.clearAllMocks();
+		mockRequireUser.mockResolvedValue({ id: "user-1" });
+		mockPrisma.user.findUnique.mockResolvedValue({ organizationId: "org-1" });
+		mockPrisma.tgemInvoiceDocument.findFirst.mockResolvedValue({
+			id: "document-1",
+			contentType: "image/jpeg",
+			storageProvider: "uploadthing",
+			storageKey: "invoice.jpg",
+			canonicalUrl: "https://files.example.test/invoice.jpg",
+		});
+		global.fetch = jest.fn().mockResolvedValue({
+			ok: true,
+			arrayBuffer: async () => Buffer.from("invoice"),
+		}) as never;
+		mockProcessTgemInvoice.mockResolvedValue({
+			provider: "openai",
+			pages: [],
+			fields: {},
+			lineItems: [],
+		});
+		mockPersistTgemInvoiceOcrResult.mockResolvedValue({
+			pageCount: 1,
+			lineItemCount: 2,
+			warningCount: 0,
+		});
+	});
+
+	afterAll(() => {
+		global.fetch = originalFetch;
+	});
+
+	it("uses the processor boundary and records a provider-neutral completion event", async () => {
+		await expect(
+			runTgemInvoiceOcr({
+				invoiceCaseId: "invoice-1",
+				documentId: "document-1",
+			}),
+		).resolves.toEqual({
+			provider: "openai",
+			pageCount: 1,
+			lineItemCount: 2,
+			warningCount: 0,
+		});
+
+		expect(mockProcessTgemInvoice).toHaveBeenCalledWith({
+			content: Buffer.from("invoice"),
+			mimeType: "image/jpeg",
+		});
+		expect(mockPrisma.tgemInvoiceAuditEvent.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				eventType: "invoice_extraction_completed",
+				payload: expect.objectContaining({ provider: "openai" }),
+			}),
+		});
 	});
 });

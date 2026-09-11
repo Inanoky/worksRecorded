@@ -8,7 +8,6 @@ import {
 	Copy,
 	FileText,
 	Loader2,
-	LocateFixed,
 	Settings2,
 } from "lucide-react";
 import Image from "next/image";
@@ -20,7 +19,6 @@ import { Separator } from "@/components/ui/separator";
 import type {
 	TgemDashboardData,
 	TgemDashboardInvoice,
-	TgemDashboardSourceAnchor,
 } from "@/lib/tgem-invoice-approval/dashboard-types";
 import { getTgemInvoiceDashboardData } from "@/server/actions/tgem-invoice-actions";
 import { TgemApprovalControls } from "./TgemApprovalControls";
@@ -51,6 +49,7 @@ function getCopy(language?: string | null) {
 			lines: "Pozīcijas",
 			audit: "Darbību vēsture",
 			document: "Dokuments",
+			textVersion: "Teksta versija",
 			noDocument: "Dokuments nav pieejams.",
 			ocr: "OCR statuss",
 			extraction: "MI apstrāde",
@@ -59,8 +58,6 @@ function getCopy(language?: string | null) {
 			copyText: "Kopēt tekstu",
 			copied: "Nokopēts",
 			noOcrText: "OCR teksts vēl nav pieejams.",
-			showSource: "Parādīt dokumentā",
-			sourceHint: "Izvēlieties tekstu tieši dokumentā, lai to kopētu.",
 			approvalSetup: "Apstiprināšanas iestatījumi",
 		};
 	}
@@ -83,6 +80,7 @@ function getCopy(language?: string | null) {
 			lines: "Позиции",
 			audit: "История действий",
 			document: "Документ",
+			textVersion: "Текстовая версия",
 			noDocument: "Документ недоступен.",
 			ocr: "Статус OCR",
 			extraction: "Обработка ИИ",
@@ -91,8 +89,6 @@ function getCopy(language?: string | null) {
 			copyText: "Копировать текст",
 			copied: "Скопировано",
 			noOcrText: "Текст OCR пока недоступен.",
-			showSource: "Показать в документе",
-			sourceHint: "Выделите текст прямо в документе, чтобы скопировать его.",
 			approvalSetup: "Настройки согласования",
 		};
 	}
@@ -114,6 +110,7 @@ function getCopy(language?: string | null) {
 		lines: "Line items",
 		audit: "Activity history",
 		document: "Document",
+		textVersion: "Text version",
 		noDocument: "No document is available.",
 		ocr: "OCR status",
 		extraction: "AI processing",
@@ -122,8 +119,6 @@ function getCopy(language?: string | null) {
 		copyText: "Copy text",
 		copied: "Copied",
 		noOcrText: "OCR text is not available yet.",
-		showSource: "Show in document",
-		sourceHint: "Select text directly on the document to copy it.",
 		approvalSetup: "Approval setup",
 	};
 }
@@ -158,49 +153,13 @@ function statusLabel(status: string) {
 	return status.replaceAll("_", " ");
 }
 
-function Field({
-	label,
-	value,
-	onLocate,
-	active,
-	locateLabel,
-}: {
-	label: string;
-	value: React.ReactNode;
-	onLocate?: () => void;
-	active?: boolean;
-	locateLabel?: string;
-}) {
-	const content = (
-		<>
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+	return (
+		<div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
 			<div className="min-w-0 flex-1">
 				<div className="text-xs text-muted-foreground">{label}</div>
 				<div className="truncate text-sm font-medium">{value || "—"}</div>
 			</div>
-			{onLocate ? (
-				<LocateFixed
-					className={`h-4 w-4 shrink-0 ${active ? "text-blue-700" : "text-blue-500"}`}
-				/>
-			) : null}
-		</>
-	);
-
-	if (onLocate) {
-		return (
-			<button
-				type="button"
-				onClick={onLocate}
-				aria-label={`${locateLabel}: ${label}`}
-				className={`flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${active ? "border-blue-500 bg-blue-50 ring-1 ring-blue-200" : "bg-background hover:border-blue-300 hover:bg-blue-50/50"}`}
-			>
-				{content}
-			</button>
-		);
-	}
-
-	return (
-		<div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
-			{content}
 		</div>
 	);
 }
@@ -208,41 +167,17 @@ function Field({
 function OcrDocumentViewer({
 	document,
 	copy,
-	activeSource,
+	view,
 }: {
 	document: TgemDashboardInvoice["documents"][number];
 	copy: ReturnType<typeof getCopy>;
-	activeSource: TgemDashboardSourceAnchor | null;
+	view: "document" | "text";
 }) {
 	const [copied, setCopied] = React.useState(false);
-	const scrollContainerRef = React.useRef<HTMLDivElement>(null);
-	const firstPage = document.ocrPages[0];
-	const pageWidth = firstPage?.width ?? 1;
-	const pageHeight = firstPage?.height ?? 1;
 	const ocrText = document.ocrPages
 		.map((page) => page.text?.trim())
 		.filter(Boolean)
 		.join("\n\n");
-	const hasOverlay = Boolean(
-		document.contentType !== "application/pdf" &&
-			firstPage?.width &&
-			firstPage.height &&
-			firstPage.blocks.length,
-	);
-	const visibleSource =
-		activeSource?.pageNumber === firstPage?.pageNumber ? activeSource : null;
-
-	React.useEffect(() => {
-		const container = scrollContainerRef.current;
-		if (!container || !visibleSource) return;
-		const targetTop = visibleSource.top * container.scrollHeight;
-		const top = Math.max(0, targetTop - container.clientHeight / 2);
-		if (typeof container.scrollTo === "function") {
-			container.scrollTo({ top, behavior: "smooth" });
-		} else {
-			container.scrollTop = top;
-		}
-	}, [visibleSource]);
 
 	async function copyText() {
 		if (!ocrText) return;
@@ -265,90 +200,21 @@ function OcrDocumentViewer({
 		window.setTimeout(() => setCopied(false), 1600);
 	}
 
-	return (
-		<div className="flex h-full min-h-[32rem] flex-col gap-3">
-			{document.contentType === "application/pdf" ? (
-				<iframe
-					title={document.originalFilename}
-					src={document.documentPath}
-					className="min-h-0 flex-1 rounded-md border bg-white"
-				/>
-			) : hasOverlay ? (
-				<div
-					ref={scrollContainerRef}
-					className="min-h-0 flex-1 overflow-auto rounded-md border bg-muted/20 p-2"
-				>
-					<div
-						className="relative mx-auto w-full overflow-hidden bg-white"
-						style={{
-							aspectRatio: `${pageWidth} / ${pageHeight}`,
-							containerType: "inline-size",
-						}}
-					>
-						<Image
-							src={document.documentPath}
-							alt={document.originalFilename}
-							fill
-							unoptimized
-							sizes="(max-width: 1280px) 100vw, 60vw"
-							className="object-fill"
-						/>
-						<div data-testid="tgem-ocr-overlay" className="absolute inset-0">
-							{firstPage.blocks.map((block, index) => (
-								<span
-									key={`${firstPage.pageNumber}-${index}-${block.text}`}
-									data-ocr-kind={block.kind}
-									className="pointer-events-auto absolute z-10 origin-top-left cursor-text overflow-visible whitespace-nowrap text-transparent leading-none select-text selection:bg-blue-400/35 selection:text-transparent hover:bg-blue-300/15"
-									style={{
-										left: `${block.left * 100}%`,
-										top: `${block.top * 100}%`,
-										width: `${block.width * 100}%`,
-										height: `${block.height * 100}%`,
-										fontSize: `${Math.max(block.height * (pageHeight / pageWidth) * 100, 0.45)}cqw`,
-									}}
-									title={block.text}
-								>
-									{block.text}
-								</span>
-							))}
-							{visibleSource ? (
-								<div
-									data-testid="tgem-field-source-highlight"
-									className="pointer-events-none absolute z-20 rounded-sm border-2 border-blue-600 bg-blue-300/20 shadow-[0_0_0_2px_rgba(255,255,255,0.75)]"
-									style={{
-										left: `${visibleSource.left * 100}%`,
-										top: `${visibleSource.top * 100}%`,
-										width: `${visibleSource.width * 100}%`,
-										height: `${visibleSource.height * 100}%`,
-									}}
-								/>
-							) : null}
-						</div>
-					</div>
-				</div>
-			) : (
-				<div className="flex min-h-0 flex-1 items-center justify-center rounded-md border bg-muted/20 text-sm text-muted-foreground">
-					<Image
-						src={document.documentPath}
-						alt={document.originalFilename}
-						width={1200}
-						height={1600}
-						unoptimized
-						className="max-h-full w-auto object-contain"
-					/>
-				</div>
-			)}
-			<div className="rounded-md border bg-background p-3">
-				<p className="mb-2 text-xs text-blue-700">{copy.sourceHint}</p>
-				<div className="mb-2 flex items-center justify-between gap-2">
-					<div className="text-xs font-medium text-muted-foreground">
+	if (view === "text") {
+		return (
+			<div
+				data-testid="tgem-ocr-text-version"
+				className="flex h-full min-h-[32rem] flex-col overflow-hidden rounded-md border bg-slate-50 dark:bg-slate-950/30"
+			>
+				<div className="flex items-center justify-between gap-3 border-b bg-background/80 px-3 py-2">
+					<span className="text-xs font-medium text-muted-foreground">
 						{copy.ocrText}
-					</div>
+					</span>
 					<button
 						type="button"
 						onClick={() => void copyText()}
 						disabled={!ocrText}
-						className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+						className="inline-flex items-center gap-1.5 rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium transition hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{copied ? (
 							<Check className="h-3.5 w-3.5" />
@@ -363,9 +229,32 @@ function OcrDocumentViewer({
 					readOnly
 					value={ocrText}
 					placeholder={copy.noOcrText}
-					className="min-h-24 w-full resize-y rounded-md border bg-muted/20 p-2 text-xs leading-5"
+					className="min-h-0 flex-1 resize-none border-0 bg-transparent p-4 font-mono text-xs leading-6 outline-none selection:bg-blue-200 dark:selection:bg-blue-800"
 				/>
 			</div>
+		);
+	}
+
+	return (
+		<div className="flex h-full min-h-[32rem] flex-col">
+			{document.contentType === "application/pdf" ? (
+				<iframe
+					title={document.originalFilename}
+					src={document.documentPath}
+					className="min-h-0 flex-1 rounded-md border bg-white"
+				/>
+			) : (
+				<div className="flex min-h-0 flex-1 items-center justify-center rounded-md border bg-muted/20 text-sm text-muted-foreground">
+					<Image
+						src={document.documentPath}
+						alt={document.originalFilename}
+						width={1200}
+						height={1600}
+						unoptimized
+						className="max-h-full w-auto object-contain"
+					/>
+				</div>
+			)}
 		</div>
 	);
 }
@@ -386,20 +275,11 @@ function InvoiceDetails({
 	onChanged: () => Promise<void>;
 }) {
 	const document = invoice.documents[0];
-	const [activeField, setActiveField] = React.useState<string | null>(null);
-	const activeSource = activeField
-		? (invoice.fieldAnchors[activeField] ?? null)
-		: null;
-	const sourceField = (name: string, label: string, value: React.ReactNode) => (
-		<Field
-			label={label}
-			value={value}
-			onLocate={
-				invoice.fieldAnchors[name] ? () => setActiveField(name) : undefined
-			}
-			active={activeField === name}
-			locateLabel={copy.showSource}
-		/>
+	const [documentView, setDocumentView] = React.useState<"document" | "text">(
+		"document",
+	);
+	const sourceField = (label: string, value: React.ReactNode) => (
+		<Field label={label} value={value} />
 	);
 
 	return (
@@ -417,20 +297,11 @@ function InvoiceDetails({
 						<CardTitle className="text-base">{copy.details}</CardTitle>
 					</CardHeader>
 					<CardContent className="grid gap-3 sm:grid-cols-2">
-						{sourceField("supplierName", copy.supplier, invoice.supplierName)}
+						{sourceField(copy.supplier, invoice.supplierName)}
+						{sourceField(copy.invoiceNumber, invoice.invoiceNumber)}
+						{sourceField(copy.invoiceDate, formatDate(invoice.invoiceDate))}
+						{sourceField(copy.dueDate, formatDate(invoice.dueDate))}
 						{sourceField(
-							"invoiceNumber",
-							copy.invoiceNumber,
-							invoice.invoiceNumber,
-						)}
-						{sourceField(
-							"invoiceDate",
-							copy.invoiceDate,
-							formatDate(invoice.invoiceDate),
-						)}
-						{sourceField("dueDate", copy.dueDate, formatDate(invoice.dueDate))}
-						{sourceField(
-							"total",
 							copy.total,
 							formatMoney(invoice.total, invoice.currency),
 						)}
@@ -490,10 +361,26 @@ function InvoiceDetails({
 
 			<Card className="min-h-[38rem]">
 				<CardHeader>
-					<CardTitle className="flex items-center gap-2 text-base">
-						<FileText className="h-4 w-4 text-blue-600" />
-						{copy.document}
-					</CardTitle>
+					<div className="flex flex-wrap items-center gap-2">
+						<CardTitle className="flex items-center gap-2 text-base">
+							<FileText className="h-4 w-4 text-blue-600" />
+							{documentView === "document" ? copy.document : copy.textVersion}
+						</CardTitle>
+						{document ? (
+							<button
+								type="button"
+								onClick={() =>
+									setDocumentView((current) =>
+										current === "document" ? "text" : "document",
+									)
+								}
+								aria-pressed={documentView === "text"}
+								className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-800 transition hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/70"
+							>
+								{documentView === "document" ? copy.textVersion : copy.document}
+							</button>
+						) : null}
+					</div>
 				</CardHeader>
 				<CardContent className="h-[calc(100%-5rem)]">
 					{document ? (
@@ -501,7 +388,7 @@ function InvoiceDetails({
 							<OcrDocumentViewer
 								document={document}
 								copy={copy}
-								activeSource={activeSource}
+								view={documentView}
 							/>
 							<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
 								<span>{document.originalFilename}</span>

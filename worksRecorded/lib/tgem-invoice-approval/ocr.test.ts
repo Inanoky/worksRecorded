@@ -16,7 +16,7 @@ describe("persistTgemInvoiceOcrResult", () => {
 				invoiceCaseId: "case-1",
 				documentId: "document-1",
 				result: {
-					provider: "google-document-ai",
+					provider: "openai",
 					fields: {
 						invoiceNumber: {
 							rawText: "INV-1",

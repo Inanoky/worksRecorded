@@ -15,12 +15,12 @@ import {
 	ensureTgemInvoiceFixture,
 	isTgemInvoiceFixtureModeEnabled,
 } from "@/lib/tgem-invoice-approval/fixture";
-import { processTgemInvoiceWithGoogleDocumentAi } from "@/lib/tgem-invoice-approval/google-document-ai";
 import type {
 	TgemInvoiceIntakeInput,
 	TgemInvoiceSource,
 } from "@/lib/tgem-invoice-approval/intake";
 import { persistTgemInvoiceOcrResult } from "@/lib/tgem-invoice-approval/ocr";
+import { processTgemInvoice } from "@/lib/tgem-invoice-approval/processor";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { isSuperUserId } from "@/lib/utils/super-user";
@@ -175,7 +175,7 @@ export async function runTgemInvoiceOcr(input: {
 
 	try {
 		const content = await readTgemInvoiceDocument(document);
-		const result = await processTgemInvoiceWithGoogleDocumentAi({
+		const result = await processTgemInvoice({
 			content,
 			mimeType: document.contentType,
 		});
@@ -191,7 +191,7 @@ export async function runTgemInvoiceOcr(input: {
 				organizationId: dbUser.organizationId,
 				actorUserId: user.id,
 				actorType: "system",
-				eventType: "google_ocr_completed",
+				eventType: "invoice_extraction_completed",
 				fromStatus: "processing",
 				toStatus: "needs_review",
 				payload: {

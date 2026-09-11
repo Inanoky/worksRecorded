@@ -183,21 +183,19 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		expect(
 			screen.getByRole("img", { name: "tgem-invoice-fixture.png" }),
 		).toBeInTheDocument();
-		expect(screen.getByTestId("tgem-ocr-overlay")).toBeInTheDocument();
-		expect(screen.getByTitle("Invoice Date: 18/01/24")).toHaveAttribute(
-			"data-ocr-kind",
-			"token",
-		);
-		fireEvent.click(
-			screen.getByRole("button", {
-				name: "Show in document: Invoice date",
-			}),
-		);
-		expect(
-			screen.getByTestId("tgem-field-source-highlight"),
-		).toBeInTheDocument();
+		expect(screen.queryByTestId("tgem-ocr-overlay")).not.toBeInTheDocument();
+		expect(screen.queryByLabelText("Recognized text")).not.toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Text version" }));
+		expect(screen.getByTestId("tgem-ocr-text-version")).toBeInTheDocument();
 		expect(
 			screen.getByDisplayValue(/Invoice Date: 18\/01\/24/),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("img", { name: "tgem-invoice-fixture.png" }),
+		).not.toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Document" }));
+		expect(
+			screen.getByRole("img", { name: "tgem-invoice-fixture.png" }),
 		).toBeInTheDocument();
 		expect(screen.getByText("fixture created")).toBeInTheDocument();
 		expect(screen.getByLabelText("Choose invoice")).toBeInTheDocument();
@@ -214,7 +212,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			},
 		]);
 		jest.mocked(runTgemInvoiceOcr).mockResolvedValue({
-			provider: "google-document-ai",
+			provider: "openai",
 			pageCount: 1,
 			lineItemCount: 5,
 			warningCount: 1,
@@ -305,6 +303,9 @@ describe("TgemInvoiceApprovalDashboard", () => {
 				name: "Apstiprināšanas iestatījumi",
 			}),
 		);
+		expect(
+			screen.getByRole("button", { name: "Teksta versija" }),
+		).toBeInTheDocument();
 		fireEvent.click(
 			screen.getByRole("button", { name: "Pievienot kontroles punktu" }),
 		);
