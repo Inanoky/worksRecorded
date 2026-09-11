@@ -85,7 +85,7 @@ async function main() {
     throw new Error("User created but no user id returned");
   }
 
-  // 2) Set password (hashed)
+  // 2) Set password (hashed)a
   const hashedPassword = await bcryptHash(PASSWORD);
 
   const pwdRes = await fetch(
