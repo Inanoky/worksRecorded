@@ -53,6 +53,14 @@ function formatNumber(value: number | null, locale: string) {
 	);
 }
 
+function actualCostClassName(actual: number, budget: number) {
+	const actualCents = Math.round(actual * 100);
+	if (actualCents === 0) return "text-gray-400 dark:text-gray-500";
+	return actualCents > Math.round(budget * 100)
+		? "text-red-600 dark:text-red-400"
+		: "text-green-600 dark:text-green-400";
+}
+
 function Forma2TotalsRow({
 	totals,
 	t,
@@ -79,16 +87,42 @@ function Forma2TotalsRow({
 			<TableCell className="px-1 text-right font-bold tabular-nums">
 				{formatCurrency(totals.plannedTotalCost, locale)}
 			</TableCell>
-			<TableCell className="border-l px-1 text-right font-bold tabular-nums">
+			<TableCell
+				className={cn(
+					"border-l px-1 text-right font-bold tabular-nums",
+					actualCostClassName(totals.actualWorkCost, totals.plannedWorkCost),
+				)}
+			>
 				{formatCurrency(totals.actualWorkCost, locale)}
 			</TableCell>
-			<TableCell className="px-1 text-right font-bold tabular-nums">
+			<TableCell
+				className={cn(
+					"px-1 text-right font-bold tabular-nums",
+					actualCostClassName(
+						totals.actualMaterialCost,
+						totals.plannedMaterialCost,
+					),
+				)}
+			>
 				{formatCurrency(totals.actualMaterialCost, locale)}
 			</TableCell>
-			<TableCell className="px-1 text-right font-bold tabular-nums">
+			<TableCell
+				className={cn(
+					"px-1 text-right font-bold tabular-nums",
+					actualCostClassName(
+						totals.actualMechanismCost,
+						totals.plannedMechanismCost,
+					),
+				)}
+			>
 				{formatCurrency(totals.actualMechanismCost, locale)}
 			</TableCell>
-			<TableCell className="px-1 text-right font-bold tabular-nums">
+			<TableCell
+				className={cn(
+					"px-1 text-right font-bold tabular-nums",
+					actualCostClassName(totals.actualTotalCost, totals.plannedTotalCost),
+				)}
+			>
 				{formatCurrency(totals.actualTotalCost, locale)}
 			</TableCell>
 			<TableCell
@@ -269,7 +303,15 @@ function Forma2ResultsView({
 									<TableCell className="px-1 text-right font-medium tabular-nums">
 										{formatCurrency(row.plannedTotalCost, locale)}
 									</TableCell>
-									<TableCell className="border-l px-1 text-right tabular-nums">
+									<TableCell
+										className={cn(
+											"border-l px-1 text-right tabular-nums [&_button:hover]:text-inherit",
+											actualCostClassName(
+												row.actualWorkCost,
+												row.plannedWorkCost,
+											),
+										)}
+									>
 										<DefaultConstructionForma2CostBreakdown
 											siteId={siteId}
 											positionId={row.id}
@@ -278,7 +320,15 @@ function Forma2ResultsView({
 											organizationLanguage={organizationLanguage}
 										/>
 									</TableCell>
-									<TableCell className="px-1 text-right tabular-nums">
+									<TableCell
+										className={cn(
+											"px-1 text-right tabular-nums [&_button:hover]:text-inherit",
+											actualCostClassName(
+												row.actualMaterialCost,
+												row.plannedMaterialCost,
+											),
+										)}
+									>
 										<DefaultConstructionForma2CostBreakdown
 											siteId={siteId}
 											positionId={row.id}
@@ -287,10 +337,26 @@ function Forma2ResultsView({
 											organizationLanguage={organizationLanguage}
 										/>
 									</TableCell>
-									<TableCell className="px-1 text-right tabular-nums">
+									<TableCell
+										className={cn(
+											"px-1 text-right tabular-nums",
+											actualCostClassName(
+												row.actualMechanismCost,
+												row.plannedMechanismCost,
+											),
+										)}
+									>
 										{formatCurrency(row.actualMechanismCost, locale)}
 									</TableCell>
-									<TableCell className="px-1 text-right font-medium tabular-nums">
+									<TableCell
+										className={cn(
+											"px-1 text-right font-medium tabular-nums [&_button:hover]:text-inherit",
+											actualCostClassName(
+												row.actualTotalCost,
+												row.plannedTotalCost,
+											),
+										)}
+									>
 										<DefaultConstructionForma2CostBreakdown
 											siteId={siteId}
 											positionId={row.id}
