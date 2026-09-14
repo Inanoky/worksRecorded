@@ -16,10 +16,10 @@ if (!KINDE_DOMAIN || !M2M_CLIENT_ID || !M2M_CLIENT_SECRET) {
 // =====================
 // HARD-CODE USER HEREa
 // =====================
-const USERNAME = "Vladimir_Nikitins";
-const PASSWORD = "v9#Lq2!Tz7@Np4$Rx8&K"; // will be bcrypt-hashed
-const GIVEN_NAME = "Vladimir";
-const FAMILY_NAME = "Nikitins";
+const USERNAME = "Janis_AB_buvnieciba";
+const PASSWORD = "V9!qL4#tR7@wN2$xK8" ; // will be bcrypt-hashed
+const GIVEN_NAME = "Janis";
+const FAMILY_NAME = "AB";
 
 // =====================
 // HELPERS

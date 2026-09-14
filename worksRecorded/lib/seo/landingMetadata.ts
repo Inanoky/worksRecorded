@@ -19,7 +19,7 @@ const localeConfig: Record<SupportedLocale, { ogLocale: string; language: string
 
 const latvianLandingSeo: Record<string, SeoContent> = {
   "/Landing": {
-    title: "Būvdarbu žurnāls WhatsApp un BIS integrācija | WorksRecorded",
+    title: "Būvniecības datu analītika | WorksRecorded",
     description:
       "WorksRecorded palīdz Latvijas būvniecības uzņēmumiem veidot būvdarbu žurnālu, darba laika uzskaiti un BIS ierakstus no WhatsApp ziņām ar MI automatizāciju.",
     keywords: [

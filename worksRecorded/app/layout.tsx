@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   ),
   applicationName: "WorksRecorded",
   title: {
-    default: "Būvdarbu žurnāls WhatsApp un BIS integrācija | WorksRecorded",
+    default: "Būvniecības datu analītika | WorksRecorded",
     template: "%s | WorksRecorded",
   },
   description:
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "Būvdarbu žurnāls WhatsApp un BIS integrācija | WorksRecorded",
+    title: "Būvniecības datu analītika | WorksRecorded",
     description:
       "Būvobjekta balss ziņas, foto, darba stundas un BIS ieraksti vienā digitālā plūsmā Latvijas būvniecības komandām.",
     url: "/lv/Landing",
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Būvdarbu žurnāls WhatsApp un BIS integrācija | WorksRecorded",
+    title: "Būvniecības datu analītika | WorksRecorded",
     description:
       "Būvobjekta balss ziņas, foto, darba stundas un BIS ieraksti vienā digitālā plūsmā Latvijas būvniecības komandām.",
     images: ["/hero.png"],
