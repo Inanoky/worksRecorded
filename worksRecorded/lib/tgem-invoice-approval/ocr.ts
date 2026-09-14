@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import type { TgemInvoiceOcrResult } from "@/lib/tgem-invoice-approval/google-document-ai";
+import type { TgemInvoiceOcrResult } from "@/lib/tgem-invoice-approval/ocr-types";
 
 type TgemOcrDatabase = Pick<
 	PrismaClient,
