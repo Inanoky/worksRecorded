@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.worksrecorded.com";
-const DEFAULT_IMAGE = "/hero.png";
+const DEFAULT_IMAGE = "/frontend/pages/Home/HeroLaptopDashboardDiagram.png";
 
 type SupportedLocale = "en" | "lv" | "ru";
 
@@ -365,14 +365,14 @@ export function buildLandingMetadata({
       images: [
         {
           url: DEFAULT_IMAGE,
-          width: 1200,
-          height: 630,
+          width: 1536,
+          height: 1024,
           alt:
             normalizedLocale === "lv"
-              ? "WorksRecorded būvdarbu žurnāls un BIS integrācija"
+              ? "WorksRecorded būvniecības datu analītikas panelis"
               : normalizedLocale === "ru"
-                ? "WorksRecorded: учёт строительных работ и отчётность"
-                : "WorksRecorded construction site diary and reporting platform",
+                ? "WorksRecorded: панель аналитики строительных данных"
+                : "WorksRecorded construction data analytics dashboard",
         },
       ],
     },

@@ -153,6 +153,7 @@ export async function switchUserOrganizationAction(
     });
 
     revalidatePath("/dashboard/admin/flow-configs");
+    revalidatePath("/dashboard", "layout");
     const previousOrganization = selectedUser.organization?.name ?? "no organization";
     const displayName =
       [selectedUser.firstName, selectedUser.lastName].filter(Boolean).join(" ") ||

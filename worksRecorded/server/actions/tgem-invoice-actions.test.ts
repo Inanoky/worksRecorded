@@ -110,7 +110,7 @@ describe("TGEM invoice dashboard authorization data", () => {
 		);
 	});
 
-	it("lets the Buvconsult superuser view another organization's TGEM dashboard read-only", async () => {
+	it("keeps the organization-switching admin's TGEM dashboard organization-scoped and read-only", async () => {
 		mockRequireUser.mockResolvedValue({
 			id: "kp_2f5c0987b83a4162ac8819f6339534f8",
 		});
@@ -124,7 +124,14 @@ describe("TGEM invoice dashboard authorization data", () => {
 		const result = await getTgemInvoiceDashboardData("site-1");
 
 		expect(mockPrisma.site.findFirst).toHaveBeenCalledWith(
-			expect.objectContaining({ where: { id: "site-1" } }),
+			expect.objectContaining({
+				where: {
+					id: "site-1",
+					organization: {
+						users: { some: { id: "kp_2f5c0987b83a4162ac8819f6339534f8", status: "active" } },
+					},
+				},
+			}),
 		);
 		expect(result?.approvalSetup).toEqual(
 			expect.objectContaining({

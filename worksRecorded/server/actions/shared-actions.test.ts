@@ -47,7 +47,6 @@ jest.mock("@/lib/utils/stripe", () => ({
 import defaultConfigLV from "@/components/sitediary/configs/defaultConfigLV_27042026.json";
 import {
 	FLOW_CONFIG_ADMIN_USER_ID,
-	SUPER_USER_IDS,
 } from "@/lib/production-flow/config";
 import { defaultProgram } from "@/lib/utils/DefaultProgram";
 import { prisma } from "@/lib/utils/db";
@@ -179,17 +178,16 @@ describe("orgCheck", () => {
 		});
 	});
 
-	it("allows the Buvconsult superuser to open any project", async () => {
-		const site = {
-			id: "site-2",
-			name: "Other project",
-			organizationId: "org-2",
-		};
-		jest.mocked(prisma.site.findFirst).mockResolvedValue(site as never);
+	it("denies the organization-switching admin access to another organization's project", async () => {
+		const userId = "kp_2f5c0987b83a4162ac8819f6339534f8";
+		jest.mocked(prisma.site.findFirst).mockResolvedValue(null);
 
-		await expect(orgCheck(SUPER_USER_IDS[1], "site-2")).resolves.toEqual(site);
+		await expect(orgCheck(userId, "site-2")).resolves.toBe(false);
 		expect(prisma.site.findFirst).toHaveBeenCalledWith({
-			where: { id: "site-2" },
+			where: {
+				id: "site-2",
+				organization: { users: { some: { id: userId } } },
+			},
 			select: { id: true, name: true, organizationId: true },
 		});
 	});

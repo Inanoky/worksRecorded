@@ -46,10 +46,10 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/hero.png",
-        width: 1200,
-        height: 630,
-        alt: "WorksRecorded būvdarbu žurnāls un BIS integrācija",
+        url: "/frontend/pages/Home/HeroLaptopDashboardDiagram.png",
+        width: 1536,
+        height: 1024,
+        alt: "WorksRecorded būvniecības datu analītikas panelis",
       },
     ],
   },
@@ -58,7 +58,7 @@ export const metadata: Metadata = {
     title: "Būvniecības datu analītika | WorksRecorded",
     description:
       "Būvobjekta balss ziņas, foto, darba stundas un BIS ieraksti vienā digitālā plūsmā Latvijas būvniecības komandām.",
-    images: ["/hero.png"],
+    images: ["/frontend/pages/Home/HeroLaptopDashboardDiagram.png"],
   },
   robots: {
     index: true,
