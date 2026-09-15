@@ -102,6 +102,8 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
 	const systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activities on site. Analyze and map Location and Works
   according to the zod schema you are given
 
+  Set Location only when supported by the current message or an allowed explicit reference to trusted context. Otherwise leave Location null. Never select a location merely because it is the only dropdown option or appeared in a previous report. Preserve explicitly stated locations using the matching schema option.
+
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
   For comments describe what was completed, where and with what labor in ${language} if information present. 
   

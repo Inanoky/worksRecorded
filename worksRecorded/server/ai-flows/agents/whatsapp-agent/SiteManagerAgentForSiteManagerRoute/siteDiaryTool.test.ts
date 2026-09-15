@@ -985,6 +985,63 @@ describe("save_to_database site diary tool", () => {
 		]);
 	});
 
+	it.each([
+		["divus", false],
+		["2", true],
+	])("clears only the unsupported location for a report with %s pipes", async (quantity, numericQuantity) => {
+		const question = `Papildus darbs. Uzstādām ${quantity} ventilācijas caurules 600 mm diametrā, kāļu pāļu pagarināšanai. Stundas sekos.`;
+		getConfigMock.mockResolvedValue({
+			...siteConfig,
+			Location: { Type: "dropdown", DisplayName: "Area", DropDownOptions: { foundations: "Pamati" } },
+			Works: { Type: "dropdown", DisplayName: "Activity", DropDownOptions: { additional: "Papildu darbi" } },
+			Comments: { Type: "textInput", DisplayName: "Comments" },
+			Units: { Type: "dropdown", DisplayName: "Mrv", DropDownOptions: { pieces: "gab" } },
+		});
+		buildSiteDiaryExtractionContextMock.mockResolvedValue({
+			text: "CurrentMessageHasExplicitContextReference: false\nLocation options: Pamati\nReference item 1: Location: Pamati",
+			metadata: { recentRecordCount: 1, hasExplicitContextReference: false, schemaOptionCount: 1, truncated: false },
+		});
+		structuredInvokeMock
+			.mockResolvedValueOnce({ records: [{ Area: "Pamati", Activity: "Papildu darbi", Quantity: 2, Mrv: "gab", Workers: null, Hours: null, Comments: question }] })
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "repairable",
+					reason: "Lokācija nav norādīta pašreizējā ziņā.",
+					badSplitSignals: [],
+					repairInstructions: "Atstāt lokāciju tukšu un saglabāt vienu ierakstu.",
+					expectedRecordCount: 1,
+					repairActions: [{ rowIndex: 0, field: "Location", operation: "set_null", reason: "Nepamatota lokācija." }],
+				},
+				raw: {},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1, recordIds: ["record-1"] });
+
+		await expect(extractAndSaveSiteDiary({ question, requestedDate: "15-09-2026" })).resolves.toMatchObject({ ok: true, count: 1 });
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(2);
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+		const rows = saveSiteDiaryRecordMock.mock.calls[0][0].rows;
+		expect(rows).toEqual([expect.objectContaining({ Location: null, Works: "Papildu darbi", WorkersInvolved: null, TimeInvolved: null, Comments: question })]);
+		if (numericQuantity) expect(rows[0]).toMatchObject({ Amounts: 2, Units: "gab" });
+		expect(recordTraceMock).toHaveBeenCalledWith(expect.objectContaining({ checker: expect.objectContaining({ appliedRepair: true, repairVerdict: "accept" }) }));
+	});
+
+	it.each(["accept", "unsafe"])("preserves explicitly stated locations and respects the %s verdict", async (verdict) => {
+		structuredInvokeMock
+			.mockResolvedValueOnce({ records: [{ Area: "Pamati", Activity: "Concrete pour", Quantity: 2, Mrv: "m3" }] })
+			.mockResolvedValueOnce({ parsed: { verdict, reason: "Pārbaudes rezultāts.", badSplitSignals: [], repairInstructions: "", expectedRecordCount: 1, repairActions: [] }, raw: {} });
+		saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1, recordIds: ["record-1"] });
+
+		const result = await extractAndSaveSiteDiary({ question: "Pamati: iebetonēti 2 m3 betona.", requestedDate: "15-09-2026" });
+		if (verdict === "unsafe") {
+			expect(result).toMatchObject({ ok: false, count: 0 });
+			expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+		} else {
+			expect(result).toMatchObject({ ok: true, count: 1 });
+			expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([expect.objectContaining({ Location: "Pamati", Amounts: 2, Units: "m3" })]);
+		}
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(2);
+	});
+
 	it("preserves source-backed amount and unit when checker asks to null them", async () => {
 		structuredInvokeMock
 			.mockResolvedValueOnce({

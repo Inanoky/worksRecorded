@@ -22,7 +22,7 @@ export const siteDiaryExtractionCheckerSchema = z.object({
 		.array(
 			z.object({
 				rowIndex: z.number().int().min(0).max(24),
-				field: z.enum(["Amounts", "Units", "WorkersInvolved", "TimeInvolved"]),
+				field: z.enum(["Amounts", "Units", "WorkersInvolved", "TimeInvolved", "Location"]),
 				operation: z.enum(["set_null"]),
 				reason: z.string().max(240),
 			}),
@@ -90,6 +90,7 @@ A number directly counting completed construction objects implies pieces even wh
 Reject or repair unsupported Amounts/Units only when they came from context numbers, apartment/floor numbers, layer counts, worker counts, hours, start times, or material dimensions/specifications such as "22 mm" or "45x45 latojums".
 Return verdict=accept when the row count and split are safe enough to save automatically.
 Return verdict=repairable when the row count and split are safe, but a small field-level issue can be fixed by setting nullable fields to null. Include repairActions for every field to null.
+If the only unsupported field is Location, return verdict=repairable with a set_null repairAction for Location, not unsafe or needs_model_repair. Keep the source-backed work, quantity, units, comments, workers, and hours unchanged. A location appearing in dropdown options, even as the only option, is not evidence that it applies. Preserve locations supported by the current message or an allowed explicit reference to trusted context.
 Return verdict=needs_model_repair when one real job was split into artificial rows, when machinery/tools/operators/sub-actions were turned into separate jobs, when shared workers/hours/quantity were split without source evidence, or when the original message clearly contains multiple distinct source-backed diary events/jobs but the proposed output merged them into one broad row.
 Return verdict=unsafe when the proposed rows are too ambiguous or unsupported to save automatically and a deterministic field repair or one model repair would be unsafe.
 Use verdict=retry only as a legacy alias for needs_model_repair when needed.
@@ -98,7 +99,7 @@ Return verdict=needs_model_repair when one actor or one machine performing conjo
 Treat "No plkst. HH.MM" and similar "from time" phrases as start times only, not durations. If rows invented TimeInvolved from a start time, return repairable with set_null repairActions when the split is otherwise safe, or needs_model_repair when the row count/split is also wrong.
 Shared duration or worker count does not justify merging material delivery with actual installed/placed work when the source gives separate action+quantity evidence for each, such as "ievesta smilts 160m3" and "iestrādāti 140m3". If a proposed row merges those into one broad row, return verdict=needs_model_repair with expectedRecordCount=2 and instruct the extractor to create one Material delivery row for the delivered quantity and one work row for the installed/placed quantity.
 When material delivery and installed/placed work are already split, reject unsupported delivery WorkersInvolved or TimeInvolved copied from shared work labor/hours. Delivery rows should keep WorkersInvolved and TimeInvolved null unless the source explicitly ties labor/time to delivery, unloading, or transport. If only the delivery fields are wrong, keep expectedRecordCount unchanged, return verdict=repairable, and include set_null repairActions for those delivery fields while preserving the work row labor/hours.
-repairActions are only for safe nulling: rowIndex is zero-based and field must be Amounts, Units, WorkersInvolved, or TimeInvolved. Do not use repairActions to rewrite text, change row categories, invent values, split rows, merge rows, drop rows, or replace a source-backed completed quantity with null.
+repairActions are only for safe nulling: rowIndex is zero-based and field must be Amounts, Units, WorkersInvolved, TimeInvolved, or Location. Do not use repairActions to rewrite text, change row categories, invent values, split rows, merge rows, drop rows, or replace a source-backed completed quantity with null.
 Do not reject merely because there are many rows. Full-day reports can legitimately create many rows when each row has distinct source evidence.
 A row can be a site-diary-relevant note, weather entry, material delivery, machinery note, or work item when it is a real diary event.
 Do not judge enum/category wording harshly unless it caused a wrong split.

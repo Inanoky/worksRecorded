@@ -384,7 +384,7 @@ describe("site diary extraction checker", () => {
 		expect(result.parsed.repairInstructions).toContain("Backfilling");
 	});
 
-	it("parses structured checker field repairs", () => {
+	it.each(["TimeInvolved", "Location"])("parses structured checker repairs for %s", (field) => {
 		expect(
 			siteDiaryExtractionCheckerSchema.parse({
 				verdict: "repairable",
@@ -395,7 +395,7 @@ describe("site diary extraction checker", () => {
 				repairActions: [
 					{
 						rowIndex: 0,
-						field: "TimeInvolved",
+						field,
 						operation: "set_null",
 						reason: "No source-backed time evidence.",
 					},
@@ -404,7 +404,7 @@ describe("site diary extraction checker", () => {
 		).toEqual(
 			expect.objectContaining({
 				verdict: "repairable",
-				repairActions: [expect.objectContaining({ field: "TimeInvolved" })],
+				repairActions: [expect.objectContaining({ field })],
 			}),
 		);
 	});
@@ -539,6 +539,10 @@ describe("site diary extraction checker", () => {
 		);
 		expect(system).toContain("return verdict=repairable");
 		expect(system).toContain("repairActions are only for safe nulling");
+		expect(system).toContain("If the only unsupported field is Location, return verdict=repairable");
+		expect(system).toContain("set_null repairAction for Location, not unsafe");
+		expect(system).toContain("even as the only option, is not evidence");
+		expect(system).toContain("Preserve locations supported by the current message");
 		expect(system).toContain("split into specific separate jobs");
 		expect(human).toContain("Original WhatsApp message");
 		expect(human).toContain("Trusted extraction context");

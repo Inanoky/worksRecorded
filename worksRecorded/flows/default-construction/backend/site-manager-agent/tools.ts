@@ -748,6 +748,7 @@ const safeCheckerNullRepairFields = new Set([
 	"Units",
 	"WorkersInvolved",
 	"TimeInvolved",
+	"Location",
 ]);
 
 function applyStructuredCheckerFieldRepair(args: {

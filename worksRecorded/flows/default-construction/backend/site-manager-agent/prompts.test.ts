@@ -81,6 +81,15 @@ describe("site-manager BIS routing prompt", () => {
     expect(prompt).toContain('"Dz5f durvju aile demontāža" → Amounts: null, Units: null');
   });
 
+  it("leaves unsupported locations empty instead of defaulting to the only option", async () => {
+    const prompt = await systemPromptSaveToDatabaseFunction("user-1", undefined);
+
+    expect(prompt).toContain("Otherwise leave Location null");
+    expect(prompt).toContain("only dropdown option or appeared in a previous report");
+    expect(prompt).toContain("allowed explicit reference to trusted context");
+    expect(prompt).toContain("Preserve explicitly stated locations");
+  });
+
   it("counts multi-role worker evidence without inferring a lone operator", async () => {
     const prompt = await systemPromptSaveToDatabaseFunction("user-1", undefined);
 
