@@ -27,11 +27,14 @@ import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { createPerfTrace } from "@/lib/observability/perf";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
+import { WarehouseInvoiceImport } from "@/flows/default-construction/frontend/WarehouseInvoiceImport";
 import { normalizeWarehouseSourcePhoto } from "@/lib/bis/warehouse-source-photo-group";
 import {
   applyDefaultConstructionForma2MaterialRules,
   getDefaultConstructionForma2MaterialAssignments,
 } from "@/flows/default-construction/backend/forma2-analytics-actions";
+
+export const maxDuration = 120;
 
 type BisApprover = {
   memberId: string;
@@ -2196,6 +2199,9 @@ export default async function MaterialsPage({
       </div>
 
 
+      {flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION ? (
+        <WarehouseInvoiceImport key={siteId} siteId={siteId} organizationLanguage={organizationLanguage} />
+      ) : null}
       <div data-tour="warehouse-table"><MaterialsTableClient
         siteId={siteId}
         organizationLanguage={organizationLanguage}
