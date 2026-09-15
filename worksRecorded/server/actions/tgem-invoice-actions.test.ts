@@ -1,6 +1,7 @@
 const mockRequireUser = jest.fn();
 const mockProcessTgemInvoice = jest.fn();
 const mockPersistTgemInvoiceOcrResult = jest.fn();
+const mockStartTgemInvoiceApproval = jest.fn();
 const mockPrisma = {
 	site: { findFirst: jest.fn() },
 	tgemInvoiceCase: { findMany: jest.fn(), update: jest.fn() },
@@ -25,6 +26,10 @@ jest.mock("@/lib/tgem-invoice-approval/processor", () => ({
 jest.mock("@/lib/tgem-invoice-approval/ocr", () => ({
 	persistTgemInvoiceOcrResult: (...args: unknown[]) =>
 		mockPersistTgemInvoiceOcrResult(...args),
+}));
+jest.mock("@/lib/tgem-invoice-approval/start-approval", () => ({
+	startTgemInvoiceApproval: (...args: unknown[]) =>
+		mockStartTgemInvoiceApproval(...args),
 }));
 
 import {
@@ -92,7 +97,7 @@ describe("TGEM invoice dashboard authorization data", () => {
 		);
 	});
 
-	it("returns read-only approval setup for an ordinary active member", async () => {
+	it("lets an ordinary active member configure the approval sequence", async () => {
 		mockPrisma.site.findFirst.mockResolvedValue({
 			id: "site-1",
 			organizationId: "org-1",
@@ -104,13 +109,13 @@ describe("TGEM invoice dashboard authorization data", () => {
 
 		expect(result?.approvalSetup).toEqual(
 			expect.objectContaining({
-				canManageWorkflow: false,
+				canManageWorkflow: true,
 				canManageWorkflowManagers: false,
 			}),
 		);
 	});
 
-	it("keeps the organization-switching admin's TGEM dashboard organization-scoped and read-only", async () => {
+	it("keeps the organization-switching admin organization-scoped with sequence access", async () => {
 		mockRequireUser.mockResolvedValue({
 			id: "kp_2f5c0987b83a4162ac8819f6339534f8",
 		});
@@ -128,14 +133,19 @@ describe("TGEM invoice dashboard authorization data", () => {
 				where: {
 					id: "site-1",
 					organization: {
-						users: { some: { id: "kp_2f5c0987b83a4162ac8819f6339534f8", status: "active" } },
+						users: {
+							some: {
+								id: "kp_2f5c0987b83a4162ac8819f6339534f8",
+								status: "active",
+							},
+						},
 					},
 				},
 			}),
 		);
 		expect(result?.approvalSetup).toEqual(
 			expect.objectContaining({
-				canManageWorkflow: false,
+				canManageWorkflow: true,
 				canManageWorkflowManagers: false,
 			}),
 		);
@@ -171,6 +181,12 @@ describe("TGEM invoice processing", () => {
 			lineItemCount: 2,
 			warningCount: 0,
 		});
+		mockStartTgemInvoiceApproval.mockResolvedValue({
+			invoiceCaseId: "invoice-1",
+			approvalRound: 1,
+			currentApproverUserId: "approver-1",
+			finalApproverUserId: "approver-3",
+		});
 	});
 
 	afterAll(() => {
@@ -198,6 +214,40 @@ describe("TGEM invoice processing", () => {
 			data: expect.objectContaining({
 				eventType: "invoice_extraction_completed",
 				payload: expect.objectContaining({ provider: "openai" }),
+			}),
+		});
+		expect(mockStartTgemInvoiceApproval).toHaveBeenCalledWith({
+			invoiceCaseId: "invoice-1",
+			actorUserId: "user-1",
+			trigger: "automatic",
+		});
+	});
+
+	it("keeps the extracted invoice reviewable when automatic assignment cannot start", async () => {
+		mockStartTgemInvoiceApproval.mockRejectedValue(
+			new Error("Configure the project approval flow before submitting"),
+		);
+
+		await expect(
+			runTgemInvoiceOcr({
+				invoiceCaseId: "invoice-1",
+				documentId: "document-1",
+			}),
+		).resolves.toEqual({
+			provider: "openai",
+			pageCount: 1,
+			lineItemCount: 2,
+			warningCount: 0,
+		});
+
+		expect(mockPrisma.tgemInvoiceAuditEvent.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				eventType: "invoice_approval_auto_start_skipped",
+				fromStatus: "needs_review",
+				toStatus: "needs_review",
+				payload: {
+					reason: "Configure the project approval flow before submitting",
+				},
 			}),
 		});
 	});

@@ -143,6 +143,30 @@ const dashboardData: TgemDashboardData = {
 	],
 };
 
+function approvalStep(
+	input: Pick<
+		TgemDashboardData["invoices"][number]["approvalSteps"][number],
+		| "id"
+		| "stepOrder"
+		| "approvalRound"
+		| "roleKey"
+		| "approverUserId"
+		| "approverName"
+		| "status"
+	> &
+		Partial<TgemDashboardData["invoices"][number]["approvalSteps"][number]>,
+) {
+	return {
+		role: null,
+		templateRevision: 1,
+		minimumInvoiceTotal: null,
+		thresholdCurrency: null,
+		comment: null,
+		decidedAt: null,
+		...input,
+	};
+}
+
 describe("TgemInvoiceApprovalDashboard", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
@@ -171,6 +195,11 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			/>,
 		);
 
+		const tabs = await screen.findAllByRole("tab");
+		expect(tabs[0]).toHaveAccessibleName(/All invoices/);
+		expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+		expect(screen.getByTestId("tgem-invoice-register")).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("tab", { name: "Approval workspace" }));
 		expect(
 			await screen.findByTestId("tgem-invoice-case-1"),
 		).toBeInTheDocument();
@@ -183,6 +212,10 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		expect(
 			screen.getByRole("img", { name: "tgem-invoice-fixture.png" }),
 		).toBeInTheDocument();
+		expect(screen.getByTestId("tgem-document-viewport")).toHaveClass(
+			"h-[600px]",
+		);
+		expect(screen.getByTestId("tgem-document-card")).toBeInTheDocument();
 		expect(screen.queryByTestId("tgem-ocr-overlay")).not.toBeInTheDocument();
 		expect(screen.queryByLabelText("Recognized text")).not.toBeInTheDocument();
 		fireEvent.click(screen.getByRole("button", { name: "Text version" }));
@@ -197,8 +230,104 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		expect(
 			screen.getByRole("img", { name: "tgem-invoice-fixture.png" }),
 		).toBeInTheDocument();
-		expect(screen.getByText("fixture created")).toBeInTheDocument();
+		expect(screen.getByText("Demo invoice created")).toBeInTheDocument();
 		expect(screen.getByLabelText("Choose invoice")).toBeInTheDocument();
+	});
+
+	it("shows a searchable invoice register with a preview drawer", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
+			...dashboardData,
+			invoices: [
+				{
+					...dashboardData.invoices[0],
+					status: "in_approval",
+					approvalRound: 1,
+					approvalSteps: [
+						approvalStep({
+							id: "approval-step-current",
+							stepOrder: 1,
+							approvalRound: 1,
+							roleKey: "project_review",
+							approverUserId: "user-1",
+							approverName: "Anna Bērziņa",
+							status: "current",
+						}),
+					],
+				},
+				{
+					...dashboardData.invoices[0],
+					id: "case-2",
+					invoiceNumber: "TG-2026-0719",
+					supplierName: "Riga Concrete SIA",
+					supplierRegistrationNo: "40003000000",
+					status: "approved",
+					total: "980.5",
+					documents: [],
+					lines: [],
+					approvalSteps: [],
+					auditEvents: [],
+				},
+			],
+		});
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				organizationLanguage="en"
+			/>,
+		);
+
+		expect(
+			await screen.findByTestId("tgem-invoice-register"),
+		).toBeInTheDocument();
+		expect(screen.getByRole("tab", { name: /All invoices/ })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		expect(screen.getByText("Invoices shown: 2 / 2")).toBeInTheDocument();
+
+		fireEvent.change(screen.getByLabelText("Search by number or supplier"), {
+			target: { value: "Riga Concrete" },
+		});
+		expect(screen.getByText("Invoices shown: 1 / 2")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", {
+				name: "Invoice preview: TG-2026-0719",
+			}),
+		).toBeInTheDocument();
+
+		fireEvent.change(screen.getByLabelText("Search by number or supplier"), {
+			target: { value: "" },
+		});
+		fireEvent.change(screen.getByLabelText("Status"), {
+			target: { value: "approved" },
+		});
+		expect(screen.getByText("Invoices shown: 1 / 2")).toBeInTheDocument();
+		fireEvent.change(screen.getByLabelText("Status"), {
+			target: { value: "all" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Waiting for me" }));
+		expect(screen.getByText("Invoices shown: 1 / 2")).toBeInTheDocument();
+
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "Invoice preview: TG-2026-0718",
+			}),
+		);
+		expect(screen.getByRole("dialog")).toBeInTheDocument();
+		expect(screen.getByText("Invoice preview")).toBeInTheDocument();
+		expect(screen.getByText("Step 1 / 1")).toBeInTheDocument();
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Open in approval workspace" }),
+		);
+		expect(
+			screen.queryByTestId("tgem-invoice-register"),
+		).not.toBeInTheDocument();
+		expect(screen.getByTestId("tgem-invoice-case-1")).toBeInTheDocument();
+		expect(
+			screen.getByRole("tab", { name: "Approval workspace" }),
+		).toHaveAttribute("aria-selected", "true");
 	});
 
 	it("uploads an invoice, runs OCR, and enters the review-ready state", async () => {
@@ -260,14 +389,14 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		fireEvent.click(
 			await screen.findByRole("button", { name: "Approval setup" }),
 		);
-		fireEvent.click(screen.getByRole("button", { name: "Add checkpoint" }));
-		fireEvent.change(screen.getByLabelText("Responsibility type 1"), {
+		fireEvent.click(screen.getByRole("button", { name: "Add approval step" }));
+		fireEvent.change(screen.getByLabelText("Review focus 1"), {
 			target: { value: "budget_approval" },
 		});
-		fireEvent.change(screen.getByLabelText("Choose responsible person 1"), {
+		fireEvent.change(screen.getByLabelText("Approver 1"), {
 			target: { value: "user-2" },
 		});
-		fireEvent.change(screen.getByLabelText("Custom job title (optional) 1"), {
+		fireEvent.change(screen.getByLabelText("Role or step label (optional) 1"), {
 			target: { value: "Commercial manager" },
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Save approval flow" }));
@@ -303,19 +432,61 @@ describe("TgemInvoiceApprovalDashboard", () => {
 				name: "Apstiprināšanas iestatījumi",
 			}),
 		);
+		fireEvent.click(screen.getByRole("tab", { name: "Apstiprināšanas skats" }));
 		expect(
 			screen.getByRole("button", { name: "Teksta versija" }),
 		).toBeInTheDocument();
 		fireEvent.click(
-			screen.getByRole("button", { name: "Pievienot kontroles punktu" }),
+			screen.getByRole("button", {
+				name: "Pievienot apstiprināšanas soli",
+			}),
 		);
 
 		expect(
 			screen.getByRole("option", { name: "Projekta pārbaude" }),
 		).toBeInTheDocument();
 		expect(
-			screen.getByText(/Apstiprina piegādi, apjomus, projektu/),
+			screen.getByText(/atpazītie apjomi, cenas un kopsummas/),
 		).toBeInTheDocument();
+		expect(screen.getByText("Jāpārbauda")).toBeInTheDocument();
+		expect(screen.getByText("Daudzums:")).toBeInTheDocument();
+		expect(screen.getByText("Vienības cena:")).toBeInTheDocument();
+		expect(screen.getByText("Izmaksu kods:")).toBeInTheDocument();
+		expect(screen.getByText("Kategorija:")).toBeInTheDocument();
+		expect(
+			screen.getByText("Izveidots demonstrācijas rēķins"),
+		).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("tab", { name: /Visi rēķini/ }));
+		expect(
+			screen.getByLabelText("Meklēt pēc numura vai piegādātāja"),
+		).toBeInTheDocument();
+		expect(screen.getByText("Pašreizējais apstiprinātājs")).toBeInTheDocument();
+	});
+
+	it("localizes the invoice list and line items in Russian", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue(dashboardData);
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				organizationLanguage="ru"
+			/>,
+		);
+
+		fireEvent.click(await screen.findByRole("tab", { name: "Согласование" }));
+		expect(await screen.findByText("Требует проверки")).toBeInTheDocument();
+		expect(screen.getByText("Количество:")).toBeInTheDocument();
+		expect(screen.getByText("Цена за единицу:")).toBeInTheDocument();
+		expect(screen.getByText("Код затрат:")).toBeInTheDocument();
+		expect(screen.getByText("Категория:")).toBeInTheDocument();
+		expect(
+			screen.getByText("Создан демонстрационный счет"),
+		).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("tab", { name: /Все счета/ }));
+		expect(
+			screen.getByLabelText("Поиск по номеру или поставщику"),
+		).toBeInTheDocument();
+		expect(screen.getByText("Текущий согласующий")).toBeInTheDocument();
 	});
 
 	it("submits a review-ready invoice through the configured flow", async () => {
@@ -350,7 +521,10 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		);
 
 		fireEvent.click(
-			await screen.findByRole("button", { name: "Send for approval" }),
+			await screen.findByRole("tab", { name: "Approval workspace" }),
+		);
+		fireEvent.click(
+			await screen.findByRole("button", { name: "Start approval path" }),
 		);
 		await waitFor(() => {
 			expect(mockSubmitForApproval).toHaveBeenCalledWith({
@@ -376,7 +550,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			name: /Jānis Ozols/,
 		});
 		fireEvent.click(managerCheckbox);
-		fireEvent.click(screen.getByRole("button", { name: "Save managers" }));
+		fireEvent.click(screen.getByRole("button", { name: "Save coordinators" }));
 
 		await waitFor(() => {
 			expect(mockSaveWorkflowManagers).toHaveBeenCalledWith({
@@ -386,12 +560,12 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		});
 	});
 
-	it("shows workflow configuration read-only to ordinary organization members", async () => {
+	it("lets active organization members edit the sequence without manager status", async () => {
 		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
 			...dashboardData,
 			approvalSetup: {
 				...dashboardData.approvalSetup,
-				canManageWorkflow: false,
+				canManageWorkflow: true,
 				canManageWorkflowManagers: false,
 				template: {
 					id: "template-1",
@@ -421,12 +595,12 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		fireEvent.click(
 			await screen.findByRole("button", { name: "Approval setup" }),
 		);
-		expect(screen.getByText("Read only")).toBeInTheDocument();
-		expect(screen.getByLabelText("Responsibility type 1")).toBeDisabled();
-		expect(screen.getByLabelText("Choose responsible person 1")).toBeDisabled();
+		expect(screen.queryByText("Read only")).not.toBeInTheDocument();
+		expect(screen.getByLabelText("Review focus 1")).toBeEnabled();
+		expect(screen.getByLabelText("Approver 1")).toBeEnabled();
 		expect(
-			screen.queryByRole("button", { name: "Save approval flow" }),
-		).not.toBeInTheDocument();
+			screen.getByRole("button", { name: "Save approval flow" }),
+		).toBeInTheDocument();
 		expect(
 			screen.queryByRole("button", { name: "Save managers" }),
 		).not.toBeInTheDocument();
@@ -483,10 +657,134 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			/>,
 		);
 
-		expect(await screen.findByText("not required")).toBeInTheDocument();
-		expect(screen.getByText(/Required from 50000 EUR/)).toBeInTheDocument();
+		fireEvent.click(
+			await screen.findByRole("tab", { name: "Approval workspace" }),
+		);
 		expect(
-			screen.getByText(/Authorizes high-value invoices/),
+			await screen.findByText("skipped in a previous round"),
+		).toBeInTheDocument();
+		expect(screen.getByText(/Amount reference: 50000 EUR/)).toBeInTheDocument();
+	});
+
+	it("shows the current owner, final approver, remaining path, and prior rounds", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
+			...dashboardData,
+			currentUserId: "vjaceslavs",
+			approvalSetup: {
+				...dashboardData.approvalSetup,
+				users: [
+					{ id: "deivids", name: "Deivids", role: "Site manager" },
+					{ id: "vjaceslavs", name: "VJACESLAVS", role: "Reviewer" },
+					{ id: "aleksandrs", name: "Aleksandrs", role: "Director" },
+				],
+				template: {
+					id: "template-2",
+					revision: 2,
+					currency: "EUR",
+					steps: [
+						{
+							id: "template-step-1",
+							stepOrder: 1,
+							roleKey: "project_review",
+							role: "Site manager review",
+							approverUserId: "deivids",
+							minimumInvoiceTotal: null,
+						},
+						{
+							id: "template-step-2",
+							stepOrder: 2,
+							roleKey: "financial_review",
+							role: "Second review",
+							approverUserId: "vjaceslavs",
+							minimumInvoiceTotal: null,
+						},
+						{
+							id: "template-step-3",
+							stepOrder: 3,
+							roleKey: "senior_approval",
+							role: "Main approval",
+							approverUserId: "aleksandrs",
+							minimumInvoiceTotal: null,
+						},
+					],
+				},
+			},
+			invoices: [
+				{
+					...dashboardData.invoices[0],
+					status: "in_approval",
+					approvalRound: 2,
+					approvalSteps: [
+						approvalStep({
+							id: "round-1-step-1",
+							stepOrder: 1,
+							approvalRound: 1,
+							roleKey: "project_review",
+							approverUserId: "deivids",
+							approverName: "Deivids",
+							status: "changes_requested",
+							comment: "Correct the extracted unit prices",
+							decidedAt: "2026-07-02T08:00:00.000Z",
+						}),
+						approvalStep({
+							id: "round-2-step-1",
+							stepOrder: 1,
+							approvalRound: 2,
+							roleKey: "project_review",
+							role: "Site manager review",
+							approverUserId: "deivids",
+							approverName: "Deivids",
+							status: "approved",
+							comment: "Prices checked",
+							decidedAt: "2026-07-03T08:00:00.000Z",
+						}),
+						approvalStep({
+							id: "round-2-step-2",
+							stepOrder: 2,
+							approvalRound: 2,
+							roleKey: "financial_review",
+							role: "Second review",
+							approverUserId: "vjaceslavs",
+							approverName: "VJACESLAVS",
+							status: "current",
+						}),
+						approvalStep({
+							id: "round-2-step-3",
+							stepOrder: 3,
+							approvalRound: 2,
+							roleKey: "senior_approval",
+							role: "Main approval",
+							approverUserId: "aleksandrs",
+							approverName: "Aleksandrs",
+							status: "waiting",
+						}),
+					],
+				},
+			],
+		});
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				organizationLanguage="en"
+			/>,
+		);
+
+		fireEvent.click(
+			await screen.findByRole("tab", { name: "Approval workspace" }),
+		);
+		expect(await screen.findByText("Currently with")).toBeInTheDocument();
+		expect(screen.getByText(/Step 2 of 3/)).toBeInTheDocument();
+		expect(screen.getByText("Final approver")).toBeInTheDocument();
+		expect(screen.getAllByText("VJACESLAVS").length).toBeGreaterThan(1);
+		expect(screen.getAllByText("Aleksandrs").length).toBeGreaterThan(1);
+		expect(
+			screen.getByRole("button", { name: "Approve and pass forward" }),
+		).toBeInTheDocument();
+
+		fireEvent.click(screen.getByText(/Previous approval-round history/));
+		expect(
+			screen.getByText("Correct the extracted unit prices"),
 		).toBeInTheDocument();
 	});
 });

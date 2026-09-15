@@ -3,7 +3,8 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useProject } from "@/components/providers/ProjectProvider";
-import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
+import { getFlowModuleUi } from "@/lib/flows/registry";
+import { FLOW_MODULE_KEYS, type FlowModuleKey } from "@/lib/flows/types";
 import { getProjectNavigationRuntimeForSite } from "@/lib/production-flow/runtime-server";
 import {
 	type GlobalNavLink,
@@ -59,6 +60,8 @@ export function useDashboardNavigation({
 	const activeProjectId = pathProjectId || projectId;
 	const [productionNavigationConfig, setProductionNavigationConfig] =
 		useState<FlowNavigationConfig | null>(null);
+	const [activeFlowModuleKey, setActiveFlowModuleKey] =
+		useState<FlowModuleKey | null>(null);
 	const [showAnalytics, setShowAnalytics] = useState(false);
 	const isProjectRoute = /^\/dashboard\/sites\/[^/]+/.test(pathname);
 	const languageLabel = normalizeLanguageLabel(organizationLanguage);
@@ -97,6 +100,7 @@ export function useDashboardNavigation({
 		let cancelled = false;
 		if (!activeProjectId || !isProjectRoute) {
 			setProductionNavigationConfig(null);
+			setActiveFlowModuleKey(null);
 			setShowAnalytics(false);
 			setRuntimeProjectName("");
 			return;
@@ -106,6 +110,7 @@ export function useDashboardNavigation({
 			.then((runtime) => {
 				if (cancelled) return;
 				setProductionNavigationConfig(runtime?.productionConfig ?? null);
+				setActiveFlowModuleKey(runtime?.flowModuleKey ?? null);
 				setShowAnalytics(
 					runtime?.flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION,
 				);
@@ -117,6 +122,7 @@ export function useDashboardNavigation({
 			.catch(() => {
 				if (cancelled) return;
 				setProductionNavigationConfig(null);
+				setActiveFlowModuleKey(null);
 				setShowAnalytics(false);
 				setRuntimeProjectName("");
 			});
@@ -126,12 +132,15 @@ export function useDashboardNavigation({
 		};
 	}, [activeProjectId, isProjectRoute, projectId, setProject]);
 
+	const flowModuleUi = getFlowModuleUi(activeFlowModuleKey);
+	const flowHiddenProjectNavPaths = flowModuleUi.hiddenProjectNavPaths;
 	const hiddenProjectNavPaths = useMemo(
 		() =>
-			new Set(
-				productionNavigationConfig?.navigation.hiddenProjectNavPaths ?? [],
-			),
-		[productionNavigationConfig],
+			new Set([
+				...(productionNavigationConfig?.navigation.hiddenProjectNavPaths ?? []),
+				...(flowHiddenProjectNavPaths ?? []),
+			]),
+		[flowHiddenProjectNavPaths, productionNavigationConfig],
 	);
 
 	const configuredProductionJournalLabel = productionNavigationConfig
@@ -141,6 +150,7 @@ export function useDashboardNavigation({
 		: languageLabel === "lv"
 			? "Būvdarbu žurnāls"
 			: "Construction journal";
+	const flowProjectNavigation = flowModuleUi.projectNavigation;
 
 	const projectNavLinks = useMemo<ResolvedProjectNavLink[]>(
 		() =>
@@ -148,20 +158,37 @@ export function useDashboardNavigation({
 				.filter((item) => !hiddenProjectNavPaths.has(item.path))
 				.map((item) => {
 					const href = `/dashboard/sites/${activeProjectId}/${item.path}`;
+					const flowNavigationItem = flowProjectNavigation?.[item.path];
+					const flowLabel = flowNavigationItem
+						? languageLabel === "lv"
+							? flowNavigationItem.labelLv || flowNavigationItem.label
+							: flowNavigationItem.label
+						: null;
+					const flowDescription = flowNavigationItem
+						? languageLabel === "lv"
+							? flowNavigationItem.descriptionLv ||
+								flowNavigationItem.description
+							: flowNavigationItem.description
+						: null;
+					const displayName =
+						flowLabel ??
+						(item.path === "dashboard"
+							? configuredProductionJournalLabel
+							: item.name);
 					return {
 						...item,
+						description: flowDescription || item.description,
 						href,
-						displayName:
-							item.path === "dashboard"
-								? configuredProductionJournalLabel
-								: item.name,
+						displayName,
 						isActive: pathname === href,
 					};
 				}),
 		[
 			baseProjectNavLinks,
 			configuredProductionJournalLabel,
+			flowProjectNavigation,
 			hiddenProjectNavPaths,
+			languageLabel,
 			pathname,
 			activeProjectId,
 		],

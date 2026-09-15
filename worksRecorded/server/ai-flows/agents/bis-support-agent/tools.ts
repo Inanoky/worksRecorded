@@ -57,7 +57,7 @@ export async function getBisConnectionStatus(
           site."bisConstructionRoundNumber",
           site."bisConstructionRoundStatus",
           EXISTS (
-            SELECT 1 FROM "BisToken" token WHERE token."userId" = ${scope.userId}
+            SELECT 1 FROM "public"."BisToken" token WHERE token."userId" = ${scope.userId}
           ) AS "hasBisToken"
         FROM "Site" site
         WHERE site.id = ${scope.siteId}

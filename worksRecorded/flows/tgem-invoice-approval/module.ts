@@ -16,6 +16,17 @@ export const tgemInvoiceApprovalFlowModule = {
 	ui: {
 		showDashboardAiWidget: false,
 		showSiteDiaryAiWidget: false,
+		hiddenProjectNavPaths: ["timesheets", "BIS"],
+		projectNavigation: {
+			dashboard: {
+				label: "Invoices",
+				labelLv: "Rēķini",
+				description:
+					"Review and approve invoices for this project in one place.",
+				descriptionLv:
+					"Pārskatiet un apstipriniet šī projekta rēķinus vienuviet.",
+			},
+		},
 	},
 	entryPoints: {
 		frontend: ["flows/tgem-invoice-approval/frontend.ts"],

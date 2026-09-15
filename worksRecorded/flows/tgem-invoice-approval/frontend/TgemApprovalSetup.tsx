@@ -32,84 +32,91 @@ type SetupStep = {
 function getCopy(language?: string | null) {
 	if (language === "lv") {
 		return {
-			title: "Apstiprināšanas kontroles punkti",
+			title: "Apstiprinātāju secība",
 			description:
-				"Nosakiet atbildību, secību un summas sliekšņus šī projekta rēķiniem.",
-			add: "Pievienot kontroles punktu",
-			user: "Izvēlieties atbildīgo",
-			role: "Atbildības veids",
-			customLabel: "Pielāgots amata nosaukums (nav obligāts)",
-			threshold: "No summas, EUR (nav obligāts)",
+				"Pievienojiet cilvēkus tieši tādā secībā, kādā viņiem jāapstiprina rēķins.",
+			add: "Pievienot apstiprināšanas soli",
+			user: "Apstiprinātājs",
+			role: "Pārbaudes fokuss",
+			customLabel: "Lomas vai soļa nosaukums (nav obligāts)",
+			threshold: "Summas atsauce, EUR (nav obligāta)",
 			thresholdHelp:
-				"Atstājiet tukšu, lai pārbaude būtu obligāta visiem rēķiniem.",
+				"Tikai informācijai — pašreizējā MVP šī summa neizņem apstiprinātāju no secības.",
 			save: "Saglabāt apstiprināšanas plūsmu",
 			saving: "Saglabā…",
 			saved: "Apstiprināšanas plūsma saglabāta",
-			empty: "Pievienojiet projekta, finanšu un budžeta kontroles punktus.",
-			currency: "Sliekšņu valūta",
-			managersTitle: "Plūsmas pārvaldnieki",
+			empty: "Pievienojiet pirmo apstiprinātāju, lai izveidotu secīgu ceļu.",
+			currency: "Atsauces valūta",
+			managersTitle: "Plūsmas koordinatori (nav obligāti)",
 			managersDescription:
-				"Šie lietotāji var mainīt secību un sliekšņus. Projekta īpašniekam šīs tiesības ir vienmēr.",
+				"Koordinatori saglabājas uzskaitei. Šajā MVP visi aktīvie organizācijas lietotāji var mainīt secību.",
 			owner: "Projekta īpašnieks",
-			saveManagers: "Saglabāt pārvaldniekus",
-			managersSaved: "Pārvaldnieki saglabāti",
+			saveManagers: "Saglabāt koordinatorus",
+			managersSaved: "Koordinatori saglabāti",
 			readOnly: "Tikai skatīšanai",
 			readOnlyDescription:
-				"Apstiprināšanas plūsmu var mainīt projekta īpašnieks vai plūsmas pārvaldnieks.",
+				"Šim lietotājam nav aktīvas piekļuves organizācijai.",
+			step: "Solis",
+			finalApprover: "Gala apstiprinātājs",
 		};
 	}
 	if (language === "ru") {
 		return {
-			title: "Контрольные точки согласования",
+			title: "Последовательность согласующих",
 			description:
-				"Настройте ответственность, порядок и пороги суммы для счетов проекта.",
-			add: "Добавить контрольную точку",
-			user: "Выберите ответственного",
-			role: "Тип ответственности",
-			customLabel: "Название должности (необязательно)",
-			threshold: "От суммы, EUR (необязательно)",
+				"Добавьте людей именно в том порядке, в котором они должны согласовать счет.",
+			add: "Добавить шаг согласования",
+			user: "Согласующий",
+			role: "Фокус проверки",
+			customLabel: "Название роли или шага (необязательно)",
+			threshold: "Сумма для справки, EUR (необязательно)",
 			thresholdHelp:
-				"Оставьте пустым, чтобы проверка была обязательной для всех счетов.",
+				"Только для справки — в текущем MVP сумма не исключает согласующего из последовательности.",
 			save: "Сохранить процесс согласования",
 			saving: "Сохранение…",
 			saved: "Процесс согласования сохранен",
-			empty: "Добавьте проектную, финансовую и бюджетную контрольные точки.",
-			currency: "Валюта порогов",
-			managersTitle: "Администраторы процесса",
+			empty:
+				"Добавьте первого согласующего, чтобы создать последовательный маршрут.",
+			currency: "Валюта для справки",
+			managersTitle: "Координаторы процесса (необязательно)",
 			managersDescription:
-				"Эти пользователи могут менять порядок и пороги. Владелец проекта всегда имеет доступ.",
+				"Координаторы сохраняются для учета. В текущем MVP все активные пользователи организации могут менять последовательность.",
 			owner: "Владелец проекта",
-			saveManagers: "Сохранить администраторов",
-			managersSaved: "Администраторы сохранены",
+			saveManagers: "Сохранить координаторов",
+			managersSaved: "Координаторы сохранены",
 			readOnly: "Только просмотр",
 			readOnlyDescription:
-				"Изменять процесс может владелец проекта или администратор процесса.",
+				"У пользователя нет активного доступа к организации.",
+			step: "Шаг",
+			finalApprover: "Финальный согласующий",
 		};
 	}
 	return {
-		title: "Approval checkpoints",
+		title: "Approver sequence",
 		description:
-			"Set responsibility, order, and amount thresholds for this project's invoices.",
-		add: "Add checkpoint",
-		user: "Choose responsible person",
-		role: "Responsibility type",
-		customLabel: "Custom job title (optional)",
-		threshold: "Required from, EUR (optional)",
-		thresholdHelp: "Leave blank to require this checkpoint for every invoice.",
+			"Add people in the exact order in which they must approve the invoice.",
+		add: "Add approval step",
+		user: "Approver",
+		role: "Review focus",
+		customLabel: "Role or step label (optional)",
+		threshold: "Amount reference, EUR (optional)",
+		thresholdHelp:
+			"For context only—the current MVP does not remove this approver from the sequence.",
 		save: "Save approval flow",
 		saving: "Saving…",
 		saved: "Approval flow saved",
-		empty: "Add project, financial, and budget checkpoints.",
-		currency: "Threshold currency",
-		managersTitle: "Workflow managers",
+		empty: "Add the first approver to create a sequential path.",
+		currency: "Reference currency",
+		managersTitle: "Flow coordinators (optional)",
 		managersDescription:
-			"These users can change the sequence and thresholds. The project owner always has access.",
+			"Coordinators remain visible for accountability. Every active organization user can edit the sequence in the current MVP.",
 		owner: "Project owner",
-		saveManagers: "Save managers",
-		managersSaved: "Managers saved",
+		saveManagers: "Save coordinators",
+		managersSaved: "Coordinators saved",
 		readOnly: "Read only",
-		readOnlyDescription:
-			"The project owner or a workflow manager can change this approval flow.",
+		readOnlyDescription: "This user does not have active organization access.",
+		step: "Step",
+		finalApprover: "Final approver",
 	};
 }
 
@@ -284,6 +291,16 @@ export function TgemApprovalSetup({
 								>
 									<div className="absolute left-[0.72rem] top-3 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-blue-700 text-xs font-semibold text-white shadow-sm">
 										{index + 1}
+									</div>
+									<div className="mb-3 flex items-center justify-between gap-2">
+										<span className="text-xs font-semibold text-muted-foreground">
+											{copy.step} {index + 1}
+										</span>
+										{index === steps.length - 1 ? (
+											<span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-800">
+												{copy.finalApprover}
+											</span>
+										) : null}
 									</div>
 									<div className="grid gap-3 lg:grid-cols-2">
 										<label className="space-y-1 text-xs font-medium text-muted-foreground">

@@ -11,11 +11,6 @@ export const TGEM_APPROVAL_ROLE_KEYS = [
 	"senior_approval",
 ] as const;
 
-export const TGEM_AUTHORIZATION_ROLE_KEYS = [
-	"budget_approval",
-	"senior_approval",
-] as const;
-
 export const TGEM_APPROVAL_WORKFLOW_CURRENCY = "EUR" as const;
 
 export type TgemApprovalDecision = (typeof TGEM_APPROVAL_DECISIONS)[number];
@@ -72,12 +67,6 @@ export function normalizeTgemApprovalCurrency(value?: string | null) {
 	return currency;
 }
 
-export function isTgemAuthorizationRole(roleKey: TgemApprovalRoleKey): boolean {
-	return TGEM_AUTHORIZATION_ROLE_KEYS.some(
-		(candidate) => candidate === roleKey,
-	);
-}
-
 export function normalizeTgemApprovalTemplateSteps(
 	steps: TgemApprovalTemplateStepInput[],
 ): NormalizedTgemApprovalTemplateStep[] {
@@ -116,18 +105,6 @@ export function normalizeTgemApprovalTemplateSteps(
 		throw new Error("An approver can appear only once in the approval flow");
 	}
 
-	if (
-		!normalized.some(
-			(step) =>
-				isTgemAuthorizationRole(step.roleKey) &&
-				step.minimumInvoiceTotal === null,
-		)
-	) {
-		throw new Error(
-			"Approval flow requires an unconditional budget or senior approver",
-		);
-	}
-
 	return normalized;
 }
 
@@ -157,10 +134,8 @@ export function isTgemApprovalStepApplicable(input: {
 }
 
 export function validateTgemInvoiceApprovalParticipants(input: {
-	submittedByUserId: string | null;
 	steps: Array<{
 		approverUserId: string;
-		roleKey: TgemApprovalRoleKey;
 		applicable: boolean;
 	}>;
 }) {
@@ -170,18 +145,6 @@ export function validateTgemInvoiceApprovalParticipants(input: {
 			"Approval flow has no applicable approver for this invoice",
 		);
 	}
-	if (
-		input.submittedByUserId &&
-		applicableSteps.some(
-			(step) => step.approverUserId === input.submittedByUserId,
-		)
-	) {
-		throw new Error("The invoice submitter cannot approve the same invoice");
-	}
-	if (!applicableSteps.some((step) => isTgemAuthorizationRole(step.roleKey))) {
-		throw new Error("The invoice requires a budget or senior approver");
-	}
-
 	return applicableSteps;
 }
 

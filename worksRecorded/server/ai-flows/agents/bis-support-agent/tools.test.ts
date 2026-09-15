@@ -39,6 +39,9 @@ describe("BIS support local read functions", () => {
     expect(result.status).toBe(status);
     expect("liveBisVerified" in result && result.liveBisVerified).toBe(false);
     expect(queryRawMock).toHaveBeenCalledTimes(1);
+    expect(queryRawMock.mock.calls[0][0].join(" ")).toContain(
+      'FROM "public"."BisToken"',
+    );
     expect(queryRawMock.mock.calls[0].slice(1)).toEqual(["user-1", "site-1"]);
   });
 
@@ -74,7 +77,7 @@ describe("BIS support local read functions", () => {
 
     expect(result.records).toEqual([{ id: "material-1", name: "Concrete" }]);
     expect(queryRawMock.mock.calls[0].slice(1)).toEqual([
-      "site-1", "Concrete", "%Concrete%", "%Concrete%", "%Concrete%", "%Concrete%", 5,
+      "site-1", "Concrete", "%Concrete%", "%Concrete%", "%Concrete%", "%Concrete%", "%Concrete%", 5,
     ]);
   });
 

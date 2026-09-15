@@ -18,6 +18,18 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/aiAssistant.tsx`. The page auto-updates as you edit the file.
 
+## Database migrations
+
+WorksRecorded currently uses one production PostgreSQL database. The committed
+Prisma migration chain is the source of truth for moving that database to the
+schema in `prisma/schema.prisma`.
+
+Use `npx prisma migrate status` to inspect the production migration state and
+`npx prisma migrate deploy` to apply pending committed migrations. Production
+writes require explicit approval. See
+[`DATABASE_MIGRATIONS.md`](DATABASE_MIGRATIONS.md) for the complete
+workflow and missing-relation checks.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
