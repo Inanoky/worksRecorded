@@ -7,6 +7,10 @@ import {
 } from "@/flows/default-construction/lib/quantity-plan-actual";
 import { createDefaultConstructionRecordCostCalculator } from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import { prisma } from "@/lib/utils/db";
+import {
+  readSbPlan,
+  SB_STOMME_ORGANIZATION_ID,
+} from "../sb-stomme-inline-plan/model";
 
 export const ALL_PROJECTS_DIARY_PAGE_SIZE = 50;
 
@@ -29,6 +33,9 @@ const allProjectsDiaryRecordSelect = {
   TimeInvolved: true,
   Comments: true,
   Comments_Custom_1: true,
+  Comments_Custom_2: true,
+  Works_Custom_1: true,
+  Works_Custom_2: true,
   originalUserComment: true,
   originalAudioUrl: true,
   Site: { select: { name: true, siteDiaryRecordsMap: true } },
@@ -38,41 +45,57 @@ type AllProjectsDiaryDatabaseRecord = Prisma.sitediaryrecordsGetPayload<{
   select: typeof allProjectsDiaryRecordSelect;
 }>;
 
-function addActualCosts(records: AllProjectsDiaryDatabaseRecord[]) {
+function addActualCosts(
+  records: AllProjectsDiaryDatabaseRecord[],
+  organizationId: string,
+) {
   const calculatorBySite = new Map<
     string,
     ReturnType<typeof createDefaultConstructionRecordCostCalculator>
   >();
 
-  return records.map(({ Site, ...record }) => {
-    const calculatorKey = record.siteId ?? "__default__";
-    let calculateCost = calculatorBySite.get(calculatorKey);
-    if (!calculateCost) {
-      const siteConfig =
-        Site?.siteDiaryRecordsMap &&
-        typeof Site.siteDiaryRecordsMap === "object" &&
-        !Array.isArray(Site.siteDiaryRecordsMap)
-          ? (Site.siteDiaryRecordsMap as Record<string, unknown>)
-          : (defaultConfig as Record<string, unknown>);
-      calculateCost = createDefaultConstructionRecordCostCalculator(siteConfig);
-      calculatorBySite.set(calculatorKey, calculateCost);
-    }
+  return records.map(
+    ({
+      Site,
+      Works_Custom_1,
+      Works_Custom_2,
+      Comments_Custom_2,
+      ...record
+    }) => {
+      const calculatorKey = record.siteId ?? "__default__";
+      let calculateCost = calculatorBySite.get(calculatorKey);
+      if (!calculateCost) {
+        const siteConfig =
+          Site?.siteDiaryRecordsMap &&
+          typeof Site.siteDiaryRecordsMap === "object" &&
+          !Array.isArray(Site.siteDiaryRecordsMap)
+            ? (Site.siteDiaryRecordsMap as Record<string, unknown>)
+            : (defaultConfig as Record<string, unknown>);
+        calculateCost =
+          createDefaultConstructionRecordCostCalculator(siteConfig);
+        calculatorBySite.set(calculatorKey, calculateCost);
+      }
 
-    const quantityComparison = getDefaultConstructionQuantityComparison(
-      record,
-      Site?.siteDiaryRecordsMap as Record<string, any> | null,
-    );
+      const quantityComparison = getDefaultConstructionQuantityComparison(
+        record,
+        Site?.siteDiaryRecordsMap as Record<string, any> | null,
+      );
 
-    return {
-      ...record,
-      Site: Site ? { name: Site.name } : null,
-      actualCost: calculateCost(record).actualCost,
-      quantityPlanFactEnabled: quantityComparison.enabled,
-      plannedAmount: quantityComparison.plannedAmount,
-      actualAmount: quantityComparison.actualAmount,
-      quantityComparisonStatus: quantityComparison.status,
-    };
-  });
+      return {
+        ...record,
+        sbPlan:
+          organizationId === SB_STOMME_ORGANIZATION_ID
+            ? readSbPlan({ Works_Custom_1, Works_Custom_2, Comments_Custom_2 })
+            : null,
+        Site: Site ? { name: Site.name } : null,
+        actualCost: calculateCost(record).actualCost,
+        quantityPlanFactEnabled: quantityComparison.enabled,
+        plannedAmount: quantityComparison.plannedAmount,
+        actualAmount: quantityComparison.actualAmount,
+        quantityComparisonStatus: quantityComparison.status,
+      };
+    },
+  );
 }
 
 export type AllProjectsDiaryFilters = {
@@ -125,6 +148,22 @@ export function buildAllProjectsDiaryWhere(
     ...(keyword
       ? {
           OR: [
+            ...(organizationId === SB_STOMME_ORGANIZATION_ID
+              ? [
+                  {
+                    Works_Custom_1: {
+                      contains: keyword,
+                      mode: "insensitive" as const,
+                    },
+                  },
+                  {
+                    Works_Custom_2: {
+                      contains: keyword,
+                      mode: "insensitive" as const,
+                    },
+                  },
+                ]
+              : []),
             { Works: { contains: keyword, mode: "insensitive" } },
             { Location: { contains: keyword, mode: "insensitive" } },
             { Comments: { contains: keyword, mode: "insensitive" } },
@@ -167,7 +206,7 @@ export async function loadAllProjectsDiary(
 
   return {
     projects: projects.map(({ siteDiaryRecordsMap: _, ...project }) => project),
-    records: addActualCosts(records),
+    records: addActualCosts(records, organizationId),
     quantityPlanFactEnabled: projects.some((project) =>
       hasDefaultConstructionQuantityProfile(
         project.siteDiaryRecordsMap as Record<string, any> | null,
@@ -193,5 +232,5 @@ export async function loadAllProjectsDiaryExportRecords(
     select: allProjectsDiaryRecordSelect,
   });
 
-  return addActualCosts(records);
+  return addActualCosts(records, organizationId);
 }

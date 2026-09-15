@@ -7,6 +7,11 @@ import {
 } from "@/flows/default-construction/backend/all-projects-diary";
 import { getDefaultConstructionQuantityStatusLabel } from "@/flows/default-construction/lib/quantity-plan-actual";
 import { calculateDefaultConstructionManHours } from "@/flows/default-construction/lib/site-diary-summary";
+import {
+  SB_STOMME_ORGANIZATION_ID,
+  SB_PLAN_LABELS,
+  sbPlannedQuantity,
+} from "@/flows/default-construction/sb-stomme-inline-plan/model";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import {
@@ -97,6 +102,7 @@ export async function GET(request: Request) {
     filters,
   );
   const messages = getExportMessages(organizationLanguage);
+  const isSbStomme = organizationId === SB_STOMME_ORGANIZATION_ID;
   const locale = organizationLanguage === "lv" ? "lv-LV" : "en-GB";
   const dateFormatter = new Intl.DateTimeFormat(locale, {
     day: "2-digit",
@@ -110,20 +116,36 @@ export async function GET(request: Request) {
   const exportRows = records.map((record) => ({
     [messages.date]: dateFormatter.format(record.Date ?? record.createdAt),
     [messages.project]: record.Site?.name ?? "",
+    ...(isSbStomme
+      ? { [SB_PLAN_LABELS.weather]: record.sbPlan?.weather ?? "" }
+      : {}),
     [messages.location]: record.Location ?? "",
-    [messages.work]: record.Works ?? "",
+    ...(isSbStomme
+      ? { [SB_PLAN_LABELS.plannedWork]: record.sbPlan?.plannedWork ?? "" }
+      : {}),
+    [isSbStomme ? SB_PLAN_LABELS.actualWork : messages.work]:
+      record.Works ?? "",
     [messages.unit]: record.Units ?? "",
-    ...(quantityPlanFactEnabled
+    ...(isSbStomme
       ? {
-          [messages.plannedAmount]: record.plannedAmount,
-          [messages.actualAmount]: record.actualAmount,
-          [messages.quantityStatus]:
-            getDefaultConstructionQuantityStatusLabel(
-              record.quantityComparisonStatus,
-              organizationLanguage,
-            ) ?? "",
+          [SB_PLAN_LABELS.plannedAmount]: sbPlannedQuantity(
+            record.sbPlan?.plannedAmount,
+          ),
+          [SB_PLAN_LABELS.actualAmount]: record.quantityPlanFactEnabled
+            ? record.actualAmount
+            : record.Amounts,
         }
-      : { [messages.amount]: record.Amounts }),
+      : quantityPlanFactEnabled
+        ? {
+            [messages.plannedAmount]: record.plannedAmount,
+            [messages.actualAmount]: record.actualAmount,
+            [messages.quantityStatus]:
+              getDefaultConstructionQuantityStatusLabel(
+                record.quantityComparisonStatus,
+                organizationLanguage,
+              ) ?? "",
+          }
+        : { [messages.amount]: record.Amounts }),
     [messages.workers]: record.WorkersInvolved,
     [messages.hours]: record.TimeInvolved,
     [messages.manHours]: calculateDefaultConstructionManHours(record),
@@ -136,23 +158,31 @@ export async function GET(request: Request) {
 
   const XLSX = await import("xlsx");
   const worksheet = XLSX.utils.json_to_sheet(exportRows);
-  worksheet["!cols"] = [
-    { wch: 14 },
-    { wch: 28 },
-    { wch: 24 },
-    { wch: 30 },
-    { wch: 14 },
-    ...(quantityPlanFactEnabled
-      ? [{ wch: 18 }, { wch: 18 }, { wch: 18 }]
-      : [{ wch: 14 }]),
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 18 },
-    { wch: 16 },
-    { wch: 50 },
-    { wch: 60 },
-  ];
+  worksheet["!cols"] = isSbStomme
+    ? [14, 28, 24, 24, 36, 36, 14, 20, 20, 14, 14, 16, 18, 70, 60].map(
+        (wch) => ({ wch }),
+      )
+    : [
+        { wch: 14 },
+        { wch: 28 },
+        ...(isSbStomme ? [{ wch: 24 }] : []),
+        { wch: 24 },
+        ...(isSbStomme ? [{ wch: 36 }] : []),
+        { wch: 30 },
+        { wch: 14 },
+        ...(isSbStomme
+          ? [{ wch: 20 }, { wch: 20 }]
+          : quantityPlanFactEnabled
+            ? [{ wch: 18 }, { wch: 18 }, { wch: 18 }]
+            : [{ wch: 14 }]),
+        { wch: 14 },
+        { wch: 14 },
+        { wch: 14 },
+        { wch: 18 },
+        { wch: 16 },
+        { wch: 50 },
+        { wch: 60 },
+      ];
   if (worksheet["!ref"]) {
     worksheet["!autofilter"] = { ref: worksheet["!ref"] };
   }
