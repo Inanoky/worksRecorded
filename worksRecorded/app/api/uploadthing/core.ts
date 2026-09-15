@@ -5,11 +5,37 @@ import { z } from "zod";
 
 import { createTgemInvoiceCaseRecord } from "@/lib/tgem-invoice-approval/create-case";
 import { prisma } from "@/lib/utils/db";
+import { requireWarehouseImportAccess, signWarehouseUpload } from "@/flows/default-construction/backend/warehouse-import-upload";
+import { validateWarehouseImportFiles } from "@/flows/default-construction/warehouse-import";
 
 const f = createUploadthing();
 
 // FileRouter for your app, can contain multiple FileRoutes
 export const ourFileRouter = {
+	warehouseInvoiceUploader: f({
+		image: { maxFileSize: "16MB", maxFileCount: 20, minFileCount: 0 },
+		pdf: { maxFileSize: "16MB", maxFileCount: 20, minFileCount: 0 },
+	})
+		.input(z.object({ siteId: z.string().uuid() }))
+		.middleware(async ({ input, files }) => {
+			const { getUser } = getKindeServerSession();
+			const user = await getUser();
+			if (!user) throw new UploadThingError({ code: "UNAUTHORIZED", message: "Unauthorized" });
+			const error = validateWarehouseImportFiles(files);
+			if (error) throw new UploadThingError({ code: "BAD_REQUEST", message: error });
+			return requireWarehouseImportAccess(user.id, input.siteId);
+		})
+		.onUploadComplete(async ({ metadata, file }) => ({
+			receipt: signWarehouseUpload({
+				...metadata,
+				key: file.key,
+				url: file.ufsUrl,
+				name: file.name,
+				type: file.type as "application/pdf" | "image/jpeg" | "image/png" | "image/webp",
+				size: file.size,
+				fileHash: file.fileHash || file.key,
+			}),
+		})),
 	tgemInvoiceUploader: f({
 		image: { maxFileSize: "16MB", maxFileCount: 1 },
 		pdf: { maxFileSize: "16MB", maxFileCount: 1 },

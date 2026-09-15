@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import Image from "next/image"
+import { SourceDocumentPreview } from "@/components/ui/SourceDocumentPreview"
 import {
   Search,
   Filter,
@@ -2182,13 +2182,7 @@ export default function MaterialsTableClient({
                         {r.sourcePhoto ? (
                           <a href={r.sourcePhoto} target="_blank" rel="noreferrer">
                             <div className="relative h-14 w-14 overflow-hidden rounded-lg border bg-muted">
-                              <Image
-                                src={r.sourcePhoto}
-                                alt={getMaterialDisplayName(r)}
-                                fill
-                                className="object-cover"
-                                unoptimized
-                              />
+                              <SourceDocumentPreview url={r.sourcePhoto} label={getMaterialDisplayName(r)} />
                             </div>
                           </a>
                         ) : (
@@ -2690,13 +2684,9 @@ export default function MaterialsTableClient({
                 {showSourcePhotoDateGroup && editSourcePhoto ? (
                   <div className="flex items-start gap-3 rounded-md border bg-background p-3 sm:col-span-2">
                     <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border bg-muted">
-                      <Image
-                        src={editSourcePhoto}
-                        alt={t.photo}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
+                      <a href={editSourcePhoto} target="_blank" rel="noopener noreferrer" className="block h-full w-full">
+                        <SourceDocumentPreview url={editSourcePhoto} label={t.photo} />
+                      </a>
                     </div>
                     {sourcePhotoPositionCount === null ? (
                       <p className="pt-1 text-sm text-muted-foreground">{t.loading}</p>
@@ -2765,11 +2755,9 @@ export default function MaterialsTableClient({
                               >
                                 <X className="h-4 w-4" />
                               </Button>
-                              <img
-                                src={modalSourcePhoto}
-                                alt={file.name}
-                                className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                              />
+                              <a href={modalSourcePhoto} target="_blank" rel="noopener noreferrer" className="block h-full w-full">
+                                <SourceDocumentPreview url={modalSourcePhoto} label={file.name} />
+                              </a>
                               <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-1">{file.name}</div>
                             </div>
                           )) : null}
