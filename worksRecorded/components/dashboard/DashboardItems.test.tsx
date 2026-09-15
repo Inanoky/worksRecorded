@@ -6,6 +6,7 @@ import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { DEFAULT_PRODUCTION_FLOW_CONFIG } from "@/lib/production-flow/config";
 import { getProjectNavigationRuntimeForSite } from "@/lib/production-flow/runtime-server";
 import { DashboardItems, DashboardProjectNavigation } from "./DashboardItems";
+import { MobileMenu } from "./MobileMenu";
 
 let mockPathname = "/dashboard";
 const mockPrefetch = jest.fn();
@@ -166,6 +167,78 @@ describe("dashboard navigation", () => {
 		expect(
 			container.querySelector('[data-tour="nav-site-diary"]'),
 		).toHaveAttribute("href", "/dashboard/sites/site-runtime/dashboard");
+	});
+
+	it("uses the TGEM invoice label and description in project navigation", async () => {
+		const user = userEvent.setup();
+		mockPathname = "/dashboard/sites/site-tgem/dashboard";
+		seedProject("user-tgem", "site-tgem", "TGEM project");
+		getProjectNavigationRuntimeForSiteMock.mockResolvedValue({
+			flowModuleKey: FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL,
+			productionConfig: null,
+			siteName: "TGEM project",
+		});
+
+		const { container } = render(
+			<ProjectProvider userId="user-tgem">
+				<DashboardProjectNavigation organizationLanguage="lv" />
+			</ProjectProvider>,
+		);
+
+		const invoiceLink = await screen.findByRole("link", { name: "Rēķini" });
+		expect(invoiceLink).toHaveAttribute(
+			"href",
+			"/dashboard/sites/site-tgem/dashboard",
+		);
+		expect(invoiceLink).toHaveAttribute("aria-current", "page");
+		expect(screen.queryByRole("link", { name: "Būvdarbu žurnāls" })).toBeNull();
+		expect(
+			screen.queryByRole("link", { name: "Darba laika uzskaites lapas" }),
+		).toBeNull();
+		expect(screen.queryByRole("link", { name: "Noliktava" })).toBeNull();
+		expect(container.querySelector('[data-tour="nav-site-diary"]')).toBe(
+			invoiceLink,
+		);
+
+		await user.hover(invoiceLink);
+		expect(
+			await screen.findByText(
+				"Pārskatiet un apstipriniet šī projekta rēķinus vienuviet.",
+			),
+		).toBeInTheDocument();
+	});
+
+	it("uses the TGEM invoice label in mobile project navigation", async () => {
+		const user = userEvent.setup();
+		mockPathname = "/dashboard/sites/site-tgem-mobile/dashboard";
+		seedProject("user-tgem-mobile", "site-tgem-mobile", "TGEM mobile");
+		getProjectNavigationRuntimeForSiteMock.mockResolvedValue({
+			flowModuleKey: FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL,
+			productionConfig: null,
+			siteName: "TGEM mobile",
+		});
+
+		render(
+			<ProjectProvider userId="user-tgem-mobile">
+				<MobileMenu organizationLanguage="en" />
+			</ProjectProvider>,
+		);
+
+		await waitFor(() =>
+			expect(getProjectNavigationRuntimeForSiteMock).toHaveBeenCalledWith(
+				"site-tgem-mobile",
+			),
+		);
+		await user.click(screen.getByRole("button"));
+
+		expect(
+			await screen.findByRole("menuitem", { name: "Invoices" }),
+		).toHaveAttribute("href", "/dashboard/sites/site-tgem-mobile/dashboard");
+		expect(
+			screen.queryByRole("menuitem", { name: "Construction journal" }),
+		).toBeNull();
+		expect(screen.queryByRole("menuitem", { name: "Timesheets" })).toBeNull();
+		expect(screen.queryByRole("menuitem", { name: "Warehouse" })).toBeNull();
 	});
 
 	it("places project utilities in the More menu without AI Context", async () => {

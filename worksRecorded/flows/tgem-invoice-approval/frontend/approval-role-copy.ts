@@ -13,9 +13,9 @@ const ROLE_COPY: Record<
 	en: {
 		project_review: {
 			title: "Project review",
-			person: "Project manager",
+			person: "Site or project manager",
 			description:
-				"Confirms delivery, quantities, project, and budget ownership.",
+				"Checks that the invoice belongs to the project and that extracted quantities, prices, and totals match the document.",
 		},
 		financial_review: {
 			title: "Financial review",
@@ -26,22 +26,21 @@ const ROLE_COPY: Record<
 		budget_approval: {
 			title: "Budget approval",
 			person: "Commercial, operations, or finance manager",
-			description:
-				"Authorizes the expense within the manager's spending responsibility.",
+			description: "Reviews the commercial and budget context for the invoice.",
 		},
 		senior_approval: {
 			title: "Senior approval",
 			person: "Managing director, owner, or board member",
 			description:
-				"Authorizes high-value invoices that exceed the configured threshold.",
+				"Provides the final management decision when this is the last configured step.",
 		},
 	},
 	lv: {
 		project_review: {
 			title: "Projekta pārbaude",
-			person: "Projekta vadītājs",
+			person: "Būvdarbu vai projekta vadītājs",
 			description:
-				"Apstiprina piegādi, apjomus, projektu un budžeta atbildību.",
+				"Pārbauda, vai rēķins attiecas uz projektu un vai atpazītie apjomi, cenas un kopsummas atbilst dokumentam.",
 		},
 		financial_review: {
 			title: "Finanšu pārbaude",
@@ -52,20 +51,21 @@ const ROLE_COPY: Record<
 		budget_approval: {
 			title: "Budžeta apstiprinājums",
 			person: "Komercdirektors, operāciju vai finanšu vadītājs",
-			description: "Apstiprina izdevumus savas budžeta atbildības ietvaros.",
+			description: "Pārbauda rēķina komerciālo un budžeta kontekstu.",
 		},
 		senior_approval: {
 			title: "Vadības apstiprinājums",
 			person: "Uzņēmuma vadītājs, īpašnieks vai valdes loceklis",
-			description: "Apstiprina lielas vērtības rēķinus virs noteiktā sliekšņa.",
+			description:
+				"Pieņem gala vadības lēmumu, ja šis ir pēdējais iestatītais solis.",
 		},
 	},
 	ru: {
 		project_review: {
 			title: "Проверка проекта",
-			person: "Руководитель проекта",
+			person: "Руководитель участка или проекта",
 			description:
-				"Подтверждает поставку, объемы, проект и ответственность за бюджет.",
+				"Проверяет принадлежность счета проекту и соответствие распознанных объемов, цен и итогов документу.",
 		},
 		financial_review: {
 			title: "Финансовая проверка",
@@ -76,13 +76,13 @@ const ROLE_COPY: Record<
 		budget_approval: {
 			title: "Согласование бюджета",
 			person: "Коммерческий, операционный или финансовый руководитель",
-			description:
-				"Разрешает расход в пределах своей бюджетной ответственности.",
+			description: "Проверяет коммерческий и бюджетный контекст счета.",
 		},
 		senior_approval: {
 			title: "Согласование руководства",
 			person: "Директор, владелец или член правления",
-			description: "Согласует счета выше заданного порога.",
+			description:
+				"Принимает финальное управленческое решение, если это последний настроенный шаг.",
 		},
 	},
 };

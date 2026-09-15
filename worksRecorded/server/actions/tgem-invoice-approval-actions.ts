@@ -2,15 +2,13 @@
 
 import type { Prisma } from "@prisma/client";
 import {
-	isTgemApprovalStepApplicable,
 	normalizeTgemApprovalCurrency,
 	normalizeTgemApprovalTemplateSteps,
 	type TgemApprovalDecision,
-	type TgemApprovalRoleKey,
 	type TgemApprovalTemplateStepInput,
 	validateTgemApprovalDecisionComment,
-	validateTgemInvoiceApprovalParticipants,
 } from "@/lib/tgem-invoice-approval/approval";
+import { startTgemInvoiceApproval } from "@/lib/tgem-invoice-approval/start-approval";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 
@@ -26,10 +24,6 @@ async function requireTgemSite(siteId: string, userId: string) {
 			id: true,
 			organizationId: true,
 			userId: true,
-			tgemInvoiceWorkflowManagers: {
-				where: { userId },
-				select: { id: true },
-			},
 		},
 	});
 	if (!site?.organizationId) throw new Error("Project access denied");
@@ -39,8 +33,6 @@ async function requireTgemSite(siteId: string, userId: string) {
 		siteId: site.id,
 		organizationId: site.organizationId,
 		ownerUserId: site.userId,
-		canManageWorkflow:
-			isSiteOwner || site.tgemInvoiceWorkflowManagers.length > 0,
 		canManageWorkflowManagers: isSiteOwner,
 	};
 }
@@ -52,11 +44,6 @@ export async function saveTgemApprovalTemplate(input: {
 }) {
 	const user = await requireUser();
 	const context = await requireTgemSite(input.siteId, user.id);
-	if (!context.canManageWorkflow) {
-		throw new Error(
-			"Only a TGEM workflow manager can change the approval flow",
-		);
-	}
 
 	const currency = normalizeTgemApprovalCurrency(input.currency);
 	const steps = normalizeTgemApprovalTemplateSteps(input.steps);
@@ -72,7 +59,7 @@ export async function saveTgemApprovalTemplate(input: {
 		throw new Error("Every approver must be an active organization user");
 	}
 
-	return prisma.$transaction(async (tx) => {
+	const template = await prisma.$transaction(async (tx) => {
 		const latest = await tx.tgemInvoiceApprovalTemplate.findFirst({
 			where: { siteId: context.siteId },
 			orderBy: { revision: "desc" },
@@ -103,6 +90,24 @@ export async function saveTgemApprovalTemplate(input: {
 			include: { steps: { orderBy: { stepOrder: "asc" } } },
 		});
 	});
+	const waitingInvoices = await prisma.tgemInvoiceCase.findMany({
+		where: {
+			organizationId: context.organizationId,
+			siteId: context.siteId,
+			status: "needs_review",
+		},
+		select: { id: true },
+	});
+	await Promise.allSettled(
+		waitingInvoices.map((invoice) =>
+			startTgemInvoiceApproval({
+				invoiceCaseId: invoice.id,
+				actorUserId: user.id,
+				trigger: "automatic",
+			}),
+		),
+	);
+	return template;
 }
 
 export async function saveTgemWorkflowManagers(input: {
@@ -157,144 +162,15 @@ export async function submitTgemInvoiceForApproval(input: {
 	invoiceCaseId: string;
 }) {
 	const user = await requireUser();
-	const invoiceCase = await prisma.tgemInvoiceCase.findFirst({
-		where: {
-			id: input.invoiceCaseId,
-			status: { in: ["needs_review", "changes_requested"] },
-			organization: {
-				users: { some: { id: user.id, status: "active" } },
-			},
-		},
-		select: {
-			id: true,
-			organizationId: true,
-			siteId: true,
-			submittedByUserId: true,
-			status: true,
-			approvalRound: true,
-			total: true,
-			currency: true,
-		},
+	const result = await startTgemInvoiceApproval({
+		invoiceCaseId: input.invoiceCaseId,
+		actorUserId: user.id,
+		trigger: "manual",
 	});
-	if (!invoiceCase?.siteId) {
-		throw new Error("Invoice is not ready for approval");
-	}
-
-	const template = await prisma.tgemInvoiceApprovalTemplate.findFirst({
-		where: {
-			organizationId: invoiceCase.organizationId,
-			siteId: invoiceCase.siteId,
-			isCurrent: true,
-		},
-		include: {
-			steps: {
-				orderBy: { stepOrder: "asc" },
-				include: {
-					approver: {
-						select: {
-							id: true,
-							firstName: true,
-							lastName: true,
-							status: true,
-							organizationId: true,
-						},
-					},
-				},
-			},
-		},
-	});
-	if (!template?.steps.length) {
-		throw new Error("Configure the project approval flow before submitting");
-	}
-	if (
-		template.steps.some(
-			(step) =>
-				step.approver.status !== "active" ||
-				step.approver.organizationId !== invoiceCase.organizationId,
-		)
-	) {
-		throw new Error("The approval flow contains an unavailable user");
-	}
-
-	const currency = normalizeTgemApprovalCurrency(template.currency);
-	const normalizedSteps = normalizeTgemApprovalTemplateSteps(
-		template.steps.map((step) => ({
-			approverUserId: step.approverUserId,
-			roleKey: step.roleKey as TgemApprovalRoleKey,
-			roleLabel: step.role,
-			minimumInvoiceTotal: step.minimumInvoiceTotal?.toString() ?? null,
-		})),
-	);
-	const evaluatedSteps = normalizedSteps.map((step, index) => ({
-		...step,
-		approver: template.steps[index].approver,
-		applicable: isTgemApprovalStepApplicable({
-			minimumInvoiceTotal: step.minimumInvoiceTotal,
-			workflowCurrency: currency,
-			invoiceTotal: invoiceCase.total?.toString() ?? null,
-			invoiceCurrency: invoiceCase.currency,
-		}),
-	}));
-	validateTgemInvoiceApprovalParticipants({
-		submittedByUserId: invoiceCase.submittedByUserId,
-		steps: evaluatedSteps,
-	});
-
-	const firstApplicableIndex = evaluatedSteps.findIndex(
-		(step) => step.applicable,
-	);
-	const approvalRound = invoiceCase.approvalRound + 1;
-	await prisma.$transaction(async (tx) => {
-		await tx.tgemInvoiceApprovalStep.createMany({
-			data: evaluatedSteps.map((step, index) => ({
-				invoiceCaseId: invoiceCase.id,
-				approvalRound,
-				stepOrder: index + 1,
-				roleKey: step.roleKey,
-				role: step.roleLabel,
-				approverUserId: step.approver.id,
-				approverName:
-					`${step.approver.firstName} ${step.approver.lastName}`.trim(),
-				templateRevision: template.revision,
-				minimumInvoiceTotal: step.minimumInvoiceTotal,
-				thresholdCurrency: step.minimumInvoiceTotal ? currency : null,
-				status: !step.applicable
-					? "skipped"
-					: index === firstApplicableIndex
-						? "current"
-						: "waiting",
-			})),
-		});
-		await tx.tgemInvoiceCase.update({
-			where: { id: invoiceCase.id },
-			data: {
-				status: "in_approval",
-				approvalRound,
-				approvedAt: null,
-			},
-		});
-		await tx.tgemInvoiceAuditEvent.create({
-			data: {
-				invoiceCaseId: invoiceCase.id,
-				organizationId: invoiceCase.organizationId,
-				actorUserId: user.id,
-				actorType: "user",
-				eventType: "invoice_submitted_for_approval",
-				fromStatus: invoiceCase.status,
-				toStatus: "in_approval",
-				payload: {
-					approvalRound,
-					templateRevision: template.revision,
-					workflowCurrency: currency,
-					skippedStepOrders: evaluatedSteps.flatMap((step, index) =>
-						step.applicable ? [] : [index + 1],
-					),
-				} satisfies Prisma.InputJsonValue,
-			},
-		});
-	});
-
-	return { invoiceCaseId: invoiceCase.id, approvalRound };
+	return {
+		invoiceCaseId: result.invoiceCaseId,
+		approvalRound: result.approvalRound,
+	};
 }
 
 export async function decideTgemInvoiceApproval(input: {
@@ -320,14 +196,10 @@ export async function decideTgemInvoiceApproval(input: {
 			select: {
 				id: true,
 				organizationId: true,
-				submittedByUserId: true,
 				approvalRound: true,
 			},
 		});
 		if (!invoiceCase) throw new Error("Invoice approval is not available");
-		if (invoiceCase.submittedByUserId === user.id) {
-			throw new Error("The invoice submitter cannot approve the same invoice");
-		}
 
 		const currentStep = await tx.tgemInvoiceApprovalStep.findFirst({
 			where: {
@@ -388,6 +260,15 @@ export async function decideTgemInvoiceApproval(input: {
 			const nextStatus =
 				input.decision === "reject" ? "rejected" : "changes_requested";
 			resultingInvoiceStatus = nextStatus;
+			await tx.tgemInvoiceApprovalStep.updateMany({
+				where: {
+					invoiceCaseId: invoiceCase.id,
+					approvalRound: invoiceCase.approvalRound,
+					status: "waiting",
+					stepOrder: { gt: currentStep.stepOrder },
+				},
+				data: { status: "cancelled" },
+			});
 			await tx.tgemInvoiceCase.update({
 				where: { id: invoiceCase.id },
 				data: { status: nextStatus },

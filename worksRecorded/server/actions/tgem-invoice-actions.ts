@@ -21,6 +21,7 @@ import type {
 } from "@/lib/tgem-invoice-approval/intake";
 import { persistTgemInvoiceOcrResult } from "@/lib/tgem-invoice-approval/ocr";
 import { processTgemInvoice } from "@/lib/tgem-invoice-approval/processor";
+import { startTgemInvoiceApproval } from "@/lib/tgem-invoice-approval/start-approval";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { isSuperUserId } from "@/lib/utils/super-user";
@@ -202,6 +203,32 @@ export async function runTgemInvoiceOcr(input: {
 				},
 			},
 		});
+		try {
+			await startTgemInvoiceApproval({
+				invoiceCaseId: input.invoiceCaseId,
+				actorUserId: user.id,
+				trigger: "automatic",
+			});
+		} catch (approvalError) {
+			const reason =
+				approvalError instanceof Error
+					? approvalError.message
+					: "Approval could not be started automatically";
+			await Promise.resolve(
+				prisma.tgemInvoiceAuditEvent.create({
+					data: {
+						invoiceCaseId: input.invoiceCaseId,
+						organizationId: dbUser.organizationId,
+						actorUserId: user.id,
+						actorType: "system",
+						eventType: "invoice_approval_auto_start_skipped",
+						fromStatus: "needs_review",
+						toStatus: "needs_review",
+						payload: { reason },
+					},
+				}),
+			).catch(() => null);
+		}
 
 		return {
 			provider: result.provider,
@@ -435,10 +462,6 @@ export async function getTgemInvoiceDashboardData(
 			id: true,
 			organizationId: true,
 			userId: true,
-			tgemInvoiceWorkflowManagers: {
-				where: { userId: user.id },
-				select: { id: true },
-			},
 		},
 	});
 
@@ -500,8 +523,7 @@ export async function getTgemInvoiceDashboardData(
 		currentUserId: user.id,
 		invoices: invoiceCases.map(serializeTgemDashboardInvoice),
 		approvalSetup: {
-			canManageWorkflow:
-				isSiteOwner || site.tgemInvoiceWorkflowManagers.length > 0,
+			canManageWorkflow: true,
 			canManageWorkflowManagers: isSiteOwner,
 			ownerUserId: site.userId,
 			workflowManagerUserIds: workflowManagers.map((manager) => manager.userId),

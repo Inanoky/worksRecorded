@@ -66,17 +66,13 @@ describe("TGEM invoice approval rules", () => {
 		).toThrow("only once");
 	});
 
-	it("requires an unconditional spending-authority role", () => {
-		expect(() =>
+	it("accepts a simple ordered review chain without authority categories", () => {
+		expect(
 			normalizeTgemApprovalTemplateSteps([
-				{ approverUserId: "user-1", roleKey: "financial_review" },
-				{
-					approverUserId: "user-2",
-					roleKey: "senior_approval",
-					minimumInvoiceTotal: "5000",
-				},
+				{ approverUserId: "user-1", roleKey: "project_review" },
+				{ approverUserId: "user-2", roleKey: "financial_review" },
 			]),
-		).toThrow("unconditional budget or senior approver");
+		).toHaveLength(2);
 	});
 
 	it("applies a threshold at the exact boundary and skips below it", () => {
@@ -120,22 +116,14 @@ describe("TGEM invoice approval rules", () => {
 		);
 	});
 
-	it("prevents the submitter from approving and requires an applicable step", () => {
-		expect(() =>
+	it("allows any assigned participant and requires an applicable step", () => {
+		expect(
 			validateTgemInvoiceApprovalParticipants({
-				submittedByUserId: "user-1",
-				steps: [
-					{
-						approverUserId: "user-1",
-						roleKey: "budget_approval",
-						applicable: true,
-					},
-				],
+				steps: [{ approverUserId: "user-1", applicable: true }],
 			}),
-		).toThrow("submitter cannot approve");
+		).toHaveLength(1);
 		expect(() =>
 			validateTgemInvoiceApprovalParticipants({
-				submittedByUserId: "user-1",
 				steps: [],
 			}),
 		).toThrow("no applicable approver");

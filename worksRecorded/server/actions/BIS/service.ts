@@ -44,6 +44,22 @@ function isJsonRecord(value: unknown): value is JsonRecord {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
+function isMissingBisTokenRelationError(error: unknown) {
+  if (!isJsonRecord(error) || error.code !== "P2010" || !isJsonRecord(error.meta)) {
+    return false;
+  }
+
+  const message = [error.message, error.meta.message]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ");
+
+  return (
+    error.meta.code === "42P01" &&
+    message.includes("BisToken") &&
+    message.includes("does not exist")
+  );
+}
+
 function getJsonApiErrorMessage(payload: unknown, fallback: string) {
   if (!isJsonRecord(payload)) return fallback;
   const errors = payload.errors;
@@ -163,15 +179,27 @@ function getBasicAuthHeader() {
 }
 
 async function getUserBisTokenRecordByUserId(userId: string) {
-  const rows = await prisma.$queryRaw<UserBisTokenRow[]>`
-    SELECT id, "accessToken", "refreshToken", "updatedAt", "userId"
-    FROM "BisToken"
-    WHERE "userId" = ${userId}
-    ORDER BY "updatedAt" DESC
-    LIMIT 1
-  `;
+  try {
+    const rows = await prisma.$queryRaw<UserBisTokenRow[]>`
+      SELECT id, "accessToken", "refreshToken", "updatedAt", "userId"
+      FROM "public"."BisToken"
+      WHERE "userId" = ${userId}
+      ORDER BY "updatedAt" DESC
+      LIMIT 1
+    `;
 
-  return rows[0] ?? null;
+    return rows[0] ?? null;
+  } catch (error) {
+    if (!isMissingBisTokenRelationError(error)) {
+      throw error;
+    }
+
+    console.warn("[BIS] Token storage is unavailable; continuing with BIS disabled", {
+      prismaCode: error.code,
+      databaseCode: error.meta.code,
+    });
+    return null;
+  }
 }
 
 export async function getUserBisTokenByUserId(userId: string) {
@@ -287,15 +315,15 @@ export async function ensureUserBisAccessToken(userId: string) {
 }
 
 export async function upsertUserBisToken(userId: string, accessToken: string, refreshToken: string) {
-  await prisma.$executeRaw`DELETE FROM "BisToken" WHERE "userId" = ${userId}`;
+  await prisma.$executeRaw`DELETE FROM "public"."BisToken" WHERE "userId" = ${userId}`;
   await prisma.$executeRaw`
-    INSERT INTO "BisToken" (id, "accessToken", "refreshToken", "updatedAt", "userId")
+    INSERT INTO "public"."BisToken" (id, "accessToken", "refreshToken", "updatedAt", "userId")
     VALUES (${crypto.randomUUID()}, ${accessToken}, ${refreshToken}, NOW(), ${userId})
   `;
 }
 
 export async function deleteUserBisTokens(userId: string) {
-  await prisma.$executeRaw`DELETE FROM "BisToken" WHERE "userId" = ${userId}`;
+  await prisma.$executeRaw`DELETE FROM "public"."BisToken" WHERE "userId" = ${userId}`;
 }
 
 export async function getSiteBisConfig(siteId: string) {

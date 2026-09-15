@@ -99,6 +99,17 @@ flows/                    Flow modules (see flows/README.md)
 | Start prod | `npm run start`                            |
 | Lint       | `npm run lint`                             |
 
+### Database migrations
+
+There is currently one production database. The committed migration chain is
+expected to lead to the current `prisma/schema.prisma` state. Follow
+`DATABASE_MIGRATIONS.md` for the canonical workflow.
+
+| Goal                              | Command                     | Effect    |
+| --------------------------------- | --------------------------- | --------- |
+| Check recorded migration state    | `npx prisma migrate status` | Read-only |
+| Apply pending committed migrations | `npx prisma migrate deploy` | DB write  |
+
 ### Tests
 
 | Goal                             | Command                                 | Calls models? |
@@ -227,10 +238,13 @@ From `flows/README.md`:
 
 ## Security & guardrails
 
-- Never edit or commit `.env`, `prisma/migrations/**`, or
-  `.ai-eval-results/**`.
-- Never run `prisma migrate`, `prisma db push`, `git push`, `git commit`, or
-  destructive `rm -rf` without explicit user confirmation.
+- Never edit or commit `.env`, applied migration SQL under
+  `prisma/migrations/**`, or `.ai-eval-results/**`. Add a new forward migration
+  for schema changes.
+- `npx prisma migrate status` is the standard read-only production migration
+  check. Never run `prisma migrate deploy`, `prisma migrate dev`,
+  `prisma db push`, `git push`, `git commit`, or destructive `rm -rf` without
+  explicit user confirmation.
 - Real AI evals can write isolated checkpoint rows and temporary diary records
   (WhatsApp suites delete records they create). Prefer `--dry-run` first.
 - Do not send real WhatsApp replies: eval runners mock outbound Graph API
