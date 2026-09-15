@@ -309,6 +309,7 @@ type Props = {
   ) => Promise<{ success: boolean }>
   copyMaterialRecord: (siteId: string, recordId: string) => Promise<{ success: true; material: MaterialRow }>
   deleteRecords: (siteId: string, recordIds: string[]) => Promise<{ deletedIds: string[] }>
+  copyRecord: (siteId: string, recordId: string) => Promise<MaterialRow>
 }
 
 function formatDate(value: Date | null) {
@@ -506,6 +507,7 @@ export default function MaterialsTableClient({
   attachCertificate,
   copyMaterialRecord,
   deleteRecords,
+  copyRecord,
 }: Props) {
   const language = normalizeOrganizationLanguage(organizationLanguage)
   const t = getWarehouseUiMessages(language)
@@ -969,6 +971,17 @@ export default function MaterialsTableClient({
           })
           if (editRecordIdRef.current === row.id) setSourcePhotoPositionCount(0)
         })
+    }
+  }
+
+  const handleCopyRecord = async (row: MaterialRow) => {
+    try {
+      const copiedRow = await copyRecord(siteId, row.id)
+      setRows((current) => [copiedRow, ...current])
+      toast.success("Record copied.")
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error?.message ?? "Failed to copy warehouse record.")
     }
   }
 
@@ -2430,6 +2443,9 @@ export default function MaterialsTableClient({
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openEditModal(r)}>
                                   {t.edit}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleCopyRecord(r)}>
+                                  {t.copy}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
