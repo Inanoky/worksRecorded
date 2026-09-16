@@ -99,6 +99,9 @@ function installRouteMocks(args?: {
   jest.doMock("@/flows/default-construction/backend", () => ({
     handleSiteManagerRoute,
   }));
+  jest.doMock("@/flows/tgem-invoice-approval/backend", () => ({
+    handleTgemInvoiceWhatsappRoute: jest.fn(),
+  }));
   jest.doMock("@/flows/default-production/backend", () => ({
     handleWorkerRoute,
   }));
@@ -136,6 +139,9 @@ function installRouteMocks(args?: {
   }));
   jest.doMock("@/lib/production-flow/runtime-server", () => ({
     resolveAdvancedProductionWorkflowContextForWorker: jest.fn(),
+  }));
+  jest.doMock("@/lib/flows/resolve-flow-module-server", () => ({
+    resolveFlowModuleKeyForRuntime: jest.fn().mockResolvedValue("default-construction"),
   }));
   jest.doMock("@/lib/flows/worker-runtime-server", () => ({
     resolveWorkerFlowRuntime: jest.fn(),
@@ -217,6 +223,40 @@ describe("Meta webhook audio replay", () => {
     expect(formData.get("MessageId")).toBe("wamid.site-manager-audio-001");
     expect(formData.get("MediaUrl0")).toBe("https://meta.test/audio.ogg");
     expect(formData.get("MediaContentType0")).toBe("audio/ogg");
+    expect(formData.get("MediaProvider0")).toBe("meta");
+  });
+
+  it("replays a WhatsApp PDF document with its filename into media FormData", async () => {
+    const mocks = installRouteMocks({
+      mediaInfo: {
+        url: "https://meta.test/invoice.pdf",
+        mime_type: "application/pdf",
+      },
+    });
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+    const documentFixture = JSON.parse(JSON.stringify(siteManagerAudioFixture));
+    const message = documentFixture.entry[0].changes[0].value.messages[0];
+    message.type = "document";
+    message.document = {
+      id: "meta-audio-media-site-manager-001",
+      filename: "supplier-invoice.pdf",
+      mime_type: "application/pdf",
+      caption: "Rēķins",
+    };
+    delete message.audio;
+
+    const res = await POST({
+      json: async () => documentFixture,
+    } as Request);
+
+    expect(res.status).toBe(200);
+    expect(mocks.handleSiteManagerRoute).toHaveBeenCalledTimes(1);
+    const formData = mocks.handleSiteManagerRoute.mock.calls[0][0].formData as FormData;
+    expect(formData.get("Body")).toBe("Rēķins");
+    expect(formData.get("NumMedia")).toBe("1");
+    expect(formData.get("MediaUrl0")).toBe("https://meta.test/invoice.pdf");
+    expect(formData.get("MediaContentType0")).toBe("application/pdf");
+    expect(formData.get("MediaFilename0")).toBe("supplier-invoice.pdf");
     expect(formData.get("MediaProvider0")).toBe("meta");
   });
 
