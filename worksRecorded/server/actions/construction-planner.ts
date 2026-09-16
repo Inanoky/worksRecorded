@@ -139,6 +139,7 @@ export async function loadConstructionWeek(siteId: string, date: string) {
 		return {
 			start,
 			siteName: site.name,
+			organizationId: site.organizationId,
 			today: plannerToday(),
 			plans: plans.map(serialize),
 			options: {

@@ -29,6 +29,7 @@ const actual = {
 	cost: 50,
 };
 const report: WeeklyReport = {
+	organizationId: "other-organization",
 	organizationLanguage: "lv",
 	start: "2026-09-14",
 	today: "2026-09-16",
@@ -41,6 +42,26 @@ const context = {
 	font: "",
 	measureText: (value: string) => ({ width: value.length * 6 }),
 } as CanvasRenderingContext2D;
+
+it("reserves header space only for SB STOMME on every page", () => {
+	for (const organizationId of [
+		"73bfa5f9-9e49-460e-876e-8d9eb58ba2cb",
+		"other-organization",
+	]) {
+		const pages = weeklyReportPages(
+			{ ...report, organizationId },
+			context,
+			"Arial",
+		);
+		expect(pages.length).toBeGreaterThan(1);
+		for (const page of pages) {
+			expect(page).toContain(
+				`padding-right:${organizationId === "other-organization" ? 0 : 144}px`,
+			);
+			expect(page).toContain("WorksRecorded.com");
+		}
+	}
+});
 
 it("includes all seven days and uses one shared plan for repeated actuals", () => {
 	const days = weeklyReportDays(report);

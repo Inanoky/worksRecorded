@@ -185,6 +185,7 @@ describe("construction planner actions", () => {
 			{ id: "outside", Date: new Date("2026-09-20T19:30:00Z"), Amounts: 999 },
 		] as never);
 		const result = await loadCurrentConstructionWeekReport(siteId);
+		expect(result.organizationId).toBe("org");
 		expect(result.start).toBe("2026-09-21");
 		expect(result.actuals).toHaveLength(1);
 		expect(result.actuals[0]).toMatchObject({

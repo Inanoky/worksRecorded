@@ -1,3 +1,4 @@
+import { SB_STOMME_ORGANIZATION_ID } from "../sb-stomme-inline-plan/model";
 import { addDays } from "./model";
 import {
 	escapeReportText as htmlText,
@@ -102,10 +103,16 @@ export function weeklyReportPages(
 	const dateRange = `${formatWeeklyReportDate(report.start, report.organizationLanguage)} – ${formatWeeklyReportDate(addDays(report.start, 6), report.organizationLanguage)}`;
 	const pages: string[] = [];
 	context.font = `400 16px ${family}`;
-	const siteLines = wrap(report.siteName || t.site, contentWidth, context);
+	const headerInset =
+		report.organizationId === SB_STOMME_ORGANIZATION_ID ? 144 : 0;
+	const siteLines = wrap(
+		report.siteName || t.site,
+		contentWidth - headerInset,
+		context,
+	);
 	const headerHeight = 96 + siteLines.length * 24;
 	if (headerHeight > 400) throw new Error(t.longTitle);
-	const header = `<div style="height:${headerHeight}px;box-sizing:border-box;padding-bottom:20px"><div style="font-size:24px;font-weight:600;line-height:32px">${htmlText(t.title)}</div><div style="font-size:16px;line-height:24px;margin-top:4px">${siteLines.map(htmlText).join("<br/>")}</div><div style="font-size:14px;line-height:20px;color:#64748b">${htmlText(dateRange)} · ${htmlText(t.subtitle)}</div><div style="font-size:10px;line-height:16px;color:#64748b;margin-top:4px">${htmlText(t.legend)}</div></div>`;
+	const header = `<div style="height:${headerHeight}px;box-sizing:border-box;padding-bottom:20px;padding-right:${headerInset}px"><div style="font-size:24px;font-weight:600;line-height:32px">${htmlText(t.title)}</div><div style="font-size:16px;line-height:24px;margin-top:4px">${siteLines.map(htmlText).join("<br/>")}</div><div style="font-size:14px;line-height:20px;color:#64748b">${htmlText(dateRange)} · ${htmlText(t.subtitle)}</div><div style="font-size:10px;line-height:16px;color:#64748b;margin-top:4px">${htmlText(t.legend)}</div></div>`;
 	let body = header;
 	let y = padding + headerHeight;
 	let activeDay: ReportDay | null = null;
@@ -210,6 +217,12 @@ export async function createWeeklyPdf(
 	const logoResponse = await fetch("/logos/worksrecorded-letter.png");
 	if (!logoResponse.ok) throw new Error(t.error);
 	const logo = await pdf.embedPng(await logoResponse.arrayBuffer());
+	const organizationLogo = await (async () => {
+		if (report.organizationId !== SB_STOMME_ORGANIZATION_ID) return null;
+		const response = await fetch("/sb-stomme-logo.png");
+		if (!response.ok) throw new Error(t.error);
+		return pdf.embedPng(await response.arrayBuffer());
+	})();
 	const logoHeight = 32;
 	const logoWidth = (logo.width / logo.height) * logoHeight;
 	context.font = `400 12px ${family}`;
@@ -233,6 +246,15 @@ export async function createWeeklyPdf(
 			width: logoWidth * 0.75,
 			height: logoHeight * 0.75,
 		});
+		if (organizationLogo) {
+			const size = organizationLogo.scaleToFit(120, 90);
+			page.drawImage(organizationLogo, {
+				x: (width - padding - size.width) * 0.75,
+				y: (height - padding - size.height) * 0.75,
+				width: size.width * 0.75,
+				height: size.height * 0.75,
+			});
+		}
 	}
 	return pdf.save();
 }
