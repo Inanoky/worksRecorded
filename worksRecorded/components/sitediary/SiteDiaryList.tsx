@@ -25,6 +25,11 @@ import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import { OriginalSourceContent } from "@/components/sitediary/OriginalSourceContent";
 import { SiteDiaryOptionsManager } from "@/components/sitediary/SiteDiaryOptionsManager";
+import {
+  PlannerControls,
+  useConstructionPlanner,
+} from "@/flows/default-construction/planner/ConstructionPlanner";
+import { DayPlanToggle, MobilePlan, PlanColumnCell, PlanColumnHead, PlanOnlyRow, PlanTableColumns, planStatusLabels, planTone } from "@/flows/default-construction/planner/DayPlan";
 import { hasSiteDiaryDisplayableMedia } from "@/components/sitediary/siteDiaryMediaDisplay";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -713,6 +718,7 @@ export default function SiteDiaryCalendar({
 
   // List view state
   const [rows, setRows] = React.useState<DiaryRow[]>([]);
+  const planner = useConstructionPlanner(siteId, !isZtcFlow, rows);
   const beginHours = useBeginHours(siteId, rows);
   const [mediaOnlyDays, setMediaOnlyDays] = React.useState<
     MediaOnlyDaySummary[]
@@ -1461,6 +1467,9 @@ export default function SiteDiaryCalendar({
   // Works filter options
   const pageWorksOptions = React.useMemo(() => {
     const set = new Set<string>();
+    if (!isZtcSite && planner.showAny) {
+      planner.diaryRows.forEach((row) => { if (row.plan) set.add(row.plan.work); });
+    }
     rows.forEach((r) => {
       if (
         isZtcSite &&
@@ -1479,7 +1488,7 @@ export default function SiteDiaryCalendar({
       if (r.Works && String(r.Works).trim()) set.add(String(r.Works).trim());
     });
     return sortDefaultConstructionSiteDiaryWorks(Array.from(set));
-  }, [rows, isZtcSite, floorFilter, elementFilter]);
+  }, [rows, isZtcSite, floorFilter, elementFilter, planner.showAny, planner.diaryRows]);
 
   const worksOptions = React.useMemo(
     () => (isZtcSite ? ztcFilterOptions.works : pageWorksOptions),
@@ -1500,13 +1509,16 @@ export default function SiteDiaryCalendar({
   // Floor filter options (based on Location)
   const pageFloorOptions = React.useMemo(() => {
     const set = new Set<string>();
+    if (!isZtcSite && planner.showAny) {
+      planner.diaryRows.forEach((row) => { if (row.plan) set.add(row.plan.location); });
+    }
     rows.forEach((r) => {
       if (r.Location && String(r.Location).trim()) {
         set.add(String(r.Location).trim());
       }
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [rows]);
+  }, [rows, isZtcSite, planner.showAny, planner.diaryRows]);
 
   const floorOptions = React.useMemo(
     () =>
@@ -1685,6 +1697,19 @@ export default function SiteDiaryCalendar({
     [mediaOnlyDays],
   );
 
+  const visiblePlanRows = planner.diaryRows.filter((row) =>
+    (!dateFrom || row.date >= toLocalDateKey(dateFrom)) &&
+    (!dateTo || row.date <= toLocalDateKey(dateTo)) &&
+    (workFilter === "__ALL__" || row.plan?.work === workFilter) &&
+    (floorFilter === "__ALL__" || row.location === floorFilter) &&
+    (!keywordFilter.trim() || `${row.plan?.work} ${row.location} ${row.unit}`.toLowerCase().includes(keywordFilter.trim().toLowerCase()))
+  );
+  const planByRecordId = React.useMemo(() => {
+    const result = new Map<string, (typeof planner.diaryRows)[number]>();
+    for (const row of planner.diaryRows) for (const id of row.actualIds) result.set(id, row);
+    return result;
+  }, [planner.diaryRows]);
+
   const keywordMatchedDayGroups: DayGroup[] = React.useMemo(() => {
     const normalizedKeyword = keywordFilter.trim().toLowerCase();
     const recordGroups = !normalizedKeyword
@@ -1705,6 +1730,12 @@ export default function SiteDiaryCalendar({
         );
 
     const combinedGroups = [...recordGroups, ...mediaGroups];
+    if (!isZtcSite && planner.show && listPage === 1) {
+      for (const row of visiblePlanRows) {
+        if (row.actualIds.length || combinedGroups.some((group) => group.key === row.date)) continue;
+        combinedGroups.push({ key: row.date, date: new Date(`${row.date}T12:00:00`), rows: [] });
+      }
+    }
     if (beginHours.enabled && listPage === 1 && workFilter === "__ALL__" && floorFilter === "__ALL__") {
       for (const day of beginHours.days) {
         if (!day.entries.length || beginHours.diaryDates.includes(day.date) || combinedGroups.some(group => group.key === day.date)) continue;
@@ -1717,7 +1748,7 @@ export default function SiteDiaryCalendar({
     return combinedGroups.sort(
       (a, b) => b.date.getTime() - a.date.getTime(),
     );
-  }, [dayGroups, keywordFilter, mediaOnlyDayGroups, beginHours.enabled, beginHours.days, beginHours.diaryDates, listPage, workFilter, floorFilter, dateFrom, dateTo]);
+  }, [dayGroups, keywordFilter, mediaOnlyDayGroups, beginHours.enabled, beginHours.days, beginHours.diaryDates, listPage, workFilter, floorFilter, dateFrom, dateTo, isZtcSite, planner.show, visiblePlanRows]);
 
   const showInitialListSkeleton = loading && !hasLoadedRowsOnce && !error;
   const showUpdatingListSkeleton =
@@ -2821,6 +2852,7 @@ export default function SiteDiaryCalendar({
 
   // this flag is reset on every render – used to mark only the first green day / first card
   let firstFilledMarked = false;
+  const DayListContainer = isZtcSite ? ScrollArea : "div";
 
   return (
     <TooltipProvider>
@@ -2883,13 +2915,18 @@ export default function SiteDiaryCalendar({
                   {t.exportToExcel}
                 </Button>
                 {!isZtcSite && siteId ? (
-                  <SiteDiaryOptionsManager
-                    siteId={siteId}
-                    organizationLanguage={organizationLanguage}
-                    onSaved={() =>
-                      setOptionsRevision((revision) => revision + 1)
-                    }
-                  />
+                  <>
+                    <PlannerControls
+                      planner={planner}
+                      onCatalogChanged={() => setOptionsRevision((revision) => revision + 1)}
+                      onShow={() => setViewMode("list")}
+                    />
+                    <SiteDiaryOptionsManager
+                      siteId={siteId}
+                      organizationLanguage={organizationLanguage}
+                      onSaved={() => setOptionsRevision((revision) => revision + 1)}
+                    />
+                  </>
                 ) : null}
                 {isZtcSite ? (
                   <>
@@ -3790,6 +3827,11 @@ export default function SiteDiaryCalendar({
               </div>
             ) : null}
 
+            {!isZtcSite && planner.showAny ? (
+              <div className="mb-3 text-xs text-muted-foreground" aria-live="polite">
+                {planner.diaryLoading ? "Ielādē plānu…" : planner.diaryError ? <span role="alert" className="text-destructive">{planner.diaryError}</span> : "Zaļš — plāns pārsniegts; sarkans — plāns nav sasniegts. Salīdzina dienas kopsummu vienam darbam, lokācijai un mērvienībai."}
+              </div>
+            ) : null}
             {showInitialListSkeleton ? (
               <SiteDiaryListSkeleton label={t.loadingRecords} />
             ) : (
@@ -3811,11 +3853,14 @@ export default function SiteDiaryCalendar({
                 )}
 
                 {/* List of days */}
-                <ScrollArea className="h-[60vh] rounded-md border bg-background sm:h-[70vh]">
+                <DayListContainer className={cn("rounded-md border bg-background", isZtcSite && "h-[60vh] sm:h-[70vh]")}>
                   <div className="space-y-3 p-2 sm:p-3">
                     {keywordMatchedDayGroups.map((group) => {
+                      const showDayPlan = !isZtcSite && planner.showDay(group.key);
+                      const dayTableHeads = showDayPlan ? tableHeads.filter((head) => !isDefaultConstructionActualQuantityField(defaultMap, head)) : tableHeads;
+                      const unmatchedPlans = showDayPlan ? visiblePlanRows.filter((row) => row.date === group.key && row.actualIds.length === 0) : [];
                       const totalTasks = group.rows.length;
-                      const isMediaOnlyGroup = group.mediaOnly === true;
+                      const isMediaOnlyGroup = group.mediaOnly === true && unmatchedPlans.length === 0;
                       const totalHours = group.rows.reduce((sum, r) => {
                         const workers = Number(r.WorkersInvolved ?? 0);
                         const hours = Number(r.TimeInvolved ?? 0);
@@ -3865,6 +3910,7 @@ export default function SiteDiaryCalendar({
                               <CardTitle className="text-base font-semibold sm:text-lg">
                                 {dayLabel(group.date)}
                               </CardTitle>
+                              {!isZtcSite ? <DayPlanToggle date={group.key} checked={showDayPlan} onChange={(value) => planner.setShowDay(group.key, value)} /> : null}
                               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground sm:text-sm">
                                 <span>
                                   {totalTasks}{" "}
@@ -3872,6 +3918,7 @@ export default function SiteDiaryCalendar({
                                     ? t.taskSingular
                                     : t.taskPlural}
                                 </span>
+                                {showDayPlan ? <span>{visiblePlanRows.filter((row) => row.date === group.key).length} plānoti darbi</span> : null}
                                 {isMediaOnlyGroup ? (
                                   <Badge
                                     variant="secondary"
@@ -3995,7 +4042,7 @@ export default function SiteDiaryCalendar({
                             {/* MOBILE: stacked record cards */}
                             <div
                               className={cn(
-                                "space-y-2 lg:hidden",
+                                showDayPlan ? "space-y-2 xl:hidden" : "space-y-2 lg:hidden",
                                 isMediaOnlyGroup && "hidden",
                               )}
                             >
@@ -4010,7 +4057,7 @@ export default function SiteDiaryCalendar({
                                             r.id,
                                           )?.toneClass ?? "")
                                         : getZtcQualityRowToneClass(r)
-                                      : getDefaultConstructionQuantityToneClass(
+                                      : showDayPlan ? planTone(planByRecordId.get(r.id ?? "")) : getDefaultConstructionQuantityToneClass(
                                           getDefaultConstructionQuantityComparison(
                                             r,
                                             defaultMap,
@@ -4020,7 +4067,7 @@ export default function SiteDiaryCalendar({
                                   aria-label={
                                     isZtcSite
                                       ? undefined
-                                      : (getDefaultConstructionQuantityStatusLabel(
+                                      : showDayPlan ? planStatusLabels[planByRecordId.get(r.id ?? "")?.status ?? "unplanned"] : (getDefaultConstructionQuantityStatusLabel(
                                           getDefaultConstructionQuantityComparison(
                                             r,
                                             defaultMap,
@@ -4102,7 +4149,8 @@ export default function SiteDiaryCalendar({
                                       })()}
                                     </span>
                                   </div>
-                                  {!isZtcSite
+                                  {showDayPlan ? <MobilePlan row={planByRecordId.get(r.id ?? "")} actualWork={r.Works} actualQuantity={getDefaultConstructionQuantityComparison(r, defaultMap).enabled ? getDefaultConstructionQuantityComparison(r, defaultMap).actualAmount : r.Amounts} unit={r.Units} /> : null}
+                                  {!isZtcSite && !showDayPlan
                                     ? (() => {
                                         const comparison =
                                           getDefaultConstructionQuantityComparison(
@@ -4570,12 +4618,16 @@ export default function SiteDiaryCalendar({
                                   ) : null}
                                 </div>
                               ))}
+                              {unmatchedPlans.map((row) => <div key={row.key} className={cn("rounded-md border p-2 text-xs", planTone(row))}>
+                                <p className="font-medium">{row.location}</p>
+                                <MobilePlan row={row} />
+                              </div>)}
                             </div>
 
                             {/* DESKTOP: table view */}
                             <div
                               className={cn(
-                                "hidden overflow-x-auto lg:block",
+                                showDayPlan ? "hidden min-w-0 xl:block" : "hidden overflow-x-auto lg:block",
                                 isMediaOnlyGroup && "lg:hidden",
                               )}
                             >
@@ -5209,8 +5261,9 @@ export default function SiteDiaryCalendar({
 
                                 return (
                                   <Table
-                                    className={`table-fixed ${isZtcSite ? "min-w-[1180px]" : "min-w-[985px]"} text-xs sm:text-sm`}
+                                    className={cn("table-fixed text-xs", showDayPlan ? "w-full min-w-0 [&_th]:!w-auto [&_td]:!w-auto [&_th]:!px-1.5 [&_td]:!px-1.5 [&_th]:!whitespace-normal [&_td]:!whitespace-normal [&_th]:[overflow-wrap:anywhere] [&_td]:[overflow-wrap:anywhere] [&_button]:max-w-full" : isZtcSite ? "min-w-[1180px] sm:text-sm" : "min-w-[985px] sm:text-sm")}
                                   >
+                                    {showDayPlan ? <PlanTableColumns fields={dayTableHeads} bisEnabled={bisUiEnabled} /> : null}
                                     {/* HEADER */}
                                     <TableHeader>
                                       <TableRow>
@@ -5229,7 +5282,7 @@ export default function SiteDiaryCalendar({
                                             aria-label={`Select all records for ${dayLabel(group.date)}`}
                                           />
                                         </TableHead>
-                                        {tableHeads.map((head) => {
+                                        {dayTableHeads.map((head) => {
                                           if (head === "createdAt") {
                                             return (
                                               <TableHead
@@ -5250,16 +5303,17 @@ export default function SiteDiaryCalendar({
 
                                           return (
                                             <React.Fragment key={head}>
+                                              {showDayPlan ? <PlanColumnHead field={head} align={align} /> : null}
                                               <TableHead
-                                                className={`text-${align}`}
+                                                className={cn(`text-${align}`, showDayPlan && "whitespace-normal break-words")}
                                                 style={{
-                                                  width: getCellWidthByKey(
+                                                  width: showDayPlan && head === "Amounts" ? 125 : getCellWidthByKey(
                                                     head,
                                                     defaultMap,
                                                   ),
                                                 }}
                                               >
-                                                {getDisplayNameByKey(head)}
+                                                {showDayPlan && head === "Amounts" ? "Daudzums (fakts)" : getDisplayNameByKey(head)}
                                               </TableHead>
                                               {isZtcSite &&
                                               head === "TimeInvolved" ? (
@@ -5349,14 +5403,14 @@ export default function SiteDiaryCalendar({
                                       {formattedGroupRows.map((row, i) => (
                                         <TableRow
                                           key={row.id ?? `${group.key}-${i}`}
-                                          className={getDefaultConstructionQuantityToneClass(
+                                          className={showDayPlan ? planTone(planByRecordId.get(row.id ?? "")) : getDefaultConstructionQuantityToneClass(
                                             getDefaultConstructionQuantityComparison(
                                               group.rows[i] ?? row,
                                               defaultMap,
                                             ).status,
                                           )}
                                           aria-label={
-                                            getDefaultConstructionQuantityStatusLabel(
+                                            showDayPlan ? planStatusLabels[planByRecordId.get(row.id ?? "")?.status ?? "unplanned"] : getDefaultConstructionQuantityStatusLabel(
                                               getDefaultConstructionQuantityComparison(
                                                 group.rows[i] ?? row,
                                                 defaultMap,
@@ -5384,7 +5438,7 @@ export default function SiteDiaryCalendar({
                                               />
                                             ) : null}
                                           </TableCell>
-                                          {tableHeads.map((field) => {
+                                          {dayTableHeads.map((field) => {
                                             if (field === "createdAt") {
                                               return (
                                                 <TableCell
@@ -5424,6 +5478,7 @@ export default function SiteDiaryCalendar({
 
                                             return (
                                               <React.Fragment key={field}>
+                                                {showDayPlan ? <PlanColumnCell field={field} align={align} row={planByRecordId.get(row.id ?? "")} repeated={Boolean(planByRecordId.get(row.id ?? "") && group.rows.slice(0, i).some((previous) => planByRecordId.get(previous.id ?? "") === planByRecordId.get(row.id ?? "")))} /> : null}
                                                 <TableCell
                                                   className={`align-top px-3 py-3 whitespace-normal break-words text-${align}`}
                                                   style={{
@@ -5433,7 +5488,11 @@ export default function SiteDiaryCalendar({
                                                     ),
                                                   }}
                                                 >
-                                                  {row[field] === null ||
+                                                  {showDayPlan && field === "Amounts" ? (
+                                                    formatSiteDiaryCompactMetric("Amounts", getDefaultConstructionQuantityComparison(originalRow, defaultMap).enabled
+                                                      ? getDefaultConstructionQuantityComparison(originalRow, defaultMap).actualAmount ?? "—"
+                                                      : originalRow.Amounts ?? "—")
+                                                  ) : row[field] === null ||
                                                   row[field] === undefined ||
                                                   row[field] === "" ? (
                                                     "—"
@@ -5815,6 +5874,7 @@ export default function SiteDiaryCalendar({
                                           </TableCell>
                                         </TableRow>
                                       ))}
+                                      {unmatchedPlans.map((row) => <PlanOnlyRow key={row.key} row={row} fields={dayTableHeads} bisEnabled={bisUiEnabled} getAlignment={(field) => getSiteListTextAlignmentByKey(field, defaultMap)} />)}
                                     </TableBody>
                                   </Table>
                                 );
@@ -5825,7 +5885,7 @@ export default function SiteDiaryCalendar({
                       );
                     })}
                   </div>
-                </ScrollArea>
+                </DayListContainer>
 
                 <div className="mt-3">{renderListPagination()}</div>
               </>
