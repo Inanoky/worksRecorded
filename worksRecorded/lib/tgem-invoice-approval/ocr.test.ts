@@ -24,8 +24,20 @@ describe("persistTgemInvoiceOcrResult", () => {
 							confidence: 0.98,
 							sourceAnchor: null,
 						},
+						subtotal: {
+							rawText: "Kopā bez PVN 1057,85",
+							value: 1057.85,
+							confidence: 0.97,
+							sourceAnchor: null,
+						},
+						vat: {
+							rawText: "PVN 21% 222,15",
+							value: 222.15,
+							confidence: 0.97,
+							sourceAnchor: null,
+						},
 						total: {
-							rawText: "1280.00",
+							rawText: "Apmaksai 1280,00",
 							value: 1280,
 							confidence: 0.97,
 							sourceAnchor: null,
@@ -80,6 +92,8 @@ describe("persistTgemInvoiceOcrResult", () => {
 					ocrStatus: "complete",
 					extractionStatus: "complete",
 					invoiceNumber: "INV-1",
+					subtotal: 1057.85,
+					vat: 222.15,
 					total: 1280,
 					status: "needs_review",
 				}),
@@ -97,6 +111,65 @@ describe("persistTgemInvoiceOcrResult", () => {
 					description: "Winter mortar",
 					quantity: 80,
 					total: 1280,
+				}),
+			}),
+		);
+	});
+
+	it("warns when the priority amount excluding VAT is missing", async () => {
+		const update = jest.fn().mockResolvedValue({ id: "case-1" });
+		const database = {
+			tgemInvoiceOcrPage: { upsert: jest.fn() },
+			tgemInvoiceLine: { upsert: jest.fn() },
+			tgemInvoiceCase: { update },
+		} as never;
+
+		await expect(
+			persistTgemInvoiceOcrResult(database, {
+				invoiceCaseId: "case-1",
+				documentId: "document-1",
+				result: {
+					provider: "openai",
+					fields: {
+						invoiceNumber: {
+							rawText: "INV-2",
+							value: "INV-2",
+							confidence: null,
+							sourceAnchor: null,
+						},
+						total: {
+							rawText: "Apmaksai 121,00",
+							value: 121,
+							confidence: null,
+							sourceAnchor: null,
+						},
+					},
+					lineItems: [],
+					pages: [
+						{
+							pageNumber: 1,
+							width: null,
+							height: null,
+							text: "Apmaksai 121,00",
+							blocks: [],
+							status: "complete",
+						},
+					],
+				},
+			}),
+		).resolves.toEqual({
+			pageCount: 1,
+			lineItemCount: 0,
+			warningCount: 1,
+		});
+
+		expect(update).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					validationSummary: {
+						state: "warning",
+						warnings: ["Invoice amount excluding VAT/PVN was not detected."],
+					},
 				}),
 			}),
 		);

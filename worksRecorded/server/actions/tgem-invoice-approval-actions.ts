@@ -90,24 +90,128 @@ export async function saveTgemApprovalTemplate(input: {
 			include: { steps: { orderBy: { stepOrder: "asc" } } },
 		});
 	});
-	const waitingInvoices = await prisma.tgemInvoiceCase.findMany({
-		where: {
-			organizationId: context.organizationId,
-			siteId: context.siteId,
-			status: "needs_review",
-		},
-		select: { id: true },
-	});
-	await Promise.allSettled(
-		waitingInvoices.map((invoice) =>
-			startTgemInvoiceApproval({
-				invoiceCaseId: invoice.id,
-				actorUserId: user.id,
-				trigger: "automatic",
-			}),
-		),
-	);
 	return template;
+}
+
+const TGEM_REASSIGNMENT_REVIEW_STATUSES = new Set([
+	"changes_requested",
+	"in_approval",
+	"approved",
+	"rejected",
+]);
+
+export async function assignTgemInvoiceProject(input: {
+	invoiceCaseId: string;
+	projectId: string;
+	expectedUpdatedAt: string;
+}) {
+	const user = await requireUser();
+	const expectedUpdatedAt = new Date(input.expectedUpdatedAt);
+	if (Number.isNaN(expectedUpdatedAt.getTime())) {
+		throw new Error("The invoice version is invalid");
+	}
+
+	return prisma.$transaction(async (tx) => {
+		const invoiceCase = await tx.tgemInvoiceCase.findFirst({
+			where: {
+				id: input.invoiceCaseId,
+				organization: {
+					users: { some: { id: user.id, status: "active" } },
+				},
+			},
+			select: {
+				id: true,
+				organizationId: true,
+				siteId: true,
+				status: true,
+				approvalRound: true,
+				updatedAt: true,
+				site: { select: { id: true, name: true } },
+			},
+		});
+		if (!invoiceCase) throw new Error("Invoice access denied");
+		if (invoiceCase.updatedAt.getTime() !== expectedUpdatedAt.getTime()) {
+			throw new Error("The invoice changed. Reload it and try again");
+		}
+
+		const project = await tx.site.findFirst({
+			where: {
+				id: input.projectId,
+				organizationId: invoiceCase.organizationId,
+			},
+			select: { id: true, name: true },
+		});
+		if (!project) throw new Error("Project access denied");
+		if (invoiceCase.siteId === project.id) {
+			return {
+				invoiceCaseId: invoiceCase.id,
+				project,
+				status: invoiceCase.status,
+				unchanged: true,
+			};
+		}
+
+		const invalidatesApproval = TGEM_REASSIGNMENT_REVIEW_STATUSES.has(
+			invoiceCase.status,
+		);
+		const nextStatus = invalidatesApproval
+			? "needs_review"
+			: invoiceCase.status;
+		const claimed = await tx.tgemInvoiceCase.updateMany({
+			where: {
+				id: invoiceCase.id,
+				updatedAt: expectedUpdatedAt,
+			},
+			data: {
+				siteId: project.id,
+				status: nextStatus,
+				...(invalidatesApproval ? { approvedAt: null } : {}),
+			},
+		});
+		if (claimed.count !== 1) {
+			throw new Error("The invoice changed. Reload it and try again");
+		}
+
+		if (invoiceCase.approvalRound > 0) {
+			await tx.tgemInvoiceApprovalStep.updateMany({
+				where: {
+					invoiceCaseId: invoiceCase.id,
+					approvalRound: invoiceCase.approvalRound,
+					status: { in: ["current", "waiting"] },
+				},
+				data: { status: "cancelled" },
+			});
+		}
+
+		await tx.tgemInvoiceAuditEvent.create({
+			data: {
+				invoiceCaseId: invoiceCase.id,
+				organizationId: invoiceCase.organizationId,
+				actorUserId: user.id,
+				actorType: "user",
+				eventType: invoiceCase.siteId
+					? "invoice_project_reassigned"
+					: "invoice_project_assigned",
+				fromStatus: invoiceCase.status,
+				toStatus: nextStatus,
+				payload: {
+					oldProject: invoiceCase.site,
+					newProject: project,
+					previousStatus: invoiceCase.status,
+					invalidatedApprovalRound: invalidatesApproval
+						? invoiceCase.approvalRound
+						: null,
+				} satisfies Prisma.InputJsonValue,
+			},
+		});
+
+		return {
+			invoiceCaseId: invoiceCase.id,
+			project,
+			status: nextStatus,
+			unchanged: false,
+		};
+	});
 }
 
 export async function saveTgemWorkflowManagers(input: {

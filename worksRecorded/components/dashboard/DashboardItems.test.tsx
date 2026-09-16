@@ -9,10 +9,12 @@ import { DashboardItems, DashboardProjectNavigation } from "./DashboardItems";
 import { MobileMenu } from "./MobileMenu";
 
 let mockPathname = "/dashboard";
+let mockSearchParams = "";
 const mockPrefetch = jest.fn();
 
 jest.mock("next/navigation", () => ({
 	usePathname: () => mockPathname,
+	useSearchParams: () => new URLSearchParams(mockSearchParams),
 	useRouter: () => ({
 		prefetch: mockPrefetch,
 	}),
@@ -70,6 +72,7 @@ beforeAll(() => {
 describe("dashboard navigation", () => {
 	beforeEach(() => {
 		mockPathname = "/dashboard";
+		mockSearchParams = "";
 		mockPrefetch.mockClear();
 		window.sessionStorage.clear();
 		getProjectNavigationRuntimeForSiteMock.mockReset();
@@ -107,6 +110,83 @@ describe("dashboard navigation", () => {
 
 		expect(screen.queryByRole("link", { name: "AI Evals" })).toBeNull();
 		expect(screen.queryByRole("link", { name: "Flow configs" })).toBeNull();
+	});
+
+	it("moves TGEM workspace links out of the primary navigation", () => {
+		const { rerender } = render(
+			<DashboardItems
+				organizationLanguage="en"
+				flowModuleKey={FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL}
+			/>,
+		);
+
+		expect(screen.queryByRole("link", { name: "Projects" })).toBeNull();
+		expect(screen.queryByRole("link", { name: "Invoices" })).toBeNull();
+
+		rerender(
+			<DashboardItems
+				organizationLanguage="en"
+				flowModuleKey={FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}
+			/>,
+		);
+		expect(screen.queryByRole("link", { name: "Invoices" })).toBeNull();
+		expect(screen.getByRole("link", { name: "Projects" })).toHaveAttribute(
+			"href",
+			"/dashboard/sites",
+		);
+	});
+
+	it("shows the TGEM project dropdown and invoice views in the second row", async () => {
+		const user = userEvent.setup();
+		mockPathname = "/dashboard/invoices";
+		mockSearchParams = "view=approval";
+
+		render(
+			<ProjectProvider userId="user-tgem-workspace">
+				<DashboardProjectNavigation
+					availableProjects={[
+						{ id: "site-1", name: "Riga office" },
+						{ id: "site-2", name: "Jurmala warehouse" },
+					]}
+					organizationLanguage="en"
+					flowModuleKey={FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL}
+				/>
+			</ProjectProvider>,
+		);
+
+		expect(screen.getByRole("link", { name: "All invoices" })).toHaveAttribute(
+			"href",
+			"/dashboard/invoices",
+		);
+		expect(screen.getByRole("link", { name: "Approval flow" })).toHaveAttribute(
+			"href",
+			"/dashboard/invoices?view=approval",
+		);
+		expect(screen.getByRole("link", { name: "Approval flow" })).toHaveAttribute(
+			"aria-current",
+			"page",
+		);
+		await user.click(
+			screen.getByRole("button", { name: "Projects: All projects" }),
+		);
+		expect(
+			screen.getByRole("menuitem", { name: "All projects" }),
+		).toHaveAttribute("href", "/dashboard/invoices?view=approval");
+		expect(
+			screen.getByRole("menuitem", { name: "Unassigned" }),
+		).toHaveAttribute(
+			"href",
+			"/dashboard/invoices?project=unassigned&view=approval",
+		);
+		expect(
+			screen.getByRole("menuitem", { name: "Riga office" }),
+		).toHaveAttribute(
+			"href",
+			"/dashboard/invoices?project=site-1&view=approval",
+		);
+		expect(
+			screen.getByRole("menuitem", { name: "Manage projects" }),
+		).toHaveAttribute("href", "/dashboard/sites");
 	});
 
 	it("does not render project links outside project routes", async () => {
@@ -208,37 +288,41 @@ describe("dashboard navigation", () => {
 		).toBeInTheDocument();
 	});
 
-	it("uses the TGEM invoice label in mobile project navigation", async () => {
+	it("shows the TGEM second-row destinations in the mobile menu", async () => {
 		const user = userEvent.setup();
-		mockPathname = "/dashboard/sites/site-tgem-mobile/dashboard";
-		seedProject("user-tgem-mobile", "site-tgem-mobile", "TGEM mobile");
-		getProjectNavigationRuntimeForSiteMock.mockResolvedValue({
-			flowModuleKey: FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL,
-			productionConfig: null,
-			siteName: "TGEM mobile",
-		});
+		mockPathname = "/dashboard/invoices";
+		mockSearchParams = "view=approval";
 
 		render(
 			<ProjectProvider userId="user-tgem-mobile">
-				<MobileMenu organizationLanguage="en" />
+				<MobileMenu
+					organizationLanguage="en"
+					flowModuleKey={FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL}
+					availableProjects={[{ id: "site-1", name: "Riga office" }]}
+				/>
 			</ProjectProvider>,
 		);
 
-		await waitFor(() =>
-			expect(getProjectNavigationRuntimeForSiteMock).toHaveBeenCalledWith(
-				"site-tgem-mobile",
-			),
-		);
 		await user.click(screen.getByRole("button"));
 
 		expect(
-			await screen.findByRole("menuitem", { name: "Invoices" }),
-		).toHaveAttribute("href", "/dashboard/sites/site-tgem-mobile/dashboard");
+			await screen.findByRole("menuitem", { name: "All projects" }),
+		).toHaveAttribute("href", "/dashboard/invoices?view=approval");
 		expect(
-			screen.queryByRole("menuitem", { name: "Construction journal" }),
-		).toBeNull();
-		expect(screen.queryByRole("menuitem", { name: "Timesheets" })).toBeNull();
-		expect(screen.queryByRole("menuitem", { name: "Warehouse" })).toBeNull();
+			screen.getByRole("menuitem", { name: "Riga office" }),
+		).toHaveAttribute(
+			"href",
+			"/dashboard/invoices?project=site-1&view=approval",
+		);
+		expect(
+			screen.getByRole("menuitem", { name: "Manage projects" }),
+		).toHaveAttribute("href", "/dashboard/sites");
+		expect(
+			screen.getByRole("menuitem", { name: "All invoices" }),
+		).toHaveAttribute("href", "/dashboard/invoices");
+		expect(
+			screen.getByRole("menuitem", { name: "Approval flow" }),
+		).toHaveAttribute("href", "/dashboard/invoices?view=approval");
 	});
 
 	it("places project utilities in the More menu without AI Context", async () => {

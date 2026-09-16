@@ -37,6 +37,7 @@ type DashboardNavigationOptions = {
 	organizationLanguage?: string | null;
 	canAccessAiEvals?: boolean;
 	canAccessFlowConfigAdmin?: boolean;
+	flowModuleKey?: FlowModuleKey | null;
 };
 
 type ProjectNavigationRuntime = Awaited<
@@ -52,6 +53,7 @@ export function useDashboardNavigation({
 	organizationLanguage,
 	canAccessAiEvals = false,
 	canAccessFlowConfigAdmin = false,
+	flowModuleKey = null,
 }: DashboardNavigationOptions) {
 	const { projectId, projectName, setProject } = useProject();
 	const pathname = usePathname();
@@ -76,6 +78,7 @@ export function useDashboardNavigation({
 			getNavLinks(organizationLanguage, {
 				canAccessAiEvals,
 				canAccessFlowConfigAdmin,
+				flowModuleKey,
 			}).map((item) => ({
 				...item,
 				isActive: pathname === item.href,
@@ -83,6 +86,7 @@ export function useDashboardNavigation({
 		[
 			canAccessAiEvals,
 			canAccessFlowConfigAdmin,
+			flowModuleKey,
 			organizationLanguage,
 			pathname,
 		],

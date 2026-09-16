@@ -3,6 +3,7 @@ import {
 	ChartNoAxesCombined,
 	Clock8,
 	HardHat,
+	ListChecks,
 	Package,
 	ReceiptText,
 	SlidersHorizontal,
@@ -12,11 +13,24 @@ import {
 	getNavigationMessages,
 	normalizeOrganizationLanguage,
 } from "@/lib/dashboard-i18n";
+import { FLOW_MODULE_KEYS, type FlowModuleKey } from "@/lib/flows/types";
 
 export type GlobalNavLink = {
 	name: string;
 	href: string;
 	icon: LucideIcon;
+};
+
+export type TgemWorkspaceNavLink = GlobalNavLink & {
+	view: "register" | "approval";
+};
+
+export type TgemProjectNavigationLabels = {
+	projects: string;
+	allProjects: string;
+	unassigned: string;
+	manageProjects: string;
+	switchProject: string;
 };
 
 export type ProjectNavLink = {
@@ -31,12 +45,20 @@ export type ProjectNavLink = {
 
 export function getNavLinks(
 	language?: string | null,
-	options?: { canAccessAiEvals?: boolean; canAccessFlowConfigAdmin?: boolean },
+	options?: {
+		canAccessAiEvals?: boolean;
+		canAccessFlowConfigAdmin?: boolean;
+		flowModuleKey?: FlowModuleKey | null;
+	},
 ): GlobalNavLink[] {
 	const t = getNavigationMessages(normalizeOrganizationLanguage(language));
+	const isTgem =
+		options?.flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL;
 
 	const links: GlobalNavLink[] = [
-		{ name: t.projects, href: "/dashboard/sites", icon: HardHat },
+		...(isTgem
+			? []
+			: [{ name: t.projects, href: "/dashboard/sites", icon: HardHat }]),
 		{ name: t.organizationSettings, href: "/dashboard/settings", icon: Wrench },
 	];
 
@@ -57,6 +79,80 @@ export function getNavLinks(
 	}
 
 	return links;
+}
+
+export function getTgemWorkspaceNavLinks(
+	language?: string | null,
+): TgemWorkspaceNavLink[] {
+	const languageKey = getTgemLanguageKey(language);
+	const labels =
+		languageKey === "lv"
+			? {
+					allInvoices: "Visi rēķini",
+					approvalFlow: "Apstiprināšana",
+				}
+			: languageKey === "ru"
+				? {
+						allInvoices: "Все счета",
+						approvalFlow: "Маршрут согласования",
+					}
+				: {
+						allInvoices: "All invoices",
+						approvalFlow: "Approval flow",
+					};
+
+	return [
+		{
+			name: labels.allInvoices,
+			href: "/dashboard/invoices",
+			icon: ReceiptText,
+			view: "register",
+		},
+		{
+			name: labels.approvalFlow,
+			href: "/dashboard/invoices?view=approval",
+			icon: ListChecks,
+			view: "approval",
+		},
+	];
+}
+
+export function getTgemProjectNavigationLabels(
+	language?: string | null,
+): TgemProjectNavigationLabels {
+	const languageKey = getTgemLanguageKey(language);
+	if (languageKey === "lv") {
+		return {
+			projects: "Projekti",
+			allProjects: "Visi projekti",
+			unassigned: "Bez projekta",
+			manageProjects: "Pārvaldīt projektus",
+			switchProject: "Izvēlēties projektu",
+		};
+	}
+	if (languageKey === "ru") {
+		return {
+			projects: "Проекты",
+			allProjects: "Все проекты",
+			unassigned: "Без проекта",
+			manageProjects: "Управление проектами",
+			switchProject: "Выбрать проект",
+		};
+	}
+	return {
+		projects: "Projects",
+		allProjects: "All projects",
+		unassigned: "Unassigned",
+		manageProjects: "Manage projects",
+		switchProject: "Select project",
+	};
+}
+
+function getTgemLanguageKey(language?: string | null) {
+	const normalizedLanguage = String(language ?? "").toLowerCase();
+	if (normalizedLanguage.startsWith("lv")) return "lv";
+	if (normalizedLanguage.startsWith("ru")) return "ru";
+	return "en";
 }
 
 export function getProjectNavLinks(

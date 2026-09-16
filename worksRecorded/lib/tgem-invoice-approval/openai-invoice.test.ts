@@ -141,6 +141,9 @@ describe("OpenAI TGEM invoice extraction", () => {
 			expect.objectContaining({
 				model: "gpt-test",
 				store: false,
+				instructions: expect.stringMatching(
+					/fields\.subtotal is the priority amount[\s\S]*Never put a VAT-inclusive or payable amount in fields\.subtotal[\s\S]*fields\.vat is the VAT\/PVN tax amount in money, not a percentage[\s\S]*fields\.total is the final amount payable including VAT\/PVN/,
+				),
 				input: [
 					expect.objectContaining({
 						content: expect.arrayContaining([

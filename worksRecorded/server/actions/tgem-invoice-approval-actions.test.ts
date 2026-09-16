@@ -6,6 +6,7 @@ const mockPrisma = {
 		findFirst: jest.fn(),
 		findMany: jest.fn(),
 		update: jest.fn(),
+		updateMany: jest.fn(),
 	},
 	tgemInvoiceApprovalTemplate: {
 		findFirst: jest.fn(),
@@ -33,6 +34,7 @@ jest.mock("@/lib/utils/requireUser", () => ({
 
 import { startTgemInvoiceApproval } from "@/lib/tgem-invoice-approval/start-approval";
 import {
+	assignTgemInvoiceProject,
 	decideTgemInvoiceApproval,
 	saveTgemApprovalTemplate,
 	saveTgemWorkflowManagers,
@@ -123,6 +125,7 @@ describe("TGEM invoice approval actions", () => {
 				callback(mockPrisma),
 		);
 		mockPrisma.tgemInvoiceCase.findMany.mockResolvedValue([]);
+		mockPrisma.tgemInvoiceCase.updateMany.mockResolvedValue({ count: 1 });
 	});
 
 	it("lets the project owner save a typed immutable template revision", async () => {
@@ -182,47 +185,24 @@ describe("TGEM invoice approval actions", () => {
 		).resolves.toEqual({ id: "template-1" });
 	});
 
-	it("assigns waiting review-ready invoices when the first sequence is saved", async () => {
+	it("does not auto-submit review-ready invoices when a sequence is saved", async () => {
 		mockSiteAccess();
 		mockPrisma.user.findMany.mockResolvedValue([{ id: "user-1" }]);
-		mockPrisma.tgemInvoiceApprovalTemplate.findFirst
-			.mockResolvedValueOnce(null)
-			.mockResolvedValueOnce(approvalTemplate());
+		mockPrisma.tgemInvoiceApprovalTemplate.findFirst.mockResolvedValueOnce(
+			null,
+		);
 		mockPrisma.tgemInvoiceApprovalTemplate.create.mockResolvedValue({
 			id: "template-1",
 		});
-		mockPrisma.tgemInvoiceCase.findMany.mockResolvedValue([{ id: "case-1" }]);
-		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
-			id: "case-1",
-			organizationId: "org-1",
-			siteId: "site-1",
-			status: "needs_review",
-			approvalRound: 0,
-		});
-
 		await saveTgemApprovalTemplate({
 			siteId: "site-1",
 			steps: [{ approverUserId: "user-1", roleKey: "project_review" }],
 		});
 
-		expect(mockPrisma.tgemInvoiceCase.findMany).toHaveBeenCalledWith({
-			where: {
-				organizationId: "org-1",
-				siteId: "site-1",
-				status: "needs_review",
-			},
-			select: { id: true },
-		});
-		expect(mockPrisma.tgemInvoiceApprovalStep.createMany).toHaveBeenCalledWith({
-			data: expect.arrayContaining([
-				expect.objectContaining({
-					invoiceCaseId: "case-1",
-					stepOrder: 1,
-					approverUserId: "user-1",
-					status: "current",
-				}),
-			]),
-		});
+		expect(mockPrisma.tgemInvoiceCase.findMany).not.toHaveBeenCalled();
+		expect(
+			mockPrisma.tgemInvoiceApprovalStep.createMany,
+		).not.toHaveBeenCalled();
 	});
 
 	it("lets an assigned workflow manager edit the template but not manager access", async () => {
@@ -369,6 +349,184 @@ describe("TGEM invoice approval actions", () => {
 				}),
 			}),
 		});
+	});
+
+	it("does not snapshot approvers after the invoice project changes", async () => {
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			siteId: "site-1",
+			status: "needs_review",
+			approvalRound: 0,
+		});
+		mockPrisma.tgemInvoiceApprovalTemplate.findFirst.mockResolvedValue(
+			approvalTemplate(),
+		);
+		mockPrisma.tgemInvoiceCase.updateMany.mockResolvedValue({ count: 0 });
+
+		await expect(
+			startTgemInvoiceApproval({
+				invoiceCaseId: "case-1",
+				actorUserId: "user-1",
+				trigger: "automatic",
+			}),
+		).rejects.toThrow("project or approval status changed");
+		expect(
+			mockPrisma.tgemInvoiceApprovalStep.createMany,
+		).not.toHaveBeenCalled();
+	});
+
+	it("reassigns an active invoice and invalidates only its unfinished route", async () => {
+		const updatedAt = new Date("2026-09-15T09:00:00.000Z");
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			siteId: "site-1",
+			status: "in_approval",
+			approvalRound: 2,
+			updatedAt,
+			site: { id: "site-1", name: "Riga office" },
+		});
+		mockPrisma.site.findFirst.mockResolvedValue({
+			id: "site-2",
+			name: "Jurmala warehouse",
+		});
+		mockPrisma.tgemInvoiceApprovalStep.updateMany.mockResolvedValue({
+			count: 2,
+		});
+
+		await expect(
+			assignTgemInvoiceProject({
+				invoiceCaseId: "case-1",
+				projectId: "site-2",
+				expectedUpdatedAt: updatedAt.toISOString(),
+			}),
+		).resolves.toEqual({
+			invoiceCaseId: "case-1",
+			project: { id: "site-2", name: "Jurmala warehouse" },
+			status: "needs_review",
+			unchanged: false,
+		});
+		expect(mockPrisma.tgemInvoiceCase.updateMany).toHaveBeenCalledWith({
+			where: { id: "case-1", updatedAt },
+			data: {
+				siteId: "site-2",
+				status: "needs_review",
+				approvedAt: null,
+			},
+		});
+		expect(mockPrisma.tgemInvoiceApprovalStep.updateMany).toHaveBeenCalledWith({
+			where: {
+				invoiceCaseId: "case-1",
+				approvalRound: 2,
+				status: { in: ["current", "waiting"] },
+			},
+			data: { status: "cancelled" },
+		});
+		expect(mockPrisma.tgemInvoiceAuditEvent.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				eventType: "invoice_project_reassigned",
+				fromStatus: "in_approval",
+				toStatus: "needs_review",
+				payload: expect.objectContaining({ invalidatedApprovalRound: 2 }),
+			}),
+		});
+	});
+
+	it.each([
+		["received", "received", false],
+		["processing", "processing", false],
+		["failed_processing", "failed_processing", false],
+		["needs_review", "needs_review", false],
+		["changes_requested", "needs_review", true],
+		["approved", "needs_review", true],
+		["rejected", "needs_review", true],
+	] as const)(
+		"moves a %s invoice to %s when its project changes",
+		async (currentStatus, nextStatus, clearsApproval) => {
+			const updatedAt = new Date("2026-09-15T09:00:00.000Z");
+			mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+				id: "case-1",
+				organizationId: "org-1",
+				siteId: "site-1",
+				status: currentStatus,
+				approvalRound: 1,
+				updatedAt,
+				site: { id: "site-1", name: "Riga office" },
+			});
+			mockPrisma.site.findFirst.mockResolvedValue({
+				id: "site-2",
+				name: "Jurmala warehouse",
+			});
+			mockPrisma.tgemInvoiceApprovalStep.updateMany.mockResolvedValue({
+				count: 0,
+			});
+
+			await assignTgemInvoiceProject({
+				invoiceCaseId: "case-1",
+				projectId: "site-2",
+				expectedUpdatedAt: updatedAt.toISOString(),
+			});
+
+			expect(mockPrisma.tgemInvoiceCase.updateMany).toHaveBeenCalledWith({
+				where: { id: "case-1", updatedAt },
+				data: {
+					siteId: "site-2",
+					status: nextStatus,
+					...(clearsApproval ? { approvedAt: null } : {}),
+				},
+			});
+		},
+	);
+
+	it("records the first project assignment", async () => {
+		const updatedAt = new Date("2026-09-15T09:00:00.000Z");
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			siteId: null,
+			status: "needs_review",
+			approvalRound: 0,
+			updatedAt,
+			site: null,
+		});
+		mockPrisma.site.findFirst.mockResolvedValue({
+			id: "site-2",
+			name: "Jurmala warehouse",
+		});
+
+		await assignTgemInvoiceProject({
+			invoiceCaseId: "case-1",
+			projectId: "site-2",
+			expectedUpdatedAt: updatedAt.toISOString(),
+		});
+
+		expect(mockPrisma.tgemInvoiceAuditEvent.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				eventType: "invoice_project_assigned",
+			}),
+		});
+	});
+
+	it("rejects project assignment when the invoice version is stale", async () => {
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			siteId: null,
+			status: "needs_review",
+			approvalRound: 0,
+			updatedAt: new Date("2026-09-15T10:00:00.000Z"),
+			site: null,
+		});
+
+		await expect(
+			assignTgemInvoiceProject({
+				invoiceCaseId: "case-1",
+				projectId: "site-2",
+				expectedUpdatedAt: "2026-09-15T09:00:00.000Z",
+			}),
+		).rejects.toThrow("invoice changed");
+		expect(mockPrisma.site.findFirst).not.toHaveBeenCalled();
 	});
 
 	it("includes senior approval at the exact threshold", async () => {

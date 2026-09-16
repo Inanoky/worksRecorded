@@ -3,11 +3,11 @@ const mockProcessTgemInvoice = jest.fn();
 const mockPersistTgemInvoiceOcrResult = jest.fn();
 const mockStartTgemInvoiceApproval = jest.fn();
 const mockPrisma = {
-	site: { findFirst: jest.fn() },
+	site: { findFirst: jest.fn(), findMany: jest.fn() },
 	tgemInvoiceCase: { findMany: jest.fn(), update: jest.fn() },
 	tgemInvoiceDocument: { findFirst: jest.fn() },
 	tgemInvoiceAuditEvent: { create: jest.fn() },
-	user: { findMany: jest.fn(), findUnique: jest.fn() },
+	user: { findFirst: jest.fn(), findMany: jest.fn(), findUnique: jest.fn() },
 	tgemInvoiceApprovalTemplate: { findFirst: jest.fn() },
 	tgemInvoiceWorkflowManager: { findMany: jest.fn() },
 };
@@ -41,6 +41,10 @@ describe("TGEM invoice dashboard authorization data", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
 		mockRequireUser.mockResolvedValue({ id: "user-1" });
+		mockPrisma.user.findFirst.mockResolvedValue({ organizationId: "org-1" });
+		mockPrisma.site.findMany.mockResolvedValue([
+			{ id: "site-1", name: "Riga office", userId: "user-1" },
+		]);
 		mockPrisma.tgemInvoiceCase.findMany.mockResolvedValue([]);
 		mockPrisma.user.findMany.mockResolvedValue([]);
 		mockPrisma.tgemInvoiceApprovalTemplate.findFirst.mockResolvedValue(null);
@@ -48,13 +52,6 @@ describe("TGEM invoice dashboard authorization data", () => {
 	});
 
 	it("gives the active project owner both workflow capabilities", async () => {
-		mockPrisma.site.findFirst.mockResolvedValue({
-			id: "site-1",
-			organizationId: "org-1",
-			userId: "user-1",
-			tgemInvoiceWorkflowManagers: [],
-		});
-
 		const result = await getTgemInvoiceDashboardData("site-1");
 
 		expect(result?.approvalSetup).toEqual(
@@ -64,24 +61,16 @@ describe("TGEM invoice dashboard authorization data", () => {
 				ownerUserId: "user-1",
 			}),
 		);
-		expect(mockPrisma.site.findFirst).toHaveBeenCalledWith(
-			expect.objectContaining({
-				where: expect.objectContaining({
-					organization: {
-						users: { some: { id: "user-1", status: "active" } },
-					},
-				}),
-			}),
-		);
+		expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({
+			where: { id: "user-1", status: "active" },
+			select: { organizationId: true },
+		});
 	});
 
 	it("lets an assigned manager configure the flow but not grant managers", async () => {
-		mockPrisma.site.findFirst.mockResolvedValue({
-			id: "site-1",
-			organizationId: "org-1",
-			userId: "owner-1",
-			tgemInvoiceWorkflowManagers: [{ id: "manager-1" }],
-		});
+		mockPrisma.site.findMany.mockResolvedValue([
+			{ id: "site-1", name: "Riga office", userId: "owner-1" },
+		]);
 		mockPrisma.tgemInvoiceWorkflowManager.findMany.mockResolvedValue([
 			{ userId: "user-1" },
 		]);
@@ -98,12 +87,9 @@ describe("TGEM invoice dashboard authorization data", () => {
 	});
 
 	it("lets an ordinary active member configure the approval sequence", async () => {
-		mockPrisma.site.findFirst.mockResolvedValue({
-			id: "site-1",
-			organizationId: "org-1",
-			userId: "owner-1",
-			tgemInvoiceWorkflowManagers: [],
-		});
+		mockPrisma.site.findMany.mockResolvedValue([
+			{ id: "site-1", name: "Riga office", userId: "owner-1" },
+		]);
 
 		const result = await getTgemInvoiceDashboardData("site-1");
 
@@ -119,36 +105,60 @@ describe("TGEM invoice dashboard authorization data", () => {
 		mockRequireUser.mockResolvedValue({
 			id: "kp_2f5c0987b83a4162ac8819f6339534f8",
 		});
-		mockPrisma.site.findFirst.mockResolvedValue({
-			id: "site-1",
-			organizationId: "org-1",
-			userId: "owner-1",
-			tgemInvoiceWorkflowManagers: [],
-		});
+		mockPrisma.user.findFirst.mockResolvedValue({ organizationId: "org-1" });
+		mockPrisma.site.findMany.mockResolvedValue([
+			{ id: "site-1", name: "Riga office", userId: "owner-1" },
+		]);
 
 		const result = await getTgemInvoiceDashboardData("site-1");
 
-		expect(mockPrisma.site.findFirst).toHaveBeenCalledWith(
-			expect.objectContaining({
-				where: {
-					id: "site-1",
-					organization: {
-						users: {
-							some: {
-								id: "kp_2f5c0987b83a4162ac8819f6339534f8",
-								status: "active",
-							},
-						},
-					},
-				},
-			}),
-		);
+		expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({
+			where: {
+				id: "kp_2f5c0987b83a4162ac8819f6339534f8",
+				status: "active",
+			},
+			select: { organizationId: true },
+		});
 		expect(result?.approvalSetup).toEqual(
 			expect.objectContaining({
 				canManageWorkflow: true,
 				canManageWorkflowManagers: false,
 			}),
 		);
+	});
+
+	it("loads one organization-wide invoice register without choosing a project", async () => {
+		const result = await getTgemInvoiceDashboardData();
+
+		expect(mockPrisma.tgemInvoiceCase.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { organizationId: "org-1" } }),
+		);
+		expect(result).toEqual(
+			expect.objectContaining({
+				projects: [{ id: "site-1", name: "Riga office" }],
+				approvalSetup: null,
+			}),
+		);
+		expect(
+			mockPrisma.tgemInvoiceApprovalTemplate.findFirst,
+		).not.toHaveBeenCalled();
+	});
+
+	it("filters the organization register to unassigned invoices", async () => {
+		await getTgemInvoiceDashboardData("unassigned");
+
+		expect(mockPrisma.tgemInvoiceCase.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { organizationId: "org-1", siteId: null },
+			}),
+		);
+	});
+
+	it("rejects a project filter outside the active organization", async () => {
+		await expect(
+			getTgemInvoiceDashboardData("site-from-another-org"),
+		).rejects.toThrow("Project access denied");
+		expect(mockPrisma.tgemInvoiceCase.findMany).not.toHaveBeenCalled();
 	});
 });
 
