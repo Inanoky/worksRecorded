@@ -4,6 +4,8 @@ export type SiteManagerToolContext = {
   userId: string;
   siteId: string;
   originalUserComment: string;
+  originalMessage?: string;
+  hasPendingCorrection?: boolean;
   savedConfirmationRecords?: SiteDiaryConfirmationRecord[];
 };
 

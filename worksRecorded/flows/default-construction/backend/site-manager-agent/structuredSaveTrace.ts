@@ -10,6 +10,7 @@ export type StructuredSaveTraceEntry = {
 	amountEvidenceWarnings?: Record<string, unknown>[];
 	normalizedInsertRows?: Record<string, unknown>[];
 	persistedRecords?: Record<string, unknown>[];
+	noteFallbackReason?: string;
 	checker?: {
 		verdict:
 			| "accept"

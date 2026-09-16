@@ -151,6 +151,16 @@ function expectSuccessfulSave(result: unknown, count: number) {
 }
 
 describe("saveSiteDiaryRecord originalAudioUrl", () => {
+	it("does not insert another note when the source message batch already exists", async () => {
+		batchCreateMock.mockRejectedValueOnce(Object.assign(new Error("Unique constraint failed: sourceMessageId"), { code: "P2002" }));
+		const result = await saveSiteDiaryRecord({
+			rows: [{ Date: "2026-09-16T00:00:00.000Z", Works: "Piezīmes", Comments: "strādājam no 7.00 - 18.00", Amounts: null, Units: null, WorkersInvolved: null, TimeInvolved: null }],
+			userId: "user-1", siteId: "site-1", sourceMessageId: "wamid.already-saved",
+		});
+		expect(result.ok).toBe(false);
+		expect(batchCreateMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ sourceMessageId: "wamid.already-saved" }) }));
+		expect(createMock).not.toHaveBeenCalled();
+	});
   beforeEach(() => {
     jest.clearAllMocks();
     createdRowIndex = 0;

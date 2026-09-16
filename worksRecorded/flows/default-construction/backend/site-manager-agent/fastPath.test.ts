@@ -140,7 +140,7 @@ describe("site-manager fast path", () => {
     expect(formatDeterministicSaveReply("en", { ok: true, count: 2 }))
       .toBe("Saved 2 work records in WorksRecorded.");
     expect(formatDeterministicSaveReply("ru", { ok: false, count: 0, message: "DB" }))
-      .toContain("Не удалось сохранить запись: DB");
+      .toBe("Не удалось сохранить запись. Пожалуйста, попробуйте ещё раз.");
   });
 
   it("formats persisted record details without internal fields", () => {
@@ -175,7 +175,7 @@ describe("site-manager fast path", () => {
     expect(formatDeterministicSaveReply("en", { ok: true, count: 1 }, "Deivids"))
       .toBe("Deivids, saved 1 work record in WorksRecorded.");
     expect(formatDeterministicSaveReply("lv", { ok: false, count: 0 }, "Kaspar"))
-      .toBe("Kaspar, ierakstu neizdevās saglabāt.");
+      .toBe("Kaspar, ierakstu neizdevās saglabāt. Lūdzu, mēģiniet vēlreiz.");
   });
 
   it("formats multiple records as bullet points and caps output at ten", () => {

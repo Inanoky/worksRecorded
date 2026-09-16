@@ -250,7 +250,7 @@ async function talkToWhatsappAgentCore(
     if (fastPathMode === "shadow" && fastPathCandidate) {
         try {
             const shadowResult = await runWithSiteManagerToolContext(
-                { userId, siteId, originalUserComment: sourceComment },
+                { userId, siteId, originalUserComment: sourceComment, originalMessage: question, hasPendingCorrection: intentContext.hasPendingCorrection },
                 () => extractAndSaveSiteDiary({
                     question: normalizedQuestion,
                     allowFallback: true,
@@ -296,7 +296,7 @@ async function talkToWhatsappAgentCore(
         let fastPathResult: Awaited<ReturnType<typeof extractAndSaveSiteDiary>> | null = null;
         try {
             fastPathResult = await runWithSiteManagerToolContext(
-                { userId, siteId, originalUserComment: sourceComment },
+                { userId, siteId, originalUserComment: sourceComment, originalMessage: question, hasPendingCorrection: intentContext.hasPendingCorrection },
                 () => extractAndSaveSiteDiary({
                     question: normalizedQuestion,
                     allowFallback: true,
@@ -351,6 +351,7 @@ async function talkToWhatsappAgentCore(
                     count: fastPathResult.count,
                     message: fastPathResult.ok ? undefined : parseSaveToolOutcome(fastPathResult.content).message,
                     records: fastPathResult.records,
+                    savedAsNote: fastPathResult.savedAsNote,
                 },
                 includeAddressName
                     ? getUserAddressName(userFirstName, fastPathResult.language)
@@ -388,7 +389,7 @@ async function talkToWhatsappAgentCore(
             }
 
             const correctionResult = await runWithSiteManagerToolContext(
-                { userId, siteId, originalUserComment: sourceComment },
+                { userId, siteId, originalUserComment: sourceComment, originalMessage: question, hasPendingCorrection: intentContext.hasPendingCorrection },
                 () => fastPathResult.correctionMode === "intent_only"
                     ? startSiteDiaryCorrectionOperation({ language: fastPathResult.language })
                     : fastPathResult.correctionMode === "supplied"
@@ -618,7 +619,7 @@ async function talkToWhatsappAgentCore(
     let finalState: { messages?: BaseMessage[] } | null = null;
 
     await runWithSiteManagerToolContext(
-        { userId, siteId, originalUserComment: sourceComment },
+        { userId, siteId, originalUserComment: sourceComment, originalMessage: question, hasPendingCorrection: intentContext.hasPendingCorrection },
         async () => {
             for await (const output of await graph.stream(inputs, config)) {
                 for (const value of Object.values(output)) {

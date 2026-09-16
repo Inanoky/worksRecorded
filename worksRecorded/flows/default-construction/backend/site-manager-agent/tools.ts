@@ -44,6 +44,10 @@ import {
 	type SupportedReplyLanguage,
 	serializeCorrectionToolResult,
 } from "./fastPath";
+import {
+	buildDiaryFallbackNote,
+	canSaveDiaryFallbackNote,
+} from "./noteFallback";
 import { systemPromptSaveToDatabaseFunction } from "./prompts";
 import {
 	buildSiteManagerWorkflowTraceContext,
@@ -149,6 +153,7 @@ type StructuredSaveResult = {
 	amountEvidenceWarnings?: AmountEvidenceWarning[];
 	intentReason?: string;
 	intentConfidence?: number;
+	savedAsNote?: boolean;
 };
 
 type StructuredLlmEnvelope = {
@@ -629,7 +634,6 @@ function hasLiteralAmountUnitEvidence(row: LooseRecord, source: string) {
 	);
 }
 
-
 function hasSourceBackedAmountUnitPair(row: LooseRecord, source: string) {
 	return (
 		typeof row.Amounts === "number" && hasLiteralAmountUnitEvidence(row, source)
@@ -1043,6 +1047,100 @@ async function extractAndSaveSiteDiaryCore(
 	};
 
 	const contextStarted = Date.now();
+	const noteSource = toolContext.originalMessage ?? args.question;
+	const saveFallbackNote = async (
+		reason: string,
+		confirmedReport: boolean,
+	): Promise<StructuredSaveResult> => {
+		const language = detectReplyLanguage(noteSource);
+		const failed: StructuredSaveResult = {
+			action: "save_new_report",
+			correctionMode: "not_applicable",
+			language,
+			content:
+				"Failed to save site diary entry. Reason: Report could not be processed",
+			ok: false,
+			count: 0,
+		};
+		if (
+			!canSaveDiaryFallbackNote({
+				source: noteSource,
+				persist: args.persist,
+				confirmedReport,
+				hasReplyContext: Boolean(
+					args.intentContext?.hasReplyContext ||
+						whatsappSourceContext.replyToMessageId,
+				),
+				hasPendingCorrection:
+					args.intentContext?.hasPendingCorrection ||
+					toolContext.hasPendingCorrection,
+			})
+		)
+			return failed;
+		const note = buildDiaryFallbackNote(noteSource, date);
+		if (!note) return failed;
+		const metadata = {
+			siteDiaryNoteFallback: true,
+			siteDiaryNoteFallbackReason: summarizeForTrace(reason),
+		};
+		assignTraceMetadata(args.runnableConfig, metadata);
+		assignTraceMetadata(aiContext.runnableConfig, metadata);
+		addTraceTags(args.runnableConfig, ["site-diary:note-fallback"]);
+		addTraceTags(aiContext.runnableConfig, ["site-diary:note-fallback"]);
+		const started = Date.now();
+		let result: Awaited<ReturnType<typeof saveSiteDiaryRecord>>;
+		try {
+			result = await saveSiteDiaryRecord({
+				rows: [note],
+				userId,
+				siteId,
+				originalUserComment,
+				sourceMessageId: whatsappSourceContext.messageId,
+				evalMetadata: runContext?.evalRecordMetadata,
+			});
+		} catch (error) {
+			console.warn("site diary note fallback persistence failed", error);
+			updateTraceOutcome("error");
+			return failed;
+		}
+		const ok = result?.ok === true && result.count === 1;
+		recordSiteManagerTiming("persistenceMs", Date.now() - started);
+		recordSiteManagerToolCall({
+			name: "save_note_fallback",
+			durationMs: Date.now() - started,
+			ok,
+		});
+		const outcomeMetadata = {
+			siteDiaryNoteFallbackSaved: ok,
+			siteDiaryNoteFallbackRecordIds: result?.recordIds?.join(",") ?? "",
+		};
+		assignTraceMetadata(args.runnableConfig, outcomeMetadata);
+		assignTraceMetadata(aiContext.runnableConfig, outcomeMetadata);
+		updateTraceOutcome(ok ? "save" : "error");
+		recordStructuredSaveTrace({
+			siteId,
+			userId,
+			date,
+			originalUserComment,
+			rawRecords: [],
+			mappedRows: [note],
+			normalizedInsertRows: result?.normalizedInsertRows ?? [],
+			persistedRecords: result?.records ?? [],
+			noteFallbackReason: reason,
+		});
+		if (!ok) return failed;
+		const records = toConfirmationRecords(result.records);
+		setSiteManagerSavedConfirmationRecords(records);
+		return {
+			...failed,
+			ok: true,
+			count: 1,
+			savedAsNote: true,
+			records,
+			rows: [note],
+			content: "Saved 1 site diary record(s) successfully. Saved as a note.",
+		};
+	};
 	const map = await getConfig(siteId);
 	const mapObject =
 		map && typeof map === "object" && !Array.isArray(map)
@@ -1137,6 +1235,24 @@ async function extractAndSaveSiteDiaryCore(
 			totalTokens: 0,
 		});
 		if (args.allowFallback) {
+			if (
+				canSaveDiaryFallbackNote({
+					source: noteSource,
+					persist: args.persist,
+					confirmedReport: false,
+					hasReplyContext: Boolean(
+						args.intentContext?.hasReplyContext ||
+							whatsappSourceContext.replyToMessageId,
+					),
+					hasPendingCorrection:
+						args.intentContext?.hasPendingCorrection ||
+						toolContext.hasPendingCorrection,
+				})
+			)
+				return saveFallbackNote(
+					`Extraction failed: ${error instanceof Error ? error.message : String(error)}`,
+					false,
+				);
 			return {
 				action: "fallback",
 				correctionMode: "not_applicable",
@@ -1146,7 +1262,11 @@ async function extractAndSaveSiteDiaryCore(
 				count: 0,
 			};
 		}
-		throw error;
+		if (args.persist === false) throw error;
+		return saveFallbackNote(
+			`Extraction failed: ${error instanceof Error ? error.message : String(error)}`,
+			true,
+		);
 	}
 	const extractionDurationMs = Date.now() - extractionStarted;
 	const response = asLooseRecord(envelope.parsed ?? envelope);
@@ -1234,6 +1354,12 @@ async function extractAndSaveSiteDiaryCore(
 		? response.records.filter(isLooseRecord)
 		: [];
 	if (!rawRecords.length) {
+		if (
+			args.persist !== false &&
+			(!args.allowFallback || responseAction === "save_new_report")
+		) {
+			return saveFallbackNote("Extraction returned no records", true);
+		}
 		if (args.allowFallback) updateTraceOutcome("fallback", "no-records");
 		const content =
 			"Failed to save site diary entry. Reason: No records to insert";
@@ -1400,6 +1526,16 @@ async function extractAndSaveSiteDiaryCore(
 			};
 
 			if (isCheckerRejectionVerdict(checkerVerdict)) {
+				if (
+					checkerVerdict === "repairable" &&
+					!checker.parsed.repairActions?.length &&
+					!checker.parsed.repairInstructions?.trim()
+				) {
+					return saveFallbackNote(
+						`Checker returned repairable without actions: ${checker.parsed.reason}`,
+						true,
+					);
+				}
 				recordSiteManagerTiming("structuredCheckerRetries", 1);
 				const simpleRepair = applySimpleCheckerFieldRepair({
 					rows,
@@ -1452,14 +1588,10 @@ async function extractAndSaveSiteDiaryCore(
 						durationMs: Date.now() - toolStarted,
 						ok: false,
 					});
-					return {
-						action: "save_new_report",
-						correctionMode: "not_applicable",
-						language,
-						content: `Failed to save site diary entry. Reason: Checker marked extraction unsafe: ${checker.parsed.reason}`,
-						ok: false,
-						count: 0,
-					};
+					return saveFallbackNote(
+						`Checker marked extraction unsafe: ${checker.parsed.reason}`,
+						true,
+					);
 				} else {
 					const repair = await extractAndSaveSiteDiary({
 						question: args.question,
@@ -1487,15 +1619,10 @@ async function extractAndSaveSiteDiaryCore(
 							durationMs: Date.now() - toolStarted,
 							ok: false,
 						});
-						return {
-							action: "save_new_report",
-							correctionMode: "not_applicable",
-							language,
-							content:
-								"Failed to save site diary entry. Reason: Checker-guided repair extraction returned no records",
-							ok: false,
-							count: 0,
-						};
+						return saveFallbackNote(
+							"Checker-guided repair extraction returned no records",
+							true,
+						);
 					}
 					rowsToSave = repair.rows;
 					rawRecordsToTrace = repair.rawRecords ?? repair.rows;
@@ -1589,14 +1716,10 @@ async function extractAndSaveSiteDiaryCore(
 									durationMs: Date.now() - toolStarted,
 									ok: false,
 								});
-								return {
-									action: "save_new_report",
-									correctionMode: "not_applicable",
-									language,
-									content: `Failed to save site diary entry. Reason: Checker-guided repair was still rejected: ${repairChecker.parsed.reason}`,
-									ok: false,
-									count: 0,
-								};
+								return saveFallbackNote(
+									`Checker-guided repair was still rejected: ${repairChecker.parsed.reason}`,
+									true,
+								);
 							}
 						}
 					}
@@ -1605,7 +1728,7 @@ async function extractAndSaveSiteDiaryCore(
 		} catch (error) {
 			const checkerDurationMs = Date.now() - checkerStarted;
 			console.warn(
-				"site diary extraction checker failed; saving original extraction",
+				"site diary extraction checker failed; falling back to original message note",
 				error,
 			);
 			recordSiteManagerTiming("structuredCheckerMs", checkerDurationMs);
@@ -1629,6 +1752,10 @@ async function extractAndSaveSiteDiaryCore(
 					siteDiaryCheckerSucceeded: false,
 				},
 				["site-diary-checker:failed"],
+			);
+			return saveFallbackNote(
+				`Checker failed: ${error instanceof Error ? error.message : String(error)}`,
+				true,
 			);
 		}
 	} else {

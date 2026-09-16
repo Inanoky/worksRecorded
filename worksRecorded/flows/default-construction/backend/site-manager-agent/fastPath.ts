@@ -7,6 +7,7 @@ export type SiteDiarySaveOutcome = {
   count: number;
   message?: string;
   records?: SiteDiaryConfirmationRecord[];
+  savedAsNote?: boolean;
 };
 
 export type SiteDiaryCorrectionStatus =
@@ -233,10 +234,15 @@ export function formatDeterministicSaveReply(
   const prefix = name ? `${name}, ` : "";
 
   if (!outcome.ok) {
-    const reason = outcome.message?.trim();
-    if (language === "lv") return `${prefix}${name ? "ierakstu" : "Ierakstu"} neizdevās saglabāt${reason ? `: ${reason}` : "."}`;
-    if (language === "ru") return `${prefix}${name ? "не" : "Не"} удалось сохранить запись${reason ? `: ${reason}` : "."}`;
-    return `${prefix}${name ? "the" : "The"} record could not be saved${reason ? `: ${reason}` : "."}`;
+    if (language === "lv") return `${prefix}${name ? "ierakstu" : "Ierakstu"} neizdevās saglabāt. Lūdzu, mēģiniet vēlreiz.`;
+    if (language === "ru") return `${prefix}${name ? "не" : "Не"} удалось сохранить запись. Пожалуйста, попробуйте ещё раз.`;
+    return `${prefix}${name ? "the" : "The"} record could not be saved. Please try again.`;
+  }
+
+  if (outcome.savedAsNote) {
+    const confirmation = language === "lv" ? "Saglabāts kā piezīme." : language === "ru" ? "Сохранено как заметка." : "Saved as a note.";
+    const comment = outcome.records?.[0]?.Comments;
+    return comment ? `${confirmation}\n\n${compactComment(String(comment))}` : confirmation;
   }
 
   const count = Math.max(1, outcome.count);
@@ -254,6 +260,7 @@ export function formatDeterministicSaveReply(
 }
 
 export function parseSaveToolOutcome(content: string): SiteDiarySaveOutcome {
+  if (content === "Saved 1 site diary record(s) successfully. Saved as a note.") return { ok: true, count: 1, savedAsNote: true };
   const failed = content.match(/^Failed to save site diary entry\. Reason:\s*(.*)$/i);
   if (failed) return { ok: false, count: 0, message: failed[1] || "Unknown error" };
   const saved = content.match(/^Saved\s+(\d+)\s+site diary record\(s\) successfully\./i);

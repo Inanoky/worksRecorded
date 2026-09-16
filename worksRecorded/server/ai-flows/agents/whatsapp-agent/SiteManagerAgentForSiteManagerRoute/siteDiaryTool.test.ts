@@ -244,6 +244,77 @@ describe("save_to_database site diary tool", () => {
 		});
 	});
 
+	it("regresses trace 01a0aada: contradictory checker saves one original note without inferred hours", async () => {
+		const originalMessage = "strādājam no 7.00 - 18.00";
+		getSiteDiaryToolContextMock.mockReturnValue({ ...trustedContext, originalMessage });
+		structuredInvokeMock.mockReset()
+			.mockResolvedValueOnce({ action: "save_new_report", language: "lv", records: [{ Activity: "Piezīmes", Hours: 11, Comments: "Worked from 07:00 to 18:00." }] })
+			.mockResolvedValueOnce({ parsed: { verdict: "repairable", reason: "Viena piezīmju rinda un 11 stundas ir pamatotas.", repairActions: [], repairInstructions: "", badSplitSignals: [], expectedRecordCount: 1 } });
+		saveSiteDiaryRecordMock.mockImplementationOnce(async ({ rows }) => ({ ok: true, count: 1, recordIds: ["fallback-note"], records: rows }));
+		const runnableConfig = { metadata: {}, tags: [] as string[] };
+		const result = await extractAndSaveSiteDiary({ question: "paraphrased model text", requestedDate: "16-09-2026", allowFallback: true, runnableConfig });
+		expect(result).toMatchObject({ ok: true, count: 1, savedAsNote: true, language: "lv" });
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(2);
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith(expect.objectContaining({
+			userId: trustedContext.userId, siteId: trustedContext.siteId, originalUserComment: trustedContext.originalUserComment,
+			sourceMessageId: "wamid.test-correction",
+			rows: [{ Date: "2026-09-16T00:00:00.000Z", Works: "Piezīmes", Comments: originalMessage, Amounts: null, Units: null, Location: null, WorkersInvolved: null, TimeInvolved: null }],
+		}));
+		expect(structuredInvokeMock.mock.calls[0][1].metadata).toMatchObject({ siteDiaryNoteFallback: true, siteDiaryNoteFallbackSaved: true, siteDiaryNoteFallbackRecordIds: "fallback-note" });
+		expect(recordTraceMock).toHaveBeenCalledWith(expect.objectContaining({ noteFallbackReason: expect.stringContaining("repairable without actions"), persistedRecords: result.records }));
+		expect(setSavedConfirmationRecordsMock).toHaveBeenLastCalledWith(result.records);
+	});
+
+	it.each(["extraction", "checker", "empty"])("preserves the original report when %s fails", async (stage) => {
+		structuredInvokeMock.mockReset();
+		if (stage === "extraction") structuredInvokeMock.mockRejectedValueOnce(new Error("model unavailable"));
+		if (stage === "empty") structuredInvokeMock.mockResolvedValueOnce({ action: "save_new_report", records: [] });
+		if (stage === "checker") structuredInvokeMock.mockResolvedValueOnce({ action: "save_new_report", records: [{ Activity: "Concrete pour", Quantity: 999 }] }).mockRejectedValueOnce(new Error("checker unavailable"));
+		saveSiteDiaryRecordMock.mockResolvedValueOnce({ ok: true, count: 1, records: [], recordIds: ["note-1"] });
+		const result = await extractAndSaveSiteDiary({ question: "Šodien betonēšana.", allowFallback: true, requestedDate: "16-09-2026" });
+		expect(result).toMatchObject({ ok: true, savedAsNote: true });
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([expect.objectContaining({ Works: "Piezīmes", Comments: "Šodien betonēšana.", Amounts: null, TimeInvolved: null })]);
+	});
+
+	it.each(["question", "correction", "reply", "pending", "shadow"])("does not persist an extraction-error note for %s", async (kind) => {
+		structuredInvokeMock.mockReset().mockRejectedValueOnce(new Error("model unavailable"));
+		const result = await extractAndSaveSiteDiary({
+			question: kind === "question" ? "Vai darbi pabeigti?" : kind === "correction" ? "Izmaini iepriekšējo ierakstu" : "Šodien betonēšana.",
+			allowFallback: true, persist: kind !== "shadow",
+			intentContext: { hasReplyContext: kind === "reply", hasPendingCorrection: kind === "pending" },
+		});
+		expect(result.ok).toBe(false);
+		expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+	});
+
+	it.each(["throw", "rejected", "duplicate"])("does not report note success or retry persistence after %s", async (mode) => {
+		structuredInvokeMock.mockReset().mockResolvedValueOnce({ records: [{ Activity: "Concrete pour" }] }).mockResolvedValueOnce({ parsed: { verdict: "unsafe", reason: "Uncertain", repairActions: [] } });
+		if (mode === "throw") saveSiteDiaryRecordMock.mockRejectedValueOnce(new Error("database unavailable"));
+		else saveSiteDiaryRecordMock.mockResolvedValueOnce({ ok: false, message: mode === "duplicate" ? "Unique constraint failed: sourceMessageId" : "database unavailable" });
+		const result = await extractAndSaveSiteDiary({ question: "Šodien betonēšana." });
+		expect(result).toMatchObject({ ok: false, count: 0 });
+		expect(result.savedAsNote).not.toBe(true);
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+		expect(result.content).not.toMatch(/database unavailable|Unique constraint|Uncertain/);
+	});
+
+	it("does not attempt a fallback after a normal database write fails", async () => {
+		structuredInvokeMock.mockReset().mockResolvedValueOnce({ records: [{ Activity: "Concrete pour" }] }).mockResolvedValueOnce({ parsed: { verdict: "accept" } });
+		saveSiteDiaryRecordMock.mockRejectedValueOnce(new Error("database unavailable"));
+		const result = await extractAndSaveSiteDiary({ question: "Šodien betonēšana." });
+		expect(result.ok).toBe(false);
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0].Works).toBe("Concrete pour");
+	});
+
+	it("does not fallback when trusted configuration cannot be loaded", async () => {
+		getConfigMock.mockRejectedValueOnce(new Error("access denied"));
+		await expect(extractAndSaveSiteDiary({ question: "Šodien betonēšana." })).rejects.toThrow("access denied");
+		expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+	});
+
 	it("exposes only extraction fields and keeps date optional", () => {
 		expect(siteDiaryToDatabaseTool.name).toBe("save_to_database");
 
@@ -1033,8 +1104,8 @@ describe("save_to_database site diary tool", () => {
 
 		const result = await extractAndSaveSiteDiary({ question: "Pamati: iebetonēti 2 m3 betona.", requestedDate: "15-09-2026" });
 		if (verdict === "unsafe") {
-			expect(result).toMatchObject({ ok: false, count: 0 });
-			expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+			expect(result).toMatchObject({ ok: true, count: 1, savedAsNote: true });
+			expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([expect.objectContaining({ Works: "Piezīmes", Location: null, Amounts: null, Units: null, Comments: "Pamati: iebetonēti 2 m3 betona." })]);
 		} else {
 			expect(result).toMatchObject({ ok: true, count: 1 });
 			expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([expect.objectContaining({ Location: "Pamati", Amounts: 2, Units: "m3" })]);
@@ -1301,7 +1372,8 @@ describe("save_to_database site diary tool", () => {
 		]);
 	});
 
-	it("does not save rows when checker-guided repair is still rejected", async () => {
+	it("saves only the original note when checker-guided repair is still rejected", async () => {
+		saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1, recordIds: ["note-1"] });
 		structuredInvokeMock
 			.mockResolvedValueOnce({
 				records: [
@@ -1362,11 +1434,10 @@ describe("save_to_database site diary tool", () => {
 			requestedDate: "18-08-2026",
 		});
 
-		expect(result.ok).toBe(false);
-		expect(result.content).toContain(
-			"Checker-guided repair was still rejected",
-		);
-		expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+		expect(result).toMatchObject({ ok: true, savedAsNote: true, count: 1 });
+		expect(result.content).not.toContain("Checker");
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([expect.objectContaining({ Works: "Piezīmes", Amounts: null, TimeInvolved: null })]);
 		const [, extractionConfig] = structuredInvokeMock.mock.calls[0];
 		expect(extractionConfig).toEqual(
 			expect.objectContaining({
