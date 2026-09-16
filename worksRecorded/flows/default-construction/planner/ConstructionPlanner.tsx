@@ -12,16 +12,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
-	deleteConstructionPlan,
 	loadConstructionDiaryPlans,
 	loadConstructionWeek,
-	saveConstructionPlan,
+	saveConstructionPlanBatch,
 } from "@/server/actions/construction-planner";
 import {
 	addDays,
 	dateSchema,
 	type Plan,
+	planMatchKey,
 	plannerToday,
+	planSchema,
 	weekStart,
 } from "./model";
 
@@ -249,10 +250,45 @@ function PlanEditor({
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [dirty, setDirty] = useState(false);
+	const [baseline, setBaseline] = useState<Week | null>(null);
+	const [changes, setChanges] = useState<Record<string, Plan>>({});
+	const [deleted, setDeleted] = useState<Plan[]>([]);
+	const data = baseline ?? planner.data;
+	const pending =
+		dirty || Object.keys(changes).length > 0 || deleted.length > 0;
+	const plans = (data?.plans ?? [])
+		.filter((plan) => !deleted.some((row) => row.id === plan.id))
+		.map((plan) => changes[plan.id] ?? plan)
+		.concat(
+			Object.values(changes).filter((plan) => plan.id.startsWith("local:")),
+		)
+		.sort((a, b) => a.date.localeCompare(b.date));
 	const working = useRef(false);
 	const locked = draft.date <= today;
-	const options = planner.data?.options;
+	const options = {
+		works: Array.from(
+			new Map([
+				...(data?.options.works ?? []).map((row) => [row.work, row] as const),
+				...plans.map(
+					(row) => [row.work, { work: row.work, unit: row.unit }] as const,
+				),
+			]).values(),
+		),
+		locations: Array.from(
+			new Set([
+				...(data?.options.locations ?? []),
+				...plans.map((row) => row.location),
+			]),
+		),
+		units: Array.from(
+			new Set([
+				...(data?.options.units ?? []),
+				...plans.map((row) => row.unit),
+			]),
+		),
+	};
 	const update = (field: keyof Draft, value: string) => {
+		setBaseline((current) => current ?? planner.data);
 		setDirty(true);
 		setError("");
 		const selectedUnit =
@@ -266,14 +302,14 @@ function PlanEditor({
 		}));
 	};
 	useEffect(() => {
-		if (!dirty && !busy) return;
+		if (!pending && !busy) return;
 		const warn = (event: BeforeUnloadEvent) => {
 			event.preventDefault();
 			event.returnValue = "";
 		};
 		window.addEventListener("beforeunload", warn);
 		return () => window.removeEventListener("beforeunload", warn);
-	}, [dirty, busy]);
+	}, [pending, busy]);
 	const reset = () => {
 		setDraft(
 			emptyDraft(
@@ -285,26 +321,84 @@ function PlanEditor({
 		setDirty(false);
 		setError("");
 	};
-	async function save() {
-		if (working.current || locked || !planner.siteId) return;
-		const number = draft.quantity.trim().replace(",", ".");
-		if (!/^\d+(\.\d+)?$/.test(number) || Number(number) <= 0) {
-			setError("Norādiet pozitīvu plānoto daudzumu.");
-			return;
+	const discard = () => {
+		setChanges({});
+		setDeleted([]);
+		setBaseline(null);
+		reset();
+	};
+	function stage() {
+		const parsed = planSchema
+			.omit({ siteId: true, id: true, version: true })
+			.safeParse({
+				date: draft.date,
+				work: draft.work,
+				location: draft.location,
+				unit: draft.unit,
+				quantity: Number(draft.quantity.trim().replace(",", ".")),
+			});
+		if (
+			!parsed.success ||
+			locked ||
+			draft.date < planner.week ||
+			draft.date > addDays(planner.week, 6)
+		) {
+			setError(
+				"Pārbaudiet nākotnes datumu, darbu, vietu, mērvienību un pozitīvu daudzumu.",
+			);
+			return null;
 		}
+		const row = {
+			...parsed.data,
+			id: draft.id ?? `local:${crypto.randomUUID()}`,
+			version: draft.version ?? 1,
+		};
+		if (
+			plans.some(
+				(plan) =>
+					plan.id !== row.id &&
+					plan.date === row.date &&
+					planMatchKey(plan.work, plan.location, plan.unit) ===
+						planMatchKey(row.work, row.location, row.unit),
+			)
+		) {
+			setError(
+				"Šis darbs, vieta un mērvienība šajā datumā jau ir plānā. Rediģējiet esošo rindu.",
+			);
+			return null;
+		}
+		return { ...changes, [row.id]: row };
+	}
+	function applyDraft() {
+		const next = stage();
+		if (!next) return;
+		setChanges(next);
+		reset();
+	}
+	async function save() {
+		if (working.current || !pending || !planner.siteId) return;
+		const next = dirty ? stage() : changes;
+		if (!next) return;
 		working.current = true;
 		setBusy(true);
 		setError("");
 		try {
-			const result = await saveConstructionPlan({
-				...draft,
+			const result = await saveConstructionPlanBatch({
 				siteId: planner.siteId,
-				quantity: Number(number),
+				week: planner.week,
+				changes: Object.values(next).map(({ id: rowId, version, ...row }) => ({
+					...row,
+					...(rowId.startsWith("local:") ? {} : { id: rowId, version }),
+				})),
+				deleted: deleted.map(({ id: rowId, version }) => ({
+					id: rowId,
+					version,
+				})),
 			});
 			if (!result.ok) setError(result.error);
 			else {
-				reset();
 				await planner.reload();
+				discard();
 				onCatalogChanged();
 			}
 		} catch {
@@ -314,43 +408,28 @@ function PlanEditor({
 			setBusy(false);
 		}
 	}
-	async function remove(plan: Plan) {
-		if (
-			working.current ||
-			!planner.siteId ||
-			!window.confirm("Dzēst šo plāna rindu?")
-		)
-			return;
-		working.current = true;
-		setBusy(true);
+	function remove(plan: Plan) {
+		if (working.current || plan.date <= today) return;
+		setBaseline((current) => current ?? planner.data);
+		setChanges((current) => {
+			const next = { ...current };
+			delete next[plan.id];
+			return next;
+		});
+		if (!plan.id.startsWith("local:"))
+			setDeleted((current) => [...current, plan]);
+		if (draft.id === plan.id) reset();
 		setError("");
-		try {
-			const result = await deleteConstructionPlan({
-				siteId: planner.siteId,
-				id: plan.id,
-				version: plan.version,
-			});
-			if (!result.ok) setError(result.error);
-			else {
-				reset();
-				await planner.reload();
-			}
-		} catch {
-			setError("Neizdevās dzēst plānu.");
-		} finally {
-			working.current = false;
-			setBusy(false);
-		}
 	}
 	return (
 		<DialogContent
 			className="max-h-[90dvh] overflow-y-auto sm:max-w-5xl"
-			showCloseButton={!busy && !dirty}
+			showCloseButton={!busy && !pending}
 			onPointerDownOutside={(event) => {
-				if (busy || dirty) event.preventDefault();
+				if (busy || pending) event.preventDefault();
 			}}
 			onEscapeKeyDown={(event) => {
-				if (busy || dirty) event.preventDefault();
+				if (busy || pending) event.preventDefault();
 			}}
 		>
 			<DialogHeader>
@@ -358,28 +437,33 @@ function PlanEditor({
 				<DialogDescription>
 					Plānojiet darbus pa dienām. Šodiena un pagātne ir bloķēta
 					(Europe/Riga). Jauni darbi, vietas un mērvienības pēc saglabāšanas būs
-					pieejami izvēlnēs.
+					pieejami izvēlnēs. Visas izmaiņas tiks saglabātas tikai pēc pogas
+					“Saglabāt” nospiešanas.
 				</DialogDescription>
 			</DialogHeader>
-			<WeekPicker planner={planner} disabled={busy || dirty} />
+			<WeekPicker planner={planner} disabled={busy || pending} />
 			{planner.loading ? <output>Ielādē plānu…</output> : null}
 			{planner.error ? (
 				<p role="alert" className="text-destructive">
 					{planner.error}{" "}
-					<Button variant="outline" onClick={() => void planner.reload()}>
+					<Button
+						variant="outline"
+						disabled={busy || pending}
+						onClick={() => void planner.reload()}
+					>
 						Mēģināt vēlreiz
 					</Button>
 				</p>
 			) : null}
-			{planner.data ? (
+			{data ? (
 				<>
 					<div className="space-y-2">
-						{planner.data.plans.length === 0 ? (
+						{plans.length === 0 ? (
 							<p className="text-sm text-muted-foreground">
 								Šai nedēļai nav plāna.
 							</p>
 						) : (
-							planner.data.plans.map((plan) => (
+							plans.map((plan) => (
 								<div
 									key={plan.id}
 									className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
@@ -387,6 +471,11 @@ function PlanEditor({
 									<span className="min-w-0 break-words">
 										{plan.date} · {plan.location} · {plan.work} ·{" "}
 										{plan.quantity} {plan.unit}
+										{changes[plan.id] ? (
+											<span className="ml-2 text-muted-foreground">
+												Nesaglabāts
+											</span>
+										) : null}
 									</span>
 									{plan.date <= today ? (
 										<span className="text-muted-foreground">Bloķēts</span>
@@ -424,7 +513,7 @@ function PlanEditor({
 						className="space-y-3 border-t pt-4"
 						onSubmit={(event) => {
 							event.preventDefault();
-							void save();
+							applyDraft();
 						}}
 					>
 						<h3 className="font-medium">
@@ -528,18 +617,33 @@ function PlanEditor({
 								disabled={busy}
 								onClick={reset}
 							>
-								Atcelt izmaiņas
+								Notīrīt formu
 							</Button>
 							<Button type="submit" disabled={busy || locked || !dirty}>
-								{busy ? "Saglabā…" : "Saglabāt"}
+								{draft.id ? "Piemērot izmaiņas" : "Pievienot plānam"}
 							</Button>
 						</div>
 					</form>
 				</>
 			) : null}
+			{pending ? (
+				<output className="text-sm text-muted-foreground">
+					Ir nesaglabātas izmaiņas
+					{deleted.length ? ` · Dzēšanai: ${deleted.length}` : ""}. Pirms
+					nedēļas maiņas saglabājiet vai atceliet izmaiņas.
+				</output>
+			) : null}
+			<div className="flex justify-end gap-2 border-t pt-4">
+				<Button variant="outline" disabled={busy || !pending} onClick={discard}>
+					Atcelt izmaiņas
+				</Button>
+				<Button disabled={busy || !pending} onClick={() => void save()}>
+					{busy ? "Saglabā…" : "Saglabāt"}
+				</Button>
+			</div>
 			<Button
 				variant="outline"
-				disabled={busy || dirty}
+				disabled={busy || pending}
 				onClick={() => planner.setOpen(false)}
 			>
 				Aizvērt

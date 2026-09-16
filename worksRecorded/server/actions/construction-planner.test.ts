@@ -34,6 +34,7 @@ import {
 	loadConstructionDiaryPlans,
 	loadConstructionWeek,
 	saveConstructionPlan,
+	saveConstructionPlanBatch,
 } from "./construction-planner";
 
 const siteId = "73bfa5f9-9e49-460e-876e-8d9eb58ba2cb";
@@ -144,34 +145,101 @@ describe("construction planner actions", () => {
 		);
 	});
 	it("compares the factual profile value, not Amounts, in expanded diary cards", async () => {
-		jest
-			.mocked(prisma.site.findFirst)
-			.mockResolvedValue({
-				id: siteId,
-				organizationId: "org",
-				siteDiaryRecordsMap: enableDefaultConstructionQuantityProfile(config),
-			} as never);
+		jest.mocked(prisma.site.findFirst).mockResolvedValue({
+			id: siteId,
+			organizationId: "org",
+			siteDiaryRecordsMap: enableDefaultConstructionQuantityProfile(config),
+		} as never);
 		jest
 			.mocked(prisma.constructionPlan.findMany)
 			.mockResolvedValue([stored] as never);
-		jest
-			.mocked(prisma.sitediaryrecords.findMany)
-			.mockResolvedValue([
-				{
-					id: "actual",
-					Date: new Date("2026-09-17T10:00:00Z"),
-					Works: "Roof",
-					Location: "Attic",
-					Units: "m3",
-					Amounts: 99,
-					Comments_Custom_1: "12,5",
-				},
-			] as never);
+		jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([
+			{
+				id: "actual",
+				Date: new Date("2026-09-17T10:00:00Z"),
+				Works: "Roof",
+				Location: "Attic",
+				Units: "m3",
+				Amounts: 99,
+				Comments_Custom_1: "12,5",
+			},
+		] as never);
 		expect(await loadConstructionDiaryPlans(siteId)).toMatchObject([
 			{ actualQuantity: 12.5, status: "under" },
 		]);
 	});
 	afterEach(() => jest.useRealTimers());
+	it("saves additions, edits and deletions in one transaction", async () => {
+		const { siteId: _, ...row } = draft;
+		const deletedId = "32d70b91-af15-4ddf-a017-41d9ad3ac933";
+		expect(
+			await saveConstructionPlanBatch({
+				siteId,
+				week: "2026-09-14",
+				changes: [row, { ...row, id, version: 1, work: "Walls" }],
+				deleted: [{ id: deletedId, version: 2 }],
+			}),
+		).toEqual({ ok: true });
+		expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+		expect(prisma.constructionPlan.create).toHaveBeenCalledTimes(1);
+		expect(prisma.constructionPlan.updateMany).toHaveBeenCalledTimes(1);
+		expect(prisma.constructionPlan.deleteMany).toHaveBeenCalledWith({
+			where: {
+				id: deletedId,
+				siteId,
+				version: 2,
+				site: { organizationId: "org" },
+				date: {
+					gt: new Date("2026-09-16"),
+					gte: new Date("2026-09-14"),
+					lt: new Date("2026-09-21"),
+				},
+			},
+		});
+	});
+	it("rejects malformed, locked and cross-week batches before writing", async () => {
+		const { siteId: _, ...row } = draft;
+		const batch = { siteId, week: "2026-09-14", changes: [row], deleted: [] };
+		for (const invalid of [
+			{ changes: [{ ...row, date: "2026-09-16" }] },
+			{ changes: [{ ...row, date: "2026-09-22" }] },
+			{ changes: [{ ...row, id }] },
+			{ changes: [{ ...row, id, version: 1 }], deleted: [{ id, version: 1 }] },
+			{ changes: [{ ...row, quantity: -1 }] },
+			{ changes: [{ ...row, siteId }] },
+		])
+			expect(
+				await saveConstructionPlanBatch({ ...batch, ...invalid }),
+			).toMatchObject({ ok: false });
+		expect(prisma.$transaction).not.toHaveBeenCalled();
+	});
+	it("aborts the transaction on a stale delete without attempting remaining changes", async () => {
+		const { siteId: _, ...row } = draft;
+		jest
+			.mocked(prisma.constructionPlan.deleteMany)
+			.mockResolvedValue({ count: 0 });
+		expect(
+			await saveConstructionPlanBatch({
+				siteId,
+				week: "2026-09-14",
+				changes: [row],
+				deleted: [{ id, version: 1 }],
+			}),
+		).toMatchObject({ ok: false });
+		expect(prisma.constructionPlan.create).not.toHaveBeenCalled();
+	});
+	it("rejects a batch for an inaccessible site", async () => {
+		jest.mocked(prisma.site.findFirst).mockResolvedValue(null);
+		expect(
+			await saveConstructionPlanBatch({
+				siteId,
+				week: "2026-09-14",
+				changes: [],
+				deleted: [{ id, version: 1 }],
+			}),
+		).toMatchObject({ ok: false });
+		expect(prisma.$transaction).not.toHaveBeenCalled();
+	});
 	it("creates a future plan and remembers dropdown additions atomically", async () => {
 		expect(await saveConstructionPlan(draft)).toMatchObject({
 			ok: true,

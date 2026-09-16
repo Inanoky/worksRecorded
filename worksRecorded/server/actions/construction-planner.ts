@@ -15,6 +15,7 @@ import {
 	addDays,
 	assertFuture,
 	comparePlans,
+	dateSchema,
 	normalizePlanText,
 	type Plan,
 	planMatchKey,
@@ -233,102 +234,181 @@ export async function saveConstructionPlan(input: unknown) {
 		const { site, userId } = await authorize(draft.siteId);
 		assertFuture(draft.date, plannerToday());
 		const plan = await prisma.$transaction(async (tx) => {
-			const today = plannerToday();
-			assertFuture(draft.date, today);
-			const currentSite = await tx.site.findFirst({
-				where: { id: site.id, organizationId: site.organizationId },
-				select: { siteDiaryRecordsMap: true, updatedAt: true },
-			});
-			if (!currentSite) throw new Error("Nav piekļuves.");
-			const config = configMap(currentSite.siteDiaryRecordsMap);
-			const options = getDefaultConstructionOptionValues(config);
-			const canonical = (value: string, existing: string[]) =>
-				existing.find(
-					(option) => normalizePlanText(option) === normalizePlanText(value),
-				) ?? value;
-			const work = canonical(
-				draft.work,
-				options.productivity.works.map((row) => row.work),
-			);
-			const location = canonical(draft.location, options.locations);
-			const unit = canonical(draft.unit, options.units);
-			setDefaultConstructionWorkDropdownOptions(config, [
-				...options.productivity.works.map((row) => row.work),
-				work,
-			]);
-			if (!options.productivity.works.some((row) => row.work === work)) {
-				const other = (config.otherSettings ?? {}) as Prisma.JsonObject;
-				const settings = (other[
-					DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY
-				] ?? { version: 4 }) as Prisma.JsonObject;
-				config.otherSettings = {
-					...other,
-					[DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY]: {
-						...settings,
-						works: [
-							...(Array.isArray(settings.works) ? settings.works : []),
-							{
-								work,
-								unit,
-								laborNormHoursPerUnit: null,
-								hourlyCost: null,
-								costCalculationMode: "output",
-							},
-						],
-					},
-				};
-			}
-			for (const [field, values] of [
-				["Location", [...options.locations, location]],
-				["Units", [...options.units, unit]],
-			] as const) {
-				config[field] = {
-					...(config[field] as Prisma.JsonObject),
-					DropDownOptions: Object.fromEntries(
-						Array.from(new Set(values)).map((value) => [value, value]),
-					),
-				};
-			}
-			const updatedSite = await tx.site.updateMany({
-				where: {
-					id: site.id,
-					organizationId: site.organizationId,
-					updatedAt: currentSite.updatedAt,
-				},
-				data: { siteDiaryRecordsMap: config },
-			});
-			if (updatedSite.count !== 1)
-				throw new Error("Iestatījumi mainīti citā logā. Atjaunojiet plānu.");
-			const data = {
-				date: new Date(draft.date),
-				work,
-				location,
-				unit,
-				quantity: draft.quantity,
-				matchKey: planMatchKey(work, location, unit),
-				updatedBy: userId,
-			};
-			if (!draft.id)
-				return tx.constructionPlan.create({
-					data: { ...data, siteId: site.id, createdBy: userId },
-				});
-			const changed = await tx.constructionPlan.updateMany({
-				where: {
-					id: draft.id,
-					siteId: site.id,
-					version: draft.version,
-					date: { gt: new Date(today) },
-				},
-				data: { ...data, version: { increment: 1 } },
-			});
-			if (changed.count !== 1)
-				throw new Error(
-					"Plāns ir bloķēts vai mainīts citā logā. Atjaunojiet sarakstu.",
-				);
-			return tx.constructionPlan.findUniqueOrThrow({ where: { id: draft.id } });
+			return persistPlan(tx, draft, site, userId);
 		});
 		invalidate(site.id);
 		return { ok: true as const, plan: serialize(plan) };
+	} catch (error) {
+		return { ok: false as const, error: failure(error) };
+	}
+}
+
+async function persistPlan(
+	tx: Prisma.TransactionClient,
+	draft: z.infer<typeof planSchema>,
+	site: Awaited<ReturnType<typeof authorize>>["site"],
+	userId: string,
+) {
+	const today = plannerToday();
+	assertFuture(draft.date, today);
+	const currentSite = await tx.site.findFirst({
+		where: { id: site.id, organizationId: site.organizationId },
+		select: { siteDiaryRecordsMap: true, updatedAt: true },
+	});
+	if (!currentSite) throw new Error("Nav piekļuves.");
+	const config = configMap(currentSite.siteDiaryRecordsMap);
+	const options = getDefaultConstructionOptionValues(config);
+	const canonical = (value: string, existing: string[]) =>
+		existing.find(
+			(option) => normalizePlanText(option) === normalizePlanText(value),
+		) ?? value;
+	const work = canonical(
+		draft.work,
+		options.productivity.works.map((row) => row.work),
+	);
+	const location = canonical(draft.location, options.locations);
+	const unit = canonical(draft.unit, options.units);
+	setDefaultConstructionWorkDropdownOptions(config, [
+		...options.productivity.works.map((row) => row.work),
+		work,
+	]);
+	if (!options.productivity.works.some((row) => row.work === work)) {
+		const other = (config.otherSettings ?? {}) as Prisma.JsonObject;
+		const settings = (other[DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY] ?? {
+			version: 4,
+		}) as Prisma.JsonObject;
+		config.otherSettings = {
+			...other,
+			[DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY]: {
+				...settings,
+				works: [
+					...(Array.isArray(settings.works) ? settings.works : []),
+					{
+						work,
+						unit,
+						laborNormHoursPerUnit: null,
+						hourlyCost: null,
+						costCalculationMode: "output",
+					},
+				],
+			},
+		};
+	}
+	for (const [field, values] of [
+		["Location", [...options.locations, location]],
+		["Units", [...options.units, unit]],
+	] as const) {
+		config[field] = {
+			...(config[field] as Prisma.JsonObject),
+			DropDownOptions: Object.fromEntries(
+				Array.from(new Set(values)).map((value) => [value, value]),
+			),
+		};
+	}
+	const updatedSite = await tx.site.updateMany({
+		where: {
+			id: site.id,
+			organizationId: site.organizationId,
+			updatedAt: currentSite.updatedAt,
+		},
+		data: { siteDiaryRecordsMap: config },
+	});
+	if (updatedSite.count !== 1)
+		throw new Error("Iestatījumi mainīti citā logā. Atjaunojiet plānu.");
+	const data = {
+		date: new Date(draft.date),
+		work,
+		location,
+		unit,
+		quantity: draft.quantity,
+		matchKey: planMatchKey(work, location, unit),
+		updatedBy: userId,
+	};
+	if (!draft.id)
+		return tx.constructionPlan.create({
+			data: { ...data, siteId: site.id, createdBy: userId },
+		});
+	const changed = await tx.constructionPlan.updateMany({
+		where: {
+			id: draft.id,
+			siteId: site.id,
+			version: draft.version,
+			date: { gt: new Date(today) },
+		},
+		data: { ...data, version: { increment: 1 } },
+	});
+	if (changed.count !== 1)
+		throw new Error(
+			"Plāns ir bloķēts vai mainīts citā logā. Atjaunojiet sarakstu.",
+		);
+	return tx.constructionPlan.findUniqueOrThrow({ where: { id: draft.id } });
+}
+
+export async function saveConstructionPlanBatch(input: unknown) {
+	try {
+		const batch = z
+			.object({
+				siteId: z.string().uuid(),
+				week: dateSchema,
+				changes: z.array(planSchema.omit({ siteId: true })).max(100),
+				deleted: z
+					.array(
+						z
+							.object({
+								id: z.string().uuid(),
+								version: z.number().int().positive(),
+							})
+							.strict(),
+					)
+					.max(100),
+			})
+			.strict()
+			.parse(input);
+		const start = weekStart(batch.week);
+		const end = addDays(start, 7);
+		const ids = new Set<string>();
+		for (const row of [...batch.changes, ...batch.deleted]) {
+			if (row.id) {
+				if (!row.version || ids.has(row.id))
+					throw new Error("Pārbaudiet plāna rindas un to versijas.");
+				ids.add(row.id);
+			}
+		}
+		for (const row of batch.changes) {
+			assertFuture(row.date, plannerToday());
+			if (row.date < start || row.date >= end)
+				throw new Error("Datumam jābūt izvēlētajā nedēļā.");
+		}
+		const { site, userId } = await authorize(batch.siteId);
+		await prisma.$transaction(
+			async (tx) => {
+				for (const row of batch.deleted) {
+					const result = await tx.constructionPlan.deleteMany({
+						where: {
+							id: row.id,
+							siteId: site.id,
+							version: row.version,
+							site: { organizationId: site.organizationId },
+							date: {
+								gt: new Date(plannerToday()),
+								gte: new Date(start),
+								lt: new Date(end),
+							},
+						},
+					});
+					if (result.count !== 1)
+						throw new Error(
+							"Plāns ir bloķēts vai mainīts citā logā. Atjaunojiet sarakstu.",
+						);
+				}
+				for (const row of batch.changes) {
+					await persistPlan(tx, { ...row, siteId: site.id }, site, userId);
+				}
+			},
+			{ timeout: 30000 },
+		);
+		invalidate(site.id);
+		return { ok: true as const };
 	} catch (error) {
 		return { ok: false as const, error: failure(error) };
 	}

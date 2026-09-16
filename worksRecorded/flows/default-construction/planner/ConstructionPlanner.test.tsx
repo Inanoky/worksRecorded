@@ -8,7 +8,7 @@ import {
 import {
 	loadConstructionDiaryPlans,
 	loadConstructionWeek,
-	saveConstructionPlan,
+	saveConstructionPlanBatch,
 } from "@/server/actions/construction-planner";
 import { PlannerControls, useConstructionPlanner } from "./ConstructionPlanner";
 import { DayPlanToggle, PlanColumnHead, PlanOnlyRow } from "./DayPlan";
@@ -17,7 +17,7 @@ import { comparePlans } from "./model";
 jest.mock("@/server/actions/construction-planner", () => ({
 	loadConstructionWeek: jest.fn(),
 	loadConstructionDiaryPlans: jest.fn(),
-	saveConstructionPlan: jest.fn(),
+	saveConstructionPlanBatch: jest.fn(),
 	deleteConstructionPlan: jest.fn(),
 }));
 const siteId = "73bfa5f9-9e49-460e-876e-8d9eb58ba2cb";
@@ -109,7 +109,7 @@ describe("construction planner interface", () => {
 			.mocked(loadConstructionDiaryPlans)
 			.mockResolvedValue(comparePlans(data.plans, [], data.today));
 		jest
-			.mocked(saveConstructionPlan)
+			.mocked(saveConstructionPlanBatch)
 			.mockResolvedValue({ ok: false, error: "Save failed" });
 	});
 	it("does not load planning data or expose it to disabled flows", () => {
@@ -243,13 +243,19 @@ describe("construction planner interface", () => {
 		);
 		fireEvent.click(screen.getByRole("button", { name: "Saglabāt" }));
 		expect(await screen.findByRole("alert")).toHaveTextContent("Save failed");
-		expect(saveConstructionPlan).toHaveBeenCalledWith({
+		expect(saveConstructionPlanBatch).toHaveBeenCalledWith({
 			siteId,
-			date: "2026-09-17",
-			work: "Walls",
-			location: "New floor",
-			unit: "m2",
-			quantity: 12.5,
+			week: "2026-09-14",
+			deleted: [],
+			changes: [
+				{
+					date: "2026-09-17",
+					work: "Walls",
+					location: "New floor",
+					unit: "m2",
+					quantity: 12.5,
+				},
+			],
 		});
 		expect(screen.getByLabelText("Lokācija", { exact: true })).toHaveValue(
 			"New floor",
@@ -261,5 +267,85 @@ describe("construction planner interface", () => {
 		await waitFor(() =>
 			expect(screen.getByRole("button", { name: "Aizvērt" })).toBeEnabled(),
 		);
+	});
+	it("stages multiple additions, edits and deletes locally until one Save", async () => {
+		const future = { ...data.plans[0], id: "existing", date: "2026-09-17" };
+		jest
+			.mocked(loadConstructionWeek)
+			.mockResolvedValue({ ...data, plans: [future] });
+		render(<Harness />);
+		fireEvent.click(screen.getByRole("button", { name: "Plāns" }));
+		await screen.findByRole("button", { name: "Rediģēt" });
+		fireEvent.click(screen.getByRole("button", { name: "Rediģēt" }));
+		fireEvent.change(
+			screen.getByLabelText("Daudzums (plāns)", { exact: true }),
+			{ target: { value: "20" } },
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Piemērot izmaiņas" }));
+		expect(screen.getByText(/20 m2/)).toBeInTheDocument();
+		fireEvent.change(screen.getByLabelText("Darbs", { exact: true }), {
+			target: { value: "New work" },
+		});
+		fireEvent.change(screen.getByLabelText("Lokācija", { exact: true }), {
+			target: { value: "Roof" },
+		});
+		fireEvent.change(screen.getByLabelText("Mērvienība", { exact: true }), {
+			target: { value: "gab" },
+		});
+		fireEvent.change(
+			screen.getByLabelText("Daudzums (plāns)", { exact: true }),
+			{ target: { value: "5" } },
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Pievienot plānam" }));
+		expect(screen.getByText(/5 gab/)).toBeInTheDocument();
+		const workInput = screen.getByLabelText("Darbs", { exact: true });
+		const list = document.getElementById(workInput.getAttribute("list") ?? "");
+		expect(list?.querySelector('option[value="New work"]')).toBeTruthy();
+		fireEvent.click(screen.getAllByRole("button", { name: "Dzēst" })[0]);
+		expect(screen.queryByText(/20 m2/)).not.toBeInTheDocument();
+		expect(saveConstructionPlanBatch).not.toHaveBeenCalled();
+		expect(loadConstructionWeek).toHaveBeenCalledTimes(1);
+		fireEvent.click(screen.getByRole("button", { name: "Saglabāt" }));
+		await screen.findByText("Save failed");
+		expect(saveConstructionPlanBatch).toHaveBeenCalledTimes(1);
+		expect(saveConstructionPlanBatch).toHaveBeenCalledWith({
+			siteId,
+			week: "2026-09-14",
+			deleted: [{ id: "existing", version: 1 }],
+			changes: [
+				{
+					date: "2026-09-17",
+					work: "New work",
+					location: "Roof",
+					unit: "gab",
+					quantity: 5,
+				},
+			],
+		});
+		expect(screen.getByText(/5 gab/)).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Atcelt izmaiņas" }));
+		expect(screen.queryByText(/5 gab/)).not.toBeInTheDocument();
+		expect(screen.getByText(/10 m2/)).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Aizvērt" })).toBeEnabled();
+		expect(loadConstructionWeek).toHaveBeenCalledTimes(1);
+	});
+	it("saves a staged batch and clears pending state on success", async () => {
+		jest.mocked(saveConstructionPlanBatch).mockResolvedValue({ ok: true });
+		jest.mocked(loadConstructionWeek).mockResolvedValue({
+			...data,
+			plans: [{ ...data.plans[0], date: "2026-09-17" }],
+		});
+		render(<Harness />);
+		fireEvent.click(screen.getByRole("button", { name: "Plāns" }));
+		fireEvent.click(await screen.findByRole("button", { name: "Dzēst" }));
+		expect(saveConstructionPlanBatch).not.toHaveBeenCalled();
+		jest.mocked(loadConstructionWeek).mockResolvedValue({ ...data, plans: [] });
+		fireEvent.click(screen.getByRole("button", { name: "Saglabāt" }));
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Aizvērt" })).toBeEnabled(),
+		);
+		expect(screen.getByText("Šai nedēļai nav plāna.")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Saglabāt" })).toBeDisabled();
+		expect(loadConstructionWeek).toHaveBeenCalledTimes(2);
 	});
 });
