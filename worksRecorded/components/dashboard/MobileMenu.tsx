@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils/utils";
 import {
 	getTgemProjectNavigationLabels,
 	getTgemWorkspaceNavLinks,
+	type TgemWorkspaceNavLink,
 } from "./NavLinks";
 import { useDashboardNavigation } from "./useDashboardNavigation";
 
@@ -49,16 +50,20 @@ export function MobileMenu({
 	const searchParams = useSearchParams();
 	const labels = getMobileMenuLabels(organizationLanguage);
 	const isTgem = flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL;
-	const isApprovalView =
-		pathname === "/dashboard/invoices" &&
-		searchParams.get("view") === "approval";
+	const activeTgemView: TgemWorkspaceNavLink["view"] | null =
+		pathname === "/dashboard/invoices/settings"
+			? "settings"
+			: pathname === "/dashboard/invoices" &&
+					searchParams.get("view") === "approval"
+				? "approval"
+				: pathname === "/dashboard/invoices"
+					? "register"
+					: null;
 	const tgemWorkspaceLinks = isTgem
 		? getTgemWorkspaceNavLinks(organizationLanguage).map((item) => ({
 				...item,
-				isActive:
-					item.view === "approval"
-						? isApprovalView
-						: pathname === "/dashboard/invoices" && !isApprovalView,
+				href: getTgemWorkspaceHref(item.view, searchParams.get("project")),
+				isActive: item.view === activeTgemView,
 			}))
 		: [];
 	const tgemProjectLabels =
@@ -89,7 +94,7 @@ export function MobileMenu({
 						{tgemProjectOptions.map((project) => {
 							const href = getTgemInvoiceProjectHref(
 								project.id,
-								isApprovalView,
+								activeTgemView ?? "register",
 							);
 							const isSelected = (activeProjectFilter ?? null) === project.id;
 							return (
@@ -177,13 +182,24 @@ export function MobileMenu({
 
 function getTgemInvoiceProjectHref(
 	projectFilter: string | null,
-	isApprovalView: boolean,
+	view: TgemWorkspaceNavLink["view"],
+) {
+	return getTgemWorkspaceHref(view, projectFilter);
+}
+
+function getTgemWorkspaceHref(
+	view: TgemWorkspaceNavLink["view"],
+	projectFilter: string | null,
 ) {
 	const searchParams = new URLSearchParams();
 	if (projectFilter) searchParams.set("project", projectFilter);
-	if (isApprovalView) searchParams.set("view", "approval");
+	if (view === "approval") searchParams.set("view", "approval");
 	const query = searchParams.toString();
-	return `/dashboard/invoices${query ? `?${query}` : ""}`;
+	const pathname =
+		view === "settings"
+			? "/dashboard/invoices/settings"
+			: "/dashboard/invoices";
+	return `${pathname}${query ? `?${query}` : ""}`;
 }
 
 function getMobileMenuLabels(language?: string | null) {

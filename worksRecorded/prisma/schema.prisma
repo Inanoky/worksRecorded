@@ -41,6 +41,7 @@ model Organization {
       tgemInvoiceAuditEvents TgemInvoiceAuditEvent[]
       tgemInvoiceApprovalTemplates TgemInvoiceApprovalTemplate[]
       tgemInvoiceWorkflowManagers TgemInvoiceWorkflowManager[]
+      tgemCostCodes TgemCostCode[]
 
       
 
@@ -242,6 +243,8 @@ model TgemInvoiceCase {
   total                     Decimal?
   bankAccount               String?
   reference                 String?
+  invoiceType               String   @default("debit")
+  costCode                  String?
   validationSummary         Json?
   extractionSummary         Json?
   receivedAt                DateTime @default(now())
@@ -262,6 +265,22 @@ model TgemInvoiceCase {
   @@index([organizationId, status, createdAt])
   @@index([siteId, status, createdAt])
   @@index([organizationId, source, sourceMessageId])
+  @@index([organizationId, costCode])
+}
+
+model TgemCostCode {
+  id                 String   @id @default(uuid())
+  organizationId     String
+  code               String
+  name               String
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, code])
+  @@index([organizationId, isActive, code])
 }
 
 model TgemInvoiceDocument {

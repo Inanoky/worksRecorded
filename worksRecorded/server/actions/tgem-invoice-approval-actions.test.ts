@@ -20,6 +20,7 @@ const mockPrisma = {
 		updateMany: jest.fn(),
 	},
 	tgemInvoiceWorkflowManager: {
+		findMany: jest.fn(),
 		deleteMany: jest.fn(),
 		createMany: jest.fn(),
 	},
@@ -36,6 +37,7 @@ import { startTgemInvoiceApproval } from "@/lib/tgem-invoice-approval/start-appr
 import {
 	assignTgemInvoiceProject,
 	decideTgemInvoiceApproval,
+	getTgemApprovalSetupData,
 	saveTgemApprovalTemplate,
 	saveTgemWorkflowManagers,
 	submitTgemInvoiceForApproval,
@@ -47,6 +49,7 @@ function mockSiteAccess(input?: {
 }) {
 	mockPrisma.site.findFirst.mockResolvedValue({
 		id: "site-1",
+		name: "Riga office",
 		organizationId: "org-1",
 		userId: input?.ownerUserId ?? "user-1",
 		tgemInvoiceWorkflowManagers: input?.workflowManager
@@ -126,6 +129,37 @@ describe("TGEM invoice approval actions", () => {
 		);
 		mockPrisma.tgemInvoiceCase.findMany.mockResolvedValue([]);
 		mockPrisma.tgemInvoiceCase.updateMany.mockResolvedValue({ count: 1 });
+	});
+
+	it("loads settings for an authorized project without reading invoices", async () => {
+		mockSiteAccess({ ownerUserId: "owner-1" });
+		mockPrisma.user.findMany.mockResolvedValue([
+			{ id: "user-1", firstName: "Anna", lastName: "Bērziņa", role: null },
+		]);
+		mockPrisma.tgemInvoiceApprovalTemplate.findFirst.mockResolvedValue(null);
+		mockPrisma.tgemInvoiceWorkflowManager.findMany.mockResolvedValue([]);
+
+		const result = await getTgemApprovalSetupData("site-1");
+		expect(result.project).toEqual({ id: "site-1", name: "Riga office" });
+		expect(result.setup).toEqual(
+			expect.objectContaining({
+				canManageWorkflow: true,
+				canManageWorkflowManagers: false,
+				template: null,
+				users: [{ id: "user-1", name: "Anna Bērziņa", role: null }],
+			}),
+		);
+		expect(mockPrisma.tgemInvoiceCase.findMany).not.toHaveBeenCalled();
+	});
+
+	it("rejects settings access when the user cannot access the project", async () => {
+		mockPrisma.site.findFirst.mockResolvedValue(null);
+		await expect(getTgemApprovalSetupData("foreign-site")).rejects.toThrow(
+			"Project access denied",
+		);
+		expect(
+			mockPrisma.tgemInvoiceWorkflowManager.findMany,
+		).not.toHaveBeenCalled();
 	});
 
 	it("lets the project owner save a typed immutable template revision", async () => {

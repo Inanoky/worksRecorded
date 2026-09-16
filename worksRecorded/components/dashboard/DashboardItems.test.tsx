@@ -166,6 +166,9 @@ describe("dashboard navigation", () => {
 			"aria-current",
 			"page",
 		);
+		expect(
+			screen.getByRole("link", { name: "Project settings" }),
+		).toHaveAttribute("href", "/dashboard/invoices/settings");
 		await user.click(
 			screen.getByRole("button", { name: "Projects: All projects" }),
 		);
@@ -323,6 +326,42 @@ describe("dashboard navigation", () => {
 		expect(
 			screen.getByRole("menuitem", { name: "Approval flow" }),
 		).toHaveAttribute("href", "/dashboard/invoices?view=approval");
+		expect(
+			screen.getByRole("menuitem", { name: "Project settings" }),
+		).toHaveAttribute("href", "/dashboard/invoices/settings");
+	});
+
+	it("keeps project context in TGEM settings navigation", async () => {
+		const user = userEvent.setup();
+		mockPathname = "/dashboard/invoices/settings";
+		mockSearchParams = "project=site-1";
+
+		render(
+			<ProjectProvider userId="user-tgem-settings">
+				<DashboardProjectNavigation
+					availableProjects={[
+						{ id: "site-1", name: "Riga office" },
+						{ id: "site-2", name: "Jurmala warehouse" },
+					]}
+					organizationLanguage="en"
+					flowModuleKey={FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL}
+				/>
+			</ProjectProvider>,
+		);
+
+		expect(
+			screen.getByRole("link", { name: "Project settings" }),
+		).toHaveAttribute("aria-current", "page");
+		expect(screen.getByRole("link", { name: "Approval flow" })).toHaveAttribute(
+			"href",
+			"/dashboard/invoices?project=site-1&view=approval",
+		);
+		await user.click(
+			screen.getByRole("button", { name: "Projects: Riga office" }),
+		);
+		expect(
+			screen.getByRole("menuitem", { name: "Jurmala warehouse" }),
+		).toHaveAttribute("href", "/dashboard/invoices/settings?project=site-2");
 	});
 
 	it("places project utilities in the More menu without AI Context", async () => {

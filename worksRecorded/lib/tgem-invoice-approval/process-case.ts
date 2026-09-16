@@ -1,17 +1,31 @@
+import { traceable } from "langsmith/traceable";
+import type { TgemInvoiceSource } from "@/lib/tgem-invoice-approval/intake";
+import {
+	buildTgemInvoiceLangSmithConfig,
+	buildTgemInvoiceProcessingTraceInput,
+	buildTgemInvoiceProcessingTraceOutput,
+} from "@/lib/tgem-invoice-approval/langsmith";
 import { persistTgemInvoiceOcrResult } from "@/lib/tgem-invoice-approval/ocr";
 import { processTgemInvoice } from "@/lib/tgem-invoice-approval/processor";
 import { startTgemInvoiceApproval } from "@/lib/tgem-invoice-approval/start-approval";
 import { prisma } from "@/lib/utils/db";
 
-export async function processTgemInvoiceCase(input: {
+type ProcessTgemInvoiceCaseInput = {
 	invoiceCaseId: string;
 	documentId: string;
 	organizationId: string;
+	siteId?: string | null;
 	actorUserId: string;
 	actorType: "user" | "whatsapp";
+	source: TgemInvoiceSource;
 	content: Buffer | (() => Promise<Buffer>);
 	contentType: string;
-}) {
+	byteSize?: number | null;
+};
+
+async function processTgemInvoiceCaseInternal(
+	input: ProcessTgemInvoiceCaseInput,
+) {
 	await prisma.tgemInvoiceCase.update({
 		where: { id: input.invoiceCaseId },
 		data: {
@@ -123,4 +137,24 @@ export async function processTgemInvoiceCase(input: {
 		});
 		throw error;
 	}
+}
+
+function tracedProcessTgemInvoiceCase(source: TgemInvoiceSource) {
+	return traceable(processTgemInvoiceCaseInternal, {
+		...buildTgemInvoiceLangSmithConfig({ stage: "processing", source }),
+		processInputs: buildTgemInvoiceProcessingTraceInput,
+		processOutputs: buildTgemInvoiceProcessingTraceOutput,
+	});
+}
+
+const TRACED_PROCESS_TGEM_INVOICE_CASE = {
+	dashboard: tracedProcessTgemInvoiceCase("dashboard"),
+	whatsapp: tracedProcessTgemInvoiceCase("whatsapp"),
+	email: tracedProcessTgemInvoiceCase("email"),
+};
+
+export async function processTgemInvoiceCase(
+	input: ProcessTgemInvoiceCaseInput,
+) {
+	return TRACED_PROCESS_TGEM_INVOICE_CASE[input.source](input);
 }

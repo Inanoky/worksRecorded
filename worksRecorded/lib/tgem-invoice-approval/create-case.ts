@@ -1,16 +1,27 @@
 import type { PrismaClient } from "@prisma/client";
+import { traceable } from "langsmith/traceable";
 
 import {
 	normalizeTgemInvoiceIntake,
 	type TgemInvoiceIntakeInput,
 } from "@/lib/tgem-invoice-approval/intake";
+import {
+	buildTgemInvoiceIntakeTraceInput,
+	buildTgemInvoiceIntakeTraceOutput,
+	buildTgemInvoiceLangSmithConfig,
+} from "@/lib/tgem-invoice-approval/langsmith";
 
 type TgemInvoiceDatabase = Pick<PrismaClient, "tgemInvoiceCase">;
 
-export async function createTgemInvoiceCaseRecord(
-	database: TgemInvoiceDatabase,
-	input: TgemInvoiceIntakeInput,
-) {
+type CreateTgemInvoiceCaseArgs = {
+	database: TgemInvoiceDatabase;
+	input: TgemInvoiceIntakeInput;
+};
+
+async function createTgemInvoiceCaseRecordInternal({
+	database,
+	input,
+}: CreateTgemInvoiceCaseArgs) {
 	const normalized = normalizeTgemInvoiceIntake(input);
 
 	return database.tgemInvoiceCase.upsert({
@@ -50,4 +61,27 @@ export async function createTgemInvoiceCaseRecord(
 			auditEvents: true,
 		},
 	});
+}
+
+function tracedCreateTgemInvoiceCaseRecord(
+	source: TgemInvoiceIntakeInput["source"],
+) {
+	return traceable(createTgemInvoiceCaseRecordInternal, {
+		...buildTgemInvoiceLangSmithConfig({ stage: "intake", source }),
+		processInputs: ({ input }) => buildTgemInvoiceIntakeTraceInput(input),
+		processOutputs: buildTgemInvoiceIntakeTraceOutput,
+	});
+}
+
+const TRACED_CREATE_TGEM_INVOICE_CASE = {
+	dashboard: tracedCreateTgemInvoiceCaseRecord("dashboard"),
+	whatsapp: tracedCreateTgemInvoiceCaseRecord("whatsapp"),
+	email: tracedCreateTgemInvoiceCaseRecord("email"),
+};
+
+export async function createTgemInvoiceCaseRecord(
+	database: TgemInvoiceDatabase,
+	input: TgemInvoiceIntakeInput,
+) {
+	return TRACED_CREATE_TGEM_INVOICE_CASE[input.source]({ database, input });
 }

@@ -63,6 +63,10 @@ import {
 	siteDiaryExtractionCheckerModel,
 } from "./siteDiaryExtractionChecker";
 import { buildSiteDiaryExtractionContext } from "./siteDiaryExtractionContext";
+import {
+	acceptSourceBackedWorkdayNote,
+	normalizeWorkdayNoteRows,
+} from "./siteDiaryWorkdayNote";
 import { recordStructuredSaveTrace } from "./structuredSaveTrace";
 
 function currentDiaryDate() {
@@ -629,7 +633,6 @@ function hasLiteralAmountUnitEvidence(row: LooseRecord, source: string) {
 	);
 }
 
-
 function hasSourceBackedAmountUnitPair(row: LooseRecord, source: string) {
 	return (
 		typeof row.Amounts === "number" && hasLiteralAmountUnitEvidence(row, source)
@@ -805,6 +808,8 @@ function applySimpleCheckerFieldRepair(args: {
 	source: string;
 }) {
 	const { rows, checker } = args;
+	const workdayNote = acceptSourceBackedWorkdayNote(rows, args.source);
+	if (workdayNote) return workdayNote;
 	if (checker.verdict === "accept" || checker.verdict === "unsafe") return null;
 	const structuredRepair = applyStructuredCheckerFieldRepair(args);
 	if (structuredRepair) return structuredRepair;
@@ -1258,7 +1263,10 @@ async function extractAndSaveSiteDiaryCore(
 		),
 		args.question,
 	);
-	const rows = normalizedRows.rows;
+	const rows =
+		clientPrompt === "NoSorting"
+			? normalizedRows.rows
+			: normalizeWorkdayNoteRows(normalizedRows.rows, args.question, mapToUse);
 	let amountEvidenceWarnings = normalizedRows.amountEvidenceWarnings;
 	if (amountEvidenceWarnings.length > 0) {
 		Object.assign(aiContext.runnableConfig.metadata, {

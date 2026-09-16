@@ -146,9 +146,16 @@ export async function runTgemInvoiceOcr(input: {
 		select: {
 			id: true,
 			contentType: true,
+			byteSize: true,
 			storageProvider: true,
 			storageKey: true,
 			canonicalUrl: true,
+			invoiceCase: {
+				select: {
+					siteId: true,
+					source: true,
+				},
+			},
 		},
 	});
 
@@ -158,10 +165,17 @@ export async function runTgemInvoiceOcr(input: {
 		invoiceCaseId: input.invoiceCaseId,
 		documentId: document.id,
 		organizationId: dbUser.organizationId,
+		siteId: document.invoiceCase.siteId,
 		actorUserId: user.id,
 		actorType: "user",
+		source:
+			document.invoiceCase.source === "whatsapp" ||
+			document.invoiceCase.source === "email"
+				? document.invoiceCase.source
+				: "dashboard",
 		content: () => readTgemInvoiceDocument(document),
 		contentType: document.contentType,
+		byteSize: document.byteSize,
 	});
 }
 
@@ -288,6 +302,8 @@ function serializeTgemDashboardInvoice(
 		total: serializeDecimal(invoiceCase.total),
 		bankAccount: invoiceCase.bankAccount,
 		reference: invoiceCase.reference,
+		invoiceType: invoiceCase.invoiceType === "credit" ? "credit" : "debit",
+		costCode: invoiceCase.costCode,
 		validationSummary: invoiceCase.validationSummary,
 		extractionSummary: invoiceCase.extractionSummary,
 		fieldAnchors: serializeFieldAnchors(invoiceCase.extractionSummary),
@@ -387,61 +403,71 @@ export async function getTgemInvoiceDashboardData(
 		}
 	}
 
-	const [invoiceCases, users, template, workflowManagers] = await Promise.all([
-		prisma.tgemInvoiceCase.findMany({
-			where: {
-				organizationId: dbUser.organizationId,
-				...(projectFilter === TGEM_UNASSIGNED_PROJECT_FILTER
-					? { siteId: null }
-					: selectedProject
-						? { siteId: selectedProject.id }
-						: {}),
-			},
-			orderBy: { createdAt: "desc" },
-			include: {
-				site: { select: { id: true, name: true } },
-				documents: {
-					include: { ocrPages: true },
-					orderBy: { createdAt: "asc" },
+	const [invoiceCases, costCodes, users, template, workflowManagers] =
+		await Promise.all([
+			prisma.tgemInvoiceCase.findMany({
+				where: {
+					organizationId: dbUser.organizationId,
+					...(projectFilter === TGEM_UNASSIGNED_PROJECT_FILTER
+						? { siteId: null }
+						: selectedProject
+							? { siteId: selectedProject.id }
+							: {}),
 				},
-				lines: { orderBy: { lineNumber: "asc" } },
-				approvalSteps: {
-					orderBy: [{ approvalRound: "asc" }, { stepOrder: "asc" }],
+				orderBy: { createdAt: "desc" },
+				include: {
+					site: { select: { id: true, name: true } },
+					documents: {
+						include: { ocrPages: true },
+						orderBy: { createdAt: "asc" },
+					},
+					lines: { orderBy: { lineNumber: "asc" } },
+					approvalSteps: {
+						orderBy: [{ approvalRound: "asc" }, { stepOrder: "asc" }],
+					},
+					auditEvents: { orderBy: { createdAt: "asc" } },
 				},
-				auditEvents: { orderBy: { createdAt: "asc" } },
-			},
-		}),
-		prisma.user.findMany({
-			where: { organizationId: dbUser.organizationId, status: "active" },
-			orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-			select: { id: true, firstName: true, lastName: true, role: true },
-		}),
-		selectedProject
-			? prisma.tgemInvoiceApprovalTemplate.findFirst({
-					where: {
-						organizationId: dbUser.organizationId,
-						siteId: selectedProject.id,
-						isCurrent: true,
-					},
-					orderBy: { revision: "desc" },
-					include: { steps: { orderBy: { stepOrder: "asc" } } },
-				})
-			: Promise.resolve(null),
-		selectedProject
-			? prisma.tgemInvoiceWorkflowManager.findMany({
-					where: {
-						organizationId: dbUser.organizationId,
-						siteId: selectedProject.id,
-					},
-					orderBy: { createdAt: "asc" },
-					select: { userId: true },
-				})
-			: Promise.resolve([]),
-	]);
+			}),
+			prisma.tgemCostCode.findMany({
+				where: {
+					organizationId: dbUser.organizationId,
+					isActive: true,
+				},
+				orderBy: { code: "asc" },
+				select: { id: true, code: true, name: true },
+			}),
+			prisma.user.findMany({
+				where: { organizationId: dbUser.organizationId, status: "active" },
+				orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+				select: { id: true, firstName: true, lastName: true, role: true },
+			}),
+			selectedProject
+				? prisma.tgemInvoiceApprovalTemplate.findFirst({
+						where: {
+							organizationId: dbUser.organizationId,
+							siteId: selectedProject.id,
+							isCurrent: true,
+						},
+						orderBy: { revision: "desc" },
+						include: { steps: { orderBy: { stepOrder: "asc" } } },
+					})
+				: Promise.resolve(null),
+			selectedProject
+				? prisma.tgemInvoiceWorkflowManager.findMany({
+						where: {
+							organizationId: dbUser.organizationId,
+							siteId: selectedProject.id,
+						},
+						orderBy: { createdAt: "asc" },
+						select: { userId: true },
+					})
+				: Promise.resolve([]),
+		]);
 	const isSiteOwner = selectedProject?.userId === user.id;
 
 	return {
 		currentUserId: user.id,
+		costCodes,
 		projects: projects.map(({ id, name }) => ({ id, name })),
 		invoices: invoiceCases.map(serializeTgemDashboardInvoice),
 		approvalSetup: selectedProject

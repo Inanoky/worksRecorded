@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
+import { traceable } from "langsmith/traceable";
 import { UTApi } from "uploadthing/server";
 import { createTgemInvoiceCaseRecord } from "@/lib/tgem-invoice-approval/create-case";
 import { buildTgemInvoiceIdempotencyKey } from "@/lib/tgem-invoice-approval/intake";
+import { buildTgemInvoiceLangSmithConfig } from "@/lib/tgem-invoice-approval/langsmith";
 import { processTgemInvoiceCase } from "@/lib/tgem-invoice-approval/process-case";
 import { prisma } from "@/lib/utils/db";
 import { getUploadThingUfsUrl } from "@/lib/utils/uploadthing-file-url";
@@ -156,11 +158,15 @@ function normalizeFilename(
 	return `whatsapp-invoice-${messageId}.${extensionForContentType(contentType)}`;
 }
 
-export async function handleTgemInvoiceWhatsappRoute(args: {
+type TgemInvoiceWhatsappRouteArgs = {
 	from: string | null;
 	formData: FormData;
 	user: { id: string };
-}) {
+};
+
+async function handleTgemInvoiceWhatsappRouteInternal(
+	args: TgemInvoiceWhatsappRouteArgs,
+) {
 	const language = normalizeLanguage(
 		await getOrganizationLanguageByUserId(args.user.id),
 	);
@@ -184,7 +190,7 @@ export async function handleTgemInvoiceWhatsappRoute(args: {
 
 	if (!user?.organizationId) {
 		await sendMessage(args.from, copy.intakeFailed);
-		return;
+		return { outcome: "missing_organization" };
 	}
 
 	const projects = user.organization?.sites ?? [];
@@ -200,7 +206,7 @@ export async function handleTgemInvoiceWhatsappRoute(args: {
 			data: { lastSelectedSiteIdforWhatsapp: null },
 		});
 		await sendMessage(args.from, buildProjectPrompt(language, projects));
-		return;
+		return { outcome: "project_selection_requested" };
 	}
 
 	if (!selectedProject) {
@@ -214,11 +220,11 @@ export async function handleTgemInvoiceWhatsappRoute(args: {
 				data: { lastSelectedSiteIdforWhatsapp: project.id },
 			});
 			await sendMessage(args.from, copy.projectSelected(project.name));
-			return;
+			return { outcome: "project_selected", siteId: project.id };
 		}
 
 		await sendMessage(args.from, buildProjectPrompt(language, projects));
-		return;
+		return { outcome: "project_required" };
 	}
 
 	const numMedia = Number.parseInt(
@@ -227,7 +233,7 @@ export async function handleTgemInvoiceWhatsappRoute(args: {
 	);
 	if (!Number.isFinite(numMedia) || numMedia < 1) {
 		await sendMessage(args.from, copy.instructions(selectedProject.name));
-		return;
+		return { outcome: "invoice_media_required", siteId: selectedProject.id };
 	}
 
 	const contentType = (getString(args.formData, "MediaContentType0") || "")
@@ -236,14 +242,14 @@ export async function handleTgemInvoiceWhatsappRoute(args: {
 		.toLowerCase();
 	if (!SUPPORTED_TGEM_WHATSAPP_CONTENT_TYPES.has(contentType)) {
 		await sendMessage(args.from, copy.unsupported);
-		return;
+		return { outcome: "unsupported_content_type", siteId: selectedProject.id };
 	}
 
 	const mediaUrl = getString(args.formData, "MediaUrl0");
 	const messageId = getString(args.formData, "MessageId");
 	if (!mediaUrl || !messageId) {
 		await sendMessage(args.from, copy.missingMedia);
-		return;
+		return { outcome: "missing_media", siteId: selectedProject.id };
 	}
 	const idempotencyKey = buildTgemInvoiceIdempotencyKey({
 		organizationId: user.organizationId,
@@ -256,7 +262,11 @@ export async function handleTgemInvoiceWhatsappRoute(args: {
 	});
 	if (existingInvoice) {
 		await sendMessage(args.from, copy.alreadyReceived);
-		return;
+		return {
+			outcome: "duplicate",
+			siteId: selectedProject.id,
+			invoiceCaseId: existingInvoice.id,
+		};
 	}
 
 	let invoicePersisted = false;
@@ -264,7 +274,7 @@ export async function handleTgemInvoiceWhatsappRoute(args: {
 		const content = await fetchWhatsAppMediaAsBuffer(mediaUrl);
 		if (content.byteLength > MAX_TGEM_WHATSAPP_INVOICE_BYTES) {
 			await sendMessage(args.from, copy.tooLarge);
-			return;
+			return { outcome: "too_large", siteId: selectedProject.id };
 		}
 
 		const originalFilename = normalizeFilename(
@@ -306,7 +316,11 @@ export async function handleTgemInvoiceWhatsappRoute(args: {
 
 		if (invoiceCase.status !== "received") {
 			await sendMessage(args.from, copy.alreadyReceived);
-			return;
+			return {
+				outcome: "duplicate",
+				siteId: selectedProject.id,
+				invoiceCaseId: invoiceCase.id,
+			};
 		}
 
 		await sendProcessingMessage(
@@ -317,15 +331,25 @@ export async function handleTgemInvoiceWhatsappRoute(args: {
 			invoiceCaseId: invoiceCase.id,
 			documentId: document.id,
 			organizationId: user.organizationId,
+			siteId: selectedProject.id,
 			actorUserId: user.id,
 			actorType: "whatsapp",
+			source: "whatsapp",
 			content,
 			contentType,
+			byteSize: content.byteLength,
 		});
 		await sendProcessingMessage(
 			args.from,
 			result.warningCount > 0 ? copy.readyWithWarnings : copy.ready,
 		);
+		return {
+			outcome: "processed",
+			siteId: selectedProject.id,
+			invoiceCaseId: invoiceCase.id,
+			provider: result.provider,
+			warningCount: result.warningCount,
+		};
 	} catch (error) {
 		console.error("TGEM WhatsApp invoice processing failed", {
 			messageId,
@@ -337,5 +361,45 @@ export async function handleTgemInvoiceWhatsappRoute(args: {
 			args.from,
 			invoicePersisted ? copy.failed : copy.intakeFailed,
 		);
+		return {
+			outcome: invoicePersisted ? "processing_failed" : "intake_failed",
+			siteId: selectedProject.id,
+		};
 	}
+}
+
+const tracedTgemInvoiceWhatsappRoute = traceable(
+	handleTgemInvoiceWhatsappRouteInternal,
+	{
+		...buildTgemInvoiceLangSmithConfig({
+			stage: "request",
+			source: "whatsapp",
+		}),
+		processInputs: ({ formData, user }) => {
+			const mediaCount = Number.parseInt(
+				getString(formData, "NumMedia") || "0",
+				10,
+			);
+			return {
+				userId: user.id,
+				messageId: getString(formData, "MessageId") || null,
+				mediaCount: Number.isFinite(mediaCount) ? mediaCount : 0,
+				contentType: getString(formData, "MediaContentType0") || null,
+				hasMediaUrl: Boolean(getString(formData, "MediaUrl0")),
+			};
+		},
+		processOutputs: (output) => ({
+			outcome: output.outcome,
+			siteId: "siteId" in output ? output.siteId : null,
+			invoiceCaseId: "invoiceCaseId" in output ? output.invoiceCaseId : null,
+			provider: "provider" in output ? output.provider : null,
+			warningCount: "warningCount" in output ? output.warningCount : null,
+		}),
+	},
+);
+
+export async function handleTgemInvoiceWhatsappRoute(
+	args: TgemInvoiceWhatsappRouteArgs,
+) {
+	return tracedTgemInvoiceWhatsappRoute(args);
 }

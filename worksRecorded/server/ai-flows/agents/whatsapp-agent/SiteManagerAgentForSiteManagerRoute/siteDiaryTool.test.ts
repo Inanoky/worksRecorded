@@ -1301,6 +1301,153 @@ describe("save_to_database site diary tool", () => {
 		]);
 	});
 
+	it.each(["retry", "unsafe"])(
+		"saves a working-time report as notes even when the checker returns %s",
+		async (verdict) => {
+			const question = "strādājam no 7.00 - 18.00";
+			getConfigMock.mockResolvedValue({
+				...siteConfig,
+				Date: { Type: "fixed", DisplayName: "Date" },
+				Comments: { Type: "textInput", DisplayName: "Comments" },
+				Works: {
+					...siteConfig.Works,
+					DropDownOptions: { notes: "Notes", concrete: "Concrete pour" },
+				},
+			});
+			structuredInvokeMock
+				.mockResolvedValueOnce({
+					records: [
+						{
+							Date: "2026-09-16",
+							Activity: "Concrete pour",
+							Area: "Project",
+							Quantity: 7,
+							Mrv: "hour",
+							Workers: 1,
+							Hours: 7,
+						},
+					],
+				})
+				.mockResolvedValueOnce({
+					parsed: {
+						verdict,
+						reason:
+							"Ziņojums atbalsta vienu vispārīgu darba dienas piezīmi un 11 stundu ilgumu.",
+						badSplitSignals: [],
+						repairInstructions: "Saglabā vienu piezīmi.",
+						expectedRecordCount: 1,
+						repairActions: [],
+					},
+					raw: {},
+				});
+			saveSiteDiaryRecordMock.mockResolvedValue({
+				ok: true,
+				count: 1,
+				recordIds: ["record-1"],
+			});
+
+			const result = await extractAndSaveSiteDiary({
+				question,
+				requestedDate: "16-09-2026",
+			});
+
+			expect(result.ok).toBe(true);
+			expect(structuredInvokeMock).toHaveBeenCalledTimes(2);
+			expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+			expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+				{
+					Date: "2026-09-16",
+					Works: "Notes",
+					Comments: question,
+					Location: null,
+					Amounts: null,
+					Units: null,
+					WorkersInvolved: null,
+					TimeInvolved: 11,
+				},
+			]);
+			const [checkerMessages] = structuredInvokeMock.mock.calls[1];
+			expect(String(checkerMessages[1].content)).toContain("Works: Notes");
+			expect(String(checkerMessages[1].content)).toContain("TimeInvolved: 11");
+			expect(recordTraceMock).toHaveBeenCalledWith(
+				expect.objectContaining({
+					checker: expect.objectContaining({
+						verdict,
+						appliedRepair: true,
+						repairVerdict: "accept",
+						repairReason: expect.stringContaining("source-backed workday note"),
+					}),
+				}),
+			);
+		},
+	);
+
+	it("saves the repaired workday note when the second checker still rejects it", async () => {
+		const question = "strādājam no 7.00 - 18.00";
+		getConfigMock.mockResolvedValue({
+			...siteConfig,
+			Comments: { Type: "textInput", DisplayName: "Comments" },
+			Works: { ...siteConfig.Works, DropDownOptions: { notes: "Notes" } },
+		});
+		const rejection = {
+			parsed: {
+				verdict: "retry",
+				reason: "Ziņojums atbalsta vienu vispārīgu darba dienas piezīmi.",
+				badSplitSignals: [],
+				repairInstructions: "Saglabā vienu piezīmi.",
+				expectedRecordCount: 1,
+			},
+			raw: {},
+		};
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [
+					{ Activity: "Notes", Hours: 7 },
+					{ Activity: "Notes", Hours: 18 },
+				],
+			})
+			.mockResolvedValueOnce(rejection)
+			.mockResolvedValueOnce({
+				records: [{ Activity: "Notes", Comments: question, Hours: 11 }],
+			})
+			.mockResolvedValueOnce(rejection);
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 1,
+			recordIds: ["record-1"],
+		});
+
+		const result = await extractAndSaveSiteDiary({
+			question,
+			requestedDate: "16-09-2026",
+		});
+
+		expect(result.ok).toBe(true);
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(4);
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+			expect.objectContaining({
+				Works: "Notes",
+				Comments: question,
+				TimeInvolved: 11,
+				WorkersInvolved: null,
+				Location: null,
+				Amounts: null,
+				Units: null,
+			}),
+		]);
+		expect(recordTraceMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				checker: expect.objectContaining({
+					verdict: "retry",
+					appliedRepair: true,
+					repairVerdict: "accept",
+					repairReason: expect.stringContaining("source-backed workday note"),
+				}),
+			}),
+		);
+	});
+
 	it("does not save rows when checker-guided repair is still rejected", async () => {
 		structuredInvokeMock
 			.mockResolvedValueOnce({

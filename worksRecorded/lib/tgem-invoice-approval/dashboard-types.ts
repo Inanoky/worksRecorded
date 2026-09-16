@@ -59,6 +59,8 @@ export type TgemDashboardInvoice = {
 	total: string | null;
 	bankAccount: string | null;
 	reference: string | null;
+	invoiceType: "credit" | "debit";
+	costCode: string | null;
 	validationSummary: unknown;
 	extractionSummary: unknown;
 	fieldAnchors: Record<string, TgemDashboardSourceAnchor>;
@@ -106,6 +108,11 @@ export type TgemDashboardInvoice = {
 
 export type TgemDashboardData = {
 	currentUserId: string;
+	costCodes: Array<{
+		id: string;
+		code: string;
+		name: string;
+	}>;
 	projects: Array<{
 		id: string;
 		name: string;

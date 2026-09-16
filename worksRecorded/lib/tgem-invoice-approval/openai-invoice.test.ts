@@ -25,6 +25,7 @@ const extractedInvoice = {
 		},
 	],
 	fields: {
+		invoiceType: { rawText: "RĒĶINS", value: "debit" },
 		invoiceNumber: { rawText: "INV-42", value: "INV-42" },
 		supplierName: { rawText: "SIA Būve", value: "SIA Būve" },
 		supplierRegistrationNo: { rawText: "40100000000", value: "40100000000" },
@@ -88,6 +89,10 @@ describe("OpenAI TGEM invoice extraction", () => {
 		const result = mapOpenAiInvoiceResponse(extractedInvoice);
 
 		expect(result.provider).toBe("openai");
+		expect(result.fields.invoiceType).toMatchObject({
+			rawText: "RĒĶINS",
+			value: "debit",
+		});
 		expect(result.pages).toEqual([
 			expect.objectContaining({
 				pageNumber: 1,
@@ -111,6 +116,36 @@ describe("OpenAI TGEM invoice extraction", () => {
 			}),
 		]);
 	});
+
+	it("maps a credit note with positive printed amounts to credit", () => {
+		const result = mapOpenAiInvoiceResponse({
+			...extractedInvoice,
+			fields: {
+				...extractedInvoice.fields,
+				invoiceType: { rawText: "Kredītrēķins", value: "credit" },
+			},
+		});
+		expect(result.fields.invoiceType).toMatchObject({
+			rawText: "Kredītrēķins",
+			value: "credit",
+		});
+		expect(result.fields.total.value).toBe(60.5);
+	});
+
+	it.each(["unknown", "", null, undefined])(
+		"rejects an invalid AI invoice type: %s",
+		(value) => {
+			expect(() =>
+				mapOpenAiInvoiceResponse({
+					...extractedInvoice,
+					fields: {
+						...extractedInvoice.fields,
+						invoiceType: { rawText: "", value },
+					},
+				}),
+			).toThrow();
+		},
+	);
 
 	it("uses an injected transport without requiring a live API call", async () => {
 		const transport = jest.fn().mockResolvedValue(extractedInvoice);
@@ -157,6 +192,13 @@ describe("OpenAI TGEM invoice extraction", () => {
 				text: { format: expect.any(Object) },
 			}),
 		);
+		expect(mockResponsesParse.mock.calls[0][0].instructions).toContain(
+			"Classify fields.invoiceType from the document",
+		);
+		expect(
+			mockResponsesParse.mock.calls[0][0].text.format.schema.properties.fields
+				.properties.invoiceType.properties.value.enum,
+		).toEqual(["credit", "debit"]);
 	});
 
 	it("requires the existing production OpenAI API key", () => {

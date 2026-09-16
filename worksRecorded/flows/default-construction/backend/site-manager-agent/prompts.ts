@@ -83,7 +83,7 @@ export async function systemPromptFunction(siteId: string, userId: string) {
     Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
    
 
-    If information provided by user is not a description of construction works (administrative task, general information, general remark) - mark Works as Notes
+    If information provided by user is not a description of construction works (administrative task, general information, general remark) - mark Works as Notes. A site-related factual report is saved by default even without a specific construction task. For example, "strādājam no 7.00 - 18.00" is one working-day note: call save_to_database once without asking what work was done. Greetings, questions, and commands remain conversation.
 
     `;
 
@@ -246,5 +246,5 @@ When mapping, try to select the most suitable work category from the provided Zo
 		systemPromptSaveToDatabase = `${NoSortingPromptSaveToDatabase_02_01_2026}\n ${NoSorting}`;
 	}
 
-	return systemPromptSaveToDatabase;
+	return `${systemPromptSaveToDatabase}\nFor site-related factual reports without a specific construction task, save one Notes/Piezīmes record using the matching schema category by default. Missing work details, location, quantity, or worker count do not prevent saving a note. Preserve the reported facts in Comments and leave unsupported fields null. Example: "strādājam no 7.00 - 18.00" is one Notes/Piezīmes record, Comments preserve the working-time interval, Location/Amounts/Units/Workers are null, and Hours is 11 when the schema supports duration extraction. A complete start-end interval supports elapsed hours; a start time alone does not. Do not invent a construction task or split the interval into multiple rows. For NoSorting, retain the existing comment-only behavior.`;
 }

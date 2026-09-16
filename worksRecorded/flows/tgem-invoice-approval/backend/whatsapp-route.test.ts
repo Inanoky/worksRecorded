@@ -107,7 +107,7 @@ describe("TGEM WhatsApp invoice handler", () => {
 	])(
 		"stores and processes %s invoices through the shared TGEM case",
 		async (contentType, filename, expectedFilename) => {
-			await handleTgemInvoiceWhatsappRoute({
+			const outcome = await handleTgemInvoiceWhatsappRoute({
 				from: "whatsapp:+37120000000",
 				formData: buildFormData({ contentType, filename }),
 				user: { id: "user-1" },
@@ -139,15 +139,25 @@ describe("TGEM WhatsApp invoice handler", () => {
 				invoiceCaseId: "case-1",
 				documentId: "document-1",
 				organizationId: "org-1",
+				siteId: "site-1",
 				actorUserId: "user-1",
 				actorType: "whatsapp",
+				source: "whatsapp",
 				content: Buffer.from("invoice bytes"),
 				contentType,
+				byteSize: Buffer.byteLength("invoice bytes"),
 			});
 			expect(mockSendMessage).toHaveBeenLastCalledWith(
 				"whatsapp:+37120000000",
 				"Rēķins ir saglabāts un apstrādāts. Tas ir pieejams TGEM rēķinu panelī.",
 			);
+			expect(outcome).toMatchObject({
+				outcome: "processed",
+				siteId: "site-1",
+				invoiceCaseId: "case-1",
+				provider: "openai",
+				warningCount: 0,
+			});
 		},
 	);
 
@@ -164,7 +174,7 @@ describe("TGEM WhatsApp invoice handler", () => {
 			},
 		});
 
-		await handleTgemInvoiceWhatsappRoute({
+		const outcome = await handleTgemInvoiceWhatsappRoute({
 			from: "whatsapp:+37120000000",
 			formData: buildFormData({ contentType: "application/pdf" }),
 			user: { id: "user-1" },
@@ -176,6 +186,7 @@ describe("TGEM WhatsApp invoice handler", () => {
 		);
 		expect(mockFetchWhatsAppMediaAsBuffer).not.toHaveBeenCalled();
 		expect(mockCreateTgemInvoiceCaseRecord).not.toHaveBeenCalled();
+		expect(outcome).toEqual({ outcome: "project_required" });
 	});
 
 	it("selects a project from the numbered WhatsApp list", async () => {
@@ -191,7 +202,7 @@ describe("TGEM WhatsApp invoice handler", () => {
 			},
 		});
 
-		await handleTgemInvoiceWhatsappRoute({
+		const outcome = await handleTgemInvoiceWhatsappRoute({
 			from: "whatsapp:+37120000000",
 			formData: buildFormData({ body: "2" }),
 			user: { id: "user-1" },
@@ -205,10 +216,11 @@ describe("TGEM WhatsApp invoice handler", () => {
 			"whatsapp:+37120000000",
 			"Projekts “Noliktava” ir izvēlēts. Tagad nosūtiet rēķina attēlu vai PDF dokumentu.",
 		);
+		expect(outcome).toEqual({ outcome: "project_selected", siteId: "site-2" });
 	});
 
 	it("rejects Word documents before download or persistence", async () => {
-		await handleTgemInvoiceWhatsappRoute({
+		const outcome = await handleTgemInvoiceWhatsappRoute({
 			from: "whatsapp:+37120000000",
 			formData: buildFormData({
 				contentType:
@@ -225,6 +237,10 @@ describe("TGEM WhatsApp invoice handler", () => {
 		expect(mockFetchWhatsAppMediaAsBuffer).not.toHaveBeenCalled();
 		expect(mockUploadFiles).not.toHaveBeenCalled();
 		expect(mockCreateTgemInvoiceCaseRecord).not.toHaveBeenCalled();
+		expect(outcome).toMatchObject({
+			outcome: "unsupported_content_type",
+			siteId: "site-1",
+		});
 	});
 
 	it("does not upload a duplicate Meta invoice message again", async () => {
