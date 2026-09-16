@@ -168,7 +168,7 @@ export function weeklyReportPages(
 	if (activeDay) finish();
 	return pages.map(
 		(content, index) =>
-			`<div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;box-sizing:border-box;padding:${padding}px;background:white;color:#09090b;font-family:${htmlText(family)};position:relative">${content}<div style="position:absolute;bottom:24px;left:${padding}px;right:${padding}px;border-top:1px solid #e4e4e7;padding-top:8px;font-size:10px;line-height:14px;color:#64748b;display:flex;justify-content:space-between"><span>WorksRecorded · ${htmlText(dateRange)}</span><span>${index + 1} / ${pages.length}</span></div></div>`,
+			`<div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;box-sizing:border-box;padding:${padding}px;background:white;color:#09090b;font-family:${htmlText(family)};position:relative">${content}<div style="position:absolute;bottom:16px;left:${padding}px;right:${padding}px;border-top:1px solid #e4e4e7;padding-top:8px;font-size:10px;line-height:14px;color:#64748b;display:flex;align-items:center;justify-content:space-between;height:32px"><span>${htmlText(dateRange)}</span><span style="position:absolute;left:50%;transform:translateX(-50%)">${index + 1} / ${pages.length}</span><span style="font-size:12px;line-height:16px;color:#008a3d">WorksRecorded.com</span></div></div>`,
 	);
 }
 
@@ -207,6 +207,13 @@ export async function createWeeklyPdf(
 	if (!context) throw new Error(t.unsupported);
 	const { PDFDocument } = await import("pdf-lib");
 	const pdf = await PDFDocument.create();
+	const logoResponse = await fetch("/logos/worksrecorded-letter.png");
+	if (!logoResponse.ok) throw new Error(t.error);
+	const logo = await pdf.embedPng(await logoResponse.arrayBuffer());
+	const logoHeight = 32;
+	const logoWidth = (logo.width / logo.height) * logoHeight;
+	context.font = `400 12px ${family}`;
+	const brandWidth = context.measureText("WorksRecorded.com").width;
 	pdf.setTitle(
 		`${t.title} · ${report.siteName} · ${formatWeeklyReportDate(report.start, report.organizationLanguage)} – ${formatWeeklyReportDate(addDays(report.start, 6), report.organizationLanguage)}`,
 	);
@@ -219,6 +226,12 @@ export async function createWeeklyPdf(
 			y: 0,
 			width: page.getWidth(),
 			height: page.getHeight(),
+		});
+		page.drawImage(logo, {
+			x: (width - padding - brandWidth - 8 - logoWidth) * 0.75,
+			y: 16 * 0.75,
+			width: logoWidth * 0.75,
+			height: logoHeight * 0.75,
 		});
 	}
 	return pdf.save();

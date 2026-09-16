@@ -93,6 +93,8 @@ it("paginates long comments without truncation and repeats headings and page num
 	expect(all).toContain("Teksts1599");
 	expect(all.match(/Teksts1599/g)).toHaveLength(1);
 	for (const [index, page] of pages.entries()) {
+		expect(page.match(/WorksRecorded\.com/g)).toHaveLength(1);
+		expect(page).toContain("justify-content:space-between;height:32px");
 		expect(page).toContain("Plānotie darbi");
 		expect(page).toContain("Daudzums (plāns)");
 		expect(page).toContain(`${index + 1} / ${pages.length}`);
