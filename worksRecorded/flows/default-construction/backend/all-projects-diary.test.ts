@@ -18,8 +18,36 @@ import {
   loadAllProjectsDiary,
   loadAllProjectsDiaryExportRecords,
 } from "./all-projects-diary";
+import { SB_STOMME_ORGANIZATION_ID } from "../sb-stomme-inline-plan/model";
 
 describe("all projects diary", () => {
+  it("exposes inline plans only to SB STOMME and leaves actuals unchanged", async () => {
+    const row = {
+      id: "row",
+      Works: "Actual walls",
+      Amounts: 8,
+      Works_Custom_1: "Planned walls",
+      Comments_Custom_2: "10",
+      Works_Custom_2: "Rain",
+      Site: { name: "Site", siteDiaryRecordsMap: null },
+    };
+    recordsFindManyMock.mockResolvedValue([row]);
+    const sb = await loadAllProjectsDiaryExportRecords(
+      SB_STOMME_ORGANIZATION_ID,
+    );
+    expect(sb[0]).toMatchObject({
+      Works: "Actual walls",
+      Amounts: 8,
+      sbPlan: {
+        plannedWork: "Planned walls",
+        plannedAmount: "10",
+        weather: "Rain",
+      },
+    });
+    const other = await loadAllProjectsDiaryExportRecords("other");
+    expect(other[0].sbPlan).toBeNull();
+    expect(other[0]).not.toHaveProperty("Works_Custom_1");
+  });
   beforeEach(() => {
     jest.clearAllMocks();
     siteFindManyMock.mockResolvedValue([

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ProjectNavigationLink } from "@/components/providers/ProjectNavigationLink";
 import { OriginalSourceContent } from "@/components/sitediary/OriginalSourceContent";
@@ -28,6 +29,16 @@ import {
 } from "@/flows/default-construction/lib/quantity-plan-actual";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
+import {
+  SB_STOMME_ORGANIZATION_ID,
+  SB_PLAN_LABELS,
+} from "@/flows/default-construction/sb-stomme-inline-plan/model";
+import {
+  SbPlanProvider,
+  SbPlanText,
+  SbRowActions,
+  SbExportLink,
+} from "@/flows/default-construction/sb-stomme-inline-plan/InlinePlan";
 import { requireUser } from "@/lib/utils/requireUser";
 import { cn } from "@/lib/utils/utils";
 import {
@@ -184,6 +195,8 @@ export default async function AllProjectsPage({
   };
   const data = await loadAllProjectsDiary(organizationId, filters);
   const messages = getMessages(organizationLanguage);
+  const isSbStomme = organizationId === SB_STOMME_ORGANIZATION_ID;
+  const showPlannedAmount = isSbStomme || data.quantityPlanFactEnabled;
   const locale = organizationLanguage === "lv" ? "lv-LV" : "en-GB";
   const dateFormatter = new Intl.DateTimeFormat(locale, {
     day: "2-digit",
@@ -201,17 +214,28 @@ export default async function AllProjectsPage({
     maximumFractionDigits: 2,
   });
 
-  return (
+  const content = (
     <div className="mx-auto w-full max-w-[1900px] space-y-6 px-2 py-4 sm:px-4">
       <div className="space-y-2">
         <Button asChild variant="ghost" className="px-0">
           <Link href="/dashboard">← {messages.back}</Link>
         </Button>
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            {messages.title}
-          </h1>
-          <p className="text-muted-foreground">{messages.description}</p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">
+              {messages.title}
+            </h1>
+            <p className="text-muted-foreground">{messages.description}</p>
+          </div>
+          {isSbStomme ? (
+            <Image
+              src="/sb-stomme-logo.png"
+              alt="SB STOMME AB"
+              width={1086}
+              height={924}
+              className="h-auto w-20 shrink-0 rounded sm:w-24"
+            />
+          ) : null}
         </div>
       </div>
 
@@ -269,9 +293,17 @@ export default async function AllProjectsPage({
             <span className="text-sm text-muted-foreground">
               {numberFormatter.format(data.totalCount)} {messages.records}
             </span>
-            <Button asChild variant="outline" size="sm">
-              <a href={exportHref(rawSearchParams)}>{messages.exportToExcel}</a>
-            </Button>
+            {isSbStomme ? (
+              <SbExportLink href={exportHref(rawSearchParams)}>
+                {messages.exportToExcel}
+              </SbExportLink>
+            ) : (
+              <Button asChild variant="outline" size="sm">
+                <a href={exportHref(rawSearchParams)}>
+                  {messages.exportToExcel}
+                </a>
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="px-3 sm:px-6">
@@ -314,6 +346,23 @@ export default async function AllProjectsPage({
                   </div>
 
                   <div className="mt-3 space-y-1.5">
+                    {isSbStomme ? (
+                      <div className="space-y-3">
+                        <SbPlanText
+                          recordId={record.id}
+                          field="weather"
+                          showLabel
+                        />
+                        <SbPlanText
+                          recordId={record.id}
+                          field="plannedWork"
+                          showLabel
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {SB_PLAN_LABELS.actualWork}
+                        </p>
+                      </div>
+                    ) : null}
                     <p className="break-words text-sm font-semibold leading-5">
                       {record.Works || "—"}
                     </p>
@@ -326,27 +375,43 @@ export default async function AllProjectsPage({
                   </div>
 
                   <dl className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border">
-                    {data.quantityPlanFactEnabled ? (
+                    {showPlannedAmount ? (
                       <div className="bg-muted/40 p-2.5">
                         <dt className="text-[11px] text-muted-foreground">
-                          {messages.plannedAmount}
+                          {isSbStomme
+                            ? SB_PLAN_LABELS.plannedAmount
+                            : messages.plannedAmount}
                         </dt>
                         <dd className="mt-0.5 text-sm font-semibold tabular-nums">
-                          {isMissingOrZero(record.plannedAmount)
-                            ? "—"
-                            : `${numberFormatter.format(record.plannedAmount)} ${record.Units ?? ""}`.trim()}
+                          {isSbStomme ? (
+                            <SbPlanText
+                              recordId={record.id}
+                              field="plannedAmount"
+                              unit={record.Units}
+                            />
+                          ) : isMissingOrZero(record.plannedAmount) ? (
+                            "—"
+                          ) : (
+                            `${numberFormatter.format(record.plannedAmount)} ${record.Units ?? ""}`.trim()
+                          )}
                         </dd>
                       </div>
                     ) : null}
                     <div className="bg-muted/40 p-2.5">
                       <dt className="text-[11px] text-muted-foreground">
-                        {data.quantityPlanFactEnabled
-                          ? messages.actualAmount
-                          : messages.amount}
+                        {isSbStomme
+                          ? SB_PLAN_LABELS.actualAmount
+                          : data.quantityPlanFactEnabled
+                            ? messages.actualAmount
+                            : messages.amount}
                       </dt>
                       <dd className="mt-0.5 text-sm font-semibold tabular-nums">
                         {formatQuantity(
-                          data.quantityPlanFactEnabled
+                          (
+                            isSbStomme
+                              ? record.quantityPlanFactEnabled
+                              : data.quantityPlanFactEnabled
+                          )
                             ? record.actualAmount
                             : record.Amounts,
                           record.Units,
@@ -429,6 +494,12 @@ export default async function AllProjectsPage({
                     ) : (
                       <span className="text-sm text-muted-foreground">—</span>
                     )}
+                    {isSbStomme ? (
+                      <SbRowActions
+                        recordId={record.id}
+                        label={`${record.Site?.name ?? "—"} · ${dateFormatter.format(record.Date ?? record.createdAt)}`}
+                      />
+                    ) : null}
                   </div>
                 </article>
               ))
@@ -443,46 +514,103 @@ export default async function AllProjectsPage({
             <Table
               className={cn(
                 "table-fixed",
-                data.quantityPlanFactEnabled
-                  ? "min-w-[1760px]"
-                  : "min-w-[1620px]",
+                isSbStomme
+                  ? "min-w-[1720px]"
+                  : data.quantityPlanFactEnabled
+                    ? "min-w-[1760px]"
+                    : "min-w-[1620px]",
               )}
             >
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">{messages.date}</TableHead>
-                  <TableHead className="w-[200px]">
+                  <TableHead className={isSbStomme ? "w-[94px]" : "w-[100px]"}>
+                    {messages.date}
+                  </TableHead>
+                  <TableHead className={isSbStomme ? "w-[140px]" : "w-[200px]"}>
                     {messages.project}
                   </TableHead>
-                  <TableHead className="w-[140px]">
-                    {messages.location}
-                  </TableHead>
-                  <TableHead className="w-[240px]">{messages.work}</TableHead>
-                  {data.quantityPlanFactEnabled ? (
-                    <TableHead className="w-[140px] whitespace-nowrap text-right">
-                      {messages.plannedAmount}
+                  {isSbStomme ? (
+                    <TableHead className="w-[120px]">
+                      {SB_PLAN_LABELS.weather}
                     </TableHead>
                   ) : null}
-                  <TableHead className="w-[140px] whitespace-nowrap text-right">
-                    {data.quantityPlanFactEnabled
-                      ? messages.actualAmount
-                      : messages.amount}
+                  <TableHead className={isSbStomme ? "w-[100px]" : "w-[140px]"}>
+                    {messages.location}
                   </TableHead>
-                  <TableHead className="w-[104px] whitespace-nowrap text-right">
+                  {isSbStomme ? (
+                    <TableHead className="w-[160px]">
+                      {SB_PLAN_LABELS.plannedWork}
+                    </TableHead>
+                  ) : null}
+                  <TableHead className={isSbStomme ? "w-[164px]" : "w-[240px]"}>
+                    {isSbStomme ? SB_PLAN_LABELS.actualWork : messages.work}
+                  </TableHead>
+                  {showPlannedAmount ? (
+                    <TableHead
+                      className={
+                        isSbStomme
+                          ? "w-[120px] whitespace-normal text-right"
+                          : "w-[140px] whitespace-nowrap text-right"
+                      }
+                    >
+                      {isSbStomme
+                        ? SB_PLAN_LABELS.plannedAmount
+                        : messages.plannedAmount}
+                    </TableHead>
+                  ) : null}
+                  <TableHead
+                    className={
+                      isSbStomme
+                        ? "w-[120px] whitespace-normal text-right"
+                        : "w-[140px] whitespace-nowrap text-right"
+                    }
+                  >
+                    {isSbStomme
+                      ? SB_PLAN_LABELS.actualAmount
+                      : data.quantityPlanFactEnabled
+                        ? messages.actualAmount
+                        : messages.amount}
+                  </TableHead>
+                  <TableHead
+                    className={cn(
+                      "whitespace-nowrap text-right",
+                      isSbStomme ? "w-[88px]" : "w-[104px]",
+                    )}
+                  >
                     {messages.workers}
                   </TableHead>
-                  <TableHead className="w-[96px] whitespace-nowrap text-right">
+                  <TableHead
+                    className={cn(
+                      "whitespace-nowrap text-right",
+                      isSbStomme ? "w-[80px]" : "w-[96px]",
+                    )}
+                  >
                     {messages.hours}
                   </TableHead>
-                  <TableHead className="w-[130px] whitespace-nowrap text-right">
+                  <TableHead
+                    className={cn(
+                      "whitespace-nowrap text-right",
+                      isSbStomme ? "w-[100px]" : "w-[130px]",
+                    )}
+                  >
                     {messages.cost}
                   </TableHead>
-                  <TableHead className="w-[400px]">
+                  <TableHead className={isSbStomme ? "w-[220px]" : "w-[400px]"}>
                     {messages.comments}
                   </TableHead>
-                  <TableHead className="w-[72px] text-center">
+                  <TableHead
+                    className={cn(
+                      "text-center",
+                      isSbStomme ? "w-[60px]" : "w-[72px]",
+                    )}
+                  >
                     {messages.source}
                   </TableHead>
+                  {isSbStomme ? (
+                    <TableHead className="w-[56px]">
+                      <span className="sr-only">Darbības</span>
+                    </TableHead>
+                  ) : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -519,6 +647,11 @@ export default async function AllProjectsPage({
                           )}
                         </div>
                       </TableCell>
+                      {isSbStomme ? (
+                        <TableCell className="align-top">
+                          <SbPlanText recordId={record.id} field="weather" />
+                        </TableCell>
+                      ) : null}
                       <TableCell className="min-w-0 overflow-hidden">
                         <span
                           className="block truncate"
@@ -527,6 +660,14 @@ export default async function AllProjectsPage({
                           {record.Location || "—"}
                         </span>
                       </TableCell>
+                      {isSbStomme ? (
+                        <TableCell className="align-top">
+                          <SbPlanText
+                            recordId={record.id}
+                            field="plannedWork"
+                          />
+                        </TableCell>
+                      ) : null}
                       <TableCell className="min-w-0 overflow-hidden">
                         <span
                           className="block truncate"
@@ -535,16 +676,28 @@ export default async function AllProjectsPage({
                           {record.Works || "—"}
                         </span>
                       </TableCell>
-                      {data.quantityPlanFactEnabled ? (
+                      {showPlannedAmount ? (
                         <TableCell className="whitespace-nowrap text-right tabular-nums">
-                          {isMissingOrZero(record.plannedAmount)
-                            ? "—"
-                            : `${numberFormatter.format(record.plannedAmount)} ${record.Units ?? ""}`.trim()}
+                          {isSbStomme ? (
+                            <SbPlanText
+                              recordId={record.id}
+                              field="plannedAmount"
+                              unit={record.Units}
+                            />
+                          ) : isMissingOrZero(record.plannedAmount) ? (
+                            "—"
+                          ) : (
+                            `${numberFormatter.format(record.plannedAmount)} ${record.Units ?? ""}`.trim()
+                          )}
                         </TableCell>
                       ) : null}
                       <TableCell className="whitespace-nowrap text-right tabular-nums">
                         {formatQuantity(
-                          data.quantityPlanFactEnabled
+                          (
+                            isSbStomme
+                              ? record.quantityPlanFactEnabled
+                              : data.quantityPlanFactEnabled
+                          )
                             ? record.actualAmount
                             : record.Amounts,
                           record.Units,
@@ -595,12 +748,22 @@ export default async function AllProjectsPage({
                           "—"
                         )}
                       </TableCell>
+                      {isSbStomme ? (
+                        <TableCell className="text-center">
+                          <SbRowActions
+                            recordId={record.id}
+                            label={`${record.Site?.name ?? "—"} · ${dateFormatter.format(record.Date ?? record.createdAt)}`}
+                          />
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={data.quantityPlanFactEnabled ? 11 : 10}
+                      colSpan={
+                        isSbStomme ? 14 : data.quantityPlanFactEnabled ? 11 : 10
+                      }
                       className="h-32 text-center"
                     >
                       {messages.noRecords}
@@ -643,5 +806,18 @@ export default async function AllProjectsPage({
         </CardContent>
       </Card>
     </div>
+  );
+  return isSbStomme ? (
+    <SbPlanProvider
+      key={data.records.map((record) => record.id).join(":")}
+      records={data.records.map((record) => ({
+        id: record.id,
+        values: record.sbPlan!,
+      }))}
+    >
+      {content}
+    </SbPlanProvider>
+  ) : (
+    content
   );
 }

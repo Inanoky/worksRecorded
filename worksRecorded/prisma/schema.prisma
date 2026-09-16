@@ -125,6 +125,7 @@ model Site {
   photos            photos[] // on site can have many photos
   timelog           timelog[] // on site can have timelogs
   sitediaryrecords  sitediaryrecords[] // one site can have many site diary records
+  constructionPlans ConstructionPlan[]
   ztcRecords        ZtcRecords[]
   BISmaterialRecords BISmaterialRecords[] //on site can have many BIS material records. 
   tgemInvoiceCases TgemInvoiceCase[]
@@ -487,6 +488,26 @@ model sitediaryrecords {
   createdAt       DateTime  @default(now())
 
   @@index([siteId, archivedAt, Date, createdAt], map: "sitediaryrecords_site_archived_date_created_idx")
+}
+
+model ConstructionPlan {
+  id          String   @id @default(uuid())
+  siteId      String
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date
+  work        String
+  location    String
+  unit        String
+  quantity    Float
+  matchKey    String
+  version     Int      @default(1)
+  createdBy   String
+  updatedBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([siteId, date, matchKey])
+  @@index([siteId, date])
 }
 
 model SiteDiarySaveBatch {
