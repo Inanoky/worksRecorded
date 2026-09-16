@@ -86,6 +86,24 @@ export async function startTgemInvoiceApproval(input: {
 
 	const approvalRound = invoiceCase.approvalRound + 1;
 	await prisma.$transaction(async (tx) => {
+		const claimed = await tx.tgemInvoiceCase.updateMany({
+			where: {
+				id: invoiceCase.id,
+				siteId: invoiceCase.siteId,
+				status: invoiceCase.status,
+				approvalRound: invoiceCase.approvalRound,
+			},
+			data: {
+				status: "in_approval",
+				approvalRound,
+				approvedAt: null,
+			},
+		});
+		if (claimed.count !== 1) {
+			throw new Error(
+				"The invoice project or approval status changed. Reload and try again",
+			);
+		}
 		await tx.tgemInvoiceApprovalStep.createMany({
 			data: routeSteps.map((step, index) => ({
 				invoiceCaseId: invoiceCase.id,
@@ -102,14 +120,6 @@ export async function startTgemInvoiceApproval(input: {
 				status: index === 0 ? "current" : "waiting",
 			})),
 		});
-		await tx.tgemInvoiceCase.update({
-			where: { id: invoiceCase.id },
-			data: {
-				status: "in_approval",
-				approvalRound,
-				approvedAt: null,
-			},
-		});
 		await tx.tgemInvoiceAuditEvent.create({
 			data: {
 				invoiceCaseId: invoiceCase.id,
@@ -124,6 +134,7 @@ export async function startTgemInvoiceApproval(input: {
 				toStatus: "in_approval",
 				payload: {
 					trigger: input.trigger,
+					projectId: invoiceCase.siteId,
 					approvalRound,
 					templateRevision: template.revision,
 					workflowCurrency: currency,

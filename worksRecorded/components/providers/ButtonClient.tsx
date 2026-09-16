@@ -16,7 +16,7 @@ type Props = CommonProps &
 		| {
 				projectId: string;
 				projectName: string;
-				href?: never;
+				href?: string;
 		  }
 		| {
 				href: string;
@@ -34,7 +34,9 @@ export default function OpenProjectButton({
 }: Props) {
 	const { setProject } = useProject();
 	const [opening, setOpening] = useState(false);
-	const href = destination ?? `/dashboard/sites/${projectId}/dashboard`;
+	const href =
+		destination ??
+		(projectId ? `/dashboard/sites/${projectId}/dashboard` : "/dashboard");
 
 	useEffect(() => {
 		if (!opening) return;

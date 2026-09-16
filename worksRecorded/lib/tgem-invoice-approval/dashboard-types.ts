@@ -40,6 +40,10 @@ export type TgemDashboardInvoiceDocument = {
 
 export type TgemDashboardInvoice = {
 	id: string;
+	project: {
+		id: string;
+		name: string;
+	} | null;
 	source: string;
 	status: string;
 	ocrStatus: string;
@@ -59,6 +63,7 @@ export type TgemDashboardInvoice = {
 	extractionSummary: unknown;
 	fieldAnchors: Record<string, TgemDashboardSourceAnchor>;
 	createdAt: string;
+	updatedAt: string;
 	approvalRound: number;
 	documents: TgemDashboardInvoiceDocument[];
 	lines: Array<{
@@ -101,6 +106,10 @@ export type TgemDashboardInvoice = {
 
 export type TgemDashboardData = {
 	currentUserId: string;
+	projects: Array<{
+		id: string;
+		name: string;
+	}>;
 	invoices: TgemDashboardInvoice[];
 	approvalSetup: {
 		canManageWorkflow: boolean;
@@ -125,5 +134,9 @@ export type TgemDashboardData = {
 				minimumInvoiceTotal: string | null;
 			}>;
 		} | null;
-	};
+	} | null;
 };
+
+export type TgemDashboardApprovalSetup = NonNullable<
+	TgemDashboardData["approvalSetup"]
+>;

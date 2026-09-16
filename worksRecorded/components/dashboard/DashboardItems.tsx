@@ -1,8 +1,8 @@
 "use client";
 
-import { Building2, ChevronDown, MoreHorizontal } from "lucide-react";
+import { Building2, Check, ChevronDown, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useProject } from "@/components/providers/ProjectProvider";
 import {
@@ -18,19 +18,26 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { FLOW_MODULE_KEYS, type FlowModuleKey } from "@/lib/flows/types";
 import { cn } from "@/lib/utils/utils";
-import { getNavLinks } from "./NavLinks";
+import {
+	getNavLinks,
+	getTgemProjectNavigationLabels,
+	getTgemWorkspaceNavLinks,
+} from "./NavLinks";
 import { useDashboardNavigation } from "./useDashboardNavigation";
 
 export function DashboardItems({
 	organizationLanguage,
 	canAccessAiEvals = false,
 	canAccessFlowConfigAdmin = false,
+	flowModuleKey = null,
 }: {
 	userEmail?: string | null;
 	organizationLanguage?: string | null;
 	canAccessAiEvals?: boolean;
 	canAccessFlowConfigAdmin?: boolean;
+	flowModuleKey?: FlowModuleKey | null;
 }) {
 	const pathname = usePathname();
 	const router = useRouter();
@@ -39,6 +46,7 @@ export function DashboardItems({
 			getNavLinks(organizationLanguage, {
 				canAccessAiEvals,
 				canAccessFlowConfigAdmin,
+				flowModuleKey,
 			}).map((item) => ({
 				...item,
 				isActive: pathname === item.href,
@@ -46,6 +54,7 @@ export function DashboardItems({
 		[
 			canAccessAiEvals,
 			canAccessFlowConfigAdmin,
+			flowModuleKey,
 			organizationLanguage,
 			pathname,
 		],
@@ -87,11 +96,13 @@ export function DashboardProjectNavigation({
 	organizationLanguage,
 	canAccessAiEvals = false,
 	canAccessFlowConfigAdmin = false,
+	flowModuleKey = null,
 }: {
 	availableProjects?: ProjectSwitcherOption[];
 	organizationLanguage?: string | null;
 	canAccessAiEvals?: boolean;
 	canAccessFlowConfigAdmin?: boolean;
+	flowModuleKey?: FlowModuleKey | null;
 }) {
 	const {
 		isProjectRoute,
@@ -105,9 +116,54 @@ export function DashboardProjectNavigation({
 		organizationLanguage,
 		canAccessAiEvals,
 		canAccessFlowConfigAdmin,
+		flowModuleKey,
 	});
+	const searchParams = useSearchParams();
 	const labels = getProjectNavigationLabels(organizationLanguage);
 	const { setProject } = useProject();
+	const isTgem = flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL;
+
+	if (isTgem) {
+		const activeView =
+			pathname === "/dashboard/invoices" &&
+			searchParams.get("view") === "approval"
+				? "approval"
+				: pathname === "/dashboard/invoices"
+					? "register"
+					: null;
+
+		return (
+			<div className="hidden min-h-[54px] w-full items-center gap-1.5 border-t bg-muted/25 px-4 py-1.5 lg:flex lg:px-8">
+				<TgemProjectSwitcher
+					activeProjectFilter={searchParams.get("project")}
+					availableProjects={availableProjects}
+					isProjectManagementActive={pathname.startsWith("/dashboard/sites")}
+					isApprovalView={activeView === "approval"}
+					organizationLanguage={organizationLanguage}
+					onPrefetch={(href) => router.prefetch(href)}
+				/>
+				{getTgemWorkspaceNavLinks(organizationLanguage).map((item) => (
+					<Link
+						key={item.view}
+						href={item.href}
+						prefetch
+						aria-current={activeView === item.view ? "page" : undefined}
+						onMouseEnter={() => router.prefetch(item.href)}
+						className={cn(
+							projectNavItemClasses,
+							activeView === item.view
+								? projectNavItemActiveClasses
+								: projectNavItemIdleClasses,
+							"w-auto max-w-[300px] shrink-0",
+						)}
+					>
+						<item.icon className={projectNavIconClasses} />
+						<span className={projectNavLabelClasses}>{item.name}</span>
+					</Link>
+				))}
+			</div>
+		);
+	}
 
 	if (!projectName || !projectId || !isProjectRoute) return null;
 
@@ -156,6 +212,108 @@ export function DashboardProjectNavigation({
 			) : null}
 		</div>
 	);
+}
+
+function TgemProjectSwitcher({
+	activeProjectFilter,
+	availableProjects,
+	isApprovalView,
+	isProjectManagementActive,
+	organizationLanguage,
+	onPrefetch,
+}: {
+	activeProjectFilter: string | null;
+	availableProjects: ProjectSwitcherOption[];
+	isApprovalView: boolean;
+	isProjectManagementActive: boolean;
+	organizationLanguage?: string | null;
+	onPrefetch: (href: string) => void;
+}) {
+	const labels = getTgemProjectNavigationLabels(organizationLanguage);
+	const selectedProject = availableProjects.find(
+		(project) => project.id === activeProjectFilter,
+	);
+	const activeLabel = selectedProject?.name
+		? selectedProject.name
+		: activeProjectFilter === "unassigned"
+			? labels.unassigned
+			: labels.allProjects;
+	const options = [
+		{ id: null, name: labels.allProjects },
+		{ id: "unassigned", name: labels.unassigned },
+		...availableProjects,
+	];
+
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<button
+					type="button"
+					aria-label={`${labels.projects}: ${activeLabel}`}
+					className={cn(
+						projectNavItemClasses,
+						isProjectManagementActive
+							? projectNavItemActiveClasses
+							: projectNavItemIdleClasses,
+						"w-auto max-w-[320px] shrink-0",
+					)}
+				>
+					<Building2 className={projectNavIconClasses} />
+					<span className="text-muted-foreground">{labels.projects}:</span>
+					<span className={projectNavLabelClasses}>{activeLabel}</span>
+					<ChevronDown className="size-3.5 shrink-0" />
+				</button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start" className="w-72">
+				<DropdownMenuLabel>{labels.switchProject}</DropdownMenuLabel>
+				<DropdownMenuSeparator />
+				{options.map((project) => {
+					const isSelected = (activeProjectFilter ?? null) === project.id;
+					const href = getTgemInvoiceProjectHref(project.id, isApprovalView);
+					return (
+						<DropdownMenuItem key={project.id ?? "all"} asChild>
+							<Link
+								href={href}
+								prefetch
+								onMouseEnter={() => onPrefetch(href)}
+								className="flex w-full min-w-0 items-center gap-2"
+							>
+								<Check
+									className={cn(
+										"size-4 shrink-0",
+										isSelected ? "opacity-100" : "opacity-0",
+									)}
+								/>
+								<span className="min-w-0 truncate">{project.name}</span>
+							</Link>
+						</DropdownMenuItem>
+					);
+				})}
+				<DropdownMenuSeparator />
+				<DropdownMenuItem asChild>
+					<Link
+						href="/dashboard/sites"
+						prefetch
+						onMouseEnter={() => onPrefetch("/dashboard/sites")}
+					>
+						<Building2 className="size-4" />
+						{labels.manageProjects}
+					</Link>
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
+function getTgemInvoiceProjectHref(
+	projectFilter: string | null,
+	isApprovalView: boolean,
+) {
+	const searchParams = new URLSearchParams();
+	if (projectFilter) searchParams.set("project", projectFilter);
+	if (isApprovalView) searchParams.set("view", "approval");
+	const query = searchParams.toString();
+	return `/dashboard/invoices${query ? `?${query}` : ""}`;
 }
 
 type ResolvedProjectLink = ReturnType<

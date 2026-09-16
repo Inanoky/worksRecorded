@@ -14,7 +14,7 @@ import {
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type {
-	TgemDashboardData,
+	TgemDashboardApprovalSetup,
 	TgemDashboardInvoice,
 } from "@/lib/tgem-invoice-approval/dashboard-types";
 import {
@@ -180,7 +180,7 @@ export function TgemApprovalControls({
 }: {
 	invoice: TgemDashboardInvoice;
 	currentUserId: string;
-	approvalSetup: TgemDashboardData["approvalSetup"];
+	approvalSetup: TgemDashboardApprovalSetup | null;
 	organizationLanguage?: string | null;
 	onChanged: () => Promise<void>;
 }) {
@@ -192,10 +192,10 @@ export function TgemApprovalControls({
 		(step) => step.approvalRound === invoice.approvalRound,
 	);
 	const userNames = new Map(
-		approvalSetup.users.map((user) => [user.id, user.name]),
+		(approvalSetup?.users ?? []).map((user) => [user.id, user.name]),
 	);
 	const configuredSteps: ApprovalStep[] =
-		approvalSetup.template?.steps.map((step) => ({
+		approvalSetup?.template?.steps.map((step) => ({
 			id: step.id,
 			stepOrder: step.stepOrder,
 			approvalRound: 0,
@@ -203,10 +203,10 @@ export function TgemApprovalControls({
 			role: step.role,
 			approverUserId: step.approverUserId,
 			approverName: userNames.get(step.approverUserId) ?? null,
-			templateRevision: approvalSetup.template?.revision ?? null,
+			templateRevision: approvalSetup?.template?.revision ?? null,
 			minimumInvoiceTotal: step.minimumInvoiceTotal,
 			thresholdCurrency: step.minimumInvoiceTotal
-				? (approvalSetup.template?.currency ?? null)
+				? (approvalSetup?.template?.currency ?? null)
 				: null,
 			status: "configured",
 			comment: null,
@@ -240,7 +240,7 @@ export function TgemApprovalControls({
 	const canSubmit = ["needs_review", "changes_requested"].includes(
 		invoice.status,
 	);
-	const hasTemplate = Boolean(approvalSetup.template?.steps.length);
+	const hasTemplate = Boolean(approvalSetup?.template?.steps.length);
 
 	async function submit() {
 		setPending("submit");

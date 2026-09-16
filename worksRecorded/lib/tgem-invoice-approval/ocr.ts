@@ -107,6 +107,9 @@ export async function persistTgemInvoiceOcrResult(
 	if (!stringField(input.result, "invoiceNumber")) {
 		warnings.push("Invoice number was not detected.");
 	}
+	if (numberField(input.result, "subtotal") === null) {
+		warnings.push("Invoice amount excluding VAT/PVN was not detected.");
+	}
 	if (numberField(input.result, "total") === null) {
 		warnings.push("Invoice total was not detected.");
 	}

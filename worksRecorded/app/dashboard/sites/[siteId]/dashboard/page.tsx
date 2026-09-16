@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { after } from "next/server";
 import AiWidgetRag from "@/components/ai/AiChatLazy";
 import { ClientFlowDashboard } from "@/components/client-flows/ClientFlowDashboard";
@@ -6,6 +6,7 @@ import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import TourRunner from "@/components/joyride/TourRunner";
 import { shouldShowDashboardAiWidgetForFlowModule } from "@/lib/flows/registry";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
+import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { requireUser } from "@/lib/utils/requireUser";
 import { isSuperUserId } from "@/lib/utils/super-user";
 import {
@@ -53,6 +54,10 @@ export default async function InvoiceRoute({
 			getUserBisTokenByUserId(user.id),
 			getOrganizationLanguageByUserId(user.id),
 		]);
+
+	if (flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL) {
+		redirect(`/dashboard/invoices?project=${encodeURIComponent(siteId)}`);
+	}
 
 	if (onboardingProjectName) {
 		after(async () => {

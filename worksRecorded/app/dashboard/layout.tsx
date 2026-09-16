@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { isAiEvalUiEnabled } from "@/lib/ai-evals/local-gate";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
+import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { canAccessFlowConfigAdmin } from "@/lib/production-flow/config";
 import { hasAiEvalAccess } from "@/lib/utils/ai-context-access";
 import { prisma } from "@/lib/utils/db";
@@ -54,11 +55,16 @@ export default async function DashboardLayout({
 		userId,
 		requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host"),
 	);
-	const headerProjects = await prisma.site.findMany({
-		where: isSuperUser ? {} : { organizationId: organizationId ?? "" },
-		select: { id: true, name: true },
-		orderBy: { createdAt: "desc" },
-	});
+	const [headerProjects, flowModuleKey] = await Promise.all([
+		prisma.site.findMany({
+			where: isSuperUser ? {} : { organizationId: organizationId ?? "" },
+			select: { id: true, name: true },
+			orderBy: { createdAt: "desc" },
+		}),
+		isSuperUser
+			? Promise.resolve(null)
+			: resolveFlowModuleKeyForRuntime({ organizationId }),
+	]);
 
 	return (
 		<ProjectProvider userId={userId}>
@@ -86,6 +92,8 @@ export default async function DashboardLayout({
 									organizationLanguage={organizationLanguage}
 									canAccessAiEvals={canAccessAiEvals}
 									canAccessFlowConfigAdmin={canAccessFlowConfigs}
+									flowModuleKey={flowModuleKey}
+									availableProjects={headerProjects}
 								/>
 							</div>
 
@@ -104,6 +112,7 @@ export default async function DashboardLayout({
 									organizationLanguage={organizationLanguage}
 									canAccessAiEvals={canAccessAiEvals}
 									canAccessFlowConfigAdmin={canAccessFlowConfigs}
+									flowModuleKey={flowModuleKey}
 								/>
 							</nav>
 						</div>
@@ -167,6 +176,7 @@ export default async function DashboardLayout({
 						organizationLanguage={organizationLanguage}
 						canAccessAiEvals={canAccessAiEvals}
 						canAccessFlowConfigAdmin={canAccessFlowConfigs}
+						flowModuleKey={flowModuleKey}
 					/>
 				</header>
 

@@ -14,7 +14,7 @@ import {
 	TGEM_APPROVAL_ROLE_KEYS,
 	type TgemApprovalRoleKey,
 } from "@/lib/tgem-invoice-approval/approval";
-import type { TgemDashboardData } from "@/lib/tgem-invoice-approval/dashboard-types";
+import type { TgemDashboardApprovalSetup } from "@/lib/tgem-invoice-approval/dashboard-types";
 import {
 	saveTgemApprovalTemplate,
 	saveTgemWorkflowManagers,
@@ -135,7 +135,7 @@ export function TgemApprovalSetup({
 	onSaved,
 }: {
 	siteId: string;
-	setup: TgemDashboardData["approvalSetup"];
+	setup: TgemDashboardApprovalSetup;
 	organizationLanguage?: string | null;
 	onSaved: () => Promise<void>;
 }) {

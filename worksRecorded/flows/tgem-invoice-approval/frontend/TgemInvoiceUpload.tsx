@@ -16,9 +16,9 @@ import { runTgemInvoiceOcr } from "@/server/actions/tgem-invoice-actions";
 type UploadStage = "idle" | "uploading" | "processing" | "ready" | "error";
 
 type Props = {
-	siteId: string;
+	selectedProjectId?: string | null;
 	organizationLanguage?: string | null;
-	onInvoiceReady: (invoiceCaseId: string) => Promise<void>;
+	onInvoiceReady: (invoiceCaseId: string, projectId: string) => Promise<void>;
 };
 
 function getUploadCopy(language?: string | null) {
@@ -38,6 +38,8 @@ function getUploadCopy(language?: string | null) {
 			retry: "Mēģināt vēlreiz",
 			invalid: "Izvēlieties PDF, JPG, PNG vai WebP failu.",
 			failed: "Rēķinu neizdevās apstrādāt.",
+			projectRequired:
+				"Pirms rēķina augšupielādes izvēlieties projektu augšējā izvēlnē.",
 		};
 	}
 
@@ -57,6 +59,7 @@ function getUploadCopy(language?: string | null) {
 			retry: "Попробовать снова",
 			invalid: "Выберите PDF, JPG, PNG или WebP.",
 			failed: "Не удалось обработать счет.",
+			projectRequired: "Перед загрузкой счета выберите проект в верхнем меню.",
 		};
 	}
 
@@ -75,6 +78,8 @@ function getUploadCopy(language?: string | null) {
 		retry: "Try another file",
 		invalid: "Choose a PDF, JPG, PNG, or WebP file.",
 		failed: "The invoice could not be processed.",
+		projectRequired:
+			"Select a project in the top navigation before uploading the invoice.",
 	};
 }
 
@@ -86,7 +91,7 @@ const ACCEPTED_FILE_TYPES = new Set([
 ]);
 
 export function TgemInvoiceUpload({
-	siteId,
+	selectedProjectId,
 	organizationLanguage,
 	onInvoiceReady,
 }: Props) {
@@ -120,6 +125,11 @@ export function TgemInvoiceUpload({
 	const processFile = React.useCallback(
 		async (file: File | undefined) => {
 			if (!file || busy) return;
+			if (!selectedProjectId) {
+				setStage("error");
+				setError(copy.projectRequired);
+				return;
+			}
 			if (!ACCEPTED_FILE_TYPES.has(file.type)) {
 				setStage("error");
 				setError(copy.invalid);
@@ -133,7 +143,9 @@ export function TgemInvoiceUpload({
 			setStage("uploading");
 
 			try {
-				const uploaded = await startUpload([file], { siteId });
+				const uploaded = await startUpload([file], {
+					siteId: selectedProjectId,
+				});
 				const serverData = uploaded?.[0]?.serverData;
 				if (!serverData?.invoiceCaseId || !serverData.documentId) {
 					throw new Error(copy.failed);
@@ -151,7 +163,7 @@ export function TgemInvoiceUpload({
 					lineItemCount: ocrResult.lineItemCount,
 					warningCount: ocrResult.warningCount,
 				});
-				await onInvoiceReady(serverData.invoiceCaseId);
+				await onInvoiceReady(serverData.invoiceCaseId, selectedProjectId);
 				setStage("ready");
 			} catch (uploadError) {
 				setStage("error");
@@ -160,7 +172,15 @@ export function TgemInvoiceUpload({
 				);
 			}
 		},
-		[busy, copy.failed, copy.invalid, onInvoiceReady, siteId, startUpload],
+		[
+			busy,
+			copy.failed,
+			copy.invalid,
+			copy.projectRequired,
+			onInvoiceReady,
+			selectedProjectId,
+			startUpload,
+		],
 	);
 
 	const stepState = (step: "uploading" | "processing" | "ready") => {
@@ -193,14 +213,14 @@ export function TgemInvoiceUpload({
 			}}
 		>
 			<div className="grid lg:grid-cols-[minmax(18rem,0.7fr)_minmax(28rem,1.3fr)]">
-				<div className="flex items-center gap-4 border-b p-4 lg:border-r lg:border-b-0">
+				<div className="flex items-start gap-4 border-b p-4 lg:border-r lg:border-b-0">
 					<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-slate-950 text-white dark:bg-slate-100 dark:text-slate-950">
 						<FileUp className="h-5 w-5" />
 					</div>
 					<div className="min-w-0">
 						<h2 className="font-semibold tracking-tight">{copy.title}</h2>
 						<p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-							{copy.description}
+							{selectedProjectId ? copy.description : copy.projectRequired}
 						</p>
 					</div>
 				</div>
@@ -217,7 +237,8 @@ export function TgemInvoiceUpload({
 							</div>
 							<label
 								htmlFor={inputId}
-								className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
+								aria-disabled={!selectedProjectId}
+								className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow-sm transition focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${selectedProjectId ? "cursor-pointer bg-blue-600 text-white hover:bg-blue-700" : "cursor-not-allowed bg-muted text-muted-foreground"}`}
 							>
 								<FileUp className="h-4 w-4" />
 								{copy.choose}
@@ -302,7 +323,7 @@ export function TgemInvoiceUpload({
 				id={inputId}
 				type="file"
 				accept="application/pdf,image/jpeg,image/png,image/webp"
-				disabled={busy}
+				disabled={busy || !selectedProjectId}
 				className="sr-only"
 				onChange={(event) => void processFile(event.target.files?.[0])}
 			/>

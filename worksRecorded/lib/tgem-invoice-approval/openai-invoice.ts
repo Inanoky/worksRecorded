@@ -5,14 +5,31 @@ import type { TgemInvoiceOcrResult } from "@/lib/tgem-invoice-approval/ocr-types
 
 export const TGEM_INVOICE_OPENAI_DEFAULT_MODEL = "gpt-5.4";
 
+const TGEM_INVOICE_OPENAI_INSTRUCTIONS = [
+	"Transcribe and extract this invoice faithfully. The document may be in Latvian, English, or Russian.",
+	"For pages[].text, copy all readable visible text in reading order, preserving line breaks, spelling, numbers, punctuation, and the original language. Do not translate, summarize, or invent missing text. Return one page entry per document page.",
+	"For fields, rawText is the exact visible text supporting the value and value is the normalized value. Normalize dates to YYYY-MM-DD only when the full date is visible; otherwise use null. Use ISO 4217 currency codes.",
+	"Financial totals require special care. fields.subtotal is the priority amount: extract the final invoice amount excluding VAT/PVN after all discounts and other net adjustments. Look carefully for labels such as 'Kopā bez PVN', 'Summa bez PVN', 'Neto', 'Net amount', or 'Subtotal'. Never put a VAT-inclusive or payable amount in fields.subtotal.",
+	"fields.vat is the VAT/PVN tax amount in money, not a percentage such as 21%. Prefer the explicit total VAT/PVN amount; when there are several VAT rates and no combined VAT total, sum the visible VAT amounts only if every VAT row is clearly readable.",
+	"fields.total is the final amount payable including VAT/PVN after all adjustments; look for labels such as 'Kopā ar PVN', 'Apmaksai', 'Summa apmaksai', 'Gross total', or 'Total incl. VAT'.",
+	"Prefer subtotal, VAT, and total from the same final totals block. Check that subtotal plus VAT approximately equals total, allowing only normal currency rounding, but preserve the printed values when the invoice itself is inconsistent.",
+	"Do not calculate a missing subtotal from line items or guess any financial amount. If only a VAT-inclusive total is visible, return it as fields.total and leave fields.subtotal null.",
+	"Extract every genuine product, material, labor, service, delivery, equipment, rental, discount, or deposit row into lineItems, excluding subtotal, VAT, and grand-total summary rows. Preserve exact row text in sourceText. Use null for values that are absent or unreadable.",
+].join(" ");
+
 const stringFieldSchema = z.object({
 	rawText: z.string(),
 	value: z.string().nullable(),
 });
 
 const numberFieldSchema = z.object({
-	rawText: z.string(),
-	value: z.number().nullable(),
+	rawText: z
+		.string()
+		.describe("Exact visible invoice text supporting the extracted amount."),
+	value: z
+		.number()
+		.nullable()
+		.describe("Normalized monetary amount, or null when it is not readable."),
 });
 
 export const tgemOpenAiInvoiceSchema = z.object({
@@ -31,9 +48,15 @@ export const tgemOpenAiInvoiceSchema = z.object({
 		invoiceDate: stringFieldSchema,
 		dueDate: stringFieldSchema,
 		currency: stringFieldSchema,
-		subtotal: numberFieldSchema,
-		vat: numberFieldSchema,
-		total: numberFieldSchema,
+		subtotal: numberFieldSchema.describe(
+			"Priority amount: the final invoice net total excluding VAT/PVN, after discounts and other net adjustments.",
+		),
+		vat: numberFieldSchema.describe(
+			"VAT/PVN tax amount in money, not the VAT percentage or tax rate.",
+		),
+		total: numberFieldSchema.describe(
+			"Final gross amount payable including VAT/PVN, after discounts and other adjustments.",
+		),
 		bankAccount: stringFieldSchema,
 		purchaseOrder: stringFieldSchema,
 	}),
@@ -165,8 +188,7 @@ export function createTgemOpenAiTransport(
 			model: config.model,
 			store: false,
 			max_output_tokens: 12_000,
-			instructions:
-				"Transcribe and extract this invoice faithfully. The document may be in Latvian, English, or Russian. For pages[].text, copy all readable visible text in reading order, preserving line breaks, spelling, numbers, punctuation, and the original language. Do not translate, summarize, or invent missing text. Return one page entry per document page. For fields, rawText is the exact visible text and value is the normalized value. Normalize dates to YYYY-MM-DD only when the full date is visible; otherwise use null. Use ISO 4217 currency codes. Extract every genuine product, material, labor, service, delivery, equipment, rental, discount, or deposit row into lineItems, excluding subtotal, VAT, and grand-total summary rows. Preserve exact row text in sourceText. Use null for values that are absent or unreadable.",
+			instructions: TGEM_INVOICE_OPENAI_INSTRUCTIONS,
 			input: [
 				{
 					role: "user",
