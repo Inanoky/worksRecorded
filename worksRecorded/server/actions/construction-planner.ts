@@ -7,10 +7,12 @@ import { z } from "zod";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import { getDefaultConstructionQuantityComparison } from "@/flows/default-construction/lib/quantity-plan-actual";
 import {
+	createDefaultConstructionRecordCostCalculator,
 	DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY,
 	getDefaultConstructionOptionValues,
 	setDefaultConstructionWorkDropdownOptions,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
+import { calculateDefaultConstructionManHours } from "@/flows/default-construction/lib/site-diary-summary";
 import {
 	addDays,
 	assertFuture,
@@ -43,6 +45,7 @@ async function authorize(siteId: string) {
 		where: { id: siteId, organizationId: user.organizationId },
 		select: {
 			id: true,
+			name: true,
 			organizationId: true,
 			siteDiaryRecordsMap: true,
 			updatedAt: true,
@@ -104,6 +107,7 @@ export async function loadConstructionWeek(siteId: string, date: string) {
 	const end = addDays(start, 7);
 	const config = configMap(site.siteDiaryRecordsMap);
 	const options = getDefaultConstructionOptionValues(config);
+	const calculateCost = createDefaultConstructionRecordCostCalculator(config);
 	try {
 		const [plans, actuals] = await Promise.all([
 			prisma.constructionPlan.findMany({
@@ -125,12 +129,16 @@ export async function loadConstructionWeek(siteId: string, date: string) {
 					Amounts: true,
 					Comments: true,
 					Comments_Custom_1: true,
+					createdAt: true,
+					WorkersInvolved: true,
+					TimeInvolved: true,
 				},
 				orderBy: { createdAt: "asc" },
 			}),
 		]);
 		return {
 			start,
+			siteName: site.name,
 			today: plannerToday(),
 			plans: plans.map(serialize),
 			options: {
@@ -157,12 +165,27 @@ export async function loadConstructionWeek(siteId: string, date: string) {
 					unit: row.Units ?? "",
 					quantity: comparison.enabled ? comparison.actualAmount : row.Amounts,
 					comments: row.Comments ?? "",
+					time: row.createdAt
+						? new Intl.DateTimeFormat("lv-LV", {
+								timeZone: "Europe/Riga",
+								hour: "2-digit",
+								minute: "2-digit",
+							}).format(row.createdAt)
+						: "",
+					workers: row.WorkersInvolved,
+					hours: row.TimeInvolved,
+					manHours: calculateDefaultConstructionManHours(row),
+					cost: calculateCost(row).actualCost,
 				};
 			}),
 		};
 	} catch (error) {
 		throw new Error(failure(error));
 	}
+}
+
+export async function loadCurrentConstructionWeekReport(siteId: string) {
+	return loadConstructionWeek(siteId, plannerToday());
 }
 
 export async function loadConstructionDiaryPlans(siteId: string) {

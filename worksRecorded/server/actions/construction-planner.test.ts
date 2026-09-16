@@ -33,6 +33,7 @@ import {
 	deleteConstructionPlan,
 	loadConstructionDiaryPlans,
 	loadConstructionWeek,
+	loadCurrentConstructionWeekReport,
 	saveConstructionPlan,
 	saveConstructionPlanBatch,
 } from "./construction-planner";
@@ -169,6 +170,36 @@ describe("construction planner actions", () => {
 		]);
 	});
 	afterEach(() => jest.useRealTimers());
+	it("exports the current Riga week with all records, factual quantities and diary costs", async () => {
+		jest.useFakeTimers().setSystemTime(new Date("2026-09-20T22:00:00Z"));
+		jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([
+			{
+				id: "inside",
+				Date: new Date("2026-09-20T21:30:00Z"),
+				Works: "Walls",
+				Amounts: 8,
+				WorkersInvolved: 2,
+				TimeInvolved: 3,
+				Comments: "Done",
+			},
+			{ id: "outside", Date: new Date("2026-09-20T19:30:00Z"), Amounts: 999 },
+		] as never);
+		const result = await loadCurrentConstructionWeekReport(siteId);
+		expect(result.start).toBe("2026-09-21");
+		expect(result.actuals).toHaveLength(1);
+		expect(result.actuals[0]).toMatchObject({
+			id: "inside",
+			workers: 2,
+			hours: 3,
+			manHours: 6,
+			comments: "Done",
+		});
+		const query = jest.mocked(prisma.sitediaryrecords.findMany).mock
+			.calls[0][0];
+		expect(query).toMatchObject({ where: { siteId, archivedAt: null } });
+		expect(query).not.toHaveProperty("take");
+		expect(query).not.toHaveProperty("skip");
+	});
 	it("saves additions, edits and deletions in one transaction", async () => {
 		const { siteId: _, ...row } = draft;
 		const deletedId = "32d70b91-af15-4ddf-a017-41d9ad3ac933";

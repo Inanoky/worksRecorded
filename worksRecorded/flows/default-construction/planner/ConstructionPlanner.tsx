@@ -25,6 +25,7 @@ import {
 	planSchema,
 	weekStart,
 } from "./model";
+import { WeeklyPdfExport } from "./WeeklyPdfExport";
 
 type Week = Awaited<ReturnType<typeof loadConstructionWeek>>;
 const EMPTY_DIARY_ROWS: Awaited<ReturnType<typeof loadConstructionDiaryPlans>> =
@@ -192,10 +193,12 @@ function WeekPicker({
 
 export function PlannerControls({
 	planner,
+	organizationLanguage,
 	onCatalogChanged,
 	onShow,
 }: {
 	planner: Planner;
+	organizationLanguage?: string | null;
 	onCatalogChanged: () => void;
 	onShow: () => void;
 }) {
@@ -205,6 +208,12 @@ export function PlannerControls({
 			<Button variant="outline" onClick={() => planner.setOpen(true)}>
 				Plāns
 			</Button>
+			{planner.siteId ? (
+				<WeeklyPdfExport
+					siteId={planner.siteId}
+					organizationLanguage={organizationLanguage}
+				/>
+			) : null}
 			<label
 				htmlFor={`${id}-show`}
 				className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"

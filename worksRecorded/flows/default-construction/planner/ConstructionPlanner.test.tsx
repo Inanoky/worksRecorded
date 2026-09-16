@@ -22,6 +22,7 @@ jest.mock("@/server/actions/construction-planner", () => ({
 }));
 const siteId = "73bfa5f9-9e49-460e-876e-8d9eb58ba2cb";
 const data = {
+	siteName: "Testa objekts",
 	start: "2026-09-14",
 	today: "2026-09-16",
 	options: {

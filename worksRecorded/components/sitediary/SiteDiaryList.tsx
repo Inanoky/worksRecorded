@@ -2918,6 +2918,7 @@ export default function SiteDiaryCalendar({
                   <>
                     <PlannerControls
                       planner={planner}
+                      organizationLanguage={organizationLanguage}
                       onCatalogChanged={() => setOptionsRevision((revision) => revision + 1)}
                       onShow={() => setViewMode("list")}
                     />
