@@ -24,6 +24,20 @@ describe("TgemCostCodeSettings", () => {
 		jest.clearAllMocks();
 	});
 
+	it("shows TGEM branding on the right side of the Project settings heading", () => {
+		render(
+			<TgemCostCodeSettings initialCostCodes={[]} organizationLanguage="en" />,
+		);
+		const heading = screen.getByRole("heading", { name: "Project settings" });
+		const logo = screen.getByRole("img", { name: "TGEM" });
+		expect(
+			heading.parentElement?.parentElement?.parentElement,
+		).toContainElement(logo);
+		expect(heading.parentElement?.parentElement?.parentElement).toHaveClass(
+			"justify-between",
+		);
+	});
+
 	it("requires a header-selected project for approval configuration", () => {
 		render(
 			<TgemCostCodeSettings initialCostCodes={[]} organizationLanguage="en" />,

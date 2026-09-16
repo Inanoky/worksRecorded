@@ -11,7 +11,8 @@ import {
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-	TGEM_APPROVAL_ROLE_KEYS,
+	isTgemApprovalRoleLabel,
+	TGEM_APPROVAL_ROLE_LABELS,
 	type TgemApprovalRoleKey,
 } from "@/lib/tgem-invoice-approval/approval";
 import type { TgemDashboardApprovalSetup } from "@/lib/tgem-invoice-approval/dashboard-types";
@@ -19,7 +20,6 @@ import {
 	saveTgemApprovalTemplate,
 	saveTgemWorkflowManagers,
 } from "@/server/actions/tgem-invoice-approval-actions";
-import { getTgemApprovalRoleCopy } from "./approval-role-copy";
 
 type SetupStep = {
 	id: string;
@@ -37,11 +37,10 @@ function getCopy(language?: string | null) {
 				"Pievienojiet cilvēkus tieši tādā secībā, kādā viņiem jāapstiprina rēķins.",
 			add: "Pievienot apstiprināšanas soli",
 			user: "Apstiprinātājs",
-			role: "Pārbaudes fokuss",
-			customLabel: "Lomas vai soļa nosaukums (nav obligāts)",
+			role: "Loma",
+			chooseRole: "Izvēlieties lomu",
+			roleRequired: "Izvēlieties lomu katrā apstiprināšanas solī.",
 			threshold: "Summas atsauce, EUR (nav obligāta)",
-			thresholdHelp:
-				"Tikai informācijai — pašreizējā MVP šī summa neizņem apstiprinātāju no secības.",
 			save: "Saglabāt apstiprināšanas plūsmu",
 			saving: "Saglabā…",
 			saved: "Apstiprināšanas plūsma saglabāta",
@@ -67,11 +66,10 @@ function getCopy(language?: string | null) {
 				"Добавьте людей именно в том порядке, в котором они должны согласовать счет.",
 			add: "Добавить шаг согласования",
 			user: "Согласующий",
-			role: "Фокус проверки",
-			customLabel: "Название роли или шага (необязательно)",
+			role: "Роль",
+			chooseRole: "Выберите роль",
+			roleRequired: "Выберите роль для каждого шага согласования.",
 			threshold: "Сумма для справки, EUR (необязательно)",
-			thresholdHelp:
-				"Только для справки — в текущем MVP сумма не исключает согласующего из последовательности.",
 			save: "Сохранить процесс согласования",
 			saving: "Сохранение…",
 			saved: "Процесс согласования сохранен",
@@ -97,11 +95,10 @@ function getCopy(language?: string | null) {
 			"Add people in the exact order in which they must approve the invoice.",
 		add: "Add approval step",
 		user: "Approver",
-		role: "Review focus",
-		customLabel: "Role or step label (optional)",
+		role: "Role",
+		chooseRole: "Choose a role",
+		roleRequired: "Choose a role for every approval step.",
 		threshold: "Amount reference, EUR (optional)",
-		thresholdHelp:
-			"For context only—the current MVP does not remove this approver from the sequence.",
 		save: "Save approval flow",
 		saving: "Saving…",
 		saved: "Approval flow saved",
@@ -120,14 +117,6 @@ function getCopy(language?: string | null) {
 	};
 }
 
-function nextRoleKey(steps: SetupStep[]): TgemApprovalRoleKey {
-	return (
-		TGEM_APPROVAL_ROLE_KEYS.find(
-			(roleKey) => !steps.some((step) => step.roleKey === roleKey),
-		) ?? "project_review"
-	);
-}
-
 export function TgemApprovalSetup({
 	siteId,
 	setup,
@@ -140,7 +129,6 @@ export function TgemApprovalSetup({
 	onSaved: () => Promise<void>;
 }) {
 	const copy = getCopy(organizationLanguage);
-	const roleCopy = getTgemApprovalRoleCopy(organizationLanguage);
 	const readOnly = !setup.canManageWorkflow;
 	const [steps, setSteps] = React.useState<SetupStep[]>(
 		() =>
@@ -148,7 +136,7 @@ export function TgemApprovalSetup({
 				id: step.id,
 				approverUserId: step.approverUserId,
 				roleKey: step.roleKey,
-				roleLabel: step.role ?? "",
+				roleLabel: isTgemApprovalRoleLabel(step.role) ? (step.role ?? "") : "",
 				minimumInvoiceTotal: step.minimumInvoiceTotal ?? "",
 			})) ?? [],
 	);
@@ -169,7 +157,7 @@ export function TgemApprovalSetup({
 				id: step.id,
 				approverUserId: step.approverUserId,
 				roleKey: step.roleKey,
-				roleLabel: step.role ?? "",
+				roleLabel: isTgemApprovalRoleLabel(step.role) ? (step.role ?? "") : "",
 				minimumInvoiceTotal: step.minimumInvoiceTotal ?? "",
 			})) ?? [],
 		);
@@ -197,6 +185,11 @@ export function TgemApprovalSetup({
 	}
 
 	async function save() {
+		if (steps.some((step) => !isTgemApprovalRoleLabel(step.roleLabel))) {
+			setError(copy.roleRequired);
+			setStatus("error");
+			return;
+		}
 		setStatus("saving");
 		setError(null);
 		try {
@@ -283,7 +276,6 @@ export function TgemApprovalSetup({
 									.filter((_, selectedIndex) => selectedIndex !== index)
 									.map((candidate) => candidate.approverUserId),
 							);
-							const role = roleCopy[step.roleKey];
 							return (
 								<div
 									key={step.id}
@@ -303,22 +295,24 @@ export function TgemApprovalSetup({
 										) : null}
 									</div>
 									<div className="grid gap-3 lg:grid-cols-2">
-										<label className="space-y-1 text-xs font-medium text-muted-foreground">
-											{copy.role}
+										<label className="space-y-1 text-xs font-semibold text-foreground">
+											{copy.role} *
 											<select
 												aria-label={`${copy.role} ${index + 1}`}
-												value={step.roleKey}
+												value={step.roleLabel}
+												required
 												disabled={readOnly}
 												onChange={(event) =>
 													updateStep(index, {
-														roleKey: event.target.value as TgemApprovalRoleKey,
+														roleLabel: event.target.value,
 													})
 												}
 												className="block h-10 w-full rounded-md border bg-background px-3 text-sm text-foreground"
 											>
-												{TGEM_APPROVAL_ROLE_KEYS.map((roleKey) => (
-													<option key={roleKey} value={roleKey}>
-														{roleCopy[roleKey].title}
+												<option value="">{copy.chooseRole}</option>
+												{TGEM_APPROVAL_ROLE_LABELS.map((roleLabel) => (
+													<option key={roleLabel} value={roleLabel}>
+														{roleLabel}
 													</option>
 												))}
 											</select>
@@ -349,19 +343,6 @@ export function TgemApprovalSetup({
 											</select>
 										</label>
 										<label className="space-y-1 text-xs font-medium text-muted-foreground">
-											{copy.customLabel}
-											<input
-												aria-label={`${copy.customLabel} ${index + 1}`}
-												value={step.roleLabel}
-												disabled={readOnly}
-												placeholder={role.person}
-												onChange={(event) =>
-													updateStep(index, { roleLabel: event.target.value })
-												}
-												className="block h-10 w-full rounded-md border bg-background px-3 text-sm text-foreground"
-											/>
-										</label>
-										<label className="space-y-1 text-xs font-medium text-muted-foreground">
 											{copy.threshold}
 											<input
 												aria-label={`${copy.threshold} ${index + 1}`}
@@ -378,10 +359,7 @@ export function TgemApprovalSetup({
 											/>
 										</label>
 									</div>
-									<div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
-										<p className="max-w-xl text-xs text-muted-foreground">
-											{role.description} {copy.thresholdHelp}
-										</p>
+									<div className="mt-3 flex flex-wrap items-center justify-end gap-3 border-t pt-3">
 										{!readOnly ? (
 											<div className="flex items-center gap-1">
 												<button
@@ -434,7 +412,7 @@ export function TgemApprovalSetup({
 										{
 											id: `new-${current.length}-${Date.now()}`,
 											approverUserId: "",
-											roleKey: nextRoleKey(current),
+											roleKey: "project_review",
 											roleLabel: "",
 											minimumInvoiceTotal: "",
 										},
@@ -454,6 +432,7 @@ export function TgemApprovalSetup({
 									type="button"
 									onClick={() => void save()}
 									disabled={status === "saving" || steps.length === 0}
+									aria-busy={status === "saving"}
 									className="inline-flex items-center gap-2 rounded-md bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50"
 								>
 									{status === "saving" ? (
@@ -518,6 +497,7 @@ export function TgemApprovalSetup({
 								type="button"
 								onClick={() => void saveManagers()}
 								disabled={managerStatus === "saving"}
+								aria-busy={managerStatus === "saving"}
 								className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
 							>
 								{managerStatus === "saving" ? (

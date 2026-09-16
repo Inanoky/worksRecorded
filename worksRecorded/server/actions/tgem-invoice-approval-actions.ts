@@ -112,7 +112,9 @@ export async function saveTgemApprovalTemplate(input: {
 	const context = await requireTgemSite(input.siteId, user.id);
 
 	const currency = normalizeTgemApprovalCurrency(input.currency);
-	const steps = normalizeTgemApprovalTemplateSteps(input.steps);
+	const steps = normalizeTgemApprovalTemplateSteps(input.steps, {
+		requireRole: true,
+	});
 	const approvers = await prisma.user.findMany({
 		where: {
 			id: { in: steps.map((step) => step.approverUserId) },

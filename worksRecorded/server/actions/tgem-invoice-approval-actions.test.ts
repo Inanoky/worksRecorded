@@ -180,7 +180,7 @@ describe("TGEM invoice approval actions", () => {
 				{
 					approverUserId: "user-2",
 					roleKey: "budget_approval",
-					roleLabel: "Commercial manager",
+					roleLabel: "Finanšu direktors",
 				},
 			],
 		});
@@ -194,7 +194,7 @@ describe("TGEM invoice approval actions", () => {
 						create: [
 							expect.objectContaining({
 								roleKey: "budget_approval",
-								role: "Commercial manager",
+								role: "Finanšu direktors",
 							}),
 						],
 					},
@@ -214,7 +214,13 @@ describe("TGEM invoice approval actions", () => {
 		await expect(
 			saveTgemApprovalTemplate({
 				siteId: "site-1",
-				steps: [{ approverUserId: "user-2", roleKey: "project_review" }],
+				steps: [
+					{
+						approverUserId: "user-2",
+						roleKey: "project_review",
+						roleLabel: "Projekta vadītājs",
+					},
+				],
 			}),
 		).resolves.toEqual({ id: "template-1" });
 	});
@@ -230,7 +236,13 @@ describe("TGEM invoice approval actions", () => {
 		});
 		await saveTgemApprovalTemplate({
 			siteId: "site-1",
-			steps: [{ approverUserId: "user-1", roleKey: "project_review" }],
+			steps: [
+				{
+					approverUserId: "user-1",
+					roleKey: "project_review",
+					roleLabel: "Darba vadītājs",
+				},
+			],
 		});
 
 		expect(mockPrisma.tgemInvoiceCase.findMany).not.toHaveBeenCalled();
@@ -250,13 +262,42 @@ describe("TGEM invoice approval actions", () => {
 		await expect(
 			saveTgemApprovalTemplate({
 				siteId: "site-1",
-				steps: [{ approverUserId: "user-2", roleKey: "budget_approval" }],
+				steps: [
+					{
+						approverUserId: "user-2",
+						roleKey: "budget_approval",
+						roleLabel: "Finanšu direktors",
+					},
+				],
 			}),
 		).resolves.toEqual({ id: "template-1" });
 		await expect(
 			saveTgemWorkflowManagers({ siteId: "site-1", userIds: ["user-2"] }),
 		).rejects.toThrow("project owner");
 	});
+
+	it.each([undefined, "", "Commercial manager"])(
+		"rejects missing or unsupported roles before changing a template: %s",
+		async (roleLabel) => {
+			mockSiteAccess();
+			await expect(
+				saveTgemApprovalTemplate({
+					siteId: "site-1",
+					steps: [
+						{
+							approverUserId: "user-2",
+							roleKey: "financial_review",
+							roleLabel,
+						},
+					],
+				}),
+			).rejects.toThrow("jāizvēlas loma");
+			expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+			expect(
+				mockPrisma.tgemInvoiceApprovalTemplate.updateMany,
+			).not.toHaveBeenCalled();
+		},
+	);
 
 	it("lets the project owner replace workflow-manager assignments", async () => {
 		mockSiteAccess();

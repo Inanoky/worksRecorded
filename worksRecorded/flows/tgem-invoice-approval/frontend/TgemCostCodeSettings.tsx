@@ -13,9 +13,11 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { DashboardOrganizationBrand } from "@/components/dashboard/DashboardOrganizationBrand";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import type { TgemDashboardApprovalSetup } from "@/lib/tgem-invoice-approval/dashboard-types";
 import {
 	saveTgemCostCode,
@@ -291,19 +293,22 @@ export function TgemCostCodeSettings({
 	return (
 		<div className="mx-auto w-full max-w-[116rem] px-3 py-6 sm:px-5">
 			<div className="border-b pb-5">
-				<div className="flex items-center gap-3">
-					<div className="flex size-11 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
-						<Settings2 className="size-5" />
+				<div className="flex items-start justify-between gap-3">
+					<div className="flex min-w-0 flex-1 items-center gap-3">
+						<div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+							<Settings2 className="size-5" />
+						</div>
+						<div className="min-w-0">
+							<h1 className="text-2xl font-semibold tracking-tight">
+								{copy.title}
+							</h1>
+						</div>
 					</div>
-					<div>
-						<h1 className="text-2xl font-semibold tracking-tight">
-							{copy.title}
-						</h1>
-						<p className="mt-1 text-sm text-muted-foreground">
-							{copy.description}
-						</p>
-					</div>
+					<DashboardOrganizationBrand
+						flowModuleKey={FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL}
+					/>
 				</div>
+				<p className="mt-3 text-sm text-muted-foreground">{copy.description}</p>
 				<p className="mt-3 max-w-2xl text-xs leading-5 text-muted-foreground">
 					{copy.shared}
 				</p>
