@@ -13,6 +13,18 @@ export const TGEM_APPROVAL_ROLE_KEYS = [
 
 export const TGEM_APPROVAL_WORKFLOW_CURRENCY = "EUR" as const;
 
+export const TGEM_APPROVAL_ROLE_LABELS = [
+	"Valdes loceklis",
+	"Finanšu direktors",
+	"Grāmatvedis",
+	"Projekta vadītājs",
+	"Darba vadītājs",
+] as const;
+
+export function isTgemApprovalRoleLabel(value: unknown) {
+	return TGEM_APPROVAL_ROLE_LABELS.some((role) => role === value);
+}
+
 export type TgemApprovalDecision = (typeof TGEM_APPROVAL_DECISIONS)[number];
 export type TgemApprovalRoleKey = (typeof TGEM_APPROVAL_ROLE_KEYS)[number];
 
@@ -69,6 +81,7 @@ export function normalizeTgemApprovalCurrency(value?: string | null) {
 
 export function normalizeTgemApprovalTemplateSteps(
 	steps: TgemApprovalTemplateStepInput[],
+	options: { requireRole?: boolean } = {},
 ): NormalizedTgemApprovalTemplateStep[] {
 	if (steps.length < 1 || steps.length > 10) {
 		throw new Error("Approval flow requires between 1 and 10 approvers");
@@ -79,6 +92,11 @@ export function normalizeTgemApprovalTemplateSteps(
 			throw new Error("Every approval step requires a supported workflow role");
 		}
 		const roleLabel = step.roleLabel?.trim() || null;
+		if (options.requireRole && !isTgemApprovalRoleLabel(roleLabel)) {
+			throw new Error(
+				"Katram apstiprināšanas solim jāizvēlas loma no saraksta",
+			);
+		}
 		if (roleLabel && roleLabel.length > 80) {
 			throw new Error("Approval role label must be 80 characters or shorter");
 		}

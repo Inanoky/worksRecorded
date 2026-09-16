@@ -1,6 +1,50 @@
 import { persistTgemInvoiceOcrResult } from "@/lib/tgem-invoice-approval/ocr";
 
 describe("persistTgemInvoiceOcrResult", () => {
+	it.each(["credit", "debit", undefined, "invalid"])(
+		"persists only a valid extracted invoice type: %s",
+		async (invoiceType) => {
+			const update = jest.fn();
+			await persistTgemInvoiceOcrResult(
+				{
+					tgemInvoiceOcrPage: { upsert: jest.fn() },
+					tgemInvoiceLine: { upsert: jest.fn() },
+					tgemInvoiceCase: { update },
+				} as never,
+				{
+					invoiceCaseId: "case-1",
+					documentId: "document-1",
+					result: {
+						provider: "openai",
+						pages: [],
+						lineItems: [],
+						fields:
+							invoiceType === undefined
+								? {}
+								: {
+										invoiceType: {
+											rawText: "Kredītrēķins",
+											value: invoiceType,
+											confidence: null,
+											sourceAnchor: null,
+										},
+									},
+					},
+				},
+			);
+			const data = update.mock.calls[0][0].data;
+			if (invoiceType === "credit" || invoiceType === "debit") {
+				expect(data.invoiceType).toBe(invoiceType);
+				expect(data.extractionSummary.fields.invoiceType.value).toBe(
+					invoiceType,
+				);
+			} else {
+				expect(data).not.toHaveProperty("invoiceType");
+			}
+			expect(data).not.toHaveProperty("costCode");
+		},
+	);
+
 	it("upserts OCR pages and marks the invoice OCR complete", async () => {
 		const upsert = jest.fn().mockResolvedValue({ id: "ocr-page-1" });
 		const lineUpsert = jest.fn().mockResolvedValue({ id: "line-1" });

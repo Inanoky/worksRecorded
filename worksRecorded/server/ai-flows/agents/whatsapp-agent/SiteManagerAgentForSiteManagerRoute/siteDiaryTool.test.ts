@@ -1371,7 +1371,7 @@ describe("save_to_database site diary tool", () => {
 			}),
 		]);
 	});
-
+//2
 	it("saves only the original note when checker-guided repair is still rejected", async () => {
 		saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1, recordIds: ["note-1"] });
 		structuredInvokeMock

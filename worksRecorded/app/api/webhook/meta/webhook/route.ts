@@ -184,7 +184,8 @@ function isRoutableMetaMessage(message: any) {
 	return (
 		message?.type === "text" ||
 		message?.type === "image" ||
-		message?.type === "audio"
+		message?.type === "audio" ||
+		message?.type === "document"
 	);
 }
 
@@ -311,7 +312,7 @@ async function getMetaMediaInfo(
 	const mimeType = data?.mime_type;
 
 	if (!url) return null;
-	return { url, mimeType: mimeType || "image/jpeg" };
+	return { url, mimeType: typeof mimeType === "string" ? mimeType : "" };
 }
 
 async function toWhatsAppFormData(
@@ -324,11 +325,16 @@ async function toWhatsAppFormData(
 		typeof message?.text?.body === "string" ? message.text.body : "";
 	const imageCaption =
 		typeof message?.image?.caption === "string" ? message.image.caption : "";
-	const body = textBody || imageCaption;
+	const documentCaption =
+		typeof message?.document?.caption === "string"
+			? message.document.caption
+			: "";
+	const body = textBody || imageCaption || documentCaption;
 	const from = resolved.fromForHandlers || "";
 	const hasImage = Boolean(message?.image?.id);
 	const hasAudio = Boolean(message?.audio?.id);
-	const numMedia = hasImage || hasAudio ? "1" : "0";
+	const hasDocument = Boolean(message?.document?.id);
+	const numMedia = hasImage || hasAudio || hasDocument ? "1" : "0";
 
 	formData.set("SmsStatus", "received");
 	formData.set("From", from);
@@ -353,7 +359,10 @@ async function toWhatsAppFormData(
 
 		if (mediaInfo) {
 			formData.set("MediaUrl0", mediaInfo.url);
-			formData.set("MediaContentType0", mediaInfo.mimeType);
+			formData.set(
+				"MediaContentType0",
+				mediaInfo.mimeType || message.image.mime_type || "image/jpeg",
+			);
 			formData.set("MediaProvider0", "meta");
 		}
 	}
@@ -402,11 +411,35 @@ async function toWhatsAppFormData(
 		}
 	}
 
+	if (hasDocument) {
+		const mediaStartedAt = Date.now();
+		const mediaInfo = await getMetaMediaInfo(message.document.id);
+		logMetaWebhookTiming("meta_document_media_info", mediaStartedAt, {
+			messageId: message?.id ?? null,
+			mediaId: message.document.id,
+			hasUrl: Boolean(mediaInfo?.url),
+			selectedUrl: describeUrlForLog(mediaInfo?.url),
+		});
+
+		if (mediaInfo) {
+			formData.set("MediaUrl0", mediaInfo.url);
+			formData.set(
+				"MediaContentType0",
+				mediaInfo.mimeType || message.document.mime_type || "application/octet-stream",
+			);
+			formData.set("MediaProvider0", "meta");
+			if (typeof message.document.filename === "string") {
+				formData.set("MediaFilename0", message.document.filename);
+			}
+		}
+	}
+
 	logMetaWebhookTiming("to_whatsapp_form_data", startedAt, {
 		messageId: message?.id ?? null,
 		type: message?.type ?? null,
 		hasImage,
 		hasAudio,
+		hasDocument,
 		numMedia,
 	});
 

@@ -22,7 +22,7 @@ export type GlobalNavLink = {
 };
 
 export type TgemWorkspaceNavLink = GlobalNavLink & {
-	view: "register" | "approval";
+	view: "register" | "approval" | "settings";
 };
 
 export type TgemProjectNavigationLabels = {
@@ -90,15 +90,18 @@ export function getTgemWorkspaceNavLinks(
 			? {
 					allInvoices: "Visi rēķini",
 					approvalFlow: "Apstiprināšana",
+					projectSettings: "Projekta iestatījumi",
 				}
 			: languageKey === "ru"
 				? {
 						allInvoices: "Все счета",
 						approvalFlow: "Маршрут согласования",
+						projectSettings: "Настройки проекта",
 					}
 				: {
 						allInvoices: "All invoices",
 						approvalFlow: "Approval flow",
+						projectSettings: "Project settings",
 					};
 
 	return [
@@ -113,6 +116,12 @@ export function getTgemWorkspaceNavLinks(
 			href: "/dashboard/invoices?view=approval",
 			icon: ListChecks,
 			view: "approval",
+		},
+		{
+			name: labels.projectSettings,
+			href: "/dashboard/invoices/settings",
+			icon: Wrench,
+			view: "settings",
 		},
 	];
 }

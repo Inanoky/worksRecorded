@@ -24,6 +24,7 @@ import {
 	getNavLinks,
 	getTgemProjectNavigationLabels,
 	getTgemWorkspaceNavLinks,
+	type TgemWorkspaceNavLink,
 } from "./NavLinks";
 import { useDashboardNavigation } from "./useDashboardNavigation";
 
@@ -124,31 +125,38 @@ export function DashboardProjectNavigation({
 	const isTgem = flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL;
 
 	if (isTgem) {
-		const activeView =
-			pathname === "/dashboard/invoices" &&
-			searchParams.get("view") === "approval"
-				? "approval"
-				: pathname === "/dashboard/invoices"
-					? "register"
-					: null;
+		const activeView: TgemWorkspaceNavLink["view"] | null =
+			pathname === "/dashboard/invoices/settings"
+				? "settings"
+				: pathname === "/dashboard/invoices" &&
+						searchParams.get("view") === "approval"
+					? "approval"
+					: pathname === "/dashboard/invoices"
+						? "register"
+						: null;
+		const activeProjectFilter = searchParams.get("project");
 
 		return (
 			<div className="hidden min-h-[54px] w-full items-center gap-1.5 border-t bg-muted/25 px-4 py-1.5 lg:flex lg:px-8">
 				<TgemProjectSwitcher
-					activeProjectFilter={searchParams.get("project")}
+					activeProjectFilter={activeProjectFilter}
 					availableProjects={availableProjects}
 					isProjectManagementActive={pathname.startsWith("/dashboard/sites")}
-					isApprovalView={activeView === "approval"}
+					workspaceView={activeView ?? "register"}
 					organizationLanguage={organizationLanguage}
 					onPrefetch={(href) => router.prefetch(href)}
 				/>
 				{getTgemWorkspaceNavLinks(organizationLanguage).map((item) => (
 					<Link
 						key={item.view}
-						href={item.href}
+						href={getTgemWorkspaceHref(item.view, activeProjectFilter)}
 						prefetch
 						aria-current={activeView === item.view ? "page" : undefined}
-						onMouseEnter={() => router.prefetch(item.href)}
+						onMouseEnter={() =>
+							router.prefetch(
+								getTgemWorkspaceHref(item.view, activeProjectFilter),
+							)
+						}
 						className={cn(
 							projectNavItemClasses,
 							activeView === item.view
@@ -217,17 +225,17 @@ export function DashboardProjectNavigation({
 function TgemProjectSwitcher({
 	activeProjectFilter,
 	availableProjects,
-	isApprovalView,
 	isProjectManagementActive,
 	organizationLanguage,
 	onPrefetch,
+	workspaceView,
 }: {
 	activeProjectFilter: string | null;
 	availableProjects: ProjectSwitcherOption[];
-	isApprovalView: boolean;
 	isProjectManagementActive: boolean;
 	organizationLanguage?: string | null;
 	onPrefetch: (href: string) => void;
+	workspaceView: TgemWorkspaceNavLink["view"];
 }) {
 	const labels = getTgemProjectNavigationLabels(organizationLanguage);
 	const selectedProject = availableProjects.find(
@@ -269,7 +277,7 @@ function TgemProjectSwitcher({
 				<DropdownMenuSeparator />
 				{options.map((project) => {
 					const isSelected = (activeProjectFilter ?? null) === project.id;
-					const href = getTgemInvoiceProjectHref(project.id, isApprovalView);
+					const href = getTgemWorkspaceHref(workspaceView, project.id);
 					return (
 						<DropdownMenuItem key={project.id ?? "all"} asChild>
 							<Link
@@ -305,15 +313,19 @@ function TgemProjectSwitcher({
 	);
 }
 
-function getTgemInvoiceProjectHref(
+function getTgemWorkspaceHref(
+	view: TgemWorkspaceNavLink["view"],
 	projectFilter: string | null,
-	isApprovalView: boolean,
 ) {
 	const searchParams = new URLSearchParams();
 	if (projectFilter) searchParams.set("project", projectFilter);
-	if (isApprovalView) searchParams.set("view", "approval");
+	if (view === "approval") searchParams.set("view", "approval");
 	const query = searchParams.toString();
-	return `/dashboard/invoices${query ? `?${query}` : ""}`;
+	const pathname =
+		view === "settings"
+			? "/dashboard/invoices/settings"
+			: "/dashboard/invoices";
+	return `${pathname}${query ? `?${query}` : ""}`;
 }
 
 type ResolvedProjectLink = ReturnType<

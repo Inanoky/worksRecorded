@@ -9,6 +9,7 @@ const TGEM_INVOICE_OPENAI_INSTRUCTIONS = [
 	"Transcribe and extract this invoice faithfully. The document may be in Latvian, English, or Russian.",
 	"For pages[].text, copy all readable visible text in reading order, preserving line breaks, spelling, numbers, punctuation, and the original language. Do not translate, summarize, or invent missing text. Return one page entry per document page.",
 	"For fields, rawText is the exact visible text supporting the value and value is the normalized value. Normalize dates to YYYY-MM-DD only when the full date is visible; otherwise use null. Use ISO 4217 currency codes.",
+	"Classify fields.invoiceType from the document: use 'credit' for a credit note, credit invoice, Kredītrēķins, or Кредит-нота that reduces or reverses an earlier charge; use 'debit' for an ordinary invoice or debit note that charges the customer. A credit note may print positive amounts, so prioritize the document heading and adjustment wording over the amount sign. A negative final total indicating a refund or reversal supports 'credit'; a discount row alone does not. Copy the visible heading or other supporting text into rawText. Preserve the printed signs of all financial amounts.",
 	"Financial totals require special care. fields.subtotal is the priority amount: extract the final invoice amount excluding VAT/PVN after all discounts and other net adjustments. Look carefully for labels such as 'Kopā bez PVN', 'Summa bez PVN', 'Neto', 'Net amount', or 'Subtotal'. Never put a VAT-inclusive or payable amount in fields.subtotal.",
 	"fields.vat is the VAT/PVN tax amount in money, not a percentage such as 21%. Prefer the explicit total VAT/PVN amount; when there are several VAT rates and no combined VAT total, sum the visible VAT amounts only if every VAT row is clearly readable.",
 	"fields.total is the final amount payable including VAT/PVN after all adjustments; look for labels such as 'Kopā ar PVN', 'Apmaksai', 'Summa apmaksai', 'Gross total', or 'Total incl. VAT'.",
@@ -42,6 +43,14 @@ export const tgemOpenAiInvoiceSchema = z.object({
 		)
 		.min(1),
 	fields: z.object({
+		invoiceType: z.object({
+			rawText: z.string(),
+			value: z
+				.enum(["credit", "debit"])
+				.describe(
+					"Document classification: credit reduces or reverses a charge; debit is an ordinary invoice or debit note charging the customer.",
+				),
+		}),
 		invoiceNumber: stringFieldSchema,
 		supplierName: stringFieldSchema,
 		supplierRegistrationNo: stringFieldSchema,

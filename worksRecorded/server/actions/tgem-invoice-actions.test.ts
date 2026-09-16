@@ -10,6 +10,7 @@ const mockPrisma = {
 	user: { findFirst: jest.fn(), findMany: jest.fn(), findUnique: jest.fn() },
 	tgemInvoiceApprovalTemplate: { findFirst: jest.fn() },
 	tgemInvoiceWorkflowManager: { findMany: jest.fn() },
+	tgemCostCode: { findMany: jest.fn() },
 };
 
 jest.mock("@/lib/utils/db", () => ({ prisma: mockPrisma }));
@@ -49,6 +50,7 @@ describe("TGEM invoice dashboard authorization data", () => {
 		mockPrisma.user.findMany.mockResolvedValue([]);
 		mockPrisma.tgemInvoiceApprovalTemplate.findFirst.mockResolvedValue(null);
 		mockPrisma.tgemInvoiceWorkflowManager.findMany.mockResolvedValue([]);
+		mockPrisma.tgemCostCode.findMany.mockResolvedValue([]);
 	});
 
 	it("gives the active project owner both workflow capabilities", async () => {
@@ -172,9 +174,14 @@ describe("TGEM invoice processing", () => {
 		mockPrisma.tgemInvoiceDocument.findFirst.mockResolvedValue({
 			id: "document-1",
 			contentType: "image/jpeg",
+			byteSize: 12_000,
 			storageProvider: "uploadthing",
 			storageKey: "invoice.jpg",
 			canonicalUrl: "https://files.example.test/invoice.jpg",
+			invoiceCase: {
+				siteId: "site-1",
+				source: "dashboard",
+			},
 		});
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,

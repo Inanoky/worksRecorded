@@ -2,11 +2,42 @@ import {
 	isTgemApprovalStepApplicable,
 	normalizeTgemApprovalCurrency,
 	normalizeTgemApprovalTemplateSteps,
+	TGEM_APPROVAL_ROLE_LABELS,
 	validateTgemApprovalDecisionComment,
 	validateTgemInvoiceApprovalParticipants,
 } from "@/lib/tgem-invoice-approval/approval";
 
 describe("TGEM invoice approval rules", () => {
+	it.each(TGEM_APPROVAL_ROLE_LABELS)(
+		"accepts required role %s on template saves",
+		(roleLabel) => {
+			expect(
+				normalizeTgemApprovalTemplateSteps(
+					[
+						{
+							approverUserId: "user-1",
+							roleKey: "project_review",
+							roleLabel: ` ${roleLabel} `,
+						},
+					],
+					{ requireRole: true },
+				)[0].roleLabel,
+			).toBe(roleLabel);
+		},
+	);
+
+	it.each([undefined, null, "", " ", "Project manager", "Commercial manager"])(
+		"rejects unsupported or missing required role %s",
+		(roleLabel) => {
+			expect(() =>
+				normalizeTgemApprovalTemplateSteps(
+					[{ approverUserId: "user-1", roleKey: "project_review", roleLabel }],
+					{ requireRole: true },
+				),
+			).toThrow("jāizvēlas loma");
+		},
+	);
+
 	it("normalizes role keys, custom labels, and exact thresholds", () => {
 		expect(
 			normalizeTgemApprovalTemplateSteps([

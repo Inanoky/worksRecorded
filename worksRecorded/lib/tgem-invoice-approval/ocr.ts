@@ -74,6 +74,7 @@ export async function persistTgemInvoiceOcrResult(
 		hasPersistableLineItem,
 	);
 	const currency = stringField(input.result, "currency");
+	const invoiceType = stringField(input.result, "invoiceType");
 
 	for (const [index, lineItem] of persistableLineItems.entries()) {
 		const data = {
@@ -145,6 +146,9 @@ export async function persistTgemInvoiceOcrResult(
 				? input.result.pages.find((page) => page.errorMessage)?.errorMessage
 				: null,
 			invoiceNumber: stringField(input.result, "invoiceNumber"),
+			...(invoiceType === "credit" || invoiceType === "debit"
+				? { invoiceType }
+				: {}),
 			supplierName: stringField(input.result, "supplierName"),
 			supplierRegistrationNo: stringField(
 				input.result,

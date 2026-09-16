@@ -5,9 +5,11 @@ import {
 	normalizeTgemApprovalCurrency,
 	normalizeTgemApprovalTemplateSteps,
 	type TgemApprovalDecision,
+	type TgemApprovalRoleKey,
 	type TgemApprovalTemplateStepInput,
 	validateTgemApprovalDecisionComment,
 } from "@/lib/tgem-invoice-approval/approval";
+import type { TgemDashboardApprovalSetup } from "@/lib/tgem-invoice-approval/dashboard-types";
 import { startTgemInvoiceApproval } from "@/lib/tgem-invoice-approval/start-approval";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
@@ -22,6 +24,7 @@ async function requireTgemSite(siteId: string, userId: string) {
 		},
 		select: {
 			id: true,
+			name: true,
 			organizationId: true,
 			userId: true,
 		},
@@ -32,8 +35,71 @@ async function requireTgemSite(siteId: string, userId: string) {
 	return {
 		siteId: site.id,
 		organizationId: site.organizationId,
+		projectName: site.name,
 		ownerUserId: site.userId,
 		canManageWorkflowManagers: isSiteOwner,
+	};
+}
+
+export async function getTgemApprovalSetupData(siteId: string): Promise<{
+	project: { id: string; name: string };
+	setup: TgemDashboardApprovalSetup;
+}> {
+	const user = await requireUser();
+	const context = await requireTgemSite(siteId, user.id);
+	const [users, template, workflowManagers] = await Promise.all([
+		prisma.user.findMany({
+			where: { organizationId: context.organizationId, status: "active" },
+			orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+			select: { id: true, firstName: true, lastName: true, role: true },
+		}),
+		prisma.tgemInvoiceApprovalTemplate.findFirst({
+			where: {
+				organizationId: context.organizationId,
+				siteId: context.siteId,
+				isCurrent: true,
+			},
+			orderBy: { revision: "desc" },
+			include: { steps: { orderBy: { stepOrder: "asc" } } },
+		}),
+		prisma.tgemInvoiceWorkflowManager.findMany({
+			where: {
+				organizationId: context.organizationId,
+				siteId: context.siteId,
+			},
+			orderBy: { createdAt: "asc" },
+			select: { userId: true },
+		}),
+	]);
+
+	return {
+		project: { id: context.siteId, name: context.projectName },
+		setup: {
+			canManageWorkflow: true,
+			canManageWorkflowManagers: context.canManageWorkflowManagers,
+			ownerUserId: context.ownerUserId,
+			workflowManagerUserIds: workflowManagers.map((manager) => manager.userId),
+			users: users.map((approver) => ({
+				id: approver.id,
+				name: `${approver.firstName} ${approver.lastName}`.trim(),
+				role: approver.role,
+			})),
+			template: template
+				? {
+						id: template.id,
+						revision: template.revision,
+						currency: template.currency,
+						steps: template.steps.map((step) => ({
+							id: step.id,
+							stepOrder: step.stepOrder,
+							roleKey: step.roleKey as TgemApprovalRoleKey,
+							role: step.role,
+							approverUserId: step.approverUserId,
+							minimumInvoiceTotal: step.minimumInvoiceTotal?.toString() ?? null,
+						})),
+					}
+				: null,
+		},
 	};
 }
 
@@ -46,7 +112,9 @@ export async function saveTgemApprovalTemplate(input: {
 	const context = await requireTgemSite(input.siteId, user.id);
 
 	const currency = normalizeTgemApprovalCurrency(input.currency);
-	const steps = normalizeTgemApprovalTemplateSteps(input.steps);
+	const steps = normalizeTgemApprovalTemplateSteps(input.steps, {
+		requireRole: true,
+	});
 	const approvers = await prisma.user.findMany({
 		where: {
 			id: { in: steps.map((step) => step.approverUserId) },

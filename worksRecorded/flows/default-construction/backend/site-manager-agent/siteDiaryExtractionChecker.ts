@@ -22,7 +22,13 @@ export const siteDiaryExtractionCheckerSchema = z.object({
 		.array(
 			z.object({
 				rowIndex: z.number().int().min(0).max(24),
-				field: z.enum(["Amounts", "Units", "WorkersInvolved", "TimeInvolved", "Location"]),
+				field: z.enum([
+					"Amounts",
+					"Units",
+					"WorkersInvolved",
+					"TimeInvolved",
+					"Location",
+				]),
 				operation: z.enum(["set_null"]),
 				reason: z.string().max(240),
 			}),
@@ -102,6 +108,7 @@ When material delivery and installed/placed work are already split, reject unsup
 repairActions are only for safe nulling: rowIndex is zero-based and field must be Amounts, Units, WorkersInvolved, TimeInvolved, or Location. Do not use repairActions to rewrite text, change row categories, invent values, split rows, merge rows, drop rows, or replace a source-backed completed quantity with null.
 Do not reject merely because there are many rows. Full-day reports can legitimately create many rows when each row has distinct source evidence.
 A row can be a site-diary-relevant note, weather entry, material delivery, machinery note, or work item when it is a real diary event.
+Site-related factual reports without a specific construction task are valid diary notes by default. Missing a specific task, location, quantity, or worker count is not a reason to reject such a note. Return verdict=accept for "strādājam no 7.00 - 18.00" represented as one Notes/Piezīmes row with the working-time interval in Comments, null Location/Amounts/Units/WorkersInvolved, and TimeInvolved=11 or null. A complete start-end interval supports elapsed duration; a start time alone does not. If the report has an invented construction category or incorrect interval duration, use needs_model_repair to request one source-backed note. Questions, greetings, and commands without a diary fact are not diary events and must not become notes.
 Do not judge enum/category wording harshly unless it caused a wrong split.
 If model repair is needed, write concrete repairInstructions for the extractor. The instruction must say which rows should be split into specific separate jobs, merged, dropped, or preserved, and why.
 Use language=${args.language} for reason and repairInstructions when practical.`,

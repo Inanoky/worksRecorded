@@ -20,6 +20,7 @@ const mockPrisma = {
 		updateMany: jest.fn(),
 	},
 	tgemInvoiceWorkflowManager: {
+		findMany: jest.fn(),
 		deleteMany: jest.fn(),
 		createMany: jest.fn(),
 	},
@@ -36,6 +37,7 @@ import { startTgemInvoiceApproval } from "@/lib/tgem-invoice-approval/start-appr
 import {
 	assignTgemInvoiceProject,
 	decideTgemInvoiceApproval,
+	getTgemApprovalSetupData,
 	saveTgemApprovalTemplate,
 	saveTgemWorkflowManagers,
 	submitTgemInvoiceForApproval,
@@ -47,6 +49,7 @@ function mockSiteAccess(input?: {
 }) {
 	mockPrisma.site.findFirst.mockResolvedValue({
 		id: "site-1",
+		name: "Riga office",
 		organizationId: "org-1",
 		userId: input?.ownerUserId ?? "user-1",
 		tgemInvoiceWorkflowManagers: input?.workflowManager
@@ -128,6 +131,37 @@ describe("TGEM invoice approval actions", () => {
 		mockPrisma.tgemInvoiceCase.updateMany.mockResolvedValue({ count: 1 });
 	});
 
+	it("loads settings for an authorized project without reading invoices", async () => {
+		mockSiteAccess({ ownerUserId: "owner-1" });
+		mockPrisma.user.findMany.mockResolvedValue([
+			{ id: "user-1", firstName: "Anna", lastName: "Bērziņa", role: null },
+		]);
+		mockPrisma.tgemInvoiceApprovalTemplate.findFirst.mockResolvedValue(null);
+		mockPrisma.tgemInvoiceWorkflowManager.findMany.mockResolvedValue([]);
+
+		const result = await getTgemApprovalSetupData("site-1");
+		expect(result.project).toEqual({ id: "site-1", name: "Riga office" });
+		expect(result.setup).toEqual(
+			expect.objectContaining({
+				canManageWorkflow: true,
+				canManageWorkflowManagers: false,
+				template: null,
+				users: [{ id: "user-1", name: "Anna Bērziņa", role: null }],
+			}),
+		);
+		expect(mockPrisma.tgemInvoiceCase.findMany).not.toHaveBeenCalled();
+	});
+
+	it("rejects settings access when the user cannot access the project", async () => {
+		mockPrisma.site.findFirst.mockResolvedValue(null);
+		await expect(getTgemApprovalSetupData("foreign-site")).rejects.toThrow(
+			"Project access denied",
+		);
+		expect(
+			mockPrisma.tgemInvoiceWorkflowManager.findMany,
+		).not.toHaveBeenCalled();
+	});
+
 	it("lets the project owner save a typed immutable template revision", async () => {
 		mockSiteAccess();
 		mockPrisma.user.findMany.mockResolvedValue([{ id: "user-2" }]);
@@ -146,7 +180,7 @@ describe("TGEM invoice approval actions", () => {
 				{
 					approverUserId: "user-2",
 					roleKey: "budget_approval",
-					roleLabel: "Commercial manager",
+					roleLabel: "Finanšu direktors",
 				},
 			],
 		});
@@ -160,7 +194,7 @@ describe("TGEM invoice approval actions", () => {
 						create: [
 							expect.objectContaining({
 								roleKey: "budget_approval",
-								role: "Commercial manager",
+								role: "Finanšu direktors",
 							}),
 						],
 					},
@@ -180,7 +214,13 @@ describe("TGEM invoice approval actions", () => {
 		await expect(
 			saveTgemApprovalTemplate({
 				siteId: "site-1",
-				steps: [{ approverUserId: "user-2", roleKey: "project_review" }],
+				steps: [
+					{
+						approverUserId: "user-2",
+						roleKey: "project_review",
+						roleLabel: "Projekta vadītājs",
+					},
+				],
 			}),
 		).resolves.toEqual({ id: "template-1" });
 	});
@@ -196,7 +236,13 @@ describe("TGEM invoice approval actions", () => {
 		});
 		await saveTgemApprovalTemplate({
 			siteId: "site-1",
-			steps: [{ approverUserId: "user-1", roleKey: "project_review" }],
+			steps: [
+				{
+					approverUserId: "user-1",
+					roleKey: "project_review",
+					roleLabel: "Darba vadītājs",
+				},
+			],
 		});
 
 		expect(mockPrisma.tgemInvoiceCase.findMany).not.toHaveBeenCalled();
@@ -216,13 +262,42 @@ describe("TGEM invoice approval actions", () => {
 		await expect(
 			saveTgemApprovalTemplate({
 				siteId: "site-1",
-				steps: [{ approverUserId: "user-2", roleKey: "budget_approval" }],
+				steps: [
+					{
+						approverUserId: "user-2",
+						roleKey: "budget_approval",
+						roleLabel: "Finanšu direktors",
+					},
+				],
 			}),
 		).resolves.toEqual({ id: "template-1" });
 		await expect(
 			saveTgemWorkflowManagers({ siteId: "site-1", userIds: ["user-2"] }),
 		).rejects.toThrow("project owner");
 	});
+
+	it.each([undefined, "", "Commercial manager"])(
+		"rejects missing or unsupported roles before changing a template: %s",
+		async (roleLabel) => {
+			mockSiteAccess();
+			await expect(
+				saveTgemApprovalTemplate({
+					siteId: "site-1",
+					steps: [
+						{
+							approverUserId: "user-2",
+							roleKey: "financial_review",
+							roleLabel,
+						},
+					],
+				}),
+			).rejects.toThrow("jāizvēlas loma");
+			expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+			expect(
+				mockPrisma.tgemInvoiceApprovalTemplate.updateMany,
+			).not.toHaveBeenCalled();
+		},
+	);
 
 	it("lets the project owner replace workflow-manager assignments", async () => {
 		mockSiteAccess();

@@ -490,6 +490,7 @@ export function TgemApprovalControls({
 							type="button"
 							onClick={() => void submit()}
 							disabled={!hasTemplate || pending !== null}
+							aria-busy={pending === "submit"}
 							className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50"
 						>
 							{pending === "submit" ? (
@@ -524,25 +525,38 @@ export function TgemApprovalControls({
 								type="button"
 								onClick={() => void decide("approve")}
 								disabled={pending !== null}
-								className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+								aria-busy={pending === "approve"}
+								className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
 							>
+								{pending === "approve" ? (
+									<Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+								) : null}
 								{copy.approve}
 							</button>
 							<button
 								type="button"
 								onClick={() => void decide("request_changes")}
 								disabled={pending !== null}
-								className="rounded-md border border-amber-400 bg-background px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-50 disabled:opacity-50"
+								aria-busy={pending === "request_changes"}
+								className="inline-flex items-center justify-center gap-2 rounded-md border border-amber-400 bg-background px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-50 disabled:opacity-50"
 							>
+								{pending === "request_changes" ? (
+									<Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+								) : null}
 								{copy.changes}
 							</button>
 							<button
 								type="button"
 								onClick={() => void decide("reject")}
 								disabled={pending !== null}
+								aria-busy={pending === "reject"}
 								className="inline-flex items-center justify-center gap-2 rounded-md border border-red-300 bg-background px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
 							>
-								<XCircle className="h-4 w-4" />
+								{pending === "reject" ? (
+									<Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+								) : (
+									<XCircle className="h-4 w-4" />
+								)}
 								{copy.reject}
 							</button>
 						</div>

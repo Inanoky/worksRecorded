@@ -2,21 +2,26 @@
 
 import {
 	AlertTriangle,
+	ArrowDown,
 	ArrowRight,
+	ArrowUp,
+	ArrowUpDown,
 	Building2,
 	Check,
 	CheckCircle2,
 	Clock3,
 	Copy,
 	FileText,
+	Info,
 	Loader2,
+	MessageCircle,
+	Pencil,
 	Search,
-	Settings2,
 	X,
 } from "lucide-react";
-import Image from "next/image";
+import Link from "next/link";
 import * as React from "react";
-
+import { DashboardOrganizationBrand } from "@/components/dashboard/DashboardOrganizationBrand";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -28,6 +33,11 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import {
 	Table,
@@ -37,14 +47,27 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import type {
 	TgemDashboardData,
 	TgemDashboardInvoice,
 } from "@/lib/tgem-invoice-approval/dashboard-types";
+import {
+	normalizeTgemInvoiceDetailValue,
+	type TgemEditableInvoiceField,
+	type TgemInvoiceDetailsError,
+} from "@/lib/tgem-invoice-approval/invoice-details";
+import {
+	sortTgemInvoiceRegister,
+	type TgemInvoiceSort,
+	type TgemInvoiceSortField,
+} from "@/lib/tgem-invoice-approval/register-sorting";
+import { updateTgemInvoiceAccounting } from "@/server/actions/tgem-cost-code-actions";
 import { getTgemInvoiceDashboardData } from "@/server/actions/tgem-invoice-actions";
 import { assignTgemInvoiceProject } from "@/server/actions/tgem-invoice-approval-actions";
+import { updateTgemInvoiceDetail } from "@/server/actions/tgem-invoice-details-actions";
 import { TgemApprovalControls } from "./TgemApprovalControls";
-import { TgemApprovalSetup } from "./TgemApprovalSetup";
+import { TgemImageViewer } from "./TgemImageViewer";
 import { TgemInvoiceUpload } from "./TgemInvoiceUpload";
 import { TgemPdfViewer } from "./TgemPdfViewer";
 
@@ -65,12 +88,19 @@ function getCopy(language?: string | null) {
 			loading: "Ielādē rēķinus…",
 			empty: "Šim objektam vēl nav rēķinu.",
 			failed: "Neizdevās ielādēt rēķinus.",
+			whatsappProcessingTitle: "WhatsApp rēķina apstrāde",
+			whatsappProcessingDescription:
+				"Rēķins ir saņemts. MI nolasa laukus un pozīcijas…",
+			whatsappReceived: "Saņemts",
+			whatsappReading: "OCR un datu nolasīšana",
+			whatsappReady: "Gatavs pārbaudei",
 			supplier: "Piegādātājs",
 			invoiceNumber: "Rēķina numurs",
 			invoiceDate: "Rēķina datums",
 			dueDate: "Apmaksas termiņš",
 			totalWithoutVat: "Kopā Bez PVN",
 			total: "Kopā",
+			priceWithoutVat: "Cena bez PVN",
 			source: "Avots",
 			lines: "Pozīcijas",
 			audit: "Darbību vēsture",
@@ -84,7 +114,6 @@ function getCopy(language?: string | null) {
 			copyText: "Kopēt tekstu",
 			copied: "Nokopēts",
 			noOcrText: "OCR teksts vēl nav pieejams.",
-			approvalSetup: "Apstiprināšanas iestatījumi",
 			approvalWorkspace: "Apstiprināšanas skats",
 			allInvoices: "Visi rēķini",
 			registerDescription:
@@ -92,6 +121,10 @@ function getCopy(language?: string | null) {
 			searchInvoices: "Meklēt pēc numura vai piegādātāja",
 			status: "Statuss",
 			allStatuses: "Visi statusi",
+			sortBy: "Kārtot pēc",
+			defaultOrder: "Sākotnējā secība",
+			sortAscending: "Kārtot augošā secībā",
+			sortDescending: "Kārtot dilstošā secībā",
 			assignedToMe: "Gaida mani",
 			currentApprover: "Pašreizējais apstiprinātājs",
 			noCurrentApprover: "Nav piešķirts",
@@ -105,6 +138,42 @@ function getCopy(language?: string | null) {
 			quantity: "Daudzums",
 			unitPrice: "Vienības cena",
 			costCode: "Izmaksu kods",
+			costCodeHelp: "Par izmaksu kodiem",
+			costCodeHelpText:
+				"Izmaksu kodus un to nozīmi var pielāgot organizācijai projekta iestatījumos.",
+			emptyCostCodeHelp:
+				"Vēl nav pievienots neviens izmaksu kods. Pievienojiet tos projekta iestatījumos, lai varētu izvēlēties kodu rēķinam.",
+			costCodeSettingsLink: "Atvērt projekta iestatījumus",
+			accountingClassification: "Grāmatvedības klasifikācija",
+			invoiceType: "Rēķina veids",
+			editDetail: "Rediģēt",
+			saveDetail: "Saglabāt",
+			cancelDetail: "Atcelt",
+			detailSaved: "Saglabāts.",
+			detailSaveFailed: "Neizdevās saglabāt. Mēģiniet vēlreiz.",
+			detailRefreshFailed:
+				"Izmaiņas saglabātas, bet skatu neizdevās atjaunināt. Pārlādējiet lapu.",
+			detailErrors: {
+				invalid_input: "Nederīgi rēķina dati.",
+				invalid_number:
+					"Rēķina numurs drīkst būt līdz 120 rakstzīmēm un bez vadības rakstzīmēm.",
+				invalid_date: "Ievadiet derīgu datumu.",
+				invalid_version: "Pārlādējiet rēķinu un mēģiniet vēlreiz.",
+				access_denied: "Nav piekļuves šim rēķinam.",
+				processing: "Pagaidiet, līdz rēķina apstrāde ir pabeigta.",
+				conflict:
+					"Rēķins ir mainīts. Atceliet un atveriet rediģēšanu vēlreiz pirms saglabāšanas.",
+			},
+			editInvoiceType: "Rediģēt rēķina veidu",
+			cancelInvoiceTypeEdit: "Atcelt veida rediģēšanu",
+			debitInvoice: "Debeta rēķins",
+			creditInvoice: "Kredītrēķins",
+			selectCostCode: "Izvēlieties izmaksu kodu",
+			saveAccounting: "Saglabāt klasifikāciju",
+			savingAccounting: "Saglabā…",
+			accountingSaved: "Klasifikācija saglabāta.",
+			accountingFailed: "Neizdevās saglabāt klasifikāciju.",
+			manageCostCodes: "Pārvaldīt izmaksu kodus",
 			category: "Kategorija",
 			noCostCode: "Nav izmaksu koda",
 			noCategory: "Nav kategorijas",
@@ -115,8 +184,6 @@ function getCopy(language?: string | null) {
 			projectFilter: "Rādīt rēķinus",
 			allProjects: "Visi projekti",
 			unassigned: "Nav piešķirts",
-			selectProjectForSetup:
-				"Izvēlieties vienu projektu, lai pārvaldītu tā apstiprināšanas plūsmu.",
 			assignProject: "Piešķirt projektu",
 			changeProject: "Mainīt rēķina projektu",
 			saveProject: "Saglabāt projektu",
@@ -163,10 +230,13 @@ function getCopy(language?: string | null) {
 				invoice_changes_requested: "Pieprasīti rēķina labojumi",
 				invoice_project_assigned: "Rēķinam piešķirts projekts",
 				invoice_project_reassigned: "Rēķina projekts mainīts",
+				invoice_accounting_updated: "Mainīta rēķina klasifikācija",
+				invoice_details_updated: "Laboti rēķina dati",
 			},
 			actors: {
 				user: "Lietotājs",
 				system: "Sistēma",
+				whatsapp: "WhatsApp",
 				fixture: "Demo dati",
 			},
 		};
@@ -181,12 +251,19 @@ function getCopy(language?: string | null) {
 			loading: "Загрузка счетов…",
 			empty: "Для этого проекта счетов пока нет.",
 			failed: "Не удалось загрузить счета.",
+			whatsappProcessingTitle: "Обработка счета из WhatsApp",
+			whatsappProcessingDescription:
+				"Счет получен. ИИ извлекает поля и позиции…",
+			whatsappReceived: "Получен",
+			whatsappReading: "OCR и извлечение данных",
+			whatsappReady: "Готово к проверке",
 			supplier: "Поставщик",
 			invoiceNumber: "Номер счета",
 			invoiceDate: "Дата счета",
 			dueDate: "Срок оплаты",
 			totalWithoutVat: "Итого без НДС",
 			total: "Итого",
+			priceWithoutVat: "Цена без НДС",
 			source: "Источник",
 			lines: "Позиции",
 			audit: "История действий",
@@ -200,7 +277,6 @@ function getCopy(language?: string | null) {
 			copyText: "Копировать текст",
 			copied: "Скопировано",
 			noOcrText: "Текст OCR пока недоступен.",
-			approvalSetup: "Настройки согласования",
 			approvalWorkspace: "Согласование",
 			allInvoices: "Все счета",
 			registerDescription:
@@ -208,6 +284,10 @@ function getCopy(language?: string | null) {
 			searchInvoices: "Поиск по номеру или поставщику",
 			status: "Статус",
 			allStatuses: "Все статусы",
+			sortBy: "Сортировать по",
+			defaultOrder: "Исходный порядок",
+			sortAscending: "Сортировать по возрастанию",
+			sortDescending: "Сортировать по убыванию",
 			assignedToMe: "Ожидают меня",
 			currentApprover: "Текущий согласующий",
 			noCurrentApprover: "Не назначен",
@@ -221,6 +301,42 @@ function getCopy(language?: string | null) {
 			quantity: "Количество",
 			unitPrice: "Цена за единицу",
 			costCode: "Код затрат",
+			costCodeHelp: "О кодах затрат",
+			costCodeHelpText:
+				"Коды затрат и их значения можно настроить для организации в настройках проекта.",
+			emptyCostCodeHelp:
+				"Коды затрат ещё не добавлены. Добавьте их в настройках проекта, чтобы выбрать код для счёта.",
+			costCodeSettingsLink: "Открыть настройки проекта",
+			accountingClassification: "Бухгалтерская классификация",
+			invoiceType: "Тип счета",
+			editDetail: "Изменить",
+			saveDetail: "Сохранить",
+			cancelDetail: "Отменить",
+			detailSaved: "Сохранено.",
+			detailSaveFailed: "Не удалось сохранить. Попробуйте ещё раз.",
+			detailRefreshFailed:
+				"Изменения сохранены, но не удалось обновить данные. Перезагрузите страницу.",
+			detailErrors: {
+				invalid_input: "Некорректные данные счета.",
+				invalid_number:
+					"Номер счета должен содержать не более 120 символов и не содержать управляющих символов.",
+				invalid_date: "Введите корректную дату.",
+				invalid_version: "Перезагрузите счет и попробуйте ещё раз.",
+				access_denied: "Нет доступа к этому счету.",
+				processing: "Дождитесь завершения обработки счета.",
+				conflict:
+					"Счет изменился. Отмените и снова откройте редактирование перед сохранением.",
+			},
+			editInvoiceType: "Изменить тип счета",
+			cancelInvoiceTypeEdit: "Отменить изменение типа",
+			debitInvoice: "Дебетовый счет",
+			creditInvoice: "Кредитовый счет",
+			selectCostCode: "Выберите код затрат",
+			saveAccounting: "Сохранить классификацию",
+			savingAccounting: "Сохранение…",
+			accountingSaved: "Классификация сохранена.",
+			accountingFailed: "Не удалось сохранить классификацию.",
+			manageCostCodes: "Управление кодами затрат",
 			category: "Категория",
 			noCostCode: "Нет кода затрат",
 			noCategory: "Нет категории",
@@ -231,8 +347,6 @@ function getCopy(language?: string | null) {
 			projectFilter: "Показать счета",
 			allProjects: "Все проекты",
 			unassigned: "Не назначен",
-			selectProjectForSetup:
-				"Выберите один проект, чтобы настроить его процесс согласования.",
 			assignProject: "Назначить проект",
 			changeProject: "Изменить проект",
 			saveProject: "Сохранить проект",
@@ -279,10 +393,13 @@ function getCopy(language?: string | null) {
 				invoice_changes_requested: "Запрошены исправления счета",
 				invoice_project_assigned: "Счету назначен проект",
 				invoice_project_reassigned: "Проект счета изменен",
+				invoice_accounting_updated: "Классификация счета изменена",
+				invoice_details_updated: "Данные счета исправлены",
 			},
 			actors: {
 				user: "Пользователь",
 				system: "Система",
+				whatsapp: "WhatsApp",
 				fixture: "Демонстрационные данные",
 			},
 		};
@@ -296,12 +413,19 @@ function getCopy(language?: string | null) {
 		loading: "Loading invoices…",
 		empty: "No invoices exist for this project yet.",
 		failed: "Could not load invoices.",
+		whatsappProcessingTitle: "WhatsApp invoice processing",
+		whatsappProcessingDescription:
+			"The invoice was received. AI is reading fields and line items…",
+		whatsappReceived: "Received",
+		whatsappReading: "OCR and extraction",
+		whatsappReady: "Ready for review",
 		supplier: "Supplier",
 		invoiceNumber: "Invoice number",
 		invoiceDate: "Invoice date",
 		dueDate: "Due date",
 		totalWithoutVat: "Total excl. VAT",
 		total: "Total",
+		priceWithoutVat: "Price without VAT",
 		source: "Source",
 		lines: "Line items",
 		audit: "Activity history",
@@ -315,7 +439,6 @@ function getCopy(language?: string | null) {
 		copyText: "Copy text",
 		copied: "Copied",
 		noOcrText: "OCR text is not available yet.",
-		approvalSetup: "Approval setup",
 		approvalWorkspace: "Approval workspace",
 		allInvoices: "All invoices",
 		registerDescription:
@@ -323,6 +446,10 @@ function getCopy(language?: string | null) {
 		searchInvoices: "Search by number or supplier",
 		status: "Status",
 		allStatuses: "All statuses",
+		sortBy: "Sort by",
+		defaultOrder: "Default order",
+		sortAscending: "Sort ascending",
+		sortDescending: "Sort descending",
 		assignedToMe: "Waiting for me",
 		currentApprover: "Current approver",
 		noCurrentApprover: "Not assigned",
@@ -336,6 +463,42 @@ function getCopy(language?: string | null) {
 		quantity: "Quantity",
 		unitPrice: "Unit price",
 		costCode: "Cost code",
+		costCodeHelp: "About cost codes",
+		costCodeHelpText:
+			"Customize your organization’s cost codes and their meanings in Project settings.",
+		emptyCostCodeHelp:
+			"No cost codes have been added yet. Add them in Project settings to select a code for this invoice.",
+		costCodeSettingsLink: "Open Project settings",
+		accountingClassification: "Accounting classification",
+		invoiceType: "Invoice type",
+		editDetail: "Edit",
+		saveDetail: "Save",
+		cancelDetail: "Cancel",
+		detailSaved: "Saved.",
+		detailSaveFailed: "Could not save. Try again.",
+		detailRefreshFailed:
+			"Changes saved, but the view could not refresh. Reload the page.",
+		detailErrors: {
+			invalid_input: "Invalid invoice data.",
+			invalid_number:
+				"Invoice number must be at most 120 characters with no control characters.",
+			invalid_date: "Enter a valid date.",
+			invalid_version: "Reload the invoice and try again.",
+			access_denied: "You do not have access to this invoice.",
+			processing: "Wait until invoice processing has finished.",
+			conflict:
+				"This invoice changed. Cancel and reopen the edit before saving.",
+		},
+		editInvoiceType: "Edit invoice type",
+		cancelInvoiceTypeEdit: "Cancel type edit",
+		debitInvoice: "Debit invoice",
+		creditInvoice: "Credit invoice",
+		selectCostCode: "Select a cost code",
+		saveAccounting: "Save classification",
+		savingAccounting: "Saving…",
+		accountingSaved: "Classification saved.",
+		accountingFailed: "Could not save the classification.",
+		manageCostCodes: "Manage cost codes",
 		category: "Category",
 		noCostCode: "No cost code",
 		noCategory: "No category",
@@ -346,8 +509,6 @@ function getCopy(language?: string | null) {
 		projectFilter: "Show invoices",
 		allProjects: "All projects",
 		unassigned: "Unassigned",
-		selectProjectForSetup:
-			"Select one project to manage its approval workflow.",
 		assignProject: "Assign project",
 		changeProject: "Change invoice project",
 		saveProject: "Save project",
@@ -393,10 +554,13 @@ function getCopy(language?: string | null) {
 			invoice_changes_requested: "Invoice changes requested",
 			invoice_project_assigned: "Invoice project assigned",
 			invoice_project_reassigned: "Invoice project changed",
+			invoice_accounting_updated: "Invoice classification changed",
+			invoice_details_updated: "Invoice details corrected",
 		},
 		actors: {
 			user: "User",
 			system: "System",
+			whatsapp: "WhatsApp",
 			fixture: "Demo data",
 		},
 	};
@@ -442,13 +606,27 @@ function localizedValue(values: Record<string, string>, value: string) {
 	return values[value] ?? value.replaceAll("_", " ");
 }
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
+function Field({
+	label,
+	value,
+	action,
+	hint,
+}: {
+	label: string;
+	value: React.ReactNode;
+	action?: React.ReactNode;
+	hint?: React.ReactNode;
+}) {
 	return (
 		<div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
 			<div className="min-w-0 flex-1">
-				<div className="text-xs text-muted-foreground">{label}</div>
+				<div className="flex items-center gap-1 text-xs text-muted-foreground">
+					{label}
+					{hint}
+				</div>
 				<div className="truncate text-sm font-medium">{value || "—"}</div>
 			</div>
+			{action}
 		</div>
 	);
 }
@@ -538,16 +716,12 @@ function OcrDocumentViewer({
 					language={language}
 				/>
 			) : (
-				<div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg border border-slate-300 bg-slate-800 p-4 text-sm text-slate-300 shadow-inner dark:border-slate-700 dark:bg-slate-950">
-					<Image
-						src={document.documentPath}
-						alt={document.originalFilename}
-						width={1200}
-						height={1600}
-						unoptimized
-						className="max-h-full w-auto object-contain shadow-[0_12px_34px_rgba(0,0,0,0.38)]"
-					/>
-				</div>
+				<TgemImageViewer
+					key={document.documentPath}
+					documentPath={document.documentPath}
+					filename={document.originalFilename}
+					language={language}
+				/>
 			)}
 		</div>
 	);
@@ -571,23 +745,133 @@ function approvalPosition(invoice: TgemDashboardInvoice) {
 	};
 }
 
+function WhatsappInvoiceProcessing({
+	invoices,
+	copy,
+}: {
+	invoices: TgemDashboardInvoice[];
+	copy: ReturnType<typeof getCopy>;
+}) {
+	if (invoices.length === 0) return null;
+
+	return (
+		<section
+			aria-label={copy.whatsappProcessingTitle}
+			data-testid="tgem-whatsapp-processing"
+			className="overflow-hidden rounded-lg border border-blue-200 bg-card dark:border-blue-900"
+		>
+			<div className="flex items-start gap-4 border-b border-blue-100 bg-blue-50/60 p-4 dark:border-blue-950 dark:bg-blue-950/20">
+				<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[#25D366] text-white shadow-sm">
+					<MessageCircle className="h-5 w-5" />
+				</div>
+				<div className="min-w-0 flex-1">
+					<div className="flex flex-wrap items-center gap-2">
+						<h2 className="font-semibold tracking-tight">
+							{copy.whatsappProcessingTitle}
+						</h2>
+						<Badge
+							variant="outline"
+							className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+						>
+							WhatsApp
+						</Badge>
+					</div>
+					<p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+						{copy.whatsappProcessingDescription}
+					</p>
+				</div>
+				<Loader2 className="mt-1 h-5 w-5 shrink-0 animate-spin text-blue-600 motion-reduce:animate-none" />
+			</div>
+
+			<div className="divide-y">
+				{invoices.map((invoice) => {
+					const processingStarted =
+						invoice.status === "processing" ||
+						invoice.ocrStatus === "processing" ||
+						invoice.extractionStatus === "processing";
+					const filename =
+						invoice.documents[0]?.originalFilename ||
+						invoice.invoiceNumber ||
+						invoice.id;
+
+					return (
+						<div
+							key={invoice.id}
+							data-testid={`tgem-whatsapp-processing-${invoice.id}`}
+							className="p-4"
+						>
+							<div className="flex items-center justify-between gap-3">
+								<div className="min-w-0">
+									<div className="truncate text-sm font-medium">{filename}</div>
+									<div className="mt-0.5 truncate text-xs text-muted-foreground">
+										{invoice.project?.name || copy.unassigned}
+									</div>
+								</div>
+								<span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+									{processingStarted
+										? copy.whatsappReading
+										: copy.whatsappReceived}
+								</span>
+							</div>
+
+							<div className="mt-3 grid grid-cols-3 gap-2">
+								{[
+									{
+										label: copy.whatsappReceived,
+										active: !processingStarted,
+										complete: processingStarted,
+									},
+									{
+										label: copy.whatsappReading,
+										active: processingStarted,
+										complete: false,
+									},
+									{
+										label: copy.whatsappReady,
+										active: false,
+										complete: false,
+									},
+								].map((step) => (
+									<div key={step.label} className="min-w-0">
+										<div
+											className={`h-1 rounded-full ${step.complete ? "bg-emerald-500" : step.active ? "bg-blue-600" : "bg-muted"}`}
+										/>
+										<div className="mt-1 truncate text-[11px] text-muted-foreground">
+											{step.label}
+										</div>
+									</div>
+								))}
+							</div>
+						</div>
+					);
+				})}
+			</div>
+		</section>
+	);
+}
+
 function InvoiceRegister({
 	invoices,
+	costCodes,
 	currentUserId,
 	copy,
 	organizationLanguage,
 	onOpenInvoice,
+	onChanged,
 }: {
 	invoices: TgemDashboardInvoice[];
+	costCodes: TgemDashboardData["costCodes"];
 	currentUserId: string;
 	copy: ReturnType<typeof getCopy>;
 	organizationLanguage?: string | null;
 	onOpenInvoice: (invoiceId: string) => void;
+	onChanged: () => Promise<void>;
 }) {
 	const searchInputId = React.useId();
 	const [search, setSearch] = React.useState("");
 	const [statusFilter, setStatusFilter] = React.useState("all");
 	const [assignedToMeOnly, setAssignedToMeOnly] = React.useState(false);
+	const [sort, setSort] = React.useState<TgemInvoiceSort | null>(null);
 	const [previewInvoiceId, setPreviewInvoiceId] = React.useState<string | null>(
 		null,
 	);
@@ -618,6 +902,50 @@ function InvoiceRegister({
 	);
 	const previewInvoice =
 		invoices.find((invoice) => invoice.id === previewInvoiceId) ?? null;
+	const sortedInvoices = React.useMemo(
+		() =>
+			sortTgemInvoiceRegister(filteredInvoices, sort, {
+				locale: localeForLanguage(organizationLanguage),
+				statusLabels: copy.statuses,
+				getCurrentApprover: (invoice) =>
+					approvalPosition(invoice).currentStep?.approverName ?? null,
+			}),
+		[filteredInvoices, sort, organizationLanguage, copy.statuses],
+	);
+	const columns: {
+		key: string;
+		field?: TgemInvoiceSortField;
+		label: string;
+		className?: string;
+	}[] = [
+		{ key: "costCode", label: copy.costCode, className: "pl-5" },
+		{ key: "invoiceNumber", label: copy.invoiceNumber },
+		{ key: "project", label: copy.project },
+		{ key: "supplier", field: "supplier", label: copy.supplier },
+		{ key: "invoiceDate", field: "invoiceDate", label: copy.invoiceDate },
+		{ key: "dueDate", field: "dueDate", label: copy.dueDate },
+		{ key: "subtotal", label: copy.priceWithoutVat, className: "text-right" },
+		{
+			key: "total",
+			field: "total",
+			label: copy.total,
+			className: "text-right",
+		},
+		{ key: "status", label: copy.status },
+		{ key: "currentApprover", label: copy.currentApprover },
+	];
+	const sortColumns = columns.flatMap((column) =>
+		column.field ? [{ field: column.field, label: column.label }] : [],
+	);
+	function toggleSort(field: TgemInvoiceSortField) {
+		setSort((current) => ({
+			field,
+			direction:
+				current?.field === field && current.direction === "asc"
+					? "desc"
+					: "asc",
+		}));
+	}
 
 	function openPreview(invoiceId: string) {
 		setPreviewInvoiceId(invoiceId);
@@ -676,6 +1004,48 @@ function InvoiceRegister({
 							{copy.assignedToMe}
 						</button>
 					</div>
+					<div className="mt-2 flex items-center gap-2 md:hidden">
+						<select
+							aria-label={copy.sortBy}
+							value={sort?.field ?? ""}
+							onChange={(event) =>
+								setSort(
+									event.target.value
+										? {
+												field: event.target.value as TgemInvoiceSortField,
+												direction: "asc",
+											}
+										: null,
+								)
+							}
+							className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-ring"
+						>
+							<option value="">{copy.defaultOrder}</option>
+							{sortColumns.map((column) => (
+								<option key={column.field} value={column.field}>
+									{column.label}
+								</option>
+							))}
+						</select>
+						{sort ? (
+							<button
+								type="button"
+								aria-label={
+									sort.direction === "asc"
+										? copy.sortDescending
+										: copy.sortAscending
+								}
+								onClick={() => toggleSort(sort.field)}
+								className="flex h-9 w-9 items-center justify-center rounded-md border bg-background hover:bg-muted focus-visible:outline-ring"
+							>
+								{sort.direction === "asc" ? (
+									<ArrowUp aria-hidden="true" className="h-4 w-4" />
+								) : (
+									<ArrowDown aria-hidden="true" className="h-4 w-4" />
+								)}
+							</button>
+						) : null}
+					</div>
 				</CardHeader>
 
 				<CardContent className="p-0">
@@ -683,19 +1053,56 @@ function InvoiceRegister({
 						<Table>
 							<TableHeader className="sticky top-0 z-10 bg-background">
 								<TableRow className="hover:bg-transparent">
-									<TableHead className="pl-5">{copy.invoiceNumber}</TableHead>
-									<TableHead>{copy.project}</TableHead>
-									<TableHead>{copy.supplier}</TableHead>
-									<TableHead>{copy.invoiceDate}</TableHead>
-									<TableHead>{copy.dueDate}</TableHead>
-									<TableHead className="text-right">{copy.total}</TableHead>
-									<TableHead>{copy.status}</TableHead>
-									<TableHead>{copy.currentApprover}</TableHead>
+									{columns.map((column) => {
+										const field = column.field;
+										if (!field) {
+											return (
+												<TableHead
+													key={column.key}
+													className={column.className}
+												>
+													{column.label}
+												</TableHead>
+											);
+										}
+										const active = sort?.field === field;
+										const Icon = active
+											? sort.direction === "asc"
+												? ArrowUp
+												: ArrowDown
+											: ArrowUpDown;
+										return (
+											<TableHead
+												key={column.key}
+												className={column.className}
+												aria-sort={
+													active
+														? sort.direction === "asc"
+															? "ascending"
+															: "descending"
+														: "none"
+												}
+											>
+												<button
+													type="button"
+													aria-label={`${active && sort.direction === "asc" ? copy.sortDescending : copy.sortAscending}: ${column.label}`}
+													onClick={() => toggleSort(field)}
+													className={`inline-flex items-center gap-1.5 rounded-sm py-1 text-sm font-medium hover:text-foreground focus-visible:outline-ring ${active ? "text-blue-700 dark:text-blue-300" : "text-muted-foreground"}`}
+												>
+													{column.label}
+													<Icon
+														aria-hidden="true"
+														className="h-3.5 w-3.5 shrink-0"
+													/>
+												</button>
+											</TableHead>
+										);
+									})}
 									<TableHead className="w-10" />
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{filteredInvoices.map((invoice) => {
+								{sortedInvoices.map((invoice) => {
 									const { currentStep } = approvalPosition(invoice);
 									const invoiceLabel = invoice.invoiceNumber || invoice.id;
 
@@ -706,7 +1113,10 @@ function InvoiceRegister({
 											className="group cursor-pointer"
 											onClick={() => openPreview(invoice.id)}
 										>
-											<TableCell className="pl-5 font-semibold">
+											<TableCell className="pl-5 font-medium">
+												{invoice.costCode || "—"}
+											</TableCell>
+											<TableCell className="font-semibold">
 												<button
 													type="button"
 													aria-label={`${copy.previewInvoice}: ${invoiceLabel}`}
@@ -739,6 +1149,13 @@ function InvoiceRegister({
 											</TableCell>
 											<TableCell className="text-right font-semibold tabular-nums">
 												{formatMoney(
+													invoice.subtotal,
+													invoice.currency,
+													organizationLanguage,
+												)}
+											</TableCell>
+											<TableCell className="text-right font-semibold tabular-nums">
+												{formatMoney(
 													invoice.total,
 													invoice.currency,
 													organizationLanguage,
@@ -766,17 +1183,21 @@ function InvoiceRegister({
 					</div>
 
 					<div className="divide-y md:hidden">
-						{filteredInvoices.map((invoice) => {
+						{sortedInvoices.map((invoice) => {
 							const { currentStep } = approvalPosition(invoice);
 
 							return (
 								<button
 									key={invoice.id}
+									data-testid={`tgem-register-mobile-invoice-${invoice.id}`}
 									type="button"
 									onClick={() => openPreview(invoice.id)}
 									className="flex w-full items-start justify-between gap-3 p-4 text-left transition hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
 								>
 									<div className="min-w-0">
+										<div className="mb-1 text-xs text-muted-foreground">
+											{copy.costCode}: {invoice.costCode || "—"}
+										</div>
 										<div className="truncate font-semibold">
 											{invoice.invoiceNumber || invoice.id}
 										</div>
@@ -795,6 +1216,15 @@ function InvoiceRegister({
 										<span className="font-semibold tabular-nums">
 											{formatMoney(
 												invoice.total,
+												invoice.currency,
+												organizationLanguage,
+											)}
+										</span>
+										<span className="text-right text-xs text-muted-foreground tabular-nums">
+											{copy.priceWithoutVat}
+											<br />
+											{formatMoney(
+												invoice.subtotal,
 												invoice.currency,
 												organizationLanguage,
 											)}
@@ -829,6 +1259,13 @@ function InvoiceRegister({
 				{previewInvoice ? (
 					<DialogContent
 						showCloseButton={false}
+						onEscapeKeyDown={(event) => {
+							if (
+								event.target instanceof Element &&
+								event.target.closest("[data-tgem-invoice-detail-editor]")
+							)
+								event.preventDefault();
+						}}
 						className="top-0 right-0 left-auto flex h-dvh max-w-[calc(100%-1rem)] translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 p-0 sm:max-w-lg"
 					>
 						<DialogHeader className="border-b px-5 py-4 pr-14 text-left">
@@ -870,34 +1307,14 @@ function InvoiceRegister({
 								</Badge>
 							</div>
 
-							<div className="grid gap-3 sm:grid-cols-2">
-								<Field
-									label={copy.project}
-									value={previewInvoice.project?.name || copy.unassigned}
-								/>
-								<Field
-									label={copy.supplier}
-									value={previewInvoice.supplierName}
-								/>
-								<Field
-									label={copy.invoiceDate}
-									value={formatDate(
-										previewInvoice.invoiceDate,
-										organizationLanguage,
-									)}
-								/>
-								<Field
-									label={copy.dueDate}
-									value={formatDate(
-										previewInvoice.dueDate,
-										organizationLanguage,
-									)}
-								/>
-								<Field
-									label={copy.source}
-									value={localizedValue(copy.sources, previewInvoice.source)}
-								/>
-							</div>
+							<InvoiceInformationCard
+								key={previewInvoice.id}
+								invoice={previewInvoice}
+								costCodes={costCodes}
+								copy={copy}
+								organizationLanguage={organizationLanguage}
+								onChanged={onChanged}
+							/>
 
 							{(() => {
 								const { currentStep, currentStepIndex, totalSteps } =
@@ -944,16 +1361,12 @@ function InvoiceRegister({
 												language={organizationLanguage}
 											/>
 										) : (
-											<div className="flex h-full items-center justify-center bg-slate-800 p-3 dark:bg-slate-950">
-												<Image
-													src={previewInvoice.documents[0].documentPath}
-													alt={previewInvoice.documents[0].originalFilename}
-													width={720}
-													height={960}
-													unoptimized
-													className="max-h-full w-auto object-contain shadow-lg"
-												/>
-											</div>
+											<TgemImageViewer
+												key={previewInvoice.documents[0].documentPath}
+												documentPath={previewInvoice.documents[0].documentPath}
+												filename={previewInvoice.documents[0].originalFilename}
+												language={organizationLanguage}
+											/>
 										)}
 									</div>
 								</div>
@@ -1090,9 +1503,510 @@ function ProjectAssignment({
 	);
 }
 
+function EditableInvoiceDetail({
+	invoice,
+	field,
+	label,
+	copy,
+	language,
+	onChanged,
+}: {
+	invoice: TgemDashboardInvoice;
+	field: TgemEditableInvoiceField;
+	label: string;
+	copy: ReturnType<typeof getCopy>;
+	language?: string | null;
+	onChanged: () => Promise<void>;
+}) {
+	const raw =
+		field === "invoiceNumber"
+			? (invoice[field] ?? "")
+			: (invoice[field]?.slice(0, 10) ?? "");
+	const [session, setSession] = React.useState<{
+		draft: string;
+		version: string;
+		original: string;
+	} | null>(null);
+	const [savedValue, setSavedValue] = React.useState<{
+		value: string;
+		sourceVersion: string;
+	}>();
+	const [saving, setSaving] = React.useState(false);
+	const [error, setError] = React.useState<
+		TgemInvoiceDetailsError | "failed" | "refresh_failed" | null
+	>(null);
+	const [saved, setSaved] = React.useState(false);
+	const errorId = React.useId();
+	const focusInput = React.useCallback((node: HTMLInputElement | null) => {
+		node?.focus();
+	}, []);
+	const editButtonRef = React.useRef<HTMLButtonElement>(null);
+	const processing =
+		invoice.status === "received" ||
+		invoice.status === "processing" ||
+		invoice.ocrStatus === "processing" ||
+		invoice.extractionStatus === "processing";
+	const current =
+		savedValue?.sourceVersion === invoice.updatedAt ? savedValue.value : raw;
+	const display =
+		field === "invoiceNumber" || !current
+			? current
+			: new Intl.DateTimeFormat(localeForLanguage(language), {
+					day: "2-digit",
+					month: "2-digit",
+					year: "numeric",
+					timeZone: "UTC",
+				}).format(new Date(`${current}T00:00:00.000Z`));
+
+	function cancel() {
+		if (saving) return;
+		setSession(null);
+		setError(null);
+		window.requestAnimationFrame(() => editButtonRef.current?.focus());
+	}
+
+	async function save() {
+		if (!session || saving) return;
+		const normalized = normalizeTgemInvoiceDetailValue(field, session.draft);
+		if (!normalized.ok) {
+			setError(normalized.error);
+			return;
+		}
+		setSaving(true);
+		setError(null);
+		try {
+			const result = await updateTgemInvoiceDetail({
+				invoiceCaseId: invoice.id,
+				field,
+				value: session.draft,
+				expectedUpdatedAt: session.version,
+			});
+			if (!result.ok) {
+				setError(result.error);
+				if (result.error === "conflict")
+					await onChanged().catch(() => undefined);
+				return;
+			}
+			setSavedValue({
+				value: result.value ?? "",
+				sourceVersion: session.version,
+			});
+			setSession(null);
+			setSaved(true);
+			window.requestAnimationFrame(() => editButtonRef.current?.focus());
+			try {
+				await onChanged();
+			} catch {
+				setError("refresh_failed");
+			}
+		} catch {
+			setError("failed");
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	const message =
+		error === "failed"
+			? copy.detailSaveFailed
+			: error === "refresh_failed"
+				? copy.detailRefreshFailed
+				: error
+					? copy.detailErrors[error]
+					: null;
+	return (
+		<Field
+			label={label}
+			value={
+				<div className="whitespace-normal">
+					{session ? (
+						<form
+							data-tgem-invoice-detail-editor=""
+							onSubmit={(event) => {
+								event.preventDefault();
+								void save();
+							}}
+							onKeyDown={(event) => {
+								if (event.key === "Escape") {
+									event.preventDefault();
+									event.stopPropagation();
+									cancel();
+								}
+							}}
+						>
+							<input
+								ref={focusInput}
+								aria-label={label}
+								aria-invalid={Boolean(error)}
+								aria-describedby={error ? errorId : undefined}
+								type={field === "invoiceNumber" ? "text" : "date"}
+								maxLength={field === "invoiceNumber" ? 120 : undefined}
+								value={session.draft}
+								disabled={saving}
+								onChange={(event) => {
+									setSession({ ...session, draft: event.target.value });
+									setError(null);
+								}}
+								className="mt-1 w-full min-w-0 rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-ring"
+							/>
+							<div className="mt-2 flex flex-wrap gap-2">
+								<button
+									type="submit"
+									aria-label={`${copy.saveDetail}: ${label}`}
+									disabled={saving || session.draft.trim() === session.original}
+									className="rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 focus-visible:outline-ring disabled:opacity-50"
+								>
+									{saving ? copy.savingAccounting : copy.saveDetail}
+								</button>
+								<button
+									type="button"
+									aria-label={`${copy.cancelDetail}: ${label}`}
+									disabled={saving}
+									onClick={cancel}
+									className="rounded-md border px-2 py-1 text-xs hover:bg-muted focus-visible:outline-ring disabled:opacity-50"
+								>
+									{copy.cancelDetail}
+								</button>
+							</div>
+						</form>
+					) : (
+						<span>{display || "—"}</span>
+					)}
+					{message ? (
+						<p
+							id={errorId}
+							role="alert"
+							className="mt-1 text-xs font-normal text-red-600"
+						>
+							{message}
+						</p>
+					) : saved ? (
+						<output className="mt-1 text-xs font-normal text-emerald-700 dark:text-emerald-400">
+							{copy.detailSaved}
+						</output>
+					) : null}
+				</div>
+			}
+			action={
+				!session ? (
+					<button
+						type="button"
+						aria-label={`${copy.editDetail}: ${label}`}
+						ref={editButtonRef}
+						title={
+							processing
+								? copy.detailErrors.processing
+								: `${copy.editDetail}: ${label}`
+						}
+						disabled={processing || saving}
+						onClick={() => {
+							setSession({
+								draft: current,
+								version: invoice.updatedAt,
+								original: current,
+							});
+							setError(null);
+							setSaved(false);
+						}}
+						className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-ring disabled:opacity-50"
+					>
+						<Pencil className="h-4 w-4" />
+					</button>
+				) : undefined
+			}
+		/>
+	);
+}
+
+function InvoiceAccountingClassification({
+	invoice,
+	costCodes,
+	copy,
+	onChanged,
+}: {
+	invoice: TgemDashboardInvoice;
+	costCodes: TgemDashboardData["costCodes"];
+	copy: ReturnType<typeof getCopy>;
+	onChanged: () => Promise<void>;
+}) {
+	const [invoiceType, setInvoiceType] = React.useState(invoice.invoiceType);
+	const [editingInvoiceType, setEditingInvoiceType] = React.useState(false);
+	const [costCode, setCostCode] = React.useState(invoice.costCode ?? "");
+	const [status, setStatus] = React.useState<
+		"idle" | "saving" | "saved" | "error"
+	>("idle");
+	const [error, setError] = React.useState<string | null>(null);
+	const changed =
+		invoiceType !== invoice.invoiceType ||
+		costCode !== (invoice.costCode ?? "");
+	const availableCostCodes = invoice.costCode
+		? costCodes.some((item) => item.code === invoice.costCode)
+			? costCodes
+			: [
+					{
+						id: `archived-${invoice.costCode}`,
+						code: invoice.costCode,
+						name: "",
+					},
+					...costCodes,
+				]
+		: costCodes;
+
+	React.useEffect(() => {
+		setInvoiceType(invoice.invoiceType);
+		setEditingInvoiceType(false);
+		setCostCode(invoice.costCode ?? "");
+		setStatus("idle");
+		setError(null);
+	}, [invoice.costCode, invoice.invoiceType]);
+
+	async function save() {
+		if (!changed) return;
+		setStatus("saving");
+		setError(null);
+		try {
+			await updateTgemInvoiceAccounting({
+				invoiceCaseId: invoice.id,
+				invoiceType,
+				costCode: costCode || null,
+				expectedUpdatedAt: invoice.updatedAt,
+			});
+			await onChanged();
+			setEditingInvoiceType(false);
+			setStatus("saved");
+		} catch (saveError) {
+			setStatus("error");
+			setError(
+				saveError instanceof Error ? saveError.message : copy.accountingFailed,
+			);
+		}
+	}
+
+	return (
+		<>
+			<Field
+				label={copy.invoiceType}
+				value={
+					editingInvoiceType ? (
+						<select
+							aria-label={copy.invoiceType}
+							value={invoiceType}
+							disabled={status === "saving"}
+							onChange={(event) => {
+								setInvoiceType(event.target.value as "credit" | "debit");
+								setStatus("idle");
+							}}
+							className="w-full rounded-sm bg-background text-sm font-medium focus-visible:outline-ring"
+						>
+							<option value="debit">{copy.debitInvoice}</option>
+							<option value="credit">{copy.creditInvoice}</option>
+						</select>
+					) : invoiceType === "credit" ? (
+						copy.creditInvoice
+					) : (
+						copy.debitInvoice
+					)
+				}
+				action={
+					<button
+						type="button"
+						aria-label={
+							editingInvoiceType
+								? copy.cancelInvoiceTypeEdit
+								: copy.editInvoiceType
+						}
+						title={
+							editingInvoiceType
+								? copy.cancelInvoiceTypeEdit
+								: copy.editInvoiceType
+						}
+						disabled={status === "saving"}
+						onClick={() => {
+							if (editingInvoiceType) setInvoiceType(invoice.invoiceType);
+							setEditingInvoiceType(!editingInvoiceType);
+							setStatus("idle");
+							setError(null);
+						}}
+						className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-ring disabled:opacity-50"
+					>
+						{editingInvoiceType ? (
+							<X className="h-4 w-4" />
+						) : (
+							<Pencil className="h-4 w-4" />
+						)}
+					</button>
+				}
+			/>
+			<Field
+				label={copy.costCode}
+				hint={
+					<Popover>
+						<PopoverTrigger asChild>
+							<button
+								type="button"
+								aria-label={copy.costCodeHelp}
+								title={copy.costCodeHelp}
+								className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-ring"
+							>
+								<Info className="h-3 w-3" />
+							</button>
+						</PopoverTrigger>
+						<PopoverContent
+							align="start"
+							className="w-64 space-y-2 p-3 text-xs"
+							aria-label={copy.costCodeHelp}
+						>
+							<p>
+								{costCodes.length === 0
+									? copy.emptyCostCodeHelp
+									: copy.costCodeHelpText}
+							</p>
+							<Link
+								href={`/dashboard/invoices/settings${invoice.project?.id ? `?project=${encodeURIComponent(invoice.project.id)}` : ""}`}
+								className="inline-block font-medium text-blue-700 underline underline-offset-4 dark:text-blue-300"
+							>
+								{copy.costCodeSettingsLink}
+							</Link>
+						</PopoverContent>
+					</Popover>
+				}
+				value={
+					<select
+						aria-label={copy.costCode}
+						value={costCode}
+						onChange={(event) => {
+							setCostCode(event.target.value);
+							setStatus("idle");
+						}}
+						className="w-full rounded-sm bg-background text-sm font-medium focus-visible:outline-ring"
+					>
+						<option value="">{copy.selectCostCode}</option>
+						{availableCostCodes.map((item) => (
+							<option key={item.id} value={item.code}>
+								{item.code}
+								{item.name ? ` — ${item.name}` : ""}
+							</option>
+						))}
+					</select>
+				}
+			/>
+			{changed || status !== "idle" ? (
+				<div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+					<button
+						type="button"
+						disabled={!changed || status === "saving"}
+						onClick={() => void save()}
+						className="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						{status === "saving" ? copy.savingAccounting : copy.saveAccounting}
+					</button>
+					{status === "saved" ? (
+						<span className="text-xs text-emerald-700 dark:text-emerald-400">
+							{copy.accountingSaved}
+						</span>
+					) : null}
+					{status === "error" ? (
+						<span className="text-xs text-red-600">
+							{error || copy.accountingFailed}
+						</span>
+					) : null}
+				</div>
+			) : null}
+		</>
+	);
+}
+
+function InvoiceInformationCard({
+	invoice,
+	costCodes,
+	copy,
+	organizationLanguage,
+	onChanged,
+}: {
+	invoice: TgemDashboardInvoice;
+	costCodes: TgemDashboardData["costCodes"];
+	copy: ReturnType<typeof getCopy>;
+	organizationLanguage?: string | null;
+	onChanged: () => Promise<void>;
+}) {
+	const sourceField = (label: string, value: React.ReactNode) => (
+		<Field label={label} value={value} />
+	);
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle className="text-base">{copy.details}</CardTitle>
+			</CardHeader>
+			<CardContent className="grid gap-3 sm:grid-cols-2">
+				{sourceField(copy.project, invoice.project?.name || copy.unassigned)}
+				<EditableInvoiceDetail
+					key={`${invoice.id}-invoiceDate`}
+					invoice={invoice}
+					field="invoiceDate"
+					label={copy.invoiceDate}
+					copy={copy}
+					language={organizationLanguage}
+					onChanged={onChanged}
+				/>
+				<EditableInvoiceDetail
+					key={`${invoice.id}-invoiceNumber`}
+					invoice={invoice}
+					field="invoiceNumber"
+					label={copy.invoiceNumber}
+					copy={copy}
+					language={organizationLanguage}
+					onChanged={onChanged}
+				/>
+				{sourceField(copy.supplier, invoice.supplierName)}
+
+				<EditableInvoiceDetail
+					key={`${invoice.id}-dueDate`}
+					invoice={invoice}
+					field="dueDate"
+					label={copy.dueDate}
+					copy={copy}
+					language={organizationLanguage}
+					onChanged={onChanged}
+				/>
+				<Field
+					label={copy.ocr}
+					value={localizedValue(copy.processingStatuses, invoice.ocrStatus)}
+				/>
+				{sourceField(
+					copy.totalWithoutVat,
+					formatMoney(invoice.subtotal, invoice.currency, organizationLanguage),
+				)}
+				{sourceField(
+					copy.total,
+					formatMoney(invoice.total, invoice.currency, organizationLanguage),
+				)}
+				<Field
+					label={copy.source}
+					value={localizedValue(copy.sources, invoice.source)}
+				/>
+				<Field
+					label={copy.extraction}
+					value={localizedValue(
+						copy.processingStatuses,
+						invoice.extractionStatus,
+					)}
+				/>
+				<InvoiceAccountingClassification
+					key={invoice.id}
+					invoice={invoice}
+					costCodes={costCodes}
+					copy={copy}
+					onChanged={onChanged}
+				/>
+			</CardContent>
+		</Card>
+	);
+}
+
 function InvoiceDetails({
 	invoice,
 	projects,
+	costCodes,
 	copy,
 	currentUserId,
 	approvalSetup,
@@ -1102,6 +2016,7 @@ function InvoiceDetails({
 }: {
 	invoice: TgemDashboardInvoice;
 	projects: TgemDashboardData["projects"];
+	costCodes: TgemDashboardData["costCodes"];
 	copy: ReturnType<typeof getCopy>;
 	currentUserId: string;
 	approvalSetup: TgemDashboardData["approvalSetup"];
@@ -1112,9 +2027,6 @@ function InvoiceDetails({
 	const document = invoice.documents[0];
 	const [documentView, setDocumentView] = React.useState<"document" | "text">(
 		"document",
-	);
-	const sourceField = (label: string, value: React.ReactNode) => (
-		<Field label={label} value={value} />
 	);
 
 	return (
@@ -1129,63 +2041,13 @@ function InvoiceDetails({
 						onChanged={onChanged}
 					/>
 				) : null}
-				<Card>
-					<CardHeader>
-						<CardTitle className="text-base">{copy.details}</CardTitle>
-					</CardHeader>
-					<CardContent className="grid gap-3 sm:grid-cols-2">
-						{sourceField(
-							copy.project,
-							invoice.project?.name || copy.unassigned,
-						)}
-						{sourceField(
-							copy.invoiceDate,
-							formatDate(invoice.invoiceDate, organizationLanguage),
-						)}
-{sourceField(copy.invoiceNumber, invoice.invoiceNumber)}
-						{sourceField(copy.supplier, invoice.supplierName)}
-						
-
-						{sourceField(
-							copy.dueDate,
-							formatDate(invoice.dueDate, organizationLanguage),
-						)}
-						<Field
-							label={copy.ocr}
-							value={localizedValue(copy.processingStatuses, invoice.ocrStatus)}
-						/>
-						{sourceField(
-							copy.totalWithoutVat,
-							formatMoney(
-								invoice.subtotal,
-								invoice.currency,
-								organizationLanguage,
-							),
-						)}
-						{sourceField(
-							copy.total,
-							formatMoney(
-								invoice.total,
-								invoice.currency,
-								organizationLanguage,
-							),
-						)}
-						<Field
-							label={copy.source}
-							value={localizedValue(copy.sources, invoice.source)}
-						/>
-						<Field
-							label={copy.extraction}
-							value={localizedValue(
-								copy.processingStatuses,
-								invoice.extractionStatus,
-							)}
-						/>
-						<div className="sm:col-span-2">
-							<Field label={copy.reference} value={invoice.reference} />
-						</div>
-					</CardContent>
-				</Card>
+				<InvoiceInformationCard
+					invoice={invoice}
+					costCodes={costCodes}
+					copy={copy}
+					organizationLanguage={organizationLanguage}
+					onChanged={onChanged}
+				/>
 				<ProjectAssignment
 					invoice={invoice}
 					projects={projects}
@@ -1344,13 +2206,11 @@ export function TgemInvoiceApprovalDashboard({
 		string | null
 	>(null);
 	const [error, setError] = React.useState(false);
-	const [showApprovalSetup, setShowApprovalSetup] = React.useState(false);
 	const [dashboardView, setDashboardView] = React.useState<
 		"approval" | "register"
 	>(initialView);
 	React.useEffect(() => {
 		setProjectFilter(initialFilter);
-		setShowApprovalSetup(false);
 		setSelectedInvoiceId(null);
 	}, [initialFilter]);
 	React.useEffect(() => {
@@ -1399,7 +2259,6 @@ export function TgemInvoiceApprovalDashboard({
 
 	const changeProjectFilter = React.useCallback((nextFilter: string) => {
 		setProjectFilter(nextFilter);
-		setShowApprovalSetup(false);
 		setSelectedInvoiceId(null);
 		if (typeof window !== "undefined") {
 			const url = new URL(window.location.href);
@@ -1411,28 +2270,58 @@ export function TgemInvoiceApprovalDashboard({
 
 	React.useEffect(() => {
 		let active = true;
-		setError(false);
-		void getTgemInvoiceDashboardData(
-			projectFilter === "all" ? null : projectFilter,
-		)
-			.then((nextData) => {
-				if (!active) return;
-				setData(nextData);
-				setSelectedInvoiceId(
-					(currentId) => currentId ?? nextData?.invoices[0]?.id ?? null,
+		let requestInFlight = false;
+		let hasLoaded = false;
+
+		async function refreshDashboard() {
+			if (requestInFlight) return;
+			requestInFlight = true;
+
+			try {
+				const nextData = await getTgemInvoiceDashboardData(
+					projectFilter === "all" ? null : projectFilter,
 				);
-			})
-			.catch(() => {
-				if (active) setError(true);
-			});
+				if (!active) return;
+
+				hasLoaded = true;
+				setError(false);
+				setData(nextData);
+				setSelectedInvoiceId((currentId) => {
+					if (
+						currentId &&
+						nextData?.invoices.some((invoice) => invoice.id === currentId)
+					) {
+						return currentId;
+					}
+					return nextData?.invoices[0]?.id ?? null;
+				});
+			} catch {
+				if (active && !hasLoaded) setError(true);
+			} finally {
+				requestInFlight = false;
+			}
+		}
+
+		setError(false);
+		void refreshDashboard();
+		const intervalId = window.setInterval(() => {
+			if (!document.hidden) void refreshDashboard();
+		}, 5_000);
 
 		return () => {
 			active = false;
+			window.clearInterval(intervalId);
 		};
 	}, [projectFilter]);
 
 	const selectedInvoice =
 		data?.invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null;
+	const whatsappProcessingInvoices =
+		data?.invoices.filter(
+			(invoice) =>
+				invoice.source === "whatsapp" &&
+				(invoice.status === "received" || invoice.status === "processing"),
+		) ?? [];
 	const selectedProjectId =
 		projectFilter === "all" || projectFilter === "unassigned"
 			? null
@@ -1446,8 +2335,8 @@ export function TgemInvoiceApprovalDashboard({
 
 	return (
 		<div className="mx-auto flex min-h-[calc(100dvh-5rem)] w-full max-w-[116rem] flex-col gap-4 px-3 py-4 sm:px-5">
-			<div className="flex flex-wrap items-start justify-between gap-3 border-b pb-3">
-				<div>
+			<div className="flex items-start justify-between gap-3 border-b pb-3">
+				<div className="min-w-0 flex-1">
 					<h1 className="text-2xl font-semibold tracking-normal">
 						{copy.title}
 					</h1>
@@ -1467,16 +2356,9 @@ export function TgemInvoiceApprovalDashboard({
 						</div>
 					) : null}
 				</div>
-				{data?.approvalSetup && selectedProjectId ? (
-					<button
-						type="button"
-						onClick={() => setShowApprovalSetup((current) => !current)}
-						className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition ${showApprovalSetup ? "border-blue-500 bg-blue-50 text-blue-800" : "bg-background hover:bg-muted"}`}
-					>
-						<Settings2 className="h-4 w-4" />
-						{copy.approvalSetup}
-					</button>
-				) : null}
+				<DashboardOrganizationBrand
+					flowModuleKey={FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL}
+				/>
 			</div>
 
 			{data === null && !error ? (
@@ -1491,14 +2373,6 @@ export function TgemInvoiceApprovalDashboard({
 				</div>
 			) : (
 				<>
-					{showApprovalSetup && data?.approvalSetup && selectedProjectId ? (
-						<TgemApprovalSetup
-							siteId={selectedProjectId}
-							setup={data.approvalSetup}
-							organizationLanguage={organizationLanguage}
-							onSaved={() => loadData(selectedInvoiceId ?? undefined)}
-						/>
-					) : null}
 					<TgemInvoiceUpload
 						selectedProjectId={selectedProjectId}
 						organizationLanguage={organizationLanguage}
@@ -1511,12 +2385,18 @@ export function TgemInvoiceApprovalDashboard({
 							else await loadData(invoiceCaseId);
 						}}
 					/>
+					<WhatsappInvoiceProcessing
+						invoices={whatsappProcessingInvoices}
+						copy={copy}
+					/>
 					{dashboardView === "register" && data ? (
 						<InvoiceRegister
 							invoices={data.invoices}
+							costCodes={data.costCodes}
 							currentUserId={data.currentUserId}
 							copy={copy}
 							organizationLanguage={organizationLanguage}
+							onChanged={() => loadData()}
 							onOpenInvoice={(invoiceId) => {
 								changeDashboardView("approval", invoiceId);
 							}}
@@ -1576,6 +2456,7 @@ export function TgemInvoiceApprovalDashboard({
 									key={selectedInvoice.id}
 									invoice={selectedInvoice}
 									projects={data.projects}
+									costCodes={data.costCodes}
 									copy={copy}
 									currentUserId={data.currentUserId}
 									approvalSetup={data.approvalSetup}

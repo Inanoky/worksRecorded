@@ -931,6 +931,32 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 			},
 		},
 		{
+			id: "latvian-working-time-only-note",
+			intent:
+				"Save a working-time-only report as one note by default without inventing a construction task or worker count.",
+			tags: ["save", "latvian", "note", "hours", "category"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-working-time-only-note",
+				body: "strādājam no 7.00 - 18.00",
+				timestamp: "1782197655",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: ["7.00", "18.00"],
+				records: [
+					{
+						requiredFieldSignals: { Works: ["Piezīmes|Notes"] },
+						workersInvolved: null,
+						timeInvolved: 11,
+						amounts: null,
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
 			id: "latvian-rain-weather-note",
 			intent: "Verify weather-only rain text is saved as a note.",
 			tags: ["save", "latvian", "note", "weather", "category"],
