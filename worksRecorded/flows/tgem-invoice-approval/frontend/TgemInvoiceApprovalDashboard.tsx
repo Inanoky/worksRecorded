@@ -17,13 +17,26 @@ import {
 	MessageCircle,
 	Pencil,
 	Search,
+	Trash2,
 	X,
 } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { DashboardOrganizationBrand } from "@/components/dashboard/DashboardOrganizationBrand";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
 	Dialog,
 	DialogClose,
@@ -65,6 +78,7 @@ import {
 import { updateTgemInvoiceAccounting } from "@/server/actions/tgem-cost-code-actions";
 import { getTgemInvoiceDashboardData } from "@/server/actions/tgem-invoice-actions";
 import { assignTgemInvoiceProject } from "@/server/actions/tgem-invoice-approval-actions";
+import { deleteTgemInvoices } from "@/server/actions/tgem-invoice-delete-actions";
 import { updateTgemInvoiceDetail } from "@/server/actions/tgem-invoice-details-actions";
 import { TgemApprovalControls } from "./TgemApprovalControls";
 import { TgemImageViewer } from "./TgemImageViewer";
@@ -116,6 +130,24 @@ function getCopy(language?: string | null) {
 			noOcrText: "OCR teksts vēl nav pieejams.",
 			approvalWorkspace: "Apstiprināšanas skats",
 			allInvoices: "Visi rēķini",
+			deleteInvoice: "Dzēst rēķinu",
+			deleteSelected: "Dzēst atlasītos",
+			selectInvoice: "Atlasīt rēķinu",
+			selectAllInvoices: "Atlasīt visus redzamos rēķinus",
+			deleteTitle: "Vai tiešām vēlaties dzēst?",
+			deleteDescription:
+				"Atlasītie rēķini, to pozīcijas, dokumentu ieraksti un apstiprināšanas vēsture tiks neatgriezeniski dzēsti.",
+			confirmDelete: "Jā, dzēst",
+			cancelDelete: "Atcelt",
+			deletingInvoices: "Dzēš…",
+			deleteFailed: "Neizdevās dzēst rēķinus. Mēģiniet vēlreiz.",
+			deleteConflict:
+				"Kāds no rēķiniem ir mainīts. Atceliet un atlasiet rēķinus vēlreiz.",
+			deleteProcessing: "Rēķini vēl tiek apstrādāti. Mēģiniet vēlāk.",
+			deleteAccessDenied:
+				"Kāds no rēķiniem vairs nav pieejams vai jums nav piekļuves.",
+			deleteLimit: "Vienlaikus var dzēst līdz 1000 rēķiniem.",
+			deletedInvoices: "Dzēstie rēķini",
 			registerDescription:
 				"Meklējiet un pārskatiet visus šī projekta rēķinus vienuviet.",
 			searchInvoices: "Meklēt pēc numura vai piegādātāja",
@@ -279,6 +311,24 @@ function getCopy(language?: string | null) {
 			noOcrText: "Текст OCR пока недоступен.",
 			approvalWorkspace: "Согласование",
 			allInvoices: "Все счета",
+			deleteInvoice: "Удалить счёт",
+			deleteSelected: "Удалить выбранные",
+			selectInvoice: "Выбрать счёт",
+			selectAllInvoices: "Выбрать все видимые счета",
+			deleteTitle: "Вы уверены, что хотите удалить?",
+			deleteDescription:
+				"Выбранные счета, их позиции, записи документов и история согласования будут удалены безвозвратно.",
+			confirmDelete: "Да, удалить",
+			cancelDelete: "Отмена",
+			deletingInvoices: "Удаление…",
+			deleteFailed: "Не удалось удалить счета. Попробуйте ещё раз.",
+			deleteConflict:
+				"Один из счетов изменён. Отмените действие и выберите счета повторно.",
+			deleteProcessing: "Счета ещё обрабатываются. Попробуйте позже.",
+			deleteAccessDenied:
+				"Один из счетов больше не доступен или у вас нет доступа.",
+			deleteLimit: "Можно удалить до 1000 счетов за один раз.",
+			deletedInvoices: "Удалено счетов",
 			registerDescription:
 				"Ищите и просматривайте все счета этого проекта в одном месте.",
 			searchInvoices: "Поиск по номеру или поставщику",
@@ -441,6 +491,24 @@ function getCopy(language?: string | null) {
 		noOcrText: "OCR text is not available yet.",
 		approvalWorkspace: "Approval workspace",
 		allInvoices: "All invoices",
+		deleteInvoice: "Delete invoice",
+		deleteSelected: "Delete selected",
+		selectInvoice: "Select invoice",
+		selectAllInvoices: "Select all visible invoices",
+		deleteTitle: "Are you sure you want to delete?",
+		deleteDescription:
+			"The selected invoices, their line items, document records, and approval history will be permanently deleted.",
+		confirmDelete: "Yes, delete",
+		cancelDelete: "Cancel",
+		deletingInvoices: "Deleting…",
+		deleteFailed: "Could not delete invoices. Please try again.",
+		deleteConflict:
+			"An invoice has changed. Cancel and select the invoices again.",
+		deleteProcessing: "Invoices are still processing. Please try again later.",
+		deleteAccessDenied:
+			"An invoice is no longer available or you do not have access.",
+		deleteLimit: "You can delete up to 1000 invoices at a time.",
+		deletedInvoices: "Invoices deleted",
 		registerDescription:
 			"Search and review every invoice for this project in one place.",
 		searchInvoices: "Search by number or supplier",
@@ -872,6 +940,15 @@ function InvoiceRegister({
 	const [statusFilter, setStatusFilter] = React.useState("all");
 	const [assignedToMeOnly, setAssignedToMeOnly] = React.useState(false);
 	const [sort, setSort] = React.useState<TgemInvoiceSort | null>(null);
+	const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+	const [deletedIds, setDeletedIds] = React.useState<Set<string>>(new Set());
+	const [deleteTargets, setDeleteTargets] = React.useState<
+		TgemDashboardInvoice[]
+	>([]);
+	const [deleting, setDeleting] = React.useState(false);
+	const deletingRef = React.useRef(false);
+	const [deleteError, setDeleteError] = React.useState<string | null>(null);
+	const [deletedCount, setDeletedCount] = React.useState<number | null>(null);
 	const [previewInvoiceId, setPreviewInvoiceId] = React.useState<string | null>(
 		null,
 	);
@@ -879,6 +956,7 @@ function InvoiceRegister({
 	const filteredInvoices = React.useMemo(
 		() =>
 			invoices.filter((invoice) => {
+				if (deletedIds.has(invoice.id)) return false;
 				const currentStep = approvalPosition(invoice).currentStep;
 				const matchesSearch =
 					!normalizedSearch ||
@@ -898,8 +976,77 @@ function InvoiceRegister({
 
 				return matchesSearch && matchesStatus && matchesAssignment;
 			}),
-		[assignedToMeOnly, currentUserId, invoices, normalizedSearch, statusFilter],
+		[
+			assignedToMeOnly,
+			currentUserId,
+			invoices,
+			normalizedSearch,
+			statusFilter,
+			deletedIds,
+		],
 	);
+	const selectedInvoices = filteredInvoices.filter((invoice) =>
+		selectedIds.has(invoice.id),
+	);
+	const allSelected =
+		filteredInvoices.length > 0 &&
+		selectedInvoices.length === filteredInvoices.length;
+	function toggleSelection(id: string, checked: boolean) {
+		setSelectedIds((current) => {
+			const next = new Set(current);
+			if (checked) next.add(id);
+			else next.delete(id);
+			return next;
+		});
+	}
+	function toggleAll(checked: boolean) {
+		setSelectedIds(
+			checked
+				? new Set(filteredInvoices.map((invoice) => invoice.id))
+				: new Set(),
+		);
+	}
+	function requestDelete(targets: TgemDashboardInvoice[]) {
+		setDeleteError(null);
+		setDeletedCount(null);
+		setDeleteTargets(targets);
+	}
+	async function confirmDelete() {
+		if (deletingRef.current || deleteTargets.length === 0) return;
+		deletingRef.current = true;
+		setDeleting(true);
+		setDeleteError(null);
+		try {
+			const result = await deleteTgemInvoices(
+				deleteTargets.map(({ id, updatedAt }) => ({ id, updatedAt })),
+			);
+			if (!result.ok) {
+				setDeleteError(
+					result.error === "processing"
+						? copy.deleteProcessing
+						: result.error === "conflict"
+							? copy.deleteConflict
+							: result.error === "access_denied"
+								? copy.deleteAccessDenied
+								: copy.deleteLimit,
+				);
+				return;
+			}
+			setDeletedIds((current) => new Set([...current, ...result.deletedIds]));
+			setSelectedIds(new Set());
+			setDeleteTargets([]);
+			setPreviewInvoiceId(null);
+			setDeletedCount(result.deletedIds.length);
+			try {
+				await onChanged();
+			} catch {}
+		} catch {
+			setDeleteError(copy.deleteFailed);
+		} finally {
+			deletingRef.current = false;
+			setDeleting(false);
+		}
+	}
 	const previewInvoice =
 		invoices.find((invoice) => invoice.id === previewInvoiceId) ?? null;
 	const sortedInvoices = React.useMemo(
@@ -918,7 +1065,7 @@ function InvoiceRegister({
 		label: string;
 		className?: string;
 	}[] = [
-		{ key: "costCode", label: copy.costCode, className: "pl-5" },
+		{ key: "costCode", label: copy.costCode },
 		{ key: "invoiceNumber", label: copy.invoiceNumber },
 		{ key: "project", label: copy.project },
 		{ key: "supplier", field: "supplier", label: copy.supplier },
@@ -964,7 +1111,7 @@ function InvoiceRegister({
 						</div>
 						<div className="rounded-full border bg-background px-3 py-1 text-xs font-medium tabular-nums text-muted-foreground">
 							{copy.showingInvoices}: {filteredInvoices.length} /{" "}
-							{invoices.length}
+							{invoices.filter((invoice) => !deletedIds.has(invoice.id)).length}
 						</div>
 					</div>
 					<div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -976,7 +1123,10 @@ function InvoiceRegister({
 							<Input
 								id={searchInputId}
 								value={search}
-								onChange={(event) => setSearch(event.target.value)}
+								onChange={(event) => {
+									setSearch(event.target.value);
+									setSelectedIds(new Set());
+								}}
 								placeholder={copy.searchInvoices}
 								className="bg-background pl-9"
 							/>
@@ -984,7 +1134,10 @@ function InvoiceRegister({
 						<select
 							aria-label={copy.status}
 							value={statusFilter}
-							onChange={(event) => setStatusFilter(event.target.value)}
+							onChange={(event) => {
+								setStatusFilter(event.target.value);
+								setSelectedIds(new Set());
+							}}
 							className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
 						>
 							<option value="all">{copy.allStatuses}</option>
@@ -997,12 +1150,52 @@ function InvoiceRegister({
 						<button
 							type="button"
 							aria-pressed={assignedToMeOnly}
-							onClick={() => setAssignedToMeOnly((current) => !current)}
+							onClick={() => {
+								setAssignedToMeOnly((current) => !current);
+								setSelectedIds(new Set());
+							}}
 							className={`inline-flex h-9 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${assignedToMeOnly ? "border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200" : "bg-background hover:bg-muted"}`}
 						>
 							<Clock3 className="h-4 w-4" />
 							{copy.assignedToMe}
 						</button>
+					</div>
+					<div className="flex flex-wrap items-center gap-3">
+						<label
+							htmlFor={`${searchInputId}-select-all`}
+							className="flex items-center gap-2 text-sm md:hidden"
+						>
+							<Checkbox
+								id={`${searchInputId}-select-all`}
+								aria-label={copy.selectAllInvoices}
+								checked={
+									allSelected
+										? true
+										: selectedInvoices.length
+											? "indeterminate"
+											: false
+								}
+								disabled={deleting || !filteredInvoices.length}
+								onCheckedChange={(checked) => toggleAll(checked === true)}
+							/>
+							{copy.selectAllInvoices}
+						</label>
+						{selectedInvoices.length > 0 ? (
+							<Button
+								variant="destructive"
+								size="sm"
+								disabled={deleting}
+								onClick={() => requestDelete(selectedInvoices)}
+							>
+								<Trash2 className="h-4 w-4" />
+								{copy.deleteSelected} ({selectedInvoices.length})
+							</Button>
+						) : null}
+						{deletedCount !== null ? (
+							<output className="text-sm text-muted-foreground">
+								{copy.deletedInvoices}: {deletedCount}
+							</output>
+						) : null}
 					</div>
 					<div className="mt-2 flex items-center gap-2 md:hidden">
 						<select
@@ -1053,6 +1246,20 @@ function InvoiceRegister({
 						<Table>
 							<TableHeader className="sticky top-0 z-10 bg-background">
 								<TableRow className="hover:bg-transparent">
+									<TableHead className="w-12 pl-5">
+										<Checkbox
+											aria-label={copy.selectAllInvoices}
+											checked={
+												allSelected
+													? true
+													: selectedInvoices.length
+														? "indeterminate"
+														: false
+											}
+											disabled={deleting || !filteredInvoices.length}
+											onCheckedChange={(checked) => toggleAll(checked === true)}
+										/>
+									</TableHead>
 									{columns.map((column) => {
 										const field = column.field;
 										if (!field) {
@@ -1113,7 +1320,20 @@ function InvoiceRegister({
 											className="group cursor-pointer"
 											onClick={() => openPreview(invoice.id)}
 										>
-											<TableCell className="pl-5 font-medium">
+											<TableCell
+												className="pl-5"
+												onClick={(event) => event.stopPropagation()}
+											>
+												<Checkbox
+													aria-label={`${copy.selectInvoice}: ${invoiceLabel}`}
+													checked={selectedIds.has(invoice.id)}
+													disabled={deleting}
+													onCheckedChange={(checked) =>
+														toggleSelection(invoice.id, checked === true)
+													}
+												/>
+											</TableCell>
+											<TableCell className="font-medium">
 												{invoice.costCode || "—"}
 											</TableCell>
 											<TableCell className="font-semibold">
@@ -1173,6 +1393,19 @@ function InvoiceRegister({
 												{currentStep?.approverName || copy.noCurrentApprover}
 											</TableCell>
 											<TableCell className="pr-4 text-right">
+												<Button
+													variant="ghost"
+													size="icon"
+													aria-label={`${copy.deleteInvoice}: ${invoiceLabel}`}
+													disabled={deleting}
+													onClick={(event) => {
+														event.stopPropagation();
+														requestDelete([invoice]);
+													}}
+													className="text-destructive hover:text-destructive"
+												>
+													<Trash2 className="h-4 w-4" />
+												</Button>
 												<ArrowRight className="inline h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
 											</TableCell>
 										</TableRow>
@@ -1187,56 +1420,77 @@ function InvoiceRegister({
 							const { currentStep } = approvalPosition(invoice);
 
 							return (
-								<button
-									key={invoice.id}
-									data-testid={`tgem-register-mobile-invoice-${invoice.id}`}
-									type="button"
-									onClick={() => openPreview(invoice.id)}
-									className="flex w-full items-start justify-between gap-3 p-4 text-left transition hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
-								>
-									<div className="min-w-0">
-										<div className="mb-1 text-xs text-muted-foreground">
-											{copy.costCode}: {invoice.costCode || "—"}
+								<div key={invoice.id} className="flex items-start gap-2 p-4">
+									<Checkbox
+										className="mt-1"
+										aria-label={`${copy.selectInvoice}: ${invoice.invoiceNumber || invoice.id}`}
+										checked={selectedIds.has(invoice.id)}
+										disabled={deleting}
+										onCheckedChange={(checked) =>
+											toggleSelection(invoice.id, checked === true)
+										}
+									/>
+									<button
+										key={invoice.id}
+										data-testid={`tgem-register-mobile-invoice-${invoice.id}`}
+										type="button"
+										onClick={() => openPreview(invoice.id)}
+										className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left transition hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
+									>
+										<div className="min-w-0">
+											<div className="mb-1 text-xs text-muted-foreground">
+												{copy.costCode}: {invoice.costCode || "—"}
+											</div>
+											<div className="truncate font-semibold">
+												{invoice.invoiceNumber || invoice.id}
+											</div>
+											<div className="mt-0.5 truncate text-sm text-muted-foreground">
+												{invoice.supplierName || "—"}
+											</div>
+											<div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+												<Building2 className="h-3 w-3" />
+												{invoice.project?.name || copy.unassigned}
+											</div>
+											<div className="mt-2 text-xs text-muted-foreground">
+												{currentStep?.approverName || copy.noCurrentApprover}
+											</div>
 										</div>
-										<div className="truncate font-semibold">
-											{invoice.invoiceNumber || invoice.id}
+										<div className="flex shrink-0 flex-col items-end gap-2">
+											<span className="font-semibold tabular-nums">
+												{formatMoney(
+													invoice.total,
+													invoice.currency,
+													organizationLanguage,
+												)}
+											</span>
+											<span className="text-right text-xs text-muted-foreground tabular-nums">
+												{copy.priceWithoutVat}
+												<br />
+												{formatMoney(
+													invoice.subtotal,
+													invoice.currency,
+													organizationLanguage,
+												)}
+											</span>
+											<Badge
+												variant="outline"
+												className={statusClass(invoice.status)}
+											>
+												{localizedValue(copy.statuses, invoice.status)}
+											</Badge>
 										</div>
-										<div className="mt-0.5 truncate text-sm text-muted-foreground">
-											{invoice.supplierName || "—"}
-										</div>
-										<div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-											<Building2 className="h-3 w-3" />
-											{invoice.project?.name || copy.unassigned}
-										</div>
-										<div className="mt-2 text-xs text-muted-foreground">
-											{currentStep?.approverName || copy.noCurrentApprover}
-										</div>
-									</div>
-									<div className="flex shrink-0 flex-col items-end gap-2">
-										<span className="font-semibold tabular-nums">
-											{formatMoney(
-												invoice.total,
-												invoice.currency,
-												organizationLanguage,
-											)}
-										</span>
-										<span className="text-right text-xs text-muted-foreground tabular-nums">
-											{copy.priceWithoutVat}
-											<br />
-											{formatMoney(
-												invoice.subtotal,
-												invoice.currency,
-												organizationLanguage,
-											)}
-										</span>
-										<Badge
-											variant="outline"
-											className={statusClass(invoice.status)}
-										>
-											{localizedValue(copy.statuses, invoice.status)}
-										</Badge>
-									</div>
-								</button>
+									</button>
+									<Button
+										variant="ghost"
+										size="icon"
+										aria-label={`${copy.deleteInvoice}: ${invoice.invoiceNumber || invoice.id}`}
+										disabled={deleting}
+										onClick={() => requestDelete([invoice])}
+										className="shrink-0 text-destructive hover:text-destructive"
+									>
+										<Trash2 className="h-4 w-4" />
+									</Button>
+								</div>
 							);
 						})}
 					</div>
@@ -1250,6 +1504,57 @@ function InvoiceRegister({
 				</CardContent>
 			</Card>
 
+			<AlertDialog
+				open={deleteTargets.length > 0}
+				onOpenChange={(open) => {
+					if (!open && !deletingRef.current) setDeleteTargets([]);
+				}}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>{copy.deleteTitle}</AlertDialogTitle>
+						<AlertDialogDescription>
+							{copy.deleteDescription}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<div className="max-h-48 overflow-y-auto text-sm">
+						<p className="mb-2 font-medium">
+							{copy.inbox}: {deleteTargets.length}
+						</p>
+						<ul className="list-inside list-disc">
+							{deleteTargets.map((invoice) => (
+								<li key={invoice.id}>
+									{invoice.invoiceNumber || invoice.id} ·{" "}
+									{invoice.supplierName || "—"}
+								</li>
+							))}
+						</ul>
+					</div>
+					{deleteError ? (
+						<p role="alert" className="text-sm text-destructive">
+							{deleteError}
+						</p>
+					) : null}
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={deleting}>
+							{copy.cancelDelete}
+						</AlertDialogCancel>
+						<AlertDialogAction
+							disabled={deleting}
+							className="bg-destructive text-white hover:bg-destructive/90"
+							onClick={(event) => {
+								event.preventDefault();
+								void confirmDelete();
+							}}
+						>
+							{deleting ? (
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							) : null}
+							{deleting ? copy.deletingInvoices : copy.confirmDelete}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 			<Dialog
 				open={previewInvoice !== null}
 				onOpenChange={(open) => {
@@ -2391,6 +2696,7 @@ export function TgemInvoiceApprovalDashboard({
 					/>
 					{dashboardView === "register" && data ? (
 						<InvoiceRegister
+							key={projectFilter}
 							invoices={data.invoices}
 							costCodes={data.costCodes}
 							currentUserId={data.currentUserId}

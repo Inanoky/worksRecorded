@@ -28,6 +28,11 @@ const mockDecideApproval = jest.fn();
 const mockAssignProject = jest.fn();
 const mockUpdateInvoiceAccounting = jest.fn();
 const mockUpdateInvoiceDetail = jest.fn();
+const mockDeleteInvoices = jest.fn();
+
+jest.mock("@/server/actions/tgem-invoice-delete-actions", () => ({
+	deleteTgemInvoices: (...args: unknown[]) => mockDeleteInvoices(...args),
+}));
 
 jest.mock("@/server/actions/tgem-invoice-actions", () => ({
 	getTgemInvoiceDashboardData: jest.fn(),
@@ -212,6 +217,12 @@ function approvalStep(
 describe("TgemInvoiceApprovalDashboard", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		mockDeleteInvoices
+			.mockReset()
+			.mockImplementation(async (targets: { id: string }[]) => ({
+				ok: true,
+				deletedIds: targets.map((item) => item.id),
+			}));
 		mockUpdateInvoiceDetail
 			.mockReset()
 			.mockImplementation(async (input: { value: string }) => ({
@@ -244,6 +255,186 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			invoiceCaseId: "case-1",
 			unchanged: false,
 		});
+	});
+
+	it("requires confirmation for single deletion and supports cancellation", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue(dashboardData);
+		render(<TgemInvoiceApprovalDashboard organizationLanguage="en" />);
+		const row = await screen.findByTestId("tgem-register-invoice-case-1");
+		fireEvent.click(
+			within(row).getByRole("button", { name: "Delete invoice: TG-2026-0718" }),
+		);
+		const dialog = screen.getByRole("alertdialog");
+		expect(
+			within(dialog).getByText("Are you sure you want to delete?"),
+		).toBeInTheDocument();
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		expect(mockDeleteInvoices).not.toHaveBeenCalled();
+		fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+		expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+		expect(mockDeleteInvoices).not.toHaveBeenCalled();
+		fireEvent.click(
+			within(row).getByRole("button", { name: "Delete invoice: TG-2026-0718" }),
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+		await waitFor(() =>
+			expect(mockDeleteInvoices).toHaveBeenCalledWith([
+				{ id: "case-1", updatedAt: dashboardData.invoices[0].updatedAt },
+			]),
+		);
+		await waitFor(() =>
+			expect(
+				screen.queryByTestId("tgem-register-invoice-case-1"),
+			).not.toBeInTheDocument(),
+		);
+		expect(screen.getByRole("status")).toHaveTextContent("Invoices deleted: 1");
+	});
+
+	it("puts checkboxes first and bulk-deletes only the current filtered selection", async () => {
+		const invoices = [
+			dashboardData.invoices[0],
+			{ ...dashboardData.invoices[0], id: "case-2", invoiceNumber: "SECOND" },
+		];
+		jest
+			.mocked(getTgemInvoiceDashboardData)
+			.mockResolvedValue({ ...dashboardData, invoices });
+		render(<TgemInvoiceApprovalDashboard organizationLanguage="en" />);
+		await screen.findByTestId("tgem-invoice-register");
+		const table = screen.getByRole("table");
+		const selectAll = within(table).getByRole("checkbox", {
+			name: "Select all visible invoices",
+		});
+		expect(
+			screen.queryByRole("button", { name: /Delete selected/ }),
+		).not.toBeInTheDocument();
+		expect(
+			within(screen.getAllByRole("columnheader")[0]).getByRole("checkbox"),
+		).toBe(selectAll);
+		fireEvent.click(
+			within(screen.getByTestId("tgem-register-invoice-case-1")).getByRole(
+				"checkbox",
+			),
+		);
+		expect(selectAll).toHaveAttribute("data-state", "indeterminate");
+		expect(
+			screen.getByRole("button", { name: "Delete selected (1)" }),
+		).toBeVisible();
+		fireEvent.click(
+			within(screen.getByTestId("tgem-register-invoice-case-1")).getByRole(
+				"checkbox",
+			),
+		);
+		expect(
+			screen.queryByRole("button", { name: /Delete selected/ }),
+		).not.toBeInTheDocument();
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		fireEvent.click(selectAll);
+		expect(
+			screen.getByRole("button", { name: "Delete selected (2)" }),
+		).toBeEnabled();
+		fireEvent.change(
+			screen.getByRole("textbox", {
+				name: "Search by number or supplier",
+			}),
+			{ target: { value: "SECOND" } },
+		);
+		expect(
+			screen.queryByRole("button", { name: /Delete selected/ }),
+		).not.toBeInTheDocument();
+		fireEvent.click(selectAll);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Delete selected (1)" }),
+		);
+		expect(mockDeleteInvoices).not.toHaveBeenCalled();
+		expect(screen.getByRole("alertdialog")).not.toHaveTextContent(
+			"TG-2026-0718",
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+		await waitFor(() =>
+			expect(mockDeleteInvoices).toHaveBeenCalledWith([
+				{ id: "case-2", updatedAt: invoices[1].updatedAt },
+			]),
+		);
+	});
+
+	it("submits all checked invoices together", async () => {
+		const invoices = [
+			dashboardData.invoices[0],
+			{ ...dashboardData.invoices[0], id: "case-2", invoiceNumber: "SECOND" },
+		];
+		jest
+			.mocked(getTgemInvoiceDashboardData)
+			.mockResolvedValue({ ...dashboardData, invoices });
+		render(<TgemInvoiceApprovalDashboard organizationLanguage="en" />);
+		await screen.findByTestId("tgem-invoice-register");
+		fireEvent.click(
+			within(screen.getByRole("table")).getByRole("checkbox", {
+				name: "Select all visible invoices",
+			}),
+		);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Delete selected (2)" }),
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+		await waitFor(() =>
+			expect(mockDeleteInvoices).toHaveBeenCalledWith(
+				invoices.map(({ id, updatedAt }) => ({ id, updatedAt })),
+			),
+		);
+	});
+
+	it("retains records and confirmation when deletion fails, allowing retry", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue(dashboardData);
+		mockDeleteInvoices.mockRejectedValueOnce(
+			new Error("Private database details"),
+		);
+		render(<TgemInvoiceApprovalDashboard organizationLanguage="en" />);
+		const row = await screen.findByTestId("tgem-register-invoice-case-1");
+		fireEvent.click(
+			within(row).getByRole("button", { name: "Delete invoice: TG-2026-0718" }),
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+		expect(await screen.findByRole("alert")).toHaveTextContent(
+			"Could not delete invoices. Please try again.",
+		);
+		expect(
+			screen.queryByText("Private database details"),
+		).not.toBeInTheDocument();
+		expect(row).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+		await waitFor(() =>
+			expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+		);
+	});
+
+	it("supports mobile deletion with Latvian confirmation and guards pending requests", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue(dashboardData);
+		let complete: (value: unknown) => void = () => {};
+		mockDeleteInvoices.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					complete = resolve;
+				}),
+		);
+		render(<TgemInvoiceApprovalDashboard organizationLanguage="lv" />);
+		const mobile = await screen.findByTestId(
+			"tgem-register-mobile-invoice-case-1",
+		);
+		const card = mobile.parentElement;
+		if (!card) throw new Error("Expected mobile invoice card");
+		expect(within(card).getByRole("checkbox")).toBeInTheDocument();
+		fireEvent.click(
+			within(card).getByRole("button", { name: "Dzēst rēķinu: TG-2026-0718" }),
+		);
+		expect(screen.getByRole("alertdialog")).toHaveTextContent(
+			"Vai tiešām vēlaties dzēst?",
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Jā, dzēst" }));
+		expect(screen.getByRole("button", { name: "Dzēš…" })).toBeDisabled();
+		expect(screen.getByRole("button", { name: "Atcelt" })).toBeDisabled();
+		fireEvent.click(screen.getByRole("button", { name: "Dzēš…" }));
+		expect(mockDeleteInvoices).toHaveBeenCalledTimes(1);
+		await act(async () => complete({ ok: true, deletedIds: ["case-1"] }));
 	});
 
 	it("renders the authorized server-backed invoice fixture", async () => {
@@ -882,7 +1073,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		]);
 	});
 
-	it("places cost code first and shows saved prices without VAT on desktop and mobile", async () => {
+	it("places selection before cost code and shows saved prices without VAT on desktop and mobile", async () => {
 		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
 			...dashboardData,
 			invoices: [
@@ -917,7 +1108,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		expect(
 			screen
 				.getAllByRole("columnheader")
-				.slice(0, 2)
+				.slice(1, 3)
 				.map((header) => header.textContent),
 		).toEqual(["Cost code", "Invoice number"]);
 		expect(
@@ -926,18 +1117,19 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		const cells = within(
 			screen.getByTestId("tgem-register-invoice-coded"),
 		).getAllByRole("cell");
-		expect(cells[0]).toHaveTextContent("A123");
-		expect(cells[6].textContent).toMatch(/100\.00/);
-		expect(cells[7].textContent).toMatch(/121\.00/);
+		expect(within(cells[0]).getByRole("checkbox")).toBeInTheDocument();
+		expect(cells[1]).toHaveTextContent("A123");
+		expect(cells[7].textContent).toMatch(/100\.00/);
+		expect(cells[8].textContent).toMatch(/121\.00/);
 		const emptyCells = within(
 			screen.getByTestId("tgem-register-invoice-empty"),
 		).getAllByRole("cell");
-		expect(emptyCells[0]).toHaveTextContent("—");
-		expect(emptyCells[6]).toHaveTextContent("—");
+		expect(emptyCells[1]).toHaveTextContent("—");
+		expect(emptyCells[7]).toHaveTextContent("—");
 		expect(
 			within(screen.getByTestId("tgem-register-invoice-zero")).getAllByRole(
 				"cell",
-			)[6].textContent,
+			)[7].textContent,
 		).toMatch(/0\.00/);
 		const mobile = within(
 			screen.getByTestId("tgem-register-mobile-invoice-coded"),
@@ -1085,7 +1277,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			within(screen.getByTestId("tgem-register-invoice-case-1")).getAllByRole(
 				"cell",
 				{ hidden: true },
-			)[0],
+			)[1],
 		).toHaveTextContent("A123");
 	});
 
