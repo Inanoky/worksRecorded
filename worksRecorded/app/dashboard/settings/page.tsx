@@ -20,6 +20,7 @@ import {
 import { getFlowModuleUi } from "@/lib/flows/registry";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { redirect } from "next/navigation";
+import { TGEM_ORGANIZATION_ID } from "@/lib/client-flows/constants";
 
 export default async function SettingsSiteRoute() {
   const user = await requireUser();
@@ -30,10 +31,13 @@ export default async function SettingsSiteRoute() {
 
   const flowModuleKey = await resolveFlowModuleKeyForRuntime({ organizationId: orgId });
   const flowUi = getFlowModuleUi(flowModuleKey);
-  const hideOrganizationMaterialSettings = Boolean(flowUi.hideOrganizationMaterialSettings);
-  const hideMemberReminderSettings = Boolean(flowUi.hideMemberReminderSettings);
+  const isTgemOrganization = orgId === TGEM_ORGANIZATION_ID;
+  const hideOrganizationMaterialSettings =
+    isTgemOrganization || Boolean(flowUi.hideOrganizationMaterialSettings);
+  const hideMemberReminderSettings =
+    isTgemOrganization || Boolean(flowUi.hideMemberReminderSettings);
   const userData = await getUserData(orgId);
-  const workersData = await getOrganizationWorkers(orgId);
+  const workersData = isTgemOrganization ? null : await getOrganizationWorkers(orgId);
   const reminderLogs = hideMemberReminderSettings
     ? []
     : await getWhatsappReminderLogs(orgId, { take: 50 });
@@ -66,16 +70,21 @@ export default async function SettingsSiteRoute() {
         organizationLanguage={currentLanguage}
         hideReminders={hideMemberReminderSettings}
         hidePhone={Boolean(flowUi.hideMemberPhoneSettings)}
-        hideRole={Boolean(flowUi.hideMemberRoleSettings)}
-        titleVariant={flowUi.settingsTitleVariant ?? "default"}
+        hideRole={isTgemOrganization || Boolean(flowUi.hideMemberRoleSettings)}
+        hideStatus={isTgemOrganization}
+        titleVariant={
+          isTgemOrganization ? "team" : flowUi.settingsTitleVariant ?? "default"
+        }
       />
-      <WorkersSettingsTable
-        orgId={orgId || ""}
-        workers={workersData.workers}
-        projects={workersData.projects}
-        organizationLanguage={currentLanguage}
-        hideReminders={hideMemberReminderSettings}
-      />
+      {workersData ? (
+        <WorkersSettingsTable
+          orgId={orgId || ""}
+          workers={workersData.workers}
+          projects={workersData.projects}
+          organizationLanguage={currentLanguage}
+          hideReminders={hideMemberReminderSettings}
+        />
+      ) : null}
       {!hideMemberReminderSettings ? (
         <WhatsappReminderLogsTable
           logs={reminderLogs}

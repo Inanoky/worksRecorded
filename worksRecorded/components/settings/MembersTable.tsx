@@ -60,7 +60,8 @@ type MembersTableProps = {
   hideReminders?: boolean;
   hidePhone?: boolean;
   hideRole?: boolean;
-  titleVariant?: "default" | "adminPanel";
+  hideStatus?: boolean;
+  titleVariant?: "default" | "adminPanel" | "team";
 };
 
 const emailSchema = z.string().trim().email("Please provide a valid email address");
@@ -75,13 +76,16 @@ function getColumns(
   hideReminders: boolean,
   hidePhone: boolean,
   hideRole: boolean,
+  hideStatus: boolean,
 ): ColumnDef<Member, any>[] {
   const columns: ColumnDef<Member, any>[] = [
     { accessorKey: "email", header: t.emailColumn },
     { accessorKey: "firstName", header: t.firstNameColumn },
     { accessorKey: "lastName", header: t.lastNameColumn },
-    { accessorKey: "status", header: t.statusColumn },
   ];
+  if (!hideStatus) {
+    columns.push({ accessorKey: "status", header: t.statusColumn });
+  }
   if (!hidePhone) {
     columns.splice(3, 0, { accessorKey: "phone", header: t.phoneColumn });
   }
@@ -183,6 +187,7 @@ export function MembersTable({
   hideReminders = false,
   hidePhone = false,
   hideRole = false,
+  hideStatus = false,
   titleVariant = "default",
 }: MembersTableProps) {
   const router = useRouter();
@@ -190,8 +195,8 @@ export function MembersTable({
   const t = getSettingsUiMessages(language);
   const toastMessages = getToastMessages(language);
   const columns = React.useMemo(
-    () => getColumns(t, hideReminders, hidePhone, hideRole),
-    [t, hideReminders, hidePhone, hideRole],
+    () => getColumns(t, hideReminders, hidePhone, hideRole, hideStatus),
+    [t, hideReminders, hidePhone, hideRole, hideStatus],
   );
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [rowSelection, setRowSelection] = React.useState({});
@@ -333,7 +338,13 @@ export function MembersTable({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle>{titleVariant === "adminPanel" ? t.adminPanel : t.siteManagers}</CardTitle>
+          <CardTitle>
+            {titleVariant === "team"
+              ? t.team
+              : titleVariant === "adminPanel"
+                ? t.adminPanel
+                : t.siteManagers}
+          </CardTitle>
         </div>
         <div className="flex items-center py-4 gap-2">
           <Input
@@ -633,7 +644,7 @@ export function MembersTable({
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button size="icon" variant="ghost" type="button">
+                              <Button size="icon" variant="ghost" type="button" aria-label={t.actions}>
                                 <MoreHorizontal />
                               </Button>
                             </DropdownMenuTrigger>

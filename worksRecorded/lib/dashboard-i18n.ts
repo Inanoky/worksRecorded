@@ -378,6 +378,7 @@ type SettingsUiMessages = {
   edit: string;
   noDataFound: string;
   siteManagers: string;
+  team: string;
   adminPanel: string;
   emailColumn: string;
   firstNameColumn: string;
@@ -1382,6 +1383,7 @@ const SETTINGS_UI_MESSAGES: Record<OrganizationLanguage, SettingsUiMessages> = {
     edit: "Edit",
     noDataFound: "No data found.",
     siteManagers: "Site managers",
+    team: "Team",
     adminPanel: "Admin panel",
     emailColumn: "Email",
     firstNameColumn: "First name",
@@ -1414,6 +1416,7 @@ const SETTINGS_UI_MESSAGES: Record<OrganizationLanguage, SettingsUiMessages> = {
     edit: "Rediģēt",
     noDataFound: "Dati nav atrasti.",
     siteManagers: "Objekta vadītāji",
+    team: "Komanda",
     adminPanel: "Admin panelis",
     emailColumn: "E-pasts",
     firstNameColumn: "Vārds",
