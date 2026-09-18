@@ -9,6 +9,10 @@ jest.mock("next/navigation", () => ({
 	useRouter: () => ({ refresh: jest.fn() }),
 }));
 
+jest.mock("@/server/actions/tgem-project-actions", () => ({
+	deleteTgemProject: jest.fn(),
+}));
+
 jest.mock("@/server/actions/tgem-invoice-approval-actions", () => ({
 	saveTgemApprovalTemplate: jest.fn(),
 	saveTgemWorkflowManagers: jest.fn(),
@@ -20,6 +24,26 @@ jest.mock("@/server/actions/tgem-cost-code-actions", () => ({
 }));
 
 describe("TgemCostCodeSettings", () => {
+	it("offers deletion only for a selected project", () => {
+		const { rerender } = render(
+			<TgemCostCodeSettings initialCostCodes={[]} organizationLanguage="en" />,
+		);
+		expect(screen.queryByRole("button", { name: "Delete project" })).toBeNull();
+		rerender(
+			<TgemCostCodeSettings
+				initialCostCodes={[]}
+				organizationLanguage="en"
+				selectedProject={{ id: "site-1", name: "Project 1" }}
+			/>,
+		);
+		expect(
+			screen.getByRole("button", { name: "Delete project" }),
+		).toBeInTheDocument();
+		rerender(
+			<TgemCostCodeSettings initialCostCodes={[]} organizationLanguage="en" />,
+		);
+		expect(screen.queryByRole("button", { name: "Delete project" })).toBeNull();
+	});
 	beforeEach(() => {
 		jest.clearAllMocks();
 	});

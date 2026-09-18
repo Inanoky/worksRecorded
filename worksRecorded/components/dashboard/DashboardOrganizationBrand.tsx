@@ -10,12 +10,12 @@ export function DashboardOrganizationBrand({
 	if (flowModuleKey !== FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL) return null;
 
 	return (
-		<div className="relative h-10 w-30 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white sm:h-13 sm:w-40">
+		<div className="relative h-12 w-36 shrink-0 overflow-hidden rounded-md bg-white sm:h-16 sm:w-48 lg:h-20 lg:w-60">
 			<Image
 				src={tgemLogo}
 				alt="TGEM"
 				fill
-				sizes="(min-width: 640px) 160px, 120px"
+				sizes="(min-width: 1024px) 240px, (min-width: 640px) 192px, 144px"
 				className="object-cover object-[center_45%]"
 			/>
 		</div>

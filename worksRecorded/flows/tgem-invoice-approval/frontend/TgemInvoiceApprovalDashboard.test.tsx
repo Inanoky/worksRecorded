@@ -13,6 +13,11 @@ import {
 	runTgemInvoiceOcr,
 } from "@/server/actions/tgem-invoice-actions";
 import { TgemCostCodeSettings } from "./TgemCostCodeSettings";
+
+jest.mock("@/server/actions/tgem-project-actions", () => ({
+	deleteTgemProject: jest.fn(),
+}));
+
 import { TgemInvoiceApprovalDashboard } from "./TgemInvoiceApprovalDashboard";
 
 const mockRefresh = jest.fn();

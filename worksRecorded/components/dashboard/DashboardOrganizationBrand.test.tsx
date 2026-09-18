@@ -3,22 +3,28 @@ import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { DashboardOrganizationBrand } from "./DashboardOrganizationBrand";
 
 describe("DashboardOrganizationBrand", () => {
-	it("shows the TGEM logo at compact responsive sizes", () => {
+	it("shows a larger proportional TGEM logo without a surrounding border", () => {
 		render(
 			<DashboardOrganizationBrand
 				flowModuleKey={FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL}
 			/>,
 		);
 		const logo = screen.getByRole("img", { name: "TGEM" });
-		expect(logo).toHaveAttribute("sizes", "(min-width: 640px) 160px, 120px");
+		expect(logo).toHaveAttribute(
+			"sizes",
+			"(min-width: 1024px) 240px, (min-width: 640px) 192px, 144px",
+		);
 		expect(logo).toHaveClass("object-cover", "object-[center_45%]");
 		expect(logo.parentElement).toHaveClass(
-			"h-10",
-			"w-30",
-			"sm:h-13",
-			"sm:w-40",
+			"h-12",
+			"w-36",
+			"sm:h-16",
+			"sm:w-48",
+			"lg:h-20",
+			"lg:w-60",
 			"bg-white",
 		);
+		expect(logo.parentElement).not.toHaveClass("border");
 	});
 
 	it.each([

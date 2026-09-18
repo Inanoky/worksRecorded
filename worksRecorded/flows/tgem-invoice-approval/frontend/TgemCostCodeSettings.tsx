@@ -24,6 +24,7 @@ import {
 	setTgemCostCodeActive,
 } from "@/server/actions/tgem-cost-code-actions";
 import { TgemApprovalSetup } from "./TgemApprovalSetup";
+import { TgemProjectDeleteCard } from "./TgemProjectDeleteCard";
 
 type CostCode = {
 	id: string;
@@ -490,6 +491,13 @@ export function TgemCostCodeSettings({
 					) : null}
 				</CardContent>
 			</Card>
+			{selectedProject ? (
+				<TgemProjectDeleteCard
+					key={selectedProject.id}
+					project={selectedProject}
+					organizationLanguage={organizationLanguage}
+				/>
+			) : null}
 		</div>
 	);
 }
