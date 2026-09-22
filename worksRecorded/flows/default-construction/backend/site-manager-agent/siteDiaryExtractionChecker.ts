@@ -1,6 +1,10 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
+import {
+	invokeSiteManagerModel,
+	SITE_MANAGER_AI_BUDGET_MS,
+} from "./aiDeadline";
 import type { SupportedReplyLanguage } from "./fastPath";
 
 export const siteDiaryExtractionCheckerModel = "gpt-5.6-terra";
@@ -135,14 +139,17 @@ export async function invokeSiteDiaryExtractionChecker(args: {
 }) {
 	const llm = new ChatOpenAI({
 		model: siteDiaryExtractionCheckerModel,
+		timeout: SITE_MANAGER_AI_BUDGET_MS,
+		maxRetries: 0,
 		reasoning: { effort: siteDiaryExtractionCheckerReasoningEffort },
 	});
 	const structured = llm.withStructuredOutput(
 		siteDiaryExtractionCheckerSchema,
 		{ includeRaw: true },
-	) as any;
-	const envelope = await structured.invoke(
-		buildSiteDiaryExtractionCheckerMessages(args),
+	);
+	const envelope = await invokeSiteManagerModel(
+		(config) =>
+			structured.invoke(buildSiteDiaryExtractionCheckerMessages(args), config),
 		args.runnableConfig,
 	);
 	return {

@@ -1366,6 +1366,7 @@ async function handleUserIdUpdate(args: {
 }
 
 export async function POST(req: Request): Promise<Response> {
+	const webhookStartedAtMs = Date.now();
 	try {
 		const body = await req.json();
 
@@ -1576,6 +1577,7 @@ export async function POST(req: Request): Promise<Response> {
 				if (isRoutableMetaMessage(message)) {
 					await runWithWhatsappSourceContext(
 						{
+							webhookStartedAtMs,
 							messageId: message.id,
 							replyToMessageId:
 								typeof message.context?.id === "string"

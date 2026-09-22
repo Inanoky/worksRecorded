@@ -63,6 +63,15 @@ import {
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import { getUserAddressName, shouldSampleUserAddress } from "./nameAddressing";
 import { getFinalAssistantResponse } from "./responseContent";
+import {
+    getSiteManagerAiTimeout,
+    getSiteManagerTimeoutReply,
+    invokeSiteManagerModel,
+    markSiteManagerSideEffectsStarted,
+    SITE_MANAGER_AI_BUDGET_MS,
+    SiteManagerAiTimeoutError,
+    withSiteManagerAiBudget,
+} from "./aiDeadline";
 
 export { runWithSiteManagerAgentEvalContext };
 export type { SiteManagerAgentRunDetails };
@@ -118,14 +127,24 @@ type SiteManagerMessageInput = {
 };
 
 const siteManagerMessageRun = RunnableLambda.from<SiteManagerMessageInput, string | null>(
-    async ({ question, siteId, userId, originalAudioUrl }, runnableConfig) =>
-        talkToWhatsappAgentCore(
-            question,
-            siteId,
-            userId,
-            originalAudioUrl,
-            runnableConfig as RunnableConfig,
-        ),
+    async ({ question, siteId, userId, originalAudioUrl }, runnableConfig) => {
+        try {
+            return await talkToWhatsappAgentCore(
+                question,
+                siteId,
+                userId,
+                originalAudioUrl,
+                runnableConfig as RunnableConfig,
+            );
+        } catch (error) {
+            if (!(error instanceof SiteManagerAiTimeoutError)) throw error;
+            if (runnableConfig.metadata) {
+                runnableConfig.metadata.siteManagerAiTimedOut = true;
+                runnableConfig.metadata.siteManagerTimeoutHandled = true;
+            }
+            return getSiteManagerTimeoutReply(detectReplyLanguage(question));
+        }
+    },
 );
 
 export default async function talkToWhatsappAgent(question, siteId, userId, originalAudioUrl?: string | null) {
@@ -166,10 +185,10 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
         tags: [...senderTraceTags, ...workflowTrace.tags, ...(runContext?.traceTags ?? [])],
     });
 
-    return siteManagerMessageRun.invoke(
+    return withSiteManagerAiBudget(() => siteManagerMessageRun.invoke(
         { question, siteId, userId, originalAudioUrl },
         messageContext.runnableConfig,
-    );
+    ));
 }
 
 async function talkToWhatsappAgentCore(
@@ -325,6 +344,7 @@ async function talkToWhatsappAgentCore(
                         : "fallback";
             legacyFallbackReason = fastPathResult.action === "fallback" ? "model-fallback" : undefined;
         } catch (error) {
+            if (error instanceof SiteManagerAiTimeoutError) throw error;
             console.warn("site-manager fast path failed before persistence; using legacy agent", error);
             legacyFastPathAttempted = true;
             legacyFastPathOutcome = "error";
@@ -486,6 +506,8 @@ async function talkToWhatsappAgentCore(
 
         const llm = new ChatOpenAI({
             model: requestedModel,
+            timeout: SITE_MANAGER_AI_BUDGET_MS,
+            maxRetries: 0,
             useResponsesApi: true,
             modelKwargs: {
                 reasoning: { effort: siteManagerAgentForSiteManagerRouteModelReasoningEffort },
@@ -494,7 +516,7 @@ async function talkToWhatsappAgentCore(
 
         try {
             const modelStarted = Date.now();
-            const response = await llm.invoke(safeMessages, {
+            const response = await invokeSiteManagerModel((config) => llm.invoke(safeMessages, config), {
                 ...aiContext.runnableConfig,
                 runName: "WhatsAppSiteManagerModel",
                 metadata: {
@@ -548,12 +570,16 @@ async function talkToWhatsappAgentCore(
             message?.name === "save_to_database" || message?.additional_kwargs?.name === "save_to_database");
         const toolContent = typeof toolMessage?.content === "string" ? toolMessage.content : "";
         const replyLanguage = detectReplyLanguage(normalizedQuestion);
+        const outcome = parseSaveToolOutcome(toolContent);
+        if (getSiteManagerAiTimeout() && !outcome.ok) {
+            return { messages: [new AIMessage({ content: getSiteManagerTimeoutReply(replyLanguage) })] };
+        }
         return {
             messages: [new AIMessage({
                 content: formatDeterministicSaveReply(
                     replyLanguage,
                     {
-                        ...parseSaveToolOutcome(toolContent),
+                        ...outcome,
                         records: getSiteManagerSavedConfirmationRecords(),
                     },
                     includeAddressName
@@ -573,6 +599,9 @@ async function talkToWhatsappAgentCore(
             message?.additional_kwargs?.name === "replace_last_site_diary_batch");
         const toolContent = typeof toolMessage?.content === "string" ? toolMessage.content : "";
         const correctionResult = parseCorrectionToolResult(toolContent);
+        if (getSiteManagerAiTimeout() && correctionResult.status === "failed") {
+            return { messages: [new AIMessage({ content: getSiteManagerTimeoutReply(detectReplyLanguage(normalizedQuestion)) })] };
+        }
         recordSiteManagerTiming(`correctionStatus.${correctionResult.status}`, 1);
         return {
             messages: [new AIMessage({
@@ -583,7 +612,10 @@ async function talkToWhatsappAgentCore(
 
     const workflow = new StateGraph(state)
         .addNode("agent", agent)
-        .addNode("tools", toolNode)
+        .addNode("tools", async (state, config) => {
+            markSiteManagerSideEffectsStarted();
+            return toolNode.invoke(state, config);
+        })
         .addNode("save_confirmation", saveConfirmation)
         .addNode("correction_confirmation", correctionConfirmation)
         .addEdge(START, "agent")

@@ -39,6 +39,14 @@ import {
 	mapToDbFields,
 } from "./AIschemas";
 import {
+	getSiteManagerAiTimeout,
+	invokeSiteManagerModel,
+	markSiteManagerSideEffectsStarted,
+	SITE_MANAGER_AI_BUDGET_MS,
+	SiteManagerAiTimeoutError,
+	withSiteManagerAiBudget,
+} from "./aiDeadline";
+import {
 	detectReplyLanguage,
 	type SiteDiaryCorrectionResult,
 	type SupportedReplyLanguage,
@@ -104,7 +112,8 @@ function formatDiaryDateForPrompt(value: Date | string | null | undefined) {
 
 function addTraceTags(config: RunnableConfig | undefined, tags: string[]) {
 	if (!config || !tags.length) return;
-	config.tags = [...new Set([...(config.tags ?? []), ...tags])];
+	const existing = config.tags ?? (config.tags = []);
+	existing.splice(0, existing.length, ...new Set([...existing, ...tags]));
 }
 
 function assignTraceMetadata(
@@ -112,12 +121,12 @@ function assignTraceMetadata(
 	metadata: Record<string, string | number | boolean | null | undefined>,
 ) {
 	if (!config) return;
-	config.metadata = {
-		...(config.metadata ?? {}),
-		...Object.fromEntries(
+	Object.assign(
+		config.metadata ?? (config.metadata = {}),
+		Object.fromEntries(
 			Object.entries(metadata).filter(([, value]) => value !== undefined),
 		),
-	};
+	);
 }
 
 export const allowedUnits = [
@@ -1068,6 +1077,11 @@ async function extractAndSaveSiteDiaryCore(
 			ok: false,
 			count: 0,
 		};
+		const fail = () => {
+			const timeout = getSiteManagerAiTimeout();
+			if (timeout) throw timeout;
+			return failed;
+		};
 		if (
 			!canSaveDiaryFallbackNote({
 				source: noteSource,
@@ -1082,11 +1096,12 @@ async function extractAndSaveSiteDiaryCore(
 					toolContext.hasPendingCorrection,
 			})
 		)
-			return failed;
+			return fail();
 		const note = buildDiaryFallbackNote(noteSource, date);
-		if (!note) return failed;
+		if (!note) return fail();
 		const metadata = {
 			siteDiaryNoteFallback: true,
+			siteManagerAiTimedOut: Boolean(getSiteManagerAiTimeout()),
 			siteDiaryNoteFallbackReason: summarizeForTrace(reason),
 		};
 		assignTraceMetadata(args.runnableConfig, metadata);
@@ -1096,6 +1111,7 @@ async function extractAndSaveSiteDiaryCore(
 		const started = Date.now();
 		let result: Awaited<ReturnType<typeof saveSiteDiaryRecord>>;
 		try {
+			markSiteManagerSideEffectsStarted();
 			result = await saveSiteDiaryRecord({
 				rows: [note],
 				userId,
@@ -1107,7 +1123,7 @@ async function extractAndSaveSiteDiaryCore(
 		} catch (error) {
 			console.warn("site diary note fallback persistence failed", error);
 			updateTraceOutcome("error");
-			return failed;
+			return fail();
 		}
 		const ok = result?.ok === true && result.count === 1;
 		recordSiteManagerTiming("persistenceMs", Date.now() - started);
@@ -1134,7 +1150,7 @@ async function extractAndSaveSiteDiaryCore(
 			persistedRecords: result?.records ?? [],
 			noteFallbackReason: reason,
 		});
-		if (!ok) return failed;
+		if (!ok) return fail();
 		const records = toConfirmationRecords(result.records);
 		setSiteManagerSavedConfirmationRecords(records);
 		return {
@@ -1202,6 +1218,8 @@ async function extractAndSaveSiteDiaryCore(
 
 	const llm = new ChatOpenAI({
 		model: structuredSiteDiaryModel,
+		timeout: SITE_MANAGER_AI_BUDGET_MS,
+		maxRetries: 0,
 		reasoning: { effort: structuredSiteDiaryReasoningEffort },
 	});
 	const structuredLlm = llm.withStructuredOutput(responseSchema, {
@@ -1210,17 +1228,20 @@ async function extractAndSaveSiteDiaryCore(
 	const extractionStarted = Date.now();
 	let envelope: StructuredLlmEnvelope;
 	try {
-		envelope = await structuredLlm.invoke(
-			buildStructuredExtractionMessages({
-				question: args.question,
-				date,
-				siteId,
-				systemPrompt,
-				extractionContextText: extractionContext.text,
-				allowFallback: args.allowFallback,
-				repairInstructions: args.repairInstructions,
-				intentContext: args.intentContext,
-			}),
+		envelope = await invokeSiteManagerModel(
+			(config) => structuredLlm.invoke(
+				buildStructuredExtractionMessages({
+					question: args.question,
+					date,
+					siteId,
+					systemPrompt,
+					extractionContextText: extractionContext.text,
+					allowFallback: args.allowFallback,
+					repairInstructions: args.repairInstructions,
+					intentContext: args.intentContext,
+				}),
+				config,
+			),
 			aiContext.runnableConfig,
 		);
 	} catch (error) {
@@ -1259,6 +1280,7 @@ async function extractAndSaveSiteDiaryCore(
 					`Extraction failed: ${error instanceof Error ? error.message : String(error)}`,
 					false,
 				);
+			if (error instanceof SiteManagerAiTimeoutError) throw error;
 			return {
 				action: "fallback",
 				correctionMode: "not_applicable",
@@ -1494,11 +1516,14 @@ async function extractAndSaveSiteDiaryCore(
 			});
 			const checkerDurationMs = Date.now() - checkerStarted;
 			const checkerUsage = usageFromMessage(checker.raw);
+			const checkerMetadata = asLooseRecord(checker.raw?.response_metadata);
 			recordSiteManagerTiming("structuredCheckerMs", checkerDurationMs);
 			recordSiteManagerModelCall({
 				purpose: "site_diary_extraction_checker",
 				model: siteDiaryExtractionCheckerModel,
-				actualModel: checker.raw?.response_metadata?.model_name ?? null,
+				actualModel: typeof checkerMetadata.model_name === "string"
+					? checkerMetadata.model_name
+					: null,
 				durationMs: checkerDurationMs,
 				...checkerUsage,
 			});
@@ -1778,6 +1803,7 @@ async function extractAndSaveSiteDiaryCore(
 	const persistenceStarted = Date.now();
 	let result: Awaited<ReturnType<typeof saveSiteDiaryRecord>> | undefined;
 	try {
+		markSiteManagerSideEffectsStarted();
 		result = await saveSiteDiaryRecord({
 			rows: rowsToSave,
 			userId,
@@ -1877,13 +1903,15 @@ export function extractAndSaveSiteDiary(
 		senderLabel: runContext?.senderLabel,
 		fallback: "SiteDiarySavePipeline",
 	});
-	return siteDiarySavePipeline.invoke(pipelineInput, {
-		...(runnableConfig ?? {}),
-		runName,
-		tags: [
-			...new Set([...(runnableConfig?.tags ?? []), "site-diary-save-pipeline"]),
-		],
-	});
+	return withSiteManagerAiBudget(() =>
+		siteDiarySavePipeline.invoke(pipelineInput, {
+			...(runnableConfig ?? {}),
+			runName,
+			tags: [
+				...new Set([...(runnableConfig?.tags ?? []), "site-diary-save-pipeline"]),
+			],
+		}),
+	);
 }
 
 export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
@@ -1953,6 +1981,7 @@ export async function startSiteDiaryCorrectionOperation(args: {
 		});
 	}
 	try {
+		markSiteManagerSideEffectsStarted();
 		const result = await startSiteDiaryCorrection({
 			siteId: context.siteId,
 			userId: context.userId,
@@ -2050,6 +2079,7 @@ export async function replaceLastSiteDiaryBatchOperation(args: {
 			persist: false,
 		});
 		if (!extraction.ok || !extraction.rows?.length) {
+			markSiteManagerSideEffectsStarted();
 			await startSiteDiaryCorrection({
 				siteId: context.siteId,
 				userId: context.userId,
@@ -2071,6 +2101,7 @@ export async function replaceLastSiteDiaryBatchOperation(args: {
 			...row,
 			Date: targetDiaryDate ?? row.Date,
 		}));
+		markSiteManagerSideEffectsStarted();
 		const result = await archiveAndReplaceSiteDiaryBatch({
 			siteId: context.siteId,
 			userId: context.userId,
@@ -2117,6 +2148,7 @@ export async function replaceLastSiteDiaryBatchOperation(args: {
 			records: toConfirmationRecords(result.records),
 		});
 	} catch (error) {
+		if (error instanceof SiteManagerAiTimeoutError) throw error;
 		recordSiteManagerToolCall({
 			name: "replace_last_site_diary_batch",
 			durationMs: Date.now() - started,

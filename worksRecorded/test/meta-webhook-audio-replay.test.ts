@@ -226,6 +226,33 @@ describe("Meta webhook audio replay", () => {
     expect(formData.get("MediaProvider0")).toBe("meta");
   });
 
+  it("keeps the request arrival time across preprocessing and multiple messages", async () => {
+    const mocks = installRouteMocks();
+    const { getWhatsappSourceContext } = await import("@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext");
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+    const fixture = JSON.parse(JSON.stringify(siteManagerAudioFixture));
+    const messages = fixture.entry[0].changes[0].value.messages;
+    messages.push({ ...messages[0], id: "wamid.second-in-same-request" });
+    const startedAt = Date.now();
+    let now = startedAt;
+    const clock = jest.spyOn(Date, "now").mockImplementation(() => now);
+    const contexts: Array<{ webhookStartedAtMs?: number; messageId?: string | null }> = [];
+    mocks.handleSiteManagerRoute.mockImplementation(async () => {
+      contexts.push({ ...getWhatsappSourceContext() });
+      now += 80_000;
+    });
+    try {
+      await POST({ json: async () => { now += 30_000; return fixture; } } as Request);
+      expect(contexts).toEqual([
+        expect.objectContaining({ webhookStartedAtMs: startedAt, messageId: "wamid.site-manager-audio-001" }),
+        expect.objectContaining({ webhookStartedAtMs: startedAt, messageId: "wamid.second-in-same-request" }),
+      ]);
+      expect(getWhatsappSourceContext().webhookStartedAtMs).toBeUndefined();
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it("replays a WhatsApp PDF document with its filename into media FormData", async () => {
     const mocks = installRouteMocks({
       mediaInfo: {

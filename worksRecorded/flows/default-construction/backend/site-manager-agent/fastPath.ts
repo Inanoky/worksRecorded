@@ -144,7 +144,7 @@ const ACTIVITY_SIGNAL_PATTERN = new RegExp(
   String.raw`tika|` +
   String.raw`pabeigt${WORD_TAIL}|uzstād${WORD_TAIL}|ieklā${WORD_TAIL}|apmest${WORD_TAIL}|mont${WORD_TAIL}|krāso${WORD_TAIL}|beton${WORD_TAIL}|mūr${WORD_TAIL}|demont${WORD_TAIL}|iztīr${WORD_TAIL}|` +
   String.raw`trub${WORD_TAIL}|kanaliz${WORD_TAIL}|radiator${WORD_TAIL}|paneļ${WORD_TAIL}|durv${WORD_TAIL}|sien${WORD_TAIL}|grīd${WORD_TAIL}|marg${WORD_TAIL}|` +
-  String.raw`completed|installed|paint${WORD_TAIL}|plaster${WORD_TAIL}|lay(?:ing)?|clean${WORD_TAIL}|floor${WORD_TAIL}|wall${WORD_TAIL}|door${WORD_TAIL}|pipe${WORD_TAIL}|radiator${WORD_TAIL}|` +
+  String.raw`completed|installed|assembl${WORD_TAIL}|casting|paint${WORD_TAIL}|plaster${WORD_TAIL}|lay(?:ing)?|clean${WORD_TAIL}|floor${WORD_TAIL}|wall${WORD_TAIL}|door${WORD_TAIL}|pipe${WORD_TAIL}|radiator${WORD_TAIL}|` +
   String.raw`монтаж${WORD_TAIL}|установ${WORD_TAIL}|покраш${WORD_TAIL}|очист${WORD_TAIL}|двер${WORD_TAIL}|стен${WORD_TAIL}` +
   String.raw`)` +
   WORD_BOUNDARY_END,
@@ -240,7 +240,7 @@ export function formatDeterministicSaveReply(
   }
 
   if (outcome.savedAsNote) {
-    const confirmation = language === "lv" ? "Saglabāts kā piezīme." : language === "ru" ? "Сохранено как заметка." : "Saved as a note.";
+    const confirmation = language === "lv" ? "Saglabāts kā piezīme. Atkārtoti sūtīt nav nepieciešams." : language === "ru" ? "Сохранено как заметка. Повторная отправка не требуется." : "Saved as a note. No need to resend it.";
     const comment = outcome.records?.[0]?.Comments;
     return comment ? `${confirmation}\n\n${compactComment(String(comment))}` : confirmation;
   }

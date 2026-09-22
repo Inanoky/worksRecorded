@@ -231,6 +231,7 @@ const siteConfig = {
 describe("save_to_database site diary tool", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		saveSiteDiaryRecordMock.mockReset();
 		getConfigMock.mockResolvedValue(siteConfig);
 		systemPromptMock.mockResolvedValue("Extract site diary records");
 		getSiteDiaryToolContextMock.mockReturnValue(trustedContext);
@@ -264,6 +265,67 @@ describe("save_to_database site diary tool", () => {
 		expect(structuredInvokeMock.mock.calls[0][1].metadata).toMatchObject({ siteDiaryNoteFallback: true, siteDiaryNoteFallbackSaved: true, siteDiaryNoteFallbackRecordIds: "fallback-note" });
 		expect(recordTraceMock).toHaveBeenCalledWith(expect.objectContaining({ noteFallbackReason: expect.stringContaining("repairable without actions"), persistedRecords: result.records }));
 		expect(setSavedConfirmationRecordsMock).toHaveBeenLastCalledWith(result.records);
+	});
+
+	it("regresses trace 01a0c4ca: a stalled extraction saves one note and ignores late output", async () => {
+		jest.useFakeTimers();
+		try {
+			const question = "Assemble cellplast forms and assemble membrane - casting ettap2";
+			let resolveModel!: (value: unknown) => void;
+			structuredInvokeMock.mockReset().mockImplementationOnce(() => new Promise((resolve) => { resolveModel = resolve; }));
+			saveSiteDiaryRecordMock.mockImplementationOnce(async ({ rows }) => ({ ok: true, count: 1, records: rows, recordIds: ["timeout-note"] }));
+			const resultPromise = extractAndSaveSiteDiary({ question, allowFallback: true, requestedDate: "21-09-2026" });
+			const assertion = expect(resultPromise).resolves.toMatchObject({ ok: true, savedAsNote: true, count: 1 });
+			await jest.advanceTimersByTimeAsync(240_000);
+			await assertion;
+			const result = await resultPromise;
+			expect(result).toMatchObject({ ok: true, savedAsNote: true, count: 1 });
+			expect(structuredInvokeMock.mock.calls[0][1].signal.aborted).toBe(true);
+			expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+			expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith(expect.objectContaining({
+				sourceMessageId: "wamid.test-correction",
+				rows: [expect.objectContaining({ Works: "Piezīmes", Comments: question, Amounts: null, Units: null, TimeInvolved: null })],
+			}));
+			resolveModel({ records: [{ Activity: "Concrete pour", Quantity: 99 }] });
+			await jest.advanceTimersByTimeAsync(1);
+			expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+			expect(structuredInvokeMock).toHaveBeenCalledTimes(1);
+		} finally {
+			jest.useRealTimers();
+		}
+	});
+
+	it.each(["question", "correction", "reply", "shadow"])("does not retry AI or save a note after a timeout for %s", async (kind) => {
+		const error = new Error("provider timeout");
+		error.name = "APIConnectionTimeoutError";
+		structuredInvokeMock.mockReset().mockRejectedValueOnce(error);
+		await expect(extractAndSaveSiteDiary({
+			question: kind === "question" ? "Vai darbi pabeigti?" : kind === "correction" ? "Izmaini iepriekšējo ierakstu" : "Šodien betonēšana.",
+			allowFallback: true,
+			persist: kind !== "shadow",
+			intentContext: { hasReplyContext: kind === "reply", hasPendingCorrection: false },
+		})).rejects.toThrow("Site manager AI processing deadline exceeded");
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(1);
+		expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+	});
+
+	it("propagates timeout recovery failure without retrying persistence", async () => {
+		const error = new Error("provider timeout");
+		error.name = "APIConnectionTimeoutError";
+		structuredInvokeMock.mockReset().mockRejectedValueOnce(error);
+		saveSiteDiaryRecordMock.mockResolvedValueOnce({ ok: false, message: "database unavailable" });
+		await expect(extractAndSaveSiteDiary({ question: "Šodien betonēšana.", allowFallback: true })).rejects.toThrow("Site manager AI processing deadline exceeded");
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+	});
+
+	it("saves the original note when the checker times out", async () => {
+		const error = new Error("provider timeout");
+		error.name = "APIConnectionTimeoutError";
+		structuredInvokeMock.mockReset().mockResolvedValueOnce({ action: "save_new_report", records: [{ Activity: "Concrete pour", Quantity: 999 }] }).mockRejectedValueOnce(error);
+		saveSiteDiaryRecordMock.mockResolvedValueOnce({ ok: true, count: 1, records: [], recordIds: ["note-1"] });
+		await expect(extractAndSaveSiteDiary({ question: "Šodien betonēšana.", allowFallback: true })).resolves.toMatchObject({ ok: true, savedAsNote: true });
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0]).toMatchObject({ Works: "Piezīmes", Comments: "Šodien betonēšana.", Amounts: null });
 	});
 
 	it.each(["extraction", "checker", "empty"])("preserves the original report when %s fails", async (stage) => {
