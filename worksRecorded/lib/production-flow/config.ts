@@ -5,6 +5,7 @@ export const SUPER_USER_IDS = [FLOW_CONFIG_ADMIN_USER_ID] as const;
 export const FLOW_CONFIG_ADMIN_USER_IDS = [
 	...SUPER_USER_IDS,
 	"kp_2f5c0987b83a4162ac8819f6339534f8",
+	"kp_8c541e0b812c4d07afc51bc8f2f54161",
 ] as const;
 export const ZTC_PRODUCTION_ORGANIZATION_ID =
 	"21511437-f6ab-402b-aa2d-613110eb61da";
