@@ -1,4 +1,6 @@
 "use server";
+import { getDiarySourcePhotoUrls } from "@/flows/default-construction/backend/diary-photo-source";
+import { hasInlineDiaryPhotos } from "@/flows/default-construction/lib/diary-photos";
 
 import { inspect } from "node:util";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
@@ -298,6 +300,7 @@ export async function getConfig(
     },
     select: {
       siteDiaryRecordsMap: true,
+      organizationId: true,
     },
   });
 
@@ -348,7 +351,12 @@ export async function getConfig(
     defaultConstructionMap,
     withDefaultConstructionSystemWorks(defaultConstructionMap),
   );
-  return applyDefaultConstructionQuantityProfile(defaultConstructionMap);
+  const result = applyDefaultConstructionQuantityProfile(defaultConstructionMap);
+  result.otherSettings = {
+    ...result.otherSettings,
+    inlineDiaryPhotos: hasInlineDiaryPhotos(clientConfig.organizationId),
+  };
+  return result;
 }
 
 export async function updateSiteDiaryDropdownOptions(args: {
@@ -1427,6 +1435,7 @@ export async function saveSiteDiaryRecord({
   }
 
   const whatsappAudioContext = consumeWhatsappAudioSourceContext();
+  const sourcePhotoUrls = await getDiarySourcePhotoUrls({ siteId, userId, workerId });
   const resolvedSourceMessageId =
     sourceMessageId ?? whatsappAudioContext.messageId ?? null;
   const rawOriginalAudioUrl =
@@ -1543,7 +1552,7 @@ export async function saveSiteDiaryRecord({
       WorkersInvolved: toNullableNumber(row.WorkersInvolved),
       TimeInvolved: toNullableNumber(row.TimeInvolved),
       evalMetadata: evalMetadata ?? undefined,
-      Photos: [],
+      Photos: sourcePhotoUrls,
     };
 
     // 🪵 LOG: Transformed row object
@@ -1939,6 +1948,8 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
   if (!validRows.length)
     return { ok: false as const, reason: "no-records" as const };
 
+  const correctionPhotos = await getDiarySourcePhotoUrls(args);
+
   const result = await prisma.$transaction(async (tx) => {
     const activeBatch = await tx.siteDiarySaveBatch.findFirst({
       where: {
@@ -1990,7 +2001,7 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
             originalUserComment: `${target.batch.originalText}\nCorrection: ${args.correctionText}`,
             originalAudioUrl: index === 0 ? first.originalAudioUrl : null,
             evalMetadata: (args.evalMetadata ?? undefined) as any,
-            Photos: [],
+            Photos: [...new Set([...locked.flatMap((record) => record.Photos ?? []), ...correctionPhotos])],
           },
           select: savedSiteDiaryRecordSelect,
         }),
@@ -2524,6 +2535,28 @@ function mapSiteDiaryListRecord(rec: any) {
     originalAudioUrl: rec.originalAudioUrl || "",
     createdBy: createdBy || "N/A",
   };
+}
+
+export async function getLimeniDiarySnapshot(siteId: string) {
+  const user = await requireUser();
+  const site = await orgCheck(user.id, siteId);
+  if (!site || !hasInlineDiaryPhotos(site.organizationId)) throw new Error("Access denied");
+  const [records, mediaPhotos] = await Promise.all([
+    prisma.sitediaryrecords.findMany({
+      where: { siteId, organizationId: site.organizationId, archivedAt: null },
+      orderBy: [{ Date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+      select: siteDiaryListSelect,
+    }),
+    prisma.photos.findMany({
+      where: {
+        siteId, organizationId: site.organizationId,
+        AND: [siteDiaryPhotoPurposeWhere()],
+        OR: [{ AND: [{ URL: { not: null } }, { URL: { not: "" } }] }, { AND: [{ fileUrl: { not: null } }, { fileUrl: { not: "" } }] }],
+      },
+      select: { Date: true, Comment: true, Location: true, URL: true, fileUrl: true },
+    }),
+  ]);
+  return { rows: records.map(mapSiteDiaryListRecord), mediaPhotos };
 }
 
 export async function getSiteDiaryRecordsPage(

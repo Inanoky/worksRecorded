@@ -105,6 +105,8 @@ jest.mock("./whatsapp-actions", () => ({
 import {
   archiveAndReplaceSiteDiaryBatch,
   copySiteDiaryRecordsToProject,
+  getConfig,
+  getLimeniDiarySnapshot,
   getPendingSiteDiaryCorrection,
   getPhotosByDate,
   getSiteDiaryMediaOnlyDays,
@@ -161,6 +163,38 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
 		expect(batchCreateMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ sourceMessageId: "wamid.already-saved" }) }));
 		expect(createMock).not.toHaveBeenCalled();
 	});
+  it("enables inline photos only for Limeni in the returned diary config", async () => {
+    const originalClone = global.structuredClone;
+    global.structuredClone = (value) => JSON.parse(JSON.stringify(value));
+    try {
+      siteFindUniqueMock.mockResolvedValue({ organizationId: "58467603-196e-4661-83ff-fe26e4b0ff0b", siteDiaryRecordsMap: null });
+      expect((await getConfig("site-1"))?.otherSettings.inlineDiaryPhotos).toBe(true);
+      siteFindUniqueMock.mockResolvedValue({ organizationId: "another-org", siteDiaryRecordsMap: { otherSettings: { inlineDiaryPhotos: true } } });
+      expect((await getConfig("site-1"))?.otherSettings.inlineDiaryPhotos).toBe(false);
+    } finally {
+      global.structuredClone = originalClone;
+    }
+  });
+
+  it("loads the full authorized Limeni snapshot without a row limit", async () => {
+    (orgCheck as jest.Mock).mockResolvedValue({ id: "site-1", organizationId: "58467603-196e-4661-83ff-fe26e4b0ff0b" });
+    siteDiaryFindManyMock.mockResolvedValue([]);
+    photosFindManyMock.mockResolvedValue([]);
+    expect(await getLimeniDiarySnapshot("site-1")).toEqual({ rows: [], mediaPhotos: [] });
+    expect(siteDiaryFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { siteId: "site-1", organizationId: "58467603-196e-4661-83ff-fe26e4b0ff0b", archivedAt: null } }));
+    expect(siteDiaryFindManyMock.mock.calls[0][0]).not.toHaveProperty("take");
+    expect(orgCheck).toHaveBeenCalledWith("user-1", "site-1");
+  });
+
+  it("rejects unauthorized and non-Limeni client snapshots before reading records", async () => {
+    for (const site of [false, { organizationId: "other-org" }]) {
+      (orgCheck as jest.Mock).mockResolvedValue(site);
+      await expect(getLimeniDiarySnapshot("site-1")).rejects.toThrow("Access denied");
+    }
+    expect(siteDiaryFindManyMock).not.toHaveBeenCalled();
+    expect(photosFindManyMock).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     createdRowIndex = 0;
@@ -288,6 +322,24 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
       }),
       select: expect.any(Object),
     });
+  });
+
+  it("links verified source photos to every row in the same report and not the next report", async () => {
+    photosFindManyMock.mockResolvedValue([{ URL: "https://ut.test.ufs.sh/f/report.jpg", fileUrl: null }]);
+    await runWithWhatsappSourceContext({ diaryPhotoIds: ["photo-1"], mediaPurpose: "site_diary_caption" }, () => saveSiteDiaryRecord({
+      rows: [{ Works: "Concrete" }, { Works: "Membrane" }], userId: "user-1", siteId: "site-1",
+    }));
+    expect(createMock).toHaveBeenCalledTimes(2);
+    for (const [call] of createMock.mock.calls) expect(call.data.Photos).toEqual(["https://ut.test.ufs.sh/f/report.jpg"]);
+    expect(photosFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ siteId: "site-1", userId: "user-1", id: { in: ["photo-1"] } }) }));
+    await saveSiteDiaryRecord({ rows: [{ Works: "Cleaning" }], userId: "user-1", siteId: "site-1" });
+    expect(createMock.mock.calls[2][0].data.Photos).toEqual([]);
+  });
+
+  it("does not accept photo URLs supplied by extracted model rows", async () => {
+    await saveSiteDiaryRecord({ rows: [{ Works: "Cleaning", Photos: ["https://example.com/untrusted.jpg"] }], userId: "user-1", siteId: "site-1" });
+    expect(createMock.mock.calls[0][0].data.Photos).toEqual([]);
+    expect(photosFindManyMock).not.toHaveBeenCalled();
   });
 
   it("saves a comment-only row without work or location", async () => {
@@ -1379,6 +1431,20 @@ describe("archiveAndReplaceSiteDiaryBatch correction guardrails", () => {
       where: { id: "batch-1", siteId: "site-1", userId: "user-1", status: "active" },
       data: expect.objectContaining({ status: "archived", replacementBatchId: "batch-2" }),
     });
+  });
+
+  it("preserves report photos and adds the verified correction photo", async () => {
+    siteDiaryFindManyMock.mockResolvedValue([{ ...originalRecord, Photos: ["https://utfs.io/f/original"] }]);
+    photosFindManyMock.mockResolvedValue([{ URL: "https://utfs.io/f/correction", fileUrl: null }]);
+    const result = await runWithWhatsappSourceContext({ mediaPurpose: "site_diary_caption", diaryPhotoIds: ["photo-correction"] }, () => archiveAndReplaceSiteDiaryBatch({
+      siteId: "site-1",
+      userId: "user-1",
+      correctionMessageId: "wamid.correction-photo",
+      correctionText: "Update report",
+      rows: [{ Date: originalRecord.Date, Works: "Concrete pour", Amounts: 10 }],
+    }));
+    expect(result.ok).toBe(true);
+    expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ Photos: ["https://utfs.io/f/original", "https://utfs.io/f/correction"] }) }));
   });
 
   it("ignores a pending correction session whose target batch has no active records", async () => {

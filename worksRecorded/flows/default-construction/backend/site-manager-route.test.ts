@@ -68,6 +68,7 @@ jest.mock(
 );
 
 import { handleSiteManagerRoute } from "./site-manager-route";
+import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import { getSiteManagerAgentRunContext } from "./site-manager-agent/runContext";
 
 describe("default-construction site-manager image captions", () => {
@@ -81,6 +82,10 @@ describe("default-construction site-manager image captions", () => {
   });
 
   it("sends a saved image caption through the site-manager text agent path", async () => {
+    mockHandleText.mockImplementationOnce(async () => {
+      expect(getWhatsappSourceContext()).toMatchObject({ diaryPhotoIds: ["photo-1"], mediaPurpose: "site_diary_caption" });
+      return true;
+    });
     mockHandleImage.mockResolvedValue({
       outcome: "photo_saved",
       savedPhoto: { id: "photo-1" },
@@ -458,6 +463,9 @@ describe("default-construction site-manager image captions", () => {
   });
 
   it("excludes handled material documents from a mixed image batch photo summary", async () => {
+    const contexts: ReturnType<typeof getWhatsappSourceContext>[] = [];
+    mockHandleText.mockImplementationOnce(async () => { contexts.push(getWhatsappSourceContext()); return true; });
+    mockHandleText.mockImplementationOnce(async () => { contexts.push(getWhatsappSourceContext()); return true; });
     mockHandleImage
       .mockResolvedValueOnce({
         outcome: "photo_saved",
@@ -504,6 +512,11 @@ describe("default-construction site-manager image captions", () => {
       "Saved:2/3:lv",
     );
     expect(mockHandleText).toHaveBeenCalledTimes(2);
+    expect(contexts).toEqual([
+      expect.objectContaining({ messageId: "mixed-message-0", diaryPhotoIds: ["photo-1"] }),
+      expect.objectContaining({ messageId: "mixed-message-2", diaryPhotoIds: ["photo-2"] }),
+    ]);
+    expect(getWhatsappSourceContext().diaryPhotoIds).toBeUndefined();
     expect(mockHandleText).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ body: "Otrā stāva sienas" }),

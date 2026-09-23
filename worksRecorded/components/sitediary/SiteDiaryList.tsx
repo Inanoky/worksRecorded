@@ -1,4 +1,9 @@
 "use client";
+import { DiaryRecordPhotos } from "@/flows/default-construction/frontend/DiaryRecordPhotos";
+import { DiaryDayPagination } from "@/flows/default-construction/frontend/DiaryDayPagination";
+import { useDiaryDayPagination } from "@/flows/default-construction/frontend/useDiaryDayPagination";
+import { getClientDiaryMediaDays, type DiaryMediaPhoto } from "@/flows/default-construction/lib/diary-media-days";
+import { preloadDiaryImages, type DiaryImageProgress } from "@/flows/default-construction/frontend/preloadDiaryImages";
 
 import {
   CalendarIcon,
@@ -156,6 +161,7 @@ import {
   getSiteDiaryProjectCopyTargets,
   getSiteDiaryRecordBisUrl,
   getSiteDiaryRecordsPage,
+  getLimeniDiarySnapshot,
   getSitediaryRecordsBySiteIdForExcel,
   getSiteGalleryAttachments,
   sendSiteDiaryRecordToBis,
@@ -720,9 +726,10 @@ export default function SiteDiaryCalendar({
   const [rows, setRows] = React.useState<DiaryRow[]>([]);
   const planner = useConstructionPlanner(siteId, !isZtcFlow, rows);
   const beginHours = useBeginHours(siteId, rows);
-  const [mediaOnlyDays, setMediaOnlyDays] = React.useState<
+  const [serverMediaOnlyDays, setMediaOnlyDays] = React.useState<
     MediaOnlyDaySummary[]
   >([]);
+  const [clientMediaPhotos, setClientMediaPhotos] = React.useState<DiaryMediaPhoto[]>([]);
   const [loading, setLoading] = React.useState(Boolean(siteId));
   const [hasLoadedRowsOnce, setHasLoadedRowsOnce] = React.useState(false);
   const [showDelayedListSkeleton, setShowDelayedListSkeleton] =
@@ -749,11 +756,29 @@ export default function SiteDiaryCalendar({
   const keywordDebounceRef = React.useRef<number | null>(null);
   const initialBisSyncSiteRef = React.useRef<string | null>(null);
   const mediaOnlyRequestRef = React.useRef(0);
+  const diaryRowsRequestRef = React.useRef(0);
+  const diaryImageCache = React.useRef(new Map<string, HTMLImageElement>());
+  const diaryImageAbort = React.useRef<AbortController | null>(null);
+  const [diaryImageProgress, setDiaryImageProgress] = React.useState<DiaryImageProgress | null>(null);
+  const [imagesReadySiteId, setImagesReadySiteId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const cache = diaryImageCache.current;
+    setDiaryImageProgress(null);
+    setImagesReadySiteId(null);
+    return () => {
+      ++diaryRowsRequestRef.current;
+      diaryImageAbort.current?.abort();
+      cache.clear();
+    };
+  }, [siteId]);
 
   //----------------------Table---------------------------------------------------
 
   const [defaultMap, setMap] =
     React.useState<Record<string, any>>(defaultConfig);
+  const [configSiteId, setConfigSiteId] = React.useState<string | null>(null);
+  const clientDiary = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.inlineDiaryPhotos === true;
   const calculateDefaultConstructionRecordCost = React.useMemo(
     () => createDefaultConstructionRecordCostCalculator(defaultMap),
     [defaultMap],
@@ -768,11 +793,15 @@ export default function SiteDiaryCalendar({
       if (keywordDebounceRef.current) {
         window.clearTimeout(keywordDebounceRef.current);
       }
+      if (clientDiary) {
+        setKeywordFilter(nextValue);
+        return;
+      }
       keywordDebounceRef.current = window.setTimeout(() => {
         setKeywordFilter(nextValue);
       }, 250);
     },
-    [],
+    [clientDiary],
   );
 
   React.useEffect(
@@ -940,6 +969,7 @@ export default function SiteDiaryCalendar({
     map: Record<string, any>,
     fallback = 200,
   ): number {
+    if (key === "Photos" && map?.otherSettings?.inlineDiaryPhotos) return 144;
     return map?.[key]?.customSettings?.displayinSiteListWidth ?? fallback;
   }
 
@@ -1165,8 +1195,19 @@ export default function SiteDiaryCalendar({
     }).then(setFilledDays);
   }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode]);
 
+  const remoteQueryKey = JSON.stringify(clientDiary ? {} : {
+    dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
+    dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
+    workFilter, floorFilter,
+    elementFilter: isZtcSite ? elementFilter : undefined,
+    workerFilter: isZtcSite ? workerFilter : undefined,
+    keyword: keywordFilter, page: listPage,
+  });
   const refreshRowsWithBisSync = React.useCallback(
     async (options?: { skipSync?: boolean }) => {
+      const requestId = ++diaryRowsRequestRef.current;
+      diaryImageAbort.current?.abort();
+      ++mediaOnlyRequestRef.current;
       if (!siteId) {
         setMediaOnlyDays([]);
         return [];
@@ -1174,27 +1215,45 @@ export default function SiteDiaryCalendar({
       if (bisUiEnabled && !options?.skipSync) {
         await syncDeletedSiteDiaryBisRecords(siteId);
       }
+      if (clientDiary) {
+        const result = await getLimeniDiarySnapshot(siteId);
+        if (diaryRowsRequestRef.current !== requestId) return result.rows;
+        const controller = new AbortController();
+        diaryImageAbort.current = controller;
+        await preloadDiaryImages([
+          ...result.rows.flatMap((row) => row.Photos ?? []),
+          ...result.mediaPhotos.map((photo) => photo.URL || photo.fileUrl),
+        ], {
+          cache: diaryImageCache.current,
+          signal: controller.signal,
+          onProgress: (progress) => {
+            if (diaryRowsRequestRef.current === requestId) setDiaryImageProgress(progress);
+          },
+        });
+        if (controller.signal.aborted || diaryRowsRequestRef.current !== requestId) return result.rows;
+        setImagesReadySiteId(siteId);
+        setRows(result.rows);
+        setClientMediaPhotos(result.mediaPhotos);
+        setBisApprovalStatusByRowId(Object.fromEntries(result.rows.map((row) => [row.id, row.bisStatus ?? ""])));
+        return result.rows;
+      }
+      const remoteFilters = JSON.parse(remoteQueryKey);
       const commonOptions = {
         flowId: siteDiaryFlowId,
-        dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
-        dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
-        workFilter,
-        floorFilter,
-        elementFilter: isZtcSite ? elementFilter : undefined,
-        workerFilter: isZtcSite ? workerFilter : undefined,
-        keyword: keywordFilter,
+        ...remoteFilters,
       };
       const canShowMediaOnlyDays =
-        workFilter === "__ALL__" &&
-        (!isZtcSite || elementFilter === "__ALL__") &&
-        (!isZtcSite || workerFilter === "__ALL__") &&
-        (!isZtcSite || floorFilter === "__ALL__");
+        remoteFilters.workFilter === "__ALL__" &&
+        (!isZtcSite || remoteFilters.elementFilter === "__ALL__") &&
+        (!isZtcSite || remoteFilters.workerFilter === "__ALL__") &&
+        (!isZtcSite || remoteFilters.floorFilter === "__ALL__");
       const result = await getSiteDiaryRecordsPage(siteId, {
         ...commonOptions,
-        page: listPage,
+        page: remoteFilters.page,
         pageSize: SITE_DIARY_LIST_PAGE_SIZE,
       });
       const data: DiaryRow[] = result.rows || [];
+      if (diaryRowsRequestRef.current !== requestId) return data;
       setRows(data || []);
       setListTotalCount(result.totalCount ?? 0);
       setListTotalPages(result.totalPages ?? 1);
@@ -1227,17 +1286,11 @@ export default function SiteDiaryCalendar({
     },
     [
       bisUiEnabled,
-      dateFrom,
-      dateTo,
-      elementFilter,
-      floorFilter,
+      clientDiary,
+      remoteQueryKey,
       isZtcSite,
-      keywordFilter,
-      listPage,
       siteDiaryFlowId,
       siteId,
-      workFilter,
-      workerFilter,
     ],
   );
 
@@ -1352,8 +1405,13 @@ export default function SiteDiaryCalendar({
         setScreenWidth(screenWidth);
 
         setMap(cfg);
+        setConfigSiteId(siteId);
 
         const renderableFields = getRenderableFieldsOrdered(cfg);
+        if (cfg.otherSettings?.inlineDiaryPhotos && !renderableFields.includes("Photos")) {
+          const commentsIndex = renderableFields.indexOf("Comments");
+          renderableFields.splice(commentsIndex < 0 ? renderableFields.length : commentsIndex + 1, 0, "Photos");
+        }
         const showCreatedAtColumn =
           cfg?.otherSettings?.hideCreatedAtInSiteList !== true;
         const tableFields = showCreatedAtColumn
@@ -1630,6 +1688,11 @@ export default function SiteDiaryCalendar({
     ztc.defaultRates,
   ]);
 
+  const mediaOnlyDays = React.useMemo(() => clientDiary
+    ? getClientDiaryMediaDays(clientMediaPhotos, filteredRows.filter(row => !keywordFilter.trim() || getDiaryRowSearchableText(row).includes(keywordFilter.trim().toLowerCase())).map(row => row.Date), { dateFrom, dateTo, work: workFilter, location: floorFilter, keyword: keywordFilter })
+    : serverMediaOnlyDays,
+    [clientDiary, clientMediaPhotos, filteredRows, keywordFilter, dateFrom, dateTo, workFilter, floorFilter, serverMediaOnlyDays]);
+
   // Group filtered rows by day
   const dayGroups: DayGroup[] = React.useMemo(() => {
     const res: Record<string, DayGroup> = {};
@@ -1710,7 +1773,7 @@ export default function SiteDiaryCalendar({
     return result;
   }, [planner.diaryRows]);
 
-  const keywordMatchedDayGroups: DayGroup[] = React.useMemo(() => {
+  const allKeywordMatchedDayGroups: DayGroup[] = React.useMemo(() => {
     const normalizedKeyword = keywordFilter.trim().toLowerCase();
     const recordGroups = !normalizedKeyword
       ? dayGroups
@@ -1750,7 +1813,10 @@ export default function SiteDiaryCalendar({
     );
   }, [dayGroups, keywordFilter, mediaOnlyDayGroups, beginHours.enabled, beginHours.days, beginHours.diaryDates, listPage, workFilter, floorFilter, dateFrom, dateTo, isZtcSite, planner.show, visiblePlanRows]);
 
-  const showInitialListSkeleton = loading && !hasLoadedRowsOnce && !error;
+  const clientPagination = useDiaryDayPagination(allKeywordMatchedDayGroups, JSON.stringify([siteId, dateFrom, dateTo, workFilter, floorFilter, keywordFilter, planner.show]));
+  const keywordMatchedDayGroups = clientDiary ? clientPagination.groups : allKeywordMatchedDayGroups;
+  const imagesPreloading = clientDiary && (imagesReadySiteId !== siteId || Boolean(diaryImageProgress && diaryImageProgress.completed < diaryImageProgress.total));
+  const showInitialListSkeleton = ((loading && !hasLoadedRowsOnce) || imagesPreloading) && !error;
   const showUpdatingListSkeleton =
     loading && hasLoadedRowsOnce && showDelayedListSkeleton && !error;
 
@@ -2220,6 +2286,7 @@ export default function SiteDiaryCalendar({
     });
 
   const renderListPagination = () => {
+    if (clientDiary) return <DiaryDayPagination {...clientPagination} onPageChange={clientPagination.setPage} language={language} disabled={loading} />;
     if (listTotalPages <= 1 && listTotalCount <= SITE_DIARY_LIST_PAGE_SIZE)
       return null;
     const pageWindow = 2;
@@ -3833,6 +3900,13 @@ export default function SiteDiaryCalendar({
                 {planner.diaryLoading ? "Ielādē plānu…" : planner.diaryError ? <span role="alert" className="text-destructive">{planner.diaryError}</span> : "Zaļš — plāns pārsniegts; sarkans — plāns nav sasniegts. Salīdzina dienas kopsummu vienam darbam, lokācijai un mērvienībai."}
               </div>
             ) : null}
+            {clientDiary && diaryImageProgress ? (
+              <div role="status" className="mb-3 text-sm text-muted-foreground">
+                {diaryImageProgress.completed < diaryImageProgress.total
+                  ? (language === "lv" ? `Ielādē attēlus: ${diaryImageProgress.completed}/${diaryImageProgress.total}` : `Loading images: ${diaryImageProgress.completed}/${diaryImageProgress.total}`)
+                  : diaryImageProgress.failed ? (language === "lv" ? `Neizdevās ielādēt ${diaryImageProgress.failed} attēlus. Pārējie attēli ir gatavi.` : `${diaryImageProgress.failed} images could not be loaded. The remaining images are ready.`) : null}
+              </div>
+            ) : null}
             {showInitialListSkeleton ? (
               <SiteDiaryListSkeleton label={t.loadingRecords} />
             ) : (
@@ -4421,6 +4495,9 @@ export default function SiteDiaryCalendar({
                                     )}
                                   </div>
 
+                                  {!isZtcSite && defaultMap?.otherSettings?.inlineDiaryPhotos ? (
+                                    <div className="mt-2"><DiaryRecordPhotos photos={r.Photos} language={language} /></div>
+                                  ) : null}
                                   {bisUiEnabled ? (
                                     <div className="mt-2 flex flex-wrap gap-2">
                                       {(() => {
@@ -5284,6 +5361,9 @@ export default function SiteDiaryCalendar({
                                           />
                                         </TableHead>
                                         {dayTableHeads.map((head) => {
+                                          if (head === "Photos" && defaultMap?.otherSettings?.inlineDiaryPhotos) {
+                                            return <TableHead key={head} style={{ width: 144 }}>{language === "lv" ? "Foto" : "Photos"}</TableHead>;
+                                          }
                                           if (head === "createdAt") {
                                             return (
                                               <TableHead
@@ -5489,7 +5569,9 @@ export default function SiteDiaryCalendar({
                                                     ),
                                                   }}
                                                 >
-                                                  {showDayPlan && field === "Amounts" ? (
+                                                  {field === "Photos" && defaultMap?.otherSettings?.inlineDiaryPhotos ? (
+                                                    <DiaryRecordPhotos photos={originalRow.Photos} language={language} />
+                                                  ) : showDayPlan && field === "Amounts" ? (
                                                     formatSiteDiaryCompactMetric("Amounts", getDefaultConstructionQuantityComparison(originalRow, defaultMap).enabled
                                                       ? getDefaultConstructionQuantityComparison(originalRow, defaultMap).actualAmount ?? "—"
                                                       : originalRow.Amounts ?? "—")

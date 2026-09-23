@@ -12,6 +12,7 @@ import {
 import { prisma } from "@/lib/utils/db"; // ⬅️ need prisma
 import { handleAudio } from "@/lib/utils/whatsapp-helpers/shared/handleAudio";
 import { handleImage } from "@/lib/utils/whatsapp-helpers/shared/handleImage";
+import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import { handleText } from "@/lib/utils/whatsapp-helpers/shared/handleText";
 import { getString } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import { handleProjectSelector } from "@/lib/utils/whatsapp-helpers/shared/projectSelector";
@@ -239,12 +240,17 @@ export async function handleSiteManagerRoute(args: {
           photoId: caption.photoId,
           siteId: user.lastSelectedSiteIdforWhatsapp,
         });
-        const agentInvocationSucceeded = await handleText({
+        const agentInvocationSucceeded = await runWithWhatsappSourceContext({
+          messageId: caption.messageId,
+          messageType: "image",
+          mediaPurpose: "site_diary_caption",
+          diaryPhotoIds: caption.photoId ? [caption.photoId] : [],
+        }, () => handleText({
           body: caption.body,
           user,
           to: from,
           agent: traceAwareAgent,
-        });
+        }));
         console.log("Site manager batched image caption processing finished", {
           messageId: caption.messageId,
           photoId: caption.photoId,
@@ -318,12 +324,17 @@ export async function handleSiteManagerRoute(args: {
           siteId: user.lastSelectedSiteIdforWhatsapp,
         });
         await sendProcessingAcknowledgement(from, user.id);
-        const agentInvocationSucceeded = await handleText({
+        const agentInvocationSucceeded = await runWithWhatsappSourceContext({
+          messageId,
+          messageType: "image",
+          mediaPurpose: "site_diary_caption",
+          diaryPhotoIds: img.savedPhoto?.id ? [img.savedPhoto.id] : [],
+        }, () => handleText({
           body: normalizedComment,
           user,
           to: from,
           agent: traceAwareAgent,
-        });
+        }));
         console.log("Site manager image caption processing finished", {
           messageId,
           photoId: img.savedPhoto?.id ?? null,
