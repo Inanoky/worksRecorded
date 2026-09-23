@@ -22,7 +22,7 @@ import { SB_STOMME_ORGANIZATION_ID } from "../sb-stomme-inline-plan/model";
 import { LIMENI_ORGANIZATION_ID } from "../lib/diary-photos";
 
 describe("all projects diary", () => {
-  it("preloads linked photos across every filtered page only for Limeni", async () => {
+  it("preloads linked photos from the first two filtered pages only for Limeni", async () => {
     const photo = "https://utfs.io/f/current";
     const laterPhoto = "https://utfs.io/f/later-page";
     recordsFindManyMock.mockResolvedValueOnce([{ id: "record", Photos: [photo], Site: null }]);
@@ -33,6 +33,9 @@ describe("all projects diary", () => {
     expect(result.photoUrls).toEqual([photo, laterPhoto]);
     expect(recordsFindManyMock).toHaveBeenNthCalledWith(2, {
       where: buildAllProjectsDiaryWhere(LIMENI_ORGANIZATION_ID, filters),
+      orderBy: recordsFindManyMock.mock.calls[0][0].orderBy,
+      skip: 0,
+      take: 60,
       select: { Photos: true },
     });
   });
@@ -43,13 +46,18 @@ describe("all projects diary", () => {
     expect(recordsFindManyMock).toHaveBeenCalledTimes(1);
   });
 
-  it("paginates Limeni in batches of 30 while keeping every photo available", async () => {
+  it("paginates Limeni in batches of 30 and limits the initial photo batch", async () => {
     recordsCountMock.mockResolvedValue(138);
     const result = await loadAllProjectsDiary(LIMENI_ORGANIZATION_ID, { page: 2 });
     expect(recordsFindManyMock).toHaveBeenNthCalledWith(1, expect.objectContaining({ skip: 30, take: 30 }));
     expect(result).toMatchObject({ page: 2, pageSize: 30, totalCount: 138, totalPages: 5 });
-    expect(recordsFindManyMock.mock.calls[1][0]).not.toHaveProperty("take");
-    expect(recordsFindManyMock.mock.calls[1][0]).not.toHaveProperty("skip");
+    expect(recordsFindManyMock.mock.calls[1][0]).toMatchObject({ skip: 0, take: 60 });
+  });
+
+  it("loads only the selected later page's photo URLs", async () => {
+    await loadAllProjectsDiary(LIMENI_ORGANIZATION_ID, { page: 4 });
+    expect(recordsFindManyMock.mock.calls[1][0]).toMatchObject({ skip: 90, take: 30, select: { Photos: true } });
+    expect(recordsFindManyMock.mock.calls[1][0].orderBy).toEqual(recordsFindManyMock.mock.calls[0][0].orderBy);
   });
 
   it("exposes inline plans only to SB STOMME and leaves actuals unchanged", async () => {

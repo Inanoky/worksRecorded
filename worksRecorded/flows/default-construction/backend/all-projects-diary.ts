@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
+import { getDiaryImagePageRange } from "../lib/diary-image-pages";
 import {
   hasInlineDiaryPhotos,
   normalizeDiaryPhotoUrls,
@@ -209,7 +210,12 @@ export async function loadAllProjectsDiary(
     }),
     prisma.sitediaryrecords.count({ where }),
     hasInlineDiaryPhotos(organizationId)
-      ? prisma.sitediaryrecords.findMany({ where, select: { Photos: true } })
+      ? prisma.sitediaryrecords.findMany({
+          where,
+          orderBy: allProjectsDiaryOrderBy,
+          ...getDiaryImagePageRange(page, pageSize),
+          select: { Photos: true },
+        })
       : Promise.resolve([]),
   ]);
 

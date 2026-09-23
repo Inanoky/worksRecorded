@@ -130,3 +130,97 @@ it("opens a row-specific preview without gallery navigation", () => {
 		"https://utfs.io/f/2",
 	);
 });
+
+it("zooms up to 400 percent, zooms out, and resets to fit without another image URL", () => {
+	render(<DiaryRecordPhotos photos={["https://utfs.io/f/1"]} language="en" />);
+	fireEvent.click(screen.getByRole("button", { name: "Report photo 1" }));
+	const dialog = within(screen.getByRole("dialog"));
+	const zoomIn = dialog.getByRole("button", { name: "Zoom in" });
+	const zoomOut = dialog.getByRole("button", { name: "Zoom out" });
+	expect(zoomOut).toBeDisabled();
+	for (let index = 0; index < 6; index++) fireEvent.click(zoomIn);
+	expect(dialog.getByLabelText("Zoom level")).toHaveTextContent("400%");
+	expect(zoomIn).toBeDisabled();
+	expect(dialog.getByRole("img").parentElement).toHaveStyle({
+		width: "400%",
+		height: "400%",
+	});
+	expect(dialog.getByRole("img")).toHaveAttribute("src", "https://utfs.io/f/1");
+	fireEvent.click(zoomOut);
+	expect(dialog.getByLabelText("Zoom level")).toHaveTextContent("350%");
+	fireEvent.click(dialog.getByRole("button", { name: "Fit image" }));
+	expect(dialog.getByLabelText("Zoom level")).toHaveTextContent("100%");
+	expect(zoomOut).toBeDisabled();
+});
+
+it("resets zoom when navigating to another photo or reopening the viewer", () => {
+	render(
+		<DiaryRecordPhotos
+			photos={["https://utfs.io/f/1", "https://utfs.io/f/2"]}
+		/>,
+	);
+	const open = screen.getByRole("button", { name: "Ziņojuma foto 1" });
+	fireEvent.click(open);
+	fireEvent.click(screen.getByRole("button", { name: "Pietuvināt" }));
+	expect(screen.getByLabelText("Tālummaiņa")).toHaveTextContent("150%");
+	fireEvent.click(screen.getByRole("button", { name: "Nākamais" }));
+	expect(screen.getByLabelText("Tālummaiņa")).toHaveTextContent("100%");
+	fireEvent.click(screen.getByRole("button", { name: "Pietuvināt" }));
+	fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+	fireEvent.click(open);
+	expect(screen.getByLabelText("Tālummaiņa")).toHaveTextContent("100%");
+});
+
+it("pans an enlarged photo by dragging and resets its position", () => {
+	render(<DiaryRecordPhotos photos={["https://utfs.io/f/1"]} language="en" />);
+	fireEvent.click(screen.getByRole("button", { name: "Report photo 1" }));
+	fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+	const viewport = screen.getByRole("region", { name: "Photo zoom view" });
+	const pointer = (type: string, x: number, y: number) => {
+		const event = new Event(type, { bubbles: true });
+		Object.assign(event, {
+			pointerType: "mouse",
+			button: 0,
+			pointerId: 1,
+			clientX: x,
+			clientY: y,
+		});
+		fireEvent(viewport, event);
+	};
+	pointer("pointerdown", 100, 100);
+	pointer("pointermove", 60, 50);
+	expect(viewport.scrollLeft).toBe(40);
+	expect(viewport.scrollTop).toBe(50);
+	pointer("pointerup", 60, 50);
+	pointer("pointermove", 10, 10);
+	expect(viewport.scrollLeft).toBe(40);
+	fireEvent.click(screen.getByRole("button", { name: "Fit image" }));
+	expect(viewport.scrollLeft).toBe(0);
+	expect(viewport.scrollTop).toBe(0);
+});
+
+it("zooms with the wheel only over the photo and prevents scrolling within its limits", () => {
+	render(<DiaryRecordPhotos photos={["https://utfs.io/f/1"]} language="en" />);
+	fireEvent.click(screen.getByRole("button", { name: "Report photo 1" }));
+	const viewport = screen.getByRole("region", { name: "Photo zoom view" });
+	const wheel = (deltaY: number) => {
+		const event = new WheelEvent("wheel", {
+			deltaY,
+			bubbles: true,
+			cancelable: true,
+		});
+		fireEvent(viewport, event);
+		return event;
+	};
+	expect(wheel(-100).defaultPrevented).toBe(true);
+	expect(screen.getByLabelText("Zoom level")).toHaveTextContent("125%");
+	wheel(100);
+	expect(screen.getByLabelText("Zoom level")).toHaveTextContent("100%");
+	expect(wheel(100).defaultPrevented).toBe(true);
+	for (let index = 0; index < 20; index++) wheel(-100);
+	expect(screen.getByLabelText("Zoom level")).toHaveTextContent("400%");
+	fireEvent.wheel(screen.getByRole("dialog"), { deltaY: 100 });
+	expect(screen.getByLabelText("Zoom level")).toHaveTextContent("400%");
+	fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+	expect(wheel(-100).defaultPrevented).toBe(false);
+});

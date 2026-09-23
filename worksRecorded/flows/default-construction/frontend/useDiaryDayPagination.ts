@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { DIARY_DAY_PAGE_SIZE } from "../lib/diary-image-pages";
 
 export function useDiaryDayPagination<T>(
 	groups: T[],
 	filterKey: string,
-	pageSize = 10,
+	pageSize = DIARY_DAY_PAGE_SIZE,
 ) {
 	const [selection, setSelection] = useState({ filterKey, page: 1 });
 	const totalPages = Math.max(1, Math.ceil(groups.length / pageSize));

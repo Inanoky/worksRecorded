@@ -3,7 +3,8 @@ import { DiaryRecordPhotos } from "@/flows/default-construction/frontend/DiaryRe
 import { DiaryDayPagination } from "@/flows/default-construction/frontend/DiaryDayPagination";
 import { useDiaryDayPagination } from "@/flows/default-construction/frontend/useDiaryDayPagination";
 import { getClientDiaryMediaDays, type DiaryMediaPhoto } from "@/flows/default-construction/lib/diary-media-days";
-import { preloadDiaryImages, type DiaryImageProgress } from "@/flows/default-construction/frontend/preloadDiaryImages";
+import { useDiaryImagePreload } from "@/flows/default-construction/frontend/useDiaryImagePreload";
+import { getDiaryPagePhotoUrls } from "@/flows/default-construction/lib/diary-image-pages";
 
 import {
   CalendarIcon,
@@ -757,19 +758,12 @@ export default function SiteDiaryCalendar({
   const initialBisSyncSiteRef = React.useRef<string | null>(null);
   const mediaOnlyRequestRef = React.useRef(0);
   const diaryRowsRequestRef = React.useRef(0);
-  const diaryImageCache = React.useRef(new Map<string, HTMLImageElement>());
-  const diaryImageAbort = React.useRef<AbortController | null>(null);
-  const [diaryImageProgress, setDiaryImageProgress] = React.useState<DiaryImageProgress | null>(null);
-  const [imagesReadySiteId, setImagesReadySiteId] = React.useState<string | null>(null);
+  const [diarySnapshotSiteId, setDiarySnapshotSiteId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    const cache = diaryImageCache.current;
-    setDiaryImageProgress(null);
-    setImagesReadySiteId(null);
+    setDiarySnapshotSiteId(null);
     return () => {
       ++diaryRowsRequestRef.current;
-      diaryImageAbort.current?.abort();
-      cache.clear();
     };
   }, [siteId]);
 
@@ -1206,7 +1200,6 @@ export default function SiteDiaryCalendar({
   const refreshRowsWithBisSync = React.useCallback(
     async (options?: { skipSync?: boolean }) => {
       const requestId = ++diaryRowsRequestRef.current;
-      diaryImageAbort.current?.abort();
       ++mediaOnlyRequestRef.current;
       if (!siteId) {
         setMediaOnlyDays([]);
@@ -1218,22 +1211,9 @@ export default function SiteDiaryCalendar({
       if (clientDiary) {
         const result = await getLimeniDiarySnapshot(siteId);
         if (diaryRowsRequestRef.current !== requestId) return result.rows;
-        const controller = new AbortController();
-        diaryImageAbort.current = controller;
-        await preloadDiaryImages([
-          ...result.rows.flatMap((row) => row.Photos ?? []),
-          ...result.mediaPhotos.map((photo) => photo.URL || photo.fileUrl),
-        ], {
-          cache: diaryImageCache.current,
-          signal: controller.signal,
-          onProgress: (progress) => {
-            if (diaryRowsRequestRef.current === requestId) setDiaryImageProgress(progress);
-          },
-        });
-        if (controller.signal.aborted || diaryRowsRequestRef.current !== requestId) return result.rows;
-        setImagesReadySiteId(siteId);
         setRows(result.rows);
         setClientMediaPhotos(result.mediaPhotos);
+        setDiarySnapshotSiteId(siteId);
         setBisApprovalStatusByRowId(Object.fromEntries(result.rows.map((row) => [row.id, row.bisStatus ?? ""])));
         return result.rows;
       }
@@ -1815,7 +1795,14 @@ export default function SiteDiaryCalendar({
 
   const clientPagination = useDiaryDayPagination(allKeywordMatchedDayGroups, JSON.stringify([siteId, dateFrom, dateTo, workFilter, floorFilter, keywordFilter, planner.show]));
   const keywordMatchedDayGroups = clientDiary ? clientPagination.groups : allKeywordMatchedDayGroups;
-  const imagesPreloading = clientDiary && (imagesReadySiteId !== siteId || Boolean(diaryImageProgress && diaryImageProgress.completed < diaryImageProgress.total));
+  const diaryPagePhotoUrls = React.useMemo(
+    () => clientDiary ? getDiaryPagePhotoUrls(allKeywordMatchedDayGroups, clientMediaPhotos, clientPagination.page) : [],
+    [clientDiary, allKeywordMatchedDayGroups, clientMediaPhotos, clientPagination.page],
+  );
+  const { progress: diaryImageProgress, loading: pageImagesLoading } = useDiaryImagePreload(
+    diaryPagePhotoUrls, siteId ?? "", clientDiary && diarySnapshotSiteId === siteId,
+  );
+  const imagesPreloading = clientDiary && (diarySnapshotSiteId !== siteId || pageImagesLoading);
   const showInitialListSkeleton = ((loading && !hasLoadedRowsOnce) || imagesPreloading) && !error;
   const showUpdatingListSkeleton =
     loading && hasLoadedRowsOnce && showDelayedListSkeleton && !error;

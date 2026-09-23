@@ -1,4 +1,6 @@
 export type DiaryMediaPhoto = {
+	URL?: string | null;
+	fileUrl?: string | null;
 	Date: Date | string | null;
 	Comment: string | null;
 	Location: string | null;

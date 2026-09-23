@@ -1,7 +1,9 @@
 "use client";
 
+import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
@@ -74,6 +76,150 @@ function Photo({
 				/>
 			) : null}
 		</>
+	);
+}
+
+function ZoomablePhoto({
+	url,
+	label,
+	lv,
+}: {
+	url: string;
+	label: string;
+	lv: boolean;
+}) {
+	const [scale, setScale] = useState(1);
+	const viewport = useRef<HTMLElement>(null);
+	const previousScale = useRef(1);
+	const drag = useRef<{
+		x: number;
+		y: number;
+		left: number;
+		top: number;
+	} | null>(null);
+	useEffect(() => {
+		const element = viewport.current;
+		if (!element) return;
+		const zoomWithWheel = (event: WheelEvent) => {
+			if (!event.deltaY) return;
+			event.preventDefault();
+			setScale((value) =>
+				Math.max(1, Math.min(4, value + (event.deltaY < 0 ? 0.25 : -0.25))),
+			);
+		};
+		element.addEventListener("wheel", zoomWithWheel, { passive: false });
+		return () => element.removeEventListener("wheel", zoomWithWheel);
+	}, []);
+	useLayoutEffect(() => {
+		const element = viewport.current;
+		if (element) {
+			const ratio = scale / previousScale.current;
+			element.scrollLeft =
+				scale === 1
+					? 0
+					: (element.scrollLeft + element.clientWidth / 2) * ratio -
+						element.clientWidth / 2;
+			element.scrollTop =
+				scale === 1
+					? 0
+					: (element.scrollTop + element.clientHeight / 2) * ratio -
+						element.clientHeight / 2;
+		}
+		previousScale.current = scale;
+	}, [scale]);
+
+	return (
+		<div className="min-w-0 space-y-2">
+			<div className="flex flex-wrap items-center justify-center gap-2">
+				<Button
+					type="button"
+					variant="outline"
+					size="icon"
+					aria-label={lv ? "Attālināt" : "Zoom out"}
+					disabled={scale <= 1}
+					onClick={() => setScale((value) => Math.max(1, value - 0.5))}
+				>
+					<ZoomOut aria-hidden="true" />
+				</Button>
+				<output
+					aria-label={lv ? "Tālummaiņa" : "Zoom level"}
+					className="w-14 text-center text-sm tabular-nums"
+				>
+					{Math.round(scale * 100)}%
+				</output>
+				<Button
+					type="button"
+					variant="outline"
+					size="icon"
+					aria-label={lv ? "Pietuvināt" : "Zoom in"}
+					disabled={scale >= 4}
+					onClick={() => setScale((value) => Math.min(4, value + 0.5))}
+				>
+					<ZoomIn aria-hidden="true" />
+				</Button>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					disabled={scale === 1}
+					onClick={() => setScale(1)}
+				>
+					<RotateCcw aria-hidden="true" />
+					{lv ? "Ietilpināt" : "Fit image"}
+				</Button>
+			</div>
+			<section
+				ref={viewport}
+				aria-label={lv ? "Foto tālummaiņas skats" : "Photo zoom view"}
+				className={`h-[55vh] min-w-0 select-none overflow-auto overscroll-contain rounded-md bg-muted/30 outline-offset-2 ${scale > 1 ? "cursor-grab active:cursor-grabbing" : ""}`}
+				onDragStart={(event) => event.preventDefault()}
+				onPointerDown={(event) => {
+					if (
+						scale === 1 ||
+						event.pointerType !== "mouse" ||
+						event.button !== 0
+					)
+						return;
+					drag.current = {
+						x: event.clientX,
+						y: event.clientY,
+						left: event.currentTarget.scrollLeft,
+						top: event.currentTarget.scrollTop,
+					};
+					event.currentTarget.setPointerCapture?.(event.pointerId);
+				}}
+				onPointerMove={(event) => {
+					if (!drag.current) return;
+					event.currentTarget.scrollLeft =
+						drag.current.left + drag.current.x - event.clientX;
+					event.currentTarget.scrollTop =
+						drag.current.top + drag.current.y - event.clientY;
+				}}
+				onPointerUp={(event) => {
+					drag.current = null;
+					if (event.currentTarget.hasPointerCapture?.(event.pointerId))
+						event.currentTarget.releasePointerCapture(event.pointerId);
+				}}
+				onPointerCancel={() => {
+					drag.current = null;
+				}}
+				onLostPointerCapture={() => {
+					drag.current = null;
+				}}
+			>
+				<div
+					className="relative"
+					style={{ width: `${scale * 100}%`, height: `${scale * 100}%` }}
+				>
+					<Photo url={url} label={label} large />
+				</div>
+			</section>
+			<p className="text-center text-xs text-muted-foreground">
+				{lv
+					? "Ritiniet peles ritenīti vai izmantojiet +/−, lai mainītu tālummaiņu. Velciet foto, lai to pārvietotu."
+					: "Scroll the mouse wheel or use +/− to zoom. Drag the photo to move around."}
+			</p>
+		</div>
 	);
 }
 
@@ -168,7 +314,7 @@ export function DiaryRecordPhotos({
 					if (!open) setSelected(null);
 				}}
 			>
-				<DialogContent className="max-w-[95vw] sm:max-w-5xl">
+				<DialogContent className="max-h-[90dvh] max-w-[95vw] overflow-y-auto sm:max-w-5xl">
 					<DialogTitle>{label}</DialogTitle>
 					<DialogDescription>
 						{lv
@@ -176,9 +322,12 @@ export function DiaryRecordPhotos({
 							: "Photo attached to this report; it may relate to several reported tasks."}
 					</DialogDescription>
 					{selected ? (
-						<div className="relative h-[70vh] min-w-0">
-							<Photo key={selected} url={selected} label={label} large />
-						</div>
+						<ZoomablePhoto
+							key={selected}
+							url={selected}
+							label={label}
+							lv={lv}
+						/>
 					) : null}
 					{urls.length > 1 && selected ? (
 						<div className="flex items-center justify-between text-sm">
