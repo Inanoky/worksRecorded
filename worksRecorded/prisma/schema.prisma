@@ -796,6 +796,29 @@ model MetaInboundMessage {
   @@index([status, receivedAt], map: "MetaInboundMessage_status_received_idx")
 }
 
+model WhatsappBrowserMessage {
+  id             String    @id @default(uuid())
+  idempotencyKey String    @unique
+  organizationId String
+  groupName      String
+  senderName     String?
+  senderPhone    String?
+  sentAt         DateTime
+  rawText        String
+  payload        Json
+  status         String    @default("processing")
+  recordIds      String[]  @default([])
+  projectIds     String[]  @default([])
+  ambiguity      String?
+  lastError      String?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([organizationId, sentAt], map: "WhatsappBrowserMessage_org_sent_idx")
+  @@index([status, createdAt], map: "WhatsappBrowserMessage_status_created_idx")
+}
+
 model WhatsappReminderLog {
   id                    String    @id @default(uuid())
   targetType            String

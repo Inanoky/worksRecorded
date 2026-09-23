@@ -1,0 +1,10 @@
+[Unit]
+Description=Run WorksRecorded WhatsApp browser sync daily
+
+[Timer]
+OnCalendar=*-*-* 00:00:00 Europe/Riga
+Persistent=true
+Unit=worksrecorded-whatsapp-browser.service
+
+[Install]
+WantedBy=timers.target

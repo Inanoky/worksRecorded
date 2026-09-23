@@ -1,0 +1,16 @@
+[Unit]
+Description=Check the WorksRecorded WhatsApp browser session
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=worksrecorded
+WorkingDirectory=/opt/worksrecorded
+EnvironmentFile=/etc/worksrecorded/whatsapp-browser-sync.env
+ExecStart=/usr/bin/npm run whatsapp-browser:health
+TimeoutStartSec=3min
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

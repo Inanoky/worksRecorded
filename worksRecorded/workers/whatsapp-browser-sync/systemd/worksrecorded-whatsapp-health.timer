@@ -1,0 +1,11 @@
+[Unit]
+Description=Check the WorksRecorded WhatsApp browser session every 15 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+Persistent=true
+Unit=worksrecorded-whatsapp-health.service
+
+[Install]
+WantedBy=timers.target
