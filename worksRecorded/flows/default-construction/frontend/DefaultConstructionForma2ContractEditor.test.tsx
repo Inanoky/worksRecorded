@@ -32,6 +32,8 @@ const row: Forma2ResultRow = {
 	sourceRow: 10,
 	unit: "m2",
 	plannedQuantity: 5,
+	actualQuantity: null,
+	excludedQuantityRecords: 0,
 	laborNormHoursPerUnit: null,
 	hourlyRate: null,
 	plannedWorkCost: 10,

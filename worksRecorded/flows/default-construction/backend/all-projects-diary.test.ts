@@ -19,8 +19,39 @@ import {
   loadAllProjectsDiaryExportRecords,
 } from "./all-projects-diary";
 import { SB_STOMME_ORGANIZATION_ID } from "../sb-stomme-inline-plan/model";
+import { LIMENI_ORGANIZATION_ID } from "../lib/diary-photos";
 
 describe("all projects diary", () => {
+  it("preloads linked photos across every filtered page only for Limeni", async () => {
+    const photo = "https://utfs.io/f/current";
+    const laterPhoto = "https://utfs.io/f/later-page";
+    recordsFindManyMock.mockResolvedValueOnce([{ id: "record", Photos: [photo], Site: null }]);
+    recordsFindManyMock.mockResolvedValueOnce([{ Photos: [photo, photo] }, { Photos: [laterPhoto, "invalid"] }]);
+    const filters = { page: 2, projectId: "site-1", keyword: "floor" };
+    const result = await loadAllProjectsDiary(LIMENI_ORGANIZATION_ID, filters);
+    expect(result.records[0].Photos).toEqual([photo]);
+    expect(result.photoUrls).toEqual([photo, laterPhoto]);
+    expect(recordsFindManyMock).toHaveBeenNthCalledWith(2, {
+      where: buildAllProjectsDiaryWhere(LIMENI_ORGANIZATION_ID, filters),
+      select: { Photos: true },
+    });
+  });
+
+  it("does not load an image manifest for other organizations", async () => {
+    const result = await loadAllProjectsDiary("other-org");
+    expect(result.photoUrls).toEqual([]);
+    expect(recordsFindManyMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("paginates Limeni in batches of 30 while keeping every photo available", async () => {
+    recordsCountMock.mockResolvedValue(138);
+    const result = await loadAllProjectsDiary(LIMENI_ORGANIZATION_ID, { page: 2 });
+    expect(recordsFindManyMock).toHaveBeenNthCalledWith(1, expect.objectContaining({ skip: 30, take: 30 }));
+    expect(result).toMatchObject({ page: 2, pageSize: 30, totalCount: 138, totalPages: 5 });
+    expect(recordsFindManyMock.mock.calls[1][0]).not.toHaveProperty("take");
+    expect(recordsFindManyMock.mock.calls[1][0]).not.toHaveProperty("skip");
+  });
+
   it("exposes inline plans only to SB STOMME and leaves actuals unchanged", async () => {
     const row = {
       id: "row",

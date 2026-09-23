@@ -19,6 +19,7 @@ import {
 	normalizeForma2MaterialRuleName,
 	suggestForma2Position,
 } from "@/flows/default-construction/lib/forma2-analytics";
+import { getForma2DiaryQuantity } from "@/flows/default-construction/lib/forma2-quantities";
 import {
 	getDefaultConstructionForma2WorkSyncManifest,
 	normalizeForma2WorkOptionKey,
@@ -258,6 +259,7 @@ async function loadDefaultConstructionForma2Data(
 				Location: true,
 				Units: true,
 				Amounts: true,
+				Comments_Custom_1: true,
 				TimeInvolved: true,
 			},
 		}),
@@ -312,7 +314,7 @@ async function loadDefaultConstructionForma2Data(
 			const setting = settingsByWork.get(work.toLocaleLowerCase("lv"));
 			const hours = nullableNumber(row.TimeInvolved);
 			const unit = text(row.Units, 40);
-			const quantity = nullableNumber(row.Amounts);
+			const quantity = getForma2DiaryQuantity(row, config);
 			const cost = calculateDefaultConstructionWorkCost({
 				setting,
 				unit,
@@ -719,6 +721,7 @@ export async function getDefaultConstructionForma2MappingPage(args: {
 						Location: true,
 						Units: true,
 						Amounts: true,
+						Comments_Custom_1: true,
 						TimeInvolved: true,
 					},
 				})
@@ -762,7 +765,7 @@ export async function getDefaultConstructionForma2MappingPage(args: {
 			const setting = settingsByWork.get(work.toLocaleLowerCase("lv"));
 			const hours = nullableNumber(row.TimeInvolved);
 			const unit = text(row.Units, 40);
-			const quantity = nullableNumber(row.Amounts);
+			const quantity = getForma2DiaryQuantity(row, config);
 			const cost = calculateDefaultConstructionWorkCost({
 				setting,
 				unit,

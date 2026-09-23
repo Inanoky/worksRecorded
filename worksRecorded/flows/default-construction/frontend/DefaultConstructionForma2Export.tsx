@@ -60,6 +60,7 @@ export function DefaultConstructionForma2Export({
 				t.type,
 				t.unit,
 				t.contractQuantity,
+				t.actualQuantity,
 				t.plannedWork,
 				t.plannedMaterials,
 				t.plannedMechanisms,
@@ -77,6 +78,7 @@ export function DefaultConstructionForma2Export({
 				typeLabel[row.kind],
 				row.unit,
 				row.plannedQuantity,
+				row.actualQuantity,
 				row.plannedWorkCost,
 				row.plannedMaterialCost,
 				row.plannedMechanismCost,
@@ -93,6 +95,7 @@ export function DefaultConstructionForma2Export({
 				t.total,
 				"",
 				"",
+				null,
 				null,
 				totals.plannedWorkCost,
 				totals.plannedMaterialCost,
@@ -124,13 +127,14 @@ export function DefaultConstructionForma2Export({
 				{ s: { r: 1, c: 0 }, e: { r: 1, c: headers.length - 1 } },
 			];
 			worksheet["!autofilter"] = {
-				ref: `A${headerRowIndex + 1}:O${totalRowIndex}`,
+				ref: `A${headerRowIndex + 1}:P${totalRowIndex}`,
 			};
 			worksheet["!cols"] = [
 				{ wch: 28 },
 				{ wch: 64 },
 				{ wch: 14 },
 				{ wch: 12 },
+				{ wch: 18 },
 				{ wch: 18 },
 				{ wch: 18 },
 				{ wch: 20 },
@@ -148,10 +152,26 @@ export function DefaultConstructionForma2Export({
 				rowIndex <= totalRowIndex;
 				rowIndex += 1
 			) {
-				const quantityCell =
-					worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 4 })];
-				if (quantityCell) quantityCell.z = "0.00";
-				for (let columnIndex = 5; columnIndex <= 13; columnIndex += 1) {
+				for (const columnIndex of [4, 5]) {
+					const quantityCell =
+						worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex })];
+					if (quantityCell) quantityCell.z = "0.00";
+				}
+				const row = rows[rowIndex - firstDataRowIndex];
+				if (row?.excludedQuantityRecords > 0) {
+					const address = XLSX.utils.encode_cell({ r: rowIndex, c: 5 });
+					worksheet[address] ??= { t: "s", v: "—" };
+					worksheet[address].c = [
+						{
+							a: "WorksRecorded",
+							t: t.quantityExcluded.replace(
+								"{count}",
+								String(row.excludedQuantityRecords),
+							),
+						},
+					];
+				}
+				for (let columnIndex = 6; columnIndex <= 14; columnIndex += 1) {
 					const cell =
 						worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex })];
 					if (cell) cell.z = "€ #,##0.00";

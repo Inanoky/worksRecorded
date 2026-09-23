@@ -3,6 +3,9 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ProjectNavigationLink } from "@/components/providers/ProjectNavigationLink";
 import { OriginalSourceContent } from "@/components/sitediary/OriginalSourceContent";
+import { DiaryRecordPhotos } from "@/flows/default-construction/frontend/DiaryRecordPhotos";
+import { AllProjectsPhotoPreloader } from "@/flows/default-construction/frontend/AllProjectsPhotoPreloader";
+import { hasInlineDiaryPhotos } from "@/flows/default-construction/lib/diary-photos";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -124,6 +127,7 @@ function getMessages(language: string | null) {
       hours: "Stundas",
       cost: "Izmaksas",
       comments: "Komentāri",
+      photos: "Foto",
       source: "Avots",
       showSource: "Rādīt avotu",
       openingProject: "Atver projektu...",
@@ -156,6 +160,7 @@ function getMessages(language: string | null) {
     hours: "Hours",
     cost: "Cost",
     comments: "Comments",
+    photos: "Photos",
     source: "Source",
     showSource: "Show source",
     openingProject: "Opening project...",
@@ -196,6 +201,7 @@ export default async function AllProjectsPage({
   const data = await loadAllProjectsDiary(organizationId, filters);
   const messages = getMessages(organizationLanguage);
   const isSbStomme = organizationId === SB_STOMME_ORGANIZATION_ID;
+  const showPhotos = hasInlineDiaryPhotos(organizationId);
   const showPlannedAmount = isSbStomme || data.quantityPlanFactEnabled;
   const locale = organizationLanguage === "lv" ? "lv-LV" : "en-GB";
   const dateFormatter = new Intl.DateTimeFormat(locale, {
@@ -215,7 +221,7 @@ export default async function AllProjectsPage({
   });
 
   const content = (
-    <div className="mx-auto w-full max-w-[1900px] space-y-6 px-2 py-4 sm:px-4">
+    <div className="mx-auto w-full min-w-0 max-w-[1900px] space-y-6 px-2 py-4 sm:px-4">
       <div className="space-y-2">
         <Button asChild variant="ghost" className="px-0">
           <Link href="/dashboard">← {messages.back}</Link>
@@ -307,7 +313,23 @@ export default async function AllProjectsPage({
           </div>
         </CardHeader>
         <CardContent className="px-3 sm:px-6">
-          <div className="space-y-3 lg:hidden">
+          {showPhotos && data.totalPages > 1 ? (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-sm text-muted-foreground">
+                {(data.page - 1) * data.pageSize + 1}–{Math.min(data.page * data.pageSize, data.totalCount)} / {data.totalCount} {messages.records}
+              </span>
+              <div className="flex items-center gap-2">
+                {data.page > 1 ? (
+                  <Button asChild variant="outline" size="sm"><Link href={pageHref(rawSearchParams, data.page - 1)}>{messages.previous}</Link></Button>
+                ) : <Button variant="outline" size="sm" disabled>{messages.previous}</Button>}
+                <span className="text-sm tabular-nums">{data.page} / {data.totalPages}</span>
+                {data.page < data.totalPages ? (
+                  <Button asChild variant="outline" size="sm"><Link href={pageHref(rawSearchParams, data.page + 1)}>{messages.next}</Link></Button>
+                ) : <Button variant="outline" size="sm" disabled>{messages.next}</Button>}
+              </div>
+            </div>
+          ) : null}
+          <div className={cn("space-y-3", showPhotos ? "xl:hidden" : "lg:hidden")}>
             {data.records.length ? (
               data.records.map((record) => (
                 <article
@@ -470,6 +492,17 @@ export default async function AllProjectsPage({
                     </p>
                   </div>
 
+                  {showPhotos ? (
+                    <div className="mt-3 border-t pt-3">
+                      <p className="mb-2 text-[11px] font-medium text-muted-foreground">
+                        {messages.photos}
+                      </p>
+                      <DiaryRecordPhotos
+                        photos={record.Photos}
+                        language={organizationLanguage ?? "lv"}
+                      />
+                    </div>
+                  ) : null}
                   <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3">
                     <span className="text-xs font-medium text-muted-foreground">
                       {messages.source}
@@ -510,17 +543,35 @@ export default async function AllProjectsPage({
             )}
           </div>
 
-          <div className="hidden overflow-x-auto rounded-md border lg:block">
+          <div className={cn("hidden min-w-0 overflow-x-auto rounded-md border", showPhotos ? "xl:block" : "lg:block")}>
             <Table
               className={cn(
                 "table-fixed",
                 isSbStomme
                   ? "min-w-[1720px]"
-                  : data.quantityPlanFactEnabled
-                    ? "min-w-[1760px]"
-                    : "min-w-[1620px]",
+                  : showPhotos
+                    ? "w-full text-xs [&_th]:whitespace-normal [&_th]:break-words [&_th]:px-1.5 [&_td]:whitespace-normal [&_td]:px-1.5 [&_td]:[overflow-wrap:anywhere]"
+                    : data.quantityPlanFactEnabled
+                      ? "min-w-[1760px]"
+                      : "min-w-[1620px]",
               )}
             >
+              {showPhotos ? (
+                <colgroup>
+                  <col style={{ width: "6.5%" }} />
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "7%" }} />
+                  <col style={{ width: showPlannedAmount ? "14%" : "21%" }} />
+                  {showPlannedAmount ? <col style={{ width: "7%" }} /> : null}
+                  <col style={{ width: "7%" }} />
+                  <col style={{ width: "5%" }} />
+                  <col style={{ width: "4%" }} />
+                  <col style={{ width: "6%" }} />
+                  <col style={{ width: "20%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "3.5%" }} />
+                </colgroup>
+              ) : null}
               <TableHeader>
                 <TableRow>
                   <TableHead className={isSbStomme ? "w-[94px]" : "w-[100px]"}>
@@ -598,6 +649,9 @@ export default async function AllProjectsPage({
                   <TableHead className={isSbStomme ? "w-[220px]" : "w-[400px]"}>
                     {messages.comments}
                   </TableHead>
+                  {showPhotos ? (
+                    <TableHead className="w-[140px]">{messages.photos}</TableHead>
+                  ) : null}
                   <TableHead
                     className={cn(
                       "text-center",
@@ -724,6 +778,14 @@ export default async function AllProjectsPage({
                           {record.Comments || "—"}
                         </span>
                       </TableCell>
+                      {showPhotos ? (
+                        <TableCell className="align-top">
+                          <DiaryRecordPhotos
+                            photos={record.Photos}
+                            language={organizationLanguage ?? "lv"}
+                          />
+                        </TableCell>
+                      ) : null}
                       <TableCell className="text-center">
                         {record.originalUserComment ||
                         record.originalAudioUrl ? (
@@ -762,7 +824,8 @@ export default async function AllProjectsPage({
                   <TableRow>
                     <TableCell
                       colSpan={
-                        isSbStomme ? 14 : data.quantityPlanFactEnabled ? 11 : 10
+                        (isSbStomme ? 14 : data.quantityPlanFactEnabled ? 11 : 10) +
+                        (showPhotos ? 1 : 0)
                       }
                       className="h-32 text-center"
                     >
@@ -807,6 +870,17 @@ export default async function AllProjectsPage({
       </Card>
     </div>
   );
+  if (showPhotos) {
+    return (
+      <AllProjectsPhotoPreloader
+        key={organizationId}
+        urls={data.photoUrls}
+        language={organizationLanguage ?? "lv"}
+      >
+        {content}
+      </AllProjectsPhotoPreloader>
+    );
+  }
   return isSbStomme ? (
     <SbPlanProvider
       key={data.records.map((record) => record.id).join(":")}

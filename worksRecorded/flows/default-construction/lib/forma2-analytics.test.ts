@@ -66,6 +66,130 @@ const rows = [
 ];
 
 describe("Forma 2 analytics", () => {
+	it("sums linked diary quantities across dates without requiring costs", () => {
+		const position = {
+			...extractForma2PositionsFromRows(rows, "1-1").positions[0],
+			unit: "m2",
+		};
+		const source: Forma2ActualSource = {
+			id: "first",
+			type: "work",
+			selectedPositionId: position.id,
+			label: position.name,
+			secondaryLabel: "",
+			date: "2026-09-02",
+			unit: "m²",
+			quantity: 74.67,
+			hours: null,
+			actualCost: null,
+		};
+		const view = buildForma2AnalyticsView({
+			positions: [position],
+			allocations: [],
+			sources: [
+				source,
+				{ ...source, id: "second", date: "2026-09-03", quantity: 133.33 },
+				{
+					...source,
+					id: "unassigned",
+					selectedPositionId: null,
+					quantity: 999,
+				},
+				{ ...source, id: "material", type: "material", quantity: 1000 },
+			],
+		});
+		expect(view.resultRows[0]).toMatchObject({
+			plannedQuantity: 55,
+			actualQuantity: 208,
+			excludedQuantityRecords: 0,
+		});
+	});
+
+	it("flags missing quantities and incompatible units without adding them", () => {
+		const position = {
+			...extractForma2PositionsFromRows(rows, "1-1").positions[0],
+			unit: "m2",
+		};
+		const sources: Forma2ActualSource[] = [
+			{ quantity: 12, unit: "m2" },
+			{ quantity: 500, unit: "m3" },
+			{ quantity: null, unit: "m2" },
+			{ quantity: 20, unit: "" },
+		].map((item, index) => ({
+			...item,
+			id: String(index),
+			type: "work",
+			selectedPositionId: position.id,
+			label: position.name,
+			secondaryLabel: "",
+			date: null,
+			hours: null,
+			actualCost: null,
+		}));
+		const view = buildForma2AnalyticsView({
+			positions: [position],
+			sources,
+			allocations: [],
+		});
+		expect(view.resultRows[0]).toMatchObject({
+			actualQuantity: 12,
+			excludedQuantityRecords: 3,
+		});
+	});
+
+	it.each([null, 0])(
+		"distinguishes unknown factual quantity from zero: %p",
+		(quantity) => {
+			const position = extractForma2PositionsFromRows(rows, "1-1").positions[0];
+			const view = buildForma2AnalyticsView({
+				positions: [position],
+				allocations: [],
+				sources: [
+					{
+						id: "record",
+						type: "work",
+						selectedPositionId: position.id,
+						label: position.name,
+						secondaryLabel: "",
+						date: null,
+						hours: null,
+						actualCost: null,
+						unit: position.unit,
+						quantity,
+					},
+				],
+			});
+			expect(view.resultRows[0].actualQuantity).toBe(quantity);
+		},
+	);
+
+	it("does not roll child quantities into parent quantities", () => {
+		const positions = extractForma2PositionsFromRows(rows, "1-1").positions;
+		const view = buildForma2AnalyticsView({
+			positions,
+			allocations: [],
+			sources: [
+				{
+					id: "child",
+					type: "material",
+					selectedPositionId: positions[1].id,
+					label: positions[1].name,
+					secondaryLabel: "",
+					date: null,
+					hours: null,
+					actualCost: 50,
+					unit: positions[1].unit,
+					quantity: 20,
+				},
+			],
+		});
+		expect(view.resultRows.map((row) => row.actualQuantity)).toEqual([
+			null,
+			null,
+		]);
+		expect(view.resultRows[0].actualTotalCost).toBe(50);
+	});
+
 	it("normalizes equivalent material descriptions into a reusable rule key", () => {
 		expect(normalizeForma2MaterialRuleName("Sakret BH 25kg — C35")).toBe(
 			normalizeForma2MaterialRuleName("  SAKRET-BH 25 kg / C 35 "),

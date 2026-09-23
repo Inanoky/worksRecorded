@@ -72,7 +72,7 @@ function Forma2TotalsRow({
 }) {
 	return (
 		<TableRow className="border-y-2 bg-muted/80 hover:bg-muted/80">
-			<TableCell colSpan={3} className="pl-4 font-bold">
+			<TableCell colSpan={4} className="pl-4 font-bold">
 				{t.total}
 			</TableCell>
 			<TableCell className="border-l px-1 text-right font-bold tabular-nums">
@@ -164,10 +164,11 @@ function Forma2ResultsView({
 			label={t.horizontalScroll}
 			className="border-y"
 		>
-			<table className="w-full min-w-[1380px] table-fixed caption-bottom text-[10px] xl:text-[11px]">
+			<table className="w-full min-w-[1480px] table-fixed caption-bottom text-[10px] xl:text-[11px]">
 				<colgroup>
-					<col className="w-[23%]" />
-					<col className="w-[5%]" />
+					<col style={{ width: "calc(25% - 48px)" }} />
+					<col style={{ width: 48 }} />
+					<col className="w-[6%]" />
 					<col className="w-[6%]" />
 					<col className="w-[7%]" />
 					<col className="w-[7%]" />
@@ -198,6 +199,12 @@ function Forma2ResultsView({
 							className="h-auto whitespace-normal px-1 py-2 text-right leading-tight"
 						>
 							{t.contractQuantity}
+						</TableHead>
+						<TableHead
+							rowSpan={2}
+							className="h-auto whitespace-normal px-1 py-2 text-right leading-tight"
+						>
+							{t.actualQuantity}
 						</TableHead>
 						<TableHead
 							colSpan={4}
@@ -256,7 +263,7 @@ function Forma2ResultsView({
 								{showCategory && (row.categoryCode || row.categoryName) ? (
 									<TableRow className="bg-muted/60">
 										<TableCell
-											colSpan={12}
+											colSpan={13}
 											className="whitespace-normal pl-4 font-semibold"
 										>
 											{[row.categoryCode, row.categoryName]
@@ -290,6 +297,17 @@ function Forma2ResultsView({
 									</TableCell>
 									<TableCell className="px-1 text-right tabular-nums">
 										{formatNumber(row.plannedQuantity, locale)}
+									</TableCell>
+									<TableCell className="px-1 text-right tabular-nums">
+										{formatNumber(row.actualQuantity, locale)}
+										{row.excludedQuantityRecords > 0 ? (
+											<div className="mt-1 whitespace-normal text-[10px] leading-tight text-muted-foreground">
+												{t.quantityExcluded.replace(
+													"{count}",
+													String(row.excludedQuantityRecords),
+												)}
+											</div>
+										) : null}
 									</TableCell>
 									<TableCell className="border-l px-1 text-right tabular-nums">
 										{formatCurrency(row.plannedWorkCost, locale)}
@@ -415,7 +433,9 @@ export default async function AnalyticsPage({
 				<CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 					<div>
 						<CardTitle>{t.results}</CardTitle>
-						<CardDescription>{t.resultsDescription}</CardDescription>
+						<CardDescription>
+							{t.resultsDescription} {t.quantitySource}
+						</CardDescription>
 					</div>
 					<DefaultConstructionForma2Export
 						siteName={data.siteName}

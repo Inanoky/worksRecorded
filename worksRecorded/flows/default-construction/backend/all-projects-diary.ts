@@ -2,6 +2,10 @@ import type { Prisma } from "@prisma/client";
 
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import {
+  hasInlineDiaryPhotos,
+  normalizeDiaryPhotoUrls,
+} from "../lib/diary-photos";
+import {
   getDefaultConstructionQuantityComparison,
   hasDefaultConstructionQuantityProfile,
 } from "@/flows/default-construction/lib/quantity-plan-actual";
@@ -32,6 +36,7 @@ const allProjectsDiaryRecordSelect = {
   WorkersInvolved: true,
   TimeInvolved: true,
   Comments: true,
+  Photos: true,
   Comments_Custom_1: true,
   Comments_Custom_2: true,
   Works_Custom_1: true,
@@ -185,10 +190,11 @@ export async function loadAllProjectsDiary(
   filters: AllProjectsDiaryFilters = {},
 ) {
   const page = normalizedPage(filters.page);
+  const pageSize = hasInlineDiaryPhotos(organizationId) ? 30 : ALL_PROJECTS_DIARY_PAGE_SIZE;
   const where = buildAllProjectsDiaryWhere(organizationId, filters);
-  const skip = (page - 1) * ALL_PROJECTS_DIARY_PAGE_SIZE;
+  const skip = (page - 1) * pageSize;
 
-  const [projects, records, totalCount] = await Promise.all([
+  const [projects, records, totalCount, photoRecords] = await Promise.all([
     prisma.site.findMany({
       where: { organizationId },
       orderBy: { name: "asc" },
@@ -198,26 +204,32 @@ export async function loadAllProjectsDiary(
       where,
       orderBy: allProjectsDiaryOrderBy,
       skip,
-      take: ALL_PROJECTS_DIARY_PAGE_SIZE,
+      take: pageSize,
       select: allProjectsDiaryRecordSelect,
     }),
     prisma.sitediaryrecords.count({ where }),
+    hasInlineDiaryPhotos(organizationId)
+      ? prisma.sitediaryrecords.findMany({ where, select: { Photos: true } })
+      : Promise.resolve([]),
   ]);
 
   return {
     projects: projects.map(({ siteDiaryRecordsMap: _, ...project }) => project),
     records: addActualCosts(records, organizationId),
+    photoUrls: normalizeDiaryPhotoUrls(
+      photoRecords.flatMap((record) => record.Photos ?? []),
+    ).sort(),
     quantityPlanFactEnabled: projects.some((project) =>
       hasDefaultConstructionQuantityProfile(
         project.siteDiaryRecordsMap as Record<string, any> | null,
       ),
     ),
     page,
-    pageSize: ALL_PROJECTS_DIARY_PAGE_SIZE,
+    pageSize,
     totalCount,
     totalPages: Math.max(
       1,
-      Math.ceil(totalCount / ALL_PROJECTS_DIARY_PAGE_SIZE),
+      Math.ceil(totalCount / pageSize),
     ),
   };
 }

@@ -1,3 +1,5 @@
+import { normalizeForma2QuantityUnit } from "./forma2-quantities";
+
 export const DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY =
 	"defaultConstructionForma2";
 
@@ -81,6 +83,8 @@ export type Forma2MappingRow = Forma2ActualSource & {
 };
 
 export type Forma2ResultRow = Forma2Position & {
+	actualQuantity: number | null;
+	excludedQuantityRecords: number;
 	actualWorkCost: number;
 	actualMaterialCost: number;
 	actualMechanismCost: number;
@@ -597,6 +601,32 @@ export function buildForma2AnalyticsView(args: {
 		};
 	});
 
+	const quantities = new Map<
+		string,
+		{ amount: number | null; excluded: number }
+	>();
+	for (const source of mappingRows) {
+		if (!source.assignedPositionId || source.type !== "work") continue;
+		const position = positionsById.get(source.assignedPositionId);
+		if (!position || position.kind !== "work") continue;
+		const quantity = quantities.get(position.id) ?? {
+			amount: null,
+			excluded: 0,
+		};
+		const unit = normalizeForma2QuantityUnit(position.unit);
+		if (
+			source.quantity === null ||
+			!Number.isFinite(source.quantity) ||
+			!unit ||
+			unit !== normalizeForma2QuantityUnit(source.unit)
+		) {
+			quantity.excluded += 1;
+		} else {
+			quantity.amount = (quantity.amount ?? 0) + source.quantity;
+		}
+		quantities.set(position.id, quantity);
+	}
+
 	const directTotals = new Map<
 		string,
 		{ work: number; material: number; mechanism: number; records: number }
@@ -647,9 +677,13 @@ export function buildForma2AnalyticsView(args: {
 
 	const resultRows = args.positions.map((position) => {
 		const actual = totalsFor(position);
+		const quantity = quantities.get(position.id);
 		const actualTotalCost = actual.work + actual.material + actual.mechanism;
 		return {
 			...position,
+			actualQuantity:
+				quantity?.amount == null ? null : Number(quantity.amount.toFixed(6)),
+			excludedQuantityRecords: quantity?.excluded ?? 0,
 			actualWorkCost: round(actual.work),
 			actualMaterialCost: round(actual.material),
 			actualMechanismCost: round(actual.mechanism),

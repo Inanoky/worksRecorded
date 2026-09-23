@@ -85,6 +85,11 @@ const COPY = {
 		codeAndName: "Position",
 		unit: "Unit",
 		contractQuantity: "Contract quantity",
+		actualQuantity: "Factual quantity",
+		quantitySource:
+			"Factual work quantities are summed from linked site diary records in the contract unit. Material and mechanism quantities are not included.",
+		quantityExcluded:
+			"Records excluded from quantity: {count} (missing quantity or incompatible unit).",
 		plannedWork: "Contract work",
 		plannedMaterials: "Contract materials",
 		plannedTotal: "Contract total",
@@ -202,6 +207,11 @@ const COPY = {
 		codeAndName: "Pozīcija",
 		unit: "Mērv.",
 		contractQuantity: "Līguma daudzums",
+		actualQuantity: "Faktiskais daudzums",
+		quantitySource:
+			"Faktiskie darbu daudzumi tiek summēti no piesaistītajiem būvdarbu žurnāla ierakstiem līguma mērvienībā. Materiālu un mehānismu daudzumi netiek iekļauti.",
+		quantityExcluded:
+			"Daudzumā nav iekļauti {count} ieraksti (nav daudzuma vai nesakrīt mērvienība).",
 		plannedWork: "Līguma darbi",
 		plannedMaterials: "Līguma materiāli",
 		plannedTotal: "Līguma kopā",
