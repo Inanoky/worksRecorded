@@ -169,8 +169,10 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     try {
       siteFindUniqueMock.mockResolvedValue({ organizationId: "58467603-196e-4661-83ff-fe26e4b0ff0b", siteDiaryRecordsMap: null });
       expect((await getConfig("site-1"))?.otherSettings.inlineDiaryPhotos).toBe(true);
+      expect((await getConfig("site-1"))?.otherSettings.visualConstruction).toBe(true);
       siteFindUniqueMock.mockResolvedValue({ organizationId: "another-org", siteDiaryRecordsMap: { otherSettings: { inlineDiaryPhotos: true } } });
       expect((await getConfig("site-1"))?.otherSettings.inlineDiaryPhotos).toBe(false);
+      expect((await getConfig("site-1"))?.otherSettings.visualConstruction).toBe(false);
     } finally {
       global.structuredClone = originalClone;
     }

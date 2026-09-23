@@ -355,6 +355,7 @@ export async function getConfig(
   result.otherSettings = {
     ...result.otherSettings,
     inlineDiaryPhotos: hasInlineDiaryPhotos(clientConfig.organizationId),
+    visualConstruction: hasInlineDiaryPhotos(clientConfig.organizationId),
   };
   return result;
 }

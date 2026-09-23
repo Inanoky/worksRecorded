@@ -7,11 +7,22 @@ import { createTgemInvoiceCaseRecord } from "@/lib/tgem-invoice-approval/create-
 import { prisma } from "@/lib/utils/db";
 import { requireWarehouseImportAccess, signWarehouseUpload } from "@/flows/default-construction/backend/warehouse-import-upload";
 import { validateWarehouseImportFiles } from "@/flows/default-construction/warehouse-import";
+import { createVisualDrawing, requireVisualAccess } from "@/flows/default-construction/visual/store";
 
 const f = createUploadthing();
 
 // FileRouter for your app, can contain multiple FileRoutes
 export const ourFileRouter = {
+	limeniVisualDrawingUploader: f({ pdf: { maxFileSize: "16MB", maxFileCount: 1 } })
+		.input(z.object({ siteId: z.string().uuid(), location: z.string().trim().min(1).max(200) }))
+		.middleware(async ({ input }) => {
+			const { getUser } = getKindeServerSession();
+			const user = await getUser();
+			if (!user) throw new UploadThingError("Unauthorized");
+			await requireVisualAccess(user.id, input.siteId);
+			return { userId: user.id, siteId: input.siteId, location: input.location };
+		})
+		.onUploadComplete(async ({ metadata, file }) => ({ drawingId: await createVisualDrawing({ ...metadata, url: file.ufsUrl, name: file.name }) })),
 	warehouseInvoiceUploader: f({
 		image: { maxFileSize: "16MB", maxFileCount: 20, minFileCount: 0 },
 		pdf: { maxFileSize: "16MB", maxFileCount: 20, minFileCount: 0 },
