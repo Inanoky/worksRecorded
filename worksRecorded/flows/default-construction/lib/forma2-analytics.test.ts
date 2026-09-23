@@ -66,6 +66,40 @@ const rows = [
 ];
 
 describe("Forma 2 analytics", () => {
+	it.each([67, 0, null])(
+		"uses the diary plan %p for reported totals without changing cost",
+		(reportedQuantity) => {
+			const position = {
+				...extractForma2PositionsFromRows(rows, "1-1").positions[0],
+				unit: "m2",
+			};
+			const view = buildForma2AnalyticsView({
+				positions: [position],
+				allocations: [],
+				sources: [
+					{
+						id: "diary",
+						type: "work",
+						selectedPositionId: position.id,
+						label: position.name,
+						secondaryLabel: "",
+						date: null,
+						unit: "m2",
+						quantity: 74.67,
+						reportedQuantity,
+						hours: null,
+						actualCost: 149.34,
+					},
+				],
+			});
+			expect(view.resultRows[0]).toMatchObject({
+				actualQuantity: reportedQuantity,
+				actualWorkCost: 149.34,
+				excludedQuantityRecords: reportedQuantity === null ? 1 : 0,
+			});
+		},
+	);
+
 	it("sums linked diary quantities across dates without requiring costs", () => {
 		const position = {
 			...extractForma2PositionsFromRows(rows, "1-1").positions[0],

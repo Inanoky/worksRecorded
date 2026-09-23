@@ -18,6 +18,7 @@ import { DefaultConstructionForma2ContractEditor } from "@/flows/default-constru
 import { DefaultConstructionForma2CostBreakdown } from "@/flows/default-construction/frontend/DefaultConstructionForma2CostBreakdown";
 import { DefaultConstructionForma2Export } from "@/flows/default-construction/frontend/DefaultConstructionForma2Export";
 import { DefaultConstructionForma2Import } from "@/flows/default-construction/frontend/DefaultConstructionForma2Import";
+import { DefaultConstructionForma2QuantityBreakdown } from "@/flows/default-construction/frontend/DefaultConstructionForma2QuantityBreakdown";
 import { DefaultConstructionForma2TableScroll } from "@/flows/default-construction/frontend/DefaultConstructionForma2TableScroll";
 import {
 	calculateForma2MoneyTotals,
@@ -299,7 +300,13 @@ function Forma2ResultsView({
 										{formatNumber(row.plannedQuantity, locale)}
 									</TableCell>
 									<TableCell className="px-1 text-right tabular-nums">
-										{formatNumber(row.actualQuantity, locale)}
+										<DefaultConstructionForma2QuantityBreakdown
+											siteId={siteId}
+											positionId={row.id}
+											amount={row.actualQuantity}
+											contractQuantity={row.plannedQuantity}
+											organizationLanguage={organizationLanguage}
+										/>
 										{row.excludedQuantityRecords > 0 ? (
 											<div className="mt-1 whitespace-normal text-[10px] leading-tight text-muted-foreground">
 												{t.quantityExcluded.replace(

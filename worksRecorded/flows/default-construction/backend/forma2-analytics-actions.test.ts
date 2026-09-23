@@ -4,6 +4,7 @@ import type { Forma2Position } from "../lib/forma2-analytics";
 import { enableDefaultConstructionQuantityProfile } from "../lib/quantity-plan-actual";
 import {
 	getDefaultConstructionForma2MappingPage,
+	getDefaultConstructionForma2PositionQuantityDetails,
 	getDefaultConstructionForma2Results,
 } from "./forma2-analytics-actions";
 
@@ -56,6 +57,9 @@ describe("Forma 2 diary quantity loaders", () => {
 	});
 	beforeEach(() => {
 		jest.clearAllMocks();
+		jest
+			.mocked(prisma.site.findUnique)
+			.mockResolvedValue({ name: "Site", siteDiaryRecordsMap: {} } as never);
 		jest.mocked(orgCheck).mockResolvedValue({ organizationId: "org" } as never);
 		jest.mocked(prisma.analytics.findUnique).mockResolvedValue({
 			currentWeekProgress: {
@@ -90,6 +94,8 @@ describe("Forma 2 diary quantity loaders", () => {
 				Units: "m2",
 				Amounts: 67,
 				Comments_Custom_1: "74.67",
+				Photos: ["https://example.com/diary.jpg"],
+				Comments: `First line\n${"Full description. ".repeat(60)}Last line`,
 				TimeInvolved: 5,
 			},
 		] as never);
@@ -136,11 +142,35 @@ describe("Forma 2 diary quantity loaders", () => {
 			});
 			expect(results.resultRows[0]).toMatchObject({
 				plannedQuantity: 100,
-				actualQuantity: quantity,
+				actualQuantity: 67,
 				actualWorkCost: cost,
 			});
 			expect(mapping.rows[0]).toMatchObject({ quantity, actualCost: cost });
 			expect(prisma.sitediaryrecords.findMany).toHaveBeenCalledTimes(2);
+			const details = await getDefaultConstructionForma2PositionQuantityDetails(
+				{ siteId: "site", positionId: position.id },
+			);
+			expect(details).toMatchObject({
+				calculatedTotal: 67,
+				includedRecords: 1,
+				excludedRecords: 0,
+				records: [
+					{
+						id: "diary",
+						quantity,
+						reportedQuantity: 67,
+						photos: ["https://example.com/diary.jpg"],
+						exclusion: null,
+						plannedQuantity: profile ? 67 : null,
+						description: `First line\n${"Full description. ".repeat(60)}Last line`,
+					},
+				],
+			});
+			expect(prisma.sitediaryrecords.findMany).toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					select: expect.objectContaining({ Comments: true, Photos: true }),
+				}),
+			);
 			for (const [query] of jest.mocked(prisma.sitediaryrecords.findMany).mock
 				.calls) {
 				expect(query).toMatchObject({
@@ -157,5 +187,54 @@ describe("Forma 2 diary quantity loaders", () => {
 			getDefaultConstructionForma2Results("other-site"),
 		).rejects.toThrow("Site not found");
 		expect(prisma.sitediaryrecords.findMany).not.toHaveBeenCalled();
+		await expect(
+			getDefaultConstructionForma2PositionQuantityDetails({
+				siteId: "other-site",
+				positionId: "position",
+			}),
+		).rejects.toThrow("Site not found");
+		expect(prisma.sitediaryrecords.findMany).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		{ quantity: null, unit: "m2", exclusion: "missing-quantity", total: null },
+		{ quantity: 12, unit: "m3", exclusion: "unit-mismatch", total: null },
+		{ quantity: 0, unit: "m²", exclusion: null, total: 0 },
+	])(
+		"explains exclusions and preserves zero: $exclusion / $quantity",
+		async ({ quantity, unit, exclusion, total }) => {
+			jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([
+				{
+					id: "diary",
+					Works: "Floor",
+					Date: new Date("2026-09-02"),
+					Units: unit,
+					Amounts: quantity,
+					Location: "First floor",
+				},
+				{ id: "unassigned", Works: "Floor", Units: "m2", Amounts: 999 },
+			] as never);
+			const details = await getDefaultConstructionForma2PositionQuantityDetails(
+				{ siteId: "site", positionId: position.id },
+			);
+			expect(details.calculatedTotal).toBe(total);
+			expect(details.excludedRecords).toBe(exclusion ? 1 : 0);
+			expect(details.records).toHaveLength(1);
+			expect(details.records[0]).toMatchObject({
+				quantity,
+				unit,
+				exclusion,
+				secondaryLabel: "First floor",
+			});
+		},
+	);
+
+	it("rejects a position outside the site's document", async () => {
+		await expect(
+			getDefaultConstructionForma2PositionQuantityDetails({
+				siteId: "site",
+				positionId: "other-position",
+			}),
+		).rejects.toThrow("Forma 2 position was not found");
 	});
 });

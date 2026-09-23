@@ -1,4 +1,7 @@
-import { normalizeForma2QuantityUnit } from "./forma2-quantities";
+import {
+	getForma2QuantityExclusion,
+	getForma2ReportedQuantity,
+} from "./forma2-quantities";
 
 export const DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY =
 	"defaultConstructionForma2";
@@ -68,6 +71,7 @@ export type Forma2ActualSource = {
 	date: string | null;
 	unit: string;
 	quantity: number | null;
+	reportedQuantity?: number | null;
 	hours: number | null;
 	hourlyRate?: number | null;
 	unitRate?: number | null;
@@ -613,16 +617,13 @@ export function buildForma2AnalyticsView(args: {
 			amount: null,
 			excluded: 0,
 		};
-		const unit = normalizeForma2QuantityUnit(position.unit);
+		const reportedQuantity = getForma2ReportedQuantity(source);
 		if (
-			source.quantity === null ||
-			!Number.isFinite(source.quantity) ||
-			!unit ||
-			unit !== normalizeForma2QuantityUnit(source.unit)
+			getForma2QuantityExclusion(reportedQuantity, source.unit, position.unit)
 		) {
 			quantity.excluded += 1;
 		} else {
-			quantity.amount = (quantity.amount ?? 0) + source.quantity;
+			quantity.amount = (quantity.amount ?? 0) + (reportedQuantity ?? 0);
 		}
 		quantities.set(position.id, quantity);
 	}

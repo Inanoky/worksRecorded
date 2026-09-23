@@ -19,7 +19,11 @@ import {
 	normalizeForma2MaterialRuleName,
 	suggestForma2Position,
 } from "@/flows/default-construction/lib/forma2-analytics";
-import { getForma2DiaryQuantity } from "@/flows/default-construction/lib/forma2-quantities";
+import {
+	getForma2DiaryQuantity,
+	getForma2QuantityExclusion,
+	getForma2ReportedQuantity,
+} from "@/flows/default-construction/lib/forma2-quantities";
 import {
 	getDefaultConstructionForma2WorkSyncManifest,
 	normalizeForma2WorkOptionKey,
@@ -29,6 +33,10 @@ import {
 	removeDefaultConstructionForma2WorkOptions,
 	syncDefaultConstructionForma2WorkOptions,
 } from "@/flows/default-construction/lib/forma2-work-options-sync";
+import {
+	hasDefaultConstructionQuantityProfile,
+	parseDefaultConstructionQuantity,
+} from "@/flows/default-construction/lib/quantity-plan-actual";
 import {
 	calculateDefaultConstructionWorkCost,
 	getDefaultConstructionProductivitySettings,
@@ -226,7 +234,10 @@ function getCurrentForma2WorkSelections(
 
 async function loadDefaultConstructionForma2Data(
 	siteId: string,
-	options: { sourceScope?: "all" | "allocated" } = {},
+	options: {
+		sourceScope?: "all" | "allocated";
+		includeDiaryDetails?: boolean;
+	} = {},
 ) {
 	await requireDefaultConstructionSite(siteId);
 	const statePromise = readStoredState(siteId);
@@ -260,6 +271,8 @@ async function loadDefaultConstructionForma2Data(
 				Units: true,
 				Amounts: true,
 				Comments_Custom_1: true,
+				Comments: options.includeDiaryDetails === true,
+				Photos: options.includeDiaryDetails === true,
 				TimeInvolved: true,
 			},
 		}),
@@ -331,6 +344,7 @@ async function loadDefaultConstructionForma2Data(
 				date: isoDate(row.Date),
 				unit,
 				quantity,
+				reportedQuantity: parseDefaultConstructionQuantity(row.Amounts),
 				hours,
 				hourlyRate: cost.hourlyRate,
 				unitRate: cost.unitRate,
@@ -374,6 +388,8 @@ async function loadDefaultConstructionForma2Data(
 		siteName: site.name,
 		state,
 		sources: [...scopedWorkSources, ...materialSources],
+		diaryRecords: options.includeDiaryDetails ? workRows : [],
+		hasQuantityProfile: hasDefaultConstructionQuantityProfile(config),
 	};
 }
 
@@ -491,6 +507,65 @@ export async function getDefaultConstructionForma2Results(siteId: string) {
 		siteName: data.siteName,
 		document: documentMetadata(data.state),
 		resultRows: view.resultRows,
+	};
+}
+
+export async function getDefaultConstructionForma2PositionQuantityDetails(args: {
+	siteId: string;
+	positionId: string;
+}) {
+	const data = await loadDefaultConstructionForma2Data(args.siteId, {
+		sourceScope: "allocated",
+		includeDiaryDetails: true,
+	});
+	const view = buildForma2AnalyticsView({
+		positions: data.state.document?.positions ?? [],
+		sources: data.sources,
+		allocations: data.state.allocations,
+		includeSuggestions: false,
+	});
+	const position = view.resultRows.find((row) => row.id === args.positionId);
+	if (!position) throw new Error("Forma 2 position was not found");
+	const diaryById = new Map(data.diaryRecords.map((row) => [row.id, row]));
+	const records = view.mappingRows
+		.filter(
+			(row) =>
+				position.kind === "work" &&
+				row.type === "work" &&
+				row.assignedPositionId === position.id,
+		)
+		.map((row) => ({
+			id: row.id,
+			label: diaryById.get(row.id)?.Works ?? row.label,
+			secondaryLabel: diaryById.get(row.id)?.Location ?? row.secondaryLabel,
+			plannedQuantity: data.hasQuantityProfile
+				? parseDefaultConstructionQuantity(diaryById.get(row.id)?.Amounts)
+				: null,
+			description: diaryById.get(row.id)?.Comments ?? null,
+			photos: diaryById.get(row.id)?.Photos ?? [],
+			date: row.date,
+			unit: row.unit,
+			quantity: row.quantity,
+			reportedQuantity: getForma2ReportedQuantity(row),
+			exclusion: getForma2QuantityExclusion(
+				getForma2ReportedQuantity(row),
+				row.unit,
+				position.unit,
+			),
+		}))
+		.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+	return {
+		position: {
+			id: position.id,
+			code: position.code,
+			name: position.name,
+			unit: position.unit,
+			plannedQuantity: position.plannedQuantity,
+		},
+		calculatedTotal: position.actualQuantity,
+		includedRecords: records.filter((row) => !row.exclusion).length,
+		excludedRecords: position.excludedQuantityRecords,
+		records,
 	};
 }
 
@@ -782,6 +857,7 @@ export async function getDefaultConstructionForma2MappingPage(args: {
 				date: isoDate(row.Date),
 				unit,
 				quantity,
+				reportedQuantity: parseDefaultConstructionQuantity(row.Amounts),
 				hours,
 				hourlyRate: cost.hourlyRate,
 				unitRate: cost.unitRate,

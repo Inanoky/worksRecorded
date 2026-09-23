@@ -1,11 +1,28 @@
 import {
 	getForma2DiaryQuantity,
+	getForma2ReportedQuantity,
 	normalizeForma2QuantityUnit,
 } from "./forma2-quantities";
 import { enableDefaultConstructionQuantityProfile } from "./quantity-plan-actual";
 
 describe("Forma 2 diary quantities", () => {
 	const config = enableDefaultConstructionQuantityProfile({});
+
+	it.each([67, 0, null])(
+		"uses report quantity %p without falling back to fact",
+		(planned) => {
+			expect(
+				getForma2ReportedQuantity({
+					quantity: 74.67,
+					reportedQuantity: planned,
+				}),
+			).toBe(planned);
+		},
+	);
+
+	it("preserves regular quantities for sources without a separate report quantity", () => {
+		expect(getForma2ReportedQuantity({ quantity: 12 })).toBe(12);
+	});
 
 	it("uses regular diary amounts without the plan/fact profile", () => {
 		expect(
