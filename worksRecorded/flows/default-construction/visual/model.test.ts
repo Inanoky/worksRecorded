@@ -71,7 +71,6 @@ describe("Visual geometry and source guards", () => {
 		expect(result.unlocated).toEqual([]);
 	});
 	it.each([
-		{ confidence: 0.5 },
 		{ page: 2 },
 		{ anchors: ["A1", "a1"] },
 		{
@@ -110,6 +109,28 @@ describe("Visual geometry and source guards", () => {
 				1,
 			),
 		).toThrow());
+	it.each([0.5, 0.75, 0.89])(
+		"retains aligned rough markup at confidence %s",
+		(confidence) => {
+			const result = validateVisualMatches(
+				{
+					marks: [
+						{
+							...match,
+							confidence,
+							explanation: "Aptuveni pēc pārklājošām svītrām un telpu sienām.",
+						},
+					],
+					unlocated: [],
+				},
+				[evidence],
+				1,
+			);
+			expect(result.marks).toHaveLength(1);
+			expect(result.marks[0].confidence).toBe(confidence);
+			expect(result.unlocated).toEqual([]);
+		},
+	);
 	it("returns all omitted and unrelated photos as unlocated", () => {
 		const result = validateVisualMatches(
 			{

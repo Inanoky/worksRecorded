@@ -14,13 +14,13 @@ const f = createUploadthing();
 // FileRouter for your app, can contain multiple FileRoutes
 export const ourFileRouter = {
 	limeniVisualDrawingUploader: f({ pdf: { maxFileSize: "16MB", maxFileCount: 1 } })
-		.input(z.object({ siteId: z.string().uuid(), location: z.string().trim().min(1).max(200) }))
+		.input(z.object({ siteId: z.string().uuid(), location: z.string().trim().min(1).max(200), replaceDrawingId: z.string().uuid().optional() }))
 		.middleware(async ({ input }) => {
 			const { getUser } = getKindeServerSession();
 			const user = await getUser();
 			if (!user) throw new UploadThingError("Unauthorized");
 			await requireVisualAccess(user.id, input.siteId);
-			return { userId: user.id, siteId: input.siteId, location: input.location };
+			return { userId: user.id, siteId: input.siteId, location: input.location, replaceDrawingId: input.replaceDrawingId };
 		})
 		.onUploadComplete(async ({ metadata, file }) => ({ drawingId: await createVisualDrawing({ ...metadata, url: file.ufsUrl, name: file.name }) })),
 	warehouseInvoiceUploader: f({

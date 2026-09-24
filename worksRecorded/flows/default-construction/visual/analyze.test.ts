@@ -38,9 +38,16 @@ const mark = {
 	explanation: "Atbilst",
 };
 let drawing: VisualDrawing;
+const originalVisualModel = process.env.LIMENI_VISUAL_MODEL;
+
+afterEach(() => {
+	if (originalVisualModel === undefined) delete process.env.LIMENI_VISUAL_MODEL;
+	else process.env.LIMENI_VISUAL_MODEL = originalVisualModel;
+});
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	delete process.env.LIMENI_VISUAL_MODEL;
 	drawing = {
 		id: "drawing",
 		name: "plan.pdf",
@@ -107,6 +114,31 @@ it("persists a generation before calling AI and stores provenance, usage and res
 	expect(result.state.lockedAt).toBeNull();
 });
 
+it("uses GPT-6 Astra with medium reasoning by default", async () => {
+	const result = await analyzeVisualBatch("user", "site", "drawing");
+	expect(mockParse).toHaveBeenCalledWith(
+		expect.objectContaining({
+			model: "gpt-6-astra",
+			reasoning: { effort: "medium" },
+		}),
+		{ timeout: 150_000 },
+	);
+	expect(result.state.attempts[0].model).toBe("gpt-6-astra");
+});
+
+it("preserves the visual-only model override with medium reasoning", async () => {
+	process.env.LIMENI_VISUAL_MODEL = " gpt-5.4 ";
+	const result = await analyzeVisualBatch("user", "site", "drawing");
+	expect(mockParse).toHaveBeenCalledWith(
+		expect.objectContaining({
+			model: "gpt-5.4",
+			reasoning: { effort: "medium" },
+		}),
+		expect.anything(),
+	);
+	expect(result.state.attempts[0].model).toBe("gpt-5.4");
+});
+
 it("returns the explicit cannot-locate error when no image matches", async () => {
 	mockParse.mockResolvedValue({
 		output_parsed: {
@@ -118,6 +150,44 @@ it("returns the explicit cannot-locate error when no image matches", async () =>
 	expect(result.state.status).toBe("unlocated");
 	expect(result.state.error).toContain("Nevar atrast darbus");
 	expect(result.state.marks).toEqual([]);
+});
+
+it("saves approximate stripe regions while leaving unrelated photos unlocated", async () => {
+	drawing.state.evidence.push({
+		...photo,
+		id: "delivery",
+		work: "Materiālu piegāde",
+	});
+	mockParse.mockResolvedValue({
+		output_parsed: {
+			marks: [
+				{
+					...mark,
+					confidence: 0.6,
+					explanation: "Aptuveni pēc svītrām; robežas pielāgotas gaitenim.",
+				},
+			],
+			unlocated: [
+				{ evidenceId: "delivery", reason: "Piegādes foto bez darbu atzīmēm." },
+			],
+		},
+	});
+	const result = await analyzeVisualBatch("user", "site", "drawing");
+	expect(result.state.status).toBe("complete");
+	expect(result.state.marks).toHaveLength(1);
+	expect(result.state.marks[0].confidence).toBe(0.6);
+	expect(result.state.unlocated).toEqual([
+		{ evidenceId: "delivery", reason: "Piegādes foto bez darbu atzīmēm." },
+	]);
+	expect(mockParse.mock.calls[0][0].instructions).toContain(
+		"Do not require closed outlines or ideal stripes",
+	);
+	expect(mockParse.mock.calls[0][0].instructions).toContain(
+		"Transfer the INTENDED WORK ZONE, not a pixel-perfect copy of the source ink",
+	);
+	expect(mockParse.mock.calls[0][0].instructions).toContain(
+		"Preserve clearly partial-room coverage, openings and excluded areas",
+	);
 });
 
 it("saves partial progress and resumes only the remaining photo batch", async () => {

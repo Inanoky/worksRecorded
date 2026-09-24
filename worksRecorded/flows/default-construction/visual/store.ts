@@ -8,11 +8,26 @@ import {
 import {
 	normalizeVisualLocation,
 	VISUAL_DOCUMENT_TYPE,
+	VISUAL_LEASE_MS,
 	VISUAL_MAX_PHOTOS,
 	type VisualDrawing,
 	type VisualState,
 	visualStateSchema,
 } from "./model";
+import { polygonEditSchema } from "./polygon-edit";
+
+const archivedVisualType = `${VISUAL_DOCUMENT_TYPE}-archived`;
+
+function locationMatches(description: string, location: string) {
+	try {
+		return (
+			normalizeVisualLocation(JSON.parse(description).location) ===
+			normalizeVisualLocation(location)
+		);
+	} catch {
+		return false;
+	}
+}
 
 export async function requireVisualAccess(userId: string, siteId: string) {
 	const access = await requireWarehouseImportAccess(userId, siteId);
@@ -40,7 +55,7 @@ export async function listVisualDrawings(userId: string, siteId: string) {
 				organizationId: access.organizationId,
 				documentType: VISUAL_DOCUMENT_TYPE,
 			},
-			orderBy: { createdAt: "desc" },
+			orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 			select: {
 				id: true,
 				documentName: true,
@@ -49,9 +64,13 @@ export async function listVisualDrawings(userId: string, siteId: string) {
 			},
 		}),
 	]);
+	const seenLocations = new Set<string>();
 	const drawings = documents.flatMap((row) => {
 		try {
 			const state = visualStateSchema.parse(JSON.parse(row.description));
+			const key = normalizeVisualLocation(state.location);
+			if (seenLocations.has(key)) return [];
+			seenLocations.add(key);
 			return [
 				{
 					id: row.id,
@@ -82,6 +101,7 @@ export async function createVisualDrawing(args: {
 	location: string;
 	url: string;
 	name: string;
+	replaceDrawingId?: string;
 }) {
 	const access = await requireVisualAccess(args.userId, args.siteId);
 	const location = args.location.trim();
@@ -146,19 +166,55 @@ export async function createVisualDrawing(args: {
 		lockedAt: null,
 		attempts: [],
 	};
-	const drawing = await prisma.documents.create({
-		data: {
-			id: randomUUID(),
-			siteId: args.siteId,
-			organizationId: access.organizationId,
-			userId: args.userId,
-			url: args.url,
-			documentName: args.name,
-			documentType: VISUAL_DOCUMENT_TYPE,
-			description: JSON.stringify(visualStateSchema.parse(state)),
-		},
+	return prisma.$transaction(async (tx) => {
+		await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`visual:${args.siteId}`}))`;
+		const existing = (
+			await tx.documents.findMany({
+				where: {
+					siteId: args.siteId,
+					organizationId: access.organizationId,
+					documentType: VISUAL_DOCUMENT_TYPE,
+				},
+				orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+			})
+		).filter((row) => locationMatches(row.description, location));
+		if (existing.length && args.replaceDrawingId !== existing[0].id)
+			throw new Error("Lokācijai jau ir rasējums. Apstipriniet tā aizstāšanu.");
+		if (!existing.length && args.replaceDrawingId)
+			throw new Error(
+				"Aizstājamais rasējums ir mainīts. Pārlādējiet Visual skatu.",
+			);
+		for (const previous of existing) {
+			requireIdleDrawing(
+				visualStateSchema.parse(JSON.parse(previous.description)),
+			);
+			const archived = await tx.documents.updateMany({
+				where: {
+					id: previous.id,
+					siteId: args.siteId,
+					organizationId: access.organizationId,
+					documentType: VISUAL_DOCUMENT_TYPE,
+					description: previous.description,
+				},
+				data: { documentType: archivedVisualType },
+			});
+			if (archived.count !== 1)
+				throw new Error("Rasējums jau ir mainīts. Pārlādējiet Visual skatu.");
+		}
+		const drawing = await tx.documents.create({
+			data: {
+				id: randomUUID(),
+				siteId: args.siteId,
+				organizationId: access.organizationId,
+				userId: args.userId,
+				url: args.url,
+				documentName: args.name,
+				documentType: VISUAL_DOCUMENT_TYPE,
+				description: JSON.stringify(visualStateSchema.parse(state)),
+			},
+		});
+		return drawing.id;
 	});
-	return drawing.id;
 }
 
 export async function loadVisualDrawing(
@@ -211,4 +267,107 @@ export async function saveVisualState(
 	if (result.count !== 1)
 		throw new Error("Analīze jau tiek atjaunināta. Pārlādējiet Visual skatu.");
 	return { ...row, description };
+}
+
+function requireIdleDrawing(state: VisualState) {
+	if (state.lockedAt && Date.now() - state.lockedAt < VISUAL_LEASE_MS)
+		throw new Error("Analīze vēl notiek. Uzgaidiet, līdz tā ir pabeigta.");
+}
+
+export async function removeVisualDrawing(
+	userId: string,
+	siteId: string,
+	id: string,
+) {
+	const { row, drawing } = await loadVisualDrawing(userId, siteId, id);
+	requireIdleDrawing(drawing.state);
+	await prisma.$transaction(async (tx) => {
+		await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`visual:${siteId}`}))`;
+		const duplicates = (
+			await tx.documents.findMany({
+				where: {
+					siteId,
+					organizationId: row.organizationId,
+					documentType: VISUAL_DOCUMENT_TYPE,
+				},
+			})
+		).filter(
+			(item) =>
+				item.id !== id &&
+				locationMatches(item.description, drawing.state.location),
+		);
+		for (const item of duplicates) {
+			requireIdleDrawing(visualStateSchema.parse(JSON.parse(item.description)));
+			const result = await tx.documents.updateMany({
+				where: {
+					id: item.id,
+					siteId,
+					organizationId: row.organizationId,
+					documentType: VISUAL_DOCUMENT_TYPE,
+					description: item.description,
+				},
+				data: { documentType: archivedVisualType },
+			});
+			if (result.count !== 1)
+				throw new Error("Rasējums jau ir mainīts. Pārlādējiet Visual skatu.");
+		}
+		const result = await tx.documents.deleteMany({
+			where: {
+				id: row.id,
+				siteId: row.siteId,
+				organizationId: row.organizationId,
+				documentType: VISUAL_DOCUMENT_TYPE,
+				description: row.description,
+			},
+		});
+		if (result.count !== 1)
+			throw new Error("Rasējums jau ir mainīts. Pārlādējiet Visual skatu.");
+	});
+}
+
+export async function editVisualPolygon(
+	userId: string,
+	siteId: string,
+	drawingId: string,
+	input: unknown,
+) {
+	const edit = polygonEditSchema.parse(input);
+	const { row, drawing } = await loadVisualDrawing(userId, siteId, drawingId);
+	requireIdleDrawing(drawing.state);
+	const mark = drawing.state.marks.find((item) => item.id === edit.markId);
+	if (!mark) throw new Error("Zona nav atrasta.");
+	if (JSON.stringify(mark.polygon) !== JSON.stringify(edit.expectedPolygon))
+		throw new Error(
+			"Zona jau ir mainīta. Pārlādējiet rasējumu pirms rediģēšanas.",
+		);
+	mark.polygon = edit.polygon;
+	mark.editedAt = new Date().toISOString();
+	mark.editedBy = userId;
+	await saveVisualState(row, drawing.state);
+	return drawing;
+}
+
+export async function resetVisualDrawing(
+	userId: string,
+	siteId: string,
+	id: string,
+) {
+	const { row, drawing } = await loadVisualDrawing(userId, siteId, id);
+	requireIdleDrawing(drawing.state);
+	const state: VisualState = {
+		...drawing.state,
+		status: "uploaded",
+		processed: 0,
+		marks: [],
+		unlocated: [],
+		error: null,
+		lockedAt: null,
+		attempts: drawing.state.attempts.map((attempt) =>
+			attempt.status === "running"
+				? { ...attempt, status: "failed", endedAt: new Date().toISOString() }
+				: attempt,
+		),
+	};
+	await saveVisualState(row, state);
+	return { ...drawing, state };
 }

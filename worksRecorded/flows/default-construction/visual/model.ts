@@ -61,6 +61,8 @@ export const visualAnalysisSchema = z.object({
 export type VisualMark = z.infer<typeof visualMatchSchema> & {
 	id: string;
 	layer: VisualLayer;
+	editedAt?: string;
+	editedBy?: string;
 };
 
 export const visualStateSchema = z.object({
@@ -81,6 +83,8 @@ export const visualStateSchema = z.object({
 		visualMatchSchema.extend({
 			id: z.string(),
 			layer: z.enum(["sand", "xps", "estrich", "film", "thermowhite", "other"]),
+			editedAt: z.string().optional(),
+			editedBy: z.string().optional(),
 		}),
 	),
 	unlocated: visualAnalysisSchema.shape.unlocated,
@@ -142,7 +146,6 @@ export function validateVisualMatches(
 			!source ||
 			!source.work.trim() ||
 			mark.page > pageCount ||
-			mark.confidence < 0.9 ||
 			new Set(mark.anchors.map(normalizeVisualLocation)).size < 2 ||
 			polygonArea(mark.polygon) < 0.00001 ||
 			!isSimplePolygon(mark.polygon)
@@ -167,7 +170,7 @@ export function validateVisualMatches(
 	return { marks, unlocated };
 }
 
-function isSimplePolygon(points: { x: number; y: number }[]) {
+export function isSimplePolygon(points: { x: number; y: number }[]) {
 	const orientation = (
 		a: (typeof points)[number],
 		b: (typeof points)[number],
