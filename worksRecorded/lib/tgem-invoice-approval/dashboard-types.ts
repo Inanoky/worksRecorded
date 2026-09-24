@@ -64,6 +64,8 @@ export type TgemDashboardInvoice = {
 	validationSummary: unknown;
 	extractionSummary: unknown;
 	fieldAnchors: Record<string, TgemDashboardSourceAnchor>;
+	receivedAt: string;
+	approvedAt: string | null;
 	createdAt: string;
 	updatedAt: string;
 	approvalRound: number;
@@ -77,6 +79,8 @@ export type TgemDashboardInvoice = {
 		unitPrice: string | null;
 		total: string | null;
 		currency: string | null;
+		costCode: string | null;
+		category: string | null;
 		suggestedCostCode: string | null;
 		suggestedCategory: string | null;
 		aiConfidence: number | null;

@@ -80,6 +80,7 @@ describe("dashboard navigation", () => {
 	});
 
 	it("renders global links according to permissions", () => {
+		mockPathname = "/dashboard/sites";
 		render(
 			<DashboardItems
 				organizationLanguage="en"
@@ -91,6 +92,11 @@ describe("dashboard navigation", () => {
 		expect(screen.getByRole("link", { name: "Projects" })).toHaveAttribute(
 			"href",
 			"/dashboard/sites",
+		);
+		expect(screen.getByRole("link", { name: "Projects" })).toHaveClass(
+			"border-green-300",
+			"bg-green-50",
+			"text-green-700",
 		);
 		expect(
 			screen.getByRole("link", { name: "Organization settings" }),

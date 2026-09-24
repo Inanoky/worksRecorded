@@ -156,6 +156,74 @@ describe("TGEM invoice dashboard authorization data", () => {
 		);
 	});
 
+	it("serializes invoice and line fields required by filtering and export", async () => {
+		mockPrisma.tgemInvoiceCase.findMany.mockResolvedValue([
+			{
+				id: "invoice-1",
+				site: { id: "site-1", name: "Riga office" },
+				source: "dashboard",
+				status: "approved",
+				ocrStatus: "complete",
+				extractionStatus: "complete",
+				invoiceNumber: "INV-1",
+				supplierName: "Supplier",
+				supplierRegistrationNo: "4000",
+				invoiceDate: new Date("2026-09-01T00:00:00.000Z"),
+				dueDate: null,
+				currency: "EUR",
+				subtotal: 100,
+				vat: 21,
+				total: 121,
+				bankAccount: null,
+				reference: null,
+				invoiceType: "debit",
+				costCode: "A100",
+				validationSummary: null,
+				extractionSummary: null,
+				receivedAt: new Date("2026-09-02T10:00:00.000Z"),
+				approvedAt: new Date("2026-09-03T10:00:00.000Z"),
+				createdAt: new Date("2026-09-02T10:00:00.000Z"),
+				updatedAt: new Date("2026-09-03T10:00:00.000Z"),
+				approvalRound: 1,
+				documents: [],
+				lines: [
+					{
+						id: "line-1",
+						lineNumber: 1,
+						description: "Concrete",
+						quantity: 2,
+						unit: "m3",
+						unitPrice: 50,
+						total: 100,
+						currency: "EUR",
+						costCode: "L100",
+						category: "Materials",
+						suggestedCostCode: "AI100",
+						suggestedCategory: "AI materials",
+						aiConfidence: 0.9,
+					},
+				],
+				approvalSteps: [],
+				auditEvents: [],
+			},
+		]);
+
+		const result = await getTgemInvoiceDashboardData("site-1");
+
+		expect(result?.invoices[0]).toEqual(
+			expect.objectContaining({
+				receivedAt: "2026-09-02T10:00:00.000Z",
+				approvedAt: "2026-09-03T10:00:00.000Z",
+			}),
+		);
+		expect(result?.invoices[0].lines[0]).toEqual(
+			expect.objectContaining({
+				costCode: "L100",
+				category: "Materials",
+			}),
+		);
+	});
+
 	it("rejects a project filter outside the active organization", async () => {
 		await expect(
 			getTgemInvoiceDashboardData("site-from-another-org"),

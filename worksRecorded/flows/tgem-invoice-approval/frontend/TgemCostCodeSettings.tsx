@@ -296,7 +296,7 @@ export function TgemCostCodeSettings({
 			<div className="border-b pb-5">
 				<div className="flex items-start justify-between gap-3">
 					<div className="flex min-w-0 flex-1 items-center gap-3">
-						<div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+						<div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-[#B8CDF1] bg-[#EEF4FF] text-tgem-primary dark:border-tgem-primary/40 dark:bg-tgem-primary/15">
 							<Settings2 className="size-5" />
 						</div>
 						<div className="min-w-0">
@@ -325,14 +325,14 @@ export function TgemCostCodeSettings({
 					aria-expanded={approvalOpen}
 					aria-controls={approvalContentId}
 					onClick={() => setApprovalOpen((open) => !open)}
-					className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl p-5 text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl p-5 text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
 				>
 					<span className="min-w-0 flex-1">
 						<span
 							id={approvalTitleId}
 							className="flex items-center gap-2 text-base font-semibold"
 						>
-							<ShieldCheck className="size-5 text-blue-700 dark:text-blue-300" />
+							<ShieldCheck className="size-5 text-tgem-primary" />
 							{copy.approvalFlow}
 						</span>
 						<span className="mt-1 block text-sm text-muted-foreground">
@@ -350,9 +350,9 @@ export function TgemCostCodeSettings({
 				>
 					<div className="flex flex-wrap items-center justify-between gap-3">
 						{selectedProject ? (
-							<div className="inline-flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/35 dark:text-blue-100">
-								<Building2 className="size-4 text-blue-600 dark:text-blue-300" />
-								<span className="text-xs text-blue-700 dark:text-blue-300">
+							<div className="inline-flex items-center gap-2 rounded-md border border-[#B8CDF1] bg-[#EEF4FF] px-3 py-2 text-sm text-slate-950 dark:border-tgem-primary/40 dark:bg-tgem-primary/15 dark:text-blue-100">
+								<Building2 className="size-4 text-tgem-primary" />
+								<span className="text-xs text-tgem-primary">
 									{copy.selectedProject}:
 								</span>
 								<span className="font-semibold">{selectedProject.name}</span>
@@ -367,9 +367,9 @@ export function TgemCostCodeSettings({
 							onSaved={async () => router.refresh()}
 						/>
 					) : (
-						<Card className="border-dashed border-blue-300 bg-blue-50/30 dark:border-blue-900 dark:bg-blue-950/15">
+						<Card className="border-dashed border-[#E1E6ED] bg-slate-50/40 dark:border-slate-700 dark:bg-slate-900/20">
 							<CardContent className="flex items-center gap-3 py-5 text-sm text-muted-foreground">
-								<Building2 className="size-5 shrink-0 text-blue-600 dark:text-blue-300" />
+								<Building2 className="size-5 shrink-0 text-tgem-primary" />
 								{copy.selectProject}
 							</CardContent>
 						</Card>
@@ -385,11 +385,11 @@ export function TgemCostCodeSettings({
 						aria-expanded={costCodesOpen}
 						aria-controls={costCodeContentId}
 						onClick={() => setCostCodesOpen((open) => !open)}
-						className="flex w-full items-center justify-between gap-3 rounded-md text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						className="flex w-full items-center justify-between gap-3 rounded-md text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
 					>
 						<span className="min-w-0 flex-1">
 							<span className="flex items-center gap-2 text-base font-semibold">
-								<Tags className="size-5 text-blue-700 dark:text-blue-300" />
+								<Tags className="size-5 text-tgem-primary" />
 								{copy.catalog}
 							</span>
 							<span className="mt-1 block text-sm text-muted-foreground">
@@ -408,7 +408,7 @@ export function TgemCostCodeSettings({
 				>
 					<form
 						onSubmit={(event) => void addCostCode(event)}
-						className="grid gap-2 rounded-lg border border-dashed border-blue-300 bg-blue-50/40 p-3 md:grid-cols-[minmax(8rem,0.35fr)_minmax(14rem,1fr)_auto] dark:border-blue-900 dark:bg-blue-950/15"
+						className="grid gap-2 rounded-lg border border-dashed border-[#E1E6ED] bg-slate-50/40 p-3 md:grid-cols-[minmax(8rem,0.35fr)_minmax(14rem,1fr)_auto] dark:border-slate-700 dark:bg-slate-900/20"
 					>
 						<label htmlFor={newCodeInputId}>
 							<span className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -442,6 +442,7 @@ export function TgemCostCodeSettings({
 							<Button
 								type="submit"
 								disabled={saving || !code.trim() || !name.trim()}
+								className="bg-tgem-primary text-white hover:bg-tgem-primary-hover focus-visible:border-tgem-primary focus-visible:ring-tgem-primary/40"
 							>
 								<Plus className="size-4" />
 								{saving ? copy.saving : copy.add}

@@ -34,6 +34,12 @@ const mockAssignProject = jest.fn();
 const mockUpdateInvoiceAccounting = jest.fn();
 const mockUpdateInvoiceDetail = jest.fn();
 const mockDeleteInvoices = jest.fn();
+const mockDownloadInvoiceWorkbook = jest.fn();
+
+jest.mock("@/lib/tgem-invoice-approval/register-export", () => ({
+	downloadTgemInvoiceWorkbook: (...args: unknown[]) =>
+		mockDownloadInvoiceWorkbook(...args),
+}));
 
 jest.mock("@/server/actions/tgem-invoice-delete-actions", () => ({
 	deleteTgemInvoices: (...args: unknown[]) => mockDeleteInvoices(...args),
@@ -127,6 +133,8 @@ const dashboardData: TgemDashboardData = {
 					polygon: [],
 				},
 			},
+			receivedAt: "2026-07-01T00:00:00.000Z",
+			approvedAt: null,
 			createdAt: "2026-07-01T00:00:00.000Z",
 			updatedAt: "2026-07-01T00:00:00.000Z",
 			approvalRound: 0,
@@ -172,6 +180,8 @@ const dashboardData: TgemDashboardData = {
 					unitPrice: "18",
 					total: "7560",
 					currency: "EUR",
+					costCode: null,
+					category: null,
 					suggestedCostCode: "1000-EL",
 					suggestedCategory: "Electrical works",
 					aiConfidence: 0.96,
@@ -228,6 +238,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 				ok: true,
 				deletedIds: targets.map((item) => item.id),
 			}));
+		mockDownloadInvoiceWorkbook.mockReset().mockResolvedValue(undefined);
 		mockUpdateInvoiceDetail
 			.mockReset()
 			.mockImplementation(async (input: { value: string }) => ({
@@ -339,7 +350,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		).toBeEnabled();
 		fireEvent.change(
 			screen.getByRole("textbox", {
-				name: "Search by number or supplier",
+				name: "Search number, supplier, registration, reference, or bank account",
 			}),
 			{ target: { value: "SECOND" } },
 		);
@@ -453,9 +464,11 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			/>,
 		);
 
-		expect(
-			await screen.findByTestId("tgem-invoice-case-1"),
-		).toBeInTheDocument();
+		expect(await screen.findByTestId("tgem-invoice-case-1")).toHaveClass(
+			"border-[#7CA5E8]",
+			"bg-[#F1F6FF]",
+			"shadow-[inset_3px_0_0_#214EA3]",
+		);
 		expect(
 			screen.getAllByText("Baltic Electrical Systems SIA").length,
 		).toBeGreaterThanOrEqual(2);
@@ -471,13 +484,26 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			"h-[600px]",
 		);
 		expect(screen.getByTestId("tgem-document-card")).toBeInTheDocument();
+		expect(screen.getByTestId("tgem-document-title-icon")).toHaveClass(
+			"text-tgem-primary",
+		);
+		expect(screen.getByTestId("tgem-approval-title-icon")).toHaveClass(
+			"text-tgem-primary",
+		);
 		expect(
 			screen.getByRole("region", { name: "Invoice image viewer" }),
 		).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
 		expect(screen.queryByTestId("tgem-ocr-overlay")).not.toBeInTheDocument();
 		expect(screen.queryByLabelText("Recognized text")).not.toBeInTheDocument();
-		fireEvent.click(screen.getByRole("button", { name: "Text version" }));
+		const textVersionButton = screen.getByRole("button", {
+			name: "Text version",
+		});
+		expect(textVersionButton).toHaveClass(
+			"bg-tgem-primary/10",
+			"text-tgem-primary",
+		);
+		fireEvent.click(textVersionButton);
 		expect(screen.getByTestId("tgem-ocr-text-version")).toBeInTheDocument();
 		expect(
 			screen.getByDisplayValue(/Invoice Date: 18\/01\/24/),
@@ -1177,9 +1203,14 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			/>,
 		);
 		await screen.findByTestId("tgem-invoice-register");
-		fireEvent.change(screen.getByLabelText("Search by number or supplier"), {
-			target: { value: "Baltic" },
-		});
+		fireEvent.change(
+			screen.getByLabelText(
+				"Search number, supplier, registration, reference, or bank account",
+			),
+			{
+				target: { value: "Baltic" },
+			},
+		);
 		fireEvent.change(screen.getByLabelText("Sort by"), {
 			target: { value: "total" },
 		});
@@ -1387,11 +1418,31 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		expect(
 			await screen.findByTestId("tgem-invoice-register"),
 		).toBeInTheDocument();
+		expect(screen.getByTestId("tgem-invoice-upload-icon")).toHaveClass(
+			"bg-[#F1F6FF]",
+			"text-tgem-primary",
+		);
+		expect(screen.getByText("Choose invoice").closest("label")).toHaveClass(
+			"border-tgem-primary",
+			"bg-tgem-primary",
+			"text-white",
+			"hover:bg-tgem-primary-hover",
+			"shadow-sm",
+		);
 		expect(screen.getByText("Invoices shown: 2 / 2")).toBeInTheDocument();
+		expect(screen.getByTestId("tgem-invoice-scope")).toHaveClass(
+			"border-tgem-primary/20",
+			"bg-tgem-primary/10",
+		);
 
-		fireEvent.change(screen.getByLabelText("Search by number or supplier"), {
-			target: { value: "Riga Concrete" },
-		});
+		fireEvent.change(
+			screen.getByLabelText(
+				"Search number, supplier, registration, reference, or bank account",
+			),
+			{
+				target: { value: "Riga Concrete" },
+			},
+		);
 		expect(screen.getByText("Invoices shown: 1 / 2")).toBeInTheDocument();
 		expect(
 			screen.getByRole("button", {
@@ -1399,16 +1450,26 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			}),
 		).toBeInTheDocument();
 
-		fireEvent.change(screen.getByLabelText("Search by number or supplier"), {
-			target: { value: "" },
+		fireEvent.change(
+			screen.getByLabelText(
+				"Search number, supplier, registration, reference, or bank account",
+			),
+			{
+				target: { value: "" },
+			},
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Status" }));
+		const statusOptionSearch = screen.getByRole("searchbox", {
+			name: "Search options: Status",
 		});
-		fireEvent.change(screen.getByLabelText("Status"), {
-			target: { value: "approved" },
-		});
+		fireEvent.change(statusOptionSearch, { target: { value: "approved" } });
+		expect(
+			screen.queryByRole("checkbox", { name: "In approval" }),
+		).not.toBeInTheDocument();
+		fireEvent.click(screen.getByRole("checkbox", { name: "Approved" }));
 		expect(screen.getByText("Invoices shown: 1 / 2")).toBeInTheDocument();
-		fireEvent.change(screen.getByLabelText("Status"), {
-			target: { value: "all" },
-		});
+		fireEvent.click(screen.getByRole("button", { name: "Clear: Status" }));
+		expect(screen.getByText("Invoices shown: 2 / 2")).toBeInTheDocument();
 		fireEvent.click(screen.getByRole("button", { name: "Waiting for me" }));
 		expect(screen.getByText("Invoices shown: 1 / 2")).toBeInTheDocument();
 
@@ -1419,15 +1480,21 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		);
 		expect(screen.getByRole("dialog")).toBeInTheDocument();
 		expect(screen.getByText("Invoice preview")).toBeInTheDocument();
+		expect(screen.getByTestId("tgem-invoice-project-label")).toHaveClass(
+			"border-tgem-primary/20",
+			"bg-tgem-primary/10",
+		);
 		expect(
 			screen.getByRole("region", { name: "Invoice image viewer" }),
 		).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
 		expect(screen.getByText("Step 1 / 1")).toBeInTheDocument();
 
-		fireEvent.click(
-			screen.getByRole("button", { name: "Open in approval workspace" }),
-		);
+		const openApprovalButton = screen.getByRole("button", {
+			name: "Open in approval workspace",
+		});
+		expect(openApprovalButton).toHaveClass("bg-tgem-primary");
+		fireEvent.click(openApprovalButton);
 		expect(
 			screen.queryByTestId("tgem-invoice-register"),
 		).not.toBeInTheDocument();
@@ -1435,7 +1502,194 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		expect(window.location.search).toBe("?view=approval");
 	});
 
-	it("shows and refreshes WhatsApp invoice processing progress", async () => {
+	it("exports the sorted filtered rows regardless of checkbox selection", async () => {
+		const secondInvoice = {
+			...dashboardData.invoices[0],
+			id: "case-2",
+			invoiceNumber: "SECOND",
+			supplierName: "Alpha Supplier",
+			reference: "Other reference",
+			total: "980.5",
+			documents: [],
+			lines: [],
+			approvalSteps: [],
+			auditEvents: [],
+		};
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
+			...dashboardData,
+			invoices: [dashboardData.invoices[0], secondInvoice],
+		});
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				organizationLanguage="en"
+			/>,
+		);
+		await screen.findByTestId("tgem-invoice-register");
+		fireEvent.click(
+			screen.getAllByRole("checkbox", {
+				name: "Select invoice: TG-2026-0718",
+			})[0],
+		);
+		fireEvent.click(
+			screen.getByRole("button", { name: "Sort ascending: Supplier" }),
+		);
+		const exportButton = screen.getByRole("button", {
+			name: "Export invoices: 2",
+		});
+		expect(exportButton).toHaveClass(
+			"border-tgem-primary/30",
+			"bg-tgem-primary/10",
+			"shadow-sm",
+		);
+		fireEvent.click(exportButton);
+		await waitFor(() => expect(mockDownloadInvoiceWorkbook).toHaveBeenCalled());
+		expect(
+			mockDownloadInvoiceWorkbook.mock.calls[0][0].map(
+				(row: TgemDashboardData["invoices"][number]) => row.id,
+			),
+		).toEqual(["case-2", "case-1"]);
+
+		mockDownloadInvoiceWorkbook.mockClear();
+		fireEvent.change(
+			screen.getByLabelText(
+				"Search number, supplier, registration, reference, or bank account",
+			),
+			{ target: { value: "Stage 2 electrical" } },
+		);
+		expect(
+			await screen.findByText("Invoices shown: 1 / 2"),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Delete selected (1)" }),
+		).not.toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Export invoices: 1" }));
+		await waitFor(() =>
+			expect(mockDownloadInvoiceWorkbook).toHaveBeenCalledWith(
+				[dashboardData.invoices[0]],
+				expect.objectContaining({ language: "en" }),
+			),
+		);
+	});
+
+	it("keeps review-needed amber while processing is blue", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
+			...dashboardData,
+			invoices: [
+				{ ...dashboardData.invoices[0], status: "needs_review" },
+				{
+					...dashboardData.invoices[0],
+					id: "case-processing",
+					invoiceNumber: "PROCESSING-1",
+					status: "processing",
+					documents: [],
+					lines: [],
+					approvalSteps: [],
+					auditEvents: [],
+				},
+			],
+		});
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				organizationLanguage="en"
+			/>,
+		);
+
+		const reviewRow = await screen.findByTestId("tgem-register-invoice-case-1");
+		const processingRow = screen.getByTestId(
+			"tgem-register-invoice-case-processing",
+		);
+		expect(within(reviewRow).getByText("Needs review")).toHaveClass(
+			"bg-amber-50",
+			"text-amber-700",
+		);
+		expect(within(processingRow).getByText("Processing")).toHaveClass(
+			"bg-[#EEF4FF]",
+			"text-tgem-primary",
+		);
+	});
+
+	it("applies advanced ranges, shows removable chips, and preserves filters across views", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
+			...dashboardData,
+			invoices: [
+				dashboardData.invoices[0],
+				{
+					...dashboardData.invoices[0],
+					id: "case-2",
+					invoiceNumber: "LOW",
+					total: "100",
+					subtotal: "80",
+					documents: [],
+					lines: [],
+					approvalSteps: [],
+					auditEvents: [],
+				},
+			],
+		});
+		const { rerender } = render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				initialView="register"
+				organizationLanguage="en"
+			/>,
+		);
+		await screen.findByTestId("tgem-invoice-register");
+		const reservedFilterSlot = screen.getByTestId("tgem-active-filter-slot");
+		expect(reservedFilterSlot).toBeEmptyDOMElement();
+		expect(reservedFilterSlot).toHaveClass("min-h-7");
+		fireEvent.click(screen.getByRole("button", { name: "More filters" }));
+		fireEvent.change(screen.getByLabelText("Total incl. VAT: Minimum amount"), {
+			target: { value: "20000" },
+		});
+		expect(screen.getByTestId("tgem-active-filter-slot")).toBe(
+			reservedFilterSlot,
+		);
+		expect(screen.getByText("Invoices shown: 1 / 2")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Total incl. VAT: 20000–…" }),
+		).toBeInTheDocument();
+
+		rerender(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				initialView="approval"
+				organizationLanguage="en"
+			/>,
+		);
+		await screen.findByTestId("tgem-invoice-case-1");
+		rerender(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				initialView="register"
+				organizationLanguage="en"
+			/>,
+		);
+		expect(
+			await screen.findByText("Invoices shown: 1 / 2"),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Total incl. VAT: 20000–…" }),
+		).toBeInTheDocument();
+
+		rerender(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-2"
+				initialView="register"
+				organizationLanguage="en"
+			/>,
+		);
+		expect(
+			await screen.findByText("Invoices shown: 2 / 2"),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Total incl. VAT: 20000–…" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("hides the dedicated WhatsApp processing panel while refresh continues", async () => {
 		jest.useFakeTimers();
 		const whatsappInvoice: TgemDashboardData["invoices"][number] = {
 			...dashboardData.invoices[0],
@@ -1479,12 +1733,8 @@ describe("TgemInvoiceApprovalDashboard", () => {
 				await Promise.resolve();
 			});
 			expect(
-				screen.getByTestId("tgem-whatsapp-processing"),
-			).toBeInTheDocument();
-			expect(
-				screen.getByText("WhatsApp invoice processing"),
-			).toBeInTheDocument();
-			expect(screen.getByText("whatsapp-invoice.pdf")).toBeInTheDocument();
+				screen.queryByTestId("tgem-whatsapp-processing"),
+			).not.toBeInTheDocument();
 
 			await act(async () => {
 				jest.advanceTimersByTime(5_000);
@@ -1741,7 +1991,9 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			/>,
 		);
 		expect(
-			await screen.findByLabelText("Meklēt pēc numura vai piegādātāja"),
+			await screen.findByLabelText(
+				"Meklēt numuru, piegādātāju, reģistrācijas numuru, atsauci vai kontu",
+			),
 		).toBeInTheDocument();
 		expect(
 			screen.getByRole("columnheader", {
@@ -1777,7 +2029,9 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			/>,
 		);
 		expect(
-			await screen.findByLabelText("Поиск по номеру или поставщику"),
+			await screen.findByLabelText(
+				"Поиск по номеру, поставщику, регистрации, ссылке или счёту",
+			),
 		).toBeInTheDocument();
 		expect(
 			screen.getByRole("columnheader", {
@@ -1956,6 +2210,10 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		expect(
 			await screen.findByText("skipped in a previous round"),
 		).toBeInTheDocument();
+		expect(screen.getByTestId("tgem-approval-route-summary")).toHaveClass(
+			"border-[#B8CDF1]",
+			"bg-[#EEF4FF]",
+		);
 		expect(screen.getByText(/Amount reference: 50000 EUR/)).toBeInTheDocument();
 	});
 
@@ -2163,6 +2421,19 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		);
 
 		expect(await screen.findByText("Currently with")).toBeInTheDocument();
+		expect(screen.getByTestId("tgem-approval-route-summary")).toHaveClass(
+			"border-[#B8CDF1]",
+			"bg-[#EEF4FF]",
+		);
+		expect(
+			screen.getByTestId("tgem-approval-step-circle-round-2-step-1"),
+		).toHaveClass("border-[#159447]", "bg-[#159447]", "text-white");
+		expect(
+			screen.getByTestId("tgem-approval-step-circle-round-2-step-2"),
+		).toHaveClass("border-tgem-primary", "bg-tgem-primary", "text-white");
+		expect(
+			screen.getByTestId("tgem-approval-step-circle-round-2-step-3"),
+		).toHaveClass("border-slate-300", "bg-white", "text-slate-600");
 		expect(screen.getByText(/Step 2 of 3/)).toBeInTheDocument();
 		expect(screen.getByText("Final approver")).toBeInTheDocument();
 		expect(screen.getAllByText("VJACESLAVS").length).toBeGreaterThan(1);

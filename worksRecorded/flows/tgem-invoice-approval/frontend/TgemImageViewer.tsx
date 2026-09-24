@@ -60,7 +60,7 @@ function getCopy(language?: string | null) {
 }
 
 const toolbarButtonClass =
-	"inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-600 transition hover:bg-slate-200 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-35 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white";
+	"inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-600 transition hover:bg-tgem-primary/10 hover:text-tgem-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50 disabled:cursor-not-allowed disabled:opacity-35 dark:text-slate-300";
 
 export function TgemImageViewer({ documentPath, filename, language }: Props) {
 	const copy = getCopy(language);
@@ -206,7 +206,7 @@ export function TgemImageViewer({ documentPath, filename, language }: Props) {
 					title={copy.fit}
 					disabled={loadState !== "ready"}
 					onClick={fitImage}
-					className={`${toolbarButtonClass} ${customScale === null ? "bg-slate-200 dark:bg-slate-700" : ""}`}
+					className={`${toolbarButtonClass} ${customScale === null ? "bg-tgem-primary/10 text-tgem-primary" : ""}`}
 				>
 					<Maximize2 className="h-4 w-4" />
 				</button>
@@ -244,7 +244,7 @@ export function TgemImageViewer({ documentPath, filename, language }: Props) {
 				onPointerUp={stopDragging}
 				onPointerCancel={stopDragging}
 				onLostPointerCapture={stopDragging}
-				className={`relative min-h-0 flex-1 touch-none select-none overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+				className={`relative min-h-0 flex-1 touch-none select-none overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-tgem-primary/50 ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
 			>
 				{loadState === "error" ? (
 					<div

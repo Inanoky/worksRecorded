@@ -236,8 +236,8 @@ export function TgemApprovalSetup({
 
 	return (
 		<div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
-			<Card className="overflow-hidden border-blue-200 bg-blue-50/20">
-				<CardHeader className="border-b border-blue-100 bg-white/70">
+			<Card className="overflow-hidden border-[#E1E6ED] bg-white dark:bg-card">
+				<CardHeader className="border-b border-[#E1E6ED] bg-slate-50/70 dark:bg-card">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
 							<CardTitle className="text-base">{copy.title}</CardTitle>
@@ -254,8 +254,8 @@ export function TgemApprovalSetup({
 									</span>
 								</div>
 							) : null}
-							<div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-900">
-								<span className="block text-[10px] uppercase tracking-[0.12em] text-blue-600">
+							<div className="rounded-md border border-[#B8CDF1] bg-[#EEF4FF] px-3 py-2 text-xs font-medium text-slate-950">
+								<span className="block text-[10px] uppercase tracking-[0.12em] text-tgem-primary">
 									{copy.currency}
 								</span>
 								{setup.template?.currency ?? "EUR"}
@@ -269,7 +269,7 @@ export function TgemApprovalSetup({
 							{copy.empty}
 						</p>
 					) : null}
-					<div className="relative space-y-3 before:absolute before:bottom-6 before:left-5 before:top-6 before:w-px before:bg-blue-200">
+					<div className="relative space-y-3 before:absolute before:bottom-6 before:left-5 before:top-6 before:w-px before:bg-[#B8CDF1]">
 						{steps.map((step, index) => {
 							const selectedElsewhere = new Set(
 								steps
@@ -281,7 +281,7 @@ export function TgemApprovalSetup({
 									key={step.id}
 									className="relative rounded-lg border bg-background p-3 pl-12 shadow-sm"
 								>
-									<div className="absolute left-[0.72rem] top-3 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-blue-700 text-xs font-semibold text-white shadow-sm">
+									<div className="absolute left-[0.72rem] top-3 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-tgem-primary text-xs font-semibold text-white shadow-sm">
 										{index + 1}
 									</div>
 									<div className="mb-3 flex items-center justify-between gap-2">
@@ -289,7 +289,7 @@ export function TgemApprovalSetup({
 											{copy.step} {index + 1}
 										</span>
 										{index === steps.length - 1 ? (
-											<span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-800">
+											<span className="rounded-full border border-[#B8CDF1] bg-[#EEF4FF] px-2 py-1 text-[10px] font-semibold text-tgem-primary">
 												{copy.finalApprover}
 											</span>
 										) : null}
@@ -426,14 +426,14 @@ export function TgemApprovalSetup({
 							</button>
 							<div className="flex items-center gap-3">
 								{status === "saved" ? (
-									<span className="text-sm text-emerald-700">{copy.saved}</span>
+									<span className="text-sm text-[#159447]">{copy.saved}</span>
 								) : null}
 								<button
 									type="button"
 									onClick={() => void save()}
 									disabled={status === "saving" || steps.length === 0}
 									aria-busy={status === "saving"}
-									className="inline-flex items-center gap-2 rounded-md bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50"
+									className="inline-flex items-center gap-2 rounded-md bg-tgem-primary px-4 py-2 text-sm font-medium text-white hover:bg-tgem-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/40 disabled:opacity-50"
 								>
 									{status === "saving" ? (
 										<Loader2 className="h-4 w-4 animate-spin" />
@@ -451,7 +451,7 @@ export function TgemApprovalSetup({
 				<Card className="h-fit border-slate-200">
 					<CardHeader>
 						<div className="flex items-center gap-2">
-							<ShieldCheck className="h-5 w-5 text-blue-700" />
+							<ShieldCheck className="h-5 w-5 text-tgem-primary" />
 							<CardTitle className="text-base">{copy.managersTitle}</CardTitle>
 						</div>
 						<p className="text-sm text-muted-foreground">
@@ -507,7 +507,7 @@ export function TgemApprovalSetup({
 							</button>
 						) : null}
 						{managerStatus === "saved" ? (
-							<p className="text-sm text-emerald-700">{copy.managersSaved}</p>
+							<p className="text-sm text-[#159447]">{copy.managersSaved}</p>
 						) : null}
 					</CardContent>
 				</Card>

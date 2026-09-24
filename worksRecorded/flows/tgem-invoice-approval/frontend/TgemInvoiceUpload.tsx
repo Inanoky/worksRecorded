@@ -26,7 +26,7 @@ function getUploadCopy(language?: string | null) {
 		return {
 			title: "Iesniegt rēķinu",
 			description: "Pievienojiet PDF, JPG, PNG vai WebP failu līdz 16 MB.",
-			choose: "Izvēlēties rēķinu",
+			choose: "Izvēlieties rēķinu",
 			drop: "vai ievelciet failu šeit",
 			upload: "Augšupielāde",
 			process: "OCR un datu nolasīšana",
@@ -195,7 +195,7 @@ export function TgemInvoiceUpload({
 	return (
 		<section
 			aria-label={copy.title}
-			className={`overflow-hidden rounded-lg border bg-card transition-colors ${dragActive ? "border-blue-500 bg-blue-50/40 dark:bg-blue-950/20" : ""}`}
+			className={`overflow-hidden rounded-lg border bg-white transition-colors dark:bg-card ${dragActive ? "border-tgem-primary bg-[#F1F6FF] dark:bg-tgem-primary/10" : "border-[#E1E6ED]"}`}
 			onDragEnter={(event) => {
 				event.preventDefault();
 				if (!busy) setDragActive(true);
@@ -214,7 +214,10 @@ export function TgemInvoiceUpload({
 		>
 			<div className="grid lg:grid-cols-[minmax(18rem,0.7fr)_minmax(28rem,1.3fr)]">
 				<div className="flex items-start gap-4 border-b p-4 lg:border-r lg:border-b-0">
-					<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-slate-950 text-white dark:bg-slate-100 dark:text-slate-950">
+					<div
+						data-testid="tgem-invoice-upload-icon"
+						className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[#F1F6FF] text-tgem-primary dark:bg-tgem-primary/15"
+					>
 						<FileUp className="h-5 w-5" />
 					</div>
 					<div className="min-w-0">
@@ -226,7 +229,6 @@ export function TgemInvoiceUpload({
 				</div>
 
 				<div className="relative min-h-28 p-4">
-					<div className="absolute inset-y-0 left-0 w-1 bg-blue-600" />
 					{stage === "idle" ? (
 						<div className="flex h-full flex-col items-center justify-center gap-2 text-center sm:flex-row sm:justify-between sm:text-left">
 							<div>
@@ -238,7 +240,7 @@ export function TgemInvoiceUpload({
 							<label
 								htmlFor={inputId}
 								aria-disabled={!selectedProjectId}
-								className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow-sm transition focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${selectedProjectId ? "cursor-pointer bg-blue-600 text-white hover:bg-blue-700" : "cursor-not-allowed bg-muted text-muted-foreground"}`}
+								className={`inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold shadow-sm transition focus-within:ring-2 focus-within:ring-tgem-primary/30 focus-within:ring-offset-2 ${selectedProjectId ? "cursor-pointer border-tgem-primary bg-tgem-primary text-white hover:border-tgem-primary-hover hover:bg-tgem-primary-hover" : "cursor-not-allowed border-border bg-muted text-muted-foreground"}`}
 							>
 								<FileUp className="h-4 w-4" />
 								{copy.choose}
@@ -252,11 +254,11 @@ export function TgemInvoiceUpload({
 							<div className="flex items-center justify-between gap-3">
 								<div className="flex min-w-0 items-center gap-2">
 									{stage === "ready" ? (
-										<Check className="h-4 w-4 shrink-0 text-emerald-600" />
+										<Check className="h-4 w-4 shrink-0 text-[#159447]" />
 									) : stage === "error" ? (
 										<AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
 									) : (
-										<Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-600" />
+										<Loader2 className="h-4 w-4 shrink-0 animate-spin text-tgem-primary" />
 									)}
 									<span className="truncate text-sm font-medium">
 										{fileName}
@@ -266,7 +268,7 @@ export function TgemInvoiceUpload({
 									<button
 										type="button"
 										onClick={reset}
-										className="inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+										className="inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium hover:bg-tgem-primary/10 hover:text-tgem-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
 									>
 										<RotateCcw className="h-3.5 w-3.5" />
 										{copy.retry}
@@ -286,7 +288,7 @@ export function TgemInvoiceUpload({
 									return (
 										<div key={step} className="min-w-0">
 											<div
-												className={`h-1 rounded-full ${state.complete ? "bg-emerald-500" : state.active ? "bg-blue-600" : "bg-muted"}`}
+												className={`h-1 rounded-full ${state.complete ? "bg-[#159447]" : state.active ? "bg-tgem-primary" : "bg-muted"}`}
 											/>
 											<div className="mt-1 truncate text-[11px] text-muted-foreground">
 												{label}
@@ -304,7 +306,7 @@ export function TgemInvoiceUpload({
 									{copy.processing}
 								</div>
 							) : stage === "ready" ? (
-								<div className="text-xs text-emerald-700 dark:text-emerald-400">
+								<div className="text-xs text-[#159447] dark:text-emerald-400">
 									{copy.ready} {result?.lineItemCount ?? 0} {copy.items} ·{" "}
 									{result?.warningCount ?? 0} {copy.warnings}
 								</div>
