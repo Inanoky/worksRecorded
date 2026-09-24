@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import * as React from "react";
 import { ImageGallery } from "@/components/sitediary/ImageGallery";
 
@@ -63,6 +69,89 @@ describe("ImageGallery photo moves", () => {
 
 	afterEach(() => {
 		jest.restoreAllMocks();
+	});
+
+	it("loads and decodes every day photo before exposing the gallery and reuses originals in the viewer", async () => {
+		const images: HTMLImageElement[] = [];
+		jest.spyOn(window, "Image").mockImplementation(() => {
+			const image = {
+				src: "",
+				onload: null,
+				onerror: null,
+				decode: jest.fn().mockResolvedValue(undefined),
+			} as unknown as HTMLImageElement;
+			images.push(image);
+			return image;
+		});
+		render(
+			<ImageGallery
+				date={new Date("2026-08-05T12:00:00Z")}
+				siteId="site-1"
+				preloadAll
+			/>,
+		);
+		await waitFor(() => expect(images).toHaveLength(2));
+		expect(
+			screen.queryByRole("button", { name: "Progress photo" }),
+		).not.toBeInTheDocument();
+		await act(async () => {
+			images[0].onload?.(new Event("load"));
+		});
+		expect(
+			screen.queryByRole("button", { name: "Progress photo" }),
+		).not.toBeInTheDocument();
+		await act(async () => {
+			images[1].onload?.(new Event("load"));
+		});
+		fireEvent.click(
+			await screen.findByRole("button", { name: "Progress photo" }),
+		);
+		expect(
+			screen
+				.getByRole("button", { name: "Progress photo" })
+				.querySelector("img"),
+		).toHaveAttribute("loading", "eager");
+		fireEvent.keyDown(window, { key: "ArrowRight" });
+		expect(images).toHaveLength(2);
+		expect(document.querySelector('img[draggable="false"]')).toHaveAttribute(
+			"src",
+			images[1].src,
+		);
+	});
+
+	it("cancels the previous day's preloads when another day is opened", async () => {
+		const images: HTMLImageElement[] = [];
+		jest.spyOn(window, "Image").mockImplementation(() => {
+			const image = {
+				src: "",
+				onload: null,
+				onerror: null,
+			} as unknown as HTMLImageElement;
+			images.push(image);
+			return image;
+		});
+		const { rerender } = render(
+			<ImageGallery
+				date={new Date("2026-08-05T12:00:00Z")}
+				siteId="site-1"
+				preloadAll
+			/>,
+		);
+		await waitFor(() => expect(images).toHaveLength(2));
+		mockGetPhotosByDate.mockResolvedValue({ photos: [], audioRecords: [] });
+		rerender(
+			<ImageGallery
+				date={new Date("2026-08-06T12:00:00Z")}
+				siteId="site-1"
+				preloadAll
+			/>,
+		);
+		await waitFor(() =>
+			expect(images.every((image) => image.src === "")).toBe(true),
+		);
+		expect(
+			screen.queryByRole("button", { name: "Progress photo" }),
+		).not.toBeInTheDocument();
 	});
 
 	it("moves selected photos to the selected date and refreshes outer media state", async () => {

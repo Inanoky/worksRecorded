@@ -28,6 +28,7 @@ import React from "react";
 import { BeginHoursCost, BeginHoursImport, useBeginHours } from "@/components/sitediary/BeginHours";
 import { toast } from "sonner";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
+import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import { OriginalSourceContent } from "@/components/sitediary/OriginalSourceContent";
 import { SiteDiaryOptionsManager } from "@/components/sitediary/SiteDiaryOptionsManager";
@@ -2912,6 +2913,9 @@ export default function SiteDiaryCalendar({
 
   return (
     <TooltipProvider>
+      {!isZtcFlow && !error && (!hasLoadedRowsOnce || imagesPreloading) ? (
+        <ProjectOpeningOverlay label={language === "lv" ? "Ielādē būvdarbu žurnālu…" : "Loading construction diary…"} />
+      ) : null}
       <div
         className="w-full mx-auto px-2 sm:px-4 py-4"
         style={{ maxWidth: `${screenWidth}rem` }}
@@ -5968,7 +5972,7 @@ export default function SiteDiaryCalendar({
           {/* GALLERY VIEW */}
           <TabsContent value="gallery" className="mt-0">
             <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
-              <FullPhotoGallery siteId={siteId ?? ""} />
+              <FullPhotoGallery siteId={siteId ?? ""} preloadAll={!isZtcFlow} />
             </React.Suspense>
           </TabsContent>
           {visualEnabled && siteId ? (
@@ -6798,6 +6802,7 @@ export default function SiteDiaryCalendar({
               </DialogDescription>
             </DialogHeader>
             <ImageGallery
+              preloadAll={!isZtcFlow}
               date={photosDate}
               siteId={siteId}
               className="h-[70vh]"

@@ -15,6 +15,10 @@ import { createPortal } from "react-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+	type DiaryImageProgress,
+	preloadDiaryImages,
+} from "@/flows/default-construction/frontend/preloadDiaryImages";
+import {
 	getSiteDiaryDialogMessages,
 	normalizeOrganizationLanguage,
 } from "@/lib/dashboard-i18n";
@@ -26,6 +30,7 @@ import {
 } from "@/server/actions/site-diary-actions";
 
 type ImageGalleryProps = {
+	preloadAll?: boolean;
 	date: Date | null;
 	siteId: string | null;
 	className?: string;
@@ -102,6 +107,7 @@ const IMAGE_GALLERY_LOADING_SKELETON_KEYS = Array.from(
 );
 
 export function ImageGallery({
+	preloadAll = false,
 	date,
 	siteId,
 	className,
@@ -120,6 +126,9 @@ export function ImageGallery({
 		null,
 	);
 	const [loading, setLoading] = React.useState(false);
+	const imageCache = React.useRef(new Map<string, HTMLImageElement>());
+	const [imageProgress, setImageProgress] =
+		React.useState<DiaryImageProgress | null>(null);
 	const [error, setError] = React.useState<string | null>(null);
 	const [deleting, setDeleting] = React.useState<string | null>(null);
 	const [selectionMode, setSelectionMode] = React.useState(false);
@@ -161,7 +170,7 @@ export function ImageGallery({
 		() =>
 			(photos || []).map((p) => ({
 				id: p.id,
-				src: p.URL ?? p.fileUrl ?? "",
+				src: p.URL || p.fileUrl || "",
 				caption: p.Comment ?? "",
 			})),
 		[photos],
@@ -217,8 +226,12 @@ export function ImageGallery({
 		setSelectionMode(false);
 
 		let alive = true;
+		const controller = new AbortController();
+		setIsLightboxOpen(false);
+		setImageProgress(null);
 		async function run() {
 			if (!date) {
+				setLoading(false);
 				setPhotos([]);
 				setAudioRecords([]);
 				return;
@@ -233,6 +246,36 @@ export function ImageGallery({
 					endISO,
 				});
 				if (!alive) return;
+				if (preloadAll) {
+					const dayPhotos = result.photos || [];
+					await preloadDiaryImages(
+						dayPhotos.map((p) => p.URL || p.fileUrl),
+						{
+							cache: imageCache.current,
+							signal: controller.signal,
+							onProgress: (progress) => {
+								if (alive) setImageProgress(progress);
+							},
+						},
+					);
+					if (!alive) return;
+					setLoadedThumbnailIds(
+						new Set(
+							dayPhotos
+								.filter((p) => imageCache.current.has(p.URL || p.fileUrl || ""))
+								.map((p) => p.id),
+						),
+					);
+					setFailedThumbnailIds(
+						new Set(
+							dayPhotos
+								.filter(
+									(p) => !imageCache.current.has(p.URL || p.fileUrl || ""),
+								)
+								.map((p) => p.id),
+						),
+					);
+				}
 				setPhotos(result.photos || []);
 				setAudioRecords(result.audioRecords || []);
 			} catch (e: unknown) {
@@ -247,8 +290,9 @@ export function ImageGallery({
 		run();
 		return () => {
 			alive = false;
+			controller.abort();
 		};
-	}, [date, siteId, t.failedLoadPhotos]);
+	}, [date, siteId, preloadAll, t.failedLoadPhotos]);
 
 	async function handleDelete(id: string) {
 		if (!window.confirm(t.confirmDeletePhoto)) return;
@@ -555,6 +599,17 @@ export function ImageGallery({
 	return (
 		<div className={cn("flex min-h-0 flex-col bg-background", className)}>
 			<div className="relative min-h-0 flex-1">
+				{imageProgress && loading ? (
+					<output
+						className="block p-2 text-sm text-muted-foreground"
+						aria-live="polite"
+					>
+						{normalizeOrganizationLanguage(organizationLanguage) === "lv"
+							? "Ielādē attēlus"
+							: "Loading photos"}
+						: {imageProgress.completed}/{imageProgress.total}
+					</output>
+				) : null}
 				{loading ? (
 					<div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
 						{IMAGE_GALLERY_LOADING_SKELETON_KEYS.map((skeletonKey) => (
@@ -632,7 +687,7 @@ export function ImageGallery({
 								{(photos?.length ?? 0) > 0 ? (
 									<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
 										{(photos ?? []).map((p, idx) => {
-											const src = p.URL ?? p.fileUrl ?? "";
+											const src = p.URL || p.fileUrl || "";
 											const isDeleting = deleting === p.id;
 											const isSelected =
 												selectionMode && selectedPhotoIds.has(p.id);
@@ -688,7 +743,8 @@ export function ImageGallery({
 																alt={p.Comment ?? t.photo}
 																fill
 																sizes="(min-width: 1024px) 20vw, (min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
-																loading="lazy"
+																unoptimized={preloadAll}
+																loading={preloadAll ? "eager" : "lazy"}
 																className={cn(
 																	"object-cover transition-transform duration-200 group-hover:scale-105",
 																	!thumbnailLoaded && "opacity-0",

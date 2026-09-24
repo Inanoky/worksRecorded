@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { ComponentType } from "react";
+import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import { FLOW_MODULE_KEYS, type FlowModuleKey } from "@/lib/flows/types";
 
 export type FlowDashboardProps = {
@@ -31,7 +32,7 @@ const DefaultConstructionDashboardFlow = dynamic<FlowDashboardProps>(
 		import("@/flows/default-construction/frontend/DefaultProductionFlow").then(
 			(module) => module.DefaultProductionFlow,
 		),
-	{ loading: flowLoading },
+	{ loading: () => <ProjectOpeningOverlay label="Ielādē būvdarbu žurnālu…" /> },
 );
 const DefaultConstructionSiteDiaryFlow = dynamic<FlowSiteDiaryProps>(
 	() =>

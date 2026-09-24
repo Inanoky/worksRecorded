@@ -187,10 +187,12 @@ export default function DialogWindow({
           {!focusedRecordId ? (
             <TabsContent
               value="media"
-              className="mt-0 min-h-0 flex-1 overflow-hidden"
+              forceMount={!isZtcFlow ? true : undefined}
+              className="mt-0 min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden"
             >
               <div data-tour="dialog-gallery" className="h-full min-h-[300px]">
                 <ImageGallery
+                  preloadAll={!isZtcFlow}
                   date={date}
                   siteId={siteId}
                   organizationLanguage={organizationLanguage}

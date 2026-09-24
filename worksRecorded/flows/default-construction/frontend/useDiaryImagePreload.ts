@@ -38,5 +38,9 @@ export function useDiaryImagePreload(
 		return () => controller.abort();
 	}, [key, scope, enabled]);
 
-	return { progress, loading: enabled && urls.length > 0 && loadedKey !== key };
+	return {
+		images: cache.current,
+		progress,
+		loading: enabled && urls.length > 0 && loadedKey !== key,
+	};
 }

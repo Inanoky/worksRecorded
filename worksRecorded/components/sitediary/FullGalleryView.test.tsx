@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import * as React from "react";
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 
@@ -63,6 +69,47 @@ function mockFetchResponse(photos = pageOnePhotos, totalCount = photos.length) {
 }
 
 describe("FullPhotoGallery", () => {
+	it("preloads all gallery originals before showing thumbnails or opening the viewer", async () => {
+		const images: HTMLImageElement[] = [];
+		const spy = jest.spyOn(window, "Image").mockImplementation(() => {
+			const image = {
+				src: "",
+				onload: null,
+				onerror: null,
+				decode: jest.fn().mockResolvedValue(undefined),
+			} as unknown as HTMLImageElement;
+			images.push(image);
+			return image;
+		});
+		try {
+			render(<FullPhotoGallery siteId="site-1" preloadAll />);
+			await waitFor(() => expect(images).toHaveLength(3));
+			expect(
+				screen.queryByRole("button", { name: "First photo" }),
+			).not.toBeInTheDocument();
+			await act(async () => {
+				images.forEach((image) => {
+					image.onload?.(new Event("load"));
+				});
+			});
+			fireEvent.click(
+				await screen.findByRole("button", { name: "First photo" }),
+			);
+			expect(
+				screen
+					.getByRole("dialog", { name: "Photo viewer" })
+					.querySelector("output"),
+			).toBeNull();
+			fireEvent.click(screen.getByRole("button", { name: "Next photo" }));
+			expect(
+				screen
+					.getByRole("dialog", { name: "Photo viewer" })
+					.querySelector("output"),
+			).toBeNull();
+		} finally {
+			spy.mockRestore();
+		}
+	});
 	beforeEach(() => {
 		jest.clearAllMocks();
 		global.fetch = jest.fn().mockResolvedValue(mockFetchResponse());

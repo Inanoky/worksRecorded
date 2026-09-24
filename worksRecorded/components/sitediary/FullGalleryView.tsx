@@ -18,6 +18,7 @@ import {
 	PaginationPrevious,
 } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDiaryImagePreload } from "@/flows/default-construction/frontend/useDiaryImagePreload";
 import { cn } from "@/lib/utils/utils";
 import { deletePhotoById } from "@/server/actions/site-diary-actions";
 
@@ -79,7 +80,7 @@ function GalleryPagination({
 }) {
 	if (totalPages <= 1) return null;
 
-	const pageNumbers = [];
+	const pageNumbers: number[] = [];
 	const maxPagesToShow = 5;
 	let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
 	const endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
@@ -155,7 +156,13 @@ function GalleryPagination({
 }
 
 // --- Main Component: Exported Default Function ---
-export default function FullPhotoGallery({ siteId }: { siteId: string }) {
+export default function FullPhotoGallery({
+	siteId,
+	preloadAll = false,
+}: {
+	siteId: string;
+	preloadAll?: boolean;
+}) {
 	// --- State ---
 	const [photos, setPhotos] = useState<Photo[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -192,51 +199,63 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 	const loadedFullSizeUrlsRef = useRef<Set<string>>(new Set());
 	const preloadRequestsRef = useRef<Map<string, Promise<boolean>>>(new Map());
 	const totalPages = Math.ceil(totalPhotos / PHOTOS_PER_PAGE);
+	const { images: preloadedImages, loading: imagesLoading } =
+		useDiaryImagePreload(
+			photos.map((photo) => photo.fileUrl),
+			siteId,
+			preloadAll && !loading,
+		);
 
-	const preloadFullSizePhoto = useCallback((url: string) => {
-		if (!url) return Promise.resolve(false);
-		if (loadedFullSizeUrlsRef.current.has(url)) return Promise.resolve(true);
+	const preloadFullSizePhoto = useCallback(
+		(url: string) => {
+			if (!url) return Promise.resolve(false);
+			if (preloadedImages.has(url) || loadedFullSizeUrlsRef.current.has(url))
+				return Promise.resolve(true);
 
-		const existingRequest = preloadRequestsRef.current.get(url);
-		if (existingRequest) return existingRequest;
+			const existingRequest = preloadRequestsRef.current.get(url);
+			if (existingRequest) return existingRequest;
 
-		const request = new Promise<boolean>((resolve) => {
-			const image = new window.Image();
-			const finish = (loaded: boolean) => {
-				if (loaded) loadedFullSizeUrlsRef.current.add(url);
-				preloadRequestsRef.current.delete(url);
-				resolve(loaded);
-			};
+			const request = new Promise<boolean>((resolve) => {
+				const image = new window.Image();
+				const finish = (loaded: boolean) => {
+					if (loaded) loadedFullSizeUrlsRef.current.add(url);
+					preloadRequestsRef.current.delete(url);
+					resolve(loaded);
+				};
 
-			image.onload = () => {
-				if (typeof image.decode !== "function") {
-					finish(true);
-					return;
-				}
+				image.onload = () => {
+					if (typeof image.decode !== "function") {
+						finish(true);
+						return;
+					}
 
-				void image
-					.decode()
-					.catch(() => undefined)
-					.then(() => finish(true));
-			};
-			image.onerror = () => finish(false);
-			image.src = url;
-		});
+					void image
+						.decode()
+						.catch(() => undefined)
+						.then(() => finish(true));
+				};
+				image.onerror = () => finish(false);
+				image.src = url;
+			});
 
-		preloadRequestsRef.current.set(url, request);
-		return request;
-	}, []);
+			preloadRequestsRef.current.set(url, request);
+			return request;
+		},
+		[preloadedImages],
+	);
 
 	const showPhotoAt = useCallback(
 		(index: number) => {
 			const photo = photos[index];
 			if (!photo) return;
-			const alreadyLoaded = loadedFullSizeUrlsRef.current.has(photo.fileUrl);
+			const alreadyLoaded =
+				preloadedImages.has(photo.fileUrl) ||
+				loadedFullSizeUrlsRef.current.has(photo.fileUrl);
 
 			setViewerLoadingUrl(alreadyLoaded ? null : photo.fileUrl);
 			setSelectedPhotoIndex(index);
 		},
-		[photos],
+		[photos, preloadedImages],
 	);
 
 	const closeViewer = useCallback(() => {
@@ -333,14 +352,16 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 						: (currentIndex - 1 + photos.length) % photos.length;
 				const nextPhoto = photos[nextIndex];
 				setViewerLoadingUrl(
-					nextPhoto && !loadedFullSizeUrlsRef.current.has(nextPhoto.fileUrl)
+					nextPhoto &&
+						!preloadedImages.has(nextPhoto.fileUrl) &&
+						!loadedFullSizeUrlsRef.current.has(nextPhoto.fileUrl)
 						? nextPhoto.fileUrl
 						: null,
 				);
 				return nextIndex;
 			});
 		},
-		[photos, selectedPhotoIndex],
+		[photos, preloadedImages, selectedPhotoIndex],
 	);
 
 	const goToPage = useCallback(
@@ -564,7 +585,7 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 					</div>
 				</CardHeader>
 				<CardContent>
-					{loading ? (
+					{loading || imagesLoading ? (
 						<div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
 							{FULL_GALLERY_SKELETON_KEYS.map((skeletonKey) => (
 								<Skeleton
@@ -593,7 +614,9 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 							<div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
 								{photos.map((photo, index) => {
 									const selected = selectedPhotoIds.has(photo.id);
-									const thumbnailLoaded = loadedThumbnailIds.has(photo.id);
+									const thumbnailLoaded =
+										preloadedImages.has(photo.fileUrl) ||
+										loadedThumbnailIds.has(photo.id);
 									const thumbnailFailed =
 										failedThumbnailIds.has(photo.id) || !photo.fileUrl;
 									return (
@@ -631,7 +654,8 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 														alt={photo.Comment || `Site Photo ${index + 1}`}
 														fill
 														sizes="(min-width: 1024px) 16vw, (min-width: 640px) 33vw, 50vw"
-														loading="lazy"
+														unoptimized={preloadAll}
+														loading={preloadAll ? "eager" : "lazy"}
 														className={cn(
 															"object-cover",
 															!thumbnailLoaded && "opacity-0",
