@@ -127,7 +127,9 @@ export function MobileMenu({
 							prefetch
 							className={cn(
 								"flex w-full items-center gap-2",
-								item.isActive ? "text-primary" : "text-muted-foreground",
+								item.isActive
+									? "text-green-700 dark:text-emerald-300"
+									: "text-muted-foreground",
 							)}
 						>
 							<item.icon className="size-4" />
@@ -142,7 +144,9 @@ export function MobileMenu({
 							prefetch
 							className={cn(
 								"flex w-full items-center gap-2",
-								item.isActive ? "text-primary" : "text-muted-foreground",
+								item.isActive
+									? "text-green-700 dark:text-emerald-300"
+									: "text-muted-foreground",
 							)}
 						>
 							<item.icon className="size-4" />
@@ -165,7 +169,9 @@ export function MobileMenu({
 									data-tour={item.dataTour}
 									className={cn(
 										"flex w-full items-center gap-2",
-										item.isActive ? "text-primary" : "text-muted-foreground",
+										item.isActive
+											? "text-green-700 dark:text-emerald-300"
+											: "text-muted-foreground",
 									)}
 								>
 									<item.icon className="size-4" />

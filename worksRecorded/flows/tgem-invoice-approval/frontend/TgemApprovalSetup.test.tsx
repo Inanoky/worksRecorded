@@ -139,7 +139,11 @@ describe("approval step roles", () => {
 			/>,
 		);
 		expect(screen.getByLabelText("Role 1")).toHaveValue("");
-		fireEvent.click(screen.getByRole("button", { name: "Save approval flow" }));
+		const saveButton = screen.getByRole("button", {
+			name: "Save approval flow",
+		});
+		expect(saveButton).toHaveClass("bg-tgem-primary");
+		fireEvent.click(saveButton);
 		expect(saveTgemApprovalTemplate).not.toHaveBeenCalled();
 		expect(
 			screen.getByText("Choose a role for every approval step."),

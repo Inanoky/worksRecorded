@@ -74,9 +74,9 @@ export function DashboardItems({
 							onMouseEnter={() => router.prefetch(item.href)}
 							className={cn(
 								item.isActive
-									? "border-primary/30 bg-primary/10 text-primary"
+									? "border-green-300 bg-green-50 text-green-700 dark:border-emerald-500/45 dark:bg-emerald-500/12 dark:text-emerald-300"
 									: "border-transparent bg-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-								"flex h-9 max-w-[240px] shrink-0 items-center gap-2 rounded-md border px-2.5 text-sm transition-colors",
+								"flex h-9 max-w-[240px] shrink-0 items-center gap-2 rounded-md border px-2.5 text-sm transition-colors focus-visible:border-green-500 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-green-500/20 dark:focus-visible:border-emerald-400 dark:focus-visible:ring-emerald-400/25",
 							)}
 						>
 							<item.icon className="size-4 shrink-0" />
@@ -431,7 +431,7 @@ function ProjectSwitcher({
 								className={cn(
 									"flex w-full min-w-0 items-center gap-2",
 									project.id === activeProjectId
-										? "text-primary"
+										? "text-green-700 dark:text-emerald-300"
 										: "text-muted-foreground",
 								)}
 							>
@@ -528,7 +528,9 @@ function ProjectMoreMenu({
 							onMouseEnter={() => onPrefetch(item.href)}
 							className={cn(
 								"flex w-full items-center gap-2",
-								item.isActive ? "text-primary" : "text-muted-foreground",
+								item.isActive
+									? "text-green-700 dark:text-emerald-300"
+									: "text-muted-foreground",
 							)}
 						>
 							<item.icon className="size-4" />

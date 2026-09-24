@@ -107,7 +107,7 @@ function getCopy(language?: string | null) {
 }
 
 const toolbarButtonClass =
-	"inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-600 transition hover:bg-slate-200 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-35 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white";
+	"inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-600 transition hover:bg-tgem-primary/10 hover:text-tgem-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50 disabled:cursor-not-allowed disabled:opacity-35 dark:text-slate-300";
 
 export function TgemPdfViewer({ documentPath, filename, language }: Props) {
 	const copy = getCopy(language);
@@ -493,7 +493,7 @@ export function TgemPdfViewer({ documentPath, filename, language }: Props) {
 					title={copy.fitWidth}
 					disabled={loadState !== "ready"}
 					onClick={() => setScaleMode("fit")}
-					className={`${toolbarButtonClass} ${scaleMode === "fit" ? "bg-slate-200 text-slate-950 dark:bg-slate-700 dark:text-white" : ""}`}
+					className={`${toolbarButtonClass} ${scaleMode === "fit" ? "bg-tgem-primary/10 text-tgem-primary" : ""}`}
 				>
 					<Maximize2 className="h-4 w-4" />
 				</button>
@@ -532,7 +532,7 @@ export function TgemPdfViewer({ documentPath, filename, language }: Props) {
 								current === "pan" ? "select" : "pan",
 							)
 						}
-						className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-35 ${interactionMode === "select" ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200" : "text-slate-600 hover:bg-slate-200 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"}`}
+						className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50 disabled:cursor-not-allowed disabled:opacity-35 ${interactionMode === "select" ? "bg-tgem-primary/10 text-tgem-primary" : "text-slate-600 hover:bg-tgem-primary/10 hover:text-tgem-primary dark:text-slate-300"}`}
 					>
 						<TextCursorInput className="h-4 w-4" />
 						<span>
@@ -577,16 +577,16 @@ export function TgemPdfViewer({ documentPath, filename, language }: Props) {
 								left: copyModeStatusPosition.left,
 								top: copyModeStatusPosition.top,
 							}}
-							className={`fixed z-[100] w-72 max-w-[calc(100vw-1rem)] rounded-lg border border-blue-300 bg-white px-3 py-2.5 text-blue-950 shadow-lg transition-opacity dark:border-blue-700 dark:bg-slate-950 dark:text-blue-100 ${copyModeStatusPosition.visible ? "opacity-100" : "pointer-events-none opacity-0"}`}
+							className={`fixed z-[100] w-72 max-w-[calc(100vw-1rem)] rounded-lg border border-[#7CA5E8] bg-white px-3 py-2.5 text-slate-950 shadow-lg transition-opacity dark:border-tgem-primary dark:bg-slate-950 dark:text-blue-100 ${copyModeStatusPosition.visible ? "opacity-100" : "pointer-events-none opacity-0"}`}
 						>
 							<div className="flex items-center gap-2 text-xs font-semibold">
-								<span className="h-2 w-2 rounded-full bg-blue-600 ring-4 ring-blue-100 dark:ring-blue-950" />
+								<span className="h-2 w-2 rounded-full bg-tgem-primary ring-4 ring-[#DCE9FC] dark:ring-tgem-primary/20" />
 								{copy.copyModeActive}
 							</div>
 							<div className="mt-1 text-[11px] leading-4 text-slate-600 dark:text-slate-300">
 								{copy.copyModeHelp}
 							</div>
-							<span className="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-r border-b border-blue-300 bg-white dark:border-blue-700 dark:bg-slate-950" />
+							<span className="absolute -bottom-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-r border-b border-[#7CA5E8] bg-white dark:border-tgem-primary dark:bg-slate-950" />
 						</output>,
 						document.body,
 					)
@@ -640,7 +640,7 @@ export function TgemPdfViewer({ documentPath, filename, language }: Props) {
 							<button
 								type="button"
 								onClick={() => setReloadKey((current) => current + 1)}
-								className="mt-3 inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-xs font-medium text-slate-900 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+								className="mt-3 inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-xs font-medium text-slate-900 transition hover:bg-[#F1F6FF] hover:text-tgem-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
 							>
 								<RefreshCw className="h-3.5 w-3.5" />
 								{copy.retry}

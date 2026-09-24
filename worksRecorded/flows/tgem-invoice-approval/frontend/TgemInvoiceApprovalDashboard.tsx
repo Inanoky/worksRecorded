@@ -11,11 +11,14 @@ import {
 	CheckCircle2,
 	Clock3,
 	Copy,
+	Files,
 	FileText,
+	History,
 	Info,
+	ListChecks,
 	Loader2,
-	MessageCircle,
 	Pencil,
+	ReceiptText,
 	Search,
 	Trash2,
 	X,
@@ -45,7 +48,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
 	Popover,
 	PopoverContent,
@@ -70,6 +72,13 @@ import {
 	type TgemEditableInvoiceField,
 	type TgemInvoiceDetailsError,
 } from "@/lib/tgem-invoice-approval/invoice-details";
+import { downloadTgemInvoiceWorkbook } from "@/lib/tgem-invoice-approval/register-export";
+import {
+	createDefaultTgemInvoiceRegisterFilters,
+	filterTgemInvoiceRegister,
+	getTgemInvoiceRegisterFacets,
+	type TgemInvoiceRegisterFilters as TgemInvoiceRegisterFilterState,
+} from "@/lib/tgem-invoice-approval/register-filtering";
 import {
 	sortTgemInvoiceRegister,
 	type TgemInvoiceSort,
@@ -82,6 +91,7 @@ import { deleteTgemInvoices } from "@/server/actions/tgem-invoice-delete-actions
 import { updateTgemInvoiceDetail } from "@/server/actions/tgem-invoice-details-actions";
 import { TgemApprovalControls } from "./TgemApprovalControls";
 import { TgemImageViewer } from "./TgemImageViewer";
+import { TgemInvoiceRegisterFilters } from "./TgemInvoiceRegisterFilters";
 import { TgemInvoiceUpload } from "./TgemInvoiceUpload";
 import { TgemPdfViewer } from "./TgemPdfViewer";
 
@@ -102,12 +112,6 @@ function getCopy(language?: string | null) {
 			loading: "Ielādē rēķinus…",
 			empty: "Šim objektam vēl nav rēķinu.",
 			failed: "Neizdevās ielādēt rēķinus.",
-			whatsappProcessingTitle: "WhatsApp rēķina apstrāde",
-			whatsappProcessingDescription:
-				"Rēķins ir saņemts. MI nolasa laukus un pozīcijas…",
-			whatsappReceived: "Saņemts",
-			whatsappReading: "OCR un datu nolasīšana",
-			whatsappReady: "Gatavs pārbaudei",
 			supplier: "Piegādātājs",
 			invoiceNumber: "Rēķina numurs",
 			invoiceDate: "Rēķina datums",
@@ -283,12 +287,6 @@ function getCopy(language?: string | null) {
 			loading: "Загрузка счетов…",
 			empty: "Для этого проекта счетов пока нет.",
 			failed: "Не удалось загрузить счета.",
-			whatsappProcessingTitle: "Обработка счета из WhatsApp",
-			whatsappProcessingDescription:
-				"Счет получен. ИИ извлекает поля и позиции…",
-			whatsappReceived: "Получен",
-			whatsappReading: "OCR и извлечение данных",
-			whatsappReady: "Готово к проверке",
 			supplier: "Поставщик",
 			invoiceNumber: "Номер счета",
 			invoiceDate: "Дата счета",
@@ -463,12 +461,6 @@ function getCopy(language?: string | null) {
 		loading: "Loading invoices…",
 		empty: "No invoices exist for this project yet.",
 		failed: "Could not load invoices.",
-		whatsappProcessingTitle: "WhatsApp invoice processing",
-		whatsappProcessingDescription:
-			"The invoice was received. AI is reading fields and line items…",
-		whatsappReceived: "Received",
-		whatsappReading: "OCR and extraction",
-		whatsappReady: "Ready for review",
 		supplier: "Supplier",
 		invoiceNumber: "Invoice number",
 		invoiceDate: "Invoice date",
@@ -663,10 +655,12 @@ function formatMoney(
 
 function statusClass(status: string) {
 	if (status === "approved")
-		return "border-emerald-200 bg-emerald-50 text-emerald-700";
-	if (status === "in_approval")
-		return "border-blue-200 bg-blue-50 text-blue-700";
+		return "border-[#B8E0C6] bg-[#ECF8F0] text-[#159447]";
+	if (status === "in_approval" || status === "processing")
+		return "border-[#B8CDF1] bg-[#EEF4FF] text-tgem-primary";
 	if (status === "rejected") return "border-red-200 bg-red-50 text-red-700";
+	if (status === "received")
+		return "border-[#E1E6ED] bg-slate-50 text-slate-600";
 	return "border-amber-200 bg-amber-50 text-amber-700";
 }
 
@@ -751,7 +745,7 @@ function OcrDocumentViewer({
 						type="button"
 						onClick={() => void copyText()}
 						disabled={!ocrText}
-						className="inline-flex items-center gap-1.5 rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium transition hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+						className="inline-flex items-center gap-1.5 rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium transition hover:border-tgem-primary/30 hover:bg-tgem-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{copied ? (
 							<Check className="h-3.5 w-3.5" />
@@ -766,7 +760,7 @@ function OcrDocumentViewer({
 					readOnly
 					value={ocrText}
 					placeholder={copy.noOcrText}
-					className="min-h-0 flex-1 resize-none border-0 bg-transparent p-4 font-mono text-xs leading-6 outline-none selection:bg-blue-200 dark:selection:bg-blue-800"
+					className="min-h-0 flex-1 resize-none border-0 bg-transparent p-4 font-mono text-xs leading-6 outline-none selection:bg-tgem-primary/20"
 				/>
 			</div>
 		);
@@ -813,132 +807,28 @@ function approvalPosition(invoice: TgemDashboardInvoice) {
 	};
 }
 
-function WhatsappInvoiceProcessing({
-	invoices,
-	copy,
-}: {
-	invoices: TgemDashboardInvoice[];
-	copy: ReturnType<typeof getCopy>;
-}) {
-	if (invoices.length === 0) return null;
-
-	return (
-		<section
-			aria-label={copy.whatsappProcessingTitle}
-			data-testid="tgem-whatsapp-processing"
-			className="overflow-hidden rounded-lg border border-blue-200 bg-card dark:border-blue-900"
-		>
-			<div className="flex items-start gap-4 border-b border-blue-100 bg-blue-50/60 p-4 dark:border-blue-950 dark:bg-blue-950/20">
-				<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[#25D366] text-white shadow-sm">
-					<MessageCircle className="h-5 w-5" />
-				</div>
-				<div className="min-w-0 flex-1">
-					<div className="flex flex-wrap items-center gap-2">
-						<h2 className="font-semibold tracking-tight">
-							{copy.whatsappProcessingTitle}
-						</h2>
-						<Badge
-							variant="outline"
-							className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
-						>
-							WhatsApp
-						</Badge>
-					</div>
-					<p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-						{copy.whatsappProcessingDescription}
-					</p>
-				</div>
-				<Loader2 className="mt-1 h-5 w-5 shrink-0 animate-spin text-blue-600 motion-reduce:animate-none" />
-			</div>
-
-			<div className="divide-y">
-				{invoices.map((invoice) => {
-					const processingStarted =
-						invoice.status === "processing" ||
-						invoice.ocrStatus === "processing" ||
-						invoice.extractionStatus === "processing";
-					const filename =
-						invoice.documents[0]?.originalFilename ||
-						invoice.invoiceNumber ||
-						invoice.id;
-
-					return (
-						<div
-							key={invoice.id}
-							data-testid={`tgem-whatsapp-processing-${invoice.id}`}
-							className="p-4"
-						>
-							<div className="flex items-center justify-between gap-3">
-								<div className="min-w-0">
-									<div className="truncate text-sm font-medium">{filename}</div>
-									<div className="mt-0.5 truncate text-xs text-muted-foreground">
-										{invoice.project?.name || copy.unassigned}
-									</div>
-								</div>
-								<span className="text-xs font-medium text-blue-700 dark:text-blue-300">
-									{processingStarted
-										? copy.whatsappReading
-										: copy.whatsappReceived}
-								</span>
-							</div>
-
-							<div className="mt-3 grid grid-cols-3 gap-2">
-								{[
-									{
-										label: copy.whatsappReceived,
-										active: !processingStarted,
-										complete: processingStarted,
-									},
-									{
-										label: copy.whatsappReading,
-										active: processingStarted,
-										complete: false,
-									},
-									{
-										label: copy.whatsappReady,
-										active: false,
-										complete: false,
-									},
-								].map((step) => (
-									<div key={step.label} className="min-w-0">
-										<div
-											className={`h-1 rounded-full ${step.complete ? "bg-emerald-500" : step.active ? "bg-blue-600" : "bg-muted"}`}
-										/>
-										<div className="mt-1 truncate text-[11px] text-muted-foreground">
-											{step.label}
-										</div>
-									</div>
-								))}
-							</div>
-						</div>
-					);
-				})}
-			</div>
-		</section>
-	);
-}
-
 function InvoiceRegister({
 	invoices,
 	costCodes,
 	currentUserId,
+	filters,
 	copy,
 	organizationLanguage,
 	onOpenInvoice,
 	onChanged,
+	onFiltersChange,
 }: {
 	invoices: TgemDashboardInvoice[];
 	costCodes: TgemDashboardData["costCodes"];
 	currentUserId: string;
+	filters: TgemInvoiceRegisterFilterState;
 	copy: ReturnType<typeof getCopy>;
 	organizationLanguage?: string | null;
 	onOpenInvoice: (invoiceId: string) => void;
 	onChanged: () => Promise<void>;
+	onFiltersChange: (filters: TgemInvoiceRegisterFilterState) => void;
 }) {
-	const searchInputId = React.useId();
-	const [search, setSearch] = React.useState("");
-	const [statusFilter, setStatusFilter] = React.useState("all");
-	const [assignedToMeOnly, setAssignedToMeOnly] = React.useState(false);
+	const registerId = React.useId();
 	const [sort, setSort] = React.useState<TgemInvoiceSort | null>(null);
 	const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
 	const [deletedIds, setDeletedIds] = React.useState<Set<string>>(new Set());
@@ -952,38 +842,21 @@ function InvoiceRegister({
 	const [previewInvoiceId, setPreviewInvoiceId] = React.useState<string | null>(
 		null,
 	);
-	const normalizedSearch = search.trim().toLocaleLowerCase();
+	const availableInvoices = React.useMemo(
+		() => invoices.filter((invoice) => !deletedIds.has(invoice.id)),
+		[invoices, deletedIds],
+	);
 	const filteredInvoices = React.useMemo(
+		() => filterTgemInvoiceRegister(availableInvoices, filters),
+		[availableInvoices, filters],
+	);
+	const facets = React.useMemo(
 		() =>
-			invoices.filter((invoice) => {
-				if (deletedIds.has(invoice.id)) return false;
-				const currentStep = approvalPosition(invoice).currentStep;
-				const matchesSearch =
-					!normalizedSearch ||
-					invoice.invoiceNumber
-						?.toLocaleLowerCase()
-						.includes(normalizedSearch) ||
-					invoice.supplierName
-						?.toLocaleLowerCase()
-						.includes(normalizedSearch) ||
-					invoice.supplierRegistrationNo
-						?.toLocaleLowerCase()
-						.includes(normalizedSearch);
-				const matchesStatus =
-					statusFilter === "all" || invoice.status === statusFilter;
-				const matchesAssignment =
-					!assignedToMeOnly || currentStep?.approverUserId === currentUserId;
-
-				return matchesSearch && matchesStatus && matchesAssignment;
-			}),
-		[
-			assignedToMeOnly,
-			currentUserId,
-			invoices,
-			normalizedSearch,
-			statusFilter,
-			deletedIds,
-		],
+			getTgemInvoiceRegisterFacets(
+				availableInvoices,
+				localeForLanguage(organizationLanguage),
+			),
+		[availableInvoices, organizationLanguage],
 	);
 	const selectedInvoices = filteredInvoices.filter((invoice) =>
 		selectedIds.has(invoice.id),
@@ -1005,6 +878,10 @@ function InvoiceRegister({
 				? new Set(filteredInvoices.map((invoice) => invoice.id))
 				: new Set(),
 		);
+	}
+	function changeFilters(nextFilters: TgemInvoiceRegisterFilterState) {
+		setSelectedIds(new Set());
+		onFiltersChange(nextFilters);
 	}
 	function requestDelete(targets: TgemDashboardInvoice[]) {
 		setDeleteError(null);
@@ -1097,6 +974,16 @@ function InvoiceRegister({
 	function openPreview(invoiceId: string) {
 		setPreviewInvoiceId(invoiceId);
 	}
+	async function exportInvoices() {
+		await downloadTgemInvoiceWorkbook(sortedInvoices, {
+			language: organizationLanguage,
+			labels: {
+				statuses: copy.statuses,
+				sources: copy.sources,
+				processingStatuses: copy.processingStatuses,
+			},
+		});
+	}
 
 	return (
 		<>
@@ -1114,59 +1001,28 @@ function InvoiceRegister({
 							{invoices.filter((invoice) => !deletedIds.has(invoice.id)).length}
 						</div>
 					</div>
-					<div className="mt-4 flex flex-col gap-2 sm:flex-row">
-						<div className="relative min-w-0 flex-1">
-							<label htmlFor={searchInputId} className="sr-only">
-								{copy.searchInvoices}
-							</label>
-							<Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-							<Input
-								id={searchInputId}
-								value={search}
-								onChange={(event) => {
-									setSearch(event.target.value);
-									setSelectedIds(new Set());
-								}}
-								placeholder={copy.searchInvoices}
-								className="bg-background pl-9"
-							/>
-						</div>
-						<select
-							aria-label={copy.status}
-							value={statusFilter}
-							onChange={(event) => {
-								setStatusFilter(event.target.value);
-								setSelectedIds(new Set());
-							}}
-							className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-						>
-							<option value="all">{copy.allStatuses}</option>
-							{Object.entries(copy.statuses).map(([value, label]) => (
-								<option key={value} value={value}>
-									{label}
-								</option>
-							))}
-						</select>
-						<button
-							type="button"
-							aria-pressed={assignedToMeOnly}
-							onClick={() => {
-								setAssignedToMeOnly((current) => !current);
-								setSelectedIds(new Set());
-							}}
-							className={`inline-flex h-9 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${assignedToMeOnly ? "border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200" : "bg-background hover:bg-muted"}`}
-						>
-							<Clock3 className="h-4 w-4" />
-							{copy.assignedToMe}
-						</button>
-					</div>
+					<TgemInvoiceRegisterFilters
+						filters={filters}
+						facets={facets}
+						currentUserId={currentUserId}
+						matchingCount={filteredInvoices.length}
+						language={organizationLanguage}
+						valueLabels={{
+							statuses: copy.statuses,
+							sources: copy.sources,
+							processingStatuses: copy.processingStatuses,
+						}}
+						onChange={changeFilters}
+						onExport={exportInvoices}
+					/>
 					<div className="flex flex-wrap items-center gap-3">
 						<label
-							htmlFor={`${searchInputId}-select-all`}
+							htmlFor={`${registerId}-select-all`}
 							className="flex items-center gap-2 text-sm md:hidden"
 						>
 							<Checkbox
-								id={`${searchInputId}-select-all`}
+								className="data-[state=checked]:border-tgem-primary data-[state=checked]:bg-tgem-primary focus-visible:border-tgem-primary focus-visible:ring-tgem-primary/40 dark:data-[state=checked]:bg-tgem-primary"
+								id={`${registerId}-select-all`}
 								aria-label={copy.selectAllInvoices}
 								checked={
 									allSelected
@@ -1211,7 +1067,7 @@ function InvoiceRegister({
 										: null,
 								)
 							}
-							className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-ring"
+							className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-tgem-primary"
 						>
 							<option value="">{copy.defaultOrder}</option>
 							{sortColumns.map((column) => (
@@ -1229,7 +1085,7 @@ function InvoiceRegister({
 										: copy.sortAscending
 								}
 								onClick={() => toggleSort(sort.field)}
-								className="flex h-9 w-9 items-center justify-center rounded-md border bg-background hover:bg-muted focus-visible:outline-ring"
+								className="flex h-9 w-9 items-center justify-center rounded-md border bg-background hover:bg-muted focus-visible:outline-tgem-primary"
 							>
 								{sort.direction === "asc" ? (
 									<ArrowUp aria-hidden="true" className="h-4 w-4" />
@@ -1248,6 +1104,7 @@ function InvoiceRegister({
 								<TableRow className="hover:bg-transparent">
 									<TableHead className="w-12 pl-5">
 										<Checkbox
+											className="data-[state=checked]:border-tgem-primary data-[state=checked]:bg-tgem-primary focus-visible:border-tgem-primary focus-visible:ring-tgem-primary/40 dark:data-[state=checked]:bg-tgem-primary"
 											aria-label={copy.selectAllInvoices}
 											checked={
 												allSelected
@@ -1294,7 +1151,7 @@ function InvoiceRegister({
 													type="button"
 													aria-label={`${active && sort.direction === "asc" ? copy.sortDescending : copy.sortAscending}: ${column.label}`}
 													onClick={() => toggleSort(field)}
-													className={`inline-flex items-center gap-1.5 rounded-sm py-1 text-sm font-medium hover:text-foreground focus-visible:outline-ring ${active ? "text-blue-700 dark:text-blue-300" : "text-muted-foreground"}`}
+													className={`inline-flex items-center gap-1.5 rounded-sm py-1 text-sm font-medium hover:text-tgem-primary focus-visible:outline-tgem-primary ${active ? "text-tgem-primary" : "text-muted-foreground"}`}
 												>
 													{column.label}
 													<Icon
@@ -1325,6 +1182,7 @@ function InvoiceRegister({
 												onClick={(event) => event.stopPropagation()}
 											>
 												<Checkbox
+													className="data-[state=checked]:border-tgem-primary data-[state=checked]:bg-tgem-primary focus-visible:border-tgem-primary focus-visible:ring-tgem-primary/40 dark:data-[state=checked]:bg-tgem-primary"
 													aria-label={`${copy.selectInvoice}: ${invoiceLabel}`}
 													checked={selectedIds.has(invoice.id)}
 													disabled={deleting}
@@ -1340,7 +1198,7 @@ function InvoiceRegister({
 												<button
 													type="button"
 													aria-label={`${copy.previewInvoice}: ${invoiceLabel}`}
-													className="text-left hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+													className="text-left hover:text-tgem-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
 												>
 													{invoiceLabel}
 												</button>
@@ -1422,7 +1280,7 @@ function InvoiceRegister({
 							return (
 								<div key={invoice.id} className="flex items-start gap-2 p-4">
 									<Checkbox
-										className="mt-1"
+										className="mt-1 data-[state=checked]:border-tgem-primary data-[state=checked]:bg-tgem-primary focus-visible:border-tgem-primary focus-visible:ring-tgem-primary/40 dark:data-[state=checked]:bg-tgem-primary"
 										aria-label={`${copy.selectInvoice}: ${invoice.invoiceNumber || invoice.id}`}
 										checked={selectedIds.has(invoice.id)}
 										disabled={deleting}
@@ -1435,7 +1293,7 @@ function InvoiceRegister({
 										data-testid={`tgem-register-mobile-invoice-${invoice.id}`}
 										type="button"
 										onClick={() => openPreview(invoice.id)}
-										className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left transition hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
+										className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left transition hover:bg-tgem-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-tgem-primary/50"
 									>
 										<div className="min-w-0">
 											<div className="mb-1 text-xs text-muted-foreground">
@@ -1583,7 +1441,7 @@ function InvoiceRegister({
 								<button
 									type="button"
 									aria-label={copy.closePreview}
-									className="absolute top-3.5 right-4 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+									className="absolute top-3.5 right-4 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-tgem-primary/10 hover:text-tgem-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
 								>
 									<X className="h-4 w-4" />
 								</button>
@@ -1631,7 +1489,7 @@ function InvoiceRegister({
 											{copy.approvalProgress}
 										</div>
 										<div className="mt-3 flex items-center gap-3">
-											<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-200">
+											<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tgem-primary text-white shadow-sm ring-1 ring-tgem-primary/20">
 												<Clock3 className="h-4 w-4" />
 											</div>
 											<div>
@@ -1652,7 +1510,7 @@ function InvoiceRegister({
 							{previewInvoice.documents[0] ? (
 								<div className="mt-5 overflow-hidden rounded-lg border bg-background">
 									<div className="flex items-center gap-2 border-b px-3 py-2.5">
-										<FileText className="h-4 w-4 shrink-0 text-blue-600" />
+										<FileText className="h-4 w-4 shrink-0 text-tgem-primary" />
 										<div className="min-w-0 flex-1 truncate text-sm font-medium">
 											{previewInvoice.documents[0].originalFilename}
 										</div>
@@ -1682,7 +1540,7 @@ function InvoiceRegister({
 							<button
 								type="button"
 								onClick={() => onOpenInvoice(previewInvoice.id)}
-								className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+								className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-tgem-primary px-4 text-sm font-semibold text-white transition hover:bg-tgem-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50 focus-visible:ring-offset-2"
 							>
 								{copy.openInvoice}
 								<ArrowRight className="h-4 w-4" />
@@ -1750,7 +1608,7 @@ function ProjectAssignment({
 		<Card>
 			<CardHeader className="pb-3">
 				<CardTitle className="flex items-center gap-2 text-base">
-					<Building2 className="h-4 w-4 text-blue-600" />
+					<Building2 className="h-4 w-4 text-tgem-primary" />
 					{invoice.project ? copy.changeProject : copy.assignProject}
 				</CardTitle>
 			</CardHeader>
@@ -1767,7 +1625,7 @@ function ProjectAssignment({
 								setProjectId(event.target.value);
 								setStatus("idle");
 							}}
-							className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+							className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-tgem-primary focus-visible:ring-3 focus-visible:ring-tgem-primary/50"
 						>
 							<option value="" disabled>
 								{copy.unassigned}
@@ -1783,7 +1641,7 @@ function ProjectAssignment({
 						type="button"
 						disabled={!changed || status === "saving"}
 						onClick={() => void save()}
-						className="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+						className="inline-flex h-9 items-center justify-center rounded-md bg-tgem-primary px-3 text-sm font-semibold text-white transition hover:bg-tgem-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{status === "saving" ? copy.savingProject : copy.saveProject}
 					</button>
@@ -1794,7 +1652,7 @@ function ProjectAssignment({
 					</p>
 				) : null}
 				{status === "saved" ? (
-					<p className="text-xs text-emerald-700 dark:text-emerald-400">
+					<p className="text-xs text-[#159447] dark:text-emerald-400">
 						{copy.projectSaved}
 					</p>
 				) : null}
@@ -1952,14 +1810,14 @@ function EditableInvoiceDetail({
 									setSession({ ...session, draft: event.target.value });
 									setError(null);
 								}}
-								className="mt-1 w-full min-w-0 rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-ring"
+								className="mt-1 w-full min-w-0 rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-tgem-primary"
 							/>
 							<div className="mt-2 flex flex-wrap gap-2">
 								<button
 									type="submit"
 									aria-label={`${copy.saveDetail}: ${label}`}
 									disabled={saving || session.draft.trim() === session.original}
-									className="rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 focus-visible:outline-ring disabled:opacity-50"
+									className="rounded-md bg-tgem-primary px-2 py-1 text-xs font-medium text-white hover:bg-tgem-primary-hover focus-visible:outline-tgem-primary disabled:opacity-50"
 								>
 									{saving ? copy.savingAccounting : copy.saveDetail}
 								</button>
@@ -1968,7 +1826,7 @@ function EditableInvoiceDetail({
 									aria-label={`${copy.cancelDetail}: ${label}`}
 									disabled={saving}
 									onClick={cancel}
-									className="rounded-md border px-2 py-1 text-xs hover:bg-muted focus-visible:outline-ring disabled:opacity-50"
+									className="rounded-md border px-2 py-1 text-xs hover:bg-muted focus-visible:outline-tgem-primary disabled:opacity-50"
 								>
 									{copy.cancelDetail}
 								</button>
@@ -1986,7 +1844,7 @@ function EditableInvoiceDetail({
 							{message}
 						</p>
 					) : saved ? (
-						<output className="mt-1 text-xs font-normal text-emerald-700 dark:text-emerald-400">
+						<output className="mt-1 text-xs font-normal text-[#159447] dark:text-emerald-400">
 							{copy.detailSaved}
 						</output>
 					) : null}
@@ -2013,7 +1871,7 @@ function EditableInvoiceDetail({
 							setError(null);
 							setSaved(false);
 						}}
-						className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-ring disabled:opacity-50"
+						className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-tgem-primary disabled:opacity-50"
 					>
 						<Pencil className="h-4 w-4" />
 					</button>
@@ -2101,7 +1959,7 @@ function InvoiceAccountingClassification({
 								setInvoiceType(event.target.value as "credit" | "debit");
 								setStatus("idle");
 							}}
-							className="w-full rounded-sm bg-background text-sm font-medium focus-visible:outline-ring"
+							className="w-full rounded-sm bg-background text-sm font-medium focus-visible:outline-tgem-primary"
 						>
 							<option value="debit">{copy.debitInvoice}</option>
 							<option value="credit">{copy.creditInvoice}</option>
@@ -2132,7 +1990,7 @@ function InvoiceAccountingClassification({
 							setStatus("idle");
 							setError(null);
 						}}
-						className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-ring disabled:opacity-50"
+						className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-tgem-primary disabled:opacity-50"
 					>
 						{editingInvoiceType ? (
 							<X className="h-4 w-4" />
@@ -2151,7 +2009,7 @@ function InvoiceAccountingClassification({
 								type="button"
 								aria-label={copy.costCodeHelp}
 								title={copy.costCodeHelp}
-								className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-ring"
+								className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-tgem-primary"
 							>
 								<Info className="h-3 w-3" />
 							</button>
@@ -2168,7 +2026,7 @@ function InvoiceAccountingClassification({
 							</p>
 							<Link
 								href={`/dashboard/invoices/settings${invoice.project?.id ? `?project=${encodeURIComponent(invoice.project.id)}` : ""}`}
-								className="inline-block font-medium text-blue-700 underline underline-offset-4 dark:text-blue-300"
+								className="inline-block font-medium text-tgem-primary underline underline-offset-4"
 							>
 								{copy.costCodeSettingsLink}
 							</Link>
@@ -2183,7 +2041,7 @@ function InvoiceAccountingClassification({
 							setCostCode(event.target.value);
 							setStatus("idle");
 						}}
-						className="w-full rounded-sm bg-background text-sm font-medium focus-visible:outline-ring"
+						className="w-full rounded-sm bg-background text-sm font-medium focus-visible:outline-tgem-primary"
 					>
 						<option value="">{copy.selectCostCode}</option>
 						{availableCostCodes.map((item) => (
@@ -2201,12 +2059,12 @@ function InvoiceAccountingClassification({
 						type="button"
 						disabled={!changed || status === "saving"}
 						onClick={() => void save()}
-						className="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+						className="inline-flex h-9 items-center justify-center rounded-md bg-tgem-primary px-3 text-sm font-semibold text-white transition hover:bg-tgem-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{status === "saving" ? copy.savingAccounting : copy.saveAccounting}
 					</button>
 					{status === "saved" ? (
-						<span className="text-xs text-emerald-700 dark:text-emerald-400">
+						<span className="text-xs text-[#159447] dark:text-emerald-400">
 							{copy.accountingSaved}
 						</span>
 					) : null}
@@ -2240,10 +2098,21 @@ function InvoiceInformationCard({
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle className="text-base">{copy.details}</CardTitle>
+				<CardTitle className="flex items-center gap-2 text-base">
+					<ReceiptText className="h-4 w-4 text-tgem-primary" />
+					{copy.details}
+				</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-3 sm:grid-cols-2">
-				{sourceField(copy.project, invoice.project?.name || copy.unassigned)}
+				{sourceField(
+					copy.project,
+					<span
+						data-testid="tgem-invoice-project-label"
+						className="inline-flex rounded-md border border-tgem-primary/20 bg-tgem-primary/10 px-2 py-1 text-sm font-semibold text-tgem-primary shadow-xs"
+					>
+						{invoice.project?.name || copy.unassigned}
+					</span>,
+				)}
 				<EditableInvoiceDetail
 					key={`${invoice.id}-invoiceDate`}
 					invoice={invoice}
@@ -2362,7 +2231,10 @@ function InvoiceDetails({
 
 				<Card>
 					<CardHeader>
-						<CardTitle className="text-base">{copy.lines}</CardTitle>
+						<CardTitle className="flex items-center gap-2 text-base">
+							<ListChecks className="h-4 w-4 text-tgem-primary" />
+							{copy.lines}
+						</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-3">
 						{invoice.lines.map((line) => (
@@ -2419,7 +2291,10 @@ function InvoiceDetails({
 
 				<Card>
 					<CardHeader>
-						<CardTitle className="text-base">{copy.audit}</CardTitle>
+						<CardTitle className="flex items-center gap-2 text-base">
+							<History className="h-4 w-4 text-tgem-primary" />
+							{copy.audit}
+						</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-3">
 						{invoice.auditEvents.map((event) => (
@@ -2444,7 +2319,10 @@ function InvoiceDetails({
 				<CardHeader>
 					<div className="flex flex-wrap items-center gap-2">
 						<CardTitle className="flex items-center gap-2 text-base">
-							<FileText className="h-4 w-4 text-blue-600" />
+							<FileText
+								data-testid="tgem-document-title-icon"
+								className="h-4 w-4 text-tgem-primary"
+							/>
 							{documentView === "document" ? copy.document : copy.textVersion}
 						</CardTitle>
 						{document ? (
@@ -2456,7 +2334,7 @@ function InvoiceDetails({
 									)
 								}
 								aria-pressed={documentView === "text"}
-								className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-800 transition hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/70"
+								className="rounded-md border border-tgem-primary/25 bg-tgem-primary/10 px-2.5 py-1 text-xs font-medium text-tgem-primary shadow-xs transition hover:border-tgem-primary/40 hover:bg-tgem-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
 							>
 								{documentView === "document" ? copy.textVersion : copy.document}
 							</button>
@@ -2514,9 +2392,14 @@ export function TgemInvoiceApprovalDashboard({
 	const [dashboardView, setDashboardView] = React.useState<
 		"approval" | "register"
 	>(initialView);
+	const [registerFilters, setRegisterFilters] =
+		React.useState<TgemInvoiceRegisterFilterState>(() =>
+			createDefaultTgemInvoiceRegisterFilters(),
+		);
 	React.useEffect(() => {
 		setProjectFilter(initialFilter);
 		setSelectedInvoiceId(null);
+		setRegisterFilters(createDefaultTgemInvoiceRegisterFilters());
 	}, [initialFilter]);
 	React.useEffect(() => {
 		setDashboardView(initialView);
@@ -2565,6 +2448,7 @@ export function TgemInvoiceApprovalDashboard({
 	const changeProjectFilter = React.useCallback((nextFilter: string) => {
 		setProjectFilter(nextFilter);
 		setSelectedInvoiceId(null);
+		setRegisterFilters(createDefaultTgemInvoiceRegisterFilters());
 		if (typeof window !== "undefined") {
 			const url = new URL(window.location.href);
 			if (nextFilter === "all") url.searchParams.delete("project");
@@ -2621,12 +2505,6 @@ export function TgemInvoiceApprovalDashboard({
 
 	const selectedInvoice =
 		data?.invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null;
-	const whatsappProcessingInvoices =
-		data?.invoices.filter(
-			(invoice) =>
-				invoice.source === "whatsapp" &&
-				(invoice.status === "received" || invoice.status === "processing"),
-		) ?? [];
 	const selectedProjectId =
 		projectFilter === "all" || projectFilter === "unassigned"
 			? null
@@ -2651,10 +2529,10 @@ export function TgemInvoiceApprovalDashboard({
 					{invoiceScope ? (
 						<div
 							data-testid="tgem-invoice-scope"
-							className="mt-2 inline-flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50/70 px-2.5 py-1.5 text-sm text-blue-950 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100"
+							className="mt-2 inline-flex items-center gap-2 rounded-md border border-tgem-primary/20 bg-tgem-primary/10 px-2.5 py-1.5 text-sm text-foreground shadow-xs dark:border-tgem-primary/25 dark:bg-tgem-primary/10"
 						>
-							<Building2 className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-300" />
-							<span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+							<Building2 className="h-4 w-4 shrink-0 text-tgem-primary" />
+							<span className="text-xs font-medium text-tgem-primary">
 								{copy.invoiceScope}:
 							</span>{" "}
 							<span className="font-semibold">{invoiceScope}</span>
@@ -2690,19 +2568,17 @@ export function TgemInvoiceApprovalDashboard({
 							else await loadData(invoiceCaseId);
 						}}
 					/>
-					<WhatsappInvoiceProcessing
-						invoices={whatsappProcessingInvoices}
-						copy={copy}
-					/>
 					{dashboardView === "register" && data ? (
 						<InvoiceRegister
 							key={projectFilter}
 							invoices={data.invoices}
 							costCodes={data.costCodes}
 							currentUserId={data.currentUserId}
+							filters={registerFilters}
 							copy={copy}
 							organizationLanguage={organizationLanguage}
 							onChanged={() => loadData()}
+							onFiltersChange={setRegisterFilters}
 							onOpenInvoice={(invoiceId) => {
 								changeDashboardView("approval", invoiceId);
 							}}
@@ -2711,7 +2587,10 @@ export function TgemInvoiceApprovalDashboard({
 						<div className="grid gap-4 lg:grid-cols-[minmax(18rem,0.35fr)_minmax(0,1fr)]">
 							<Card className="h-fit">
 								<CardHeader>
-									<CardTitle className="text-base">{copy.inbox}</CardTitle>
+									<CardTitle className="flex items-center gap-2 text-base">
+										<Files className="h-4 w-4 text-tgem-primary" />
+										{copy.inbox}
+									</CardTitle>
 								</CardHeader>
 								<CardContent className="space-y-2">
 									{data?.invoices.map((invoice) => (
@@ -2720,7 +2599,7 @@ export function TgemInvoiceApprovalDashboard({
 											type="button"
 											data-testid={`tgem-invoice-${invoice.id}`}
 											onClick={() => setSelectedInvoiceId(invoice.id)}
-											className={`w-full rounded-md border p-3 text-left transition hover:bg-muted/50 ${selectedInvoiceId === invoice.id ? "border-blue-500 bg-blue-50/50" : ""}`}
+											className={`w-full rounded-md border p-3 text-left transition hover:bg-[#F1F6FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50 ${selectedInvoiceId === invoice.id ? "border-[#7CA5E8] bg-[#F1F6FF] shadow-[inset_3px_0_0_#214EA3]" : "border-[#E1E6ED] bg-background"}`}
 										>
 											<div className="flex items-start justify-between gap-2">
 												<span className="truncate font-medium">
@@ -2787,7 +2666,7 @@ export function TgemInvoiceApprovalDashboard({
 					)}
 					<Separator />
 					<div className="flex items-center gap-2 text-xs text-muted-foreground">
-						<CheckCircle2 className="h-4 w-4 text-emerald-600" />
+						<CheckCircle2 className="h-4 w-4 text-[#159447]" />
 						{copy.dataSource}
 					</div>
 				</>

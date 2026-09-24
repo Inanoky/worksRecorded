@@ -152,9 +152,10 @@ function formatDecisionDate(value: string | null, language?: string | null) {
 }
 
 function statusClasses(status: string) {
-	if (status === "current") return "border-blue-200 bg-blue-50 text-blue-800";
+	if (status === "current")
+		return "border-[#B8CDF1] bg-[#EEF4FF] text-tgem-primary";
 	if (status === "approved")
-		return "border-emerald-200 bg-emerald-50 text-emerald-800";
+		return "border-[#B8E0C6] bg-[#ECF8F0] text-[#159447]";
 	if (status === "rejected") return "border-red-200 bg-red-50 text-red-800";
 	if (status === "changes_requested")
 		return "border-amber-200 bg-amber-50 text-amber-800";
@@ -162,13 +163,20 @@ function statusClasses(status: string) {
 }
 
 function circleClasses(status: string) {
-	if (status === "current") return "border-blue-600 bg-blue-600 text-white";
-	if (status === "approved")
-		return "border-emerald-600 bg-emerald-600 text-white";
+	if (status === "current")
+		return "border-tgem-primary bg-tgem-primary text-white";
+	if (status === "approved") return "border-[#159447] bg-[#159447] text-white";
 	if (status === "rejected") return "border-red-600 bg-red-600 text-white";
 	if (status === "changes_requested")
 		return "border-amber-500 bg-amber-500 text-white";
 	return "border-slate-300 bg-white text-slate-600";
+}
+
+function summaryClasses(status: string) {
+	if (status === "approved") return "border-[#B8E0C6] bg-[#ECF8F0]";
+	if (status === "rejected") return "border-red-200 bg-red-50";
+	if (status === "changes_requested") return "border-amber-200 bg-amber-50";
+	return "border-[#B8CDF1] bg-[#EEF4FF]";
 }
 
 export function TgemApprovalControls({
@@ -301,7 +309,10 @@ export function TgemApprovalControls({
 			<CardHeader>
 				<div className="flex flex-wrap items-center justify-between gap-2">
 					<CardTitle className="flex items-center gap-2 text-base">
-						<UserRoundCheck className="h-4 w-4 text-blue-700" />
+						<UserRoundCheck
+							data-testid="tgem-approval-title-icon"
+							className="h-4 w-4 text-tgem-primary"
+						/>
 						{copy.title}
 					</CardTitle>
 					{invoice.approvalRound > 0 ? (
@@ -316,11 +327,11 @@ export function TgemApprovalControls({
 					<>
 						<div
 							data-testid="tgem-approval-route-summary"
-							className="rounded-lg border border-blue-200 bg-blue-50/60 p-3"
+							className={`rounded-lg border p-3 ${summaryClasses(invoice.status)}`}
 						>
 							<div className="flex flex-wrap items-start justify-between gap-3">
 								<div>
-									<div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-700">
+									<div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-tgem-primary">
 										{summaryTitle()}
 									</div>
 									<div className="mt-1 font-semibold text-slate-950">
@@ -338,7 +349,7 @@ export function TgemApprovalControls({
 									) : null}
 								</div>
 								{finalStep ? (
-									<div className="min-w-0 rounded-md border border-blue-100 bg-white/80 px-3 py-2 text-right">
+									<div className="min-w-0 rounded-md border border-tgem-primary/15 bg-background/80 px-3 py-2 text-right">
 										<div className="flex items-center justify-end gap-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">
 											<Flag className="h-3 w-3" />
 											{copy.finalApprover}
@@ -350,7 +361,7 @@ export function TgemApprovalControls({
 								) : null}
 							</div>
 							{remainingSteps.length > 0 ? (
-								<div className="mt-3 border-t border-blue-100 pt-3">
+								<div className="mt-3 border-t border-tgem-primary/15 pt-3">
 									<div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">
 										{copy.pathToFinal}
 									</div>
@@ -383,6 +394,7 @@ export function TgemApprovalControls({
 											<div className="absolute bottom-0 left-[0.95rem] top-8 w-px bg-slate-200" />
 										) : null}
 										<div
+											data-testid={`tgem-approval-step-circle-${step.id}`}
 											className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ${circleClasses(step.status)}`}
 										>
 											{step.status === "approved" ? (
@@ -392,7 +404,7 @@ export function TgemApprovalControls({
 											)}
 										</div>
 										<div
-											className={`min-w-0 flex-1 rounded-lg border p-3 ${step.status === "current" ? "border-blue-300 bg-blue-50/40 shadow-sm" : "bg-background"}`}
+											className={`min-w-0 flex-1 rounded-lg border p-3 ${step.status === "current" ? "border-[#7CA5E8] bg-[#EEF4FF] shadow-sm" : "border-[#E1E6ED] bg-background"}`}
 										>
 											<div className="flex flex-wrap items-start justify-between gap-2">
 												<div className="min-w-0">
@@ -491,7 +503,7 @@ export function TgemApprovalControls({
 							onClick={() => void submit()}
 							disabled={!hasTemplate || pending !== null}
 							aria-busy={pending === "submit"}
-							className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50"
+							className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-tgem-primary px-4 py-2 text-sm font-medium text-white hover:bg-tgem-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/40 disabled:opacity-50"
 						>
 							{pending === "submit" ? (
 								<Loader2 className="h-4 w-4 animate-spin" />
@@ -509,7 +521,7 @@ export function TgemApprovalControls({
 				) : null}
 
 				{invoice.status === "in_approval" && canDecide ? (
-					<div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50/30 p-3">
+					<div className="space-y-3 rounded-lg border border-tgem-primary/25 bg-tgem-primary/10 p-3">
 						<textarea
 							aria-label={copy.comment}
 							value={comment}
@@ -526,7 +538,7 @@ export function TgemApprovalControls({
 								onClick={() => void decide("approve")}
 								disabled={pending !== null}
 								aria-busy={pending === "approve"}
-								className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+								className="inline-flex items-center justify-center gap-2 rounded-md bg-tgem-primary px-3 py-2 text-sm font-medium text-white hover:bg-tgem-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/40 disabled:opacity-50"
 							>
 								{pending === "approve" ? (
 									<Loader2 className="h-4 w-4 shrink-0 animate-spin" />
