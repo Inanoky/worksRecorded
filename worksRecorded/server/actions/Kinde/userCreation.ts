@@ -14,7 +14,7 @@ if (!KINDE_DOMAIN || !M2M_CLIENT_ID || !M2M_CLIENT_SECRET) {
 }
 
 // =====================
-// HARD-CODE USER HEREaaaaaa
+// HARD-CODE USER HEREaaaaaaa
 // =====================
 const USERNAME = "Maris_MRPK";
 const PASSWORD = "V9!234#tXCx@wN34$xK8" ; // will be bcrypt-hashed
