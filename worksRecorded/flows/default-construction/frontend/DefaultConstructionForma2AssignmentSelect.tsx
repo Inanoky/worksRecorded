@@ -32,6 +32,11 @@ export function DefaultConstructionForma2AssignmentSelect({
 	options,
 	organizationLanguage,
 	assignmentMode = "single",
+	sourceType = "material",
+	overrideJournalPosition = false,
+	allowUnassigned = true,
+	disabled = false,
+	onSavingChange,
 	onAssigned,
 }: {
 	siteId: string;
@@ -40,7 +45,12 @@ export function DefaultConstructionForma2AssignmentSelect({
 	options: Forma2MaterialPositionOption[];
 	organizationLanguage?: string | null;
 	assignmentMode?: "single" | "similar-rule";
-	onAssigned: (positionId: string | null) => void;
+	sourceType?: "work" | "material";
+	overrideJournalPosition?: boolean;
+	allowUnassigned?: boolean;
+	disabled?: boolean;
+	onSavingChange?: (saving: boolean) => void;
+	onAssigned: (positionId: string | null) => void | Promise<void>;
 }) {
 	const isLatvian = String(organizationLanguage ?? "")
 		.toLowerCase()
@@ -60,10 +70,19 @@ export function DefaultConstructionForma2AssignmentSelect({
 	}, [options, search]);
 
 	const assign = async (positionId: string | null) => {
+		if (
+			saving ||
+			disabled ||
+			(assignmentMode === "single" && positionId === value)
+		)
+			return;
 		setSaving(true);
+		onSavingChange?.(true);
 		try {
 			const ruleResult =
-				assignmentMode === "similar-rule" && positionId
+				assignmentMode === "similar-rule" &&
+				sourceType === "material" &&
+				positionId
 					? await saveDefaultConstructionForma2MaterialRule({
 							siteId,
 							sourceId,
@@ -75,15 +94,18 @@ export function DefaultConstructionForma2AssignmentSelect({
 					siteId,
 					allocations: [
 						{
-							sourceType: "material",
+							sourceType,
 							sourceId,
 							positionId,
 							method: "manual",
+							...(overrideJournalPosition
+								? { overrideJournalPosition: true }
+								: {}),
 						},
 					],
 				});
 			}
-			onAssigned(positionId);
+			await onAssigned(positionId);
 			setOpen(false);
 			setSearch("");
 			toast.success(
@@ -105,6 +127,7 @@ export function DefaultConstructionForma2AssignmentSelect({
 			);
 		} finally {
 			setSaving(false);
+			onSavingChange?.(false);
 		}
 	};
 
@@ -115,7 +138,9 @@ export function DefaultConstructionForma2AssignmentSelect({
 					type="button"
 					variant="outline"
 					role="combobox"
-					disabled={saving}
+					aria-expanded={open}
+					aria-label={isLatvian ? "Piesaistīts pozīcijai" : "Assigned position"}
+					disabled={saving || disabled}
 					className="h-auto min-h-9 w-full min-w-[230px] justify-between whitespace-normal px-3 py-2 text-left font-normal"
 				>
 					<span className="line-clamp-2">
@@ -143,18 +168,22 @@ export function DefaultConstructionForma2AssignmentSelect({
 					className="mb-2"
 				/>
 				<div className="max-h-72 overflow-y-auto">
-					<button
-						type="button"
-						onClick={() => assign(null)}
-						className="flex w-full items-center rounded-md px-2 py-2 text-left text-sm hover:bg-muted"
-					>
-						<Check className={`mr-2 size-4 ${value ? "opacity-0" : ""}`} />
-						{isLatvian ? "Nav piesaistīts" : "Unassigned"}
-					</button>
+					{allowUnassigned ? (
+						<button
+							type="button"
+							disabled={saving || disabled}
+							onClick={() => assign(null)}
+							className="flex w-full items-center rounded-md px-2 py-2 text-left text-sm hover:bg-muted"
+						>
+							<Check className={`mr-2 size-4 ${value ? "opacity-0" : ""}`} />
+							{isLatvian ? "Nav piesaistīts" : "Unassigned"}
+						</button>
+					) : null}
 					{filtered.map((option) => (
 						<button
 							key={option.id}
 							type="button"
+							disabled={saving || disabled}
 							onClick={() => assign(option.id)}
 							className="flex w-full items-start rounded-md px-2 py-2 text-left text-sm hover:bg-muted"
 						>

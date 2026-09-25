@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { getDefaultConstructionForma2PositionCostDetails } from "@/flows/default-construction/backend/forma2-analytics-actions";
+import { DefaultConstructionForma2AssignmentSelect } from "./DefaultConstructionForma2AssignmentSelect";
 
 type CostType = "work" | "material" | "total";
 type CostDetails = Awaited<
@@ -63,6 +65,7 @@ export function DefaultConstructionForma2CostBreakdown({
 	amount: number;
 	organizationLanguage?: string | null;
 }) {
+	const router = useRouter();
 	const isLatvian = String(organizationLanguage ?? "")
 		.toLowerCase()
 		.startsWith("lv");
@@ -127,11 +130,12 @@ export function DefaultConstructionForma2CostBreakdown({
 			};
 	const [open, setOpen] = useState(false);
 	const [loading, setLoading] = useState(false);
+	const [saving, setSaving] = useState(false);
 	const [details, setDetails] = useState<CostDetails | null>(null);
 
 	const showDetails = async () => {
 		setOpen(true);
-		if (details || loading) return;
+		if (loading) return;
 		setLoading(true);
 		try {
 			setDetails(
@@ -148,6 +152,10 @@ export function DefaultConstructionForma2CostBreakdown({
 			setLoading(false);
 		}
 	};
+	const refreshAfterAssignment = async () => {
+		await showDetails();
+		router.refresh();
+	};
 
 	return (
 		<>
@@ -159,7 +167,12 @@ export function DefaultConstructionForma2CostBreakdown({
 			>
 				{formatCurrency(amount, locale)}
 			</Button>
-			<Dialog open={open} onOpenChange={setOpen}>
+			<Dialog
+				open={open}
+				onOpenChange={(next) => {
+					if (!saving) setOpen(next);
+				}}
+			>
 				<DialogContent className="flex h-[90dvh] max-h-[900px] flex-col overflow-hidden p-0 sm:max-w-5xl">
 					<DialogHeader className="shrink-0 border-b px-6 py-5 pr-12">
 						<DialogTitle>{copy.title}</DialogTitle>
@@ -236,10 +249,26 @@ export function DefaultConstructionForma2CostBreakdown({
 													</Badge>
 												</TableCell>
 												<TableCell className="max-w-56 whitespace-normal align-top">
-													{record.assignedPosition.code
-														? `${record.assignedPosition.code} `
-														: ""}
-													{record.assignedPosition.name}
+													<DefaultConstructionForma2AssignmentSelect
+														siteId={siteId}
+														sourceId={record.id}
+														sourceType={record.type}
+														value={record.assignedPosition.id}
+														options={details.positionOptions.filter(
+															(position) =>
+																record.type === "work"
+																	? position.kind === "work"
+																	: position.kind === "material" ||
+																		(position.kind === "work" &&
+																			!position.parentId),
+														)}
+														organizationLanguage={organizationLanguage}
+														overrideJournalPosition
+														allowUnassigned={false}
+														disabled={saving}
+														onSavingChange={setSaving}
+														onAssigned={refreshAfterAssignment}
+													/>
 												</TableCell>
 												<TableCell className="whitespace-normal align-top">
 													{record.type === "work" ? (

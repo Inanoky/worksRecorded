@@ -522,9 +522,89 @@ describe("Forma 2 analytics", () => {
 			actualMechanismCost: 0,
 			actualTotalCost: parent.actualTotalCost,
 			variance:
-				parent.plannedTotalCost +
-				materialChild.plannedTotalCost -
+				parent.plannedWorkCost +
+				parent.plannedMaterialCost +
+				parent.plannedMechanismCost +
+				materialChild.plannedWorkCost +
+				materialChild.plannedMaterialCost +
+				materialChild.plannedMechanismCost -
 				parent.actualTotalCost,
 		});
 	});
+});
+
+it("calculates balances from all three components, not the imported total", () => {
+	const base = extractForma2PositionsFromRows(rows, "1-1").positions[0];
+	const position = {
+		...base,
+		plannedWorkCost: 100,
+		plannedMaterialCost: 200,
+		plannedMechanismCost: 30,
+		plannedTotalCost: 9999,
+	};
+	const view = buildForma2AnalyticsView({
+		positions: [position],
+		allocations: [],
+		sources: [
+			{
+				id: "w",
+				type: "work",
+				selectedPositionId: position.id,
+				label: "Work",
+				secondaryLabel: "",
+				date: null,
+				unit: "m2",
+				quantity: 1,
+				hours: null,
+				actualCost: 350,
+			},
+		],
+	});
+	expect(view.resultRows[0].variance).toBe(-20);
+	expect(view.summary.variance).toBe(-20);
+	expect(calculateForma2MoneyTotals(view.resultRows).variance).toBe(-20);
+	const row = {
+		...view.resultRows[0],
+		actualWorkCost: 50,
+		actualMaterialCost: 70,
+		actualMechanismCost: 10,
+		actualTotalCost: 9999,
+	};
+	expect(calculateForma2MoneyTotals([row]).variance).toBe(200);
+});
+
+it("moves a reviewed diary cost to a different position without duplicating or repricing it", () => {
+	const base = extractForma2PositionsFromRows(rows, "1-1").positions[0];
+	const other = { ...base, id: "other" };
+	const view = buildForma2AnalyticsView({
+		positions: [base, other],
+		sources: [
+			{
+				id: "w",
+				type: "work",
+				selectedPositionId: base.id,
+				label: "Work",
+				secondaryLabel: "",
+				date: null,
+				unit: base.unit,
+				quantity: 2,
+				hours: null,
+				actualCost: 123.45,
+			},
+		],
+		allocations: [
+			{
+				sourceType: "work",
+				sourceId: "w",
+				positionId: other.id,
+				method: "manual",
+				overrideJournalPosition: true,
+				confidence: null,
+				assignedAt: "2026-09-25",
+			},
+		],
+	});
+	expect(view.mappingRows[0].assignedPositionId).toBe(other.id);
+	expect(view.resultRows.map((row) => row.actualWorkCost)).toEqual([0, 123.45]);
+	expect(view.summary.assignedCost).toBe(123.45);
 });

@@ -17,6 +17,7 @@ import {
 	type Forma2SourceType,
 	normalizeDefaultConstructionForma2State,
 	normalizeForma2MaterialRuleName,
+	resolveForma2PositionId,
 	suggestForma2Position,
 } from "@/flows/default-construction/lib/forma2-analytics";
 import {
@@ -602,8 +603,11 @@ export async function getDefaultConstructionForma2PositionCostDetails(args: {
 				positionsById.has(source.selectedPositionId)
 					? source.selectedPositionId
 					: null;
-			const assignedPositionId =
-				selectedPositionId ?? allocation?.positionId ?? null;
+			const assignedPositionId = resolveForma2PositionId(
+				source,
+				allocation,
+				positionsById,
+			);
 			if (!assignedPositionId || !includedPositionIds.has(assignedPositionId))
 				return [];
 			const assignedPosition = positionsById.get(assignedPositionId);
@@ -622,12 +626,14 @@ export async function getDefaultConstructionForma2PositionCostDetails(args: {
 					unitRate: source.unitRate ?? null,
 					costCalculationMode: source.costCalculationMode ?? "output",
 					actualCost: source.actualCost,
-					assignmentMethod: selectedPositionId
-						? ("manual" as const)
-						: (allocation?.method ?? "manual"),
-					assignmentConfidence: selectedPositionId
-						? 1
-						: (allocation?.confidence ?? null),
+					assignmentMethod:
+						selectedPositionId && !allocation?.overrideJournalPosition
+							? ("manual" as const)
+							: (allocation?.method ?? "manual"),
+					assignmentConfidence:
+						selectedPositionId && !allocation?.overrideJournalPosition
+							? 1
+							: (allocation?.confidence ?? null),
 					assignedPosition: {
 						id: assignedPosition.id,
 						code: assignedPosition.code,
@@ -650,6 +656,17 @@ export async function getDefaultConstructionForma2PositionCostDetails(args: {
 			name: position.name,
 		},
 		costType: args.costType,
+		positionOptions: positions.map(
+			({ id, code, name, categoryName, kind, parentId, unit }) => ({
+				id,
+				code,
+				name,
+				categoryName,
+				kind,
+				parentId,
+				unit,
+			}),
+		),
 		calculatedTotal: Number(calculatedTotal.toFixed(2)),
 		assignedRecords: records.length,
 		pricedRecords: records.filter((record) => record.actualCost != null).length,
@@ -1008,6 +1025,7 @@ export async function saveDefaultConstructionForma2Allocations(args: {
 		positionId: string | null;
 		method?: "manual" | "automatic" | "rule";
 		confidence?: number | null;
+		overrideJournalPosition?: boolean;
 	}>;
 }) {
 	await requireDefaultConstructionSite(args.siteId);
@@ -1082,6 +1100,10 @@ export async function saveDefaultConstructionForma2Allocations(args: {
 					? null
 					: Math.max(0, Math.min(1, Number(allocation.confidence) || 0)),
 			assignedAt: new Date().toISOString(),
+			...(allocation.overrideJournalPosition === true &&
+			(!allocation.method || allocation.method === "manual")
+				? { overrideJournalPosition: true }
+				: {}),
 		});
 	});
 

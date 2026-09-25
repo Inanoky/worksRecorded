@@ -4,8 +4,10 @@ import type { Forma2Position } from "../lib/forma2-analytics";
 import { enableDefaultConstructionQuantityProfile } from "../lib/quantity-plan-actual";
 import {
 	getDefaultConstructionForma2MappingPage,
+	getDefaultConstructionForma2PositionCostDetails,
 	getDefaultConstructionForma2PositionQuantityDetails,
 	getDefaultConstructionForma2Results,
+	saveDefaultConstructionForma2Allocations,
 } from "./forma2-analytics-actions";
 
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
@@ -21,7 +23,7 @@ jest.mock("./forma2-auto-assignment", () => ({
 }));
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
-		analytics: { findUnique: jest.fn() },
+		analytics: { findUnique: jest.fn(), upsert: jest.fn() },
 		site: { findUnique: jest.fn() },
 		sitediaryrecords: { findMany: jest.fn(), count: jest.fn() },
 		bISmaterialRecords: { findMany: jest.fn(), count: jest.fn() },
@@ -186,6 +188,13 @@ describe("Forma 2 diary quantity loaders", () => {
 		await expect(
 			getDefaultConstructionForma2Results("other-site"),
 		).rejects.toThrow("Site not found");
+		await expect(
+			getDefaultConstructionForma2PositionCostDetails({
+				siteId: "other-site",
+				positionId: "position",
+				costType: "total",
+			}),
+		).rejects.toThrow("Site not found");
 		expect(prisma.sitediaryrecords.findMany).not.toHaveBeenCalled();
 		await expect(
 			getDefaultConstructionForma2PositionQuantityDetails({
@@ -236,5 +245,146 @@ describe("Forma 2 diary quantity loaders", () => {
 				positionId: "other-position",
 			}),
 		).rejects.toThrow("Forma 2 position was not found");
+	});
+
+	it("persists a reviewed reassignment and refreshes both cost breakdowns without changing the diary", async () => {
+		const other = { ...position, id: "other", code: "2", name: "Other work" };
+		const stored = {
+			currentWeekProgress: {
+				defaultConstructionForma2: {
+					version: 1,
+					document: {
+						id: "document",
+						fileName: "estimate.xlsx",
+						sheetName: "Estimate",
+						importedAt: "2026-09-01",
+						positions: [position, other],
+					},
+					allocations: [],
+					materialRules: [],
+				},
+			},
+		};
+		jest
+			.mocked(prisma.analytics.findUnique)
+			.mockImplementation(() => Promise.resolve(stored) as never);
+		jest.mocked(prisma.analytics.upsert).mockImplementation((args) => {
+			stored.currentWeekProgress = args.update
+				.currentWeekProgress as unknown as typeof stored.currentWeekProgress;
+			return Promise.resolve({}) as never;
+		});
+		jest.mocked(prisma.site.findUnique).mockResolvedValue({
+			name: "Site",
+			siteDiaryRecordsMap: {
+				Works: { DropDownOptions: { Floor: "Floor" } },
+				otherSettings: {
+					defaultConstructionForma2WorkSync: {
+						documentId: "document",
+						entries: [{ positionId: position.id, work: "Floor" }],
+					},
+					defaultConstructionProductivity: {
+						version: 4,
+						works: [
+							{
+								work: "Floor",
+								unit: "m2",
+								hourlyCost: 2,
+								laborNormHoursPerUnit: 1,
+								costCalculationMode: "output",
+							},
+						],
+					},
+				},
+			},
+		} as never);
+		const before = await getDefaultConstructionForma2PositionCostDetails({
+			siteId: "site",
+			positionId: position.id,
+			costType: "work",
+		});
+		expect(before.calculatedTotal).toBe(134);
+		expect(before.positionOptions.map((option) => option.id)).toEqual([
+			position.id,
+			other.id,
+		]);
+		await saveDefaultConstructionForma2Allocations({
+			siteId: "site",
+			allocations: [
+				{
+					sourceId: "diary",
+					sourceType: "work",
+					positionId: other.id,
+					method: "manual",
+					overrideJournalPosition: true,
+				},
+			],
+		});
+		const oldDetails = await getDefaultConstructionForma2PositionCostDetails({
+			siteId: "site",
+			positionId: position.id,
+			costType: "work",
+		});
+		const newDetails = await getDefaultConstructionForma2PositionCostDetails({
+			siteId: "site",
+			positionId: other.id,
+			costType: "work",
+		});
+		expect(oldDetails.records).toHaveLength(0);
+		expect(newDetails.calculatedTotal).toBe(134);
+		expect(newDetails.records[0]).toMatchObject({
+			id: "diary",
+			label: "Floor",
+			assignmentMethod: "manual",
+			assignedPosition: { id: other.id },
+		});
+		expect(
+			(await getDefaultConstructionForma2Results("site")).resultRows.map(
+				(row) => row.actualWorkCost,
+			),
+		).toEqual([0, 134]);
+	});
+
+	it.each([
+		"foreign-position",
+		"foreign-record",
+		"inaccessible-site",
+		"incompatible-position",
+	])("rejects reassignment to %s", async (scenario) => {
+		if (scenario === "incompatible-position") {
+			const stored = await prisma.analytics.findUnique({
+				where: { siteId: "site" },
+			});
+			const data = structuredClone(stored) as unknown as {
+				currentWeekProgress: {
+					defaultConstructionForma2: {
+						document: { positions: Forma2Position[] };
+					};
+				};
+			};
+			data.currentWeekProgress.defaultConstructionForma2.document.positions[0].kind =
+				"material";
+			jest.mocked(prisma.analytics.findUnique).mockResolvedValue(data as never);
+		}
+		if (scenario === "foreign-record")
+			jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([]);
+		if (scenario === "inaccessible-site")
+			jest.mocked(orgCheck).mockResolvedValue(null as never);
+		await expect(
+			saveDefaultConstructionForma2Allocations({
+				siteId: "site",
+				allocations: [
+					{
+						sourceId: "diary",
+						sourceType: "work",
+						positionId:
+							scenario === "foreign-position"
+								? "other-site-position"
+								: position.id,
+						overrideJournalPosition: true,
+					},
+				],
+			}),
+		).rejects.toThrow();
+		expect(prisma.analytics.upsert).not.toHaveBeenCalled();
 	});
 });

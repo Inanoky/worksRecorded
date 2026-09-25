@@ -44,6 +44,7 @@ export type Forma2Allocation = {
 	confidence: number | null;
 	assignedAt: string;
 	ruleId?: string | null;
+	overrideJournalPosition?: boolean;
 };
 
 export type Forma2MaterialRule = {
@@ -174,7 +175,11 @@ export function calculateForma2MoneyTotals(
 		actualMaterialCost: actualTotals.material,
 		actualMechanismCost: actualTotals.mechanism,
 		actualTotalCost: actualTotals.total,
-		variance: plannedTotals.total - actualTotals.total,
+		variance:
+			plannedTotals.work +
+			plannedTotals.material +
+			plannedTotals.mechanism -
+			(actualTotals.work + actualTotals.material + actualTotals.mechanism),
 	};
 
 	return Object.fromEntries(
@@ -567,6 +572,28 @@ export function normalizeDefaultConstructionForma2State(
 	};
 }
 
+export function resolveForma2PositionId(
+	source: Forma2ActualSource,
+	allocation: Forma2Allocation | undefined,
+	positionsById: ReadonlyMap<string, Forma2Position>,
+) {
+	if (
+		allocation?.method === "manual" &&
+		allocation.overrideJournalPosition === true &&
+		positionsById.has(allocation.positionId)
+	)
+		return allocation.positionId;
+	if (
+		source.selectedPositionId &&
+		positionsById.has(source.selectedPositionId)
+	) {
+		return source.selectedPositionId;
+	}
+	return allocation && positionsById.has(allocation.positionId)
+		? allocation.positionId
+		: null;
+}
+
 export function buildForma2AnalyticsView(args: {
 	positions: Forma2Position[];
 	sources: Forma2ActualSource[];
@@ -586,12 +613,11 @@ export function buildForma2AnalyticsView(args: {
 	);
 	const mappingRows = args.sources.map((source) => {
 		const allocation = allocationsBySource.get(`${source.type}:${source.id}`);
-		const selectedPositionId =
-			source.selectedPositionId && positionsById.has(source.selectedPositionId)
-				? source.selectedPositionId
-				: null;
-		const assignedPositionId =
-			selectedPositionId ?? allocation?.positionId ?? null;
+		const assignedPositionId = resolveForma2PositionId(
+			source,
+			allocation,
+			positionsById,
+		);
 		const suggestion =
 			assignedPositionId || args.includeSuggestions === false
 				? null
@@ -689,7 +715,12 @@ export function buildForma2AnalyticsView(args: {
 			actualMaterialCost: round(actual.material),
 			actualMechanismCost: round(actual.mechanism),
 			actualTotalCost: round(actualTotalCost),
-			variance: round(position.plannedTotalCost - actualTotalCost),
+			variance: round(
+				position.plannedWorkCost +
+					position.plannedMaterialCost +
+					position.plannedMechanismCost -
+					actualTotalCost,
+			),
 			assignedRecords: actual.records,
 		};
 	});
@@ -721,7 +752,16 @@ export function buildForma2AnalyticsView(args: {
 			factualCost: round(factualCost),
 			assignedCost: round(assignedCost),
 			unassignedCost: round(factualCost - assignedCost),
-			variance: round(plannedCost - assignedCost),
+			variance: round(
+				args.positions.reduce(
+					(sum, position) =>
+						sum +
+						position.plannedWorkCost +
+						position.plannedMaterialCost +
+						position.plannedMechanismCost,
+					0,
+				) - assignedCost,
+			),
 		},
 		mappingRows,
 		resultRows,
