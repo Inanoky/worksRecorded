@@ -28,6 +28,8 @@ function invoice(): TgemDashboardInvoice {
 		fieldAnchors: {},
 		receivedAt: "2026-09-02T10:00:00.000Z",
 		approvedAt: "2026-09-03T10:00:00.000Z",
+		paymentStatus: "unpaid",
+		paidAt: null,
 		createdAt: "2026-09-02T10:00:00.000Z",
 		updatedAt: "2026-09-03T10:00:00.000Z",
 		approvalRound: 1,
@@ -93,7 +95,7 @@ describe("TGEM invoice workbook", () => {
 		expect(invoiceRows[0]).toEqual(
 			expect.objectContaining({
 				"Invoice number": "INV-1",
-				"Invoice type": "Credit invoice",
+				"Document type": "Credit invoice",
 				"Total excl. VAT": 100.5,
 				VAT: 21.105,
 				Total: 121.605,
@@ -136,6 +138,24 @@ describe("TGEM invoice workbook", () => {
 		});
 		expect(workbook.SheetNames).toEqual(["Rēķini", "Pozīcijas"]);
 		expect(XLSX.utils.sheet_to_json(workbook.Sheets.Pozīcijas)).toEqual([]);
+	});
+
+	it("exports receipt classification as Čeks in Latvian", () => {
+		const row = invoice();
+		row.invoiceType = "receipt";
+		const workbook = buildTgemInvoiceWorkbook(XLSX, [row], {
+			language: "lv",
+			labels: {
+				statuses: { approved: "Apstiprināts" },
+				sources: { dashboard: "Web panelis" },
+				processingStatuses: { complete: "Pabeigts" },
+			},
+		});
+		const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
+			workbook.Sheets.Rēķini,
+			{ raw: true },
+		);
+		expect(rows[0]["Dokumenta veids"]).toBe("Čeks");
 	});
 
 	it.each([

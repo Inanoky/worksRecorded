@@ -302,13 +302,19 @@ function serializeTgemDashboardInvoice(
 		total: serializeDecimal(invoiceCase.total),
 		bankAccount: invoiceCase.bankAccount,
 		reference: invoiceCase.reference,
-		invoiceType: invoiceCase.invoiceType === "credit" ? "credit" : "debit",
+		invoiceType:
+			invoiceCase.invoiceType === "credit" ||
+			invoiceCase.invoiceType === "receipt"
+				? invoiceCase.invoiceType
+				: "debit",
 		costCode: invoiceCase.costCode,
 		validationSummary: invoiceCase.validationSummary,
 		extractionSummary: invoiceCase.extractionSummary,
 		fieldAnchors: serializeFieldAnchors(invoiceCase.extractionSummary),
 		receivedAt: invoiceCase.receivedAt.toISOString(),
 		approvedAt: serializeDate(invoiceCase.approvedAt),
+		paymentStatus: invoiceCase.paymentStatus === "paid" ? "paid" : "unpaid",
+		paidAt: serializeDate(invoiceCase.paidAt),
 		createdAt: invoiceCase.createdAt.toISOString(),
 		updatedAt: invoiceCase.updatedAt.toISOString(),
 		approvalRound: invoiceCase.approvalRound,

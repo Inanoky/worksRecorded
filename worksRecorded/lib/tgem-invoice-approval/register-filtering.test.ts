@@ -35,6 +35,8 @@ function invoice(
 		fieldAnchors: {},
 		receivedAt: "2026-09-02T22:30:00.000Z",
 		approvedAt: null,
+		paymentStatus: "unpaid",
+		paidAt: null,
 		createdAt: "2026-09-02T22:30:00.000Z",
 		updatedAt: "2026-09-03T00:00:00.000Z",
 		approvalRound: 2,
@@ -109,6 +111,33 @@ describe("TGEM invoice register filtering", () => {
 				filters,
 			).map((row) => row.id),
 		).toEqual(["invoice-1"]);
+	});
+
+	it("filters receipts as a first-class document type", () => {
+		const receipt = invoice({ id: "receipt-1", invoiceType: "receipt" });
+		const debit = invoice({ id: "debit-1", invoiceType: "debit" });
+		const filters = createDefaultTgemInvoiceRegisterFilters();
+		filters.invoiceTypes = ["receipt"];
+		expect(filterTgemInvoiceRegister([receipt, debit], filters)).toEqual([
+			receipt,
+		]);
+	});
+
+	it("filters paid and unpaid invoices independently from approval status", () => {
+		const unpaid = invoice({ id: "unpaid", status: "approved" });
+		const paid = invoice({
+			id: "paid",
+			status: "approved",
+			paymentStatus: "paid",
+			paidAt: "2026-09-05T10:00:00.000Z",
+		});
+		const filters = createDefaultTgemInvoiceRegisterFilters();
+		filters.paymentStatuses = ["unpaid"];
+		expect(filterTgemInvoiceRegister([unpaid, paid], filters)).toEqual([
+			unpaid,
+		]);
+		filters.paymentStatuses = ["paid"];
+		expect(filterTgemInvoiceRegister([unpaid, paid], filters)).toEqual([paid]);
 	});
 
 	it("matches only the current approval round and supports unassigned", () => {

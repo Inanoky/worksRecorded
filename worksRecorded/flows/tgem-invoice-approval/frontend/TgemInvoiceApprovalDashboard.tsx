@@ -9,6 +9,7 @@ import {
 	Building2,
 	Check,
 	CheckCircle2,
+	CircleDollarSign,
 	Clock3,
 	Copy,
 	Files,
@@ -35,6 +36,7 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
+	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,6 +74,7 @@ import {
 	type TgemEditableInvoiceField,
 	type TgemInvoiceDetailsError,
 } from "@/lib/tgem-invoice-approval/invoice-details";
+import type { TgemInvoiceType } from "@/lib/tgem-invoice-approval/ocr-types";
 import { downloadTgemInvoiceWorkbook } from "@/lib/tgem-invoice-approval/register-export";
 import {
 	createDefaultTgemInvoiceRegisterFilters,
@@ -86,7 +89,10 @@ import {
 } from "@/lib/tgem-invoice-approval/register-sorting";
 import { updateTgemInvoiceAccounting } from "@/server/actions/tgem-cost-code-actions";
 import { getTgemInvoiceDashboardData } from "@/server/actions/tgem-invoice-actions";
-import { assignTgemInvoiceProject } from "@/server/actions/tgem-invoice-approval-actions";
+import {
+	assignTgemInvoiceProject,
+	markTgemInvoicePaid,
+} from "@/server/actions/tgem-invoice-approval-actions";
 import { deleteTgemInvoices } from "@/server/actions/tgem-invoice-delete-actions";
 import { updateTgemInvoiceDetail } from "@/server/actions/tgem-invoice-details-actions";
 import { TgemApprovalControls } from "./TgemApprovalControls";
@@ -163,6 +169,16 @@ function getCopy(language?: string | null) {
 			sortDescending: "Kārtot dilstošā secībā",
 			assignedToMe: "Gaida mani",
 			currentApprover: "Pašreizējais apstiprinātājs",
+			paymentStatus: "Apmaksas statuss",
+			paid: "Apmaksāts",
+			unpaid: "Nav apmaksāts",
+			paidAt: "Apmaksāts",
+			markPaid: "Atzīmēt kā apmaksātu",
+			markingPaid: "Atzīmē…",
+			markPaidTitle: "Atzīmēt rēķinu kā apmaksātu?",
+			markPaidDescription:
+				"Apmaksas statuss tiks saglabāts darbību vēsturē. Šī darbība ir pieejama tikai apstiprinātiem rēķiniem.",
+			markPaidFailed: "Neizdevās atzīmēt rēķinu kā apmaksātu.",
 			noCurrentApprover: "Nav piešķirts",
 			showingInvoices: "Parādīti rēķini",
 			noMatchingInvoices: "Nav atrasts neviens atbilstošs rēķins.",
@@ -181,7 +197,7 @@ function getCopy(language?: string | null) {
 				"Vēl nav pievienots neviens izmaksu kods. Pievienojiet tos projekta iestatījumos, lai varētu izvēlēties kodu rēķinam.",
 			costCodeSettingsLink: "Atvērt projekta iestatījumus",
 			accountingClassification: "Grāmatvedības klasifikācija",
-			invoiceType: "Rēķina veids",
+			invoiceType: "Dokumenta veids",
 			editDetail: "Rediģēt",
 			saveDetail: "Saglabāt",
 			cancelDetail: "Atcelt",
@@ -200,10 +216,13 @@ function getCopy(language?: string | null) {
 				conflict:
 					"Rēķins ir mainīts. Atceliet un atveriet rediģēšanu vēlreiz pirms saglabāšanas.",
 			},
-			editInvoiceType: "Rediģēt rēķina veidu",
+			editInvoiceType: "Rediģēt dokumenta veidu",
 			cancelInvoiceTypeEdit: "Atcelt veida rediģēšanu",
 			debitInvoice: "Debeta rēķins",
 			creditInvoice: "Kredītrēķins",
+			receipt: "Čeks",
+			receiptNumber: "Čeka numurs",
+			receiptDate: "Čeka datums",
 			selectCostCode: "Izvēlieties izmaksu kodu",
 			saveAccounting: "Saglabāt klasifikāciju",
 			savingAccounting: "Saglabā…",
@@ -268,6 +287,7 @@ function getCopy(language?: string | null) {
 				invoice_project_reassigned: "Rēķina projekts mainīts",
 				invoice_accounting_updated: "Mainīta rēķina klasifikācija",
 				invoice_details_updated: "Laboti rēķina dati",
+				invoice_marked_paid: "Rēķins atzīmēts kā apmaksāts",
 			},
 			actors: {
 				user: "Lietotājs",
@@ -338,6 +358,16 @@ function getCopy(language?: string | null) {
 			sortDescending: "Сортировать по убыванию",
 			assignedToMe: "Ожидают меня",
 			currentApprover: "Текущий согласующий",
+			paymentStatus: "Статус оплаты",
+			paid: "Оплачен",
+			unpaid: "Не оплачен",
+			paidAt: "Оплачен",
+			markPaid: "Отметить как оплаченный",
+			markingPaid: "Сохранение…",
+			markPaidTitle: "Отметить счёт как оплаченный?",
+			markPaidDescription:
+				"Статус оплаты будет сохранён в истории действий. Действие доступно только для согласованных счетов.",
+			markPaidFailed: "Не удалось отметить счёт как оплаченный.",
 			noCurrentApprover: "Не назначен",
 			showingInvoices: "Показано счетов",
 			noMatchingInvoices: "Подходящих счетов не найдено.",
@@ -356,7 +386,7 @@ function getCopy(language?: string | null) {
 				"Коды затрат ещё не добавлены. Добавьте их в настройках проекта, чтобы выбрать код для счёта.",
 			costCodeSettingsLink: "Открыть настройки проекта",
 			accountingClassification: "Бухгалтерская классификация",
-			invoiceType: "Тип счета",
+			invoiceType: "Тип документа",
 			editDetail: "Изменить",
 			saveDetail: "Сохранить",
 			cancelDetail: "Отменить",
@@ -375,10 +405,13 @@ function getCopy(language?: string | null) {
 				conflict:
 					"Счет изменился. Отмените и снова откройте редактирование перед сохранением.",
 			},
-			editInvoiceType: "Изменить тип счета",
+			editInvoiceType: "Изменить тип документа",
 			cancelInvoiceTypeEdit: "Отменить изменение типа",
 			debitInvoice: "Дебетовый счет",
 			creditInvoice: "Кредитовый счет",
+			receipt: "Чек",
+			receiptNumber: "Номер чека",
+			receiptDate: "Дата чека",
 			selectCostCode: "Выберите код затрат",
 			saveAccounting: "Сохранить классификацию",
 			savingAccounting: "Сохранение…",
@@ -443,6 +476,7 @@ function getCopy(language?: string | null) {
 				invoice_project_reassigned: "Проект счета изменен",
 				invoice_accounting_updated: "Классификация счета изменена",
 				invoice_details_updated: "Данные счета исправлены",
+				invoice_marked_paid: "Счёт отмечен как оплаченный",
 			},
 			actors: {
 				user: "Пользователь",
@@ -512,6 +546,16 @@ function getCopy(language?: string | null) {
 		sortDescending: "Sort descending",
 		assignedToMe: "Waiting for me",
 		currentApprover: "Current approver",
+		paymentStatus: "Payment status",
+		paid: "Paid",
+		unpaid: "Not paid",
+		paidAt: "Paid",
+		markPaid: "Mark as paid",
+		markingPaid: "Marking…",
+		markPaidTitle: "Mark invoice as paid?",
+		markPaidDescription:
+			"The payment status will be recorded in the activity history. This action is available only for approved invoices.",
+		markPaidFailed: "Could not mark the invoice as paid.",
 		noCurrentApprover: "Not assigned",
 		showingInvoices: "Invoices shown",
 		noMatchingInvoices: "No matching invoices found.",
@@ -530,7 +574,7 @@ function getCopy(language?: string | null) {
 			"No cost codes have been added yet. Add them in Project settings to select a code for this invoice.",
 		costCodeSettingsLink: "Open Project settings",
 		accountingClassification: "Accounting classification",
-		invoiceType: "Invoice type",
+		invoiceType: "Document type",
 		editDetail: "Edit",
 		saveDetail: "Save",
 		cancelDetail: "Cancel",
@@ -549,10 +593,13 @@ function getCopy(language?: string | null) {
 			conflict:
 				"This invoice changed. Cancel and reopen the edit before saving.",
 		},
-		editInvoiceType: "Edit invoice type",
+		editInvoiceType: "Edit document type",
 		cancelInvoiceTypeEdit: "Cancel type edit",
 		debitInvoice: "Debit invoice",
 		creditInvoice: "Credit invoice",
+		receipt: "Receipt",
+		receiptNumber: "Receipt number",
+		receiptDate: "Receipt date",
 		selectCostCode: "Select a cost code",
 		saveAccounting: "Save classification",
 		savingAccounting: "Saving…",
@@ -616,6 +663,7 @@ function getCopy(language?: string | null) {
 			invoice_project_reassigned: "Invoice project changed",
 			invoice_accounting_updated: "Invoice classification changed",
 			invoice_details_updated: "Invoice details corrected",
+			invoice_marked_paid: "Invoice marked as paid",
 		},
 		actors: {
 			user: "User",
@@ -662,6 +710,113 @@ function statusClass(status: string) {
 	if (status === "received")
 		return "border-[#E1E6ED] bg-slate-50 text-slate-600";
 	return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
+function PaymentStatusControl({
+	invoice,
+	copy,
+	organizationLanguage,
+	onChanged,
+	compact = false,
+	allowAction = true,
+}: {
+	invoice: TgemDashboardInvoice;
+	copy: ReturnType<typeof getCopy>;
+	organizationLanguage?: string | null;
+	onChanged: () => Promise<void>;
+	compact?: boolean;
+	allowAction?: boolean;
+}) {
+	const [confirming, setConfirming] = React.useState(false);
+	const [saving, setSaving] = React.useState(false);
+	const [error, setError] = React.useState(false);
+	const paid = invoice.paymentStatus === "paid";
+
+	async function confirmPaid() {
+		if (saving) return;
+		setSaving(true);
+		setError(false);
+		try {
+			await markTgemInvoicePaid({
+				invoiceCaseId: invoice.id,
+				expectedUpdatedAt: invoice.updatedAt,
+			});
+			await onChanged();
+			setConfirming(false);
+		} catch {
+			setError(true);
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	return (
+		<div
+			className={`flex ${compact ? "flex-col items-start" : "flex-wrap items-center"} gap-2`}
+		>
+			<Badge
+				variant="outline"
+				className={
+					paid
+						? "gap-1 border-[#B8E0C6] bg-[#ECF8F0] text-[#159447]"
+						: "gap-1 border-[#E1E6ED] bg-slate-50 text-slate-600"
+				}
+			>
+				<CircleDollarSign className="h-3.5 w-3.5" />
+				{paid ? copy.paid : copy.unpaid}
+			</Badge>
+			{paid && invoice.paidAt && !compact ? (
+				<span className="text-xs text-muted-foreground">
+					{copy.paidAt}: {formatDate(invoice.paidAt, organizationLanguage)}
+				</span>
+			) : null}
+			{allowAction && !paid && invoice.status === "approved" ? (
+				<AlertDialog open={confirming} onOpenChange={setConfirming}>
+					<AlertDialogTrigger asChild>
+						<button
+							type="button"
+							disabled={saving}
+							onClick={(event) => event.stopPropagation()}
+							className="rounded-md bg-tgem-primary px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-tgem-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50 disabled:opacity-50"
+						>
+							{copy.markPaid}
+						</button>
+					</AlertDialogTrigger>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogTitle>{copy.markPaidTitle}</AlertDialogTitle>
+							<AlertDialogDescription>
+								{copy.markPaidDescription}
+							</AlertDialogDescription>
+						</AlertDialogHeader>
+						{error ? (
+							<p role="alert" className="text-sm text-destructive">
+								{copy.markPaidFailed}
+							</p>
+						) : null}
+						<AlertDialogFooter>
+							<AlertDialogCancel disabled={saving}>
+								{copy.cancelDetail}
+							</AlertDialogCancel>
+							<AlertDialogAction
+								disabled={saving}
+								className="bg-tgem-primary text-white hover:bg-tgem-primary-hover"
+								onClick={(event) => {
+									event.preventDefault();
+									void confirmPaid();
+								}}
+							>
+								{saving ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : null}
+								{saving ? copy.markingPaid : copy.markPaid}
+							</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
+			) : null}
+		</div>
+	);
 }
 
 function localizedValue(values: Record<string, string>, value: string) {
@@ -956,6 +1111,7 @@ function InvoiceRegister({
 			className: "text-right",
 		},
 		{ key: "status", label: copy.status },
+		{ key: "paymentStatus", label: copy.paymentStatus },
 		{ key: "currentApprover", label: copy.currentApprover },
 	];
 	const sortColumns = columns.flatMap((column) =>
@@ -1248,6 +1404,15 @@ function InvoiceRegister({
 												</Badge>
 											</TableCell>
 											<TableCell>
+												<PaymentStatusControl
+													invoice={invoice}
+													copy={copy}
+													organizationLanguage={organizationLanguage}
+													onChanged={onChanged}
+													compact
+												/>
+											</TableCell>
+											<TableCell>
 												{currentStep?.approverName || copy.noCurrentApprover}
 											</TableCell>
 											<TableCell className="pr-4 text-right">
@@ -1338,6 +1503,13 @@ function InvoiceRegister({
 											</Badge>
 										</div>
 									</button>
+									<PaymentStatusControl
+										invoice={invoice}
+										copy={copy}
+										organizationLanguage={organizationLanguage}
+										onChanged={onChanged}
+										compact
+									/>
 									<Button
 										variant="ghost"
 										size="icon"
@@ -1462,12 +1634,22 @@ function InvoiceRegister({
 										)}
 									</div>
 								</div>
-								<Badge
-									variant="outline"
-									className={statusClass(previewInvoice.status)}
-								>
-									{localizedValue(copy.statuses, previewInvoice.status)}
-								</Badge>
+								<div className="flex flex-col items-end gap-2">
+									<Badge
+										variant="outline"
+										className={statusClass(previewInvoice.status)}
+									>
+										{localizedValue(copy.statuses, previewInvoice.status)}
+									</Badge>
+									<PaymentStatusControl
+										invoice={previewInvoice}
+										copy={copy}
+										organizationLanguage={organizationLanguage}
+										onChanged={onChanged}
+										compact
+										allowAction={false}
+									/>
+								</div>
 							</div>
 
 							<InvoiceInformationCard
@@ -1956,16 +2138,19 @@ function InvoiceAccountingClassification({
 							value={invoiceType}
 							disabled={status === "saving"}
 							onChange={(event) => {
-								setInvoiceType(event.target.value as "credit" | "debit");
+								setInvoiceType(event.target.value as TgemInvoiceType);
 								setStatus("idle");
 							}}
 							className="w-full rounded-sm bg-background text-sm font-medium focus-visible:outline-tgem-primary"
 						>
 							<option value="debit">{copy.debitInvoice}</option>
 							<option value="credit">{copy.creditInvoice}</option>
+							<option value="receipt">{copy.receipt}</option>
 						</select>
 					) : invoiceType === "credit" ? (
 						copy.creditInvoice
+					) : invoiceType === "receipt" ? (
+						copy.receipt
 					) : (
 						copy.debitInvoice
 					)
@@ -2117,7 +2302,11 @@ function InvoiceInformationCard({
 					key={`${invoice.id}-invoiceDate`}
 					invoice={invoice}
 					field="invoiceDate"
-					label={copy.invoiceDate}
+					label={
+						invoice.invoiceType === "receipt"
+							? copy.receiptDate
+							: copy.invoiceDate
+					}
 					copy={copy}
 					language={organizationLanguage}
 					onChanged={onChanged}
@@ -2126,34 +2315,57 @@ function InvoiceInformationCard({
 					key={`${invoice.id}-invoiceNumber`}
 					invoice={invoice}
 					field="invoiceNumber"
-					label={copy.invoiceNumber}
+					label={
+						invoice.invoiceType === "receipt"
+							? copy.receiptNumber
+							: copy.invoiceNumber
+					}
 					copy={copy}
 					language={organizationLanguage}
 					onChanged={onChanged}
 				/>
 				{sourceField(copy.supplier, invoice.supplierName)}
 
-				<EditableInvoiceDetail
-					key={`${invoice.id}-dueDate`}
-					invoice={invoice}
-					field="dueDate"
-					label={copy.dueDate}
-					copy={copy}
-					language={organizationLanguage}
-					onChanged={onChanged}
-				/>
+				{invoice.invoiceType !== "receipt" ? (
+					<EditableInvoiceDetail
+						key={`${invoice.id}-dueDate`}
+						invoice={invoice}
+						field="dueDate"
+						label={copy.dueDate}
+						copy={copy}
+						language={organizationLanguage}
+						onChanged={onChanged}
+					/>
+				) : null}
 				<Field
 					label={copy.ocr}
 					value={localizedValue(copy.processingStatuses, invoice.ocrStatus)}
 				/>
-				{sourceField(
-					copy.totalWithoutVat,
-					formatMoney(invoice.subtotal, invoice.currency, organizationLanguage),
-				)}
+				{invoice.invoiceType !== "receipt" || invoice.subtotal !== null
+					? sourceField(
+							copy.totalWithoutVat,
+							formatMoney(
+								invoice.subtotal,
+								invoice.currency,
+								organizationLanguage,
+							),
+						)
+					: null}
 				{sourceField(
 					copy.total,
 					formatMoney(invoice.total, invoice.currency, organizationLanguage),
 				)}
+				<Field
+					label={copy.paymentStatus}
+					value={
+						<PaymentStatusControl
+							invoice={invoice}
+							copy={copy}
+							organizationLanguage={organizationLanguage}
+							onChanged={onChanged}
+						/>
+					}
+				/>
 				<Field
 					label={copy.source}
 					value={localizedValue(copy.sources, invoice.source)}

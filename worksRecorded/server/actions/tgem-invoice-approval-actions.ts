@@ -345,6 +345,82 @@ export async function submitTgemInvoiceForApproval(input: {
 	};
 }
 
+export async function markTgemInvoicePaid(input: {
+	invoiceCaseId: string;
+	expectedUpdatedAt: string;
+}) {
+	const user = await requireUser();
+	const expectedUpdatedAt = new Date(input.expectedUpdatedAt);
+	if (Number.isNaN(expectedUpdatedAt.getTime())) {
+		throw new Error("The invoice version is invalid");
+	}
+
+	return prisma.$transaction(async (tx) => {
+		const invoiceCase = await tx.tgemInvoiceCase.findFirst({
+			where: {
+				id: input.invoiceCaseId,
+				organization: {
+					users: { some: { id: user.id, status: "active" } },
+				},
+			},
+			select: {
+				id: true,
+				organizationId: true,
+				status: true,
+				paymentStatus: true,
+				updatedAt: true,
+			},
+		});
+		if (!invoiceCase) throw new Error("Invoice access denied");
+		if (invoiceCase.updatedAt.getTime() !== expectedUpdatedAt.getTime()) {
+			throw new Error("The invoice changed. Reload it and try again");
+		}
+		if (invoiceCase.status !== "approved") {
+			throw new Error("Only an approved invoice can be marked as paid");
+		}
+		if (invoiceCase.paymentStatus === "paid") {
+			return { invoiceCaseId: invoiceCase.id, unchanged: true };
+		}
+
+		const paidAt = new Date();
+		const updated = await tx.tgemInvoiceCase.updateMany({
+			where: {
+				id: invoiceCase.id,
+				updatedAt: expectedUpdatedAt,
+				status: "approved",
+				paymentStatus: "unpaid",
+			},
+			data: { paymentStatus: "paid", paidAt },
+		});
+		if (updated.count !== 1) {
+			throw new Error("The invoice changed. Reload it and try again");
+		}
+
+		await tx.tgemInvoiceAuditEvent.create({
+			data: {
+				invoiceCaseId: invoiceCase.id,
+				organizationId: invoiceCase.organizationId,
+				actorUserId: user.id,
+				actorType: "user",
+				eventType: "invoice_marked_paid",
+				fromStatus: invoiceCase.status,
+				toStatus: invoiceCase.status,
+				payload: {
+					previousPaymentStatus: invoiceCase.paymentStatus,
+					paymentStatus: "paid",
+					paidAt: paidAt.toISOString(),
+				} satisfies Prisma.InputJsonValue,
+			},
+		});
+
+		return {
+			invoiceCaseId: invoiceCase.id,
+			paidAt: paidAt.toISOString(),
+			unchanged: false,
+		};
+	});
+}
+
 export async function decideTgemInvoiceApproval(input: {
 	invoiceCaseId: string;
 	decision: TgemApprovalDecision;

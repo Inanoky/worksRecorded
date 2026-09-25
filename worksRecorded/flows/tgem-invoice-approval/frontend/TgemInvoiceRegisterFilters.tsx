@@ -23,6 +23,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
+import type { TgemInvoiceType } from "@/lib/tgem-invoice-approval/ocr-types";
 import {
 	countActiveTgemInvoiceFilters,
 	createDefaultTgemInvoiceRegisterFilters,
@@ -48,6 +49,7 @@ function getCopy(language?: string | null) {
 			allStatuses: "Visi statusi",
 			waitingForMe: "Gaida mani",
 			moreFilters: "Vairāk filtru",
+			lessFilters: "Mazāk filtru",
 			activeFilters: "Aktīvie filtri",
 			clearAll: "Notīrīt visus filtrus",
 			export: "Eksportēt Excel",
@@ -56,13 +58,17 @@ function getCopy(language?: string | null) {
 			exportFailed: "Excel failu neizdevās izveidot. Mēģiniet vēlreiz.",
 			invoiceGroup: "Rēķins",
 			approvalGroup: "Apstiprināšana",
+			paymentStatus: "Apmaksas statuss",
+			paid: "Apmaksāts",
+			unpaid: "Nav apmaksāts",
 			datesGroup: "Datumi",
 			amountsGroup: "Summas",
 			processingGroup: "Apstrāde",
 			supplier: "Piegādātājs",
-			invoiceType: "Rēķina veids",
+			invoiceType: "Dokumenta veids",
 			debit: "Debeta rēķins",
 			credit: "Kredītrēķins",
+			receipt: "Čeks",
 			costCode: "Izmaksu kods",
 			source: "Avots",
 			currency: "Valūta",
@@ -104,6 +110,7 @@ function getCopy(language?: string | null) {
 			allStatuses: "Все статусы",
 			waitingForMe: "Ожидают меня",
 			moreFilters: "Другие фильтры",
+			lessFilters: "Меньше фильтров",
 			activeFilters: "Активные фильтры",
 			clearAll: "Сбросить все фильтры",
 			export: "Экспорт в Excel",
@@ -112,13 +119,17 @@ function getCopy(language?: string | null) {
 			exportFailed: "Не удалось создать файл Excel. Попробуйте ещё раз.",
 			invoiceGroup: "Счёт",
 			approvalGroup: "Согласование",
+			paymentStatus: "Статус оплаты",
+			paid: "Оплачен",
+			unpaid: "Не оплачен",
 			datesGroup: "Даты",
 			amountsGroup: "Суммы",
 			processingGroup: "Обработка",
 			supplier: "Поставщик",
-			invoiceType: "Тип счёта",
+			invoiceType: "Тип документа",
 			debit: "Дебетовый счёт",
 			credit: "Кредитный счёт",
+			receipt: "Чек",
 			costCode: "Код затрат",
 			source: "Источник",
 			currency: "Валюта",
@@ -159,6 +170,7 @@ function getCopy(language?: string | null) {
 		allStatuses: "All statuses",
 		waitingForMe: "Waiting for me",
 		moreFilters: "More filters",
+		lessFilters: "Fewer filters",
 		activeFilters: "Active filters",
 		clearAll: "Clear all filters",
 		export: "Export Excel",
@@ -167,13 +179,17 @@ function getCopy(language?: string | null) {
 		exportFailed: "Could not create the Excel file. Try again.",
 		invoiceGroup: "Invoice",
 		approvalGroup: "Approval",
+		paymentStatus: "Payment status",
+		paid: "Paid",
+		unpaid: "Not paid",
 		datesGroup: "Dates",
 		amountsGroup: "Amounts",
 		processingGroup: "Processing",
 		supplier: "Supplier",
-		invoiceType: "Invoice type",
+		invoiceType: "Document type",
 		debit: "Debit invoice",
 		credit: "Credit invoice",
+		receipt: "Receipt",
 		costCode: "Cost code",
 		source: "Source",
 		currency: "Currency",
@@ -475,6 +491,7 @@ export function TgemInvoiceRegisterFilters({
 			| "suppliers"
 			| "approverUserIds"
 			| "invoiceTypes"
+			| "paymentStatuses"
 			| "costCodes"
 			| "sources"
 			| "currencies"
@@ -502,6 +519,11 @@ export function TgemInvoiceRegisterFilters({
 	addValueChips("invoiceTypes", copy.invoiceType, [
 		{ value: "debit", label: copy.debit },
 		{ value: "credit", label: copy.credit },
+		{ value: "receipt", label: copy.receipt },
+	]);
+	addValueChips("paymentStatuses", copy.paymentStatus, [
+		{ value: "unpaid", label: copy.unpaid },
+		{ value: "paid", label: copy.paid },
 	]);
 	addValueChips("costCodes", copy.costCode, facetOptions.costCodes);
 	addValueChips("sources", copy.source, facetOptions.sources);
@@ -637,7 +659,7 @@ export function TgemInvoiceRegisterFilters({
 				<CollapsibleTrigger asChild>
 					<Button type="button" variant="outline" className="bg-background">
 						<SlidersHorizontal className="h-4 w-4" />
-						{copy.moreFilters}
+						{open ? copy.lessFilters : copy.moreFilters}
 						{activeCount ? (
 							<span className="rounded-full bg-[#DCE9FC] px-1.5 py-0.5 text-[11px] font-semibold text-tgem-primary dark:bg-tgem-primary/25 dark:text-blue-100">
 								{activeCount}
@@ -716,10 +738,11 @@ export function TgemInvoiceRegisterFilters({
 							options={[
 								{ value: "debit", label: copy.debit },
 								{ value: "credit", label: copy.credit },
+								{ value: "receipt", label: copy.receipt },
 							]}
 							values={filters.invoiceTypes}
 							onChange={(values) =>
-								update("invoiceTypes", values as Array<"debit" | "credit">)
+								update("invoiceTypes", values as TgemInvoiceType[])
 							}
 							copy={copy}
 						/>
@@ -758,6 +781,18 @@ export function TgemInvoiceRegisterFilters({
 					</FilterGroup>
 
 					<FilterGroup title={copy.approvalGroup}>
+						<MultiSelectFilter
+							label={copy.paymentStatus}
+							options={[
+								{ value: "unpaid", label: copy.unpaid },
+								{ value: "paid", label: copy.paid },
+							]}
+							values={filters.paymentStatuses}
+							onChange={(values) =>
+								update("paymentStatuses", values as Array<"unpaid" | "paid">)
+							}
+							copy={copy}
+						/>
 						<MultiSelectFilter
 							label={copy.approver}
 							options={facetOptions.approvers}

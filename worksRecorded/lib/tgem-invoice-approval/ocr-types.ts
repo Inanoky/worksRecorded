@@ -1,5 +1,9 @@
 export type TgemOcrProvider = "google-document-ai" | "openai";
 
+export const TGEM_INVOICE_TYPES = ["debit", "credit", "receipt"] as const;
+
+export type TgemInvoiceType = (typeof TGEM_INVOICE_TYPES)[number];
+
 export type TgemOcrPoint = {
 	x: number;
 	y: number;

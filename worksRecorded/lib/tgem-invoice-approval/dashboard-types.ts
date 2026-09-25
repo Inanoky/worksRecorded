@@ -1,4 +1,5 @@
 import type { TgemApprovalRoleKey } from "@/lib/tgem-invoice-approval/approval";
+import type { TgemInvoiceType } from "@/lib/tgem-invoice-approval/ocr-types";
 
 export type TgemDashboardOcrBlock = {
 	text: string;
@@ -59,13 +60,15 @@ export type TgemDashboardInvoice = {
 	total: string | null;
 	bankAccount: string | null;
 	reference: string | null;
-	invoiceType: "credit" | "debit";
+	invoiceType: TgemInvoiceType;
 	costCode: string | null;
 	validationSummary: unknown;
 	extractionSummary: unknown;
 	fieldAnchors: Record<string, TgemDashboardSourceAnchor>;
 	receivedAt: string;
 	approvedAt: string | null;
+	paymentStatus: "unpaid" | "paid";
+	paidAt: string | null;
 	createdAt: string;
 	updatedAt: string;
 	approvalRound: number;

@@ -1,7 +1,7 @@
 import { persistTgemInvoiceOcrResult } from "@/lib/tgem-invoice-approval/ocr";
 
 describe("persistTgemInvoiceOcrResult", () => {
-	it.each(["credit", "debit", undefined, "invalid"])(
+	it.each(["credit", "debit", "receipt", undefined, "invalid"])(
 		"persists only a valid extracted invoice type: %s",
 		async (invoiceType) => {
 			const update = jest.fn();
@@ -33,7 +33,11 @@ describe("persistTgemInvoiceOcrResult", () => {
 				},
 			);
 			const data = update.mock.calls[0][0].data;
-			if (invoiceType === "credit" || invoiceType === "debit") {
+			if (
+				invoiceType === "credit" ||
+				invoiceType === "debit" ||
+				invoiceType === "receipt"
+			) {
 				expect(data.invoiceType).toBe(invoiceType);
 				expect(data.extractionSummary.fields.invoiceType.value).toBe(
 					invoiceType,
@@ -214,6 +218,62 @@ describe("persistTgemInvoiceOcrResult", () => {
 						state: "warning",
 						warnings: ["Invoice amount excluding VAT/PVN was not detected."],
 					},
+				}),
+			}),
+		);
+	});
+
+	it("accepts a receipt without invoice-only subtotal and due-date fields", async () => {
+		const update = jest.fn().mockResolvedValue({ id: "case-1" });
+		const database = {
+			tgemInvoiceOcrPage: { upsert: jest.fn() },
+			tgemInvoiceLine: { upsert: jest.fn() },
+			tgemInvoiceCase: { update },
+		} as never;
+
+		await expect(
+			persistTgemInvoiceOcrResult(database, {
+				invoiceCaseId: "case-1",
+				documentId: "document-1",
+				result: {
+					provider: "openai",
+					fields: {
+						invoiceType: {
+							rawText: "ČEKS",
+							value: "receipt",
+							confidence: null,
+							sourceAnchor: null,
+						},
+						invoiceNumber: {
+							rawText: "Čeks Nr. 42",
+							value: "42",
+							confidence: null,
+							sourceAnchor: null,
+						},
+						total: {
+							rawText: "KOPĀ 12,10 EUR",
+							value: 12.1,
+							confidence: null,
+							sourceAnchor: null,
+						},
+					},
+					lineItems: [],
+					pages: [],
+				},
+			}),
+		).resolves.toEqual({
+			pageCount: 0,
+			lineItemCount: 0,
+			warningCount: 0,
+		});
+
+		expect(update).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					invoiceType: "receipt",
+					subtotal: null,
+					dueDate: null,
+					validationSummary: { state: "ready", warnings: [] },
 				}),
 			}),
 		);

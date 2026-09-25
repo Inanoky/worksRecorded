@@ -1,10 +1,14 @@
 "use server";
 
 import type { Prisma } from "@prisma/client";
+import {
+	TGEM_INVOICE_TYPES,
+	type TgemInvoiceType,
+} from "@/lib/tgem-invoice-approval/ocr-types";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 
-const TGEM_INVOICE_TYPES = new Set(["credit", "debit"]);
+const TGEM_INVOICE_TYPE_SET = new Set<string>(TGEM_INVOICE_TYPES);
 
 function normalizeCostCode(value: string) {
 	const code = value.trim().toUpperCase();
@@ -107,13 +111,13 @@ export async function setTgemCostCodeActive(input: {
 
 export async function updateTgemInvoiceAccounting(input: {
 	invoiceCaseId: string;
-	invoiceType: string;
+	invoiceType: TgemInvoiceType;
 	costCode: string | null;
 	expectedUpdatedAt: string;
 }) {
 	const context = await requireActiveOrganization();
-	if (!TGEM_INVOICE_TYPES.has(input.invoiceType)) {
-		throw new Error("Invoice type must be credit or debit");
+	if (!TGEM_INVOICE_TYPE_SET.has(input.invoiceType)) {
+		throw new Error("Document type must be debit, credit, or receipt");
 	}
 	const expectedUpdatedAt = new Date(input.expectedUpdatedAt);
 	if (Number.isNaN(expectedUpdatedAt.getTime())) {

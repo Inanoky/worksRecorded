@@ -132,6 +132,27 @@ describe("OpenAI TGEM invoice extraction", () => {
 		expect(result.fields.total.value).toBe(60.5);
 	});
 
+	it("maps a sparse Latvian receipt to the shared accounting fields", () => {
+		const result = mapOpenAiInvoiceResponse({
+			...extractedInvoice,
+			fields: {
+				...extractedInvoice.fields,
+				invoiceType: { rawText: "ČEKS", value: "receipt" },
+				invoiceNumber: { rawText: "Čeks Nr. 0042", value: "0042" },
+				dueDate: { rawText: "", value: null },
+				subtotal: { rawText: "", value: null },
+				vat: { rawText: "PVN 2,10", value: 2.1 },
+				bankAccount: { rawText: "", value: null },
+			},
+		});
+
+		expect(result.fields.invoiceType.value).toBe("receipt");
+		expect(result.fields.invoiceNumber.value).toBe("0042");
+		expect(result.fields.dueDate.value).toBeNull();
+		expect(result.fields.subtotal.value).toBeNull();
+		expect(result.fields.total.value).toBe(60.5);
+	});
+
 	it.each(["unknown", "", null, undefined])(
 		"rejects an invalid AI invoice type: %s",
 		(value) => {
@@ -198,7 +219,8 @@ describe("OpenAI TGEM invoice extraction", () => {
 		expect(
 			mockResponsesParse.mock.calls[0][0].text.format.schema.properties.fields
 				.properties.invoiceType.properties.value.enum,
-		).toEqual(["credit", "debit"]);
+		).toEqual(["debit", "credit", "receipt"]);
+		expect(mockResponsesParse.mock.calls[0][0].instructions).toContain("Čeks");
 	});
 
 	it("requires the existing production OpenAI API key", () => {

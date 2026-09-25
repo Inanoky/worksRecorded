@@ -18,12 +18,13 @@ function getExportCopy(language?: string | null) {
 			unassigned: "Nav piešķirts",
 			debit: "Debeta rēķins",
 			credit: "Kredītrēķins",
+			receipt: "Čeks",
 			invoice: {
 				number: "Rēķina numurs",
 				project: "Projekts",
 				supplier: "Piegādātājs",
 				registration: "Reģistrācijas numurs",
-				type: "Rēķina veids",
+				type: "Dokumenta veids",
 				costCode: "Izmaksu kods",
 				invoiceDate: "Rēķina datums",
 				receivedDate: "Saņemšanas datums",
@@ -68,12 +69,13 @@ function getExportCopy(language?: string | null) {
 			unassigned: "Не назначен",
 			debit: "Дебетовый счёт",
 			credit: "Кредитный счёт",
+			receipt: "Чек",
 			invoice: {
 				number: "Номер счёта",
 				project: "Проект",
 				supplier: "Поставщик",
 				registration: "Регистрационный номер",
-				type: "Тип счёта",
+				type: "Тип документа",
 				costCode: "Код затрат",
 				invoiceDate: "Дата счёта",
 				receivedDate: "Дата получения",
@@ -117,12 +119,13 @@ function getExportCopy(language?: string | null) {
 		unassigned: "Unassigned",
 		debit: "Debit invoice",
 		credit: "Credit invoice",
+		receipt: "Receipt",
 		invoice: {
 			number: "Invoice number",
 			project: "Project",
 			supplier: "Supplier",
 			registration: "Registration number",
-			type: "Invoice type",
+			type: "Document type",
 			costCode: "Cost code",
 			invoiceDate: "Invoice date",
 			receivedDate: "Received date",
@@ -205,7 +208,11 @@ export function buildTgemInvoiceWorkbook(
 		[copy.invoice.supplier]: invoice.supplierName ?? "",
 		[copy.invoice.registration]: invoice.supplierRegistrationNo ?? "",
 		[copy.invoice.type]:
-			invoice.invoiceType === "credit" ? copy.credit : copy.debit,
+			invoice.invoiceType === "credit"
+				? copy.credit
+				: invoice.invoiceType === "receipt"
+					? copy.receipt
+					: copy.debit,
 		[copy.invoice.costCode]: invoice.costCode ?? "",
 		[copy.invoice.invoiceDate]: dateCell(invoice.invoiceDate),
 		[copy.invoice.receivedDate]: dateCell(invoice.receivedAt),
