@@ -51,6 +51,27 @@ const materialSource: Forma2ActualSource = {
 };
 
 describe("Forma 2 automatic assignment", () => {
+	it("never asks AI to overwrite a manual partial split", async () => {
+		const result = await automaticallyAssignForma2Sources({
+			sources: [materialSource],
+			positions: [workPosition, materialPosition],
+			existingAllocations: [
+				{
+					sourceType: "material",
+					sourceId: materialSource.id,
+					positionId: workPosition.id,
+					method: "manual",
+					confidence: null,
+					assignedAt: "2026-09-25",
+					split: {
+						mode: "quantity",
+						parts: [{ positionId: workPosition.id, value: 0.5 }],
+					},
+				},
+			],
+		});
+		expect(result).toEqual([]);
+	});
 	it("allows materials to use a material row or a top-level work fallback", () => {
 		expect(isCompatibleForma2Assignment(materialSource, materialPosition)).toBe(
 			true,

@@ -77,6 +77,7 @@ import {
   type Forma2MaterialPositionOption,
 } from "@/flows/default-construction/frontend/DefaultConstructionForma2AssignmentSelect"
 import { DefaultConstructionForma2MaterialRulesDialog } from "@/flows/default-construction/frontend/DefaultConstructionForma2MaterialRulesDialog"
+import { DefaultConstructionForma2SplitEditor } from "@/flows/default-construction/frontend/DefaultConstructionForma2SplitEditor"
 import type { WarehouseMaterialSort as DatabaseWarehouseMaterialSort } from "@/lib/bis/warehouse-material-query"
 import {
   getWarehouseForma2PositionLabel,
@@ -131,6 +132,7 @@ type MaterialRow = {
   createdAt: Date
   bisApprovers: BisApprover[]
   forma2PositionId?: string | null
+  forma2SplitPositionIds?: string[]
   forma2AssignmentMethod?: "manual" | "automatic" | "rule" | null
   forma2AssignmentConfidence?: number | null
 }
@@ -1573,7 +1575,7 @@ export default function MaterialsTableClient({
           getExportStatusLabel(material, t),
           material.categoryName || "—",
           ...(forma2Enabled
-            ? [material.forma2PositionId
+            ? [material.forma2SplitPositionIds ? material.forma2SplitPositionIds.map(id => forma2PositionLabels.get(id) || id).join("; ") : material.forma2PositionId
               ? forma2PositionLabels.get(material.forma2PositionId) || "—"
               : "—"]
             : []),
@@ -2272,7 +2274,7 @@ export default function MaterialsTableClient({
 
                       {forma2Enabled ? (
                         <TableCell className="min-w-0 align-top">
-                          <DefaultConstructionForma2AssignmentSelect
+                          {r.forma2SplitPositionIds ? <DefaultConstructionForma2SplitEditor siteId={siteId} sourceId={r.id} isSplit organizationLanguage={organizationLanguage} onSaved={() => loadWarehousePage()} /> : <DefaultConstructionForma2AssignmentSelect
                             siteId={siteId}
                             sourceId={r.id}
                             value={r.forma2PositionId ?? null}
@@ -2292,7 +2294,7 @@ export default function MaterialsTableClient({
                                 ),
                               )
                             }
-                          />
+                          />}
                         </TableCell>
                       ) : null}
 

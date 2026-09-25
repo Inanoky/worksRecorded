@@ -308,6 +308,7 @@ async function addForma2AssignmentsToMaterials(
       return {
         ...material,
         forma2PositionId: assignment?.positionId ?? null,
+        forma2SplitPositionIds: assignment?.splitPositionIds,
         forma2AssignmentMethod: assignment?.method ?? null,
         forma2AssignmentConfidence: assignment?.confidence ?? null,
       };
@@ -334,7 +335,7 @@ async function getWarehouseForma2RecordIdFilter(
   if (positionId) {
     return {
       include: forma2.assignments
-        .filter((assignment) => assignment.positionId === positionId)
+        .filter((assignment) => assignment.splitPositionIds ? assignment.splitPositionIds.includes(positionId) : assignment.positionId === positionId)
         .map((assignment) => assignment.sourceId),
     };
   }
@@ -344,7 +345,7 @@ async function getWarehouseForma2RecordIdFilter(
   }
 
   if (assignmentFilter === "unassigned") {
-    return { exclude: assignedIds };
+    return { exclude: forma2.assignments.filter(assignment => !assignment.hasRemainder).map(assignment => assignment.sourceId) };
   }
 
   return undefined;

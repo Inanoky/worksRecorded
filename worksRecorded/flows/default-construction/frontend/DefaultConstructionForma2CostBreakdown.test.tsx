@@ -71,6 +71,7 @@ function details(type: "work" | "material" = "work") {
 				date: "2026-09-25",
 				unit: "m2",
 				quantity: 10,
+				isSplit: false,
 				hours: null,
 				hourlyRate: null,
 				unitRate: 12,

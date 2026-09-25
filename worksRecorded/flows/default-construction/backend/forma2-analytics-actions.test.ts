@@ -23,7 +23,11 @@ jest.mock("./forma2-auto-assignment", () => ({
 }));
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
-		analytics: { findUnique: jest.fn(), upsert: jest.fn() },
+		analytics: {
+			findUnique: jest.fn(),
+			upsert: jest.fn(),
+			updateMany: jest.fn(),
+		},
 		site: { findUnique: jest.fn() },
 		sitediaryrecords: { findMany: jest.fn(), count: jest.fn() },
 		bISmaterialRecords: { findMany: jest.fn(), count: jest.fn() },
@@ -268,10 +272,10 @@ describe("Forma 2 diary quantity loaders", () => {
 		jest
 			.mocked(prisma.analytics.findUnique)
 			.mockImplementation(() => Promise.resolve(stored) as never);
-		jest.mocked(prisma.analytics.upsert).mockImplementation((args) => {
-			stored.currentWeekProgress = args.update
+		jest.mocked(prisma.analytics.updateMany).mockImplementation((args) => {
+			stored.currentWeekProgress = args.data
 				.currentWeekProgress as unknown as typeof stored.currentWeekProgress;
-			return Promise.resolve({}) as never;
+			return Promise.resolve({ count: 1 }) as never;
 		});
 		jest.mocked(prisma.site.findUnique).mockResolvedValue({
 			name: "Site",

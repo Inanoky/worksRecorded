@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { getDefaultConstructionForma2PositionCostDetails } from "@/flows/default-construction/backend/forma2-analytics-actions";
 import { DefaultConstructionForma2AssignmentSelect } from "./DefaultConstructionForma2AssignmentSelect";
+import { DefaultConstructionForma2SplitEditor } from "./DefaultConstructionForma2SplitEditor";
 
 type CostType = "work" | "material" | "total";
 type CostDetails = Awaited<
@@ -235,7 +236,9 @@ export function DefaultConstructionForma2CostBreakdown({
 									</TableHeader>
 									<TableBody>
 										{details.records.map((record) => (
-											<TableRow key={`${record.type}:${record.id}`}>
+											<TableRow
+												key={`${record.type}:${record.id}:${record.assignedPosition.id}`}
+											>
 												<TableCell className="whitespace-nowrap align-top">
 													{formatDate(record.date, locale)}
 												</TableCell>
@@ -249,26 +252,45 @@ export function DefaultConstructionForma2CostBreakdown({
 													</Badge>
 												</TableCell>
 												<TableCell className="max-w-56 whitespace-normal align-top">
-													<DefaultConstructionForma2AssignmentSelect
-														siteId={siteId}
-														sourceId={record.id}
-														sourceType={record.type}
-														value={record.assignedPosition.id}
-														options={details.positionOptions.filter(
-															(position) =>
-																record.type === "work"
-																	? position.kind === "work"
-																	: position.kind === "material" ||
-																		(position.kind === "work" &&
-																			!position.parentId),
-														)}
-														organizationLanguage={organizationLanguage}
-														overrideJournalPosition
-														allowUnassigned={false}
-														disabled={saving}
-														onSavingChange={setSaving}
-														onAssigned={refreshAfterAssignment}
-													/>
+													{record.isSplit ? (
+														<p className="mb-2">
+															{record.assignedPosition.code}{" "}
+															{record.assignedPosition.name}
+														</p>
+													) : (
+														<DefaultConstructionForma2AssignmentSelect
+															siteId={siteId}
+															sourceId={record.id}
+															sourceType={record.type}
+															value={record.assignedPosition.id}
+															options={details.positionOptions.filter(
+																(position) =>
+																	record.type === "work"
+																		? position.kind === "work"
+																		: position.kind === "material" ||
+																			(position.kind === "work" &&
+																				!position.parentId),
+															)}
+															organizationLanguage={organizationLanguage}
+															overrideJournalPosition
+															allowUnassigned={false}
+															disabled={saving}
+															onSavingChange={setSaving}
+															onAssigned={refreshAfterAssignment}
+														/>
+													)}
+													{record.type === "material" ? (
+														<div className="mt-2">
+															<DefaultConstructionForma2SplitEditor
+																siteId={siteId}
+																sourceId={record.id}
+																isSplit={record.isSplit}
+																organizationLanguage={organizationLanguage}
+																disabled={saving}
+																onSaved={refreshAfterAssignment}
+															/>
+														</div>
+													) : null}
 												</TableCell>
 												<TableCell className="whitespace-normal align-top">
 													{record.type === "work" ? (
@@ -299,7 +321,11 @@ export function DefaultConstructionForma2CostBreakdown({
 																? `${formatNumber(record.quantity, locale)} ${record.unit}`
 																: "—"}
 															<div className="text-muted-foreground">
-																{copy.invoiceTotal}
+																{record.isSplit
+																	? isLatvian
+																		? "Šai pozīcijai piešķirtā daļa"
+																		: "Share allocated to this position"
+																	: copy.invoiceTotal}
 															</div>
 														</>
 													)}

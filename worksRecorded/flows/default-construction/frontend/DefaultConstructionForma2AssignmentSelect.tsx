@@ -38,6 +38,7 @@ export function DefaultConstructionForma2AssignmentSelect({
 	disabled = false,
 	onSavingChange,
 	onAssigned,
+	onChoose,
 }: {
 	siteId: string;
 	sourceId: string;
@@ -51,6 +52,7 @@ export function DefaultConstructionForma2AssignmentSelect({
 	disabled?: boolean;
 	onSavingChange?: (saving: boolean) => void;
 	onAssigned: (positionId: string | null) => void | Promise<void>;
+	onChoose?: (positionId: string | null) => void;
 }) {
 	const isLatvian = String(organizationLanguage ?? "")
 		.toLowerCase()
@@ -76,6 +78,12 @@ export function DefaultConstructionForma2AssignmentSelect({
 			(assignmentMode === "single" && positionId === value)
 		)
 			return;
+		if (onChoose) {
+			onChoose(positionId);
+			setOpen(false);
+			setSearch("");
+			return;
+		}
 		setSaving(true);
 		onSavingChange?.(true);
 		try {
