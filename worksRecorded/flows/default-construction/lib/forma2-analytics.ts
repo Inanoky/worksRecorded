@@ -2,6 +2,7 @@ import {
 	getForma2QuantityExclusion,
 	getForma2ReportedQuantity,
 } from "./forma2-quantities";
+import { calculateForma2Split, type Forma2Split } from "./forma2-splits";
 
 export const DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY =
 	"defaultConstructionForma2";
@@ -44,6 +45,8 @@ export type Forma2Allocation = {
 	confidence: number | null;
 	assignedAt: string;
 	ruleId?: string | null;
+	overrideJournalPosition?: boolean;
+	split?: Forma2Split;
 };
 
 export type Forma2MaterialRule = {
@@ -68,6 +71,10 @@ export type Forma2ActualSource = {
 	selectedPositionId?: string | null;
 	label: string;
 	secondaryLabel: string;
+	invoiceLabel?: string;
+	invoiceNumber?: string | null;
+	supplierName?: string | null;
+	invoiceUrl?: string | null;
 	date: string | null;
 	unit: string;
 	quantity: number | null;
@@ -80,6 +87,8 @@ export type Forma2ActualSource = {
 };
 
 export type Forma2MappingRow = Forma2ActualSource & {
+	split?: Forma2Split;
+	unallocatedCost?: number | null;
 	assignedPositionId: string | null;
 	suggestedPositionId: string | null;
 	suggestionConfidence: number | null;
@@ -174,7 +183,11 @@ export function calculateForma2MoneyTotals(
 		actualMaterialCost: actualTotals.material,
 		actualMechanismCost: actualTotals.mechanism,
 		actualTotalCost: actualTotals.total,
-		variance: plannedTotals.total - actualTotals.total,
+		variance:
+			plannedTotals.work +
+			plannedTotals.material +
+			plannedTotals.mechanism -
+			(actualTotals.work + actualTotals.material + actualTotals.mechanism),
 	};
 
 	return Object.fromEntries(
@@ -567,6 +580,54 @@ export function normalizeDefaultConstructionForma2State(
 	};
 }
 
+export function resolveForma2PositionId(
+	source: Forma2ActualSource,
+	allocation: Forma2Allocation | undefined,
+	positionsById: ReadonlyMap<string, Forma2Position>,
+) {
+	if (source.type === "material" && allocation?.split) {
+		return (
+			allocation.split.parts.find((part) => positionsById.has(part.positionId))
+				?.positionId ?? null
+		);
+	}
+	if (
+		allocation?.method === "manual" &&
+		allocation.overrideJournalPosition === true &&
+		positionsById.has(allocation.positionId)
+	)
+		return allocation.positionId;
+	if (
+		source.selectedPositionId &&
+		positionsById.has(source.selectedPositionId)
+	) {
+		return source.selectedPositionId;
+	}
+	return allocation && positionsById.has(allocation.positionId)
+		? allocation.positionId
+		: null;
+}
+
+export function getForma2CostShares(
+	source: Forma2ActualSource,
+	allocation: Forma2Allocation | undefined,
+	positionsById: ReadonlyMap<string, Forma2Position>,
+) {
+	if (source.type === "material" && allocation?.split) {
+		try {
+			return calculateForma2Split(allocation.split, source).parts.filter(
+				(part) => positionsById.has(part.positionId),
+			);
+		} catch {
+			return [];
+		}
+	}
+	const positionId = resolveForma2PositionId(source, allocation, positionsById);
+	return positionId
+		? [{ positionId, quantity: source.quantity, actualCost: source.actualCost }]
+		: [];
+}
+
 export function buildForma2AnalyticsView(args: {
 	positions: Forma2Position[];
 	sources: Forma2ActualSource[];
@@ -578,7 +639,10 @@ export function buildForma2AnalyticsView(args: {
 	);
 	const allocationsBySource = new Map(
 		args.allocations
-			.filter((allocation) => positionsById.has(allocation.positionId))
+			.filter(
+				(allocation) =>
+					allocation.split || positionsById.has(allocation.positionId),
+			)
 			.map((allocation) => [
 				`${allocation.sourceType}:${allocation.sourceId}`,
 				allocation,
@@ -586,18 +650,33 @@ export function buildForma2AnalyticsView(args: {
 	);
 	const mappingRows = args.sources.map((source) => {
 		const allocation = allocationsBySource.get(`${source.type}:${source.id}`);
-		const selectedPositionId =
-			source.selectedPositionId && positionsById.has(source.selectedPositionId)
-				? source.selectedPositionId
-				: null;
-		const assignedPositionId =
-			selectedPositionId ?? allocation?.positionId ?? null;
+		const assignedPositionId = resolveForma2PositionId(
+			source,
+			allocation,
+			positionsById,
+		);
 		const suggestion =
 			assignedPositionId || args.includeSuggestions === false
 				? null
 				: suggestForma2Position(source, args.positions);
 		return {
 			...source,
+			...(allocation?.split
+				? {
+						split: allocation.split,
+						unallocatedCost:
+							source.actualCost == null
+								? null
+								: round(
+										source.actualCost -
+											getForma2CostShares(
+												source,
+												allocation,
+												positionsById,
+											).reduce((sum, part) => sum + (part.actualCost ?? 0), 0),
+									),
+					}
+				: {}),
 			assignedPositionId,
 			suggestedPositionId: suggestion?.positionId ?? null,
 			suggestionConfidence: suggestion?.confidence ?? null,
@@ -630,19 +709,24 @@ export function buildForma2AnalyticsView(args: {
 
 	const directTotals = new Map<
 		string,
-		{ work: number; material: number; mechanism: number; records: number }
+		{ work: number; material: number; mechanism: number; records: Set<string> }
 	>();
 	mappingRows.forEach((source) => {
-		if (!source.assignedPositionId) return;
-		const current = directTotals.get(source.assignedPositionId) ?? {
-			work: 0,
-			material: 0,
-			mechanism: 0,
-			records: 0,
-		};
-		if (source.actualCost != null) current[source.type] += source.actualCost;
-		current.records += 1;
-		directTotals.set(source.assignedPositionId, current);
+		for (const share of getForma2CostShares(
+			source,
+			allocationsBySource.get(`${source.type}:${source.id}`),
+			positionsById,
+		)) {
+			const current = directTotals.get(share.positionId) ?? {
+				work: 0,
+				material: 0,
+				mechanism: 0,
+				records: new Set<string>(),
+			};
+			if (share.actualCost != null) current[source.type] += share.actualCost;
+			current.records.add(`${source.type}:${source.id}`);
+			directTotals.set(share.positionId, current);
+		}
 	});
 
 	const childrenByParent = new Map<string, Forma2Position[]>();
@@ -659,7 +743,7 @@ export function buildForma2AnalyticsView(args: {
 			work: 0,
 			material: 0,
 			mechanism: 0,
-			records: 0,
+			records: new Set<string>(),
 		};
 		const children = childrenByParent.get(position.id) ?? [];
 		return children.reduce(
@@ -669,10 +753,10 @@ export function buildForma2AnalyticsView(args: {
 				total.work += childTotal.work;
 				total.material += childTotal.material;
 				total.mechanism += childTotal.mechanism;
-				total.records += childTotal.records;
+				for (const id of childTotal.records) total.records.add(id);
 				return total;
 			},
-			{ ...direct },
+			{ ...direct, records: new Set(direct.records) },
 		);
 	};
 
@@ -689,8 +773,13 @@ export function buildForma2AnalyticsView(args: {
 			actualMaterialCost: round(actual.material),
 			actualMechanismCost: round(actual.mechanism),
 			actualTotalCost: round(actualTotalCost),
-			variance: round(position.plannedTotalCost - actualTotalCost),
-			assignedRecords: actual.records,
+			variance: round(
+				position.plannedWorkCost +
+					position.plannedMaterialCost +
+					position.plannedMechanismCost -
+					actualTotalCost,
+			),
+			assignedRecords: actual.records.size,
 		};
 	});
 
@@ -701,7 +790,8 @@ export function buildForma2AnalyticsView(args: {
 		0,
 	);
 	const assignedCost = assignedRows.reduce(
-		(sum, row) => sum + Number(row.actualCost ?? 0),
+		(sum, row) =>
+			sum + Number(row.actualCost ?? 0) - Number(row.unallocatedCost ?? 0),
 		0,
 	);
 	const plannedCost = args.positions.reduce(
@@ -714,14 +804,25 @@ export function buildForma2AnalyticsView(args: {
 			positions: args.positions.length,
 			factualRecords: mappingRows.length,
 			assignedRecords: assignedRows.length,
-			unassignedRecords: mappingRows.length - assignedRows.length,
+			unassignedRecords: mappingRows.filter(
+				(row) => !row.assignedPositionId || (row.unallocatedCost ?? 0) > 0,
+			).length,
 			pricedRecords: pricedRows.length,
 			unpricedRecords: mappingRows.length - pricedRows.length,
 			plannedCost: round(plannedCost),
 			factualCost: round(factualCost),
 			assignedCost: round(assignedCost),
 			unassignedCost: round(factualCost - assignedCost),
-			variance: round(plannedCost - assignedCost),
+			variance: round(
+				args.positions.reduce(
+					(sum, position) =>
+						sum +
+						position.plannedWorkCost +
+						position.plannedMaterialCost +
+						position.plannedMechanismCost,
+					0,
+				) - assignedCost,
+			),
 		},
 		mappingRows,
 		resultRows,

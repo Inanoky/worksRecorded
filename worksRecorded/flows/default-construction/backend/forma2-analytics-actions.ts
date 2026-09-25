@@ -15,6 +15,7 @@ import {
 	type Forma2Position,
 	type Forma2PositionKind,
 	type Forma2SourceType,
+	getForma2CostShares,
 	normalizeDefaultConstructionForma2State,
 	normalizeForma2MaterialRuleName,
 	suggestForma2Position,
@@ -24,6 +25,10 @@ import {
 	getForma2QuantityExclusion,
 	getForma2ReportedQuantity,
 } from "@/flows/default-construction/lib/forma2-quantities";
+import {
+	calculateForma2Split,
+	type Forma2Split,
+} from "@/flows/default-construction/lib/forma2-splits";
 import {
 	getDefaultConstructionForma2WorkSyncManifest,
 	normalizeForma2WorkOptionKey,
@@ -175,8 +180,45 @@ async function writeStoredState(
 		select: { currentWeekProgress: true },
 	});
 	const root = analyticsRoot(existing?.currentWeekProgress);
-	root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY] = state;
+	const expectedRoot = structuredClone(root);
+	const currentState = normalizeDefaultConstructionForma2State(
+		root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY],
+	);
+	const protectedSplits =
+		currentState.document?.id === state.document?.id
+			? currentState.allocations.filter((allocation) => allocation.split)
+			: [];
+	const protectedKeys = new Set(
+		protectedSplits.map(
+			(allocation) => `${allocation.sourceType}:${allocation.sourceId}`,
+		),
+	);
+	root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY] = {
+		...state,
+		allocations: [
+			...state.allocations.filter(
+				(allocation) =>
+					!protectedKeys.has(`${allocation.sourceType}:${allocation.sourceId}`),
+			),
+			...protectedSplits,
+		],
+	};
 	const jsonRoot = root as Prisma.InputJsonObject;
+	if (existing?.currentWeekProgress) {
+		const result = await prisma.analytics.updateMany({
+			where: {
+				siteId,
+				currentWeekProgress: { equals: expectedRoot as Prisma.InputJsonObject },
+			},
+			data: { currentWeekProgress: jsonRoot },
+		});
+		if (result.count !== 1) {
+			throw new Error(
+				"Forma 2 dati ir mainīti. Atjaunojiet lapu un mēģiniet vēlreiz.",
+			);
+		}
+		return;
+	}
 	await prisma.analytics.upsert({
 		where: { siteId },
 		create: { siteId, currentWeekProgress: jsonRoot },
@@ -296,6 +338,7 @@ async function loadDefaultConstructionForma2Data(
 				cost: true,
 				invoiceNr: true,
 				supplierName: true,
+				sourcePhoto: true,
 				invoiceDate: true,
 				materialDate: true,
 			},
@@ -363,6 +406,15 @@ async function loadDefaultConstructionForma2Data(
 
 	const materialSources: Forma2ActualSource[] = materialRows.map((row) => ({
 		id: row.id,
+		invoiceNumber: text(row.invoiceNr) || null,
+		supplierName: text(row.supplierName) || null,
+		invoiceLabel: [text(row.supplierName), text(row.invoiceNr)]
+			.filter(Boolean)
+			.join(" · "),
+		invoiceUrl:
+			row.sourcePhoto && /^https?:\/\//i.test(row.sourcePhoto.trim())
+				? row.sourcePhoto.trim()
+				: null,
 		type: "material" as const,
 		label:
 			text(row.name) ||
@@ -602,39 +654,49 @@ export async function getDefaultConstructionForma2PositionCostDetails(args: {
 				positionsById.has(source.selectedPositionId)
 					? source.selectedPositionId
 					: null;
-			const assignedPositionId =
-				selectedPositionId ?? allocation?.positionId ?? null;
-			if (!assignedPositionId || !includedPositionIds.has(assignedPositionId))
-				return [];
-			const assignedPosition = positionsById.get(assignedPositionId);
-			if (!assignedPosition) return [];
-			return [
-				{
-					id: source.id,
-					type: source.type,
-					label: source.label,
-					secondaryLabel: source.secondaryLabel,
-					date: source.date,
-					unit: source.unit,
-					quantity: source.quantity,
-					hours: source.hours,
-					hourlyRate: source.hourlyRate ?? null,
-					unitRate: source.unitRate ?? null,
-					costCalculationMode: source.costCalculationMode ?? "output",
-					actualCost: source.actualCost,
-					assignmentMethod: selectedPositionId
-						? ("manual" as const)
-						: (allocation?.method ?? "manual"),
-					assignmentConfidence: selectedPositionId
-						? 1
-						: (allocation?.confidence ?? null),
-					assignedPosition: {
-						id: assignedPosition.id,
-						code: assignedPosition.code,
-						name: assignedPosition.name,
-					},
+			return getForma2CostShares(source, allocation, positionsById).flatMap(
+				(share) => {
+					if (!includedPositionIds.has(share.positionId)) return [];
+					const assignedPosition = positionsById.get(share.positionId);
+					if (!assignedPosition) return [];
+					return [
+						{
+							id: source.id,
+							type: source.type,
+							label: source.label,
+							secondaryLabel:
+								source.type === "material"
+									? (source.invoiceLabel ?? "")
+									: source.secondaryLabel,
+							invoiceUrl: source.invoiceUrl ?? null,
+							invoiceNumber: source.invoiceNumber ?? null,
+							supplierName: source.supplierName ?? null,
+							date: source.date,
+							unit: source.unit,
+							quantity: share.quantity,
+							isSplit: Boolean(allocation?.split),
+							hours: source.hours,
+							hourlyRate: source.hourlyRate ?? null,
+							unitRate: source.unitRate ?? null,
+							costCalculationMode: source.costCalculationMode ?? "output",
+							actualCost: share.actualCost,
+							assignmentMethod:
+								selectedPositionId && !allocation?.overrideJournalPosition
+									? ("manual" as const)
+									: (allocation?.method ?? "manual"),
+							assignmentConfidence:
+								selectedPositionId && !allocation?.overrideJournalPosition
+									? 1
+									: (allocation?.confidence ?? null),
+							assignedPosition: {
+								id: assignedPosition.id,
+								code: assignedPosition.code,
+								name: assignedPosition.name,
+							},
+						},
+					];
 				},
-			];
+			);
 		})
 		.sort((left, right) =>
 			String(right.date ?? "").localeCompare(String(left.date ?? "")),
@@ -650,11 +712,31 @@ export async function getDefaultConstructionForma2PositionCostDetails(args: {
 			name: position.name,
 		},
 		costType: args.costType,
+		positionOptions: positions.map(
+			({ id, code, name, categoryName, kind, parentId, unit }) => ({
+				id,
+				code,
+				name,
+				categoryName,
+				kind,
+				parentId,
+				unit,
+			}),
+		),
 		calculatedTotal: Number(calculatedTotal.toFixed(2)),
-		assignedRecords: records.length,
-		pricedRecords: records.filter((record) => record.actualCost != null).length,
-		unpricedRecords: records.filter((record) => record.actualCost == null)
-			.length,
+		assignedRecords: new Set(
+			records.map((record) => `${record.type}:${record.id}`),
+		).size,
+		pricedRecords: new Set(
+			records
+				.filter((record) => record.actualCost != null)
+				.map((record) => `${record.type}:${record.id}`),
+		).size,
+		unpricedRecords: new Set(
+			records
+				.filter((record) => record.actualCost == null)
+				.map((record) => `${record.type}:${record.id}`),
+		).size,
 		records,
 	};
 }
@@ -746,7 +828,27 @@ export async function getDefaultConstructionForma2MappingPage(args: {
 		...(assignment === "assigned"
 			? { id: { in: allocatedMaterialIds } }
 			: assignment === "unassigned"
-				? { id: { notIn: allocatedMaterialIds } }
+				? {
+						OR: [
+							{ id: { notIn: allocatedMaterialIds } },
+							{
+								id: {
+									in: state.allocations
+										.filter(
+											(item) =>
+												item.sourceType === "material" &&
+												item.split &&
+												item.split.parts.reduce(
+													(sum, part) => sum + part.value,
+													0,
+												) <
+													(item.split.basisTotal ?? Infinity) - 1e-8,
+										)
+										.map((item) => item.sourceId),
+								},
+							},
+						],
+					}
 				: {}),
 		...(search
 			? {
@@ -1000,6 +1102,142 @@ export async function saveDefaultConstructionForma2Import(args: {
 	};
 }
 
+async function loadForma2SplitSource(siteId: string, sourceId: string) {
+	await requireDefaultConstructionSite(siteId);
+	const [stored, row] = await Promise.all([
+		prisma.analytics.findUnique({
+			where: { siteId },
+			select: { currentWeekProgress: true },
+		}),
+		prisma.bISmaterialRecords.findFirst({
+			where: { id: sourceId, siteId },
+			select: {
+				id: true,
+				name: true,
+				quantity: true,
+				cost: true,
+				measurementUnit: true,
+			},
+		}),
+	]);
+	if (!row) throw new Error("Invoice record was not found");
+	const root = analyticsRoot(stored?.currentWeekProgress);
+	const state = normalizeDefaultConstructionForma2State(
+		root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY],
+	);
+	if (!state.document) throw new Error("Import Forma 2 before assigning records");
+	return {
+		root,
+		state,
+		allocation: state.allocations.find(
+			(item) => item.sourceType === "material" && item.sourceId === sourceId,
+		),
+		source: {
+			id: row.id,
+			label: text(row.name),
+			quantity: nullableNumber(row.quantity),
+			actualCost: nullableNumber(row.cost),
+			unit: text(row.measurementUnit),
+		},
+	};
+}
+
+export async function getDefaultConstructionForma2SplitDetails(args: {
+	siteId: string;
+	sourceId: string;
+}) {
+	const data = await loadForma2SplitSource(args.siteId, args.sourceId);
+	const positions = data.state.document?.positions ?? [];
+	const quantities = new Map(
+		positions.map((position) => [position.id, position.plannedQuantity]),
+	);
+	return {
+		source: data.source,
+		split: data.allocation?.split ?? null,
+		positionId: data.allocation?.positionId ?? null,
+		expectedAllocation: JSON.stringify(data.allocation ?? null),
+		positionOptions: materialPositionOptions(positions).map((option) => ({
+			...option,
+			plannedQuantity: quantities.get(option.id) ?? null,
+		})),
+	};
+}
+
+export async function saveDefaultConstructionForma2Split(args: {
+	siteId: string;
+	sourceId: string;
+	split: Forma2Split;
+	expectedAllocation: string;
+	expectedQuantity: number | null;
+	expectedCost: number | null;
+}) {
+	const data = await loadForma2SplitSource(args.siteId, args.sourceId);
+	if (
+		JSON.stringify(data.allocation ?? null) !== args.expectedAllocation ||
+		data.source.quantity !== args.expectedQuantity ||
+		data.source.actualCost !== args.expectedCost
+	)
+		throw new Error("Ieraksts ir mainījies. Atveriet sadalījumu vēlreiz.");
+	const calculated = calculateForma2Split(args.split, data.source);
+	const positions = new Map(
+		(data.state.document?.positions ?? []).map((position) => [
+			position.id,
+			position,
+		]),
+	);
+	for (const part of args.split.parts) {
+		const position = positions.get(part.positionId);
+		if (!position || !isCompatibleMaterialPosition(position))
+			throw new Error("Forma 2 material position was not found");
+	}
+	const allocation: Forma2Allocation = {
+		sourceId: args.sourceId,
+		sourceType: "material",
+		positionId: args.split.parts[0].positionId,
+		method: "manual",
+		confidence: null,
+		assignedAt: new Date().toISOString(),
+		split: {
+			mode: args.split.mode,
+			parts: args.split.parts.map(({ positionId, value }) => ({
+				positionId,
+				value,
+			})),
+			basisTotal:
+				args.split.mode === "quantity"
+					? (data.source.quantity ?? 0)
+					: args.split.mode === "percent"
+						? 100
+						: (data.source.actualCost ?? 0),
+		},
+	};
+	const nextRoot = {
+		...data.root,
+		[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY]: {
+			...data.state,
+			allocations: [
+				...data.state.allocations.filter(
+					(item) =>
+						item.sourceType !== "material" || item.sourceId !== args.sourceId,
+				),
+				allocation,
+			],
+		},
+	};
+	const result = await prisma.analytics.updateMany({
+		where: {
+			siteId: args.siteId,
+			currentWeekProgress: { equals: data.root as Prisma.InputJsonObject },
+		},
+		data: { currentWeekProgress: nextRoot as Prisma.InputJsonObject },
+	});
+	if (result.count !== 1)
+		throw new Error("Piesaistes ir mainījušās. Atveriet sadalījumu vēlreiz.");
+	revalidatePath(`/dashboard/sites/${args.siteId}/analytics`);
+	revalidatePath(`/dashboard/sites/${args.siteId}/BIS`);
+	return calculated;
+}
+
 export async function saveDefaultConstructionForma2Allocations(args: {
 	siteId: string;
 	allocations: Array<{
@@ -1008,6 +1246,7 @@ export async function saveDefaultConstructionForma2Allocations(args: {
 		positionId: string | null;
 		method?: "manual" | "automatic" | "rule";
 		confidence?: number | null;
+		overrideJournalPosition?: boolean;
 	}>;
 }) {
 	await requireDefaultConstructionSite(args.siteId);
@@ -1050,6 +1289,17 @@ export async function saveDefaultConstructionForma2Allocations(args: {
 	const replacements = new Map<string, Forma2Allocation | null>();
 
 	args.allocations.forEach((allocation) => {
+		if (
+			state.allocations.some(
+				(item) =>
+					item.sourceType === allocation.sourceType &&
+					item.sourceId === allocation.sourceId &&
+					item.split,
+			)
+		)
+			throw new Error(
+				"Šim ierakstam ir sadalījums. Mainiet to ar ‘Rediģēt sadalījumu’.",
+			);
 		const sourceKey = `${allocation.sourceType}:${text(allocation.sourceId, 180)}`;
 		if (!validSources.has(sourceKey))
 			throw new Error("Factual record was not found");
@@ -1082,6 +1332,10 @@ export async function saveDefaultConstructionForma2Allocations(args: {
 					? null
 					: Math.max(0, Math.min(1, Number(allocation.confidence) || 0)),
 			assignedAt: new Date().toISOString(),
+			...(allocation.overrideJournalPosition === true &&
+			(!allocation.method || allocation.method === "manual")
+				? { overrideJournalPosition: true }
+				: {}),
 		});
 	});
 
@@ -1140,6 +1394,14 @@ export async function getDefaultConstructionForma2MaterialAssignments(args: {
 			.map((allocation) => ({
 				sourceId: allocation.sourceId,
 				positionId: allocation.positionId,
+				splitPositionIds: allocation.split?.parts.map(
+					(part) => part.positionId,
+				),
+				hasRemainder: Boolean(
+					allocation.split &&
+						allocation.split.parts.reduce((sum, part) => sum + part.value, 0) <
+							(allocation.split.basisTotal ?? Infinity) - 1e-8,
+				),
 				method: allocation.method,
 				confidence: allocation.confidence,
 			})),
@@ -1458,6 +1720,7 @@ export async function saveDefaultConstructionForma2MaterialRule(args: {
 	const replaceSourceIds = new Set(
 		matchingSources.flatMap((item) => {
 			const allocation = allocationsBySource.get(item.id);
+			if (allocation?.split) return [];
 			return item.id === args.sourceId || allocation?.method !== "manual"
 				? [item.id]
 				: [];

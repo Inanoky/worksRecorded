@@ -30,6 +30,7 @@ import {
 	getForma2AnalyticsCopy,
 	getForma2AnalyticsLocale,
 } from "@/flows/default-construction/lib/forma2-analytics-copy";
+import { DefaultConstructionForma2SplitEditor } from "./DefaultConstructionForma2SplitEditor";
 
 type MappingData = Awaited<
 	ReturnType<typeof getDefaultConstructionForma2MappingPage>
@@ -203,20 +204,47 @@ export function DefaultConstructionForma2MappingTable({
 											: formatCurrency(row.actualCost, locale)}
 									</TableCell>
 									<TableCell className="pr-6 align-top">
-										<Button
-											variant="outline"
-											className="h-auto w-full justify-start whitespace-normal py-2 text-left"
-											onClick={() => {
-												setPositionSearch("");
-												setSelectedRow(row);
-											}}
-											disabled={!data.document}
-										>
-											<Link2 className="mr-2 size-4 shrink-0" />
-											{assigned
-												? `${assigned.code ? `${assigned.code} ` : ""}${assigned.name}`
-												: t.unassignedOption}
-										</Button>
+										{!row.split ? (
+											<Button
+												variant="outline"
+												className="h-auto w-full justify-start whitespace-normal py-2 text-left"
+												onClick={() => {
+													setPositionSearch("");
+													setSelectedRow(row);
+												}}
+												disabled={!data.document}
+											>
+												<Link2 className="mr-2 size-4 shrink-0" />
+												{assigned
+													? `${assigned.code ? `${assigned.code} ` : ""}${assigned.name}`
+													: t.unassignedOption}
+											</Button>
+										) : (
+											<p className="mb-2 text-sm">
+												{organizationLanguage?.startsWith("lv")
+													? "Sadalīts pa pozīcijām"
+													: "Split between positions"}
+											</p>
+										)}
+										{row.type === "material" ? (
+											<div className="mt-2">
+												<DefaultConstructionForma2SplitEditor
+													siteId={siteId}
+													sourceId={row.id}
+													isSplit={Boolean(row.split)}
+													organizationLanguage={organizationLanguage}
+													onSaved={() => router.refresh()}
+												/>
+											</div>
+										) : null}
+										{row.split ? (
+											<p className="mt-2 text-xs text-muted-foreground">
+												{organizationLanguage?.startsWith("lv")
+													? "Nav piesaistīts"
+													: "Unallocated"}
+												: {formatCurrency(row.unallocatedCost ?? 0, locale)}
+											</p>
+										) : null}
 									</TableCell>
 								</TableRow>
 							);

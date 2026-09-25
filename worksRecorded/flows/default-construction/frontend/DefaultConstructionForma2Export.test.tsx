@@ -34,7 +34,7 @@ describe("Forma 2 quantity export", () => {
 				plannedWorkCost: 100,
 				plannedMaterialCost: 0,
 				plannedMechanismCost: 0,
-				plannedTotalCost: 100,
+				plannedTotalCost: 999,
 			};
 			const view = buildForma2AnalyticsView({
 				positions: [position],
@@ -78,6 +78,8 @@ describe("Forma 2 quantity export", () => {
 			expect(sheet.G5).toMatchObject({ v: 100, z: "€ #,##0.00" });
 			expect(sheet.K5).toMatchObject({ v: 120, z: "€ #,##0.00" });
 			expect(sheet.P5.v).toBe(1);
+			expect(sheet.O5.v).toBe(-20);
+			expect(sheet.O6.v).toBe(-20);
 			expect(sheet.E6).toBeUndefined();
 			expect(sheet.F6).toBeUndefined();
 			expect(sheet["!autofilter"]?.ref).toBe("A4:P5");

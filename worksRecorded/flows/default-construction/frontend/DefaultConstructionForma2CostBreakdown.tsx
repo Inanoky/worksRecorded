@@ -1,6 +1,7 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,10 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { getDefaultConstructionForma2PositionCostDetails } from "@/flows/default-construction/backend/forma2-analytics-actions";
+import { formatForma2PositionLabel } from "../lib/forma2-position-label";
+import { DefaultConstructionForma2AssignmentSelect } from "./DefaultConstructionForma2AssignmentSelect";
+import { DefaultConstructionForma2InvoicePreview } from "./DefaultConstructionForma2InvoicePreview";
+import { DefaultConstructionForma2SplitEditor } from "./DefaultConstructionForma2SplitEditor";
 
 type CostType = "work" | "material" | "total";
 type CostDetails = Awaited<
@@ -63,6 +68,7 @@ export function DefaultConstructionForma2CostBreakdown({
 	amount: number;
 	organizationLanguage?: string | null;
 }) {
+	const router = useRouter();
 	const isLatvian = String(organizationLanguage ?? "")
 		.toLowerCase()
 		.startsWith("lv");
@@ -73,25 +79,15 @@ export function DefaultConstructionForma2CostBreakdown({
 				description:
 					"Ieraksti, kas veido izvēlētās Formas 2 pozīcijas faktiskās izmaksas.",
 				calculatedTotal: "Aprēķinātā summa",
-				includedRecords: "Iekļautie ieraksti",
-				unpricedRecords: "Bez aprēķināmām izmaksām",
-				workRule:
-					"Darbiem ar režīmu “Izpilde” izmaksas = daudzums × izpildes likme. Režīmā “Stundas likme” izmaksas = reģistrētās stundas × stundas likme.",
-				materialRule:
-					"Materiālu izmaksas = Noliktavā saglabātā rēķina pozīcijas kopējā summa. Daudzums un mērvienība ir informatīvi; mērvienību konvertēšana netiek veikta.",
+				openInvoice: "Atvērt rēķinu",
+				invoice: "Rēķina Nr.",
 				date: "Datums",
 				record: "Ieraksts",
 				assignedTo: "Piesaistīts pozīcijai",
-				calculation: "Aprēķins",
-				assignment: "Piesaiste",
+				unit: "Mērv.",
+				quantity: "Daudzums",
 				cost: "Izmaksas",
 				work: "Darbs",
-				material: "Materiāls",
-				manual: "Manuāla",
-				automatic: "Automātiska",
-				rule: "Noteikums",
-				invoiceTotal: "Rēķina pozīcijas summa",
-				missingRate: "Trūkst aprēķinam nepieciešamā daudzuma vai likmes",
 				unpriced: "Nav aprēķināms",
 				noRecords: "Šajā summā nav iekļautu ierakstu.",
 				loadError: "Neizdevās ielādēt izmaksu detalizāciju.",
@@ -101,37 +97,30 @@ export function DefaultConstructionForma2CostBreakdown({
 				description:
 					"Records included in the factual cost of the selected Forma 2 position.",
 				calculatedTotal: "Calculated total",
-				includedRecords: "Included records",
-				unpricedRecords: "Without calculable cost",
-				workRule:
-					"For Output mode, work cost = quantity × output rate. For Hourly mode, work cost = recorded hours × hourly rate.",
-				materialRule:
-					"Material cost = the invoice-line total stored in Warehouse. Quantity and unit are shown for traceability; units are not converted.",
+				openInvoice: "Open invoice",
+				invoice: "Invoice no.",
 				date: "Date",
 				record: "Record",
 				assignedTo: "Assigned position",
-				calculation: "Calculation",
-				assignment: "Assignment",
+				unit: "Unit",
+				quantity: "Quantity",
 				cost: "Cost",
 				work: "Work",
-				material: "Material",
-				manual: "Manual",
-				automatic: "Automatic",
-				rule: "Rule",
-				invoiceTotal: "Invoice-line total",
-				missingRate:
-					"Quantity or rate required for this calculation is unavailable",
 				unpriced: "Not calculable",
 				noRecords: "No records are included in this amount.",
 				loadError: "Could not load the cost details.",
 			};
 	const [open, setOpen] = useState(false);
 	const [loading, setLoading] = useState(false);
+	const [saving, setSaving] = useState(false);
 	const [details, setDetails] = useState<CostDetails | null>(null);
+	const [invoice, setInvoice] = useState<{ url: string; title: string } | null>(
+		null,
+	);
 
 	const showDetails = async () => {
 		setOpen(true);
-		if (details || loading) return;
+		if (loading) return;
 		setLoading(true);
 		try {
 			setDetails(
@@ -148,24 +137,38 @@ export function DefaultConstructionForma2CostBreakdown({
 			setLoading(false);
 		}
 	};
+	const refreshAfterAssignment = async () => {
+		await showDetails();
+		router.refresh();
+	};
 
 	return (
 		<>
 			<Button
 				type="button"
 				variant="link"
-				onClick={showDetails}
-				className="h-auto min-w-0 p-0 text-inherit underline decoration-dotted underline-offset-4 hover:text-primary"
+				onClick={() => {
+					setInvoice(null);
+					void showDetails();
+				}}
+				className="h-auto min-w-0 cursor-pointer p-0 text-inherit underline decoration-dotted underline-offset-4 hover:text-primary"
 			>
 				{formatCurrency(amount, locale)}
 			</Button>
-			<Dialog open={open} onOpenChange={setOpen}>
-				<DialogContent className="flex h-[90dvh] max-h-[900px] flex-col overflow-hidden p-0 sm:max-w-5xl">
+			<Dialog
+				open={open}
+				onOpenChange={(next) => {
+					if (!saving) setOpen(next);
+				}}
+			>
+				<DialogContent
+					className={`flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 ${invoice ? "h-[88dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] sm:max-w-[1920px]" : "w-[calc(100vw-3rem)] sm:max-w-[1240px]"}`}
+				>
 					<DialogHeader className="shrink-0 border-b px-6 py-5 pr-12">
 						<DialogTitle>{copy.title}</DialogTitle>
 						<DialogDescription>
 							{details
-								? `${details.position.code ? `${details.position.code} ` : ""}${details.position.name}`
+								? formatForma2PositionLabel(details.position)
 								: copy.description}
 						</DialogDescription>
 					</DialogHeader>
@@ -175,140 +178,217 @@ export function DefaultConstructionForma2CostBreakdown({
 							<Loader2 className="size-6 animate-spin text-muted-foreground" />
 						</div>
 					) : details ? (
-						<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6 [scrollbar-gutter:stable]">
-							<div className="grid gap-3 py-5 sm:grid-cols-3">
-								<div className="rounded-lg border p-3">
-									<div className="text-xs text-muted-foreground">
-										{copy.calculatedTotal}
-									</div>
-									<div className="mt-1 text-xl font-semibold tabular-nums">
-										{formatCurrency(details.calculatedTotal, locale)}
-									</div>
-								</div>
-								<div className="rounded-lg border p-3">
-									<div className="text-xs text-muted-foreground">
-										{copy.includedRecords}
-									</div>
-									<div className="mt-1 text-xl font-semibold tabular-nums">
-										{details.assignedRecords}
+						<div
+							className={`min-h-0 flex-1 overflow-y-auto ${invoice ? "grid xl:grid-cols-[minmax(0,1fr)_clamp(320px,30vw,560px)] xl:overflow-hidden" : ""}`}
+						>
+							<div className="min-h-0 min-w-0 overflow-y-auto overscroll-contain px-5 pb-5">
+								<div className="flex flex-wrap items-center justify-between gap-3 py-4">
+									<div className="flex items-baseline gap-3">
+										<span className="text-sm text-muted-foreground">
+											{copy.calculatedTotal}
+										</span>
+										<span className="text-xl font-semibold tabular-nums">
+											{formatCurrency(details.calculatedTotal, locale)}
+										</span>
 									</div>
 								</div>
-								<div className="rounded-lg border p-3">
-									<div className="text-xs text-muted-foreground">
-										{copy.unpricedRecords}
-									</div>
-									<div className="mt-1 text-xl font-semibold tabular-nums">
-										{details.unpricedRecords}
-									</div>
-								</div>
-							</div>
-
-							<div className="mb-4 space-y-1 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
-								{costType !== "material" ? <p>{copy.workRule}</p> : null}
-								{costType !== "work" ? <p>{copy.materialRule}</p> : null}
-							</div>
-
-							<div className="overflow-x-auto rounded-lg border">
-								<Table className="min-w-[920px] text-xs">
-									<TableHeader>
-										<TableRow>
-											<TableHead>{copy.date}</TableHead>
-											<TableHead>{copy.record}</TableHead>
-											<TableHead>{copy.assignedTo}</TableHead>
-											<TableHead>{copy.calculation}</TableHead>
-											<TableHead>{copy.assignment}</TableHead>
-											<TableHead className="text-right">{copy.cost}</TableHead>
-										</TableRow>
-									</TableHeader>
-									<TableBody>
-										{details.records.map((record) => (
-											<TableRow key={`${record.type}:${record.id}`}>
-												<TableCell className="whitespace-nowrap align-top">
-													{formatDate(record.date, locale)}
-												</TableCell>
-												<TableCell className="max-w-64 whitespace-normal align-top">
-													<div className="font-medium">{record.label}</div>
-													<div className="mt-1 text-muted-foreground">
-														{record.secondaryLabel || "—"}
-													</div>
-													<Badge variant="outline" className="mt-2">
-														{record.type === "work" ? copy.work : copy.material}
-													</Badge>
-												</TableCell>
-												<TableCell className="max-w-56 whitespace-normal align-top">
-													{record.assignedPosition.code
-														? `${record.assignedPosition.code} `
-														: ""}
-													{record.assignedPosition.name}
-												</TableCell>
-												<TableCell className="whitespace-normal align-top">
-													{record.type === "work" ? (
-														record.costCalculationMode === "output" ? (
-															record.quantity != null &&
-															record.unitRate != null ? (
-																<>
-																	{formatNumber(record.quantity, locale)}{" "}
-																	{record.unit} ×{" "}
-																	{formatCurrency(record.unitRate, locale)}/
-																	{record.unit}
-																</>
-															) : (
-																copy.missingRate
-															)
-														) : record.hours != null &&
-															record.hourlyRate != null ? (
-															<>
-																{formatNumber(record.hours, locale)} h ×{" "}
-																{formatCurrency(record.hourlyRate, locale)}/h
-															</>
-														) : (
-															copy.missingRate
-														)
-													) : (
-														<>
-															{record.quantity != null
-																? `${formatNumber(record.quantity, locale)} ${record.unit}`
-																: "—"}
-															<div className="text-muted-foreground">
-																{copy.invoiceTotal}
-															</div>
-														</>
-													)}
-												</TableCell>
-												<TableCell className="align-top">
-													<Badge variant="secondary">
-														{record.assignmentMethod === "manual"
-															? copy.manual
-															: record.assignmentMethod === "rule"
-																? copy.rule
-																: copy.automatic}
-													</Badge>
-													{record.assignmentConfidence != null ? (
-														<div className="mt-1 text-muted-foreground">
-															{Math.round(record.assignmentConfidence * 100)}%
-														</div>
-													) : null}
-												</TableCell>
-												<TableCell className="whitespace-nowrap text-right align-top font-medium tabular-nums">
-													{record.actualCost == null
-														? copy.unpriced
-														: formatCurrency(record.actualCost, locale)}
-												</TableCell>
-											</TableRow>
-										))}
-										{details.records.length === 0 ? (
+								<div className="overflow-x-auto rounded-lg border">
+									<Table
+										className={`${invoice ? "min-w-[1200px]" : "min-w-[820px]"} table-fixed text-xs`}
+									>
+										<colgroup>
+											<col className="w-[88px]" />
+											<col className="w-[128px]" />
+											<col className={invoice ? "w-[180px]" : "w-[20%]"} />
+											<col />
+											<col className="w-[48px]" />
+											<col className="w-[72px]" />
+											<col className="w-[88px]" />
+										</colgroup>
+										<TableHeader>
 											<TableRow>
-												<TableCell
-													colSpan={6}
-													className="py-12 text-center text-muted-foreground"
-												>
-													{copy.noRecords}
-												</TableCell>
+												<TableHead>{copy.date}</TableHead>
+												<TableHead>{copy.invoice}</TableHead>
+												<TableHead>{copy.record}</TableHead>
+												<TableHead>{copy.assignedTo}</TableHead>
+												<TableHead>{copy.unit}</TableHead>
+												<TableHead className="text-right">
+													{copy.quantity}
+												</TableHead>
+												<TableHead className="text-right">
+													{copy.cost}
+												</TableHead>
 											</TableRow>
-										) : null}
-									</TableBody>
-								</Table>
+										</TableHeader>
+										<TableBody>
+											{details.records.map((record) => (
+												<TableRow
+													key={`${record.type}:${record.id}:${record.assignedPosition.id}`}
+													className={
+														invoice && record.invoiceUrl === invoice.url
+															? "bg-primary/5"
+															: undefined
+													}
+												>
+													<TableCell className="whitespace-nowrap align-middle">
+														{formatDate(record.date, locale)}
+													</TableCell>
+													<TableCell className="align-middle">
+														{record.type === "material" && record.invoiceUrl ? (
+															<Button
+																type="button"
+																variant="link"
+																className="h-auto max-w-full min-w-0 justify-start gap-1.5 whitespace-nowrap p-0 text-left text-xs has-[>svg]:px-0"
+																title={record.invoiceNumber || copy.openInvoice}
+																aria-label={`${copy.openInvoice}: ${record.invoiceNumber || record.label}`}
+																aria-pressed={
+																	invoice?.url === record.invoiceUrl
+																}
+																onClick={() =>
+																	setInvoice({
+																		url: record.invoiceUrl as string,
+																		title: record.invoiceNumber || record.label,
+																	})
+																}
+															>
+																<FileText className="size-4 shrink-0" />
+																<span className="min-w-0 truncate">
+																	{record.invoiceNumber || copy.openInvoice}
+																</span>
+															</Button>
+														) : (
+															<span
+																className="block truncate"
+																title={record.invoiceNumber || undefined}
+															>
+																{record.invoiceNumber || "—"}
+															</span>
+														)}
+													</TableCell>
+													<TableCell className="whitespace-normal align-middle">
+														<div
+															className="truncate font-medium"
+															title={record.label}
+														>
+															{record.label}
+														</div>
+														{(
+															record.type === "material"
+																? record.supplierName
+																: record.secondaryLabel
+														) ? (
+															<div className="mt-1 text-muted-foreground">
+																{record.type === "material"
+																	? record.supplierName
+																	: record.secondaryLabel}
+															</div>
+														) : null}
+														{record.type === "work" ? (
+															<Badge variant="outline" className="mt-2">
+																{copy.work}
+															</Badge>
+														) : null}
+													</TableCell>
+													<TableCell className="whitespace-normal align-middle">
+														<div className="flex min-w-0 flex-nowrap items-center gap-2">
+															{record.isSplit ? (
+																<p
+																	className="min-w-0 flex-1 truncate"
+																	title={formatForma2PositionLabel(
+																		record.assignedPosition,
+																	)}
+																>
+																	{formatForma2PositionLabel(
+																		record.assignedPosition,
+																	)}
+																</p>
+															) : (
+																<DefaultConstructionForma2AssignmentSelect
+																	siteId={siteId}
+																	sourceId={record.id}
+																	sourceType={record.type}
+																	value={record.assignedPosition.id}
+																	options={details.positionOptions.filter(
+																		(position) =>
+																			record.type === "work"
+																				? position.kind === "work"
+																				: position.kind === "material" ||
+																					(position.kind === "work" &&
+																						!position.parentId),
+																	)}
+																	organizationLanguage={organizationLanguage}
+																	overrideJournalPosition
+																	singleLine
+																	allowUnassigned={false}
+																	disabled={saving}
+																	onSavingChange={setSaving}
+																	onAssigned={refreshAfterAssignment}
+																/>
+															)}
+															{record.type === "material" ? (
+																<div className="shrink-0">
+																	<DefaultConstructionForma2SplitEditor
+																		siteId={siteId}
+																		sourceId={record.id}
+																		isSplit={record.isSplit}
+																		organizationLanguage={organizationLanguage}
+																		disabled={saving}
+																		onSaved={refreshAfterAssignment}
+																	/>
+																</div>
+															) : null}
+														</div>
+													</TableCell>
+													<TableCell className="whitespace-nowrap align-middle">
+														{record.type === "work" &&
+														record.costCalculationMode === "hourly"
+															? "h"
+															: record.unit || "—"}
+													</TableCell>
+													<TableCell className="whitespace-nowrap text-right align-middle tabular-nums">
+														{(record.type === "work" &&
+														record.costCalculationMode === "hourly"
+															? record.hours
+															: record.quantity) == null
+															? "—"
+															: formatNumber(
+																	(record.type === "work" &&
+																	record.costCalculationMode === "hourly"
+																		? record.hours
+																		: record.quantity) ?? 0,
+																	locale,
+																)}
+													</TableCell>
+													<TableCell className="whitespace-nowrap text-right align-middle font-medium tabular-nums">
+														{record.actualCost == null
+															? copy.unpriced
+															: formatCurrency(record.actualCost, locale)}
+													</TableCell>
+												</TableRow>
+											))}
+											{details.records.length === 0 ? (
+												<TableRow>
+													<TableCell
+														colSpan={7}
+														className="py-12 text-center text-muted-foreground"
+													>
+														{copy.noRecords}
+													</TableCell>
+												</TableRow>
+											) : null}
+										</TableBody>
+									</Table>
+								</div>
 							</div>
+							{invoice ? (
+								<DefaultConstructionForma2InvoicePreview
+									key={invoice.url}
+									url={invoice.url}
+									title={invoice.title}
+									isLatvian={isLatvian}
+									onClose={() => setInvoice(null)}
+								/>
+							) : null}
 						</div>
 					) : null}
 				</DialogContent>
