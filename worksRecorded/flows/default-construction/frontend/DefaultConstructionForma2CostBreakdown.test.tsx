@@ -117,6 +117,7 @@ function openDetails() {
 			organizationLanguage="en"
 		/>,
 	);
+	expect(screen.getByRole("button")).toHaveClass("cursor-pointer");
 	fireEvent.click(screen.getByRole("button"));
 	return screen
 		.findAllByRole("combobox", { name: "Assigned position" })
@@ -257,12 +258,18 @@ it("simplifies material details and provides the original invoice preview", asyn
 	expect(
 		screen.getByRole("link", { name: "Open original in new tab" }),
 	).toHaveAttribute("href", "https://example.com/invoice.pdf");
-	expect(screen.getByRole("dialog")).toHaveClass("sm:max-w-[1600px]");
+	expect(screen.getByRole("dialog")).toHaveClass(
+		"sm:max-w-[1920px]",
+		"w-[calc(100vw-1rem)]",
+	);
+	expect(screen.getByRole("table")).toHaveClass("min-w-[1200px]");
+	expect(screen.getByRole("combobox").parentElement).toHaveClass("flex-nowrap");
 	fireEvent.click(screen.getByRole("button", { name: "Close preview" }));
 	expect(
 		screen.queryByTitle("Invoice preview: INV-123"),
 	).not.toBeInTheDocument();
 	expect(screen.getByRole("dialog")).toHaveClass("sm:max-w-[1240px]");
+	expect(screen.getByRole("table")).toHaveClass("min-w-[820px]");
 });
 
 it("does not show an invoice link when no document is attached", async () => {

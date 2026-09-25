@@ -76,7 +76,10 @@ it.each([
 			contractQuantity={contractQuantity as number | null}
 		/>,
 	);
-	expect(screen.getByRole("button")).toHaveClass(color as string);
+	expect(screen.getByRole("button")).toHaveClass(
+		color as string,
+		"cursor-pointer",
+	);
 	expect(
 		getDefaultConstructionForma2PositionQuantityDetails,
 	).not.toHaveBeenCalled();

@@ -151,7 +151,7 @@ export function DefaultConstructionForma2CostBreakdown({
 					setInvoice(null);
 					void showDetails();
 				}}
-				className="h-auto min-w-0 p-0 text-inherit underline decoration-dotted underline-offset-4 hover:text-primary"
+				className="h-auto min-w-0 cursor-pointer p-0 text-inherit underline decoration-dotted underline-offset-4 hover:text-primary"
 			>
 				{formatCurrency(amount, locale)}
 			</Button>
@@ -162,7 +162,7 @@ export function DefaultConstructionForma2CostBreakdown({
 				}}
 			>
 				<DialogContent
-					className={`flex max-h-[90dvh] w-[calc(100vw-3rem)] flex-col gap-0 overflow-hidden p-0 ${invoice ? "h-[88dvh] sm:max-w-[1600px]" : "sm:max-w-[1240px]"}`}
+					className={`flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 ${invoice ? "h-[88dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] sm:max-w-[1920px]" : "w-[calc(100vw-3rem)] sm:max-w-[1240px]"}`}
 				>
 					<DialogHeader className="shrink-0 border-b px-6 py-5 pr-12">
 						<DialogTitle>{copy.title}</DialogTitle>
@@ -179,7 +179,7 @@ export function DefaultConstructionForma2CostBreakdown({
 						</div>
 					) : details ? (
 						<div
-							className={`min-h-0 flex-1 overflow-y-auto ${invoice ? "grid xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] xl:overflow-hidden" : ""}`}
+							className={`min-h-0 flex-1 overflow-y-auto ${invoice ? "grid xl:grid-cols-[minmax(0,1fr)_clamp(320px,30vw,560px)] xl:overflow-hidden" : ""}`}
 						>
 							<div className="min-h-0 min-w-0 overflow-y-auto overscroll-contain px-5 pb-5">
 								<div className="flex flex-wrap items-center justify-between gap-3 py-4">
@@ -193,15 +193,17 @@ export function DefaultConstructionForma2CostBreakdown({
 									</div>
 								</div>
 								<div className="overflow-x-auto rounded-lg border">
-									<Table className="min-w-[820px] table-fixed text-xs">
+									<Table
+										className={`${invoice ? "min-w-[1200px]" : "min-w-[820px]"} table-fixed text-xs`}
+									>
 										<colgroup>
 											<col className="w-[88px]" />
-											<col className="w-[144px]" />
-											<col className="w-[20%]" />
+											<col className="w-[128px]" />
+											<col className={invoice ? "w-[180px]" : "w-[20%]"} />
 											<col />
 											<col className="w-[48px]" />
-											<col className="w-[80px]" />
-											<col className="w-[92px]" />
+											<col className="w-[72px]" />
+											<col className="w-[88px]" />
 										</colgroup>
 										<TableHeader>
 											<TableRow>

@@ -139,7 +139,7 @@ export function DefaultConstructionForma2QuantityBreakdown({
 				variant="link"
 				onClick={() => setOpen(true)}
 				aria-label={`${copy.title}: ${format(amount)}${comparison === "neutral" ? "" : `, ${copy[comparison]}`}`}
-				className={`h-auto min-w-0 p-0 underline decoration-dotted underline-offset-4 hover:text-inherit ${color}`}
+				className={`h-auto min-w-0 cursor-pointer p-0 underline decoration-dotted underline-offset-4 hover:text-inherit ${color}`}
 			>
 				{new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(
 					amount,
