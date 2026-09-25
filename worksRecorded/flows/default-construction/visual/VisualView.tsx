@@ -1,6 +1,6 @@
 "use client";
 
-import { Layers, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Layers, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
 	AlertDialog,
@@ -127,6 +127,21 @@ export default function VisualView({ siteId }: { siteId: string }) {
 			if (request === requestId.current) setLoading(false);
 		}
 		return null;
+	}
+	function selectLocation(value: string) {
+		++requestId.current;
+		setLocation(value);
+		setDrawing(null);
+		setSelected(null);
+		setFile(null);
+		setError(null);
+		setLoading(false);
+		const assigned = index?.drawings.find(
+			(item) =>
+				normalizeVisualLocation(item.location) ===
+				normalizeVisualLocation(value),
+		);
+		if (assigned) void loadDrawing(assigned.id);
 	}
 	async function analyze(id: string, run: number) {
 		while (run === epoch.current) {
@@ -263,9 +278,8 @@ export default function VisualView({ siteId }: { siteId: string }) {
 			<CardHeader className="border-b py-4">
 				<CardTitle>Visual — darbu slāņi</CardTitle>
 				<p className="text-sm text-muted-foreground">
-					Izvēlieties lokāciju un augšupielādējiet tās PDF rasējumu. AI
-					salīdzinās to ar šīs lokācijas žurnāla ierakstiem piesaistītajiem
-					attēliem.
+					Izvēlieties lokāciju, lai atvērtu tās rasējumu un darbu slāņus. PDF
+					rasējums jāpievieno tikai vienreiz; to var aizstāt, ja nepieciešams.
 				</p>
 			</CardHeader>
 			<CardContent className="space-y-4 p-4">
@@ -274,13 +288,8 @@ export default function VisualView({ siteId }: { siteId: string }) {
 						<Label>Lokācija</Label>
 						<Select
 							value={location}
-							disabled={controlsLocked || loading}
-							onValueChange={(value) => {
-								++requestId.current;
-								setLocation(value);
-								setDrawing(null);
-								setSelected(null);
-							}}
+							disabled={controlsLocked || !index}
+							onValueChange={selectLocation}
 						>
 							<SelectTrigger aria-label="Lokācija">
 								<SelectValue placeholder="Izvēlieties lokāciju" />
@@ -295,27 +304,24 @@ export default function VisualView({ siteId }: { siteId: string }) {
 						</Select>
 					</div>
 					<div className="min-w-0 space-y-2">
-						<Label>Lokācijas rasējums</Label>
-						<Select
-							value={drawing?.id ?? ""}
-							disabled={controlsLocked || loading || !locationDrawings.length}
-							onValueChange={(id) => void loadDrawing(id)}
-						>
-							<SelectTrigger
-								aria-label="Saglabātie rasējumi"
-								className="w-full min-w-0 [&_[data-slot=select-value]]:block [&_[data-slot=select-value]]:truncate"
+						<p className="text-sm font-medium">Lokācijas rasējums</p>
+						<p className="py-2 text-sm [overflow-wrap:anywhere]">
+							{drawing?.name ||
+								locationDrawings[0]?.name ||
+								(location
+									? "Rasējums vēl nav pievienots"
+									: "Izvēlieties lokāciju")}
+						</p>
+						{error && !drawing && locationDrawings[0] ? (
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={loading || controlsLocked}
+								onClick={() => void loadDrawing(locationDrawings[0].id)}
 							>
-								<SelectValue placeholder="Izvēlieties rasējumu" />
-							</SelectTrigger>
-							<SelectContent>
-								{locationDrawings.map((item) => (
-									<SelectItem key={item.id} value={item.id}>
-										{item.name} ·{" "}
-										{new Date(item.createdAt).toLocaleString("lv-LV")}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
+								Mēģināt vēlreiz
+							</Button>
+						) : null}
 					</div>
 				</div>
 				{index && !index.locations.length ? (
@@ -325,11 +331,13 @@ export default function VisualView({ siteId }: { siteId: string }) {
 					</p>
 				) : null}
 				<details
-					open={!drawing}
+					open={!locationDrawings.length && !drawing}
 					className="rounded-lg border bg-muted/20 px-3 py-2"
 				>
 					<summary className="cursor-pointer text-sm font-medium">
-						{drawing ? "Aizstāt PDF rasējumu" : "Augšupielādēt PDF rasējumu"}
+						{drawing || locationDrawings.length
+							? "Aizstāt PDF rasējumu"
+							: "Augšupielādēt PDF rasējumu"}
 					</summary>
 					<div className="mt-3 flex flex-wrap items-end gap-3 pb-1">
 						<div className="min-w-0 flex-1 space-y-2">
@@ -337,6 +345,7 @@ export default function VisualView({ siteId }: { siteId: string }) {
 								Jauns PDF rasējums (līdz 16 MB, 10 lapām)
 							</Label>
 							<Input
+								key={location}
 								id={fileId}
 								type="file"
 								accept="application/pdf,.pdf"
@@ -440,9 +449,9 @@ export default function VisualView({ siteId }: { siteId: string }) {
 								onClick={() => setSidebarOpen((value) => !value)}
 							>
 								{sidebarOpen ? (
-									<PanelRightClose className="mr-2 h-4 w-4" />
+									<PanelLeftClose className="mr-2 h-4 w-4" />
 								) : (
-									<PanelRightOpen className="mr-2 h-4 w-4" />
+									<PanelLeftOpen className="mr-2 h-4 w-4" />
 								)}
 								{sidebarOpen
 									? "Paslēpt slāņus un avotus"
@@ -450,12 +459,12 @@ export default function VisualView({ siteId }: { siteId: string }) {
 							</Button>
 						</div>
 						<div
-							className={`grid min-w-0 items-start gap-4 ${sidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_280px]" : "grid-cols-1"}`}
+							className={`grid min-w-0 items-start gap-4 ${sidebarOpen ? "lg:grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-1"}`}
 						>
 							<aside
 								id={`${fileId}-sidebar`}
 								hidden={!sidebarOpen}
-								className="order-2 min-w-0 space-y-4 overflow-y-auto rounded-xl border bg-background p-3 lg:max-h-[min(70dvh,800px)]"
+								className="order-2 min-w-0 space-y-4 overflow-y-auto rounded-xl border bg-background p-3 lg:order-1 lg:max-h-[min(70dvh,800px)]"
 								aria-label="Darbu slāņi un avoti"
 							>
 								<fieldset
@@ -539,13 +548,6 @@ export default function VisualView({ siteId }: { siteId: string }) {
 											<p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
 												{source.description}
 											</p>
-											<p>{selectedMark.explanation}</p>
-											<p className="text-xs font-medium text-muted-foreground">
-												Aptuvens izvietojums — jāpārbauda.
-											</p>
-											<p className="text-xs text-muted-foreground">
-												{selectedMark.anchors.join("; ")}
-											</p>
 											<DiaryRecordPhotos
 												photos={[source.photoUrl]}
 												language="lv"
@@ -558,7 +560,7 @@ export default function VisualView({ siteId }: { siteId: string }) {
 									)}
 								</div>
 							</aside>
-							<div className="order-1 min-w-0 space-y-4">
+							<div className="order-1 min-w-0 space-y-4 lg:order-2">
 								<VisualPdf
 									key={drawing.id}
 									url={`${endpoint(drawing.id)}?pdf=1`}

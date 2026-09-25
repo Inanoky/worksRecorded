@@ -1,0 +1,388 @@
+{
+  "organizationId": "58467603-196e-4661-83ff-fe26e4b0ff0b",
+  "mode": "apply-planned",
+  "changes": [
+    {
+      "id": "622d7db9-18ac-44f1-b741-a2d9a98c8deb",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ3mEp53H3Skr0ftbTAUVCdsW2gaGyq7jFuwmX"
+      ],
+      "evidence": [
+        {
+          "photoId": "e11e8b95-bf29-4cea-b2d1-9a5cb894c32c",
+          "recordId": "622d7db9-18ac-44f1-b741-a2d9a98c8deb",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ3mEp53H3Skr0ftbTAUVCdsW2gaGyq7jFuwmX",
+          "evidence": "source-filename:00000648-PHOTO-2026-04-28-14-46-50.jpg"
+        }
+      ]
+    },
+    {
+      "id": "ac656aa6-e674-4cd4-910c-c48d1754eec0",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJVKGddTDFPti24r7JovzAjSqYOb6QWV0MaCk9"
+      ],
+      "evidence": [
+        {
+          "photoId": "0b04c076-36f3-4bc8-9dac-98e4ec1a27a1",
+          "recordId": "ac656aa6-e674-4cd4-910c-c48d1754eec0",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJVKGddTDFPti24r7JovzAjSqYOb6QWV0MaCk9",
+          "evidence": "source-filename:00000589-PHOTO-2026-04-09-18-11-18.jpg"
+        }
+      ]
+    },
+    {
+      "id": "5a604fcc-f4ad-4fbf-aae1-c64b00053534",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJVKGddTDFPti24r7JovzAjSqYOb6QWV0MaCk9"
+      ],
+      "evidence": [
+        {
+          "photoId": "0b04c076-36f3-4bc8-9dac-98e4ec1a27a1",
+          "recordId": "5a604fcc-f4ad-4fbf-aae1-c64b00053534",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJVKGddTDFPti24r7JovzAjSqYOb6QWV0MaCk9",
+          "evidence": "source-filename:00000589-PHOTO-2026-04-09-18-11-18.jpg"
+        }
+      ]
+    },
+    {
+      "id": "e104d0d5-4fa7-4539-a2a4-63f6896efdfe",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJbBR4uMSKpho6OtYgEUcXdslxve8TymbB57Rn"
+      ],
+      "evidence": [
+        {
+          "photoId": "0d90d8cf-d00b-4a4d-a16a-ce0c73d296eb",
+          "recordId": "e104d0d5-4fa7-4539-a2a4-63f6896efdfe",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJbBR4uMSKpho6OtYgEUcXdslxve8TymbB57Rn",
+          "evidence": "source-filename:00000597-PHOTO-2026-04-10-20-02-54.jpg"
+        }
+      ]
+    },
+    {
+      "id": "7e77113c-77e1-40bc-8e26-96d6ba275a2a",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJXpryUybUDKufW9A4YCPc0HwFBse2xoNMlIiJ"
+      ],
+      "evidence": [
+        {
+          "photoId": "ffe0e43a-96cf-45ad-ac17-e78a0a6ca5ee",
+          "recordId": "7e77113c-77e1-40bc-8e26-96d6ba275a2a",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJXpryUybUDKufW9A4YCPc0HwFBse2xoNMlIiJ",
+          "evidence": "source-filename:00000599-PHOTO-2026-04-11-16-06-23.jpg"
+        }
+      ]
+    },
+    {
+      "id": "75fa6c70-092b-4e6d-8f9e-4cdaa5fade36",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJvpsgSeVqhACknled54zo6Sm2BLQG9txuiTUf"
+      ],
+      "evidence": [
+        {
+          "photoId": "4f368aa3-2d58-459d-a928-127611714e06",
+          "recordId": "75fa6c70-092b-4e6d-8f9e-4cdaa5fade36",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJvpsgSeVqhACknled54zo6Sm2BLQG9txuiTUf",
+          "evidence": "source-filename:00000619-PHOTO-2026-04-20-19-34-16.jpg"
+        }
+      ]
+    },
+    {
+      "id": "83bbd76c-a3f4-4baf-b639-f4f85943f97a",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJDS7yGZisWf6nJ8aeqPTV0FrGRN1C2wxUEcoX"
+      ],
+      "evidence": [
+        {
+          "photoId": "a0f7aa94-7938-4622-a809-c5527887b960",
+          "recordId": "83bbd76c-a3f4-4baf-b639-f4f85943f97a",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJDS7yGZisWf6nJ8aeqPTV0FrGRN1C2wxUEcoX",
+          "evidence": "source-filename:00000629-PHOTO-2026-04-22-20-18-45.jpg"
+        }
+      ]
+    },
+    {
+      "id": "52809741-7c71-4bad-bc35-0dc219f1843e",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJiBuDF5aQ4ou5mryCiSb8lX6Rq2ZVnkcvDP3a"
+      ],
+      "evidence": [
+        {
+          "photoId": "2353398d-6759-4905-a44d-dff63aeb5b2a",
+          "recordId": "52809741-7c71-4bad-bc35-0dc219f1843e",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJiBuDF5aQ4ou5mryCiSb8lX6Rq2ZVnkcvDP3a",
+          "evidence": "source-filename:00000637-PHOTO-2026-04-24-17-00-56.jpg"
+        }
+      ]
+    },
+    {
+      "id": "d003c3df-1aaf-4ae3-b5ea-e963d78d1517",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJV6Ap9iDFPti24r7JovzAjSqYOb6QWV0MaCk9"
+      ],
+      "evidence": [
+        {
+          "photoId": "49b06047-bea7-47f5-b38f-2a34d130cf79",
+          "recordId": "d003c3df-1aaf-4ae3-b5ea-e963d78d1517",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJV6Ap9iDFPti24r7JovzAjSqYOb6QWV0MaCk9",
+          "evidence": "source-filename:00000552-PHOTO-2026-03-21-14-36-51.jpg"
+        }
+      ]
+    },
+    {
+      "id": "39a20752-e1d9-4fd0-a4cd-659fa8774761",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJJMHnrL1ANm5fYlebixuhJ8pSGUzE9XkTtqLo"
+      ],
+      "evidence": [
+        {
+          "photoId": "0a3774a5-b5cb-46b6-9562-3489ee26f31f",
+          "recordId": "39a20752-e1d9-4fd0-a4cd-659fa8774761",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJJMHnrL1ANm5fYlebixuhJ8pSGUzE9XkTtqLo",
+          "evidence": "source-filename:00000555-PHOTO-2026-03-26-07-44-38.jpg"
+        }
+      ]
+    },
+    {
+      "id": "20b50e97-eda7-43f0-a1f2-1eb2e0cbfb40",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJouTKGi6WTa7Sv9YqmyHEDLXZhFPkzibjR5VU"
+      ],
+      "evidence": [
+        {
+          "photoId": "2dfaaeef-4076-4b34-b1b5-f0af59cea844",
+          "recordId": "20b50e97-eda7-43f0-a1f2-1eb2e0cbfb40",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJouTKGi6WTa7Sv9YqmyHEDLXZhFPkzibjR5VU",
+          "evidence": "source-filename:00000556-PHOTO-2026-03-26-16-28-42.jpg"
+        }
+      ]
+    },
+    {
+      "id": "5652f5b0-bfbc-4ec0-bb8f-95a5db0e7305",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJqxt6kc519hSANvzQoZxdWJenfy02aP8CkTrX"
+      ],
+      "evidence": [
+        {
+          "photoId": "a15b5af2-c085-4ebd-8ca9-164051c78b19",
+          "recordId": "5652f5b0-bfbc-4ec0-bb8f-95a5db0e7305",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJqxt6kc519hSANvzQoZxdWJenfy02aP8CkTrX",
+          "evidence": "source-filename:00000561-PHOTO-2026-03-27-13-39-03.jpg"
+        }
+      ]
+    },
+    {
+      "id": "5f6646e2-4e95-4b10-b437-9c83febac140",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJtHP4SPczs9Qa0byKRPYnMI1FTf8CHdmrJikg"
+      ],
+      "evidence": [
+        {
+          "photoId": "eb62883f-77c5-4a6e-8f6b-257d907e2911",
+          "recordId": "5f6646e2-4e95-4b10-b437-9c83febac140",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJtHP4SPczs9Qa0byKRPYnMI1FTf8CHdmrJikg",
+          "evidence": "source-filename:00000566-PHOTO-2026-03-28-16-50-31.jpg"
+        }
+      ]
+    },
+    {
+      "id": "d4b3165c-e4ef-4093-a7cd-f3749da14d45",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJK3AZGsoo2wbSqXQlOU1nGuxEZkAdmv56tscW"
+      ],
+      "evidence": [
+        {
+          "photoId": "8a8932b1-4d4e-4ad4-80f4-a35ce30cce32",
+          "recordId": "d4b3165c-e4ef-4093-a7cd-f3749da14d45",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJK3AZGsoo2wbSqXQlOU1nGuxEZkAdmv56tscW",
+          "evidence": "source-filename:00000574-PHOTO-2026-03-31-19-34-41.jpg"
+        }
+      ]
+    },
+    {
+      "id": "0fe9cfdc-d454-4681-9bf1-334b138d16bd",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJLMY1qZXAkeqY6RQnbWu3ad81lswgXrzTKGcO"
+      ],
+      "evidence": [
+        {
+          "photoId": "86e3c8b7-82f3-46d5-ac4c-df8537978d15",
+          "recordId": "0fe9cfdc-d454-4681-9bf1-334b138d16bd",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJLMY1qZXAkeqY6RQnbWu3ad81lswgXrzTKGcO",
+          "evidence": "source-filename:00000579-PHOTO-2026-04-01-18-03-58.jpg"
+        }
+      ]
+    },
+    {
+      "id": "05dbe1a1-6a2a-4009-b0c5-357896f98dd8",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJc3F6Zx9F7jOALxHP0UCSQTXMpl8dNYKgRq3z"
+      ],
+      "evidence": [
+        {
+          "photoId": "ee0a2265-4944-418c-98ee-32e38f91fc08",
+          "recordId": "05dbe1a1-6a2a-4009-b0c5-357896f98dd8",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJc3F6Zx9F7jOALxHP0UCSQTXMpl8dNYKgRq3z",
+          "evidence": "source-filename:00000665-PHOTO-2026-05-06-15-14-36.jpg"
+        }
+      ]
+    },
+    {
+      "id": "afdcffff-93a7-4b90-9add-a4f9f89fe80d",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJc3F6Zx9F7jOALxHP0UCSQTXMpl8dNYKgRq3z"
+      ],
+      "evidence": [
+        {
+          "photoId": "ee0a2265-4944-418c-98ee-32e38f91fc08",
+          "recordId": "afdcffff-93a7-4b90-9add-a4f9f89fe80d",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJc3F6Zx9F7jOALxHP0UCSQTXMpl8dNYKgRq3z",
+          "evidence": "source-filename:00000665-PHOTO-2026-05-06-15-14-36.jpg"
+        }
+      ]
+    },
+    {
+      "id": "f298a8ed-0eec-4b7b-8dec-7e5b146b70f5",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJbBeT3iSKpho6OtYgEUcXdslxve8TymbB57Rn"
+      ],
+      "evidence": [
+        {
+          "photoId": "f0a9974c-066d-4767-a068-95fb80a31f5a",
+          "recordId": "f298a8ed-0eec-4b7b-8dec-7e5b146b70f5",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJbBeT3iSKpho6OtYgEUcXdslxve8TymbB57Rn",
+          "evidence": "source-filename:00000714-PHOTO-2026-05-25-21-38-26.jpg"
+        }
+      ]
+    },
+    {
+      "id": "47a86be7-fd5e-4c69-b73a-270705386245",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJmbbDX5xLwyQO8NZ6pxTWjaJiKrFYu3ncEb49"
+      ],
+      "evidence": [
+        {
+          "photoId": "2d5a87fa-966c-409d-a649-a2f83b0620fb",
+          "recordId": "47a86be7-fd5e-4c69-b73a-270705386245",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJmbbDX5xLwyQO8NZ6pxTWjaJiKrFYu3ncEb49",
+          "evidence": "source-filename:00000767-PHOTO-2026-06-26-23-10-09.jpg"
+        }
+      ]
+    },
+    {
+      "id": "f0ce9741-771a-4f69-a9ce-ba98e75dbc2b",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJmbbDX5xLwyQO8NZ6pxTWjaJiKrFYu3ncEb49"
+      ],
+      "evidence": [
+        {
+          "photoId": "2d5a87fa-966c-409d-a649-a2f83b0620fb",
+          "recordId": "f0ce9741-771a-4f69-a9ce-ba98e75dbc2b",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJmbbDX5xLwyQO8NZ6pxTWjaJiKrFYu3ncEb49",
+          "evidence": "source-filename:00000767-PHOTO-2026-06-26-23-10-09.jpg"
+        }
+      ]
+    },
+    {
+      "id": "a28e5dda-d007-4016-9df7-340b2ef283dc",
+      "siteId": "39b1e8cd-d956-4bd9-aa68-a2930196c0bf",
+      "before": [],
+      "after": [
+        "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJmbbDX5xLwyQO8NZ6pxTWjaJiKrFYu3ncEb49"
+      ],
+      "evidence": [
+        {
+          "photoId": "2d5a87fa-966c-409d-a649-a2f83b0620fb",
+          "recordId": "a28e5dda-d007-4016-9df7-340b2ef283dc",
+          "url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJmbbDX5xLwyQO8NZ6pxTWjaJiKrFYu3ncEb49",
+          "evidence": "source-filename:00000767-PHOTO-2026-06-26-23-10-09.jpg"
+        }
+      ]
+    }
+  ],
+  "unresolved": [
+    {
+      "photoId": "9cf51d97-b6d8-454b-a348-fb7d1e1b63a3",
+      "reason": "no-explicit-source-match"
+    },
+    {
+      "photoId": "f5c6fe6e-2677-47f5-80bd-eef46d13ecee",
+      "reason": "no-explicit-source-match"
+    },
+    {
+      "photoId": "9a589dea-9cc1-43a3-b4d5-2a9ed0cf2a3f",
+      "reason": "no-explicit-source-match"
+    },
+    {
+      "photoId": "57b5f065-82f2-408e-be92-165aff2ab3e6",
+      "reason": "no-explicit-source-match"
+    },
+    {
+      "photoId": "58b35972-3c38-4b0f-8786-46feb6b80a14",
+      "reason": "no-explicit-source-match"
+    },
+    {
+      "photoId": "1048682e-944c-4b7b-b7bc-f7d01a46fbd0",
+      "reason": "no-explicit-source-match"
+    },
+    {
+      "photoId": "2467221e-539c-4c57-bdbf-3169edf3f430",
+      "reason": "no-explicit-source-match"
+    },
+    {
+      "photoId": "5189383b-78c5-4301-812b-260aacf28e91",
+      "reason": "no-explicit-source-match"
+    },
+    {
+      "photoId": "61ec1a8b-db6f-4462-bd8b-5b070a7f08a4",
+      "reason": "no-explicit-source-match"
+    },
+    {
+      "photoId": "3fe04fe1-cc71-4e17-891a-4296adfb6bd8",
+      "reason": "no-explicit-source-match"
+    },
+    {
+      "photoId": "be0c07f6-e340-486a-bfe2-e9ef1a15afee",
+      "reason": "no-explicit-source-match"
+    }
+  ]
+}

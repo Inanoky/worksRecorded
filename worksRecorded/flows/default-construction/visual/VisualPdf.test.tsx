@@ -101,6 +101,32 @@ it("navigates to the selected source's page and destroys the PDF on unmount", as
 	expect(mockDestroy).toHaveBeenCalled();
 });
 
+it("highlights a hovered or focused zone without selecting or saving it", async () => {
+	const onSelect = jest.fn();
+	const { container } = render(
+		<VisualPdf
+			url="/drawing"
+			marks={[mark]}
+			selected={null}
+			onSelect={onSelect}
+		/>,
+	);
+	const target = await screen.findByRole("button", { name: "XPS: Sakrīt" });
+	const polygon = container.querySelector("polygon");
+	expect(polygon).toHaveAttribute("fill-opacity", "0.5");
+	fireEvent.pointerEnter(target);
+	expect(polygon).toHaveAttribute("fill-opacity", "0.8");
+	expect(polygon).toHaveAttribute("stroke-width", "3");
+	fireEvent.pointerLeave(target);
+	expect(polygon).toHaveAttribute("fill-opacity", "0.5");
+	fireEvent.focus(target);
+	expect(polygon).toHaveAttribute("fill-opacity", "0.8");
+	fireEvent.blur(target);
+	expect(polygon).toHaveAttribute("fill-opacity", "0.5");
+	expect(onSelect).not.toHaveBeenCalled();
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+});
+
 it("shows a PDF load error without drawing overlays", async () => {
 	jest.mocked(global.fetch).mockResolvedValue({ ok: false } as Response);
 	const { container } = render(

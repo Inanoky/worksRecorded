@@ -137,15 +137,12 @@ async function selectLocation() {
 	fireEvent.change(screen.getAllByRole("combobox")[0], {
 		target: { value: "1. stāvs" },
 	});
+	await screen.findByTestId("pdf");
 }
 
 async function selectDrawing() {
 	render(<VisualView siteId="site" />);
 	await selectLocation();
-	fireEvent.change(screen.getAllByRole("combobox")[1], {
-		target: { value: "drawing" },
-	});
-	await screen.findByTestId("pdf");
 }
 
 it("requires confirmation before deletion and removes the drawing from the view", async () => {
@@ -161,9 +158,7 @@ it("requires confirmation before deletion and removes the drawing from the view"
 		expect(screen.queryByTestId("pdf")).not.toBeInTheDocument(),
 	);
 	expect(deleteVisualDrawing).toHaveBeenCalledWith("site", "drawing");
-	expect(
-		screen.queryByRole("option", { name: /plan.pdf/ }),
-	).not.toBeInTheDocument();
+	expect(screen.queryByText("plan.pdf")).not.toBeInTheDocument();
 });
 
 it("keeps the drawing visible when deletion fails", async () => {
@@ -199,9 +194,7 @@ it("restarts a completed analysis only after confirmation", async () => {
 it("loads saved location drawings and toggles layer visibility instantly", async () => {
 	render(<VisualView siteId="site" />);
 	await selectLocation();
-	fireEvent.change(screen.getAllByRole("combobox")[1], {
-		target: { value: "drawing" },
-	});
+	expect(screen.getAllByRole("combobox")).toHaveLength(1);
 	expect(await screen.findByTestId("pdf")).toHaveTextContent("1 zones");
 	fireEvent.click(screen.getByRole("checkbox", { name: "Smilts (1)" }));
 	expect(screen.getByTestId("pdf")).toHaveTextContent("0 zones");
@@ -210,6 +203,9 @@ it("loads saved location drawings and toggles layer visibility instantly", async
 		target: { value: "2. stāvs" },
 	});
 	expect(screen.queryByTestId("pdf")).not.toBeInTheDocument();
+	expect(screen.getByText("Rasējums vēl nav pievienots")).toBeInTheDocument();
+	expect(mockFetch).toHaveBeenCalledTimes(1);
+	expect(mockUpload).not.toHaveBeenCalled();
 });
 
 it("places layer toggles and dated sources in the sidebar in chronological order", async () => {
@@ -249,15 +245,27 @@ it("places layer toggles and dated sources in the sidebar in chronological order
 		within(sidebar).getByRole("checkbox", { name: "Smilts (2)" }),
 	).toBeInTheDocument();
 	const entries = within(sidebar).getAllByRole("button");
+	expect(sidebar).toHaveClass("lg:order-1");
+	expect(sidebar.parentElement).toHaveClass(
+		"lg:grid-cols-[280px_minmax(0,1fr)]",
+	);
 	expect(entries[0]).toHaveTextContent("20.09.2026");
 	expect(entries[0]).toHaveTextContent("Earlier work");
 	expect(entries[1]).toHaveTextContent("23.09.2026");
 	expect(entries[1]).toHaveTextContent("Later work");
+	fireEvent.click(entries[0]);
+	expect(within(sidebar).getByText("Pabeigts")).toBeInTheDocument();
+	expect(within(sidebar).queryByText("Sakrīt")).not.toBeInTheDocument();
+	expect(within(sidebar).queryByText("A; B")).not.toBeInTheDocument();
+	expect(
+		within(sidebar).queryByText(/Aptuvens izvietojums/),
+	).not.toBeInTheDocument();
 });
 
 it("uploads with the selected project/location and runs saved analysis", async () => {
 	render(<VisualView siteId="site" />);
 	await selectLocation();
+	fireEvent.click(screen.getByText("Aizstāt PDF rasējumu"));
 	const file = new File(["%PDF-1.7"], "plan.pdf", { type: "application/pdf" });
 	fireEvent.change(screen.getByLabelText(/Jauns PDF/), {
 		target: { files: [file] },
@@ -299,9 +307,6 @@ it("clearly displays a cannot-locate result", async () => {
 	});
 	render(<VisualView siteId="site" />);
 	await selectLocation();
-	fireEvent.change(screen.getAllByRole("combobox")[1], {
-		target: { value: "drawing" },
-	});
 	expect(await screen.findByRole("alert")).toHaveTextContent(
 		"Nevar atrast darbus",
 	);
@@ -311,6 +316,7 @@ it("clearly displays a cannot-locate result", async () => {
 it("rejects non-PDF uploads before calling the server", async () => {
 	render(<VisualView siteId="site" />);
 	await selectLocation();
+	fireEvent.click(screen.getByText("Aizstāt PDF rasējumu"));
 	fireEvent.change(screen.getByLabelText(/Jauns PDF/), {
 		target: {
 			files: [new File(["not pdf"], "test.txt", { type: "text/plain" })],
@@ -391,6 +397,49 @@ it("shows a disabled date slider when there is only one diary day", async () => 
 		screen.getByRole("button", { name: "Iepriekšējā diena" }),
 	).toBeDisabled();
 	expect(screen.getByRole("button", { name: "Nākamā diena" })).toBeDisabled();
+});
+
+it("ignores an old drawing response after switching to an unassigned location", async () => {
+	let finishLoad: (value: unknown) => void = () => {};
+	mockFetch.mockImplementationOnce(
+		() =>
+			new Promise((resolve) => {
+				finishLoad = resolve;
+			}),
+	);
+	render(<VisualView siteId="site" />);
+	await screen.findByRole("option", { name: "1. stāvs" });
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "1. stāvs" },
+	});
+	expect(screen.getByText("Ielādē…")).toBeInTheDocument();
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "2. stāvs" },
+	});
+	await act(async () => {
+		finishLoad({ ok: true, json: async () => complete });
+	});
+	expect(screen.getByRole("combobox")).toHaveValue("2. stāvs");
+	expect(screen.queryByTestId("pdf")).not.toBeInTheDocument();
+	expect(screen.queryByText("Ielādē…")).not.toBeInTheDocument();
+});
+
+it("can retry loading the assigned drawing without a second selector", async () => {
+	mockFetch.mockRejectedValueOnce(new Error("Network"));
+	render(<VisualView siteId="site" />);
+	await screen.findByRole("option", { name: "1. stāvs" });
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "1. stāvs" },
+	});
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Neizdevās ielādēt rasējumu",
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Mēģināt vēlreiz" }));
+	await screen.findByTestId("pdf");
+	expect(mockFetch).toHaveBeenCalledTimes(2);
+	expect(mockFetch).toHaveBeenLastCalledWith("/api/sites/site/visual/drawing", {
+		cache: "no-store",
+	});
 });
 
 it("shows the loading state while waiting for an analysis batch", async () => {

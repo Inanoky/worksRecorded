@@ -14,11 +14,13 @@ export function VisualZoneTarget({
 	source,
 	disabled,
 	onSelect,
+	onHighlight,
 }: {
 	mark: VisualMark;
 	source?: VisualEvidence;
 	disabled: boolean;
 	onSelect: () => void;
+	onHighlight: (active: boolean) => void;
 }) {
 	const xs = mark.polygon.map((point) => point.x);
 	const ys = mark.polygon.map((point) => point.y);
@@ -35,7 +37,7 @@ export function VisualZoneTarget({
 					variant="ghost"
 					disabled={disabled}
 					aria-label={`${visualLayers[mark.layer].label}: ${mark.explanation}`}
-					className="absolute rounded-none bg-transparent p-0 hover:bg-transparent focus-visible:bg-primary/20"
+					className="absolute cursor-pointer rounded-none bg-transparent p-0 hover:bg-transparent focus-visible:bg-primary/20"
 					style={{
 						left: `${left * 100}%`,
 						top: `${top * 100}%`,
@@ -44,6 +46,14 @@ export function VisualZoneTarget({
 						clipPath: `polygon(${mark.polygon.map((point) => `${((point.x - left) / width) * 100}% ${((point.y - top) / height) * 100}%`).join(",")})`,
 					}}
 					onClick={onSelect}
+					onPointerEnter={() => {
+						if (!disabled) onHighlight(true);
+					}}
+					onPointerLeave={() => onHighlight(false)}
+					onFocus={() => {
+						if (!disabled) onHighlight(true);
+					}}
+					onBlur={() => onHighlight(false)}
 				/>
 			</HoverCardTrigger>
 			<HoverCardContent

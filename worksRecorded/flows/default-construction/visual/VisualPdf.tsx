@@ -41,6 +41,7 @@ export function VisualPdf({
 	const [aspect, setAspect] = useState(1);
 	const [error, setError] = useState(false);
 	const [ready, setReady] = useState(false);
+	const [highlighted, setHighlighted] = useState<string | null>(null);
 	const canvas = useRef<HTMLCanvasElement>(null);
 	const [draft, setDraft] = useState<PolygonEdit | null>(null);
 	const [cornerIds, setCornerIds] = useState<string[]>([]);
@@ -54,6 +55,15 @@ export function VisualPdf({
 		ready && !draft,
 	);
 	const { surface } = navigation;
+	const interactionLocked = !!draft || navigation.panning;
+	useEffect(() => {
+		setHighlighted((current) =>
+			interactionLocked ||
+			!marks.some((mark) => mark.id === current && mark.page === page)
+				? null
+				: current,
+		);
+	}, [page, interactionLocked, marks]);
 	const selectedMark = marks.find((mark) => mark.id === selected);
 	const shownMarks = marks.map((mark) =>
 		draft?.markId === mark.id ? { ...mark, polygon: draft.polygon } : mark,
@@ -107,6 +117,7 @@ export function VisualPdf({
 			| undefined;
 		const abort = new AbortController();
 		setDocument(null);
+		setHighlighted(null);
 		setError(false);
 		setReady(false);
 		setPage(1);
@@ -399,11 +410,23 @@ export function VisualPdf({
 											.map((point) => `${point.x},${point.y}`)
 											.join(" ")}
 										fill={visualLayers[mark.layer].color}
-										fillOpacity={selected === mark.id ? 0.7 : 0.5}
-										stroke={visualLayers[mark.layer].color}
-										strokeWidth={selected === mark.id ? 2 : 1}
+										fillOpacity={
+											highlighted === mark.id
+												? 0.8
+												: selected === mark.id
+													? 0.7
+													: 0.5
+										}
+										stroke={
+											highlighted === mark.id
+												? "#0f172a"
+												: visualLayers[mark.layer].color
+										}
+										strokeWidth={
+											highlighted === mark.id ? 3 : selected === mark.id ? 2 : 1
+										}
 										vectorEffect="non-scaling-stroke"
-										className="cursor-pointer"
+										className="transition-[fill-opacity,stroke,stroke-width] duration-100 motion-reduce:transition-none"
 									>
 										<title>
 											{visualLayers[mark.layer].label}: {mark.explanation}
@@ -422,7 +445,12 @@ export function VisualPdf({
 										source={evidence.find(
 											(item) => item.id === mark.evidenceId,
 										)}
-										disabled={!!draft || navigation.panning}
+										disabled={interactionLocked}
+										onHighlight={(active) =>
+											setHighlighted((current) =>
+												active ? mark.id : current === mark.id ? null : current,
+											)
+										}
 										onSelect={() => onSelect(mark.id)}
 									/>
 								))
