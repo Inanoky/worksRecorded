@@ -13,6 +13,15 @@ import {
 import { DefaultConstructionForma2CostBreakdown } from "./DefaultConstructionForma2CostBreakdown";
 
 const mockRefresh = jest.fn();
+jest.mock("./DefaultConstructionForma2PdfPreview", () => ({
+	DefaultConstructionForma2PdfPreview: ({
+		url,
+		title,
+	}: {
+		url: string;
+		title: string;
+	}) => <div title={`Invoice preview: ${title}`} data-source-url={url} />,
+}));
 jest.mock("next/navigation", () => ({
 	useRouter: () => ({ refresh: mockRefresh }),
 }));
@@ -69,6 +78,8 @@ function details(type: "work" | "material" = "work") {
 				label: "Original diary work",
 				secondaryLabel: "Floor 1",
 				invoiceUrl: null as string | null,
+				invoiceNumber: null as string | null,
+				supplierName: null as string | null,
 				date: "2026-09-25",
 				unit: "m2",
 				quantity: 10,
@@ -107,7 +118,9 @@ function openDetails() {
 		/>,
 	);
 	fireEvent.click(screen.getByRole("button"));
-	return screen.findByRole("combobox", { name: "Assigned position" });
+	return screen
+		.findAllByRole("combobox", { name: "Assigned position" })
+		.then((items) => items[0]);
 }
 
 it.each(["work", "material"] as const)(
@@ -200,6 +213,8 @@ it("simplifies material details and provides the original invoice preview", asyn
 	const result = details("material");
 	result.records[0].invoiceUrl = "https://example.com/invoice.pdf";
 	result.records[0].secondaryLabel = "Supplier · INV-123";
+	result.records[0].supplierName = "Supplier";
+	result.records[0].invoiceNumber = "INV-123";
 	jest
 		.mocked(getDefaultConstructionForma2PositionCostDetails)
 		.mockResolvedValue(result);
@@ -208,12 +223,35 @@ it("simplifies material details and provides the original invoice preview", asyn
 	expect(screen.queryByText("Included records")).not.toBeInTheDocument();
 	expect(screen.queryByText("Without calculable cost")).not.toBeInTheDocument();
 	expect(screen.queryByText("Material")).not.toBeInTheDocument();
-	expect(screen.getByText("Supplier · INV-123")).toBeInTheDocument();
+	expect(screen.getByText("Supplier")).toBeInTheDocument();
+	expect(
+		within(screen.getAllByRole("row")[1]).getAllByRole("cell")[2],
+	).toHaveTextContent("INV-123");
 	expect(screen.getAllByText("1. Original position")).toHaveLength(2);
-	const invoice = screen.getByRole("link", { name: /Open invoice/ });
-	expect(invoice).toHaveAttribute("href", "https://example.com/invoice.pdf");
-	expect(invoice).toHaveAttribute("target", "_blank");
-	expect(within(invoice).getByRole("img")).toBeInTheDocument();
+	expect(screen.getByRole("combobox").parentElement).toHaveClass("flex-nowrap");
+	expect(screen.getByRole("combobox").parentElement).not.toHaveClass(
+		"flex-wrap",
+		"[&>button]:basis-full",
+	);
+	expect(
+		screen.queryByTitle("Invoice preview: INV-123"),
+	).not.toBeInTheDocument();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Open invoice: INV-123" }),
+	);
+	expect(screen.getByTitle("Invoice preview: INV-123")).toHaveAttribute(
+		"data-source-url",
+		"https://example.com/invoice.pdf",
+	);
+	expect(
+		screen.getByRole("link", { name: "Open original in new tab" }),
+	).toHaveAttribute("href", "https://example.com/invoice.pdf");
+	expect(screen.getByRole("dialog")).toHaveClass("sm:max-w-[1600px]");
+	fireEvent.click(screen.getByRole("button", { name: "Close preview" }));
+	expect(
+		screen.queryByTitle("Invoice preview: INV-123"),
+	).not.toBeInTheDocument();
+	expect(screen.getByRole("dialog")).toHaveClass("sm:max-w-[1240px]");
 });
 
 it("does not show an invoice link when no document is attached", async () => {
@@ -222,8 +260,32 @@ it("does not show an invoice link when no document is attached", async () => {
 		.mockResolvedValue(details("material"));
 	await openDetails();
 	expect(
-		screen.queryByRole("link", { name: /Open invoice/ }),
+		screen.queryByRole("button", { name: /Open invoice/ }),
 	).not.toBeInTheDocument();
+});
+
+it("switches the adjacent preview without reloading cost details", async () => {
+	const result = details("material");
+	result.records = ["INV-1", "INV-2"].map((invoiceNumber) => ({
+		...result.records[0],
+		id: invoiceNumber,
+		invoiceNumber,
+		invoiceUrl: `https://example.com/${invoiceNumber}.pdf`,
+	}));
+	jest
+		.mocked(getDefaultConstructionForma2PositionCostDetails)
+		.mockResolvedValue(result);
+	await openDetails();
+	fireEvent.click(screen.getByRole("button", { name: "Open invoice: INV-1" }));
+	fireEvent.click(screen.getByRole("button", { name: "Open invoice: INV-2" }));
+	expect(screen.getByTitle("Invoice preview: INV-2")).toHaveAttribute(
+		"data-source-url",
+		"https://example.com/INV-2.pdf",
+	);
+	expect(screen.queryByTitle("Invoice preview: INV-1")).not.toBeInTheDocument();
+	expect(getDefaultConstructionForma2PositionCostDetails).toHaveBeenCalledTimes(
+		1,
+	);
 });
 
 it.each([
@@ -269,15 +331,16 @@ it.each([
 		).toEqual([
 			"Date",
 			"Record",
+			"Invoice no.",
 			"Assigned position",
 			"Unit",
 			"Quantity",
 			"Cost",
 		]);
 		const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
-		expect(cells[3]).toHaveTextContent(expectedUnit);
-		expect(cells[4]).toHaveTextContent(expectedQuantity);
+		expect(cells[4]).toHaveTextContent(expectedUnit);
+		expect(cells[5]).toHaveTextContent(expectedQuantity);
 		expect(screen.queryByText("Automatic")).not.toBeInTheDocument();
-		expect(screen.getByRole("dialog")).toHaveClass("sm:max-w-[1800px]");
+		expect(screen.getByRole("dialog")).toHaveClass("sm:max-w-[1240px]");
 	},
 );

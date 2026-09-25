@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -13,7 +13,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { SourceDocumentPreview } from "@/components/ui/SourceDocumentPreview";
 import {
 	Table,
 	TableBody,
@@ -25,6 +24,7 @@ import {
 import { getDefaultConstructionForma2PositionCostDetails } from "@/flows/default-construction/backend/forma2-analytics-actions";
 import { formatForma2PositionLabel } from "../lib/forma2-position-label";
 import { DefaultConstructionForma2AssignmentSelect } from "./DefaultConstructionForma2AssignmentSelect";
+import { DefaultConstructionForma2InvoicePreview } from "./DefaultConstructionForma2InvoicePreview";
 import { DefaultConstructionForma2SplitEditor } from "./DefaultConstructionForma2SplitEditor";
 
 type CostType = "work" | "material" | "total";
@@ -80,6 +80,8 @@ export function DefaultConstructionForma2CostBreakdown({
 					"Ieraksti, kas veido izvēlētās Formas 2 pozīcijas faktiskās izmaksas.",
 				calculatedTotal: "Aprēķinātā summa",
 				openInvoice: "Atvērt rēķinu",
+				invoice: "Rēķina Nr.",
+				calculationInfo: "Kā aprēķinātas izmaksas?",
 				workRule:
 					"Darbiem ar režīmu “Izpilde” izmaksas = daudzums × izpildes likme. Režīmā “Stundas likme” izmaksas = reģistrētās stundas × stundas likme.",
 				materialRule:
@@ -101,6 +103,8 @@ export function DefaultConstructionForma2CostBreakdown({
 					"Records included in the factual cost of the selected Forma 2 position.",
 				calculatedTotal: "Calculated total",
 				openInvoice: "Open invoice",
+				invoice: "Invoice no.",
+				calculationInfo: "How are costs calculated?",
 				workRule:
 					"For Output mode, work cost = quantity × output rate. For Hourly mode, work cost = recorded hours × hourly rate.",
 				materialRule:
@@ -120,6 +124,9 @@ export function DefaultConstructionForma2CostBreakdown({
 	const [loading, setLoading] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [details, setDetails] = useState<CostDetails | null>(null);
+	const [invoice, setInvoice] = useState<{ url: string; title: string } | null>(
+		null,
+	);
 
 	const showDetails = async () => {
 		setOpen(true);
@@ -150,7 +157,10 @@ export function DefaultConstructionForma2CostBreakdown({
 			<Button
 				type="button"
 				variant="link"
-				onClick={showDetails}
+				onClick={() => {
+					setInvoice(null);
+					void showDetails();
+				}}
 				className="h-auto min-w-0 p-0 text-inherit underline decoration-dotted underline-offset-4 hover:text-primary"
 			>
 				{formatCurrency(amount, locale)}
@@ -161,7 +171,9 @@ export function DefaultConstructionForma2CostBreakdown({
 					if (!saving) setOpen(next);
 				}}
 			>
-				<DialogContent className="flex h-[90dvh] max-h-[900px] w-[calc(100vw-2rem)] max-w-[1800px] flex-col overflow-hidden p-0 sm:max-w-[1800px]">
+				<DialogContent
+					className={`flex max-h-[90dvh] w-[calc(100vw-3rem)] flex-col gap-0 overflow-hidden p-0 ${invoice ? "h-[88dvh] sm:max-w-[1600px]" : "sm:max-w-[1240px]"}`}
+				>
 					<DialogHeader className="shrink-0 border-b px-6 py-5 pr-12">
 						<DialogTitle>{copy.title}</DialogTitle>
 						<DialogDescription>
@@ -176,177 +188,218 @@ export function DefaultConstructionForma2CostBreakdown({
 							<Loader2 className="size-6 animate-spin text-muted-foreground" />
 						</div>
 					) : details ? (
-						<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6 [scrollbar-gutter:stable]">
-							<div className="py-5 sm:max-w-xs">
-								<div className="rounded-lg border p-3">
-									<div className="text-xs text-muted-foreground">
-										{copy.calculatedTotal}
+						<div
+							className={`min-h-0 flex-1 overflow-y-auto ${invoice ? "grid xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] xl:overflow-hidden" : ""}`}
+						>
+							<div className="min-h-0 min-w-0 overflow-y-auto overscroll-contain px-5 pb-5">
+								<div className="flex flex-wrap items-center justify-between gap-3 py-4">
+									<div className="flex items-baseline gap-3">
+										<span className="text-sm text-muted-foreground">
+											{copy.calculatedTotal}
+										</span>
+										<span className="text-xl font-semibold tabular-nums">
+											{formatCurrency(details.calculatedTotal, locale)}
+										</span>
 									</div>
-									<div className="mt-1 text-xl font-semibold tabular-nums">
-										{formatCurrency(details.calculatedTotal, locale)}
-									</div>
+									<details className="w-full text-xs text-muted-foreground">
+										<summary className="cursor-pointer select-none">
+											{copy.calculationInfo}
+										</summary>
+										<div className="mt-2 space-y-1 rounded-md bg-muted/60 p-3">
+											{costType !== "material" ? <p>{copy.workRule}</p> : null}
+											{costType !== "work" ? <p>{copy.materialRule}</p> : null}
+										</div>
+									</details>
 								</div>
-							</div>
-
-							<div className="mb-4 space-y-1 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
-								{costType !== "material" ? <p>{copy.workRule}</p> : null}
-								{costType !== "work" ? <p>{copy.materialRule}</p> : null}
-							</div>
-
-							<div className="overflow-x-auto rounded-lg border">
-								<Table className="min-w-[920px] table-fixed text-xs">
-									<colgroup>
-										<col className="w-[8%]" />
-										<col className="w-[28%]" />
-										<col className="w-[44%]" />
-										<col className="w-[5%]" />
-										<col className="w-[7%]" />
-										<col className="w-[8%]" />
-									</colgroup>
-									<TableHeader>
-										<TableRow>
-											<TableHead>{copy.date}</TableHead>
-											<TableHead>{copy.record}</TableHead>
-											<TableHead>{copy.assignedTo}</TableHead>
-											<TableHead>{copy.unit}</TableHead>
-											<TableHead className="text-right">
-												{copy.quantity}
-											</TableHead>
-											<TableHead className="text-right">{copy.cost}</TableHead>
-										</TableRow>
-									</TableHeader>
-									<TableBody>
-										{details.records.map((record) => (
-											<TableRow
-												key={`${record.type}:${record.id}:${record.assignedPosition.id}`}
-											>
-												<TableCell className="whitespace-nowrap align-top">
-													{formatDate(record.date, locale)}
-												</TableCell>
-												<TableCell className="whitespace-normal align-top">
-													<div
-														className="truncate font-medium"
-														title={record.label}
-													>
-														{record.label}
-													</div>
-													{record.secondaryLabel ? (
-														<div className="mt-1 text-muted-foreground">
-															{record.secondaryLabel}
-														</div>
-													) : null}
-													{record.type === "work" ? (
-														<Badge variant="outline" className="mt-2">
-															{copy.work}
-														</Badge>
-													) : null}
-													{record.type === "material" && record.invoiceUrl ? (
-														<a
-															href={record.invoiceUrl}
-															target="_blank"
-															rel="noopener noreferrer"
-															className="mt-2 inline-flex items-center gap-2 rounded-md text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2"
+								<div className="overflow-x-auto rounded-lg border">
+									<Table className="min-w-[760px] table-fixed text-xs">
+										<colgroup>
+											<col className="w-[88px]" />
+											<col className="w-[20%]" />
+											<col className="w-[100px]" />
+											<col />
+											<col className="w-[48px]" />
+											<col className="w-[80px]" />
+											<col className="w-[92px]" />
+										</colgroup>
+										<TableHeader>
+											<TableRow>
+												<TableHead>{copy.date}</TableHead>
+												<TableHead>{copy.record}</TableHead>
+												<TableHead>{copy.invoice}</TableHead>
+												<TableHead>{copy.assignedTo}</TableHead>
+												<TableHead>{copy.unit}</TableHead>
+												<TableHead className="text-right">
+													{copy.quantity}
+												</TableHead>
+												<TableHead className="text-right">
+													{copy.cost}
+												</TableHead>
+											</TableRow>
+										</TableHeader>
+										<TableBody>
+											{details.records.map((record) => (
+												<TableRow
+													key={`${record.type}:${record.id}:${record.assignedPosition.id}`}
+													className={
+														invoice && record.invoiceUrl === invoice.url
+															? "bg-primary/5"
+															: undefined
+													}
+												>
+													<TableCell className="whitespace-nowrap align-top">
+														{formatDate(record.date, locale)}
+													</TableCell>
+													<TableCell className="whitespace-normal align-top">
+														<div
+															className="truncate font-medium"
+															title={record.label}
 														>
-															<span className="relative block h-14 w-14 shrink-0 overflow-hidden rounded-md border bg-muted">
-																<SourceDocumentPreview
-																	url={record.invoiceUrl}
-																	label={copy.openInvoice}
-																/>
-															</span>
-															<span>{copy.openInvoice}</span>
-														</a>
-													) : null}
-												</TableCell>
-												<TableCell className="whitespace-normal align-top">
-													<div className="flex items-center gap-2">
-														{record.isSplit ? (
-															<p
-																className="min-w-0 flex-1 truncate"
-																title={formatForma2PositionLabel(
-																	record.assignedPosition,
-																)}
-															>
-																{formatForma2PositionLabel(
-																	record.assignedPosition,
-																)}
-															</p>
-														) : (
-															<DefaultConstructionForma2AssignmentSelect
-																siteId={siteId}
-																sourceId={record.id}
-																sourceType={record.type}
-																value={record.assignedPosition.id}
-																options={details.positionOptions.filter(
-																	(position) =>
-																		record.type === "work"
-																			? position.kind === "work"
-																			: position.kind === "material" ||
-																				(position.kind === "work" &&
-																					!position.parentId),
-																)}
-																organizationLanguage={organizationLanguage}
-																overrideJournalPosition
-																singleLine
-																allowUnassigned={false}
-																disabled={saving}
-																onSavingChange={setSaving}
-																onAssigned={refreshAfterAssignment}
-															/>
-														)}
-														{record.type === "material" ? (
-															<div className="shrink-0">
-																<DefaultConstructionForma2SplitEditor
-																	siteId={siteId}
-																	sourceId={record.id}
-																	isSplit={record.isSplit}
-																	organizationLanguage={organizationLanguage}
-																	disabled={saving}
-																	onSaved={refreshAfterAssignment}
-																/>
+															{record.label}
+														</div>
+														{(
+															record.type === "material"
+																? record.supplierName
+																: record.secondaryLabel
+														) ? (
+															<div className="mt-1 text-muted-foreground">
+																{record.type === "material"
+																	? record.supplierName
+																	: record.secondaryLabel}
 															</div>
 														) : null}
-													</div>
-												</TableCell>
-												<TableCell className="whitespace-nowrap align-top">
-													{record.type === "work" &&
-													record.costCalculationMode === "hourly"
-														? "h"
-														: record.unit || "?"}
-												</TableCell>
-												<TableCell className="whitespace-nowrap text-right align-top tabular-nums">
-													{(record.type === "work" &&
-													record.costCalculationMode === "hourly"
-														? record.hours
-														: record.quantity) == null
-														? "?"
-														: formatNumber(
-																(record.type === "work" &&
-																record.costCalculationMode === "hourly"
-																	? record.hours
-																	: record.quantity) ?? 0,
-																locale,
+														{record.type === "work" ? (
+															<Badge variant="outline" className="mt-2">
+																{copy.work}
+															</Badge>
+														) : null}
+													</TableCell>
+													<TableCell className="align-top">
+														{record.type === "material" && record.invoiceUrl ? (
+															<Button
+																type="button"
+																variant="link"
+																className="h-auto max-w-full justify-start gap-1.5 whitespace-normal p-0 text-left text-xs"
+																aria-label={`${copy.openInvoice}: ${record.invoiceNumber || record.label}`}
+																aria-pressed={
+																	invoice?.url === record.invoiceUrl
+																}
+																onClick={() =>
+																	setInvoice({
+																		url: record.invoiceUrl as string,
+																		title: record.invoiceNumber || record.label,
+																	})
+																}
+															>
+																<FileText className="size-4 shrink-0" />
+																<span className="break-words">
+																	{record.invoiceNumber || copy.openInvoice}
+																</span>
+															</Button>
+														) : (
+															record.invoiceNumber || "\u2014"
+														)}
+													</TableCell>
+													<TableCell className="whitespace-normal align-top">
+														<div className="flex min-w-0 flex-nowrap items-center gap-2">
+															{record.isSplit ? (
+																<p
+																	className="min-w-0 flex-1 truncate"
+																	title={formatForma2PositionLabel(
+																		record.assignedPosition,
+																	)}
+																>
+																	{formatForma2PositionLabel(
+																		record.assignedPosition,
+																	)}
+																</p>
+															) : (
+																<DefaultConstructionForma2AssignmentSelect
+																	siteId={siteId}
+																	sourceId={record.id}
+																	sourceType={record.type}
+																	value={record.assignedPosition.id}
+																	options={details.positionOptions.filter(
+																		(position) =>
+																			record.type === "work"
+																				? position.kind === "work"
+																				: position.kind === "material" ||
+																					(position.kind === "work" &&
+																						!position.parentId),
+																	)}
+																	organizationLanguage={organizationLanguage}
+																	overrideJournalPosition
+																	singleLine
+																	allowUnassigned={false}
+																	disabled={saving}
+																	onSavingChange={setSaving}
+																	onAssigned={refreshAfterAssignment}
+																/>
 															)}
-												</TableCell>
-												<TableCell className="whitespace-nowrap text-right align-top font-medium tabular-nums">
-													{record.actualCost == null
-														? copy.unpriced
-														: formatCurrency(record.actualCost, locale)}
-												</TableCell>
-											</TableRow>
-										))}
-										{details.records.length === 0 ? (
-											<TableRow>
-												<TableCell
-													colSpan={6}
-													className="py-12 text-center text-muted-foreground"
-												>
-													{copy.noRecords}
-												</TableCell>
-											</TableRow>
-										) : null}
-									</TableBody>
-								</Table>
+															{record.type === "material" ? (
+																<div className="shrink-0">
+																	<DefaultConstructionForma2SplitEditor
+																		siteId={siteId}
+																		sourceId={record.id}
+																		isSplit={record.isSplit}
+																		organizationLanguage={organizationLanguage}
+																		disabled={saving}
+																		onSaved={refreshAfterAssignment}
+																	/>
+																</div>
+															) : null}
+														</div>
+													</TableCell>
+													<TableCell className="whitespace-nowrap align-top">
+														{record.type === "work" &&
+														record.costCalculationMode === "hourly"
+															? "h"
+															: record.unit || "—"}
+													</TableCell>
+													<TableCell className="whitespace-nowrap text-right align-top tabular-nums">
+														{(record.type === "work" &&
+														record.costCalculationMode === "hourly"
+															? record.hours
+															: record.quantity) == null
+															? "—"
+															: formatNumber(
+																	(record.type === "work" &&
+																	record.costCalculationMode === "hourly"
+																		? record.hours
+																		: record.quantity) ?? 0,
+																	locale,
+																)}
+													</TableCell>
+													<TableCell className="whitespace-nowrap text-right align-top font-medium tabular-nums">
+														{record.actualCost == null
+															? copy.unpriced
+															: formatCurrency(record.actualCost, locale)}
+													</TableCell>
+												</TableRow>
+											))}
+											{details.records.length === 0 ? (
+												<TableRow>
+													<TableCell
+														colSpan={7}
+														className="py-12 text-center text-muted-foreground"
+													>
+														{copy.noRecords}
+													</TableCell>
+												</TableRow>
+											) : null}
+										</TableBody>
+									</Table>
+								</div>
 							</div>
+							{invoice ? (
+								<DefaultConstructionForma2InvoicePreview
+									key={invoice.url}
+									url={invoice.url}
+									title={invoice.title}
+									isLatvian={isLatvian}
+									onClose={() => setInvoice(null)}
+								/>
+							) : null}
 						</div>
 					) : null}
 				</DialogContent>

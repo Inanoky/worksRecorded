@@ -72,6 +72,8 @@ export type Forma2ActualSource = {
 	label: string;
 	secondaryLabel: string;
 	invoiceLabel?: string;
+	invoiceNumber?: string | null;
+	supplierName?: string | null;
 	invoiceUrl?: string | null;
 	date: string | null;
 	unit: string;

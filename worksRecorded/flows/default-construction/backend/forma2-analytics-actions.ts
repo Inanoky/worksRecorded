@@ -406,6 +406,8 @@ async function loadDefaultConstructionForma2Data(
 
 	const materialSources: Forma2ActualSource[] = materialRows.map((row) => ({
 		id: row.id,
+		invoiceNumber: text(row.invoiceNr) || null,
+		supplierName: text(row.supplierName) || null,
 		invoiceLabel: [text(row.supplierName), text(row.invoiceNr)]
 			.filter(Boolean)
 			.join(" · "),
@@ -667,6 +669,8 @@ export async function getDefaultConstructionForma2PositionCostDetails(args: {
 									? (source.invoiceLabel ?? "")
 									: source.secondaryLabel,
 							invoiceUrl: source.invoiceUrl ?? null,
+							invoiceNumber: source.invoiceNumber ?? null,
+							supplierName: source.supplierName ?? null,
 							date: source.date,
 							unit: source.unit,
 							quantity: share.quantity,
