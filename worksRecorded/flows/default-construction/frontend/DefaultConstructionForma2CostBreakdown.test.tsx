@@ -220,12 +220,23 @@ it("simplifies material details and provides the original invoice preview", asyn
 		.mockResolvedValue(result);
 	await openDetails();
 	expect(screen.getByText("Calculated total")).toBeInTheDocument();
+	expect(
+		screen.queryByText("How are costs calculated?"),
+	).not.toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: "Open invoice: INV-123" }),
+	).toHaveClass("whitespace-nowrap", "has-[>svg]:px-0");
+	for (const cell of within(screen.getAllByRole("row")[1]).getAllByRole(
+		"cell",
+	)) {
+		expect(cell).toHaveClass("align-middle");
+	}
 	expect(screen.queryByText("Included records")).not.toBeInTheDocument();
 	expect(screen.queryByText("Without calculable cost")).not.toBeInTheDocument();
 	expect(screen.queryByText("Material")).not.toBeInTheDocument();
 	expect(screen.getByText("Supplier")).toBeInTheDocument();
 	expect(
-		within(screen.getAllByRole("row")[1]).getAllByRole("cell")[2],
+		within(screen.getAllByRole("row")[1]).getAllByRole("cell")[1],
 	).toHaveTextContent("INV-123");
 	expect(screen.getAllByText("1. Original position")).toHaveLength(2);
 	expect(screen.getByRole("combobox").parentElement).toHaveClass("flex-nowrap");
@@ -330,8 +341,8 @@ it.each([
 			screen.getAllByRole("columnheader").map((header) => header.textContent),
 		).toEqual([
 			"Date",
-			"Record",
 			"Invoice no.",
+			"Record",
 			"Assigned position",
 			"Unit",
 			"Quantity",

@@ -12,6 +12,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
@@ -58,6 +59,10 @@ export function DefaultConstructionForma2SplitEditor({
 					"Sadaliet materiāla patēriņu un izmaksas starp tāmes pozīcijām. Oriģinālais rēķins un paveikto darbu daudzumi netiek mainīti.",
 				quantity: "Daudzums",
 				contractQuantity: "Līguma daudzums",
+				position: "Tāmes pozīcija",
+				allocatedCost: "Piešķirtā summa",
+				unitMissing: "Mērvienība nav norādīta",
+				complete: "Sadalīts pilnībā",
 				percent: "Procenti",
 				cost: "Summa (EUR)",
 				mode: "Sadalīt pēc",
@@ -81,6 +86,10 @@ export function DefaultConstructionForma2SplitEditor({
 					"Split material consumption and cost between estimate positions. The original invoice and completed-work quantities remain unchanged.",
 				quantity: "Quantity",
 				contractQuantity: "Contract quantity",
+				position: "Estimate position",
+				allocatedCost: "Allocated cost",
+				unitMissing: "Unit not specified",
+				complete: "Fully allocated",
 				percent: "Percentage",
 				cost: "Amount (EUR)",
 				mode: "Split by",
@@ -102,6 +111,13 @@ export function DefaultConstructionForma2SplitEditor({
 	const [details, setDetails] = useState<Details | null>(null);
 	const [mode, setMode] = useState<Forma2Split["mode"]>("quantity");
 	const [rows, setRows] = useState<Draft[]>([]);
+	const unit = details?.source.unit.trim() ?? "";
+	const valueLabel =
+		mode === "quantity"
+			? `${t.quantity}${unit ? ` (${unit})` : ""}`
+			: mode === "percent"
+				? `${t.percent} (%)`
+				: t.cost;
 	const number = (value: number) =>
 		new Intl.NumberFormat(lv ? "lv-LV" : "en-GB", {
 			maximumFractionDigits: 6,
@@ -232,8 +248,8 @@ export function DefaultConstructionForma2SplitEditor({
 					if (!saving) setOpen(next);
 				}}
 			>
-				<DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
-					<DialogHeader>
+				<DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[860px]">
+					<DialogHeader className="shrink-0 border-b px-6 py-5 pr-12">
 						<DialogTitle>{t.title}</DialogTitle>
 						<DialogDescription>{t.description}</DialogDescription>
 					</DialogHeader>
@@ -244,178 +260,241 @@ export function DefaultConstructionForma2SplitEditor({
 						/>
 					) : details ? (
 						<>
-							<div className="rounded-md bg-muted p-3 text-sm">
-								<p className="font-medium">{details.source.label}</p>
-								<p>
-									{t.total}:{" "}
-									{details.source.quantity == null
-										? "—"
-										: `${number(details.source.quantity)} ${details.source.unit}`}{" "}
-									·{" "}
-									{details.source.actualCost == null
-										? "—"
-										: money(details.source.actualCost)}
-								</p>
-							</div>
-							<Select value={mode} onValueChange={changeMode} disabled={saving}>
-								<SelectTrigger aria-label={t.mode} className="w-full sm:w-56">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem
-										value="quantity"
-										disabled={
-											!(details.source.quantity && details.source.quantity > 0)
-										}
+							<div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+								<div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 p-4">
+									<div className="min-w-0 space-y-1">
+										<p className="text-xs text-muted-foreground">{t.total}</p>
+										<p className="break-words text-sm font-medium">
+											{details.source.label}
+										</p>
+										<p className="text-xs text-muted-foreground">
+											{t.quantity}:{" "}
+											{details.source.quantity == null
+												? "—"
+												: number(details.source.quantity)}
+											{unit ? ` ${unit}` : ` · ${t.unitMissing}`}
+										</p>
+									</div>
+									<p className="shrink-0 text-xl font-semibold tabular-nums">
+										{details.source.actualCost == null
+											? "—"
+											: money(details.source.actualCost)}
+									</p>
+								</div>
+								<div className="flex flex-wrap items-center gap-3">
+									<span className="text-sm font-medium">{t.mode}</span>
+									<Select
+										value={mode}
+										onValueChange={changeMode}
+										disabled={saving}
 									>
-										{t.quantity} ({details.source.unit})
-									</SelectItem>
-									<SelectItem value="percent">{t.percent}</SelectItem>
-									<SelectItem
-										value="cost"
-										disabled={
-											!(
-												details.source.actualCost &&
-												details.source.actualCost > 0
-											)
-										}
-									>
-										{t.cost}
-									</SelectItem>
-								</SelectContent>
-							</Select>
-							<div className="space-y-3">
-								{rows.map((row, index) => (
-									<div
-										key={row.id}
-										className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 rounded-md border p-3 sm:grid-cols-[minmax(0,1fr)_120px_90px_36px]"
-									>
-										<div className="col-span-2 min-w-0 sm:col-span-1">
-											<DefaultConstructionForma2AssignmentSelect
-												siteId={siteId}
-												sourceId={sourceId}
-												value={row.positionId || null}
-												options={details.positionOptions}
-												organizationLanguage={organizationLanguage}
-												allowUnassigned={false}
-												disabled={saving}
-												onAssigned={() => {}}
-												onChoose={(positionId) =>
-													setRows((current) =>
-														current.map((item) =>
-															item.id === row.id
-																? { ...item, positionId: positionId ?? "" }
-																: item,
-														),
+										<SelectTrigger
+											aria-label={t.mode}
+											className="w-full sm:w-56"
+										>
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem
+												value="quantity"
+												disabled={
+													!(
+														details.source.quantity &&
+														details.source.quantity > 0
 													)
 												}
-											/>
+											>
+												{t.quantity}
+												{unit ? ` (${unit})` : ""}
+											</SelectItem>
+											<SelectItem value="percent">{t.percent}</SelectItem>
+											<SelectItem
+												value="cost"
+												disabled={
+													!(
+														details.source.actualCost &&
+														details.source.actualCost > 0
+													)
+												}
+											>
+												{t.cost}
+											</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="space-y-3">
+									{rows.map((row, index) => (
+										<div
+											key={row.id}
+											className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_36px] items-start gap-x-3 gap-y-2 rounded-lg border p-4 sm:grid-cols-[minmax(0,1fr)_132px_116px_36px]"
+										>
+											<div className="col-span-3 min-w-0 space-y-2 sm:col-span-1">
+												<p className="text-xs font-medium text-muted-foreground">
+													{t.position}
+												</p>
+												<div className="flex min-w-0">
+													<DefaultConstructionForma2AssignmentSelect
+														siteId={siteId}
+														sourceId={sourceId}
+														value={row.positionId || null}
+														options={details.positionOptions}
+														organizationLanguage={organizationLanguage}
+														allowUnassigned={false}
+														singleLine
+														disabled={saving}
+														onAssigned={() => {}}
+														onChoose={(positionId) =>
+															setRows((current) =>
+																current.map((item) =>
+																	item.id === row.id
+																		? { ...item, positionId: positionId ?? "" }
+																		: item,
+																),
+															)
+														}
+													/>
+												</div>
+											</div>
+											<div className="min-w-0 space-y-2">
+												<Label
+													htmlFor={`split-${row.id}`}
+													className="block text-xs leading-4 text-muted-foreground"
+												>
+													{valueLabel}
+												</Label>
+												<Input
+													id={`split-${row.id}`}
+													className="h-9 text-right tabular-nums"
+													aria-label={`${t[mode]} ${index + 1}`}
+													inputMode="decimal"
+													value={row.value}
+													disabled={saving}
+													onChange={(event) =>
+														setRows((current) =>
+															current.map((item) =>
+																item.id === row.id
+																	? { ...item, value: event.target.value }
+																	: item,
+															),
+														)
+													}
+												/>
+											</div>
+											<div className="min-w-0 space-y-2 text-right">
+												<p className="text-xs font-medium text-muted-foreground">
+													{t.allocatedCost}
+												</p>
+												<p className="flex h-9 items-center justify-end whitespace-nowrap text-sm font-medium tabular-nums">
+													{preview
+														? money(preview.parts[index].actualCost)
+														: "—"}
+												</p>
+											</div>
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												className="mt-6 size-9 text-muted-foreground hover:text-destructive"
+												aria-label={`${t.remove} ${index + 1}`}
+												disabled={saving || rows.length === 1}
+												onClick={() =>
+													setRows((current) =>
+														current.filter((item) => item.id !== row.id),
+													)
+												}
+											>
+												<Trash2 className="size-4" />
+											</Button>
 											{row.positionId ? (
-												<p className="mt-2 text-xs text-muted-foreground tabular-nums">
+												<p className="col-span-3 text-xs text-muted-foreground tabular-nums sm:col-span-4">
 													{t.contractQuantity}:{" "}
 													{contractQuantity(row.positionId)}
 												</p>
 											) : null}
 										</div>
-										<Input
-											aria-label={`${t[mode]} ${index + 1}`}
-											inputMode="decimal"
-											value={row.value}
-											disabled={saving}
-											onChange={(event) =>
-												setRows((current) =>
-													current.map((item) =>
-														item.id === row.id
-															? { ...item, value: event.target.value }
-															: item,
-													),
-												)
-											}
-										/>
-										<span className="self-center text-right text-sm tabular-nums">
-											{preview ? money(preview.parts[index].actualCost) : "—"}
-										</span>
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon"
-											aria-label={`${t.remove} ${index + 1}`}
-											disabled={saving || rows.length === 1}
-											onClick={() =>
-												setRows((current) =>
-													current.filter((item) => item.id !== row.id),
-												)
-											}
-										>
-											<Trash2 className="size-4" />
-										</Button>
-									</div>
-								))}
-							</div>
-							<Button
-								type="button"
-								variant="outline"
-								className="justify-self-start"
-								disabled={saving || rows.length >= 50}
-								onClick={() =>
-									setRows((current) => [
-										...current,
-										{
-											id: crypto.randomUUID(),
-											positionId: "",
-											value:
-												preview && preview.remainingValue > 0
-													? String(preview.remainingValue)
-													: "",
-										},
-									])
-								}
-							>
-								<Plus className="mr-2 size-4" />
-								{t.add}
-							</Button>
-							{preview ? (
-								<div
-									className="rounded-md bg-muted p-3 text-sm"
-									aria-live="polite"
-								>
-									<p>
-										{t.allocated}:{" "}
-										{money(
-											(details.source.actualCost ?? 0) - preview.remainingCost,
-										)}
-									</p>
-									<p>
-										{t.remainder}: {money(preview.remainingCost)}
-										{preview.remainingQuantity == null
-											? ""
-											: ` · ${number(preview.remainingQuantity)} ${details.source.unit}`}
-									</p>
+									))}
 								</div>
-							) : (
-								<p role="alert" className="text-sm text-destructive">
-									{t.invalid}
-								</p>
-							)}
-							<div className="flex justify-end gap-2">
 								<Button
 									type="button"
 									variant="outline"
-									disabled={saving}
-									onClick={() => setOpen(false)}
+									className="justify-self-start"
+									disabled={saving || rows.length >= 50}
+									onClick={() =>
+										setRows((current) => [
+											...current,
+											{
+												id: crypto.randomUUID(),
+												positionId: "",
+												value:
+													preview && preview.remainingValue > 0
+														? String(preview.remainingValue)
+														: "",
+											},
+										])
+									}
 								>
-									{t.cancel}
+									<Plus className="mr-2 size-4" />
+									{t.add}
 								</Button>
-								<Button
-									type="button"
-									disabled={saving || !preview}
-									onClick={save}
-								>
-									{saving ? (
-										<Loader2 className="mr-2 size-4 animate-spin" />
-									) : null}
-									{t.save}
-								</Button>
+							</div>
+							<div className="shrink-0 space-y-4 border-t bg-muted/20 px-6 py-4">
+								{preview ? (
+									<div
+										className="grid grid-cols-2 gap-4 text-sm"
+										aria-live="polite"
+									>
+										<p className="space-y-1">
+											<span className="block text-xs text-muted-foreground">
+												{t.allocated}:
+											</span>
+											<span className="block font-semibold tabular-nums">
+												{money(
+													(details.source.actualCost ?? 0) -
+														preview.remainingCost,
+												)}
+											</span>
+										</p>
+										<p className="space-y-1 text-right">
+											<span className="block text-xs text-muted-foreground">
+												{t.remainder}:
+											</span>
+											<span className="block font-semibold tabular-nums">
+												{money(preview.remainingCost)}
+											</span>
+											<span className="block text-xs text-muted-foreground">
+												{preview.remainingValue === 0
+													? t.complete
+													: preview.remainingQuantity == null
+														? ""
+														: `${number(preview.remainingQuantity)}${unit ? ` ${unit}` : ""}`}
+											</span>
+										</p>
+									</div>
+								) : (
+									<p role="alert" className="text-sm text-destructive">
+										{t.invalid}
+									</p>
+								)}
+								<div className="flex justify-end gap-2">
+									<Button
+										type="button"
+										variant="outline"
+										disabled={saving}
+										onClick={() => setOpen(false)}
+									>
+										{t.cancel}
+									</Button>
+									<Button
+										type="button"
+										disabled={saving || !preview}
+										onClick={save}
+									>
+										{saving ? (
+											<Loader2 className="mr-2 size-4 animate-spin" />
+										) : null}
+										{t.save}
+									</Button>
+								</div>
 							</div>
 						</>
 					) : null}

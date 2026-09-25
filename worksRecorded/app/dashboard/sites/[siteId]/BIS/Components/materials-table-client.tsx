@@ -78,6 +78,7 @@ import {
 } from "@/flows/default-construction/frontend/DefaultConstructionForma2AssignmentSelect"
 import { DefaultConstructionForma2MaterialRulesDialog } from "@/flows/default-construction/frontend/DefaultConstructionForma2MaterialRulesDialog"
 import { DefaultConstructionForma2SplitEditor } from "@/flows/default-construction/frontend/DefaultConstructionForma2SplitEditor"
+import { DefaultConstructionForma2InvoicePreview } from "@/flows/default-construction/frontend/DefaultConstructionForma2InvoicePreview"
 import type { WarehouseMaterialSort as DatabaseWarehouseMaterialSort } from "@/lib/bis/warehouse-material-query"
 import {
   getWarehouseForma2PositionLabel,
@@ -522,6 +523,12 @@ export default function MaterialsTableClient({
     return t.unnamedMaterial
   }, [t])
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
+  const [previewRecordId, setPreviewRecordId] = React.useState<string | null>(null)
+  const previewTriggerRef = React.useRef<HTMLButtonElement | null>(null)
+  const previewPanelRef = React.useRef<HTMLDivElement | null>(null)
+  const previewRow = isDefaultConstructionFlow
+    ? rows.find((row) => row.id === previewRecordId && row.sourcePhoto)
+    : undefined
   const [pagination, setPagination] = React.useState<WarehouseMaterialPagination>(initialPagination)
   const [configurations, setConfigurations] = React.useState<MaterialCategory[]>(materialConfigurations)
   const [measures, setMeasures] = React.useState<Array<{ id: string; name: string }>>(materialMeasures)
@@ -1968,8 +1975,9 @@ export default function MaterialsTableClient({
         </div>
       </div>
 
+      <div className={previewRow ? "grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,40%)]" : "min-w-0"}>
       <div
-        className="relative overflow-hidden rounded-2xl border bg-background shadow-sm"
+        className="relative min-w-0 overflow-hidden rounded-2xl border bg-background shadow-sm"
         aria-busy={isDefaultConstructionFlow && tableLoading}
       >
         {isDefaultConstructionFlow && tableLoading ? (
@@ -1983,7 +1991,7 @@ export default function MaterialsTableClient({
           </div>
         ) : null}
         <div
-          className={`w-full overflow-x-auto transition-opacity ${
+          className={`w-full overflow-x-auto transition-opacity ${previewRow ? "max-h-[75dvh] overflow-y-auto" : ""} ${
             isDefaultConstructionFlow && tableLoading ? "pointer-events-none opacity-50" : "opacity-100"
           }`}
         >
@@ -2171,7 +2179,7 @@ export default function MaterialsTableClient({
                   ].includes(normalizedStatus)
 
                   return (
-                    <TableRow key={r.id} className="align-middle [&_td]:px-3 [&_td]:py-3">
+                    <TableRow key={r.id} className={`align-middle [&_td]:px-3 [&_td]:py-3 ${previewRow?.sourcePhoto === r.sourcePhoto ? "bg-primary/5" : ""}`}>
                       <TableCell>
                         <Checkbox
                           checked={selectedRowIds.includes(r.id)}
@@ -2181,7 +2189,24 @@ export default function MaterialsTableClient({
                       </TableCell>
 
                       <TableCell className="align-top">
-                        {r.sourcePhoto ? (
+                        {r.sourcePhoto && isDefaultConstructionFlow ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="relative h-14 w-14 overflow-hidden rounded-lg border bg-muted p-0"
+                            aria-label={`${language === "lv" ? "Atvērt rēķinu" : "Open invoice"}: ${r.invoiceNr || getMaterialDisplayName(r)}`}
+                            aria-pressed={previewRow?.sourcePhoto === r.sourcePhoto}
+                            onClick={(event) => {
+                              previewTriggerRef.current = event.currentTarget
+                              setPreviewRecordId(r.id)
+                              if (window.innerWidth < 1280) {
+                                requestAnimationFrame(() => previewPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }))
+                              }
+                            }}
+                          >
+                            <SourceDocumentPreview url={r.sourcePhoto} label={getMaterialDisplayName(r)} />
+                          </Button>
+                        ) : r.sourcePhoto ? (
                           <a href={r.sourcePhoto} target="_blank" rel="noreferrer">
                             <div className="relative h-14 w-14 overflow-hidden rounded-lg border bg-muted">
                               <SourceDocumentPreview url={r.sourcePhoto} label={getMaterialDisplayName(r)} />
@@ -2441,6 +2466,25 @@ export default function MaterialsTableClient({
         <div className="border-t px-4 py-3">
           {renderPaginationControls("justify-end")}
         </div>
+      </div>
+
+      {previewRow?.sourcePhoto ? (
+        <div
+          ref={previewPanelRef}
+          className="order-first grid h-[65dvh] min-h-[440px] min-w-0 overflow-hidden rounded-2xl border bg-background shadow-sm xl:sticky xl:top-20 xl:order-last xl:h-[75dvh]"
+        >
+          <DefaultConstructionForma2InvoicePreview
+            key={previewRow.sourcePhoto}
+            url={previewRow.sourcePhoto}
+            title={previewRow.invoiceNr || getMaterialDisplayName(previewRow)}
+            isLatvian={language === "lv"}
+            onClose={() => {
+              setPreviewRecordId(null)
+              previewTriggerRef.current?.focus({ preventScroll: true })
+            }}
+          />
+        </div>
+      ) : null}
       </div>
 
       <Dialog

@@ -81,11 +81,6 @@ export function DefaultConstructionForma2CostBreakdown({
 				calculatedTotal: "Aprēķinātā summa",
 				openInvoice: "Atvērt rēķinu",
 				invoice: "Rēķina Nr.",
-				calculationInfo: "Kā aprēķinātas izmaksas?",
-				workRule:
-					"Darbiem ar režīmu “Izpilde” izmaksas = daudzums × izpildes likme. Režīmā “Stundas likme” izmaksas = reģistrētās stundas × stundas likme.",
-				materialRule:
-					"Materiālu izmaksas = Noliktavā saglabātā rēķina pozīcijas kopējā summa. Daudzums un mērvienība ir informatīvi; mērvienību konvertēšana netiek veikta.",
 				date: "Datums",
 				record: "Ieraksts",
 				assignedTo: "Piesaistīts pozīcijai",
@@ -104,11 +99,6 @@ export function DefaultConstructionForma2CostBreakdown({
 				calculatedTotal: "Calculated total",
 				openInvoice: "Open invoice",
 				invoice: "Invoice no.",
-				calculationInfo: "How are costs calculated?",
-				workRule:
-					"For Output mode, work cost = quantity × output rate. For Hourly mode, work cost = recorded hours × hourly rate.",
-				materialRule:
-					"Material cost = the invoice-line total stored in Warehouse. Quantity and unit are shown for traceability; units are not converted.",
 				date: "Date",
 				record: "Record",
 				assignedTo: "Assigned position",
@@ -201,22 +191,13 @@ export function DefaultConstructionForma2CostBreakdown({
 											{formatCurrency(details.calculatedTotal, locale)}
 										</span>
 									</div>
-									<details className="w-full text-xs text-muted-foreground">
-										<summary className="cursor-pointer select-none">
-											{copy.calculationInfo}
-										</summary>
-										<div className="mt-2 space-y-1 rounded-md bg-muted/60 p-3">
-											{costType !== "material" ? <p>{copy.workRule}</p> : null}
-											{costType !== "work" ? <p>{copy.materialRule}</p> : null}
-										</div>
-									</details>
 								</div>
 								<div className="overflow-x-auto rounded-lg border">
-									<Table className="min-w-[760px] table-fixed text-xs">
+									<Table className="min-w-[820px] table-fixed text-xs">
 										<colgroup>
 											<col className="w-[88px]" />
+											<col className="w-[144px]" />
 											<col className="w-[20%]" />
-											<col className="w-[100px]" />
 											<col />
 											<col className="w-[48px]" />
 											<col className="w-[80px]" />
@@ -225,8 +206,8 @@ export function DefaultConstructionForma2CostBreakdown({
 										<TableHeader>
 											<TableRow>
 												<TableHead>{copy.date}</TableHead>
-												<TableHead>{copy.record}</TableHead>
 												<TableHead>{copy.invoice}</TableHead>
+												<TableHead>{copy.record}</TableHead>
 												<TableHead>{copy.assignedTo}</TableHead>
 												<TableHead>{copy.unit}</TableHead>
 												<TableHead className="text-right">
@@ -247,10 +228,42 @@ export function DefaultConstructionForma2CostBreakdown({
 															: undefined
 													}
 												>
-													<TableCell className="whitespace-nowrap align-top">
+													<TableCell className="whitespace-nowrap align-middle">
 														{formatDate(record.date, locale)}
 													</TableCell>
-													<TableCell className="whitespace-normal align-top">
+													<TableCell className="align-middle">
+														{record.type === "material" && record.invoiceUrl ? (
+															<Button
+																type="button"
+																variant="link"
+																className="h-auto max-w-full min-w-0 justify-start gap-1.5 whitespace-nowrap p-0 text-left text-xs has-[>svg]:px-0"
+																title={record.invoiceNumber || copy.openInvoice}
+																aria-label={`${copy.openInvoice}: ${record.invoiceNumber || record.label}`}
+																aria-pressed={
+																	invoice?.url === record.invoiceUrl
+																}
+																onClick={() =>
+																	setInvoice({
+																		url: record.invoiceUrl as string,
+																		title: record.invoiceNumber || record.label,
+																	})
+																}
+															>
+																<FileText className="size-4 shrink-0" />
+																<span className="min-w-0 truncate">
+																	{record.invoiceNumber || copy.openInvoice}
+																</span>
+															</Button>
+														) : (
+															<span
+																className="block truncate"
+																title={record.invoiceNumber || undefined}
+															>
+																{record.invoiceNumber || "—"}
+															</span>
+														)}
+													</TableCell>
+													<TableCell className="whitespace-normal align-middle">
 														<div
 															className="truncate font-medium"
 															title={record.label}
@@ -274,33 +287,7 @@ export function DefaultConstructionForma2CostBreakdown({
 															</Badge>
 														) : null}
 													</TableCell>
-													<TableCell className="align-top">
-														{record.type === "material" && record.invoiceUrl ? (
-															<Button
-																type="button"
-																variant="link"
-																className="h-auto max-w-full justify-start gap-1.5 whitespace-normal p-0 text-left text-xs"
-																aria-label={`${copy.openInvoice}: ${record.invoiceNumber || record.label}`}
-																aria-pressed={
-																	invoice?.url === record.invoiceUrl
-																}
-																onClick={() =>
-																	setInvoice({
-																		url: record.invoiceUrl as string,
-																		title: record.invoiceNumber || record.label,
-																	})
-																}
-															>
-																<FileText className="size-4 shrink-0" />
-																<span className="break-words">
-																	{record.invoiceNumber || copy.openInvoice}
-																</span>
-															</Button>
-														) : (
-															record.invoiceNumber || "\u2014"
-														)}
-													</TableCell>
-													<TableCell className="whitespace-normal align-top">
+													<TableCell className="whitespace-normal align-middle">
 														<div className="flex min-w-0 flex-nowrap items-center gap-2">
 															{record.isSplit ? (
 																<p
@@ -350,13 +337,13 @@ export function DefaultConstructionForma2CostBreakdown({
 															) : null}
 														</div>
 													</TableCell>
-													<TableCell className="whitespace-nowrap align-top">
+													<TableCell className="whitespace-nowrap align-middle">
 														{record.type === "work" &&
 														record.costCalculationMode === "hourly"
 															? "h"
 															: record.unit || "—"}
 													</TableCell>
-													<TableCell className="whitespace-nowrap text-right align-top tabular-nums">
+													<TableCell className="whitespace-nowrap text-right align-middle tabular-nums">
 														{(record.type === "work" &&
 														record.costCalculationMode === "hourly"
 															? record.hours
@@ -370,7 +357,7 @@ export function DefaultConstructionForma2CostBreakdown({
 																	locale,
 																)}
 													</TableCell>
-													<TableCell className="whitespace-nowrap text-right align-top font-medium tabular-nums">
+													<TableCell className="whitespace-nowrap text-right align-middle font-medium tabular-nums">
 														{record.actualCost == null
 															? copy.unpriced
 															: formatCurrency(record.actualCost, locale)}

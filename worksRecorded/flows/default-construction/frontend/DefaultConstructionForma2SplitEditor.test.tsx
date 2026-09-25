@@ -68,7 +68,9 @@ it("edits locally and saves 0.5 + 1 m3 only when Saglabāt is pressed", async ()
 	fireEvent.change(screen.getByLabelText("Daudzums 1"), {
 		target: { value: "0,5" },
 	});
-	expect(screen.getByText(/Nav piesaistīts:/)).toHaveTextContent("97,00");
+	expect(screen.getByText(/Nav piesaistīts:/).closest("p")).toHaveTextContent(
+		"97,00",
+	);
 	fireEvent.click(screen.getByRole("button", { name: "Pievienot pozīciju" }));
 	fireEvent.click(
 		screen.getAllByRole("combobox", { name: "Piesaistīts pozīcijai" })[1],
@@ -133,10 +135,29 @@ it.each(["percent", "cost"] as const)(
 				mode === "percent" ? "Percentage 1" : "Amount (EUR) 1",
 			),
 		).toHaveValue(mode === "percent" ? "50" : "72.75");
-		expect(screen.getByText(/Unallocated:/)).toHaveTextContent("72.75");
+		expect(screen.getByText(/Unallocated:/).closest("p")).toHaveTextContent(
+			"72.75",
+		);
 		expect(screen.getByText("Contract quantity: 10.5 m3")).toBeInTheDocument();
 	},
 );
+
+it("labels allocations and omits empty unit brackets", async () => {
+	jest.mocked(getDefaultConstructionForma2SplitDetails).mockResolvedValue({
+		...data,
+		source: { ...data.source, unit: " " },
+	});
+	await open();
+	expect(
+		screen.getByRole("combobox", { name: "Sadalīt pēc" }),
+	).toHaveTextContent(/^Daudzums$/);
+	expect(screen.getByText(/Mērvienība nav norādīta/)).toBeInTheDocument();
+	expect(screen.getByText("Tāmes pozīcija")).toBeInTheDocument();
+	expect(screen.getByText("Piešķirtā summa")).toBeInTheDocument();
+	expect(screen.getByText("Sadalīts pilnībā")).toBeInTheDocument();
+	expect(screen.getByText("Līguma daudzums: 10,5 m3")).toBeInTheDocument();
+	expect(screen.getByLabelText("Daudzums 1")).toHaveValue("1.5");
+});
 
 it("retains the draft and reports a failed save", async () => {
 	jest
