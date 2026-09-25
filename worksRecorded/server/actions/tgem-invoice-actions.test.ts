@@ -182,6 +182,8 @@ describe("TGEM invoice dashboard authorization data", () => {
 				extractionSummary: null,
 				receivedAt: new Date("2026-09-02T10:00:00.000Z"),
 				approvedAt: new Date("2026-09-03T10:00:00.000Z"),
+				paymentStatus: "paid",
+				paidAt: new Date("2026-09-04T10:00:00.000Z"),
 				createdAt: new Date("2026-09-02T10:00:00.000Z"),
 				updatedAt: new Date("2026-09-03T10:00:00.000Z"),
 				approvalRound: 1,
@@ -214,6 +216,8 @@ describe("TGEM invoice dashboard authorization data", () => {
 			expect.objectContaining({
 				receivedAt: "2026-09-02T10:00:00.000Z",
 				approvedAt: "2026-09-03T10:00:00.000Z",
+				paymentStatus: "paid",
+				paidAt: "2026-09-04T10:00:00.000Z",
 			}),
 		);
 		expect(result?.invoices[0].lines[0]).toEqual(

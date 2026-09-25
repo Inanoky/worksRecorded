@@ -1,5 +1,9 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import type { TgemInvoiceOcrResult } from "@/lib/tgem-invoice-approval/ocr-types";
+import {
+	TGEM_INVOICE_TYPES,
+	type TgemInvoiceOcrResult,
+	type TgemInvoiceType,
+} from "@/lib/tgem-invoice-approval/ocr-types";
 
 type TgemOcrDatabase = Pick<
 	PrismaClient,
@@ -26,6 +30,13 @@ function dateField(result: TgemInvoiceOcrResult, name: string) {
 	if (!value) return null;
 	const timestamp = Date.parse(value);
 	return Number.isNaN(timestamp) ? null : new Date(timestamp);
+}
+
+function invoiceTypeField(result: TgemInvoiceOcrResult) {
+	const value = stringField(result, "invoiceType");
+	return (
+		TGEM_INVOICE_TYPES.find((invoiceType) => invoiceType === value) ?? null
+	);
 }
 
 function hasPersistableLineItem(
@@ -74,7 +85,7 @@ export async function persistTgemInvoiceOcrResult(
 		hasPersistableLineItem,
 	);
 	const currency = stringField(input.result, "currency");
-	const invoiceType = stringField(input.result, "invoiceType");
+	const invoiceType = invoiceTypeField(input.result);
 
 	for (const [index, lineItem] of persistableLineItems.entries()) {
 		const data = {
@@ -106,9 +117,16 @@ export async function persistTgemInvoiceOcrResult(
 
 	const warnings: string[] = [];
 	if (!stringField(input.result, "invoiceNumber")) {
-		warnings.push("Invoice number was not detected.");
+		warnings.push(
+			invoiceType === "receipt"
+				? "Receipt number was not detected."
+				: "Invoice number was not detected.",
+		);
 	}
-	if (numberField(input.result, "subtotal") === null) {
+	if (
+		invoiceType !== "receipt" &&
+		numberField(input.result, "subtotal") === null
+	) {
 		warnings.push("Invoice amount excluding VAT/PVN was not detected.");
 	}
 	if (numberField(input.result, "total") === null) {
@@ -146,8 +164,8 @@ export async function persistTgemInvoiceOcrResult(
 				? input.result.pages.find((page) => page.errorMessage)?.errorMessage
 				: null,
 			invoiceNumber: stringField(input.result, "invoiceNumber"),
-			...(invoiceType === "credit" || invoiceType === "debit"
-				? { invoiceType }
+			...(invoiceType
+				? { invoiceType: invoiceType satisfies TgemInvoiceType }
 				: {}),
 			supplierName: stringField(input.result, "supplierName"),
 			supplierRegistrationNo: stringField(

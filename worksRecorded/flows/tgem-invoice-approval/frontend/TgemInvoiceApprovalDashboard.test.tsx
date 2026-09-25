@@ -31,6 +31,7 @@ const mockSaveWorkflowManagers = jest.fn();
 const mockSubmitForApproval = jest.fn();
 const mockDecideApproval = jest.fn();
 const mockAssignProject = jest.fn();
+const mockMarkInvoicePaid = jest.fn();
 const mockUpdateInvoiceAccounting = jest.fn();
 const mockUpdateInvoiceDetail = jest.fn();
 const mockDeleteInvoices = jest.fn();
@@ -60,6 +61,7 @@ jest.mock("@/server/actions/tgem-invoice-approval-actions", () => ({
 	decideTgemInvoiceApproval: (...args: unknown[]) =>
 		mockDecideApproval(...args),
 	assignTgemInvoiceProject: (...args: unknown[]) => mockAssignProject(...args),
+	markTgemInvoicePaid: (...args: unknown[]) => mockMarkInvoicePaid(...args),
 }));
 
 jest.mock("@/server/actions/tgem-cost-code-actions", () => ({
@@ -135,6 +137,8 @@ const dashboardData: TgemDashboardData = {
 			},
 			receivedAt: "2026-07-01T00:00:00.000Z",
 			approvedAt: null,
+			paymentStatus: "unpaid",
+			paidAt: null,
 			createdAt: "2026-07-01T00:00:00.000Z",
 			updatedAt: "2026-07-01T00:00:00.000Z",
 			approvalRound: 0,
@@ -265,6 +269,11 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			invoiceCaseId: "case-1",
 			project: { id: "site-1", name: "Riga office" },
 			status: "needs_review",
+			unchanged: false,
+		});
+		mockMarkInvoicePaid.mockResolvedValue({
+			invoiceCaseId: "case-1",
+			paidAt: "2026-09-24T16:30:00.000Z",
 			unchanged: false,
 		});
 		mockUpdateInvoiceAccounting.mockResolvedValue({
@@ -850,25 +859,26 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		);
 
 		const editType = await screen.findByRole("button", {
-			name: "Edit invoice type",
+			name: "Edit document type",
 		});
 		expect(screen.getByText("Debit invoice")).toBeInTheDocument();
 		expect(
-			screen.queryByRole("combobox", { name: "Invoice type" }),
+			screen.queryByRole("combobox", { name: "Document type" }),
 		).not.toBeInTheDocument();
 		expect(screen.queryByText("Reference")).not.toBeInTheDocument();
 		expect(
 			screen.queryByText("Accounting classification"),
 		).not.toBeInTheDocument();
 		expect(
-			screen.getByText("Invoice type").parentElement?.parentElement,
+			screen.getByText("Document type").parentElement?.parentElement,
 		).toHaveClass("rounded-md", "border", "bg-background");
 		expect(
 			screen.getByText("Cost code").parentElement?.parentElement,
 		).toHaveClass("rounded-md", "border", "bg-background");
 		fireEvent.click(editType);
+		expect(screen.getByRole("option", { name: "Receipt" })).toBeInTheDocument();
 		fireEvent.change(
-			await screen.findByRole("combobox", { name: "Invoice type" }),
+			await screen.findByRole("combobox", { name: "Document type" }),
 			{
 				target: { value: "credit" },
 			},
@@ -888,6 +898,103 @@ describe("TgemInvoiceApprovalDashboard", () => {
 				expectedUpdatedAt: "2026-07-01T00:00:00.000Z",
 			}),
 		);
+	});
+
+	it("shows receipt-specific sparse details and classification", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
+			...dashboardData,
+			invoices: [
+				{
+					...dashboardData.invoices[0],
+					invoiceType: "receipt",
+					invoiceNumber: "CHECK-42",
+					dueDate: null,
+					subtotal: null,
+				},
+			],
+		});
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				initialView="approval"
+				organizationLanguage="en"
+			/>,
+		);
+
+		expect(await screen.findByText("Receipt")).toBeInTheDocument();
+		expect(screen.getByText("Receipt number")).toBeInTheDocument();
+		expect(screen.getByText("Receipt date")).toBeInTheDocument();
+		expect(screen.queryByText("Due date")).not.toBeInTheDocument();
+		expect(screen.queryByText("Total excl. VAT")).not.toBeInTheDocument();
+	});
+
+	it("marks an approved invoice as paid from the detail view", async () => {
+		const approvedInvoice = {
+			...dashboardData.invoices[0],
+			status: "approved",
+			approvedAt: "2026-09-24T15:00:00.000Z",
+			paymentStatus: "unpaid" as const,
+		};
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
+			...dashboardData,
+			invoices: [approvedInvoice],
+		});
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				initialView="approval"
+				organizationLanguage="en"
+			/>,
+		);
+
+		expect(await screen.findByText("Not paid")).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Mark as paid" }));
+		const dialog = screen.getByRole("alertdialog");
+		expect(
+			within(dialog).getByText("Mark invoice as paid?"),
+		).toBeInTheDocument();
+		fireEvent.click(
+			within(dialog).getByRole("button", { name: "Mark as paid" }),
+		);
+
+		await waitFor(() =>
+			expect(mockMarkInvoicePaid).toHaveBeenCalledWith({
+				invoiceCaseId: "case-1",
+				expectedUpdatedAt: "2026-07-01T00:00:00.000Z",
+			}),
+		);
+	});
+
+	it("shows the paid action as a separate register-table control", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
+			...dashboardData,
+			invoices: [
+				{
+					...dashboardData.invoices[0],
+					status: "approved",
+					approvedAt: "2026-09-24T15:00:00.000Z",
+				},
+			],
+		});
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				initialView="register"
+				organizationLanguage="en"
+			/>,
+		);
+
+		const row = await screen.findByTestId("tgem-register-invoice-case-1");
+		expect(
+			within(row).getByRole("button", { name: "Mark as paid" }),
+		).toBeInTheDocument();
+		expect(
+			within(screen.getByRole("table")).getByRole("columnheader", {
+				name: "Payment status",
+			}),
+		).toBeInTheDocument();
 	});
 
 	it.each([
@@ -957,9 +1064,9 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			/>,
 		);
 		fireEvent.click(
-			await screen.findByRole("button", { name: "Edit invoice type" }),
+			await screen.findByRole("button", { name: "Edit document type" }),
 		);
-		fireEvent.change(screen.getByRole("combobox", { name: "Invoice type" }), {
+		fireEvent.change(screen.getByRole("combobox", { name: "Document type" }), {
 			target: { value: "credit" },
 		});
 		fireEvent.change(screen.getByRole("combobox", { name: "Cost code" }), {
@@ -967,7 +1074,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Cancel type edit" }));
 		expect(
-			screen.queryByRole("combobox", { name: "Invoice type" }),
+			screen.queryByRole("combobox", { name: "Document type" }),
 		).not.toBeInTheDocument();
 		expect(screen.getByText("Debit invoice")).toBeInTheDocument();
 		expect(screen.getByRole("combobox", { name: "Cost code" })).toHaveValue(
@@ -1271,7 +1378,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		expect(drawer.getByText("Invoice details")).toBeInTheDocument();
 		expect(drawer.getByText("Debit invoice")).toBeInTheDocument();
 		expect(
-			drawer.queryByRole("combobox", { name: "Invoice type" }),
+			drawer.queryByRole("combobox", { name: "Document type" }),
 		).not.toBeInTheDocument();
 		fireEvent.click(drawer.getByRole("button", { name: "About cost codes" }));
 		expect(
@@ -1282,8 +1389,8 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			{ key: "Escape" },
 		);
 		expect(screen.getByRole("dialog")).toBeInTheDocument();
-		fireEvent.click(drawer.getByRole("button", { name: "Edit invoice type" }));
-		fireEvent.change(drawer.getByRole("combobox", { name: "Invoice type" }), {
+		fireEvent.click(drawer.getByRole("button", { name: "Edit document type" }));
+		fireEvent.change(drawer.getByRole("combobox", { name: "Document type" }), {
 			target: { value: "credit" },
 		});
 		fireEvent.change(drawer.getByRole("combobox", { name: "Cost code" }), {
@@ -1302,7 +1409,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		);
 		await waitFor(() =>
 			expect(
-				drawer.queryByRole("combobox", { name: "Invoice type" }),
+				drawer.queryByRole("combobox", { name: "Document type" }),
 			).not.toBeInTheDocument(),
 		);
 		expect(drawer.getByText("Credit invoice")).toBeVisible();
@@ -1641,6 +1748,9 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		expect(reservedFilterSlot).toBeEmptyDOMElement();
 		expect(reservedFilterSlot).toHaveClass("min-h-7");
 		fireEvent.click(screen.getByRole("button", { name: "More filters" }));
+		expect(
+			screen.getByRole("button", { name: "Fewer filters" }),
+		).toBeInTheDocument();
 		fireEvent.change(screen.getByLabelText("Total incl. VAT: Minimum amount"), {
 			target: { value: "20000" },
 		});
@@ -1686,6 +1796,42 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		).toBeInTheDocument();
 		expect(
 			screen.queryByRole("button", { name: "Total incl. VAT: 20000–…" }),
+		).not.toBeInTheDocument();
+	});
+
+	it("filters the register by a distinct payment status", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
+			...dashboardData,
+			invoices: [
+				dashboardData.invoices[0],
+				{
+					...dashboardData.invoices[0],
+					id: "paid-case",
+					invoiceNumber: "PAID-1",
+					status: "approved",
+					paymentStatus: "paid",
+					paidAt: "2026-09-24T16:30:00.000Z",
+				},
+			],
+		});
+		render(
+			<TgemInvoiceApprovalDashboard
+				initialView="register"
+				organizationLanguage="en"
+			/>,
+		);
+		await screen.findByTestId("tgem-invoice-register");
+		fireEvent.click(screen.getByRole("button", { name: "More filters" }));
+		fireEvent.click(screen.getByRole("button", { name: "Payment status" }));
+		fireEvent.click(screen.getByRole("checkbox", { name: "Paid" }));
+
+		expect(screen.getByText("Invoices shown: 1 / 2")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Payment status: Paid" }),
+		).toBeInTheDocument();
+		expect(screen.getByTestId("tgem-register-invoice-paid-case")).toBeVisible();
+		expect(
+			screen.queryByTestId("tgem-register-invoice-case-1"),
 		).not.toBeInTheDocument();
 	});
 

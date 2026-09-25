@@ -38,6 +38,7 @@ import {
 	assignTgemInvoiceProject,
 	decideTgemInvoiceApproval,
 	getTgemApprovalSetupData,
+	markTgemInvoicePaid,
 	saveTgemApprovalTemplate,
 	saveTgemWorkflowManagers,
 	submitTgemInvoiceForApproval,
@@ -424,6 +425,70 @@ describe("TGEM invoice approval actions", () => {
 				}),
 			}),
 		});
+	});
+
+	it("marks only an approved invoice as paid and audits the payment", async () => {
+		const updatedAt = new Date("2026-09-24T16:00:00.000Z");
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			status: "approved",
+			paymentStatus: "unpaid",
+			updatedAt,
+		});
+		mockPrisma.tgemInvoiceCase.updateMany.mockResolvedValue({ count: 1 });
+
+		await expect(
+			markTgemInvoicePaid({
+				invoiceCaseId: "case-1",
+				expectedUpdatedAt: updatedAt.toISOString(),
+			}),
+		).resolves.toEqual(
+			expect.objectContaining({
+				invoiceCaseId: "case-1",
+				unchanged: false,
+				paidAt: expect.any(String),
+			}),
+		);
+		expect(mockPrisma.tgemInvoiceCase.updateMany).toHaveBeenCalledWith({
+			where: {
+				id: "case-1",
+				updatedAt,
+				status: "approved",
+				paymentStatus: "unpaid",
+			},
+			data: { paymentStatus: "paid", paidAt: expect.any(Date) },
+		});
+		expect(mockPrisma.tgemInvoiceAuditEvent.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				eventType: "invoice_marked_paid",
+				fromStatus: "approved",
+				toStatus: "approved",
+				payload: expect.objectContaining({
+					previousPaymentStatus: "unpaid",
+					paymentStatus: "paid",
+				}),
+			}),
+		});
+	});
+
+	it("rejects payment before approval", async () => {
+		const updatedAt = new Date("2026-09-24T16:00:00.000Z");
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			status: "in_approval",
+			paymentStatus: "unpaid",
+			updatedAt,
+		});
+
+		await expect(
+			markTgemInvoicePaid({
+				invoiceCaseId: "case-1",
+				expectedUpdatedAt: updatedAt.toISOString(),
+			}),
+		).rejects.toThrow("Only an approved invoice");
+		expect(mockPrisma.tgemInvoiceCase.updateMany).not.toHaveBeenCalled();
 	});
 
 	it("does not snapshot approvers after the invoice project changes", async () => {

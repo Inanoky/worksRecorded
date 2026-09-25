@@ -1,4 +1,5 @@
 import type { TgemDashboardInvoice } from "@/lib/tgem-invoice-approval/dashboard-types";
+import type { TgemInvoiceType } from "@/lib/tgem-invoice-approval/ocr-types";
 
 export const TGEM_FILTER_MISSING_VALUE = "__missing__";
 
@@ -16,7 +17,8 @@ export type TgemInvoiceRegisterFilters = {
 	statuses: string[];
 	suppliers: string[];
 	approverUserIds: string[];
-	invoiceTypes: Array<"debit" | "credit">;
+	invoiceTypes: TgemInvoiceType[];
+	paymentStatuses: Array<"unpaid" | "paid">;
 	costCodes: string[];
 	sources: string[];
 	currencies: string[];
@@ -60,6 +62,7 @@ export function createDefaultTgemInvoiceRegisterFilters(): TgemInvoiceRegisterFi
 		suppliers: [],
 		approverUserIds: [],
 		invoiceTypes: [],
+		paymentStatuses: [],
 		costCodes: [],
 		sources: [],
 		currencies: [],
@@ -193,6 +196,9 @@ export function filterTgemInvoiceRegister(
 		const matchesInvoiceType =
 			filters.invoiceTypes.length === 0 ||
 			filters.invoiceTypes.includes(invoice.invoiceType);
+		const matchesPaymentStatus =
+			filters.paymentStatuses.length === 0 ||
+			filters.paymentStatuses.includes(invoice.paymentStatus);
 		const matchesCostCode = matchesSelectedValue(
 			invoice.costCode,
 			filters.costCodes,
@@ -219,6 +225,7 @@ export function filterTgemInvoiceRegister(
 			matchesSupplier &&
 			matchesApprover &&
 			matchesInvoiceType &&
+			matchesPaymentStatus &&
 			matchesCostCode &&
 			matchesSource &&
 			matchesCurrency &&
@@ -337,6 +344,7 @@ export function countActiveTgemInvoiceFilters(
 		filters.suppliers.length +
 		filters.approverUserIds.length +
 		filters.invoiceTypes.length +
+		filters.paymentStatuses.length +
 		filters.costCodes.length +
 		filters.sources.length +
 		filters.currencies.length +

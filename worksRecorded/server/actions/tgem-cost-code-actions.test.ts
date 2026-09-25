@@ -124,6 +124,34 @@ describe("TGEM cost code actions", () => {
 		);
 	});
 
+	it("allows a document to be reclassified as a receipt", async () => {
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "invoice-1",
+			organizationId: "org-1",
+			status: "needs_review",
+			invoiceType: "debit",
+			costCode: null,
+			updatedAt: new Date("2026-09-16T10:00:00.000Z"),
+		});
+		mockPrisma.tgemInvoiceCase.updateMany.mockResolvedValue({ count: 1 });
+		mockPrisma.tgemInvoiceAuditEvent.create.mockResolvedValue({
+			id: "audit-1",
+		});
+
+		await updateTgemInvoiceAccounting({
+			invoiceCaseId: "invoice-1",
+			invoiceType: "receipt",
+			costCode: null,
+			expectedUpdatedAt: "2026-09-16T10:00:00.000Z",
+		});
+
+		expect(mockPrisma.tgemInvoiceCase.updateMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: { invoiceType: "receipt", costCode: null },
+			}),
+		);
+	});
+
 	it("rejects an invoice cost code outside the active catalog", async () => {
 		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
 			id: "invoice-1",
