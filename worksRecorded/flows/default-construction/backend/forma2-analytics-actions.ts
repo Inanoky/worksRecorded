@@ -338,6 +338,7 @@ async function loadDefaultConstructionForma2Data(
 				cost: true,
 				invoiceNr: true,
 				supplierName: true,
+				sourcePhoto: true,
 				invoiceDate: true,
 				materialDate: true,
 			},
@@ -405,6 +406,13 @@ async function loadDefaultConstructionForma2Data(
 
 	const materialSources: Forma2ActualSource[] = materialRows.map((row) => ({
 		id: row.id,
+		invoiceLabel: [text(row.supplierName), text(row.invoiceNr)]
+			.filter(Boolean)
+			.join(" · "),
+		invoiceUrl:
+			row.sourcePhoto && /^https?:\/\//i.test(row.sourcePhoto.trim())
+				? row.sourcePhoto.trim()
+				: null,
 		type: "material" as const,
 		label:
 			text(row.name) ||
@@ -654,7 +662,11 @@ export async function getDefaultConstructionForma2PositionCostDetails(args: {
 							id: source.id,
 							type: source.type,
 							label: source.label,
-							secondaryLabel: source.secondaryLabel,
+							secondaryLabel:
+								source.type === "material"
+									? (source.invoiceLabel ?? "")
+									: source.secondaryLabel,
+							invoiceUrl: source.invoiceUrl ?? null,
 							date: source.date,
 							unit: source.unit,
 							quantity: share.quantity,

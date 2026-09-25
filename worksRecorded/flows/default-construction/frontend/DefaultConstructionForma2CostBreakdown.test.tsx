@@ -68,6 +68,7 @@ function details(type: "work" | "material" = "work") {
 				type,
 				label: "Original diary work",
 				secondaryLabel: "Floor 1",
+				invoiceUrl: null as string | null,
 				date: "2026-09-25",
 				unit: "m2",
 				quantity: 10,
@@ -130,7 +131,7 @@ it.each(["work", "material"] as const)(
 			expect(
 				screen.queryByRole("button", { name: /Material position/ }),
 			).not.toBeInTheDocument();
-		fireEvent.click(screen.getByRole("button", { name: /2 New position/ }));
+		fireEvent.click(screen.getByRole("button", { name: /2\. New position/ }));
 		await waitFor(() =>
 			expect(saveDefaultConstructionForma2Allocations).toHaveBeenCalledWith({
 				siteId: "site",
@@ -160,7 +161,7 @@ it("keeps the current cost and position when saving fails", async () => {
 		.mocked(saveDefaultConstructionForma2Allocations)
 		.mockRejectedValueOnce(new Error("Save failed"));
 	fireEvent.click(await openDetails());
-	fireEvent.click(screen.getByRole("button", { name: /2 New position/ }));
+	fireEvent.click(screen.getByRole("button", { name: /2\. New position/ }));
 	await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Save failed"));
 	expect(screen.getByText("Original diary work")).toBeInTheDocument();
 	expect(screen.getByRole("combobox")).toHaveTextContent("Original position");
@@ -194,3 +195,89 @@ it("uses Latvian labels in the review dropdown", async () => {
 	);
 	expect(screen.getByPlaceholderText("Meklēt pozīciju...")).toBeInTheDocument();
 });
+
+it("simplifies material details and provides the original invoice preview", async () => {
+	const result = details("material");
+	result.records[0].invoiceUrl = "https://example.com/invoice.pdf";
+	result.records[0].secondaryLabel = "Supplier · INV-123";
+	jest
+		.mocked(getDefaultConstructionForma2PositionCostDetails)
+		.mockResolvedValue(result);
+	await openDetails();
+	expect(screen.getByText("Calculated total")).toBeInTheDocument();
+	expect(screen.queryByText("Included records")).not.toBeInTheDocument();
+	expect(screen.queryByText("Without calculable cost")).not.toBeInTheDocument();
+	expect(screen.queryByText("Material")).not.toBeInTheDocument();
+	expect(screen.getByText("Supplier · INV-123")).toBeInTheDocument();
+	expect(screen.getAllByText("1. Original position")).toHaveLength(2);
+	const invoice = screen.getByRole("link", { name: /Open invoice/ });
+	expect(invoice).toHaveAttribute("href", "https://example.com/invoice.pdf");
+	expect(invoice).toHaveAttribute("target", "_blank");
+	expect(within(invoice).getByRole("img")).toBeInTheDocument();
+});
+
+it("does not show an invoice link when no document is attached", async () => {
+	jest
+		.mocked(getDefaultConstructionForma2PositionCostDetails)
+		.mockResolvedValue(details("material"));
+	await openDetails();
+	expect(
+		screen.queryByRole("link", { name: /Open invoice/ }),
+	).not.toBeInTheDocument();
+});
+
+it.each([
+	{
+		mode: "output" as const,
+		type: "material" as const,
+		quantity: 1.5,
+		hours: null,
+		expectedUnit: "m2",
+		expectedQuantity: "1.5",
+	},
+	{
+		mode: "hourly" as const,
+		type: "work" as const,
+		quantity: 10,
+		hours: 7,
+		expectedUnit: "h",
+		expectedQuantity: "7",
+	},
+	{
+		mode: "output" as const,
+		type: "work" as const,
+		quantity: 0,
+		hours: null,
+		expectedUnit: "m2",
+		expectedQuantity: "0",
+	},
+])(
+	"shows separate unit and quantity columns for $type / $mode",
+	async ({ mode, type, quantity, hours, expectedUnit, expectedQuantity }) => {
+		const result = details(type);
+		jest
+			.mocked(getDefaultConstructionForma2PositionCostDetails)
+			.mockResolvedValue({
+				...result,
+				records: [
+					{ ...result.records[0], costCalculationMode: mode, quantity, hours },
+				],
+			});
+		await openDetails();
+		expect(
+			screen.getAllByRole("columnheader").map((header) => header.textContent),
+		).toEqual([
+			"Date",
+			"Record",
+			"Assigned position",
+			"Unit",
+			"Quantity",
+			"Cost",
+		]);
+		const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
+		expect(cells[3]).toHaveTextContent(expectedUnit);
+		expect(cells[4]).toHaveTextContent(expectedQuantity);
+		expect(screen.queryByText("Automatic")).not.toBeInTheDocument();
+		expect(screen.getByRole("dialog")).toHaveClass("sm:max-w-[1800px]");
+	},
+);

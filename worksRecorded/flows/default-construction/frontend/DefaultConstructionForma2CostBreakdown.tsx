@@ -13,6 +13,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { SourceDocumentPreview } from "@/components/ui/SourceDocumentPreview";
 import {
 	Table,
 	TableBody,
@@ -22,6 +23,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { getDefaultConstructionForma2PositionCostDetails } from "@/flows/default-construction/backend/forma2-analytics-actions";
+import { formatForma2PositionLabel } from "../lib/forma2-position-label";
 import { DefaultConstructionForma2AssignmentSelect } from "./DefaultConstructionForma2AssignmentSelect";
 import { DefaultConstructionForma2SplitEditor } from "./DefaultConstructionForma2SplitEditor";
 
@@ -77,8 +79,7 @@ export function DefaultConstructionForma2CostBreakdown({
 				description:
 					"Ieraksti, kas veido izvēlētās Formas 2 pozīcijas faktiskās izmaksas.",
 				calculatedTotal: "Aprēķinātā summa",
-				includedRecords: "Iekļautie ieraksti",
-				unpricedRecords: "Bez aprēķināmām izmaksām",
+				openInvoice: "Atvērt rēķinu",
 				workRule:
 					"Darbiem ar režīmu “Izpilde” izmaksas = daudzums × izpildes likme. Režīmā “Stundas likme” izmaksas = reģistrētās stundas × stundas likme.",
 				materialRule:
@@ -86,16 +87,10 @@ export function DefaultConstructionForma2CostBreakdown({
 				date: "Datums",
 				record: "Ieraksts",
 				assignedTo: "Piesaistīts pozīcijai",
-				calculation: "Aprēķins",
-				assignment: "Piesaiste",
+				unit: "Mērv.",
+				quantity: "Daudzums",
 				cost: "Izmaksas",
 				work: "Darbs",
-				material: "Materiāls",
-				manual: "Manuāla",
-				automatic: "Automātiska",
-				rule: "Noteikums",
-				invoiceTotal: "Rēķina pozīcijas summa",
-				missingRate: "Trūkst aprēķinam nepieciešamā daudzuma vai likmes",
 				unpriced: "Nav aprēķināms",
 				noRecords: "Šajā summā nav iekļautu ierakstu.",
 				loadError: "Neizdevās ielādēt izmaksu detalizāciju.",
@@ -105,8 +100,7 @@ export function DefaultConstructionForma2CostBreakdown({
 				description:
 					"Records included in the factual cost of the selected Forma 2 position.",
 				calculatedTotal: "Calculated total",
-				includedRecords: "Included records",
-				unpricedRecords: "Without calculable cost",
+				openInvoice: "Open invoice",
 				workRule:
 					"For Output mode, work cost = quantity × output rate. For Hourly mode, work cost = recorded hours × hourly rate.",
 				materialRule:
@@ -114,17 +108,10 @@ export function DefaultConstructionForma2CostBreakdown({
 				date: "Date",
 				record: "Record",
 				assignedTo: "Assigned position",
-				calculation: "Calculation",
-				assignment: "Assignment",
+				unit: "Unit",
+				quantity: "Quantity",
 				cost: "Cost",
 				work: "Work",
-				material: "Material",
-				manual: "Manual",
-				automatic: "Automatic",
-				rule: "Rule",
-				invoiceTotal: "Invoice-line total",
-				missingRate:
-					"Quantity or rate required for this calculation is unavailable",
 				unpriced: "Not calculable",
 				noRecords: "No records are included in this amount.",
 				loadError: "Could not load the cost details.",
@@ -174,12 +161,12 @@ export function DefaultConstructionForma2CostBreakdown({
 					if (!saving) setOpen(next);
 				}}
 			>
-				<DialogContent className="flex h-[90dvh] max-h-[900px] flex-col overflow-hidden p-0 sm:max-w-5xl">
+				<DialogContent className="flex h-[90dvh] max-h-[900px] w-[calc(100vw-2rem)] max-w-[1800px] flex-col overflow-hidden p-0 sm:max-w-[1800px]">
 					<DialogHeader className="shrink-0 border-b px-6 py-5 pr-12">
 						<DialogTitle>{copy.title}</DialogTitle>
 						<DialogDescription>
 							{details
-								? `${details.position.code ? `${details.position.code} ` : ""}${details.position.name}`
+								? formatForma2PositionLabel(details.position)
 								: copy.description}
 						</DialogDescription>
 					</DialogHeader>
@@ -190,29 +177,13 @@ export function DefaultConstructionForma2CostBreakdown({
 						</div>
 					) : details ? (
 						<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6 [scrollbar-gutter:stable]">
-							<div className="grid gap-3 py-5 sm:grid-cols-3">
+							<div className="py-5 sm:max-w-xs">
 								<div className="rounded-lg border p-3">
 									<div className="text-xs text-muted-foreground">
 										{copy.calculatedTotal}
 									</div>
 									<div className="mt-1 text-xl font-semibold tabular-nums">
 										{formatCurrency(details.calculatedTotal, locale)}
-									</div>
-								</div>
-								<div className="rounded-lg border p-3">
-									<div className="text-xs text-muted-foreground">
-										{copy.includedRecords}
-									</div>
-									<div className="mt-1 text-xl font-semibold tabular-nums">
-										{details.assignedRecords}
-									</div>
-								</div>
-								<div className="rounded-lg border p-3">
-									<div className="text-xs text-muted-foreground">
-										{copy.unpricedRecords}
-									</div>
-									<div className="mt-1 text-xl font-semibold tabular-nums">
-										{details.unpricedRecords}
 									</div>
 								</div>
 							</div>
@@ -223,14 +194,24 @@ export function DefaultConstructionForma2CostBreakdown({
 							</div>
 
 							<div className="overflow-x-auto rounded-lg border">
-								<Table className="min-w-[920px] text-xs">
+								<Table className="min-w-[920px] table-fixed text-xs">
+									<colgroup>
+										<col className="w-[8%]" />
+										<col className="w-[28%]" />
+										<col className="w-[44%]" />
+										<col className="w-[5%]" />
+										<col className="w-[7%]" />
+										<col className="w-[8%]" />
+									</colgroup>
 									<TableHeader>
 										<TableRow>
 											<TableHead>{copy.date}</TableHead>
 											<TableHead>{copy.record}</TableHead>
 											<TableHead>{copy.assignedTo}</TableHead>
-											<TableHead>{copy.calculation}</TableHead>
-											<TableHead>{copy.assignment}</TableHead>
+											<TableHead>{copy.unit}</TableHead>
+											<TableHead className="text-right">
+												{copy.quantity}
+											</TableHead>
 											<TableHead className="text-right">{copy.cost}</TableHead>
 										</TableRow>
 									</TableHeader>
@@ -242,107 +223,109 @@ export function DefaultConstructionForma2CostBreakdown({
 												<TableCell className="whitespace-nowrap align-top">
 													{formatDate(record.date, locale)}
 												</TableCell>
-												<TableCell className="max-w-64 whitespace-normal align-top">
-													<div className="font-medium">{record.label}</div>
-													<div className="mt-1 text-muted-foreground">
-														{record.secondaryLabel || "—"}
+												<TableCell className="whitespace-normal align-top">
+													<div
+														className="truncate font-medium"
+														title={record.label}
+													>
+														{record.label}
 													</div>
-													<Badge variant="outline" className="mt-2">
-														{record.type === "work" ? copy.work : copy.material}
-													</Badge>
-												</TableCell>
-												<TableCell className="max-w-56 whitespace-normal align-top">
-													{record.isSplit ? (
-														<p className="mb-2">
-															{record.assignedPosition.code}{" "}
-															{record.assignedPosition.name}
-														</p>
-													) : (
-														<DefaultConstructionForma2AssignmentSelect
-															siteId={siteId}
-															sourceId={record.id}
-															sourceType={record.type}
-															value={record.assignedPosition.id}
-															options={details.positionOptions.filter(
-																(position) =>
-																	record.type === "work"
-																		? position.kind === "work"
-																		: position.kind === "material" ||
-																			(position.kind === "work" &&
-																				!position.parentId),
-															)}
-															organizationLanguage={organizationLanguage}
-															overrideJournalPosition
-															allowUnassigned={false}
-															disabled={saving}
-															onSavingChange={setSaving}
-															onAssigned={refreshAfterAssignment}
-														/>
-													)}
-													{record.type === "material" ? (
-														<div className="mt-2">
-															<DefaultConstructionForma2SplitEditor
-																siteId={siteId}
-																sourceId={record.id}
-																isSplit={record.isSplit}
-																organizationLanguage={organizationLanguage}
-																disabled={saving}
-																onSaved={refreshAfterAssignment}
-															/>
+													{record.secondaryLabel ? (
+														<div className="mt-1 text-muted-foreground">
+															{record.secondaryLabel}
 														</div>
+													) : null}
+													{record.type === "work" ? (
+														<Badge variant="outline" className="mt-2">
+															{copy.work}
+														</Badge>
+													) : null}
+													{record.type === "material" && record.invoiceUrl ? (
+														<a
+															href={record.invoiceUrl}
+															target="_blank"
+															rel="noopener noreferrer"
+															className="mt-2 inline-flex items-center gap-2 rounded-md text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2"
+														>
+															<span className="relative block h-14 w-14 shrink-0 overflow-hidden rounded-md border bg-muted">
+																<SourceDocumentPreview
+																	url={record.invoiceUrl}
+																	label={copy.openInvoice}
+																/>
+															</span>
+															<span>{copy.openInvoice}</span>
+														</a>
 													) : null}
 												</TableCell>
 												<TableCell className="whitespace-normal align-top">
-													{record.type === "work" ? (
-														record.costCalculationMode === "output" ? (
-															record.quantity != null &&
-															record.unitRate != null ? (
-																<>
-																	{formatNumber(record.quantity, locale)}{" "}
-																	{record.unit} ×{" "}
-																	{formatCurrency(record.unitRate, locale)}/
-																	{record.unit}
-																</>
-															) : (
-																copy.missingRate
-															)
-														) : record.hours != null &&
-															record.hourlyRate != null ? (
-															<>
-																{formatNumber(record.hours, locale)} h ×{" "}
-																{formatCurrency(record.hourlyRate, locale)}/h
-															</>
+													<div className="flex items-center gap-2">
+														{record.isSplit ? (
+															<p
+																className="min-w-0 flex-1 truncate"
+																title={formatForma2PositionLabel(
+																	record.assignedPosition,
+																)}
+															>
+																{formatForma2PositionLabel(
+																	record.assignedPosition,
+																)}
+															</p>
 														) : (
-															copy.missingRate
-														)
-													) : (
-														<>
-															{record.quantity != null
-																? `${formatNumber(record.quantity, locale)} ${record.unit}`
-																: "—"}
-															<div className="text-muted-foreground">
-																{record.isSplit
-																	? isLatvian
-																		? "Šai pozīcijai piešķirtā daļa"
-																		: "Share allocated to this position"
-																	: copy.invoiceTotal}
+															<DefaultConstructionForma2AssignmentSelect
+																siteId={siteId}
+																sourceId={record.id}
+																sourceType={record.type}
+																value={record.assignedPosition.id}
+																options={details.positionOptions.filter(
+																	(position) =>
+																		record.type === "work"
+																			? position.kind === "work"
+																			: position.kind === "material" ||
+																				(position.kind === "work" &&
+																					!position.parentId),
+																)}
+																organizationLanguage={organizationLanguage}
+																overrideJournalPosition
+																singleLine
+																allowUnassigned={false}
+																disabled={saving}
+																onSavingChange={setSaving}
+																onAssigned={refreshAfterAssignment}
+															/>
+														)}
+														{record.type === "material" ? (
+															<div className="shrink-0">
+																<DefaultConstructionForma2SplitEditor
+																	siteId={siteId}
+																	sourceId={record.id}
+																	isSplit={record.isSplit}
+																	organizationLanguage={organizationLanguage}
+																	disabled={saving}
+																	onSaved={refreshAfterAssignment}
+																/>
 															</div>
-														</>
-													)}
+														) : null}
+													</div>
 												</TableCell>
-												<TableCell className="align-top">
-													<Badge variant="secondary">
-														{record.assignmentMethod === "manual"
-															? copy.manual
-															: record.assignmentMethod === "rule"
-																? copy.rule
-																: copy.automatic}
-													</Badge>
-													{record.assignmentConfidence != null ? (
-														<div className="mt-1 text-muted-foreground">
-															{Math.round(record.assignmentConfidence * 100)}%
-														</div>
-													) : null}
+												<TableCell className="whitespace-nowrap align-top">
+													{record.type === "work" &&
+													record.costCalculationMode === "hourly"
+														? "h"
+														: record.unit || "?"}
+												</TableCell>
+												<TableCell className="whitespace-nowrap text-right align-top tabular-nums">
+													{(record.type === "work" &&
+													record.costCalculationMode === "hourly"
+														? record.hours
+														: record.quantity) == null
+														? "?"
+														: formatNumber(
+																(record.type === "work" &&
+																record.costCalculationMode === "hourly"
+																	? record.hours
+																	: record.quantity) ?? 0,
+																locale,
+															)}
 												</TableCell>
 												<TableCell className="whitespace-nowrap text-right align-top font-medium tabular-nums">
 													{record.actualCost == null

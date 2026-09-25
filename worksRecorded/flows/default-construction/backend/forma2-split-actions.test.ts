@@ -103,6 +103,11 @@ beforeEach(() => {
 			quantity: 1.5,
 			cost: 145.5,
 			measurementUnit: "m3",
+			costCode: "CC-1001",
+			categoryName: "Legacy category",
+			supplierName: "Supplier",
+			invoiceNr: "INV-123",
+			sourcePhoto: "https://example.com/invoice.pdf",
 		},
 	] as never);
 	jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([]);
@@ -131,6 +136,18 @@ async function input() {
 		expectedQuantity: data.source.quantity,
 	};
 }
+
+it("returns invoice provenance without legacy categories in cost details", async () => {
+	const details = await getDefaultConstructionForma2PositionCostDetails({
+		siteId: "site",
+		positionId: "a",
+		costType: "material",
+	});
+	expect(details.records[0]).toMatchObject({
+		secondaryLabel: "Supplier · INV-123",
+		invoiceUrl: "https://example.com/invoice.pdf",
+	});
+});
 
 it("includes contract quantities and estimate units in split details", async () => {
 	const details = await getDefaultConstructionForma2SplitDetails({

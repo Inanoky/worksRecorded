@@ -14,6 +14,7 @@ import {
 	saveDefaultConstructionForma2Allocations,
 	saveDefaultConstructionForma2MaterialRule,
 } from "@/flows/default-construction/backend/forma2-analytics-actions";
+import { formatForma2PositionLabel } from "../lib/forma2-position-label";
 
 export type Forma2MaterialPositionOption = {
 	id: string;
@@ -39,6 +40,7 @@ export function DefaultConstructionForma2AssignmentSelect({
 	onSavingChange,
 	onAssigned,
 	onChoose,
+	singleLine = false,
 }: {
 	siteId: string;
 	sourceId: string;
@@ -53,6 +55,7 @@ export function DefaultConstructionForma2AssignmentSelect({
 	onSavingChange?: (saving: boolean) => void;
 	onAssigned: (positionId: string | null) => void | Promise<void>;
 	onChoose?: (positionId: string | null) => void;
+	singleLine?: boolean;
 }) {
 	const isLatvian = String(organizationLanguage ?? "")
 		.toLowerCase()
@@ -149,11 +152,16 @@ export function DefaultConstructionForma2AssignmentSelect({
 					aria-expanded={open}
 					aria-label={isLatvian ? "Piesaistīts pozīcijai" : "Assigned position"}
 					disabled={saving || disabled}
-					className="h-auto min-h-9 w-full min-w-[230px] justify-between whitespace-normal px-3 py-2 text-left font-normal"
+					className={
+						singleLine
+							? "h-9 min-w-0 flex-1 justify-between px-3 py-2 text-left font-normal"
+							: "h-auto min-h-9 w-full min-w-[230px] justify-between whitespace-normal px-3 py-2 text-left font-normal"
+					}
+					title={selected ? formatForma2PositionLabel(selected) : undefined}
 				>
-					<span className="line-clamp-2">
+					<span className={singleLine ? "truncate" : "line-clamp-2"}>
 						{selected
-							? `${selected.code ? `${selected.code} ` : ""}${selected.name}`
+							? formatForma2PositionLabel(selected)
 							: isLatvian
 								? "Nav piesaistīts"
 								: "Unassigned"}
@@ -200,8 +208,7 @@ export function DefaultConstructionForma2AssignmentSelect({
 							/>
 							<span>
 								<span className="block">
-									{option.code ? `${option.code} ` : ""}
-									{option.name}
+									{formatForma2PositionLabel(option)}
 								</span>
 								<span className="block text-xs text-muted-foreground">
 									{option.categoryName}
