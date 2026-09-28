@@ -76,6 +76,62 @@ it("allows clicking a dash to explain zero assigned hours", () => {
 	expect(screen.queryByText(explanation)).not.toBeInTheDocument();
 });
 
+it("shows a rounded summary and keeps the original explanation collapsed", () => {
+	render(
+		<BeginRecordHours
+			day={day}
+			recordId="record"
+			value="6,34"
+			hours={761 / 60 / 2}
+			workers={2}
+		/>,
+	);
+	fireEvent.click(screen.getByRole("button"));
+	const dialog = screen.getByRole("dialog");
+	expect(dialog).toHaveTextContent("Stundas6,34");
+	expect(dialog).toHaveTextContent("Darbinieki2");
+	expect(dialog).toHaveTextContent("Cilvēkstundas12,68");
+	expect(dialog).toHaveTextContent("25.09.2026");
+	const original = screen.getByText(explanation);
+	expect(original.closest("details")).not.toHaveAttribute("open");
+	fireEvent.click(screen.getByText("Pilns skaidrojums"));
+	expect(original.closest("details")).toHaveAttribute("open");
+});
+
+it.each([
+	[
+		"Begin brigāde — Ralfs 7:09, Igors 5:32; kopā 12:41 cilvēkstundas.",
+		"7 h 09 min",
+	],
+	["Begin brigāde — Ralfs 429 min + Igors 332 min = 761 min.", "7 h 09 min"],
+	["Begin brigāde — Ralfs, Igors.", "Nav norādīts"],
+])("uses the same crew rows for %s", (text, duration) => {
+	render(
+		<BeginRecordHours
+			day={{
+				...day,
+				allocations: day.allocations?.map((item) => ({
+					...item,
+					explanation: `${text} Atsevišķs darba ilgums nav norādīts.`,
+				})),
+			}}
+			recordId="record"
+			value="6,34"
+			hours={761 / 60 / 2}
+			workers={2}
+		/>,
+	);
+	fireEvent.click(screen.getByRole("button"));
+	expect(
+		screen.getByRole("heading", { name: "Begin brigāde" }),
+	).toBeInTheDocument();
+	expect(screen.getByText("Ralfs").parentElement).toHaveTextContent(duration);
+	expect(screen.getByText("Igors")).toBeInTheDocument();
+	expect(
+		screen.getByText("Atsevišķs darba ilgums nav norādīts."),
+	).toBeVisible();
+});
+
 it.each(["hours", "workers", "import"])(
 	"warns when the saved explanation is stale because of %s",
 	(changed) => {

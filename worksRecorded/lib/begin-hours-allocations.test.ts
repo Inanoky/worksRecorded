@@ -34,6 +34,45 @@ it("reads old snapshots without allocation data", () => {
 	expect(parseBeginDay(JSON.stringify(day))).toEqual(day);
 });
 
+it.each(["legacy-comment", "allocation", "begin-allocation"] as const)(
+	"preserves %s explanations in current data and history",
+	(source) => {
+		const updated = withBeginAllocation(day, { ...allocation, source });
+		const parsed = parseBeginDay(
+			JSON.stringify({ ...updated, history: [updated] }),
+		);
+		expect(parsed.allocations).toEqual([{ ...allocation, source }]);
+		expect(parsed.history[0].allocations).toEqual(parsed.allocations);
+	},
+);
+
+it("reports invalid storage fields with a writable error message", () => {
+	let failure: unknown;
+	try {
+		parseBeginDay({
+			...day,
+			allocations: [{ ...allocation, source: "unknown-source" }],
+		});
+	} catch (error) {
+		failure = error;
+	}
+	expect(failure).toBeInstanceOf(Error);
+	if (!(failure instanceof Error)) throw new Error("Expected an error");
+	expect(failure.message).toContain(
+		"allocations.0.source (invalid_enum_value)",
+	);
+	expect(failure.message).not.toContain(allocation.explanation);
+	expect(() => {
+		failure.message = `Formatted: ${failure.message}`;
+	}).not.toThrow();
+});
+
+it("reports malformed storage JSON clearly", () => {
+	expect(() => parseBeginDay("{broken")).toThrow(
+		"Saglabātie Begin stundu dati nav derīgs JSON.",
+	);
+});
+
 it("roundtrips per-record explanations and previous revisions", () => {
 	const updated = withBeginAllocation(day, allocation);
 	expect(parseBeginDay(JSON.stringify(updated)).allocations).toEqual([

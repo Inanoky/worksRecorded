@@ -7,6 +7,10 @@ import {
 	PopoverTrigger,
 } from "@/components/ui/popover";
 import type { BeginDay } from "@/lib/begin-hours";
+import {
+	formatBeginExplanationNumber,
+	presentBeginExplanation,
+} from "@/lib/begin-hours-explanation";
 
 export function BeginRecordHours({
 	day,
@@ -33,6 +37,11 @@ export function BeginRecordHours({
 		(item) => item.recordId === recordId,
 	);
 	if (!allocation) return <>{value}</>;
+	const explanation = presentBeginExplanation(allocation.explanation);
+	const personHours =
+		allocation.hours !== null && allocation.workers !== null
+			? allocation.hours * allocation.workers
+			: null;
 	const matches = (current: unknown, saved: number | null) => {
 		if (current == null || current === "") return saved === null;
 		return (
@@ -82,7 +91,7 @@ export function BeginRecordHours({
 				side="top"
 				align="center"
 				aria-label="Stundu aprēķina skaidrojums"
-				className="max-h-[65vh] w-[min(90vw,480px)] overflow-y-auto text-sm"
+				className="max-h-[min(75vh,var(--radix-popover-content-available-height))] w-[min(92vw,480px)] space-y-4 overflow-y-auto text-sm leading-relaxed"
 				onOpenAutoFocus={(event) => event.preventDefault()}
 				onCloseAutoFocus={(event) => event.preventDefault()}
 				onPointerEnter={(event) => {
@@ -92,7 +101,12 @@ export function BeginRecordHours({
 					if (event.pointerType !== "touch") leave();
 				}}
 			>
-				<p className="mb-2 font-medium">Stundu aprēķins · {day?.date}</p>
+				<div className="flex items-baseline justify-between gap-3">
+					<p className="font-semibold">Stundu aprēķins</p>
+					<time className="text-xs text-muted-foreground" dateTime={day?.date}>
+						{day?.date.split("-").reverse().join(".")}
+					</time>
+				</div>
 				{stale ? (
 					<output className="mb-3 block rounded-md border bg-muted p-2">
 						Stundas, darbinieku skaits vai Begin imports ir mainījies. Šis
@@ -100,9 +114,77 @@ export function BeginRecordHours({
 						to.
 					</output>
 				) : null}
-				<p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
-					{allocation.explanation}
-				</p>
+				{stale ? (
+					<p className="text-xs text-muted-foreground">
+						Iepriekš saglabātais sadalījums
+					</p>
+				) : null}
+				<dl className="grid grid-cols-3 gap-3 rounded-md bg-muted/50 p-3">
+					{(
+						[
+							["Stundas", allocation.hours],
+							["Darbinieki", allocation.workers],
+							["Cilvēkstundas", personHours],
+						] as const
+					).map(([label, amount]) => (
+						<div key={String(label)}>
+							<dt className="text-xs text-muted-foreground">{label}</dt>
+							<dd className="mt-1 text-lg font-semibold tabular-nums">
+								{formatBeginExplanationNumber(amount)}
+							</dd>
+						</div>
+					))}
+				</dl>
+				{explanation.team ? (
+					<section className="space-y-2">
+						<h4 className="text-xs font-medium text-muted-foreground">
+							{explanation.team}
+						</h4>
+						<dl className="divide-y">
+							{explanation.workers.map((worker) => (
+								<div
+									key={worker.name}
+									className="flex justify-between gap-4 py-1.5"
+								>
+									<dt>{worker.name}</dt>
+									<dd className="shrink-0 tabular-nums">{worker.duration}</dd>
+								</div>
+							))}
+						</dl>
+					</section>
+				) : null}
+				{explanation.calculations.length ? (
+					<details className="space-y-1.5 border-l-2 pl-3">
+						<summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+							Aprēķina soļi
+						</summary>
+						{explanation.calculations.map((line) => (
+							<p key={line} className="tabular-nums [overflow-wrap:anywhere]">
+								{line}
+							</p>
+						))}
+					</details>
+				) : null}
+				{explanation.notes.length ? (
+					<section className="space-y-2">
+						<h4 className="text-xs font-medium text-muted-foreground">
+							Piezīmes par sadalījumu
+						</h4>
+						{explanation.notes.map((line) => (
+							<p key={line} className="[overflow-wrap:anywhere]">
+								{line}
+							</p>
+						))}
+					</section>
+				) : null}
+				<details className="border-t pt-3">
+					<summary className="cursor-pointer text-xs text-muted-foreground">
+						Pilns skaidrojums
+					</summary>
+					<p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
+						{allocation.explanation}
+					</p>
+				</details>
 			</PopoverContent>
 		</Popover>
 	);

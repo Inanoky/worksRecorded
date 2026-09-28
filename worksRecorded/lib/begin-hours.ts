@@ -32,7 +32,7 @@ export const beginAllocationSchema = z.object({
   workers: z.number().finite().nonnegative().nullable(),
   savedAt: z.string().datetime(),
   sourceImportedAt: z.string().datetime(),
-  source: z.enum(["legacy-comment", "allocation"]),
+  source: z.enum(["legacy-comment", "allocation", "begin-allocation"]),
 });
 export type BeginAllocation = z.infer<typeof beginAllocationSchema>;
 const revisionSchema = z.object({
@@ -54,9 +54,22 @@ export const beginDaySchema = revisionSchema.extend({
 export type BeginDay = z.infer<typeof beginDaySchema>;
 
 export function parseBeginDay(value: unknown): BeginDay {
-  return beginDaySchema.parse(
-    typeof value === "string" ? JSON.parse(value) : value,
-  );
+  let data = value;
+  if (typeof value === "string") {
+    try {
+      data = JSON.parse(value);
+    } catch {
+      throw new Error("Saglabātie Begin stundu dati nav derīgs JSON.");
+    }
+  }
+  const result = beginDaySchema.safeParse(data);
+  if (!result.success) {
+    const fields = result.error.issues
+      .map((issue) => `${issue.path.join(".") || "root"} (${issue.code})`)
+      .join(", ");
+    throw new Error(`Saglabātie Begin stundu dati nav derīgi: ${fields}.`);
+  }
+  return result.data;
 }
 
 export function withBeginAllocation(
