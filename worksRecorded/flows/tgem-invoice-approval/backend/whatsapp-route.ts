@@ -4,7 +4,7 @@ import { UTApi } from "uploadthing/server";
 import { createTgemInvoiceCaseRecord } from "@/lib/tgem-invoice-approval/create-case";
 import { buildTgemInvoiceIdempotencyKey } from "@/lib/tgem-invoice-approval/intake";
 import { buildTgemInvoiceLangSmithConfig } from "@/lib/tgem-invoice-approval/langsmith";
-import { processTgemInvoiceCase } from "@/lib/tgem-invoice-approval/process-case";
+import { enqueueTgemInvoiceProcessing } from "@/lib/tgem-invoice-approval/workflow-client";
 import { prisma } from "@/lib/utils/db";
 import { getUploadThingUfsUrl } from "@/lib/utils/uploadthing-file-url";
 import {
@@ -258,9 +258,24 @@ async function handleTgemInvoiceWhatsappRouteInternal(
 	});
 	const existingInvoice = await prisma.tgemInvoiceCase.findUnique({
 		where: { idempotencyKey },
-		select: { id: true },
+		select: {
+			id: true,
+			status: true,
+			documents: {
+				orderBy: { createdAt: "asc" },
+				take: 1,
+				select: { id: true },
+			},
+		},
 	});
 	if (existingInvoice) {
+		const existingDocument = existingInvoice.documents?.[0];
+		if (existingInvoice.status === "received" && existingDocument) {
+			await enqueueTgemInvoiceProcessing({
+				invoiceCaseId: existingInvoice.id,
+				documentId: existingDocument.id,
+			});
+		}
 		await sendMessage(args.from, copy.alreadyReceived);
 		return {
 			outcome: "duplicate",
@@ -327,28 +342,14 @@ async function handleTgemInvoiceWhatsappRouteInternal(
 			args.from,
 			copy.processing(selectedProject.name),
 		);
-		const result = await processTgemInvoiceCase({
+		await enqueueTgemInvoiceProcessing({
 			invoiceCaseId: invoiceCase.id,
 			documentId: document.id,
-			organizationId: user.organizationId,
-			siteId: selectedProject.id,
-			actorUserId: user.id,
-			actorType: "whatsapp",
-			source: "whatsapp",
-			content,
-			contentType,
-			byteSize: content.byteLength,
 		});
-		await sendProcessingMessage(
-			args.from,
-			result.warningCount > 0 ? copy.readyWithWarnings : copy.ready,
-		);
 		return {
-			outcome: "processed",
+			outcome: "queued",
 			siteId: selectedProject.id,
 			invoiceCaseId: invoiceCase.id,
-			provider: result.provider,
-			warningCount: result.warningCount,
 		};
 	} catch (error) {
 		console.error("TGEM WhatsApp invoice processing failed", {

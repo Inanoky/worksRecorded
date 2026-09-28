@@ -11,7 +11,7 @@ import {
 import * as React from "react";
 
 import { useUploadThing } from "@/lib/utils/UploadthingsComponents";
-import { runTgemInvoiceOcr } from "@/server/actions/tgem-invoice-actions";
+import { getTgemInvoiceProcessingStatus } from "@/server/actions/tgem-invoice-actions";
 
 type UploadStage = "idle" | "uploading" | "processing" | "ready" | "error";
 
@@ -153,11 +153,28 @@ export function TgemInvoiceUpload({
 
 				setProgress(100);
 				setStage("processing");
-				const ocrResult = await runTgemInvoiceOcr({
-					invoiceCaseId: serverData.invoiceCaseId,
-					documentId: serverData.documentId,
-				});
-				if (!ocrResult) throw new Error(copy.failed);
+				let ocrResult: Awaited<
+					ReturnType<typeof getTgemInvoiceProcessingStatus>
+				> = null;
+				for (let attempt = 0; attempt < 80; attempt += 1) {
+					ocrResult = await getTgemInvoiceProcessingStatus({
+						invoiceCaseId: serverData.invoiceCaseId,
+						documentId: serverData.documentId,
+					});
+					if (
+						ocrResult &&
+						!["received", "processing"].includes(ocrResult.status)
+					) {
+						break;
+					}
+					await new Promise((resolve) => setTimeout(resolve, 1_500));
+				}
+				if (!ocrResult || ocrResult.status === "failed_processing") {
+					throw new Error(ocrResult?.processingError || copy.failed);
+				}
+				if (["received", "processing"].includes(ocrResult.status)) {
+					throw new Error(copy.failed);
+				}
 
 				setResult({
 					lineItemCount: ocrResult.lineItemCount,

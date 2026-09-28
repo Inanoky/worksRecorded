@@ -232,6 +232,8 @@ export async function assignTgemInvoiceProject(input: {
 			},
 			data: {
 				siteId: project.id,
+				projectMatchConfidence: null,
+				projectMatchMethod: "manual",
 				status: nextStatus,
 				...(invalidatesApproval ? { approvedAt: null } : {}),
 			},

@@ -179,6 +179,52 @@ export async function runTgemInvoiceOcr(input: {
 	});
 }
 
+export async function getTgemInvoiceProcessingStatus(input: {
+	invoiceCaseId: string;
+	documentId: string;
+}) {
+	const user = await requireUser();
+	const dbUser = await prisma.user.findUnique({
+		where: { id: user.id },
+		select: { organizationId: true },
+	});
+	if (!dbUser?.organizationId) return null;
+
+	const invoiceCase = await prisma.tgemInvoiceCase.findFirst({
+		where: {
+			id: input.invoiceCaseId,
+			organizationId: dbUser.organizationId,
+			documents: { some: { id: input.documentId } },
+		},
+		select: {
+			status: true,
+			processingError: true,
+			validationSummary: true,
+			_count: { select: { lines: true } },
+		},
+	});
+	if (!invoiceCase) return null;
+	const validationSummary =
+		invoiceCase.validationSummary &&
+		typeof invoiceCase.validationSummary === "object" &&
+		!Array.isArray(invoiceCase.validationSummary)
+			? invoiceCase.validationSummary
+			: null;
+	const warnings =
+		validationSummary &&
+		"warnings" in validationSummary &&
+		Array.isArray(validationSummary.warnings)
+			? validationSummary.warnings
+			: [];
+
+	return {
+		status: invoiceCase.status,
+		processingError: invoiceCase.processingError,
+		lineItemCount: invoiceCase._count.lines,
+		warningCount: warnings.length,
+	};
+}
+
 function serializeDate(value: Date | null) {
 	return value?.toISOString() ?? null;
 }

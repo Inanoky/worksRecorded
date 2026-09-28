@@ -3,26 +3,52 @@ import { createUploadthing, type FileRouter } from "uploadthing/next";
 import { UploadThingError } from "uploadthing/server";
 import { z } from "zod";
 
-import { createTgemInvoiceCaseRecord } from "@/lib/tgem-invoice-approval/create-case";
-import { prisma } from "@/lib/utils/db";
-import { requireWarehouseImportAccess, signWarehouseUpload } from "@/flows/default-construction/backend/warehouse-import-upload";
+import {
+	requireWarehouseImportAccess,
+	signWarehouseUpload,
+} from "@/flows/default-construction/backend/warehouse-import-upload";
+import {
+	createVisualDrawing,
+	requireVisualAccess,
+} from "@/flows/default-construction/visual/store";
 import { validateWarehouseImportFiles } from "@/flows/default-construction/warehouse-import";
-import { createVisualDrawing, requireVisualAccess } from "@/flows/default-construction/visual/store";
+import { createTgemInvoiceCaseRecord } from "@/lib/tgem-invoice-approval/create-case";
+import { enqueueTgemInvoiceProcessing } from "@/lib/tgem-invoice-approval/workflow-client";
+import { prisma } from "@/lib/utils/db";
 
 const f = createUploadthing();
 
 // FileRouter for your app, can contain multiple FileRoutes
 export const ourFileRouter = {
-	limeniVisualDrawingUploader: f({ pdf: { maxFileSize: "16MB", maxFileCount: 1 } })
-		.input(z.object({ siteId: z.string().uuid(), location: z.string().trim().min(1).max(200), replaceDrawingId: z.string().uuid().optional() }))
+	limeniVisualDrawingUploader: f({
+		pdf: { maxFileSize: "16MB", maxFileCount: 1 },
+	})
+		.input(
+			z.object({
+				siteId: z.string().uuid(),
+				location: z.string().trim().min(1).max(200),
+				replaceDrawingId: z.string().uuid().optional(),
+			}),
+		)
 		.middleware(async ({ input }) => {
 			const { getUser } = getKindeServerSession();
 			const user = await getUser();
 			if (!user) throw new UploadThingError("Unauthorized");
 			await requireVisualAccess(user.id, input.siteId);
-			return { userId: user.id, siteId: input.siteId, location: input.location, replaceDrawingId: input.replaceDrawingId };
+			return {
+				userId: user.id,
+				siteId: input.siteId,
+				location: input.location,
+				replaceDrawingId: input.replaceDrawingId,
+			};
 		})
-		.onUploadComplete(async ({ metadata, file }) => ({ drawingId: await createVisualDrawing({ ...metadata, url: file.ufsUrl, name: file.name }) })),
+		.onUploadComplete(async ({ metadata, file }) => ({
+			drawingId: await createVisualDrawing({
+				...metadata,
+				url: file.ufsUrl,
+				name: file.name,
+			}),
+		})),
 	warehouseInvoiceUploader: f({
 		image: { maxFileSize: "16MB", maxFileCount: 20, minFileCount: 0 },
 		pdf: { maxFileSize: "16MB", maxFileCount: 20, minFileCount: 0 },
@@ -31,9 +57,14 @@ export const ourFileRouter = {
 		.middleware(async ({ input, files }) => {
 			const { getUser } = getKindeServerSession();
 			const user = await getUser();
-			if (!user) throw new UploadThingError({ code: "UNAUTHORIZED", message: "Unauthorized" });
+			if (!user)
+				throw new UploadThingError({
+					code: "FORBIDDEN",
+					message: "Unauthorized",
+				});
 			const error = validateWarehouseImportFiles(files);
-			if (error) throw new UploadThingError({ code: "BAD_REQUEST", message: error });
+			if (error)
+				throw new UploadThingError({ code: "BAD_REQUEST", message: error });
 			return requireWarehouseImportAccess(user.id, input.siteId);
 		})
 		.onUploadComplete(async ({ metadata, file }) => ({
@@ -42,7 +73,11 @@ export const ourFileRouter = {
 				key: file.key,
 				url: file.ufsUrl,
 				name: file.name,
-				type: file.type as "application/pdf" | "image/jpeg" | "image/png" | "image/webp",
+				type: file.type as
+					| "application/pdf"
+					| "image/jpeg"
+					| "image/png"
+					| "image/webp",
 				size: file.size,
 				fileHash: file.fileHash || file.key,
 			}),
@@ -100,6 +135,10 @@ export const ourFileRouter = {
 			if (!document) {
 				throw new UploadThingError("Invoice document was not created");
 			}
+			await enqueueTgemInvoiceProcessing({
+				invoiceCaseId: invoiceCase.id,
+				documentId: document.id,
+			});
 
 			return {
 				invoiceCaseId: invoiceCase.id,

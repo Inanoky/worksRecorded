@@ -1,6 +1,6 @@
 const mockUploadFiles = jest.fn();
 const mockCreateTgemInvoiceCaseRecord = jest.fn();
-const mockProcessTgemInvoiceCase = jest.fn();
+const mockEnqueueTgemInvoiceProcessing = jest.fn();
 const mockFetchWhatsAppMediaAsBuffer = jest.fn();
 const mockSendMessage = jest.fn();
 const mockGetOrganizationLanguageByUserId = jest.fn();
@@ -21,9 +21,9 @@ jest.mock("@/lib/tgem-invoice-approval/create-case", () => ({
 	createTgemInvoiceCaseRecord: (...args: unknown[]) =>
 		mockCreateTgemInvoiceCaseRecord(...args),
 }));
-jest.mock("@/lib/tgem-invoice-approval/process-case", () => ({
-	processTgemInvoiceCase: (...args: unknown[]) =>
-		mockProcessTgemInvoiceCase(...args),
+jest.mock("@/lib/tgem-invoice-approval/workflow-client", () => ({
+	enqueueTgemInvoiceProcessing: (...args: unknown[]) =>
+		mockEnqueueTgemInvoiceProcessing(...args),
 }));
 jest.mock("@/lib/utils/db", () => ({ prisma: mockPrisma }));
 jest.mock("@/lib/utils/whatsapp-helpers/shared/helpers", () => ({
@@ -93,19 +93,14 @@ describe("TGEM WhatsApp invoice handler", () => {
 			status: "received",
 			documents: [{ id: "document-1" }],
 		});
-		mockProcessTgemInvoiceCase.mockResolvedValue({
-			provider: "openai",
-			pageCount: 1,
-			lineItemCount: 2,
-			warningCount: 0,
-		});
+		mockEnqueueTgemInvoiceProcessing.mockResolvedValue({ ids: ["event-1"] });
 	});
 
 	it.each([
 		["image/jpeg", "", "whatsapp-invoice-wamid.invoice-1.jpg"],
 		["application/pdf", "supplier-invoice.pdf", "supplier-invoice.pdf"],
 	])(
-		"stores and processes %s invoices through the shared TGEM case",
+		"stores and queues %s invoices through the shared TGEM case",
 		async (contentType, filename, expectedFilename) => {
 			const outcome = await handleTgemInvoiceWhatsappRoute({
 				from: "whatsapp:+37120000000",
@@ -135,28 +130,18 @@ describe("TGEM WhatsApp invoice handler", () => {
 					sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
 				}),
 			);
-			expect(mockProcessTgemInvoiceCase).toHaveBeenCalledWith({
+			expect(mockEnqueueTgemInvoiceProcessing).toHaveBeenCalledWith({
 				invoiceCaseId: "case-1",
 				documentId: "document-1",
-				organizationId: "org-1",
-				siteId: "site-1",
-				actorUserId: "user-1",
-				actorType: "whatsapp",
-				source: "whatsapp",
-				content: Buffer.from("invoice bytes"),
-				contentType,
-				byteSize: Buffer.byteLength("invoice bytes"),
 			});
 			expect(mockSendMessage).toHaveBeenLastCalledWith(
 				"whatsapp:+37120000000",
-				"Rēķins ir saglabāts un apstrādāts. Tas ir pieejams TGEM rēķinu panelī.",
+				expect.stringContaining("Sāku dokumenta apstrādi"),
 			);
 			expect(outcome).toMatchObject({
-				outcome: "processed",
+				outcome: "queued",
 				siteId: "site-1",
 				invoiceCaseId: "case-1",
-				provider: "openai",
-				warningCount: 0,
 			});
 		},
 	);
@@ -256,7 +241,15 @@ describe("TGEM WhatsApp invoice handler", () => {
 			where: {
 				idempotencyKey: "tgem-invoice:org-1:whatsapp:wamid.invoice-1",
 			},
-			select: { id: true },
+			select: {
+				id: true,
+				status: true,
+				documents: {
+					orderBy: { createdAt: "asc" },
+					take: 1,
+					select: { id: true },
+				},
+			},
 		});
 		expect(mockFetchWhatsAppMediaAsBuffer).not.toHaveBeenCalled();
 		expect(mockUploadFiles).not.toHaveBeenCalled();

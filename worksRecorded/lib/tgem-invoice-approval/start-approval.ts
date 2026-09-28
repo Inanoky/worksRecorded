@@ -9,16 +9,23 @@ import { prisma } from "@/lib/utils/db";
 
 export async function startTgemInvoiceApproval(input: {
 	invoiceCaseId: string;
-	actorUserId: string;
+	actorUserId: string | null;
 	trigger: "automatic" | "manual";
 }) {
+	if (input.trigger === "manual" && !input.actorUserId) {
+		throw new Error("Manual approval requires an active user");
+	}
 	const invoiceCase = await prisma.tgemInvoiceCase.findFirst({
 		where: {
 			id: input.invoiceCaseId,
 			status: { in: ["needs_review", "changes_requested"] },
-			organization: {
-				users: { some: { id: input.actorUserId, status: "active" } },
-			},
+			...(input.actorUserId
+				? {
+						organization: {
+							users: { some: { id: input.actorUserId, status: "active" } },
+						},
+					}
+				: {}),
 		},
 		select: {
 			id: true,

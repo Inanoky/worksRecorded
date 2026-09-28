@@ -10,7 +10,7 @@ import {
 import type { TgemDashboardData } from "@/lib/tgem-invoice-approval/dashboard-types";
 import {
 	getTgemInvoiceDashboardData,
-	runTgemInvoiceOcr,
+	getTgemInvoiceProcessingStatus,
 } from "@/server/actions/tgem-invoice-actions";
 import { TgemCostCodeSettings } from "./TgemCostCodeSettings";
 
@@ -48,7 +48,7 @@ jest.mock("@/server/actions/tgem-invoice-delete-actions", () => ({
 
 jest.mock("@/server/actions/tgem-invoice-actions", () => ({
 	getTgemInvoiceDashboardData: jest.fn(),
-	runTgemInvoiceOcr: jest.fn(),
+	getTgemInvoiceProcessingStatus: jest.fn(),
 }));
 
 jest.mock("@/server/actions/tgem-invoice-approval-actions", () => ({
@@ -2005,9 +2005,9 @@ describe("TgemInvoiceApprovalDashboard", () => {
 				},
 			},
 		]);
-		jest.mocked(runTgemInvoiceOcr).mockResolvedValue({
-			provider: "openai",
-			pageCount: 1,
+		jest.mocked(getTgemInvoiceProcessingStatus).mockResolvedValue({
+			status: "needs_review",
+			processingError: null,
 			lineItemCount: 5,
 			warningCount: 1,
 		});
@@ -2031,7 +2031,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			});
 		});
 		await waitFor(() => {
-			expect(runTgemInvoiceOcr).toHaveBeenCalledWith({
+			expect(getTgemInvoiceProcessingStatus).toHaveBeenCalledWith({
 				invoiceCaseId: "case-1",
 				documentId: "document-1",
 			});
