@@ -1,7 +1,7 @@
 const mockEmailGet = jest.fn();
 const mockAttachmentList = jest.fn();
 const mockAttachmentGet = jest.fn();
-const mockUploadFilesFromUrl = jest.fn();
+const mockUploadFiles = jest.fn();
 const mockCreateTgemInvoiceCaseRecord = jest.fn();
 const mockGetUploadThingUfsUrl = jest.fn();
 const mockCreateHook = jest.fn();
@@ -29,7 +29,7 @@ jest.mock("resend", () => ({
 
 jest.mock("uploadthing/server", () => ({
 	UTApi: jest.fn(() => ({
-		uploadFilesFromUrl: (...args: unknown[]) => mockUploadFilesFromUrl(...args),
+		uploadFiles: (...args: unknown[]) => mockUploadFiles(...args),
 	})),
 }));
 
@@ -67,10 +67,18 @@ import {
 
 describe("TGEM email workflows", () => {
 	const previousApiKey = process.env.RESEND_API_KEY;
+	const originalFetch = global.fetch;
+	const mockFetch = jest.fn();
 
 	beforeEach(() => {
 		jest.clearAllMocks();
 		process.env.RESEND_API_KEY = "re_test";
+		global.fetch = mockFetch as never;
+		mockFetch.mockResolvedValue({
+			ok: true,
+			status: 200,
+			arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+		});
 		mockCreateHook.mockReturnValue({
 			getConflict: jest.fn().mockResolvedValue(null),
 			[Symbol.dispose]: jest.fn(),
@@ -78,6 +86,7 @@ describe("TGEM email workflows", () => {
 	});
 
 	afterAll(() => {
+		global.fetch = originalFetch;
 		if (previousApiKey === undefined) {
 			delete process.env.RESEND_API_KEY;
 		} else {
@@ -197,7 +206,32 @@ describe("TGEM email workflows", () => {
 			documentId: "document-1",
 		});
 		expect(mockAttachmentGet).not.toHaveBeenCalled();
-		expect(mockUploadFilesFromUrl).not.toHaveBeenCalled();
+		expect(mockUploadFiles).not.toHaveBeenCalled();
+	});
+
+	it("surfaces signed attachment download failures for workflow retry", async () => {
+		mockPrisma.tgemInvoiceCase.findUnique.mockResolvedValue(null);
+		mockAttachmentGet.mockResolvedValue({
+			data: { download_url: "https://example.com/invoice.pdf" },
+			error: null,
+		});
+		mockFetch.mockResolvedValue({ ok: false, status: 403 });
+
+		await expect(
+			storeTgemInboundAttachmentStep({
+				emailId: "email-1",
+				organizationId: "org-1",
+				sender: "supplier@example.com",
+				sourceContext: { subject: "Testa projekts" },
+				attachment: {
+					id: "attachment-1",
+					filename: "invoice.pdf",
+					contentType: "application/pdf",
+					size: 1024,
+				},
+			}),
+		).rejects.toThrow("Resend attachment download failed: 403");
+		expect(mockUploadFiles).not.toHaveBeenCalled();
 	});
 
 	it("surfaces UploadThing failures for workflow retry", async () => {
@@ -206,7 +240,7 @@ describe("TGEM email workflows", () => {
 			data: { download_url: "https://example.com/invoice.pdf" },
 			error: null,
 		});
-		mockUploadFilesFromUrl.mockResolvedValue({
+		mockUploadFiles.mockResolvedValue({
 			data: null,
 			error: { message: "upload unavailable" },
 		});
@@ -275,7 +309,7 @@ describe("TGEM email workflows", () => {
 				data: { download_url: "https://example.com/invoice-2.png" },
 				error: null,
 			});
-		mockUploadFilesFromUrl
+		mockUploadFiles
 			.mockResolvedValueOnce({
 				data: { key: "file-1", ufsUrl: "https://ufs.example/invoice-1.pdf" },
 				error: null,

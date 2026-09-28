@@ -221,10 +221,19 @@ export async function storeTgemInboundAttachmentStep(input: {
 		input.attachment.id,
 		input.attachment.contentType,
 	);
-	const uploaded = await utapi.uploadFilesFromUrl({
-		url: data.download_url,
-		name: filename,
-	});
+	const downloadResponse = await fetch(data.download_url);
+	if (!downloadResponse.ok) {
+		throw new Error(
+			`Resend attachment download failed: ${downloadResponse.status}`,
+		);
+	}
+	const content = await downloadResponse.arrayBuffer();
+	if (content.byteLength > MAX_TGEM_INVOICE_BYTES) {
+		throw new FatalError("Invoice attachment exceeds the 16 MB limit");
+	}
+	const uploaded = await utapi.uploadFiles(
+		new File([content], filename, { type: input.attachment.contentType }),
+	);
 	if (uploaded.error || !uploaded.data) {
 		throw new Error(uploaded.error?.message || "Invoice upload failed");
 	}
