@@ -25,6 +25,16 @@ export const beginEntrySchema = z.object({
   comment: z.string().max(10000),
 });
 export type BeginEntry = z.infer<typeof beginEntrySchema>;
+export const beginAllocationSchema = z.object({
+  recordId: z.string().min(1).max(200),
+  explanation: z.string().min(1).max(20000),
+  hours: z.number().finite().nonnegative().nullable(),
+  workers: z.number().finite().nonnegative().nullable(),
+  savedAt: z.string().datetime(),
+  sourceImportedAt: z.string().datetime(),
+  source: z.enum(["legacy-comment", "allocation"]),
+});
+export type BeginAllocation = z.infer<typeof beginAllocationSchema>;
 const revisionSchema = z.object({
   importedAt: z.string().datetime(),
   importedBy: z.string(),
@@ -33,6 +43,7 @@ const revisionSchema = z.object({
   rateCents: z.number().int().positive(),
   objects: z.array(z.string()),
   entries: z.array(beginEntrySchema),
+  allocations: z.array(beginAllocationSchema).max(10000).optional(),
 });
 export const beginDaySchema = revisionSchema.extend({
   kind: z.literal(BEGIN_STORAGE_MARKER),
@@ -46,6 +57,36 @@ export function parseBeginDay(value: unknown): BeginDay {
   return beginDaySchema.parse(
     typeof value === "string" ? JSON.parse(value) : value,
   );
+}
+
+export function withBeginAllocation(
+  day: BeginDay,
+  input: BeginAllocation,
+): BeginDay {
+  const allocation = beginAllocationSchema.parse(input);
+  return {
+    ...day,
+    allocations: [
+      ...(day.allocations ?? []).filter(
+        (item) => item.recordId !== allocation.recordId,
+      ),
+      allocation,
+    ],
+  };
+}
+
+export function splitLegacyBeginHoursComment(comment: string | null) {
+  if (!comment) return null;
+  const match =
+    /(?:^|\r?\n)(Stundu (?:uzskaite \d{2}\.\d{2}\.\d{4}\.|(?:aprēķins|sadalījums) \([^\r\n)]*\d{2}\.\d{2}\.\d{4}\.\)):)/u.exec(
+      comment,
+    );
+  if (!match) return null;
+  const start = match.index + match[0].indexOf(match[1]);
+  return {
+    comment: comment.slice(0, match.index).trimEnd(),
+    explanation: comment.slice(start).trim(),
+  };
 }
 
 export function summarizeBeginEntries(

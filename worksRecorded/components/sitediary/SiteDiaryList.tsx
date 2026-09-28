@@ -5,6 +5,7 @@ import { useDiaryDayPagination } from "@/flows/default-construction/frontend/use
 import { getClientDiaryMediaDays, type DiaryMediaPhoto } from "@/flows/default-construction/lib/diary-media-days";
 import { useDiaryImagePreload } from "@/flows/default-construction/frontend/useDiaryImagePreload";
 import { getDiaryPagePhotoUrls } from "@/flows/default-construction/lib/diary-image-pages";
+import { formatLimeniDiaryHours } from "@/flows/default-construction/lib/diary-hours-display";
 
 import {
   CalendarIcon,
@@ -26,6 +27,7 @@ import {
 } from "lucide-react";
 import React from "react";
 import { BeginHoursCost, BeginHoursImport, useBeginHours } from "@/components/sitediary/BeginHours";
+import { BeginRecordHours } from "@/components/sitediary/BeginRecordHours";
 import { toast } from "sonner";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
@@ -850,6 +852,7 @@ export default function SiteDiaryCalendar({
     value: unknown,
     config: ConfigMap,
   ): string {
+    if (clientDiary && key === "TimeInvolved") return formatLimeniDiaryHours(value, dateLocale);
     return (
       formatZeroDisplayValue(key, value, config) ??
       formatValueByConfig(key, value, config)
@@ -857,6 +860,7 @@ export default function SiteDiaryCalendar({
   }
 
   function formatSiteDiaryCompactMetric(key: string, value: unknown): string {
+    if (clientDiary && key === "TimeInvolved") return formatLimeniDiaryHours(value, dateLocale);
     if (value === null || value === undefined || value === "") return "—";
     return formatZeroDisplayValue(key, value) ?? String(value);
   }
@@ -4111,7 +4115,7 @@ export default function SiteDiaryCalendar({
                             {/* MOBILE: stacked record cards */}
                             <div
                               className={cn(
-                                showDayPlan ? "space-y-2 xl:hidden" : "space-y-2 lg:hidden",
+                                showDayPlan || clientDiary ? "space-y-2 xl:hidden" : "space-y-2 lg:hidden",
                                 isMediaOnlyGroup && "hidden",
                               )}
                             >
@@ -4335,6 +4339,8 @@ export default function SiteDiaryCalendar({
                                             )}
                                             dateLocale={dateLocale}
                                           />
+                                        ) : clientDiary ? (
+                                          <BeginRecordHours day={beginHours.days.find(day => day.date === group.key)} recordId={r.id} hours={r.TimeInvolved} workers={r.WorkersInvolved} value={formatSiteDiaryCompactHours(r.TimeInvolved)} />
                                         ) : (
                                           formatSiteDiaryCompactHours(
                                             r.TimeInvolved,
@@ -4473,7 +4479,7 @@ export default function SiteDiaryCalendar({
                                             type="button"
                                             className="block w-full text-left"
                                           >
-                                            <span className="line-clamp-2 overflow-hidden whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground hover:text-blue-700">
+                                            <span className={cn("whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground hover:text-blue-700", clientDiary ? "[overflow-wrap:anywhere]" : "line-clamp-2 overflow-hidden")}>
                                               {r.Comments || "Balss ziņa"}
                                             </span>
                                           </button>
@@ -4699,7 +4705,8 @@ export default function SiteDiaryCalendar({
                             {/* DESKTOP: table view */}
                             <div
                               className={cn(
-                                showDayPlan ? "hidden min-w-0 xl:block" : "hidden overflow-x-auto lg:block",
+                                showDayPlan || clientDiary ? "hidden min-w-0 xl:block" : "hidden overflow-x-auto lg:block",
+                                clientDiary && "max-w-full [&>[data-slot=table-container]]:overflow-visible",
                                 isMediaOnlyGroup && "lg:hidden",
                               )}
                             >
@@ -5333,9 +5340,9 @@ export default function SiteDiaryCalendar({
 
                                 return (
                                   <Table
-                                    className={cn("table-fixed text-xs", showDayPlan ? "w-full min-w-0 [&_th]:!w-auto [&_td]:!w-auto [&_th]:!px-1.5 [&_td]:!px-1.5 [&_th]:!whitespace-normal [&_td]:!whitespace-normal [&_th]:[overflow-wrap:anywhere] [&_td]:[overflow-wrap:anywhere] [&_button]:max-w-full" : isZtcSite ? "min-w-[1180px] sm:text-sm" : "min-w-[985px] sm:text-sm")}
+                                    className={cn("table-fixed text-xs", showDayPlan || clientDiary ? "w-full min-w-0 [&_th]:!w-auto [&_td]:!w-auto [&_th]:!px-1.5 [&_td]:!px-1.5 [&_th]:!whitespace-normal [&_td]:!whitespace-normal [&_th]:[overflow-wrap:anywhere] [&_td]:[overflow-wrap:anywhere] [&_button]:max-w-full" : isZtcSite ? "min-w-[1180px] sm:text-sm" : "min-w-[985px] sm:text-sm")}
                                   >
-                                    {showDayPlan ? <PlanTableColumns fields={dayTableHeads} bisEnabled={bisUiEnabled} /> : null}
+                                    {showDayPlan || clientDiary ? <PlanTableColumns fields={dayTableHeads} bisEnabled={bisUiEnabled} showPlan={showDayPlan} /> : null}
                                     {/* HEADER */}
                                     <TableHeader>
                                       <TableRow>
@@ -5569,6 +5576,8 @@ export default function SiteDiaryCalendar({
                                                     formatSiteDiaryCompactMetric("Amounts", getDefaultConstructionQuantityComparison(originalRow, defaultMap).enabled
                                                       ? getDefaultConstructionQuantityComparison(originalRow, defaultMap).actualAmount ?? "—"
                                                       : originalRow.Amounts ?? "—")
+                                                  ) : clientDiary && field === "TimeInvolved" ? (
+                                                    <BeginRecordHours day={beginHours.days.find(day => day.date === group.key)} recordId={row.id} hours={originalRow.TimeInvolved} workers={originalRow.WorkersInvolved} value={formatSiteDiaryCompactHours(originalRow.TimeInvolved)} />
                                                   ) : row[field] === null ||
                                                   row[field] === undefined ||
                                                   row[field] === "" ? (
@@ -5611,7 +5620,7 @@ export default function SiteDiaryCalendar({
                                                       )}
                                                     </button>
                                                   ) : (
-                                                    <div className="line-clamp-4">
+                                                    <div className={cn(clientDiary && field === "Comments" ? "whitespace-pre-wrap [overflow-wrap:anywhere]" : "line-clamp-4", clientDiary && field === "TimeInvolved" && "whitespace-nowrap tabular-nums")}>
                                                       {formatSiteDiaryDisplayValue(
                                                         field,
                                                         row[field],

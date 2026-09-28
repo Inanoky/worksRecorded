@@ -78,9 +78,11 @@ export function PlanColumnHead({
 export function PlanTableColumns({
 	fields,
 	bisEnabled,
+	showPlan = true,
 }: {
 	fields: string[];
 	bisEnabled: boolean;
+	showPlan?: boolean;
 }) {
 	const weights: Record<string, number> = {
 		createdAt: 5,
@@ -94,7 +96,7 @@ export function PlanTableColumns({
 	};
 	const columns = [{ key: "select", weight: 3 }];
 	for (const field of fields) {
-		if (field === "Works" || field === "Amounts")
+		if (showPlan && (field === "Works" || field === "Amounts"))
 			columns.push({ key: `plan-${field}`, weight: weights[field] });
 		columns.push({ key: field, weight: weights[field] ?? 7 });
 		if (field === "TimeInvolved")

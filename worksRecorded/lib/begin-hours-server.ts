@@ -144,6 +144,9 @@ export async function persistBeginHours(args: {
             importedAt: new Date().toISOString(),
             importedBy: args.importedBy,
             rateCents: existing?.day.rateCents ?? BEGIN_RATE_CENTS,
+            ...(existing?.day.allocations
+              ? { allocations: existing.day.allocations }
+              : {}),
             history: existing
               ? [
                   ...existing.day.history,

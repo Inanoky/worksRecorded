@@ -1,5 +1,10 @@
 import { render, screen, within } from "@testing-library/react";
-import { PlanColumnCell, PlanColumnHead, PlanOnlyRow } from "./DayPlan";
+import {
+	PlanColumnCell,
+	PlanColumnHead,
+	PlanOnlyRow,
+	PlanTableColumns,
+} from "./DayPlan";
 import { comparePlans } from "./model";
 
 const row = comparePlans(
@@ -29,6 +34,40 @@ const fields = [
 ];
 
 describe("plan table alignment", () => {
+	it.each([false, true])(
+		"fits diary columns into 100%% width with showPlan=%s",
+		(showPlan) => {
+			const diaryFields = [...fields, "Comments_Custom_1", "Photos"];
+			const { container } = render(
+				<table>
+					<PlanTableColumns
+						fields={diaryFields}
+						bisEnabled={false}
+						showPlan={showPlan}
+					/>
+				</table>,
+			);
+			const columns = Array.from(container.querySelectorAll("col"));
+			expect(columns).toHaveLength(diaryFields.length + 5 + (showPlan ? 2 : 0));
+			expect(
+				columns.reduce(
+					(sum, column) => sum + Number.parseFloat(column.style.width),
+					0,
+				),
+			).toBeCloseTo(100);
+			for (const column of columns) expect(column.style.width).toMatch(/%$/);
+		},
+	);
+
+	it("keeps planned columns enabled by default and includes BIS columns", () => {
+		const { container } = render(
+			<table>
+				<PlanTableColumns fields={fields} bisEnabled />
+			</table>,
+		);
+		expect(container.querySelectorAll("col")).toHaveLength(17);
+	});
+
 	it("aligns every placeholder to the same column and top padding as actual rows", () => {
 		render(
 			<table>
