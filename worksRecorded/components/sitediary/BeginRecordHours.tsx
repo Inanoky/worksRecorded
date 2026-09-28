@@ -11,6 +11,7 @@ import {
 	formatBeginExplanationNumber,
 	presentBeginExplanation,
 } from "@/lib/begin-hours-explanation";
+import { getBeginWorkerComments } from "@/lib/begin-worker-comments";
 
 export function BeginRecordHours({
 	day,
@@ -141,15 +142,34 @@ export function BeginRecordHours({
 							{explanation.team}
 						</h4>
 						<dl className="divide-y">
-							{explanation.workers.map((worker) => (
-								<div
-									key={worker.name}
-									className="flex justify-between gap-4 py-1.5"
-								>
-									<dt>{worker.name}</dt>
-									<dd className="shrink-0 tabular-nums">{worker.duration}</dd>
-								</div>
-							))}
+							{explanation.workers.map((worker) => {
+								const comments = getBeginWorkerComments(
+									day,
+									allocation.sourceImportedAt,
+									worker.name,
+								);
+								return (
+									<div
+										key={worker.name}
+										className="grid grid-cols-[minmax(0,1fr)_max-content_minmax(0,1.5fr)] items-start gap-3 py-1.5"
+									>
+										<dt className="[overflow-wrap:anywhere]">{worker.name}</dt>
+										<dd className="whitespace-nowrap tabular-nums">
+											{worker.duration}
+										</dd>
+										<dd className="whitespace-pre-wrap [overflow-wrap:anywhere] [&>p+p]:mt-1">
+											<span className="sr-only">Begin komentārs: </span>
+											{comments.length ? (
+												comments.map((comment) => (
+													<p key={comment}>{comment}</p>
+												))
+											) : (
+												<span className="text-muted-foreground">—</span>
+											)}
+										</dd>
+									</div>
+								);
+							})}
 						</dl>
 					</section>
 				) : null}

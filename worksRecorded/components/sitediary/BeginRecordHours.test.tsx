@@ -168,6 +168,58 @@ it("does not invent an explanation or show a trigger for an unrelated record", (
 	expect(screen.queryByRole("button")).not.toBeInTheDocument();
 });
 
+it("adds the worker comment as a third cell without changing the card design", () => {
+	const source: BeginDay = {
+		...day,
+		entries: [
+			{
+				worker: "Jaunzems Ralfs",
+				date: day.date,
+				start: "08:00",
+				end: "15:09",
+				minutes: 429,
+				object: "Site",
+				status: "approved",
+				comment: "XPS Plēve",
+			},
+			{
+				worker: "Rzajevs Igors",
+				date: day.date,
+				start: "08:00",
+				end: "13:32",
+				minutes: 332,
+				object: "Site",
+				status: "approved",
+				comment: "Putoplasta likšana,plēves klāšana",
+			},
+		],
+		allocations: day.allocations?.map((item) => ({
+			...item,
+			explanation:
+				"Begin Estrich NR.2 brigāde — Ralfs 7:09, Igors 5:32; kopā 12:41 cilvēkstundas.",
+		})),
+	};
+	render(
+		<BeginRecordHours
+			day={source}
+			recordId="record"
+			value="6,34"
+			hours={761 / 60 / 2}
+			workers={2}
+		/>,
+	);
+	fireEvent.click(screen.getByRole("button"));
+	const row = screen.getByText("Ralfs").parentElement;
+	expect(row?.children).toHaveLength(3);
+	expect(row?.children[1]).toHaveTextContent("7 h 09 min");
+	expect(row?.children[2]).toHaveTextContent("XPS Plēve");
+	expect(screen.getByText("Igors").parentElement).not.toHaveTextContent(
+		"XPS Plēve",
+	);
+	expect(screen.queryByRole("table")).not.toBeInTheDocument();
+	expect(screen.getByRole("dialog")).toHaveClass("w-[min(92vw,480px)]");
+});
+
 it("opens from keyboard focus and closes with Escape", () => {
 	render(
 		<BeginRecordHours
