@@ -64,6 +64,7 @@ export function useDashboardNavigation({
 		useState<FlowNavigationConfig | null>(null);
 	const [activeFlowModuleKey, setActiveFlowModuleKey] =
 		useState<FlowModuleKey | null>(null);
+	const [showVisual, setShowVisual] = useState(false);
 	const [showAnalytics, setShowAnalytics] = useState(false);
 	const isProjectRoute = /^\/dashboard\/sites\/[^/]+/.test(pathname);
 	const languageLabel = normalizeLanguageLabel(organizationLanguage);
@@ -96,8 +97,9 @@ export function useDashboardNavigation({
 		() =>
 			getProjectNavLinks(organizationLanguage, {
 				showAnalytics,
+				showVisual,
 			}),
-		[organizationLanguage, showAnalytics],
+		[organizationLanguage, showAnalytics, showVisual],
 	);
 
 	useEffect(() => {
@@ -106,6 +108,7 @@ export function useDashboardNavigation({
 			setProductionNavigationConfig(null);
 			setActiveFlowModuleKey(null);
 			setShowAnalytics(false);
+			setShowVisual(false);
 			setRuntimeProjectName("");
 			return;
 		}
@@ -114,6 +117,7 @@ export function useDashboardNavigation({
 			.then((runtime) => {
 				if (cancelled) return;
 				setProductionNavigationConfig(runtime?.productionConfig ?? null);
+				setShowVisual(runtime?.visualEnabled === true);
 				setActiveFlowModuleKey(runtime?.flowModuleKey ?? null);
 				setShowAnalytics(
 					runtime?.flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION,
@@ -128,6 +132,7 @@ export function useDashboardNavigation({
 				setProductionNavigationConfig(null);
 				setActiveFlowModuleKey(null);
 				setShowAnalytics(false);
+				setShowVisual(false);
 				setRuntimeProjectName("");
 			});
 

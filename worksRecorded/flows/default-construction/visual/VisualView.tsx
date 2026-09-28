@@ -35,6 +35,7 @@ import {
 } from "./actions";
 import {
 	normalizeVisualLocation,
+	VISUAL_LEASE_MS,
 	VISUAL_MAX_BYTES,
 	type VisualDrawing,
 	type VisualLayer,
@@ -65,15 +66,21 @@ export default function VisualView({ siteId }: { siteId: string }) {
 	const [busy, setBusy] = useState(false);
 	const [editing, setEditing] = useState(false);
 	const [sidebarOpen, setSidebarOpen] = useState(true);
-	const controlsLocked = busy || editing;
+	const remoteActive =
+		drawing?.state.status === "running" &&
+		drawing.state.lockedAt !== null &&
+		Date.now() - drawing.state.lockedAt < VISUAL_LEASE_MS;
+	const controlsLocked = busy || editing || remoteActive;
 	const [confirmation, setConfirmation] = useState<
-		"delete" | "restart" | "replace" | "refresh" | null
+		"delete" | "restart" | "replace" | null
 	>(null);
 	const [deleting, setDeleting] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [notice, setNotice] = useState<string | null>(null);
 	const [progress, setProgress] = useState(0);
 	const [phase, setPhase] = useState<VisualAnalysisPhase>("idle");
+	const [progressUnavailable, setProgressUnavailable] = useState(false);
 	const [throughDay, setThroughDay] = useState<number | null>(null);
 	const [includeUndated, setIncludeUndated] = useState(false);
 	const [layers, setLayers] = useState<VisualLayer[]>(allLayers);
@@ -81,6 +88,8 @@ export default function VisualView({ siteId }: { siteId: string }) {
 	const epoch = useRef(0);
 	const busyRef = useRef(false);
 	const requestId = useRef(0);
+	const analysisVersion = useRef(0);
+	const previousAttempt = useRef<string | undefined>(undefined);
 	const fileId = useId();
 	const { startUpload } = useUploadThing("limeniVisualDrawingUploader", {
 		onUploadProgress: setProgress,
@@ -103,6 +112,63 @@ export default function VisualView({ siteId }: { siteId: string }) {
 			++requestId.current;
 		};
 	}, [siteId]);
+	const pollDrawingId = drawing?.id;
+	const shouldPoll =
+		phase === "analyzing" || drawing?.state.status === "running";
+	useEffect(() => {
+		if (!shouldPoll || !pollDrawingId) return;
+		const id = pollDrawingId;
+		const controller = new AbortController();
+		let timer: ReturnType<typeof setTimeout>;
+		let lease = Date.now();
+		async function poll() {
+			const version = analysisVersion.current;
+			const request = new AbortController();
+			const abort = () => request.abort();
+			controller.signal.addEventListener("abort", abort, { once: true });
+			const timeout = setTimeout(abort, 10_000);
+			try {
+				const response = await fetch(
+					`/api/sites/${encodeURIComponent(siteId)}/visual/${encodeURIComponent(id)}`,
+					{
+						cache: "no-store",
+						signal: request.signal,
+					},
+				);
+				if (!response.ok) throw new Error("Progress unavailable");
+				const data = (await response.json()) as VisualDrawing;
+				if (controller.signal.aborted || version !== analysisVersion.current)
+					return;
+				setProgressUnavailable(false);
+				const newAttempt =
+					data.state.attempts.at(-1)?.id !== previousAttempt.current;
+				if (!busyRef.current || newAttempt) {
+					lease = data.state.lockedAt ?? lease;
+					if (
+						data.state.status === "running" &&
+						Date.now() - lease >= VISUAL_LEASE_MS
+					) {
+						data.state.status = "failed";
+						data.state.lockedAt = null;
+						data.state.error =
+							"Analīze pārtraukta. Saglabātie rezultāti ir pieejami; turpiniet nepabeigto attēlu analīzi.";
+					}
+					setDrawing(data);
+				}
+			} catch {
+				if (!controller.signal.aborted) setProgressUnavailable(true);
+			} finally {
+				clearTimeout(timeout);
+				controller.signal.removeEventListener("abort", abort);
+				if (!controller.signal.aborted) timer = setTimeout(poll, 1500);
+			}
+		}
+		timer = setTimeout(poll, 1000);
+		return () => {
+			controller.abort();
+			clearTimeout(timer);
+		};
+	}, [siteId, pollDrawingId, shouldPoll]);
 	async function loadDrawing(id: string) {
 		const request = ++requestId.current;
 		setDrawing(null);
@@ -111,6 +177,7 @@ export default function VisualView({ siteId }: { siteId: string }) {
 		setThroughDay(null);
 		setIncludeUndated(false);
 		setError(null);
+		setNotice(null);
 		try {
 			const response = await fetch(endpoint(id), { cache: "no-store" });
 			const data = await response.json();
@@ -135,6 +202,7 @@ export default function VisualView({ siteId }: { siteId: string }) {
 		setSelected(null);
 		setFile(null);
 		setError(null);
+		setNotice(null);
 		setLoading(false);
 		const assigned = index?.drawings.find(
 			(item) =>
@@ -144,14 +212,17 @@ export default function VisualView({ siteId }: { siteId: string }) {
 		if (assigned) void loadDrawing(assigned.id);
 	}
 	async function analyze(id: string, run: number) {
-		while (run === epoch.current) {
+		++analysisVersion.current;
+		try {
 			const response = await fetch(endpoint(id), { method: "POST" });
 			const data = await response.json();
 			if (!response.ok) throw new Error(data.error || "Analīze neizdevās.");
 			if (run !== epoch.current) return;
 			const result = data as VisualDrawing;
+			++analysisVersion.current;
 			setDrawing(result);
-			if (result.state.status !== "paused") break;
+		} finally {
+			++analysisVersion.current;
 		}
 	}
 	async function process(mode: "upload" | "resume" | "refresh" | "restart") {
@@ -160,10 +231,12 @@ export default function VisualView({ siteId }: { siteId: string }) {
 		busyRef.current = true;
 		setBusy(true);
 		setError(null);
+		setNotice(null);
 		setProgress(0);
 		setPhase(mode === "upload" ? "upload" : "preparing");
 		try {
 			let id = drawing?.id;
+			let loaded: VisualDrawing | null = null;
 			if (mode === "upload") {
 				if (!file || !location) throw new Error("Izvēlieties lokāciju un PDF.");
 				if (file.type !== "application/pdf" || file.size > VISUAL_MAX_BYTES)
@@ -178,14 +251,27 @@ export default function VisualView({ siteId }: { siteId: string }) {
 						: {}),
 				});
 				id = files?.[0]?.serverData?.drawingId;
-			} else if (mode === "refresh" && id)
-				id = await refreshVisualDrawing(siteId, id);
-			else if (mode === "restart" && id) await restartVisualDrawing(siteId, id);
+			} else if (mode === "refresh" && id) {
+				const result = await refreshVisualDrawing(siteId, id);
+				if (run !== epoch.current) return;
+				loaded = result.drawing;
+				setDrawing(loaded);
+				setNotice(
+					result.addedCount
+						? `Pievienoti ${result.addedCount} jauni attēli. Esošās zonas un labojumi ir saglabāti.`
+						: "Šai lokācijai nav jaunu žurnāla attēlu. Esošie rezultāti nav mainīti.",
+				);
+				if (!result.addedCount) return;
+				setThroughDay(null);
+			} else if (mode === "restart" && id)
+				await restartVisualDrawing(siteId, id);
 			if (!id) throw new Error("PDF augšupielāde neizdevās.");
 			if (run !== epoch.current) return;
 			setPhase("preparing");
-			const loaded = await loadDrawing(id);
+			loaded ??= await loadDrawing(id);
 			if (!loaded || run !== epoch.current) return;
+			previousAttempt.current = loaded.state.attempts.at(-1)?.id;
+			setProgressUnavailable(false);
 			setPhase("analyzing");
 			await analyze(id, run);
 			if (run !== epoch.current) return;
@@ -276,7 +362,7 @@ export default function VisualView({ siteId }: { siteId: string }) {
 	return (
 		<Card className="gap-0 overflow-hidden py-0">
 			<CardHeader className="border-b py-4">
-				<CardTitle>Visual — darbu slāņi</CardTitle>
+				<CardTitle>Izpildshēmas — darbu slāņi</CardTitle>
 				<p className="text-sm text-muted-foreground">
 					Izvēlieties lokāciju, lai atvērtu tās rasējumu un darbu slāņus. PDF
 					rasējums jāpievieno tikai vienreiz; to var aizstāt, ja nepieciešams.
@@ -376,12 +462,18 @@ export default function VisualView({ siteId }: { siteId: string }) {
 						drawing={drawing}
 						uploadProgress={progress}
 						interrupted={!!error}
+						progressUnavailable={progressUnavailable}
 					/>
 				)}
 				{error || drawing?.state.error ? (
 					<p role="alert" className="text-sm text-destructive">
 						{error || drawing?.state.error}
 					</p>
+				) : null}
+				{notice ? (
+					<output className="block text-sm text-muted-foreground">
+						{notice}
+					</output>
 				) : null}
 				{drawing ? (
 					<>
@@ -400,15 +492,15 @@ export default function VisualView({ siteId }: { siteId: string }) {
 								>
 									Turpināt analīzi
 								</Button>
-							) : (
-								<Button
-									variant="outline"
-									disabled={controlsLocked}
-									onClick={() => setConfirmation("refresh")}
-								>
-									Atjaunot no žurnāla
-								</Button>
-							)}
+							) : null}
+							<Button
+								variant="outline"
+								disabled={controlsLocked}
+								onClick={() => void process("refresh")}
+								title="Pievienot jaunus žurnāla attēlus, saglabājot esošās zonas un manuālos labojumus"
+							>
+								Atjaunot no žurnāla
+							</Button>
 							<Button
 								variant="outline"
 								disabled={controlsLocked || loading}
@@ -644,18 +736,14 @@ export default function VisualView({ siteId }: { siteId: string }) {
 									? "Dzēst rasējumu?"
 									: confirmation === "replace"
 										? "Aizstāt lokācijas rasējumu?"
-										: confirmation === "refresh"
-											? "Atjaunot analīzi no žurnāla?"
-											: "Sākt analīzi no jauna?"}
+										: "Sākt analīzi no jauna?"}
 							</AlertDialogTitle>
 							<AlertDialogDescription>
 								{confirmation === "delete"
-									? `Rasējums “${drawing?.name}” un tā analīzes rezultāti tiks neatgriezeniski noņemti no Visual skata. Žurnāla ieraksti, fotoattēli un citi rasējumi netiks mainīti.`
+									? `Rasējums “${drawing?.name}” un tā analīzes rezultāti tiks neatgriezeniski noņemti no izpildshēmu skata. Žurnāla ieraksti, fotoattēli un citi rasējumi netiks mainīti.`
 									: confirmation === "replace"
 										? "Katrai lokācijai ir viens aktīvs rasējums. Iepriekšējais rasējums un tā zonas tiks arhivēti; jaunais PDF tiks analizēts no jauna."
-										: confirmation === "refresh"
-											? "Esošā analīze un manuālie labojumi tiks arhivēti. Tas pats PDF tiks analizēts ar jaunākajiem žurnāla ierakstiem."
-											: "Esošās zonas un manuālie labojumi tiks aizstāti ar jaunu analīzi, izmantojot to pašu PDF un saglabātos avota attēlus. Lai iekļautu jaunus žurnāla ierakstus, izmantojiet “Atjaunot no žurnāla”."}
+										: "Esošās zonas un manuālie labojumi tiks aizstāti ar jaunu analīzi, izmantojot to pašu PDF un saglabātos avota attēlus. Lai iekļautu tikai jaunus žurnāla attēlus un saglabātu esošās zonas, izmantojiet “Atjaunot no žurnāla”."}
 							</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>
@@ -665,7 +753,6 @@ export default function VisualView({ siteId }: { siteId: string }) {
 								onClick={() => {
 									if (confirmation === "delete") void removeDrawing();
 									else if (confirmation === "replace") void process("upload");
-									else if (confirmation === "refresh") void process("refresh");
 									else void process("restart");
 								}}
 							>
@@ -673,9 +760,7 @@ export default function VisualView({ siteId }: { siteId: string }) {
 									? "Jā, dzēst"
 									: confirmation === "replace"
 										? "Jā, aizstāt"
-										: confirmation === "refresh"
-											? "Jā, atjaunot"
-											: "Jā, sākt no jauna"}
+										: "Jā, sākt no jauna"}
 							</AlertDialogAction>
 						</AlertDialogFooter>
 					</AlertDialogContent>

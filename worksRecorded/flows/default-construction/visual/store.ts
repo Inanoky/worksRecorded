@@ -12,6 +12,7 @@ import {
 	VISUAL_MAX_PHOTOS,
 	type VisualDrawing,
 	type VisualState,
+	visualImageProgress,
 	visualStateSchema,
 } from "./model";
 import { polygonEditSchema } from "./polygon-edit";
@@ -95,22 +96,15 @@ export async function listVisualDrawings(userId: string, siteId: string) {
 	return { locations, drawings };
 }
 
-export async function createVisualDrawing(args: {
-	userId: string;
-	siteId: string;
-	location: string;
-	url: string;
-	name: string;
-	replaceDrawingId?: string;
-}) {
-	const access = await requireVisualAccess(args.userId, args.siteId);
-	const location = args.location.trim();
-	if (!location || location.length > 200)
-		throw new Error("Izvēlieties lokāciju.");
+async function loadVisualEvidence(
+	siteId: string,
+	organizationId: string,
+	location: string,
+) {
 	const rows = await prisma.sitediaryrecords.findMany({
 		where: {
-			siteId: args.siteId,
-			organizationId: access.organizationId,
+			siteId,
+			organizationId,
 			archivedAt: null,
 			Photos: { isEmpty: false },
 		},
@@ -126,7 +120,7 @@ export async function createVisualDrawing(args: {
 		},
 		orderBy: [{ Date: "asc" }, { id: "asc" }],
 	});
-	const evidence = rows
+	return rows
 		.filter(
 			(row) =>
 				normalizeVisualLocation(row.Location || "") ===
@@ -145,6 +139,25 @@ export async function createVisualDrawing(args: {
 				unit: row.Units || "",
 			})),
 		);
+}
+
+export async function createVisualDrawing(args: {
+	userId: string;
+	siteId: string;
+	location: string;
+	url: string;
+	name: string;
+	replaceDrawingId?: string;
+}) {
+	const access = await requireVisualAccess(args.userId, args.siteId);
+	const location = args.location.trim();
+	if (!location || location.length > 200)
+		throw new Error("Izvēlieties lokāciju.");
+	const evidence = await loadVisualEvidence(
+		args.siteId,
+		access.organizationId,
+		location,
+	);
 	if (!evidence.length)
 		throw new Error(
 			"Nevar atrast darbus: šīs lokācijas žurnāla ierakstiem nav piesaistītu attēlu.",
@@ -274,6 +287,48 @@ function requireIdleDrawing(state: VisualState) {
 		throw new Error("Analīze vēl notiek. Uzgaidiet, līdz tā ir pabeigta.");
 }
 
+export async function appendVisualDiaryEvidence(
+	userId: string,
+	siteId: string,
+	drawingId: string,
+) {
+	const { row, drawing } = await loadVisualDrawing(userId, siteId, drawingId);
+	const state = drawing.state;
+	requireIdleDrawing(state);
+	if (!row.organizationId)
+		throw new Error("Rasējuma organizācija nav atrasta.");
+	const current = await loadVisualEvidence(
+		siteId,
+		row.organizationId,
+		state.location,
+	);
+	const key = (item: { recordId: string; photoUrl: string }) =>
+		JSON.stringify([item.recordId, item.photoUrl]);
+	const existing = new Set(state.evidence.map(key));
+	const added = current
+		.filter((item) => !existing.has(key(item)))
+		.map((item) => ({ ...item, id: `${item.recordId}:${randomUUID()}` }));
+	if (!added.length) return { drawing, addedCount: 0 };
+	if (state.evidence.length + added.length > VISUAL_MAX_PHOTOS)
+		throw new Error(
+			`Lokācijai ir vairāk nekā ${VISUAL_MAX_PHOTOS} attēlu. Esošie rezultāti nav mainīti.`,
+		);
+	state.imageProgress = [
+		...visualImageProgress(state),
+		...added.map((item) => ({
+			evidenceId: item.id,
+			status: "pending" as const,
+			error: null,
+		})),
+	];
+	state.evidence.push(...added);
+	state.status = "paused";
+	state.lockedAt = null;
+	state.error = null;
+	await saveVisualState(row, state);
+	return { drawing, addedCount: added.length };
+}
+
 export async function removeVisualDrawing(
 	userId: string,
 	siteId: string,
@@ -359,6 +414,7 @@ export async function resetVisualDrawing(
 		status: "uploaded",
 		processed: 0,
 		marks: [],
+		imageProgress: undefined,
 		unlocated: [],
 		error: null,
 		lockedAt: null,

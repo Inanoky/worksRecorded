@@ -1,8 +1,8 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Circle, CircleAlert, Loader2 } from "lucide-react";
 import type { VisualDrawing } from "./model";
-import { VISUAL_BATCH_SIZE, VISUAL_LEASE_MS } from "./model";
+import { VISUAL_LEASE_MS, visualImageProgress } from "./model";
 
 export type VisualAnalysisPhase = "idle" | "upload" | "preparing" | "analyzing";
 
@@ -11,11 +11,13 @@ export function VisualAnalysisProgress({
 	drawing,
 	uploadProgress,
 	interrupted,
+	progressUnavailable = false,
 }: {
 	phase: VisualAnalysisPhase;
 	drawing: VisualDrawing | null;
 	uploadProgress: number;
 	interrupted: boolean;
+	progressUnavailable?: boolean;
 }) {
 	const state = drawing?.state;
 	const remoteActive =
@@ -25,8 +27,10 @@ export function VisualAnalysisProgress({
 	const active = phase !== "idle" || remoteActive;
 	const total = state?.evidence.length ?? 0;
 	const completed = Math.min(total, Math.max(0, state?.processed ?? 0));
-	const remaining = total - completed;
-	if (!active && (!state || remaining === 0)) return null;
+	const items = state ? visualImageProgress(state) : [];
+	const failed = items.filter((item) => item.status === "failed").length;
+	const remaining = Math.max(0, total - completed - failed);
+	if (!active && (!state || (remaining === 0 && failed === 0))) return null;
 	const isUpload = phase === "upload";
 	const preparing = phase === "preparing" || (!state && phase === "analyzing");
 	const title = isUpload
@@ -59,6 +63,7 @@ export function VisualAnalysisProgress({
 				{!isUpload && !preparing && state ? (
 					<span className="tabular-nums">
 						Analizēti {completed} no {total} · Atlikušie attēli: {remaining}
+						{failed ? ` · Kļūdas: ${failed}` : ""}
 					</span>
 				) : null}
 			</output>
@@ -74,7 +79,7 @@ export function VisualAnalysisProgress({
 					className="h-2 w-full accent-primary"
 					aria-label="Analizētie attēli"
 					max={total}
-					value={completed}
+					value={completed + failed}
 				/>
 			) : (
 				<progress
@@ -88,9 +93,71 @@ export function VisualAnalysisProgress({
 					: preparing
 						? "Ielādē rasējumu un atlasa avota attēlus."
 						: active
-							? `Pašlaik apstrādā līdz ${Math.min(VISUAL_BATCH_SIZE, remaining)} attēliem. Skaits atjaunojas pēc katras grupas; tas var aizņemt dažas minūtes.`
-							: "Saglabātie rezultāti ir pieejami. Nospiediet “Turpināt analīzi”, lai apstrādātu atlikušos attēlus."}
+							? "Visi nepabeigtie attēli tiek analizēti vienlaikus. Rezultāti un zonas parādās pakāpeniski; tas var aizņemt dažas minūtes."
+							: "Saglabātie rezultāti ir pieejami. Nospiediet “Turpināt analīzi”, lai atkārtotu tikai nepabeigtos attēlus."}
 			</p>
+			{progressUnavailable ? (
+				<output className="block text-xs text-muted-foreground">
+					Neizdevās atjaunot progresu. Mēģinām atjaunot savienojumu; analīze
+					serverī var turpināties.
+				</output>
+			) : null}
+			{!isUpload && !preparing && items.length ? (
+				<details className="text-sm" open={failed > 0 || undefined}>
+					<summary className="cursor-pointer text-muted-foreground">
+						Attēlu statuss ({total})
+					</summary>
+					<ul className="mt-2 max-h-56 divide-y overflow-y-auto">
+						{items.map((item, index) => {
+							const evidence = state?.evidence.find(
+								(entry) => entry.id === item.evidenceId,
+							);
+							const unlocated = state?.unlocated.some(
+								(entry) => entry.evidenceId === item.evidenceId,
+							);
+							const Icon =
+								item.status === "complete"
+									? CheckCircle2
+									: item.status === "failed"
+										? CircleAlert
+										: item.status === "running" && active
+											? Loader2
+											: Circle;
+							const label =
+								item.status === "complete"
+									? unlocated
+										? "Nav izvietots"
+										: "Pabeigts"
+									: item.status === "failed"
+										? "Kļūda"
+										: item.status === "running" && active
+											? "Analizē…"
+											: "Gaida analīzi";
+							return (
+								<li key={item.evidenceId} className="py-2">
+									<div className="flex items-center gap-2">
+										<Icon
+											aria-hidden="true"
+											className={`h-4 w-4 shrink-0 ${item.status === "running" && active ? "animate-spin motion-reduce:animate-none" : ""} ${item.status === "failed" ? "text-destructive" : "text-muted-foreground"}`}
+										/>
+										<span className="min-w-0 flex-1 break-words">
+											{index + 1}. {evidence?.work}
+										</span>
+										<span className="shrink-0 text-xs text-muted-foreground">
+											{label}
+										</span>
+									</div>
+									{item.error ? (
+										<p className="mt-1 pl-6 text-xs text-destructive">
+											{item.error}
+										</p>
+									) : null}
+								</li>
+							);
+						})}
+					</ul>
+				</details>
+			) : null}
 		</section>
 	);
 }

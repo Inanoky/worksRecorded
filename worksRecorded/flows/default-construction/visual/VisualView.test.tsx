@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 import {
 	deleteVisualDrawing,
 	getVisualDrawings,
+	refreshVisualDrawing,
 	restartVisualDrawing,
 } from "./actions";
 import type { VisualDrawing } from "./model";
@@ -130,6 +131,7 @@ beforeEach(() => {
 });
 afterEach(() => {
 	global.fetch = originalFetch;
+	jest.useRealTimers();
 });
 
 async function selectLocation() {
@@ -144,6 +146,84 @@ async function selectDrawing() {
 	render(<VisualView siteId="site" />);
 	await selectLocation();
 }
+
+it("does not reload the PDF or call AI when the diary has no new photos", async () => {
+	jest
+		.mocked(refreshVisualDrawing)
+		.mockResolvedValue({ drawing: complete, addedCount: 0 });
+	await selectDrawing();
+	const pdf = screen.getByTestId("pdf");
+	mockFetch.mockClear();
+	fireEvent.click(screen.getByRole("button", { name: "Atjaunot no žurnāla" }));
+	await screen.findByText(/nav jaunu žurnāla attēlu/);
+	expect(refreshVisualDrawing).toHaveBeenCalledWith("site", "drawing");
+	expect(mockFetch).not.toHaveBeenCalled();
+	expect(screen.getByTestId("pdf")).toBe(pdf);
+	expect(screen.getAllByRole("combobox")[0]).toHaveValue("1. stāvs");
+	expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+});
+
+it("keeps existing zones visible while analyzing appended diary photos in the same drawing", async () => {
+	const updated: VisualDrawing = {
+		...complete,
+		state: {
+			...complete.state,
+			status: "paused",
+			evidence: [
+				...complete.state.evidence,
+				{ ...complete.state.evidence[0], id: "new", recordId: "new-record" },
+			],
+		},
+	};
+	jest
+		.mocked(refreshVisualDrawing)
+		.mockResolvedValue({ drawing: updated, addedCount: 1 });
+	await selectDrawing();
+	const pdf = screen.getByTestId("pdf");
+	let finish!: (value: unknown) => void;
+	mockFetch.mockImplementation(
+		() =>
+			new Promise((resolve) => {
+				finish = resolve;
+			}),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Atjaunot no žurnāla" }));
+	await waitFor(() =>
+		expect(mockFetch).toHaveBeenLastCalledWith(
+			"/api/sites/site/visual/drawing",
+			{ method: "POST" },
+		),
+	);
+	expect(screen.getByTestId("pdf")).toBe(pdf);
+	expect(pdf).toHaveTextContent("1 zones");
+	expect(screen.getByText(/Pievienoti 1 jauni attēli/)).toBeInTheDocument();
+	await act(async () =>
+		finish({
+			ok: true,
+			json: async () => ({
+				...updated,
+				state: { ...updated.state, status: "complete", processed: 2 },
+			}),
+		}),
+	);
+	expect(screen.getByTestId("pdf")).toBe(pdf);
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Atjaunot no žurnāla" }),
+		).toBeEnabled(),
+	);
+});
+
+it("retains the selected drawing when checking for new diary photos fails", async () => {
+	jest
+		.mocked(refreshVisualDrawing)
+		.mockRejectedValue(new Error("Update failed"));
+	await selectDrawing();
+	const pdf = screen.getByTestId("pdf");
+	fireEvent.click(screen.getByRole("button", { name: "Atjaunot no žurnāla" }));
+	expect(await screen.findByRole("alert")).toHaveTextContent("Update failed");
+	expect(screen.getByTestId("pdf")).toBe(pdf);
+});
 
 it("requires confirmation before deletion and removes the drawing from the view", async () => {
 	await selectDrawing();
@@ -473,4 +553,127 @@ it("shows the loading state while waiting for an analysis batch", async () => {
 		expect(screen.queryByRole("progressbar")).not.toBeInTheDocument(),
 	);
 	expect(screen.getByTestId("pdf")).toHaveTextContent("1 zones");
+});
+
+it("polls live progress during POST and never overwrites completion with a stale poll", async () => {
+	jest.useFakeTimers();
+	const pending: VisualDrawing = {
+		...complete,
+		state: { ...complete.state, status: "uploaded", processed: 0, marks: [] },
+	};
+	let saved = pending;
+	let finish: (value: unknown) => void = () => {};
+	mockFetch.mockImplementation((_url, options) =>
+		options?.method === "POST"
+			? new Promise((resolve) => {
+					finish = resolve;
+				})
+			: Promise.resolve({ ok: true, json: async () => saved }),
+	);
+	await selectDrawing();
+	fireEvent.click(screen.getByRole("button", { name: "Turpināt analīzi" }));
+	await act(async () => {});
+	saved = {
+		...complete,
+		state: {
+			...complete.state,
+			status: "running",
+			lockedAt: Date.now(),
+			attempts: [
+				{ id: "new-run" } as VisualDrawing["state"]["attempts"][number],
+			],
+		},
+	};
+	await act(async () => {
+		await jest.advanceTimersByTimeAsync(1000);
+	});
+	expect(screen.getByText(/Analizēti 1 no 1/)).toBeInTheDocument();
+	expect(screen.getByTestId("pdf")).toHaveTextContent("1 zones");
+	let stale: (value: unknown) => void = () => {};
+	mockFetch.mockImplementationOnce(
+		() =>
+			new Promise((resolve) => {
+				stale = resolve;
+			}),
+	);
+	await act(async () => {
+		await jest.advanceTimersByTimeAsync(1500);
+	});
+	await act(async () => {
+		finish({ ok: true, json: async () => complete });
+	});
+	expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+	await act(async () => {
+		stale({ ok: true, json: async () => pending });
+	});
+	expect(screen.getByTestId("pdf")).toHaveTextContent("1 zones");
+	expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+	expect(
+		mockFetch.mock.calls.filter(([, options]) => options?.method === "POST"),
+	).toHaveLength(1);
+});
+
+it("reopens running analysis with polling but does not start another AI request", async () => {
+	jest.useFakeTimers();
+	let saved: VisualDrawing = {
+		...complete,
+		state: {
+			...complete.state,
+			status: "running",
+			lockedAt: Date.now(),
+			processed: 0,
+			marks: [],
+		},
+	};
+	mockFetch.mockImplementation(() =>
+		Promise.resolve({ ok: true, json: async () => saved }),
+	);
+	const view = render(<VisualView siteId="site" />);
+	await selectLocation();
+	expect(
+		screen.getByRole("button", { name: "Turpināt analīzi" }),
+	).toBeDisabled();
+	saved = complete;
+	await act(async () => {
+		await jest.advanceTimersByTimeAsync(1000);
+	});
+	expect(screen.getByTestId("pdf")).toHaveTextContent("1 zones");
+	expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+	const count = mockFetch.mock.calls.length;
+	view.unmount();
+	await act(async () => {
+		await jest.advanceTimersByTimeAsync(10000);
+	});
+	expect(mockFetch).toHaveBeenCalledTimes(count);
+	expect(
+		mockFetch.mock.calls.filter(([, options]) => options?.method === "POST"),
+	).toHaveLength(0);
+});
+
+it("keeps saved progress visible during a polling failure and reconnects", async () => {
+	jest.useFakeTimers();
+	const running: VisualDrawing = {
+		...complete,
+		state: {
+			...complete.state,
+			status: "running",
+			lockedAt: Date.now(),
+			processed: 0,
+			marks: [],
+		},
+	};
+	mockFetch.mockResolvedValueOnce({ ok: true, json: async () => running });
+	mockFetch.mockRejectedValueOnce(new Error("Network unavailable"));
+	mockFetch.mockResolvedValue({ ok: true, json: async () => complete });
+	await selectDrawing();
+	await act(async () => {
+		await jest.advanceTimersByTimeAsync(1000);
+	});
+	expect(screen.getByText(/Mēģinām atjaunot savienojumu/)).toBeInTheDocument();
+	expect(screen.getByTestId("pdf")).toHaveTextContent("0 zones");
+	await act(async () => {
+		await jest.advanceTimersByTimeAsync(1500);
+	});
+	expect(screen.getByTestId("pdf")).toHaveTextContent("1 zones");
+	expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
 });

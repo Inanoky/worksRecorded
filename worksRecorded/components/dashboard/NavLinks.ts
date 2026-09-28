@@ -3,6 +3,7 @@ import {
 	ChartNoAxesCombined,
 	Clock8,
 	HardHat,
+	Layers,
 	ListChecks,
 	Package,
 	ReceiptText,
@@ -166,7 +167,7 @@ function getTgemLanguageKey(language?: string | null) {
 
 export function getProjectNavLinks(
 	language?: string | null,
-	options?: { showAnalytics?: boolean },
+	options?: { showAnalytics?: boolean; showVisual?: boolean },
 ): ProjectNavLink[] {
 	const organizationLanguage = normalizeOrganizationLanguage(language);
 	const t = getNavigationMessages(organizationLanguage);
@@ -182,6 +183,18 @@ export function getProjectNavLinks(
 			priority: "primary",
 			dataTour: "nav-site-diary",
 		},
+		...(options?.showVisual
+			? [
+					{
+						name: "Izpildshēmas",
+						description: "Apskatiet paveiktos darbus projekta rasējumos.",
+						href: "/dashboard/izpildshemas",
+						path: "izpildshemas",
+						icon: Layers,
+						priority: "primary" as const,
+					},
+				]
+			: []),
 		...(options?.showAnalytics
 			? [
 					{

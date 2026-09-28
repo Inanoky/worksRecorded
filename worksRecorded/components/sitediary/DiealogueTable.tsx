@@ -232,12 +232,6 @@ const coerceOptionalInt = (v: unknown) => {
   return Number.isFinite(n) ? Math.trunc(n) : undefined;
 };
 
-const isUUID = (id: unknown) =>
-  typeof id === "string" &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    id,
-  );
-
 const showZodErrorToast = (
   err: z.ZodError,
   toastMessages: ReturnType<typeof getToastMessages>,
@@ -256,7 +250,7 @@ const showZodErrorToast = (
  * - workers: int, <= 1B, empty ok
  */
 const DiaryRowSchema = z.object({
-  id: z.string().uuid().optional(), // DB id (only if real UUID)
+  id: z.string().min(1).optional(),
   _tempId: z.string().optional(), // UI id (always present for new rows)
   // numbers in your table are strings while editing, so allow "" and coerce
   Amounts: z
@@ -560,12 +554,12 @@ export function DialogTable({
       console.dir(cleanRows);
 
       const existingRows = cleanRows.filter((r) =>
-        Boolean(r.id && isUUID(r.id) && dirtyRowIds.has(r.id)),
+        Boolean(r.id && dirtyRowIds.has(r.id)),
       );
 
       console.log(`existing rows ${existingRows}`);
 
-      const newRows = cleanRows.filter((r) => !isUUID(r.id));
+      const newRows = cleanRows.filter((r) => r.id === undefined);
 
       //This we need to strip any UI only fields
       const stripUiFields = (r: any) => {

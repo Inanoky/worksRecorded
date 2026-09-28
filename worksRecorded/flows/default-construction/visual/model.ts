@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 export const VISUAL_DOCUMENT_TYPE = "limeni-visual-v1";
-export const VISUAL_BATCH_SIZE = 6;
 export const VISUAL_MAX_PHOTOS = 200;
 export const VISUAL_MAX_BYTES = 16 * 1024 * 1024;
 export const VISUAL_MAX_PAGES = 10;
@@ -78,6 +77,15 @@ export const visualStateSchema = z.object({
 	]),
 	pageCount: z.number().int().positive().nullable(),
 	processed: z.number().int().nonnegative(),
+	imageProgress: z
+		.array(
+			z.object({
+				evidenceId: z.string(),
+				status: z.enum(["pending", "running", "complete", "failed"]),
+				error: z.string().nullable(),
+			}),
+		)
+		.optional(),
 	evidence: z.array(visualEvidenceSchema).max(VISUAL_MAX_PHOTOS),
 	marks: z.array(
 		visualMatchSchema.extend({
@@ -93,6 +101,8 @@ export const visualStateSchema = z.object({
 	attempts: z.array(
 		z.object({
 			id: z.string(),
+			evidenceId: z.string().optional(),
+			error: z.string().nullable().optional(),
 			startedAt: z.string(),
 			userId: z.string(),
 			rawOutput: z.string().nullable(),
@@ -112,6 +122,22 @@ export type VisualDrawing = {
 	createdAt: string;
 	state: VisualState;
 };
+
+export function visualImageProgress(state: VisualState) {
+	if (state.imageProgress) return state.imageProgress;
+	const completed = new Set([
+		...state.evidence.slice(0, state.processed).map((item) => item.id),
+		...state.marks.map((item) => item.evidenceId),
+		...state.unlocated.map((item) => item.evidenceId),
+	]);
+	return state.evidence.map((item) => ({
+		evidenceId: item.id,
+		status: completed.has(item.id)
+			? ("complete" as const)
+			: ("pending" as const),
+		error: null,
+	}));
+}
 
 export function normalizeVisualLocation(location: string) {
 	return location

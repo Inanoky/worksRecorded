@@ -176,7 +176,6 @@ import {
 const DialogWindow = React.lazy(
   () => import("@/components/sitediary/DialogWindow"),
 );
-const VisualView = React.lazy(() => import("@/flows/default-construction/visual/VisualView"));
 const FullPhotoGallery = React.lazy(
   () => import("@/components/sitediary/FullGalleryView"),
 );
@@ -684,7 +683,7 @@ export default function SiteDiaryCalendar({
 
   // 👇 add "gallery" to view mode
   const [viewMode, setViewMode] = React.useState<
-    "calendar" | "list" | "gallery" | "visual"
+    "calendar" | "list" | "gallery"
   >("list");
 
   // Shared dialog for editing a day
@@ -777,7 +776,6 @@ export default function SiteDiaryCalendar({
     React.useState<Record<string, any>>(defaultConfig);
   const [configSiteId, setConfigSiteId] = React.useState<string | null>(null);
   const clientDiary = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.inlineDiaryPhotos === true;
-  const visualEnabled = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.visualConstruction === true;
   const calculateDefaultConstructionRecordCost = React.useMemo(
     () => createDefaultConstructionRecordCostCalculator(defaultMap),
     [defaultMap],
@@ -2927,7 +2925,7 @@ export default function SiteDiaryCalendar({
         <Tabs
           value={viewMode}
           onValueChange={(v) =>
-            setViewMode(v as "calendar" | "list" | "gallery" | "visual")
+            setViewMode(v as "calendar" | "list" | "gallery")
           }
         >
           {/* Header with toggle */}
@@ -2944,7 +2942,6 @@ export default function SiteDiaryCalendar({
                 <TabsTrigger value="list">{t.tabList}</TabsTrigger>
                 <TabsTrigger value="calendar">{t.tabCalendar}</TabsTrigger>
                 <TabsTrigger value="gallery">{t.tabGallery}</TabsTrigger>
-                {visualEnabled ? <TabsTrigger value="visual">Visual</TabsTrigger> : null}
               </TabsList>
 
               <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
@@ -5984,13 +5981,6 @@ export default function SiteDiaryCalendar({
               <FullPhotoGallery siteId={siteId ?? ""} preloadAll={!isZtcFlow} />
             </React.Suspense>
           </TabsContent>
-          {visualEnabled && siteId ? (
-            <TabsContent value="visual">
-              <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
-                <VisualView key={siteId} siteId={siteId} />
-              </React.Suspense>
-            </TabsContent>
-          ) : null}
         </Tabs>
 
         {/* Dialog for editing / adding records (shared for both views) */}

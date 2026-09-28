@@ -1,5 +1,7 @@
 "use server";
 
+import { hasInlineDiaryPhotos } from "@/flows/default-construction/lib/diary-photos";
+import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { resolveProductionFlowConfigForRuntime } from "@/lib/production-flow/config-server";
 import { prisma } from "@/lib/utils/db";
@@ -141,5 +143,13 @@ export async function getProjectNavigationRuntimeForSite(
 		}),
 	]);
 
-	return { productionConfig, flowModuleKey, siteName: site.name };
+	return {
+		productionConfig,
+		flowModuleKey,
+		siteName: site.name,
+		...(flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION &&
+		hasInlineDiaryPhotos(site.organizationId)
+			? { visualEnabled: true }
+			: {}),
+	};
 }

@@ -7,6 +7,7 @@ import {
 	type VisualState,
 } from "./model";
 import {
+	appendVisualDiaryEvidence,
 	createVisualDrawing,
 	editVisualPolygon,
 	listVisualDrawings,
@@ -119,17 +120,15 @@ it("blocks duplicate location uploads including normalized names and stale repla
 
 it("archives all old versions of only the selected location before creating its replacement", async () => {
 	const { row, state } = await mockSavedDrawing();
-	jest
-		.mocked(prisma.documents.findMany)
-		.mockResolvedValue([
-			row,
-			{ ...row, id: "older" },
-			{
-				...row,
-				id: "other-floor",
-				description: JSON.stringify({ ...state, location: "2. stāvs" }),
-			},
-		] as never);
+	jest.mocked(prisma.documents.findMany).mockResolvedValue([
+		row,
+		{ ...row, id: "older" },
+		{
+			...row,
+			id: "other-floor",
+			description: JSON.stringify({ ...state, location: "2. stāvs" }),
+		},
+	] as never);
 	await createVisualDrawing({ ...uploadArgs, replaceDrawingId: "drawing" });
 	expect(prisma.documents.updateMany).toHaveBeenCalledTimes(2);
 	expect(prisma.documents.updateMany).toHaveBeenCalledWith({
@@ -147,14 +146,12 @@ it("archives all old versions of only the selected location before creating its 
 
 it("does not replace a drawing while its analysis is running", async () => {
 	const { row, state } = await mockSavedDrawing();
-	jest
-		.mocked(prisma.documents.findMany)
-		.mockResolvedValue([
-			{
-				...row,
-				description: JSON.stringify({ ...state, lockedAt: Date.now() }),
-			},
-		] as never);
+	jest.mocked(prisma.documents.findMany).mockResolvedValue([
+		{
+			...row,
+			description: JSON.stringify({ ...state, lockedAt: Date.now() }),
+		},
+	] as never);
 	await expect(
 		createVisualDrawing({ ...uploadArgs, replaceDrawingId: "drawing" }),
 	).rejects.toThrow("Analīze vēl notiek");
@@ -163,21 +160,19 @@ it("does not replace a drawing while its analysis is running", async () => {
 
 it("shows only the newest legacy drawing per normalized location", async () => {
 	const { row, state } = await mockSavedDrawing();
-	jest
-		.mocked(prisma.documents.findMany)
-		.mockResolvedValue([
-			row,
-			{
-				...row,
-				id: "older",
-				description: JSON.stringify({ ...state, location: " 1. STĀVS " }),
-			},
-			{
-				...row,
-				id: "other-floor",
-				description: JSON.stringify({ ...state, location: "2. stāvs" }),
-			},
-		] as never);
+	jest.mocked(prisma.documents.findMany).mockResolvedValue([
+		row,
+		{
+			...row,
+			id: "older",
+			description: JSON.stringify({ ...state, location: " 1. STĀVS " }),
+		},
+		{
+			...row,
+			id: "other-floor",
+			description: JSON.stringify({ ...state, location: "2. stāvs" }),
+		},
+	] as never);
 	expect(
 		(await listVisualDrawings("user", "site")).drawings.map((item) => item.id),
 	).toEqual(["drawing", "other-floor"]);
@@ -228,6 +223,116 @@ async function mockEditableDrawing() {
 		},
 	};
 }
+
+it("appends new linked photos without replacing snapshots, manual zones or completed progress", async () => {
+	const { row, state } = await mockEditableDrawing();
+	state.marks[0].editedAt = "2026-09-25T10:00:00Z";
+	state.marks[0].editedBy = "editor";
+	row.description = JSON.stringify(state);
+	jest.mocked(prisma.documents.create).mockClear();
+	jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([
+		{
+			id: "first",
+			Location: "1. stāvs",
+			Works: "Changed",
+			Comments: "Changed",
+			Photos: ["https://example.com/new.jpg", "https://example.com/one.jpg"],
+			Date: null,
+			Amounts: 12,
+			Units: "m2",
+		},
+		{
+			id: "new-record",
+			Location: " 1. STĀVS ",
+			Works: "XPS",
+			Comments: "New work",
+			Photos: ["https://example.com/third.jpg"],
+			Date: new Date("2026-09-28"),
+			Amounts: 5,
+			Units: "m2",
+		},
+		{
+			id: "elsewhere",
+			Location: "2. stāvs",
+			Photos: ["https://example.com/other.jpg"],
+		},
+	] as never);
+	const result = await appendVisualDiaryEvidence("user", "site", "drawing");
+	expect(result.addedCount).toBe(2);
+	expect(result.drawing.id).toBe("drawing");
+	expect(result.drawing.state.evidence[0]).toEqual(state.evidence[0]);
+	expect(result.drawing.state.marks).toEqual(state.marks);
+	expect(result.drawing.state.unlocated).toEqual(state.unlocated);
+	expect(result.drawing.state.attempts).toEqual(state.attempts);
+	expect(result.drawing.state.processed).toBe(1);
+	expect(result.drawing.state.imageProgress).toEqual([
+		{ evidenceId: "first:0", status: "complete", error: null },
+		...result.drawing.state.evidence
+			.slice(1)
+			.map((item) => ({ evidenceId: item.id, status: "pending", error: null })),
+	]);
+	expect(
+		new Set(result.drawing.state.evidence.map((item) => item.id)).size,
+	).toBe(3);
+	expect(prisma.documents.create).not.toHaveBeenCalled();
+	expect(prisma.documents.deleteMany).not.toHaveBeenCalled();
+	expect(prisma.documents.updateMany).toHaveBeenCalledTimes(1);
+	const update = jest.mocked(prisma.documents.updateMany).mock.calls[0][0];
+	expect(update.where).toMatchObject({
+		id: "drawing",
+		description: row.description,
+		organizationId: LIMENI_ORGANIZATION_ID,
+	});
+	expect(JSON.parse(update.data.description as string)).toEqual(
+		result.drawing.state,
+	);
+	row.description = JSON.stringify(result.drawing.state);
+	jest.mocked(prisma.documents.updateMany).mockClear();
+	expect(
+		(await appendVisualDiaryEvidence("user", "site", "drawing")).addedCount,
+	).toBe(0);
+	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
+});
+
+it("does not write when there are no new photos or previous photos were removed", async () => {
+	const { state } = await mockSavedDrawing();
+	jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([]);
+	const result = await appendVisualDiaryEvidence("user", "site", "drawing");
+	expect(result.addedCount).toBe(0);
+	expect(result.drawing.state).toEqual(state);
+	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
+});
+
+it("rejects updates during analysis and concurrent changes without overwriting saved data", async () => {
+	const { row, state } = await mockSavedDrawing();
+	state.lockedAt = Date.now();
+	row.description = JSON.stringify(state);
+	await expect(
+		appendVisualDiaryEvidence("user", "site", "drawing"),
+	).rejects.toThrow("Analīze vēl notiek");
+	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
+	state.lockedAt = null;
+	state.evidence = [];
+	row.description = JSON.stringify(state);
+	jest.mocked(prisma.documents.updateMany).mockResolvedValue({ count: 0 });
+	await expect(
+		appendVisualDiaryEvidence("user", "site", "drawing"),
+	).rejects.toThrow("jau tiek atjaunināta");
+});
+
+it("rejects exceeding the total photo limit without changing the drawing", async () => {
+	const { row, state } = await mockSavedDrawing();
+	state.evidence = Array.from({ length: 200 }, (_, i) => ({
+		...state.evidence[0],
+		id: `old:${i}`,
+		photoUrl: `https://example.com/old-${i}.jpg`,
+	}));
+	row.description = JSON.stringify(state);
+	await expect(
+		appendVisualDiaryEvidence("user", "site", "drawing"),
+	).rejects.toThrow("vairāk nekā 200");
+	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
+});
 
 it("saves only polygon geometry with editor attribution and keeps diary evidence intact", async () => {
 	const { state, edit } = await mockEditableDrawing();
@@ -301,7 +406,15 @@ it("deletes only the authorized visual record with concurrency protection", asyn
 });
 
 it("restarts the same drawing from the first image without changing its sources", async () => {
-	const { state } = await mockSavedDrawing();
+	const { row, state } = await mockSavedDrawing();
+	state.imageProgress = state.evidence.map((item) => ({
+		evidenceId: item.id,
+		status: "complete",
+		error: null,
+	}));
+	jest
+		.mocked(prisma.documents.findFirst)
+		.mockResolvedValue({ ...row, description: JSON.stringify(state) } as never);
 	const result = await resetVisualDrawing("user", "site", "drawing");
 	expect(result.id).toBe("drawing");
 	expect(result.state).toMatchObject({
@@ -313,6 +426,7 @@ it("restarts the same drawing from the first image without changing its sources"
 		lockedAt: null,
 		evidence: state.evidence,
 	});
+	expect(result.state.imageProgress).toBeUndefined();
 	expect(prisma.documents.create).toHaveBeenCalledTimes(1);
 	expect(prisma.documents.updateMany).toHaveBeenCalledWith(
 		expect.objectContaining({

@@ -2,10 +2,9 @@
 
 import { requireUser } from "@/lib/utils/requireUser";
 import {
-	createVisualDrawing,
+	appendVisualDiaryEvidence,
 	editVisualPolygon,
 	listVisualDrawings,
-	loadVisualDrawing,
 	removeVisualDrawing,
 	resetVisualDrawing,
 } from "./store";
@@ -17,15 +16,7 @@ export async function getVisualDrawings(siteId: string) {
 
 export async function refreshVisualDrawing(siteId: string, drawingId: string) {
 	const user = await requireUser();
-	const { row, drawing } = await loadVisualDrawing(user.id, siteId, drawingId);
-	return createVisualDrawing({
-		userId: user.id,
-		siteId,
-		location: drawing.state.location,
-		url: row.url,
-		name: row.documentName,
-		replaceDrawingId: drawingId,
-	});
+	return appendVisualDiaryEvidence(user.id, siteId, drawingId);
 }
 
 export async function deleteVisualDrawing(siteId: string, drawingId: string) {
