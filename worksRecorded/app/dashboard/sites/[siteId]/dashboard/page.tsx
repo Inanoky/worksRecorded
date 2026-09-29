@@ -4,6 +4,11 @@ import AiWidgetRag from "@/components/ai/AiChatLazy";
 import { ClientFlowDashboard } from "@/components/client-flows/ClientFlowDashboard";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import TourRunner from "@/components/joyride/TourRunner";
+import {
+	ClearRetainedDiary,
+	RegisterLimeniDiary,
+} from "@/flows/default-construction/frontend/RetainedLimeniDiary";
+import { hasInlineDiaryPhotos } from "@/flows/default-construction/lib/diary-photos";
 import { shouldShowDashboardAiWidgetForFlowModule } from "@/lib/flows/registry";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
@@ -88,14 +93,31 @@ export default async function InvoiceRoute({
 				/>
 			</div>
 
-			<ClientFlowDashboard
-				flowModuleKey={flowModuleKey}
-				siteId={siteId}
-				bisEnabled={Boolean(
-					siteBisStatus?.bisCaseId && userBisToken?.accessToken,
-				)}
-				organizationLanguage={organizationLanguage}
-			/>
+			{flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION &&
+			hasInlineDiaryPhotos(siteOrganizationId) &&
+			siteOrganizationId ? (
+				<RegisterLimeniDiary
+					siteId={siteId}
+					userId={user.id}
+					organizationId={siteOrganizationId}
+					bisEnabled={Boolean(
+						siteBisStatus?.bisCaseId && userBisToken?.accessToken,
+					)}
+					organizationLanguage={organizationLanguage}
+				/>
+			) : (
+				<>
+					<ClearRetainedDiary />
+					<ClientFlowDashboard
+						flowModuleKey={flowModuleKey}
+						siteId={siteId}
+						bisEnabled={Boolean(
+							siteBisStatus?.bisCaseId && userBisToken?.accessToken,
+						)}
+						organizationLanguage={organizationLanguage}
+					/>
+				</>
+			)}
 			{shouldShowDashboardAiWidgetForFlowModule(flowModuleKey) ? (
 				<AiWidgetRag siteId={siteId} />
 			) : null}

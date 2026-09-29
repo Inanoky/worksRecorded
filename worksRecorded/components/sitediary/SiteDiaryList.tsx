@@ -7,6 +7,7 @@ import { getClientDiaryMediaDays, type DiaryMediaPhoto } from "@/flows/default-c
 import { useDiaryImagePreload } from "@/flows/default-construction/frontend/useDiaryImagePreload";
 import { getDiaryPagePhotoUrls } from "@/flows/default-construction/lib/diary-image-pages";
 import { formatLimeniDiaryHours } from "@/flows/default-construction/lib/diary-hours-display";
+import { useDiaryRevalidation } from "@/flows/default-construction/frontend/useDiaryRevalidation";
 
 import {
   CalendarIcon,
@@ -660,11 +661,15 @@ export default function SiteDiaryCalendar({
   bisEnabled = true,
   organizationLanguage,
   isZtcFlow = false,
+  limeniClientDiary = false,
+  active = true,
 }: {
   siteId: string | null;
   bisEnabled?: boolean;
   organizationLanguage?: string | null;
   isZtcFlow?: boolean;
+  limeniClientDiary?: boolean;
+  active?: boolean;
 }) {
   const today = new Date();
   const language = normalizeOrganizationLanguage(organizationLanguage);
@@ -762,6 +767,7 @@ export default function SiteDiaryCalendar({
   const initialBisSyncSiteRef = React.useRef<string | null>(null);
   const mediaOnlyRequestRef = React.useRef(0);
   const diaryRowsRequestRef = React.useRef(0);
+  const diaryLastLoaded = React.useRef(0);
   const [diarySnapshotSiteId, setDiarySnapshotSiteId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -776,7 +782,7 @@ export default function SiteDiaryCalendar({
   const [defaultMap, setMap] =
     React.useState<Record<string, any>>(defaultConfig);
   const [configSiteId, setConfigSiteId] = React.useState<string | null>(null);
-  const clientDiary = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.inlineDiaryPhotos === true;
+  const clientDiary = !isZtcFlow && (limeniClientDiary || (configSiteId === siteId && defaultMap?.otherSettings?.inlineDiaryPhotos === true));
   const calculateDefaultConstructionRecordCost = React.useMemo(
     () => createDefaultConstructionRecordCostCalculator(defaultMap),
     [defaultMap],
@@ -1217,6 +1223,7 @@ export default function SiteDiaryCalendar({
       if (clientDiary) {
         const result = await getLimeniDiarySnapshot(siteId);
         if (diaryRowsRequestRef.current !== requestId) return result.rows;
+        diaryLastLoaded.current = Date.now();
         setRows(result.rows);
         setClientMediaPhotos(result.mediaPhotos);
         setDiarySnapshotSiteId(siteId);
@@ -1456,6 +1463,15 @@ export default function SiteDiaryCalendar({
       cancelled = true;
     };
   }, [bisUiEnabled, optionsRevision, refreshRowsWithBisSync, siteId]);
+
+  const backgroundRefresh = React.useCallback(() => refreshRowsWithBisSync({ skipSync: true }), [refreshRowsWithBisSync]);
+  const revalidationFailed = useDiaryRevalidation({
+    enabled: limeniClientDiary && hasLoadedRowsOnce,
+    active,
+    blocked: loading || dialogOpen,
+    lastLoaded: diaryLastLoaded,
+    refresh: backgroundRefresh,
+  });
 
   const hasFilledDays = filledDays.length > 0;
   const hasRecords = rows.length > 0;
@@ -1808,7 +1824,7 @@ export default function SiteDiaryCalendar({
   const { progress: diaryImageProgress, loading: pageImagesLoading } = useDiaryImagePreload(
     diaryPagePhotoUrls, siteId ?? "", clientDiary && diarySnapshotSiteId === siteId,
   );
-  const imagesPreloading = clientDiary && (diarySnapshotSiteId !== siteId || pageImagesLoading);
+  const imagesPreloading = clientDiary && (diarySnapshotSiteId !== siteId || (!limeniClientDiary && pageImagesLoading));
   const showInitialListSkeleton = ((loading && !hasLoadedRowsOnce) || imagesPreloading) && !error;
   const showUpdatingListSkeleton =
     loading && hasLoadedRowsOnce && showDelayedListSkeleton && !error;
@@ -2916,7 +2932,7 @@ export default function SiteDiaryCalendar({
 
   return (
     <TooltipProvider>
-      {!isZtcFlow && !error && (!hasLoadedRowsOnce || imagesPreloading) ? (
+      {active && !isZtcFlow && !error && (!hasLoadedRowsOnce || imagesPreloading) ? (
         <ProjectOpeningOverlay label={language === "lv" ? "Ielādē būvdarbu žurnālu…" : "Loading construction diary…"} />
       ) : null}
       <div
@@ -3158,6 +3174,7 @@ export default function SiteDiaryCalendar({
             </div>
           </TabsContent>
 
+          {revalidationFailed ? <p role="status" className="mb-3 text-sm text-muted-foreground">{language === "lv" ? "Neizdevās pārbaudīt jaunākos ierakstus. Redzami iepriekš ielādētie dati; mēģiniet ‘Atjaunot ierakstus’." : "Could not check for new records. Previously loaded data is shown; try Refresh records."}</p> : null}
           {/* LIST VIEW */}
           <TabsContent value="list" className="mt-0">
             {/* {t.filters} */}
