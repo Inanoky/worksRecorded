@@ -1,3 +1,4 @@
+import { drawingLogText, drawingRejectionReasons, summarizeDrawingExtraction } from "@/flows/ztc-production/lib/ztc-drawing-diagnostics";
 import { validateZtcDrawingProjectCode } from "@/flows/ztc-production/lib/ztc-drawing-project-code";
 import { UTApi } from "uploadthing/server";
 import OpenAI, { toFile } from "openai";
@@ -1812,73 +1813,120 @@ export async function extractDrawingInfo(
   options: { drawingProfile?: ProductionDrawingExtractionProfile } = {},
 ): Promise<DrawingExtraction> {
   const startedAt = Date.now();
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const openaiStartedAt = Date.now();
+  const extractionId = crypto.randomUUID();
+  let stage = "request";
+  let responseDetails: Record<string, unknown> = {};
   const drawingProfile = options.drawingProfile ?? "ztc";
-  const prompt = getDrawingExtractionPrompt(drawingProfile);
-  const response = await withZtcTimeout(
-    openai.chat.completions.create({
-      model: ZTC_OPENAI_MODEL,
-      reasoning_effort: ZTC_OPENAI_REASONING_EFFORT,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: prompt.system,
-        },
-        {
-          role: "system",
-          content:
-            "The only coefficient field is complexityCode. If a handwritten coefficient is unclear, use an empty string instead of guessing.",
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: prompt.user,
-            },
-            {
-              type: "image_url",
-              image_url: { url: imageUrl },
-            },
-          ],
-        },
-      ],
-    }),
-    "ztc_drawing_extraction",
-    ZTC_VISION_TIMEOUT_MS,
-  );
-  logZtcTiming("drawing_extraction_openai", openaiStartedAt, {
-    model: ZTC_OPENAI_MODEL,
-    imageSource: imageUrl.startsWith("data:") ? "data_url" : "url",
-    drawingProfile,
-  });
+  const context = { extractionId, model: ZTC_OPENAI_MODEL, drawingProfile, imageSource: imageUrl.startsWith("data:") ? "data_url" : "url" };
+  logZtcTiming("drawing_extraction_started", startedAt, { ...context, timeoutMs: ZTC_VISION_TIMEOUT_MS });
+  try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openaiStartedAt = Date.now();
+    const prompt = getDrawingExtractionPrompt(drawingProfile);
+    const response = await withZtcTimeout(
+      openai.chat.completions.create({
+        model: ZTC_OPENAI_MODEL,
+        reasoning_effort: ZTC_OPENAI_REASONING_EFFORT,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: prompt.system,
+          },
+          {
+            role: "system",
+            content:
+              "The only coefficient field is complexityCode. If a handwritten coefficient is unclear, use an empty string instead of guessing.",
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: prompt.user,
+              },
+              {
+                type: "image_url",
+                image_url: { url: imageUrl },
+              },
+            ],
+          },
+        ],
+      }),
+      "ztc_drawing_extraction",
+      ZTC_VISION_TIMEOUT_MS,
+    );
+    responseDetails = {
+      responseId: response.id,
+      requestId: response._request_id ?? null,
+      responseModel: response.model,
+      finishReason: response.choices[0]?.finish_reason ?? null,
+      refusal: drawingLogText(response.choices[0]?.message?.refusal),
+      usage: response.usage,
+    };
+    logZtcTiming("drawing_extraction_openai", openaiStartedAt, {
+      ...context,
+      ...responseDetails,
+      imageSource: imageUrl.startsWith("data:") ? "data_url" : "url",
+      drawingProfile,
+    });
 
-  const content = response.choices[0]?.message?.content;
-  if (!content?.trim()) {
-    throw new Error("ZTC drawing extraction returned an empty response");
+    stage = "parse";
+    const content = response.choices[0]?.message?.content;
+    if (!content?.trim()) {
+      throw new Error("ZTC drawing extraction returned an empty response");
+    }
+
+    const parsed = parseJsonObject<DrawingExtraction | null>(content, null);
+    if (!parsed) {
+      logZtcTiming("drawing_extraction_invalid_json", startedAt, { ...context, ...responseDetails, contentLength: content.length, responsePreview: drawingLogText(content, 600) });
+      throw new Error("ZTC drawing extraction returned invalid JSON");
+    }
+
+    logZtcTiming("drawing_extraction_raw", startedAt, { ...context, ...responseDetails, raw: summarizeDrawingExtraction(parsed) });
+    stage = "validation";
+    const validated = drawingProfile === "ztc" ? validateZtcDrawingProjectCode(parsed) : parsed;
+    const projectCodeRejected = validated !== parsed;
+    stage = "normalization";
+    const extraction = normalizeDrawingExtraction(validated);
+    const rejectionReasons = drawingRejectionReasons(extraction);
+    logZtcTiming("drawing_extraction_validation", startedAt, {
+      ...context,
+      projectCodeRejected,
+      validatorReason: projectCodeRejected ? "project_code_not_exactly_two_letters" : null,
+      rejectionReasons,
+      raw: summarizeDrawingExtraction(parsed),
+      normalized: summarizeDrawingExtraction(extraction),
+    });
+    logZtcTiming("drawing_extraction_total", startedAt, {
+      ...context,
+      outcome: rejectionReasons.length ? "rejected" : "accepted",
+      rejectionReasons,
+      isConstructionDrawing: extraction.isConstructionDrawing,
+      qualityOk: extraction.qualityOk,
+      projectName: extraction.projectName,
+      elementName: extraction.elementName,
+      workCount: extraction.workList.length,
+      issue: extraction.issue,
+      drawingProfile,
+    });
+
+    return extraction;
+  } catch (error) {
+    const details = error && typeof error === "object" ? error as Record<string, unknown> : {};
+    logZtcTiming("drawing_extraction_failed", startedAt, {
+      ...context,
+      ...responseDetails,
+      stage,
+      timedOut: isZtcTimeoutError(error),
+      errorName: drawingLogText(details.name),
+      errorMessage: drawingLogText(details.message, 600),
+      status: typeof details.status === "number" ? details.status : null,
+      errorCode: drawingLogText(details.code),
+      requestId: drawingLogText(details.request_id) ?? responseDetails.requestId ?? null,
+    });
+    throw error;
   }
-
-  const parsed = parseJsonObject<DrawingExtraction | null>(content, null);
-  if (!parsed) {
-    throw new Error("ZTC drawing extraction returned invalid JSON");
-  }
-
-  const extraction = normalizeDrawingExtraction(
-    drawingProfile === "ztc" ? validateZtcDrawingProjectCode(parsed) : parsed,
-  );
-  logZtcTiming("drawing_extraction_total", startedAt, {
-    isConstructionDrawing: extraction.isConstructionDrawing,
-    qualityOk: extraction.qualityOk,
-    projectName: extraction.projectName,
-    elementName: extraction.elementName,
-    workCount: extraction.workList.length,
-    issue: extraction.issue,
-    drawingProfile,
-  });
-
-  return extraction;
 }
 
 async function extractWorkInfo(
