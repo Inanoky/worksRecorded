@@ -3,6 +3,10 @@ import {
 	saveTgemCostCode,
 	setTgemCostCodeActive,
 } from "@/server/actions/tgem-cost-code-actions";
+import {
+	saveTgemPersonApprovalFlow,
+	saveTgemSubmitterApprovalFlow,
+} from "@/server/actions/tgem-invoice-approval-actions";
 import { TgemCostCodeSettings } from "./TgemCostCodeSettings";
 
 jest.mock("next/navigation", () => ({
@@ -15,6 +19,8 @@ jest.mock("@/server/actions/tgem-project-actions", () => ({
 
 jest.mock("@/server/actions/tgem-invoice-approval-actions", () => ({
 	saveTgemApprovalTemplate: jest.fn(),
+	saveTgemPersonApprovalFlow: jest.fn(),
+	saveTgemSubmitterApprovalFlow: jest.fn(),
 	saveTgemWorkflowManagers: jest.fn(),
 }));
 
@@ -76,6 +82,123 @@ describe("TgemCostCodeSettings", () => {
 			screen.queryByRole("button", { name: "Add approval step" }),
 		).toBeNull();
 		expect(screen.getByText("Cost-code catalog")).toBeInTheDocument();
+	});
+
+	it("assigns a reusable people flow to an exact submitter", async () => {
+		jest.mocked(saveTgemSubmitterApprovalFlow).mockResolvedValue({
+			userId: "user-1",
+			flowId: "flow-1",
+		});
+		render(
+			<TgemCostCodeSettings
+				initialCostCodes={[]}
+				organizationLanguage="en"
+				submitterFlowSettings={{
+					users: [
+						{
+							id: "user-1",
+							name: "Anna Bērziņa",
+							role: "Site manager",
+							email: "anna@example.com",
+							phone: "+37120000000",
+							flowId: null,
+						},
+					],
+					flows: [
+						{
+							id: "flow-1",
+							name: "Management flow",
+							currency: "EUR",
+							steps: [],
+						},
+					],
+				}}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Approval flow" }));
+		fireEvent.change(
+			screen.getByRole("combobox", {
+				name: "Flows by submitter: Anna Bērziņa",
+			}),
+			{ target: { value: "flow-1" } },
+		);
+
+		await waitFor(() =>
+			expect(saveTgemSubmitterApprovalFlow).toHaveBeenCalledWith({
+				userId: "user-1",
+				flowId: "flow-1",
+			}),
+		);
+	});
+
+	it("creates a people flow before assigning it", async () => {
+		jest.mocked(saveTgemPersonApprovalFlow).mockResolvedValue({
+			id: "flow-1",
+			name: "Office invoices",
+			currency: "EUR",
+			steps: [
+				{
+					id: "step-1",
+					stepOrder: 1,
+					roleKey: "financial_review",
+					role: "Grāmatvedis",
+					approverUserId: "user-1",
+					minimumInvoiceTotal: null,
+				},
+			],
+		});
+		render(
+			<TgemCostCodeSettings
+				initialCostCodes={[]}
+				organizationLanguage="en"
+				submitterFlowSettings={{
+					users: [
+						{
+							id: "user-1",
+							name: "Anna Bērziņa",
+							role: "Accountant",
+							email: "anna@example.com",
+							phone: null,
+							flowId: null,
+						},
+					],
+					flows: [],
+				}}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Approval flow" }));
+		fireEvent.click(screen.getByRole("button", { name: "New people flow" }));
+		fireEvent.change(
+			screen.getByPlaceholderText("For example, Office invoices"),
+			{
+				target: { value: "Office invoices" },
+			},
+		);
+		fireEvent.change(screen.getByRole("combobox", { name: "Role 1" }), {
+			target: { value: "Grāmatvedis" },
+		});
+		fireEvent.change(screen.getByRole("combobox", { name: "Approver 1" }), {
+			target: { value: "user-1" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Save flow" }));
+
+		await waitFor(() =>
+			expect(saveTgemPersonApprovalFlow).toHaveBeenCalledWith({
+				name: "Office invoices",
+				currency: "EUR",
+				steps: [
+					{
+						approverUserId: "user-1",
+						roleKey: "project_review",
+						roleLabel: "Grāmatvedis",
+						minimumInvoiceTotal: "",
+					},
+				],
+			}),
+		);
+		expect(
+			(await screen.findAllByText("Office invoices")).length,
+		).toBeGreaterThan(0);
 	});
 
 	it("adds an organization cost code and its meaning", async () => {

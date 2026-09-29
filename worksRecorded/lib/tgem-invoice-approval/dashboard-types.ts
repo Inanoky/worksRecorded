@@ -50,6 +50,7 @@ export type TgemDashboardInvoice = {
 	ocrStatus: string;
 	extractionStatus: string;
 	invoiceNumber: string | null;
+	isNewestDuplicateInvoiceNumber: boolean;
 	supplierName: string | null;
 	supplierRegistrationNo: string | null;
 	invoiceDate: string | null;
@@ -154,3 +155,27 @@ export type TgemDashboardData = {
 export type TgemDashboardApprovalSetup = NonNullable<
 	TgemDashboardData["approvalSetup"]
 >;
+
+export type TgemSubmitterApprovalFlowSettings = {
+	users: Array<{
+		id: string;
+		name: string;
+		role: string | null;
+		email: string;
+		phone: string | null;
+		flowId: string | null;
+	}>;
+	flows: Array<{
+		id: string;
+		name: string;
+		currency: string;
+		steps: Array<{
+			id: string;
+			stepOrder: number;
+			roleKey: TgemApprovalRoleKey;
+			role: string | null;
+			approverUserId: string;
+			minimumInvoiceTotal: string | null;
+		}>;
+	}>;
+};

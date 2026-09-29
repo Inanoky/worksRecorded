@@ -128,6 +128,8 @@ function getCopy(language?: string | null) {
 			refreshFailed: "Neizdevās atjaunināt. Mēģiniet vēlreiz.",
 			supplier: "Piegādātājs",
 			invoiceNumber: "Rēķina numurs",
+			newestDuplicateInvoiceNumber:
+				"Šis jaunākais rēķins dublē iepriekš saņemta rēķina numuru.",
 			invoiceDate: "Rēķina datums",
 			dueDate: "Apmaksas termiņš",
 			totalWithoutVat: "Kopā Bez PVN",
@@ -296,6 +298,7 @@ function getCopy(language?: string | null) {
 				invoice_accounting_updated: "Mainīta rēķina klasifikācija",
 				invoice_details_updated: "Laboti rēķina dati",
 				invoice_marked_paid: "Rēķins atzīmēts kā apmaksāts",
+				invoice_approval_flow_reset: "Apstiprināšanas plūsma atiestatīta",
 				invoice_archived: "Rēķins arhivēts",
 				invoice_restored: "Rēķins atjaunots no arhīva",
 			},
@@ -323,6 +326,8 @@ function getCopy(language?: string | null) {
 			refreshFailed: "Не удалось обновить. Попробуйте ещё раз.",
 			supplier: "Поставщик",
 			invoiceNumber: "Номер счета",
+			newestDuplicateInvoiceNumber:
+				"Этот новый счёт дублирует номер ранее полученного счёта.",
 			invoiceDate: "Дата счета",
 			dueDate: "Срок оплаты",
 			totalWithoutVat: "Итого без НДС",
@@ -491,6 +496,7 @@ function getCopy(language?: string | null) {
 				invoice_accounting_updated: "Классификация счета изменена",
 				invoice_details_updated: "Данные счета исправлены",
 				invoice_marked_paid: "Счёт отмечен как оплаченный",
+				invoice_approval_flow_reset: "Процесс согласования сброшен",
 				invoice_archived: "Счёт архивирован",
 				invoice_restored: "Счёт восстановлен из архива",
 			},
@@ -517,6 +523,8 @@ function getCopy(language?: string | null) {
 		refreshFailed: "Could not refresh. Try again.",
 		supplier: "Supplier",
 		invoiceNumber: "Invoice number",
+		newestDuplicateInvoiceNumber:
+			"This newer invoice duplicates a previously received invoice number.",
 		invoiceDate: "Invoice date",
 		dueDate: "Due date",
 		totalWithoutVat: "Total excl. VAT",
@@ -684,6 +692,7 @@ function getCopy(language?: string | null) {
 			invoice_accounting_updated: "Invoice classification changed",
 			invoice_details_updated: "Invoice details corrected",
 			invoice_marked_paid: "Invoice marked as paid",
+			invoice_approval_flow_reset: "Approval flow reset",
 			invoice_archived: "Invoice archived",
 			invoice_restored: "Invoice restored from archive",
 		},
@@ -850,6 +859,30 @@ function PaymentStatusControl({
 
 function localizedValue(values: Record<string, string>, value: string) {
 	return values[value] ?? value.replaceAll("_", " ");
+}
+
+function NewestDuplicateInvoiceNumberWarning({
+	copy,
+	showLabel = false,
+}: {
+	copy: ReturnType<typeof getCopy>;
+	showLabel?: boolean;
+}) {
+	return (
+		<span
+			role="img"
+			aria-label={copy.newestDuplicateInvoiceNumber}
+			title={copy.newestDuplicateInvoiceNumber}
+			className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-1 text-amber-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+		>
+			<AlertTriangle className="h-3.5 w-3.5" />
+			{showLabel ? (
+				<span className="text-xs font-medium">
+					{copy.newestDuplicateInvoiceNumber}
+				</span>
+			) : null}
+		</span>
+	);
 }
 
 function Field({
@@ -1380,13 +1413,18 @@ function InvoiceRegister({
 												{invoice.costCode || "—"}
 											</TableCell>
 											<TableCell className="font-semibold">
-												<button
-													type="button"
-													aria-label={`${copy.previewInvoice}: ${invoiceLabel}`}
-													className="text-left hover:text-tgem-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
-												>
-													{invoiceLabel}
-												</button>
+												<div className="flex items-center gap-2">
+													<button
+														type="button"
+														aria-label={`${copy.previewInvoice}: ${invoiceLabel}`}
+														className="text-left hover:text-tgem-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
+													>
+														{invoiceLabel}
+													</button>
+													{invoice.isNewestDuplicateInvoiceNumber ? (
+														<NewestDuplicateInvoiceNumberWarning copy={copy} />
+													) : null}
+												</div>
 											</TableCell>
 											<TableCell>
 												<div className="flex max-w-48 items-center gap-1.5">
@@ -1493,8 +1531,13 @@ function InvoiceRegister({
 											<div className="mb-1 text-xs text-muted-foreground">
 												{copy.costCode}: {invoice.costCode || "—"}
 											</div>
-											<div className="truncate font-semibold">
-												{invoice.invoiceNumber || invoice.id}
+											<div className="flex items-center gap-2 font-semibold">
+												<span className="truncate">
+													{invoice.invoiceNumber || invoice.id}
+												</span>
+												{invoice.isNewestDuplicateInvoiceNumber ? (
+													<NewestDuplicateInvoiceNumberWarning copy={copy} />
+												) : null}
 											</div>
 											<div className="mt-0.5 truncate text-sm text-muted-foreground">
 												{invoice.supplierName || "—"}
@@ -1634,9 +1677,14 @@ function InvoiceRegister({
 					>
 						<DialogHeader className="border-b px-5 py-4 pr-14 text-left">
 							<DialogTitle>{copy.previewInvoice}</DialogTitle>
-							<DialogDescription>
-								{previewInvoice.invoiceNumber || previewInvoice.id} ·{` `}
-								{previewInvoice.supplierName || "—"}
+							<DialogDescription className="flex flex-wrap items-center gap-2">
+								<span>
+									{previewInvoice.invoiceNumber || previewInvoice.id} ·{` `}
+									{previewInvoice.supplierName || "—"}
+								</span>
+								{previewInvoice.isNewestDuplicateInvoiceNumber ? (
+									<NewestDuplicateInvoiceNumberWarning copy={copy} />
+								) : null}
 							</DialogDescription>
 							<DialogClose asChild>
 								<button
@@ -1725,6 +1773,9 @@ function InvoiceRegister({
 										<div className="min-w-0 flex-1 truncate text-sm font-medium">
 											{previewInvoice.documents[0].originalFilename}
 										</div>
+										{previewInvoice.isNewestDuplicateInvoiceNumber ? (
+											<NewestDuplicateInvoiceNumberWarning copy={copy} />
+										) : null}
 									</div>
 									<div className="h-72">
 										{previewInvoice.documents[0].contentType ===
@@ -2318,6 +2369,11 @@ function InvoiceInformationCard({
 				</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-3 sm:grid-cols-2">
+				{invoice.isNewestDuplicateInvoiceNumber ? (
+					<div className="sm:col-span-2">
+						<NewestDuplicateInvoiceNumberWarning copy={copy} showLabel />
+					</div>
+				) : null}
 				{sourceField(
 					copy.project,
 					<span
@@ -2566,6 +2622,9 @@ function InvoiceDetails({
 							/>
 							{documentView === "document" ? copy.document : copy.textVersion}
 						</CardTitle>
+						{invoice.isNewestDuplicateInvoiceNumber ? (
+							<NewestDuplicateInvoiceNumberWarning copy={copy} />
+						) : null}
 						{document ? (
 							<button
 								type="button"

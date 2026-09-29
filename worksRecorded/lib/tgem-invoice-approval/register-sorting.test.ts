@@ -8,6 +8,7 @@ function invoice(id: string, values: Partial<TgemDashboardInvoice> = {}) {
 	return {
 		id,
 		invoiceNumber: null,
+		isNewestDuplicateInvoiceNumber: false,
 		project: null,
 		supplierName: null,
 		invoiceDate: null,

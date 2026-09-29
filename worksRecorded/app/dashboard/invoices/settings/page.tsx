@@ -5,7 +5,10 @@ import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { getTgemCostCodes } from "@/server/actions/tgem-cost-code-actions";
-import { getTgemApprovalSetupData } from "@/server/actions/tgem-invoice-approval-actions";
+import {
+	getTgemApprovalSetupData,
+	getTgemSubmitterApprovalFlowSettings,
+} from "@/server/actions/tgem-invoice-approval-actions";
 
 function firstValue(value: string | string[] | undefined) {
 	return Array.isArray(value) ? value[0] : value;
@@ -47,11 +50,12 @@ export default async function TgemInvoiceSettingsPage({
 		});
 		if (!selectedProject) notFound();
 	}
-	const [costCodes, approvalData] = await Promise.all([
+	const [costCodes, approvalData, submitterFlowSettings] = await Promise.all([
 		getTgemCostCodes({ includeArchived: true }),
 		selectedProjectId
 			? getTgemApprovalSetupData(selectedProjectId)
 			: Promise.resolve(null),
+		getTgemSubmitterApprovalFlowSettings(),
 	]);
 
 	return (
@@ -60,6 +64,7 @@ export default async function TgemInvoiceSettingsPage({
 			organizationLanguage={dbUser.organization?.orgLanguage}
 			selectedProject={approvalData?.project ?? null}
 			approvalSetup={approvalData?.setup ?? null}
+			submitterFlowSettings={submitterFlowSettings}
 		/>
 	);
 }

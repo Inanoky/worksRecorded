@@ -19,6 +19,7 @@ import type {
 } from "@/lib/tgem-invoice-approval/dashboard-types";
 import {
 	decideTgemInvoiceApproval,
+	resetTgemInvoiceApprovalFlow,
 	submitTgemInvoiceForApproval,
 } from "@/server/actions/tgem-invoice-approval-actions";
 import { getTgemApprovalRoleTitle } from "./approval-role-copy";
@@ -36,7 +37,6 @@ function getCopy(language?: string | null) {
 			reject: "Noraidīt",
 			comment: "Komentārs",
 			commentRequired: "Komentārs ir obligāts labojumiem un noraidīšanai.",
-			configure: "Pirms iesniegšanas izveidojiet apstiprinātāju secību.",
 			waiting: "Rēķins gaida pašreizējā apstiprinātāja lēmumu.",
 			currentOwner: "Pašlaik pie",
 			finalApprover: "Gala apstiprinātājs",
@@ -51,6 +51,9 @@ function getCopy(language?: string | null) {
 			history: "Iepriekšējo kārtu vēsture",
 			decided: "Lēmums",
 			amountReference: "Summas atsauce",
+			reset: "Atiestatīt apstiprināšanas plūsmu",
+			resetConfirm:
+				"Nepabeigtie soļi tiks atcelti. Vēsture tiks saglabāta, un rēķins būs jāiesniedz apstiprināšanai vēlreiz.",
 			statuses: {
 				configured: "sagatavots",
 				waiting: "gaida savu kārtu",
@@ -73,7 +76,6 @@ function getCopy(language?: string | null) {
 			reject: "Отклонить",
 			comment: "Комментарий",
 			commentRequired: "Для исправлений и отклонения требуется комментарий.",
-			configure: "Настройте последовательность согласующих перед отправкой.",
 			waiting: "Счет ожидает решения текущего согласующего.",
 			currentOwner: "Сейчас у",
 			finalApprover: "Финальный согласующий",
@@ -88,6 +90,9 @@ function getCopy(language?: string | null) {
 			history: "История предыдущих раундов",
 			decided: "Решение",
 			amountReference: "Сумма для справки",
+			reset: "Сбросить процесс согласования",
+			resetConfirm:
+				"Незавершенные этапы будут отменены. История сохранится, и счет нужно будет отправить на согласование снова.",
 			statuses: {
 				configured: "настроено",
 				waiting: "ожидает очереди",
@@ -109,7 +114,6 @@ function getCopy(language?: string | null) {
 		reject: "Reject",
 		comment: "Comment",
 		commentRequired: "A comment is required for changes and rejection.",
-		configure: "Configure the approver sequence before submitting.",
 		waiting: "The invoice is waiting for the current approver's decision.",
 		currentOwner: "Currently with",
 		finalApprover: "Final approver",
@@ -124,6 +128,9 @@ function getCopy(language?: string | null) {
 		history: "Previous approval-round history",
 		decided: "Decision",
 		amountReference: "Amount reference",
+		reset: "Reset approval flow",
+		resetConfirm:
+			"Unfinished steps will be cancelled. History will remain, and the invoice must be submitted for approval again.",
 		statuses: {
 			configured: "configured",
 			waiting: "waiting its turn",
@@ -248,7 +255,6 @@ export function TgemApprovalControls({
 	const canSubmit = ["needs_review", "changes_requested"].includes(
 		invoice.status,
 	);
-	const hasTemplate = Boolean(approvalSetup?.template?.steps.length);
 
 	async function submit() {
 		setPending("submit");
@@ -289,6 +295,27 @@ export function TgemApprovalControls({
 		}
 	}
 
+	async function resetFlow() {
+		if (!window.confirm(copy.resetConfirm)) return;
+		setPending("reset");
+		setError(null);
+		try {
+			await resetTgemInvoiceApprovalFlow({
+				invoiceCaseId: invoice.id,
+				expectedUpdatedAt: invoice.updatedAt,
+			});
+			await onChanged();
+		} catch (resetError) {
+			setError(
+				resetError instanceof Error
+					? resetError.message
+					: "Could not reset approval flow",
+			);
+		} finally {
+			setPending(null);
+		}
+	}
+
 	function approverName(step: ApprovalStep) {
 		return (
 			step.approverName ||
@@ -315,11 +342,13 @@ export function TgemApprovalControls({
 						/>
 						{copy.title}
 					</CardTitle>
-					{invoice.approvalRound > 0 ? (
-						<span className="rounded-full border bg-muted/40 px-2.5 py-1 text-xs font-medium">
-							{copy.round} {invoice.approvalRound}
-						</span>
-					) : null}
+					<div className="flex flex-wrap items-center gap-2">
+						{invoice.approvalRound > 0 ? (
+							<span className="rounded-full border bg-muted/40 px-2.5 py-1 text-xs font-medium">
+								{copy.round} {invoice.approvalRound}
+							</span>
+						) : null}
+					</div>
 				</div>
 			</CardHeader>
 			<CardContent className="space-y-4">
@@ -501,7 +530,7 @@ export function TgemApprovalControls({
 						<button
 							type="button"
 							onClick={() => void submit()}
-							disabled={!hasTemplate || pending !== null}
+							disabled={pending !== null}
 							aria-busy={pending === "submit"}
 							className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-tgem-primary px-4 py-2 text-sm font-medium text-white hover:bg-tgem-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/40 disabled:opacity-50"
 						>
@@ -514,10 +543,24 @@ export function TgemApprovalControls({
 							)}
 							{invoice.status === "changes_requested" ? copy.resend : copy.send}
 						</button>
-						{!hasTemplate ? (
-							<p className="text-xs text-amber-700">{copy.configure}</p>
-						) : null}
 					</div>
+				) : null}
+
+				{invoice.approvalRound > 0 && invoice.status !== "approved" ? (
+					<button
+						type="button"
+						onClick={() => void resetFlow()}
+						disabled={pending !== null}
+						aria-busy={pending === "reset"}
+						className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium text-muted-foreground hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800 disabled:opacity-50"
+					>
+						{pending === "reset" ? (
+							<Loader2 className="h-4 w-4 animate-spin" />
+						) : (
+							<RotateCcw className="h-4 w-4" />
+						)}
+						{copy.reset}
+					</button>
 				) : null}
 
 				{invoice.status === "in_approval" && canDecide ? (

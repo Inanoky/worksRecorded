@@ -162,8 +162,8 @@ describe("TGEM invoice dashboard authorization data", () => {
 		);
 	});
 
-	it("serializes invoice and line fields required by filtering and export", async () => {
-		mockPrisma.tgemInvoiceCase.findMany.mockResolvedValue([
+	it("serializes invoice fields and marks the newest normalized duplicate", async () => {
+		mockPrisma.tgemInvoiceCase.findMany.mockResolvedValueOnce([
 			{
 				id: "invoice-1",
 				site: { id: "site-1", name: "Riga office" },
@@ -190,7 +190,7 @@ describe("TGEM invoice dashboard authorization data", () => {
 				approvedAt: new Date("2026-09-03T10:00:00.000Z"),
 				paymentStatus: "paid",
 				paidAt: new Date("2026-09-04T10:00:00.000Z"),
-				createdAt: new Date("2026-09-02T10:00:00.000Z"),
+				createdAt: new Date("2026-09-05T10:00:00.000Z"),
 				updatedAt: new Date("2026-09-03T10:00:00.000Z"),
 				approvalRound: 1,
 				documents: [],
@@ -215,12 +215,24 @@ describe("TGEM invoice dashboard authorization data", () => {
 				auditEvents: [],
 			},
 		]);
-
+		mockPrisma.tgemInvoiceCase.findMany.mockResolvedValueOnce([
+			{
+				id: "invoice-1",
+				invoiceNumber: "INV-1",
+				createdAt: new Date("2026-09-05T10:00:00.000Z"),
+			},
+			{
+				id: "invoice-2",
+				invoiceNumber: " inv-1 ",
+				createdAt: new Date("2026-09-02T10:00:00.000Z"),
+			},
+		]);
 		const result = await getTgemInvoiceDashboardData("site-1");
 
 		expect(result?.invoices[0]).toEqual(
 			expect.objectContaining({
 				receivedAt: "2026-09-02T10:00:00.000Z",
+				isNewestDuplicateInvoiceNumber: true,
 				approvedAt: "2026-09-03T10:00:00.000Z",
 				paymentStatus: "paid",
 				paidAt: "2026-09-04T10:00:00.000Z",
