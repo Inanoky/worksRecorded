@@ -1,3 +1,4 @@
+import { requireDiaryPhotoAccess, appendDiaryPhoto } from "@/flows/default-construction/backend/diary-photo-upload";
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { createUploadthing, type FileRouter } from "uploadthing/next";
 import { UploadThingError } from "uploadthing/server";
@@ -20,6 +21,15 @@ const f = createUploadthing();
 
 // FileRouter for your app, can contain multiple FileRoutes
 export const ourFileRouter = {
+  limeniDiaryPhotoUploader: f({ image: { maxFileSize: "16MB", maxFileCount: 10 } })
+    .input(z.object({ siteId: z.string().uuid(), recordId: z.string().uuid() }))
+    .middleware(async ({ input }) => {
+      const { getUser } = getKindeServerSession();
+      const user = await getUser();
+      if (!user) throw new UploadThingError("Unauthorized");
+      return requireDiaryPhotoAccess(user.id, input.siteId, input.recordId);
+    })
+    .onUploadComplete(async ({ metadata, file }) => appendDiaryPhoto({ ...metadata, url: file.ufsUrl })),
 	limeniVisualDrawingUploader: f({
 		pdf: { maxFileSize: "16MB", maxFileCount: 1 },
 	})

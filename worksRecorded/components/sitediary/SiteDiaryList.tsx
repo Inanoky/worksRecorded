@@ -1,4 +1,5 @@
 "use client";
+import { DiaryPhotoUploadMenuItem } from "@/flows/default-construction/frontend/DiaryPhotoActions";
 import { DiaryRecordPhotos } from "@/flows/default-construction/frontend/DiaryRecordPhotos";
 import { DiaryDayPagination } from "@/flows/default-construction/frontend/DiaryDayPagination";
 import { useDiaryDayPagination } from "@/flows/default-construction/frontend/useDiaryDayPagination";
@@ -4606,6 +4607,7 @@ export default function SiteDiaryCalendar({
                                           </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
+{!isZtcSite && defaultMap?.otherSettings?.inlineDiaryPhotos ? <DiaryPhotoUploadMenuItem siteId={siteId} recordId={(r).id} language={language} onUploaded={(photos) => setRows(current => current.map(item => item.id === (r).id ? { ...item, Photos: [...new Set([...(item.Photos ?? []), ...photos])] } : item))} /> : null}
                                           <DropdownMenuItem
                                             onClick={() =>
                                               openRecordDialog(r, group.date)
@@ -5258,6 +5260,7 @@ export default function SiteDiaryCalendar({
                                                     </Button>
                                                   </DropdownMenuTrigger>
                                                   <DropdownMenuContent align="end">
+{!isZtcSite && defaultMap?.otherSettings?.inlineDiaryPhotos ? <DiaryPhotoUploadMenuItem siteId={siteId} recordId={(group.rows[i] ?? row).id} language={language} onUploaded={(photos) => setRows(current => current.map(item => item.id === (group.rows[i] ?? row).id ? { ...item, Photos: [...new Set([...(item.Photos ?? []), ...photos])] } : item))} /> : null}
                                                     <DropdownMenuItem
                                                       onClick={() =>
                                                         openRecordDialog(
@@ -5860,6 +5863,7 @@ export default function SiteDiaryCalendar({
                                                 </Button>
                                               </DropdownMenuTrigger>
                                               <DropdownMenuContent align="end">
+{!isZtcSite && defaultMap?.otherSettings?.inlineDiaryPhotos ? <DiaryPhotoUploadMenuItem siteId={siteId} recordId={(group.rows[i] ?? row).id} language={language} onUploaded={(photos) => setRows(current => current.map(item => item.id === (group.rows[i] ?? row).id ? { ...item, Photos: [...new Set([...(item.Photos ?? []), ...photos])] } : item))} /> : null}
                                                 <DropdownMenuItem
                                                   onClick={() =>
                                                     openRecordDialog(

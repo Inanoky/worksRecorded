@@ -1,3 +1,4 @@
+import { DiaryPhotoActions } from "@/flows/default-construction/frontend/DiaryPhotoActions";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -497,7 +498,7 @@ export default async function AllProjectsPage({
                       <p className="mb-2 text-[11px] font-medium text-muted-foreground">
                         {messages.photos}
                       </p>
-                      <DiaryRecordPhotos
+                      <DiaryRecordPhotos 
                         photos={record.Photos}
                         language={organizationLanguage ?? "lv"}
                       />
@@ -527,6 +528,7 @@ export default async function AllProjectsPage({
                     ) : (
                       <span className="text-sm text-muted-foreground">—</span>
                     )}
+                    {showPhotos ? <DiaryPhotoActions siteId={record.siteId} recordId={record.id} language={organizationLanguage ?? "lv"} /> : null}
                     {isSbStomme ? (
                       <SbRowActions
                         recordId={record.id}
@@ -660,7 +662,7 @@ export default async function AllProjectsPage({
                   >
                     {messages.source}
                   </TableHead>
-                  {isSbStomme ? (
+                  {isSbStomme || showPhotos ? (
                     <TableHead className="w-[56px]">
                       <span className="sr-only">Darbības</span>
                     </TableHead>
@@ -780,7 +782,7 @@ export default async function AllProjectsPage({
                       </TableCell>
                       {showPhotos ? (
                         <TableCell className="align-top">
-                          <DiaryRecordPhotos
+                          <DiaryRecordPhotos 
                             photos={record.Photos}
                             language={organizationLanguage ?? "lv"}
                           />
@@ -810,6 +812,7 @@ export default async function AllProjectsPage({
                           "—"
                         )}
                       </TableCell>
+                      {showPhotos ? <TableCell className="text-center"><DiaryPhotoActions siteId={record.siteId} recordId={record.id} language={organizationLanguage ?? "lv"} /></TableCell> : null}
                       {isSbStomme ? (
                         <TableCell className="text-center">
                           <SbRowActions
@@ -825,7 +828,7 @@ export default async function AllProjectsPage({
                     <TableCell
                       colSpan={
                         (isSbStomme ? 14 : data.quantityPlanFactEnabled ? 11 : 10) +
-                        (showPhotos ? 1 : 0)
+                        (showPhotos ? 2 : 0)
                       }
                       className="h-32 text-center"
                     >
