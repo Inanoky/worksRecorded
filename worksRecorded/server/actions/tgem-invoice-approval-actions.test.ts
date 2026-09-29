@@ -1,7 +1,7 @@
 const mockRequireUser = jest.fn();
 const mockPrisma = {
-	site: { findFirst: jest.fn() },
-	user: { findMany: jest.fn() },
+	site: { findFirst: jest.fn(), findMany: jest.fn() },
+	user: { findFirst: jest.fn(), findMany: jest.fn() },
 	tgemInvoiceCase: {
 		findFirst: jest.fn(),
 		findMany: jest.fn(),
@@ -13,11 +13,29 @@ const mockPrisma = {
 		updateMany: jest.fn(),
 		create: jest.fn(),
 	},
+	tgemInvoiceApprovalFlow: {
+		findFirst: jest.fn(),
+		findFirstOrThrow: jest.fn(),
+		findMany: jest.fn(),
+		create: jest.fn(),
+		update: jest.fn(),
+	},
+	tgemInvoiceApprovalFlowStep: {
+		deleteMany: jest.fn(),
+		createMany: jest.fn(),
+	},
 	tgemInvoiceApprovalStep: {
 		createMany: jest.fn(),
 		findFirst: jest.fn(),
+		findMany: jest.fn(),
 		update: jest.fn(),
 		updateMany: jest.fn(),
+	},
+	tgemInvoiceSubmitterApprovalFlow: {
+		findFirst: jest.fn(),
+		findMany: jest.fn(),
+		deleteMany: jest.fn(),
+		upsert: jest.fn(),
 	},
 	tgemInvoiceWorkflowManager: {
 		findMany: jest.fn(),
@@ -38,8 +56,12 @@ import {
 	assignTgemInvoiceProject,
 	decideTgemInvoiceApproval,
 	getTgemApprovalSetupData,
+	getTgemSubmitterApprovalFlowSettings,
 	markTgemInvoicePaid,
+	resetTgemInvoiceApprovalFlow,
 	saveTgemApprovalTemplate,
+	saveTgemPersonApprovalFlow,
+	saveTgemSubmitterApprovalFlow,
 	saveTgemWorkflowManagers,
 	submitTgemInvoiceForApproval,
 } from "@/server/actions/tgem-invoice-approval-actions";
@@ -120,6 +142,16 @@ function approvalTemplate(totalThreshold = "10000") {
 	};
 }
 
+function peopleFlow(id = "flow-1") {
+	return {
+		id,
+		organizationId: "org-1",
+		name: "Office invoices",
+		currency: "EUR",
+		steps: approvalTemplate().steps,
+	};
+}
+
 describe("TGEM invoice approval actions", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
@@ -130,6 +162,13 @@ describe("TGEM invoice approval actions", () => {
 		);
 		mockPrisma.tgemInvoiceCase.findMany.mockResolvedValue([]);
 		mockPrisma.tgemInvoiceCase.updateMany.mockResolvedValue({ count: 1 });
+		mockPrisma.tgemInvoiceApprovalStep.findMany.mockResolvedValue([]);
+		mockPrisma.tgemInvoiceSubmitterApprovalFlow.findFirst.mockResolvedValue(
+			null,
+		);
+		mockPrisma.user.findMany.mockResolvedValue(
+			["user-1", "user-2", "user-3", "user-4"].map((id) => ({ id })),
+		);
 	});
 
 	it("loads settings for an authorized project without reading invoices", async () => {
@@ -161,6 +200,133 @@ describe("TGEM invoice approval actions", () => {
 		expect(
 			mockPrisma.tgemInvoiceWorkflowManager.findMany,
 		).not.toHaveBeenCalled();
+	});
+
+	it("lists submitters and reusable people flows they can use", async () => {
+		mockPrisma.user.findFirst.mockResolvedValue({ organizationId: "org-1" });
+		mockPrisma.user.findMany.mockResolvedValue([
+			{
+				id: "submitter-1",
+				firstName: "Anna",
+				lastName: "Bērziņa",
+				role: "Darba vadītājs",
+				email: "anna@example.com",
+				phone: "+37120000000",
+			},
+		]);
+		mockPrisma.tgemInvoiceApprovalFlow.findMany.mockResolvedValue([
+			{
+				id: "flow-1",
+				name: "Vadības plūsma",
+				currency: "EUR",
+				steps: [
+					{
+						id: "step-1",
+						stepOrder: 1,
+						roleKey: "project_review",
+						role: "Projekta vadītājs",
+						approverUserId: "user-2",
+						minimumInvoiceTotal: null,
+					},
+				],
+			},
+		]);
+		mockPrisma.tgemInvoiceSubmitterApprovalFlow.findMany.mockResolvedValue([
+			{ userId: "submitter-1", flowId: "flow-1" },
+		]);
+
+		await expect(getTgemSubmitterApprovalFlowSettings()).resolves.toEqual({
+			users: [
+				expect.objectContaining({
+					id: "submitter-1",
+					flowId: "flow-1",
+				}),
+			],
+			flows: [
+				expect.objectContaining({ id: "flow-1", name: "Vadības plūsma" }),
+			],
+		});
+	});
+
+	it("saves a submitter route by pointing to a reusable people flow", async () => {
+		mockPrisma.user.findFirst
+			.mockResolvedValueOnce({ organizationId: "org-1" })
+			.mockResolvedValueOnce({ id: "submitter-1" });
+		mockPrisma.tgemInvoiceApprovalFlow.findFirst.mockResolvedValue({
+			id: "flow-1",
+		});
+
+		await expect(
+			saveTgemSubmitterApprovalFlow({
+				userId: "submitter-1",
+				flowId: "flow-1",
+			}),
+		).resolves.toEqual({ userId: "submitter-1", flowId: "flow-1" });
+		expect(
+			mockPrisma.tgemInvoiceSubmitterApprovalFlow.upsert,
+		).toHaveBeenCalledWith({
+			where: { userId: "submitter-1" },
+			update: {
+				organizationId: "org-1",
+				flowId: "flow-1",
+			},
+			create: {
+				organizationId: "org-1",
+				userId: "submitter-1",
+				flowId: "flow-1",
+			},
+		});
+	});
+
+	it("creates a named reusable people flow", async () => {
+		mockPrisma.user.findFirst.mockResolvedValue({ organizationId: "org-1" });
+		mockPrisma.user.findMany.mockResolvedValue([{ id: "user-2" }]);
+		mockPrisma.tgemInvoiceApprovalFlow.create.mockResolvedValue({
+			id: "flow-1",
+			name: "Office invoices",
+			currency: "EUR",
+			steps: [
+				{
+					id: "flow-step-1",
+					stepOrder: 1,
+					roleKey: "financial_review",
+					role: "Grāmatvedis",
+					approverUserId: "user-2",
+					minimumInvoiceTotal: null,
+				},
+			],
+		});
+
+		await expect(
+			saveTgemPersonApprovalFlow({
+				name: " Office invoices ",
+				steps: [
+					{
+						approverUserId: "user-2",
+						roleKey: "financial_review",
+						roleLabel: "Grāmatvedis",
+					},
+				],
+			}),
+		).resolves.toEqual(
+			expect.objectContaining({ id: "flow-1", name: "Office invoices" }),
+		);
+		expect(mockPrisma.tgemInvoiceApprovalFlow.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					organizationId: "org-1",
+					name: "Office invoices",
+					steps: {
+						create: [
+							expect.objectContaining({
+								approverUserId: "user-2",
+								role: "Grāmatvedis",
+							}),
+						],
+					},
+				}),
+			}),
+		);
 	});
 
 	it("lets the project owner save a typed immutable template revision", async () => {
@@ -423,6 +589,175 @@ describe("TGEM invoice approval actions", () => {
 					trigger: "automatic",
 					currentApproverUserId: "user-1",
 				}),
+			}),
+		});
+	});
+
+	it("uses a submitter route before the invoice project flow", async () => {
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			siteId: "site-1",
+			submittedByUserId: "submitter-1",
+			status: "needs_review",
+			approvalRound: 0,
+			approvalRouteSnapshot: null,
+		});
+		mockPrisma.tgemInvoiceSubmitterApprovalFlow.findFirst.mockResolvedValue({
+			flow: peopleFlow(),
+		});
+
+		await startTgemInvoiceApproval({
+			invoiceCaseId: "case-1",
+			actorUserId: "user-1",
+			trigger: "manual",
+		});
+
+		expect(
+			mockPrisma.tgemInvoiceApprovalTemplate.findFirst,
+		).not.toHaveBeenCalled();
+		expect(mockPrisma.tgemInvoiceCase.updateMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					approvalRouteSnapshot: expect.objectContaining({
+						source: "submitter",
+						flowId: "flow-1",
+						flowName: "Office invoices",
+					}),
+				}),
+			}),
+		);
+	});
+
+	it("reuses the frozen invoice route after the project flow changes", async () => {
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			siteId: "site-1",
+			submittedByUserId: "submitter-1",
+			status: "changes_requested",
+			approvalRound: 1,
+			approvalRouteSnapshot: {
+				version: 1,
+				source: "submitter",
+				templateSiteId: "site-2",
+				templateRevision: 3,
+				currency: "EUR",
+				steps: [
+					{
+						stepOrder: 1,
+						roleKey: "project_review",
+						role: "Projekta vadītājs",
+						approverUserId: "user-3",
+						approverName: "Māra Liepa",
+						minimumInvoiceTotal: null,
+					},
+				],
+			},
+		});
+		mockPrisma.user.findMany.mockResolvedValue([{ id: "user-3" }]);
+
+		await startTgemInvoiceApproval({
+			invoiceCaseId: "case-1",
+			actorUserId: "user-1",
+			trigger: "manual",
+		});
+
+		expect(
+			mockPrisma.tgemInvoiceSubmitterApprovalFlow.findFirst,
+		).not.toHaveBeenCalled();
+		expect(
+			mockPrisma.tgemInvoiceApprovalTemplate.findFirst,
+		).not.toHaveBeenCalled();
+		expect(mockPrisma.tgemInvoiceApprovalStep.createMany).toHaveBeenCalledWith({
+			data: [
+				expect.objectContaining({
+					approvalRound: 2,
+					approverUserId: "user-3",
+					templateRevision: 3,
+				}),
+			],
+		});
+	});
+
+	it("loads the newly selected flow after an explicit reset", async () => {
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			siteId: "site-1",
+			submittedByUserId: "submitter-1",
+			status: "needs_review",
+			approvalRound: 1,
+			approvalRouteSnapshot: { reset: true },
+		});
+		mockPrisma.tgemInvoiceSubmitterApprovalFlow.findFirst.mockResolvedValue({
+			flow: peopleFlow("flow-3"),
+		});
+
+		await startTgemInvoiceApproval({
+			invoiceCaseId: "case-1",
+			actorUserId: "user-1",
+			trigger: "manual",
+		});
+
+		expect(mockPrisma.tgemInvoiceApprovalStep.findMany).not.toHaveBeenCalled();
+		expect(
+			mockPrisma.tgemInvoiceApprovalTemplate.findFirst,
+		).not.toHaveBeenCalled();
+		expect(mockPrisma.tgemInvoiceCase.updateMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					approvalRouteSnapshot: expect.objectContaining({ flowId: "flow-3" }),
+				}),
+			}),
+		);
+	});
+
+	it("resets the frozen route without deleting approval history", async () => {
+		const updatedAt = new Date("2026-09-29T12:00:00.000Z");
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			status: "in_approval",
+			approvalRound: 2,
+			approvalRouteSnapshot: { version: 1, source: "project", steps: [] },
+			updatedAt,
+		});
+
+		await expect(
+			resetTgemInvoiceApprovalFlow({
+				invoiceCaseId: "case-1",
+				expectedUpdatedAt: updatedAt.toISOString(),
+			}),
+		).resolves.toEqual(
+			expect.objectContaining({
+				invoiceCaseId: "case-1",
+				resetAt: expect.any(String),
+			}),
+		);
+		expect(mockPrisma.tgemInvoiceApprovalStep.updateMany).toHaveBeenCalledWith({
+			where: {
+				invoiceCaseId: "case-1",
+				approvalRound: 2,
+				status: { in: ["current", "waiting"] },
+			},
+			data: { status: "cancelled" },
+		});
+		expect(mockPrisma.tgemInvoiceCase.updateMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					approvalRouteSnapshot: { reset: true },
+				}),
+			}),
+		);
+		expect(
+			mockPrisma.tgemInvoiceApprovalStep.createMany,
+		).not.toHaveBeenCalled();
+		expect(mockPrisma.tgemInvoiceAuditEvent.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				eventType: "invoice_approval_flow_reset",
+				fromStatus: "in_approval",
+				toStatus: "needs_review",
 			}),
 		});
 	});

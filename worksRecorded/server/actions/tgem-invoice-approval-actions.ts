@@ -9,7 +9,10 @@ import {
 	type TgemApprovalTemplateStepInput,
 	validateTgemApprovalDecisionComment,
 } from "@/lib/tgem-invoice-approval/approval";
-import type { TgemDashboardApprovalSetup } from "@/lib/tgem-invoice-approval/dashboard-types";
+import type {
+	TgemDashboardApprovalSetup,
+	TgemSubmitterApprovalFlowSettings,
+} from "@/lib/tgem-invoice-approval/dashboard-types";
 import { startTgemInvoiceApproval } from "@/lib/tgem-invoice-approval/start-approval";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
@@ -100,6 +103,213 @@ export async function getTgemApprovalSetupData(siteId: string): Promise<{
 					}
 				: null,
 		},
+	};
+}
+
+export async function getTgemSubmitterApprovalFlowSettings(): Promise<TgemSubmitterApprovalFlowSettings> {
+	const user = await requireUser();
+	const dbUser = await prisma.user.findFirst({
+		where: { id: user.id, status: "active" },
+		select: { organizationId: true },
+	});
+	if (!dbUser?.organizationId) throw new Error("Organization access denied");
+
+	const [users, flows, assignments] = await Promise.all([
+		prisma.user.findMany({
+			where: { organizationId: dbUser.organizationId, status: "active" },
+			orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+			select: {
+				id: true,
+				firstName: true,
+				lastName: true,
+				role: true,
+				email: true,
+				phone: true,
+			},
+		}),
+		prisma.tgemInvoiceApprovalFlow.findMany({
+			where: { organizationId: dbUser.organizationId },
+			orderBy: { name: "asc" },
+			include: { steps: { orderBy: { stepOrder: "asc" } } },
+		}),
+		prisma.tgemInvoiceSubmitterApprovalFlow.findMany({
+			where: { organizationId: dbUser.organizationId },
+			select: { userId: true, flowId: true },
+		}),
+	]);
+	const assignmentByUser = new Map(
+		assignments.map((assignment) => [assignment.userId, assignment.flowId]),
+	);
+
+	return {
+		users: users.map((candidate) => ({
+			id: candidate.id,
+			name: `${candidate.firstName} ${candidate.lastName}`.trim(),
+			role: candidate.role,
+			email: candidate.email,
+			phone: candidate.phone,
+			flowId: assignmentByUser.get(candidate.id) ?? null,
+		})),
+		flows: flows.map((flow) => ({
+			id: flow.id,
+			name: flow.name,
+			currency: flow.currency,
+			steps: flow.steps.map((step) => ({
+				id: step.id,
+				stepOrder: step.stepOrder,
+				roleKey: step.roleKey as TgemApprovalRoleKey,
+				role: step.role,
+				approverUserId: step.approverUserId,
+				minimumInvoiceTotal: step.minimumInvoiceTotal?.toString() ?? null,
+			})),
+		})),
+	};
+}
+
+export async function saveTgemSubmitterApprovalFlow(input: {
+	userId: string;
+	flowId: string | null;
+}) {
+	const user = await requireUser();
+	const dbUser = await prisma.user.findFirst({
+		where: { id: user.id, status: "active" },
+		select: { organizationId: true },
+	});
+	if (!dbUser?.organizationId) throw new Error("Organization access denied");
+
+	const submitter = await prisma.user.findFirst({
+		where: {
+			id: input.userId,
+			organizationId: dbUser.organizationId,
+			status: "active",
+		},
+		select: { id: true },
+	});
+	if (!submitter) throw new Error("Submitter is unavailable");
+
+	if (!input.flowId) {
+		await prisma.tgemInvoiceSubmitterApprovalFlow.deleteMany({
+			where: {
+				organizationId: dbUser.organizationId,
+				userId: submitter.id,
+			},
+		});
+		return { userId: submitter.id, flowId: null };
+	}
+
+	const flow = await prisma.tgemInvoiceApprovalFlow.findFirst({
+		where: {
+			id: input.flowId,
+			organizationId: dbUser.organizationId,
+		},
+		select: { id: true },
+	});
+	if (!flow) throw new Error("The selected approval flow is unavailable");
+
+	await prisma.tgemInvoiceSubmitterApprovalFlow.upsert({
+		where: { userId: submitter.id },
+		update: {
+			organizationId: dbUser.organizationId,
+			flowId: flow.id,
+		},
+		create: {
+			organizationId: dbUser.organizationId,
+			userId: submitter.id,
+			flowId: flow.id,
+		},
+	});
+	return { userId: submitter.id, flowId: flow.id };
+}
+
+export async function saveTgemPersonApprovalFlow(input: {
+	id?: string;
+	name: string;
+	currency?: string | null;
+	steps: TgemApprovalTemplateStepInput[];
+}) {
+	const user = await requireUser();
+	const dbUser = await prisma.user.findFirst({
+		where: { id: user.id, status: "active" },
+		select: { organizationId: true },
+	});
+	if (!dbUser?.organizationId) throw new Error("Organization access denied");
+
+	const name = input.name.trim();
+	if (!name || name.length > 120) {
+		throw new Error("Approval flow name is required");
+	}
+	const currency = normalizeTgemApprovalCurrency(input.currency);
+	const steps = normalizeTgemApprovalTemplateSteps(input.steps, {
+		requireRole: true,
+	});
+	const approvers = await prisma.user.findMany({
+		where: {
+			id: { in: steps.map((step) => step.approverUserId) },
+			organizationId: dbUser.organizationId,
+			status: "active",
+		},
+		select: { id: true },
+	});
+	if (approvers.length !== steps.length) {
+		throw new Error("Every approver must be an active organization user");
+	}
+
+	const saved = await prisma.$transaction(async (tx) => {
+		const existing = input.id
+			? await tx.tgemInvoiceApprovalFlow.findFirst({
+					where: { id: input.id, organizationId: dbUser.organizationId },
+					select: { id: true },
+				})
+			: null;
+		if (input.id && !existing) throw new Error("Approval flow is unavailable");
+
+		const stepData = steps.map((step, index) => ({
+			stepOrder: index + 1,
+			roleKey: step.roleKey,
+			role: step.roleLabel,
+			approverUserId: step.approverUserId,
+			minimumInvoiceTotal: step.minimumInvoiceTotal,
+		}));
+		if (existing) {
+			await tx.tgemInvoiceApprovalFlow.update({
+				where: { id: existing.id },
+				data: { name, currency },
+			});
+			await tx.tgemInvoiceApprovalFlowStep.deleteMany({
+				where: { flowId: existing.id },
+			});
+			await tx.tgemInvoiceApprovalFlowStep.createMany({
+				data: stepData.map((step) => ({ ...step, flowId: existing.id })),
+			});
+			return tx.tgemInvoiceApprovalFlow.findFirstOrThrow({
+				where: { id: existing.id },
+				include: { steps: { orderBy: { stepOrder: "asc" } } },
+			});
+		}
+
+		return tx.tgemInvoiceApprovalFlow.create({
+			data: {
+				organizationId: dbUser.organizationId,
+				name,
+				currency,
+				createdByUserId: user.id,
+				steps: { create: stepData },
+			},
+			include: { steps: { orderBy: { stepOrder: "asc" } } },
+		});
+	});
+	return {
+		id: saved.id,
+		name: saved.name,
+		currency: saved.currency,
+		steps: saved.steps.map((step) => ({
+			id: step.id,
+			stepOrder: step.stepOrder,
+			roleKey: step.roleKey as TgemApprovalRoleKey,
+			role: step.role,
+			approverUserId: step.approverUserId,
+			minimumInvoiceTotal: step.minimumInvoiceTotal?.toString() ?? null,
+		})),
 	};
 }
 
@@ -347,6 +557,90 @@ export async function submitTgemInvoiceForApproval(input: {
 		invoiceCaseId: result.invoiceCaseId,
 		approvalRound: result.approvalRound,
 	};
+}
+
+export async function resetTgemInvoiceApprovalFlow(input: {
+	invoiceCaseId: string;
+	expectedUpdatedAt: string;
+}) {
+	const user = await requireUser();
+	const expectedUpdatedAt = new Date(input.expectedUpdatedAt);
+	if (Number.isNaN(expectedUpdatedAt.getTime())) {
+		throw new Error("The invoice version is invalid");
+	}
+
+	return prisma.$transaction(async (tx) => {
+		const invoiceCase = await tx.tgemInvoiceCase.findFirst({
+			where: {
+				id: input.invoiceCaseId,
+				archivedAt: null,
+				organization: {
+					users: { some: { id: user.id, status: "active" } },
+				},
+			},
+			select: {
+				id: true,
+				organizationId: true,
+				status: true,
+				approvalRound: true,
+				approvalRouteSnapshot: true,
+				updatedAt: true,
+			},
+		});
+		if (!invoiceCase) throw new Error("Invoice access denied");
+		if (invoiceCase.updatedAt.getTime() !== expectedUpdatedAt.getTime()) {
+			throw new Error("The invoice changed. Reload it and try again");
+		}
+		if (invoiceCase.approvalRound < 1) {
+			throw new Error("The invoice does not have an approval flow to reset");
+		}
+		if (invoiceCase.status === "approved") {
+			throw new Error("An approved invoice cannot have its flow reset");
+		}
+
+		const resetAt = new Date();
+		const updated = await tx.tgemInvoiceCase.updateMany({
+			where: {
+				id: invoiceCase.id,
+				archivedAt: null,
+				updatedAt: expectedUpdatedAt,
+			},
+			data: {
+				status: "needs_review",
+				approvedAt: null,
+				approvalRouteSnapshot: { reset: true },
+				updatedAt: resetAt,
+			},
+		});
+		if (updated.count !== 1) {
+			throw new Error("The invoice changed. Reload it and try again");
+		}
+		await tx.tgemInvoiceApprovalStep.updateMany({
+			where: {
+				invoiceCaseId: invoiceCase.id,
+				approvalRound: invoiceCase.approvalRound,
+				status: { in: ["current", "waiting"] },
+			},
+			data: { status: "cancelled" },
+		});
+		await tx.tgemInvoiceAuditEvent.create({
+			data: {
+				invoiceCaseId: invoiceCase.id,
+				organizationId: invoiceCase.organizationId,
+				actorUserId: user.id,
+				actorType: "user",
+				eventType: "invoice_approval_flow_reset",
+				fromStatus: invoiceCase.status,
+				toStatus: "needs_review",
+				payload: {
+					approvalRound: invoiceCase.approvalRound,
+					previousRoute: invoiceCase.approvalRouteSnapshot,
+				} satisfies Prisma.InputJsonValue,
+			},
+		});
+
+		return { invoiceCaseId: invoiceCase.id, resetAt: resetAt.toISOString() };
+	});
 }
 
 export async function markTgemInvoicePaid(input: {

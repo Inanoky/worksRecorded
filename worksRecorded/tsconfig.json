@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
-    "noImplicitAny": false,
-    "target": "ES2017",
+    "target": "ES2022",
     "lib": [
       "dom",
       "dom.iterable",
@@ -25,9 +24,6 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@prisma/client": [
-        "./node_modules/.prisma/client/default"
-      ],
       "@/*": [
         "./*"
       ]
@@ -38,13 +34,14 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "jest.config.js",
-    "components/landing/FooterMobile.tsx",
-    ".next\\dev/types/**/*.ts",
-    ".next\\dev/types/**/*.ts",
     ".next/dev/types/**/*.ts"
-, "../i18n/request.ts"  ],
+  ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".next",
+    "out",
+    "build",
+    "dist",
+    "coverage"
   ]
 }

@@ -332,6 +332,7 @@ type TgemDashboardInvoiceRecord = Prisma.TgemInvoiceCaseGetPayload<{
 
 function serializeTgemDashboardInvoice(
 	invoiceCase: TgemDashboardInvoiceRecord,
+	newestDuplicateInvoiceIds: ReadonlySet<string>,
 ): TgemDashboardInvoice {
 	return {
 		id: invoiceCase.id,
@@ -341,6 +342,9 @@ function serializeTgemDashboardInvoice(
 		ocrStatus: invoiceCase.ocrStatus,
 		extractionStatus: invoiceCase.extractionStatus,
 		invoiceNumber: invoiceCase.invoiceNumber,
+		isNewestDuplicateInvoiceNumber: newestDuplicateInvoiceIds.has(
+			invoiceCase.id,
+		),
 		supplierName: invoiceCase.supplierName,
 		supplierRegistrationNo: invoiceCase.supplierRegistrationNo,
 		invoiceDate: serializeDate(invoiceCase.invoiceDate),
@@ -422,6 +426,35 @@ function serializeTgemDashboardInvoice(
 			createdAt: event.createdAt.toISOString(),
 		})),
 	};
+}
+
+function getNewestDuplicateInvoiceIds(
+	invoices: Array<{
+		id: string;
+		invoiceNumber: string | null;
+		createdAt: Date;
+	}>,
+) {
+	const newestInvoiceByNumber = new Map<string, string>();
+	const newestDuplicateInvoiceIds = new Set<string>();
+	const newestFirst = [...invoices].sort((left, right) => {
+		const createdAtDifference =
+			right.createdAt.getTime() - left.createdAt.getTime();
+		return createdAtDifference || right.id.localeCompare(left.id);
+	});
+
+	for (const invoice of newestFirst) {
+		const normalizedInvoiceNumber = invoice.invoiceNumber?.trim().toLowerCase();
+		if (!normalizedInvoiceNumber) continue;
+		const newestInvoiceId = newestInvoiceByNumber.get(normalizedInvoiceNumber);
+		if (newestInvoiceId) {
+			newestDuplicateInvoiceIds.add(newestInvoiceId);
+			continue;
+		}
+		newestInvoiceByNumber.set(normalizedInvoiceNumber, invoice.id);
+	}
+
+	return newestDuplicateInvoiceIds;
 }
 
 export async function getTgemInvoiceDashboardData(
@@ -523,13 +556,25 @@ export async function getTgemInvoiceDashboardData(
 					})
 				: Promise.resolve([]),
 		]);
+	const duplicateCandidates = await prisma.tgemInvoiceCase.findMany({
+		where: {
+			organizationId: dbUser.organizationId,
+			archivedAt: null,
+			invoiceNumber: { not: null },
+		},
+		select: { id: true, invoiceNumber: true, createdAt: true },
+	});
 	const isSiteOwner = selectedProject?.userId === user.id;
+	const newestDuplicateInvoiceIds =
+		getNewestDuplicateInvoiceIds(duplicateCandidates);
 
 	return {
 		currentUserId: user.id,
 		costCodes,
 		projects: projects.map(({ id, name }) => ({ id, name })),
-		invoices: invoiceCases.map(serializeTgemDashboardInvoice),
+		invoices: invoiceCases.map((invoiceCase) =>
+			serializeTgemDashboardInvoice(invoiceCase, newestDuplicateInvoiceIds),
+		),
 		approvalSetup: selectedProject
 			? {
 					canManageWorkflow: true,

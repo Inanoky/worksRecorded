@@ -18,13 +18,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
-import type { TgemDashboardApprovalSetup } from "@/lib/tgem-invoice-approval/dashboard-types";
+import type {
+	TgemDashboardApprovalSetup,
+	TgemSubmitterApprovalFlowSettings,
+} from "@/lib/tgem-invoice-approval/dashboard-types";
 import {
 	saveTgemCostCode,
 	setTgemCostCodeActive,
 } from "@/server/actions/tgem-cost-code-actions";
 import { TgemApprovalSetup } from "./TgemApprovalSetup";
 import { TgemProjectDeleteCard } from "./TgemProjectDeleteCard";
+import { TgemSubmitterFlowRouting } from "./TgemSubmitterFlowRouting";
 
 type CostCode = {
 	id: string;
@@ -41,7 +45,7 @@ function getCopy(language?: string | null) {
 				"Konfigurējiet rēķinu apstiprināšanas secību un grāmatvedības kodus.",
 			approvalFlow: "Apstiprināšanas plūsma",
 			approvalFlowDescription:
-				"Secība attiecas tikai uz galvenē izvēlēto projektu.",
+				"Veidojiet cilvēkiem paredzētas plūsmas, piesaistiet tās iesniedzējiem un pārvaldiet projektu plūsmas.",
 			selectProject:
 				"Galvenē izvēlieties konkrētu projektu, lai konfigurētu tā apstiprināšanas secību.",
 			selectedProject: "Izvēlētais projekts",
@@ -72,7 +76,7 @@ function getCopy(language?: string | null) {
 				"Настройте последовательность согласования счетов и бухгалтерские коды.",
 			approvalFlow: "Процесс согласования",
 			approvalFlowDescription:
-				"Последовательность применяется только к проекту, выбранному в заголовке.",
+				"Создавайте процессы для людей, назначайте их отправителям и управляйте процессами проектов.",
 			selectProject:
 				"Выберите конкретный проект в заголовке, чтобы настроить его последовательность согласования.",
 			selectedProject: "Выбранный проект",
@@ -101,7 +105,7 @@ function getCopy(language?: string | null) {
 			"Configure invoice approval steps and the accounting codes used by your team.",
 		approvalFlow: "Approval flow",
 		approvalFlowDescription:
-			"This sequence applies only to the project selected in the header.",
+			"Create people flows, assign them to submitters, and manage project flows.",
 		selectProject:
 			"Select a specific project in the header to configure its approval sequence.",
 		selectedProject: "Selected project",
@@ -238,11 +242,13 @@ export function TgemCostCodeSettings({
 	organizationLanguage,
 	selectedProject = null,
 	approvalSetup = null,
+	submitterFlowSettings = { users: [], flows: [] },
 }: {
 	initialCostCodes: CostCode[];
 	organizationLanguage?: string | null;
 	selectedProject?: { id: string; name: string } | null;
 	approvalSetup?: TgemDashboardApprovalSetup | null;
+	submitterFlowSettings?: TgemSubmitterApprovalFlowSettings;
 }) {
 	const copy = getCopy(organizationLanguage);
 	const router = useRouter();
@@ -348,6 +354,10 @@ export function TgemCostCodeSettings({
 					hidden={!approvalOpen}
 					className="space-y-3 border-t p-5"
 				>
+					<TgemSubmitterFlowRouting
+						settings={submitterFlowSettings}
+						organizationLanguage={organizationLanguage}
+					/>
 					<div className="flex flex-wrap items-center justify-between gap-3">
 						{selectedProject ? (
 							<div className="inline-flex items-center gap-2 rounded-md border border-[#B8CDF1] bg-[#EEF4FF] px-3 py-2 text-sm text-slate-950 dark:border-tgem-primary/40 dark:bg-tgem-primary/15 dark:text-blue-100">

@@ -11,6 +11,7 @@ const mockPrisma = {
 	flowAssignment: { findFirst: jest.fn() },
 	tgemInvoiceCase: { findUnique: jest.fn() },
 	tgemInvoiceDocument: { findFirst: jest.fn() },
+	user: { findMany: jest.fn() },
 };
 
 jest.mock("resend", () => ({
@@ -83,6 +84,7 @@ describe("TGEM email workflows", () => {
 			getConflict: jest.fn().mockResolvedValue(null),
 			[Symbol.dispose]: jest.fn(),
 		});
+		mockPrisma.user.findMany.mockResolvedValue([]);
 	});
 
 	afterAll(() => {
@@ -300,6 +302,7 @@ describe("TGEM email workflows", () => {
 			organizationId: "org-1",
 		});
 		mockPrisma.tgemInvoiceCase.findUnique.mockResolvedValue(null);
+		mockPrisma.user.findMany.mockResolvedValue([{ id: "submitter-1" }]);
 		mockAttachmentGet
 			.mockResolvedValueOnce({
 				data: { download_url: "https://example.com/invoice-1.pdf" },
@@ -341,6 +344,11 @@ describe("TGEM email workflows", () => {
 			processingRunIds: ["processing-run-1", "processing-run-2"],
 		});
 		expect(mockCreateTgemInvoiceCaseRecord).toHaveBeenCalledTimes(2);
+		expect(mockCreateTgemInvoiceCaseRecord).toHaveBeenNthCalledWith(
+			1,
+			mockPrisma,
+			expect.objectContaining({ submittedByUserId: "submitter-1" }),
+		);
 		expect(mockStart).toHaveBeenCalledTimes(2);
 	});
 });

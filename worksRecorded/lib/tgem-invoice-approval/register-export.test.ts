@@ -11,6 +11,7 @@ function invoice(): TgemDashboardInvoice {
 		ocrStatus: "complete",
 		extractionStatus: "complete",
 		invoiceNumber: "INV-1",
+		isNewestDuplicateInvoiceNumber: false,
 		supplierName: "Supplier",
 		supplierRegistrationNo: "4000",
 		invoiceDate: "2026-09-01T00:00:00.000Z",

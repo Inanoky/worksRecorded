@@ -40,6 +40,8 @@ model Organization {
       tgemInvoiceCases TgemInvoiceCase[]
       tgemInvoiceAuditEvents TgemInvoiceAuditEvent[]
       tgemInvoiceApprovalTemplates TgemInvoiceApprovalTemplate[]
+      tgemInvoiceApprovalFlows TgemInvoiceApprovalFlow[]
+      tgemInvoiceSubmitterApprovalFlows TgemInvoiceSubmitterApprovalFlow[]
       tgemInvoiceWorkflowManagers TgemInvoiceWorkflowManager[]
       tgemCostCodes TgemCostCode[]
       tgemInboundMailboxes TgemInboundMailbox[]
@@ -86,6 +88,8 @@ model User {
   tgemInvoiceCasesSubmitted TgemInvoiceCase[] @relation("TgemInvoiceSubmittedBy")
   tgemInvoiceApprovalSteps TgemInvoiceApprovalStep[] @relation("TgemInvoiceApprover")
   tgemInvoiceTemplateSteps TgemInvoiceApprovalTemplateStep[] @relation("TgemInvoiceTemplateApprover")
+  tgemInvoiceApprovalFlowSteps TgemInvoiceApprovalFlowStep[] @relation("TgemInvoiceApprovalFlowApprover")
+  tgemInvoiceSubmitterApprovalFlow TgemInvoiceSubmitterApprovalFlow? @relation("TgemInvoiceSubmitterApprovalFlowUser")
   tgemInvoiceWorkflowManagers TgemInvoiceWorkflowManager[] @relation("TgemInvoiceWorkflowManagerUser")
   tgemInvoiceAuditEvents TgemInvoiceAuditEvent[] @relation("TgemInvoiceAuditActor")
   organizationId String?
@@ -258,6 +262,7 @@ model TgemInvoiceCase {
   paymentStatus             String   @default("unpaid")
   paidAt                    DateTime?
   approvalRound             Int      @default(0)
+  approvalRouteSnapshot     Json?
   archivedAt                DateTime?
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
@@ -433,6 +438,53 @@ model TgemInvoiceApprovalTemplateStep {
 
   @@unique([templateId, stepOrder])
   @@unique([templateId, approverUserId])
+  @@index([approverUserId])
+}
+
+model TgemInvoiceSubmitterApprovalFlow {
+  organizationId String
+  userId         String   @id
+  flowId         String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User @relation("TgemInvoiceSubmitterApprovalFlowUser", fields: [userId], references: [id], onDelete: Cascade)
+  flow         TgemInvoiceApprovalFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, flowId])
+}
+
+model TgemInvoiceApprovalFlow {
+  id              String   @id @default(uuid())
+  organizationId  String
+  name            String
+  currency        String   @default("EUR")
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  steps        TgemInvoiceApprovalFlowStep[]
+  assignments  TgemInvoiceSubmitterApprovalFlow[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, name])
+}
+
+model TgemInvoiceApprovalFlowStep {
+  id                  String   @id @default(uuid())
+  flowId              String
+  stepOrder           Int
+  roleKey              String   @default("project_review")
+  role                 String?
+  approverUserId       String
+  minimumInvoiceTotal  Decimal? @db.Decimal(14, 2)
+  createdAt            DateTime @default(now())
+
+  flow      TgemInvoiceApprovalFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  approver  User @relation("TgemInvoiceApprovalFlowApprover", fields: [approverUserId], references: [id], onDelete: Restrict)
+
+  @@unique([flowId, stepOrder])
+  @@unique([flowId, approverUserId])
   @@index([approverUserId])
 }
 

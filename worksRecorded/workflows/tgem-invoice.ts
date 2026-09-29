@@ -253,11 +253,23 @@ export async function storeTgemInboundAttachmentStep(input: {
 	}
 	const ufsUrl = getUploadThingUfsUrl(uploaded.data);
 	if (!ufsUrl) throw new Error("Invoice upload returned no permanent URL");
+	const senderAddress = normalizeEmailAddress(input.sender);
+	const matchingUsers = senderAddress
+		? await prisma.user.findMany({
+				where: {
+					organizationId: input.organizationId,
+					status: "active",
+					email: { equals: senderAddress, mode: "insensitive" },
+				},
+				select: { id: true },
+				take: 2,
+			})
+		: [];
 
 	const invoiceCase = await createTgemInvoiceCaseRecord(prisma, {
 		organizationId: input.organizationId,
 		siteId: null,
-		submittedByUserId: null,
+		submittedByUserId: matchingUsers.length === 1 ? matchingUsers[0].id : null,
 		source: "email",
 		sourceMessageId,
 		sourceSender: input.sender,

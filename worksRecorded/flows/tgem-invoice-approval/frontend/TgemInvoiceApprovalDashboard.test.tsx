@@ -32,6 +32,7 @@ const mockStartUpload = jest.fn();
 const mockSaveApprovalTemplate = jest.fn();
 const mockSaveWorkflowManagers = jest.fn();
 const mockSubmitForApproval = jest.fn();
+const mockResetApprovalFlow = jest.fn();
 const mockDecideApproval = jest.fn();
 const mockAssignProject = jest.fn();
 const mockMarkInvoicePaid = jest.fn();
@@ -61,6 +62,8 @@ jest.mock("@/server/actions/tgem-invoice-approval-actions", () => ({
 		mockSaveWorkflowManagers(...args),
 	submitTgemInvoiceForApproval: (...args: unknown[]) =>
 		mockSubmitForApproval(...args),
+	resetTgemInvoiceApprovalFlow: (...args: unknown[]) =>
+		mockResetApprovalFlow(...args),
 	decideTgemInvoiceApproval: (...args: unknown[]) =>
 		mockDecideApproval(...args),
 	assignTgemInvoiceProject: (...args: unknown[]) => mockAssignProject(...args),
@@ -114,6 +117,7 @@ const dashboardData: TgemDashboardData = {
 			ocrStatus: "complete",
 			extractionStatus: "complete",
 			invoiceNumber: "TG-2026-0718",
+			isNewestDuplicateInvoiceNumber: false,
 			supplierName: "Baltic Electrical Systems SIA",
 			supplierRegistrationNo: "40203188910",
 			invoiceDate: "2026-07-01T00:00:00.000Z",
@@ -263,6 +267,10 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		mockSubmitForApproval.mockResolvedValue({
 			invoiceCaseId: "case-1",
 			approvalRound: 1,
+		});
+		mockResetApprovalFlow.mockResolvedValue({
+			invoiceCaseId: "case-1",
+			resetAt: "2026-09-29T12:00:00.000Z",
 		});
 		mockDecideApproval.mockResolvedValue({
 			invoiceCaseId: "case-1",
@@ -1700,6 +1708,51 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		});
 	});
 
+	it("warns on the newest invoice when its normalized number is duplicated", async () => {
+		const warning =
+			"This newer invoice duplicates a previously received invoice number.";
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
+			...dashboardData,
+			invoices: [
+				{
+					...dashboardData.invoices[0],
+					isNewestDuplicateInvoiceNumber: false,
+				},
+				{
+					...dashboardData.invoices[0],
+					id: "case-newer",
+					invoiceNumber: " tg-2026-0718 ",
+					isNewestDuplicateInvoiceNumber: true,
+				},
+			],
+		});
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				organizationLanguage="en"
+			/>,
+		);
+
+		const olderRow = await screen.findByTestId("tgem-register-invoice-case-1");
+		const newerRow = screen.getByTestId("tgem-register-invoice-case-newer");
+		expect(within(olderRow).queryByRole("img", { name: warning })).toBeNull();
+		expect(
+			within(newerRow).getByRole("img", { name: warning }),
+		).toBeInTheDocument();
+
+		fireEvent.click(
+			within(newerRow).getByRole("button", {
+				name: /Invoice preview:\s+tg-2026-0718/i,
+			}),
+		);
+		expect(
+			within(screen.getByRole("dialog")).getAllByRole("img", {
+				name: warning,
+			}).length,
+		).toBeGreaterThan(0);
+	});
+
 	it("exports the sorted filtered rows regardless of checkbox selection", async () => {
 		const secondInvoice = {
 			...dashboardData.invoices[0],
@@ -2323,6 +2376,50 @@ describe("TgemInvoiceApprovalDashboard", () => {
 				invoiceCaseId: "case-1",
 			});
 		});
+	});
+
+	it("resets an unfinished approval flow after confirmation", async () => {
+		const confirm = jest.spyOn(window, "confirm").mockReturnValue(true);
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
+			...dashboardData,
+			invoices: [
+				{
+					...dashboardData.invoices[0],
+					status: "in_approval",
+					approvalRound: 1,
+					approvalSteps: [
+						approvalStep({
+							id: "approval-step-1",
+							stepOrder: 1,
+							approvalRound: 1,
+							roleKey: "project_review",
+							approverUserId: "user-2",
+							approverName: "Jānis Ozols",
+							status: "current",
+						}),
+					],
+				},
+			],
+		});
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				initialView="approval"
+				organizationLanguage="en"
+			/>,
+		);
+		fireEvent.click(
+			await screen.findByRole("button", { name: "Reset approval flow" }),
+		);
+
+		await waitFor(() =>
+			expect(mockResetApprovalFlow).toHaveBeenCalledWith({
+				invoiceCaseId: "case-1",
+				expectedUpdatedAt: "2026-07-01T00:00:00.000Z",
+			}),
+		);
+		confirm.mockRestore();
 	});
 
 	it("lets the project owner grant TGEM workflow-manager access", async () => {

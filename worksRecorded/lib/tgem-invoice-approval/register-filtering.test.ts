@@ -18,6 +18,7 @@ function invoice(
 		ocrStatus: "complete",
 		extractionStatus: "complete",
 		invoiceNumber: "INV-100",
+		isNewestDuplicateInvoiceNumber: false,
 		supplierName: "Baltic Build SIA",
 		supplierRegistrationNo: "40000000000",
 		invoiceDate: "2026-09-01T00:00:00.000Z",
