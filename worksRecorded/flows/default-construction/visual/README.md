@@ -25,7 +25,7 @@ Limeni-only default-construction diary tab. The backend checks active user membe
 - Archived versions use document type `limeni-visual-v1-archived`. Existing legacy duplicates are collapsed to the newest in the index without read-time database writes; replacing/deleting that location archives the older versions.
 - No database migration is required. Diary values and Forma 2 calculations are never modified.
 - Authenticated retrieval: `/api/sites/{siteId}/visual/{drawingId}`; PDF retrieval adds `?pdf=1`.
-- Uses `gpt-6-astra` with `medium` reasoning, with optional `LIMENI_VISUAL_MODEL` override. Existing OpenAI credentials are reused; other AI flows are unchanged.
+- Uses `gpt-6-sol` with `medium` reasoning, with optional `LIMENI_VISUAL_MODEL` override. Existing OpenAI credentials are reused; other AI flows are unchanged.
 - PDF limit: 16 MB and 10 pages. Location limit: 200 linked evidence images. Inputs exceeding limits are rejected, never silently truncated.
 - One model request per image, 150-second timeout, no automatic SDK retries. The API route allows 240 seconds. A processing lease is renewed on saved progress and becomes retryable after 210 seconds without updates. A model failure does not cancel other images; timeouts and rate limits are distinguished from PDF preparation failures.
 - All pending model requests start in one server invocation, independently of browser polling. Closing the tab does not schedule or cancel subsequent batches. Platform termination can still interrupt unfinished requests; previously persisted image results are retained. Each request includes the base PDF, so total input usage can exceed the old multi-image batches; provider rate limits may require retrying failed images.

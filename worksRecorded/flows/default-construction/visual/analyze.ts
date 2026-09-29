@@ -40,7 +40,7 @@ export async function analyzeVisualBatch(
 		return drawing;
 	if (state.lockedAt && Date.now() - state.lockedAt < VISUAL_LEASE_MS)
 		throw new Error("Analīze jau notiek. Uzgaidiet un pārlādējiet skatu.");
-	const model = process.env.LIMENI_VISUAL_MODEL?.trim() || "gpt-6-astra";
+	const model = process.env.LIMENI_VISUAL_MODEL?.trim() || "gpt-6-sol";
 	for (const previous of state.attempts) {
 		if (previous.status === "running") {
 			previous.status = "failed";

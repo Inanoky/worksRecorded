@@ -160,16 +160,16 @@ it("analyzes appended evidence only and preserves previous manually edited zones
 	expect(result.state.attempts[0].evidenceId).toBe("new-photo");
 });
 
-it("uses GPT-6 Astra with medium reasoning by default", async () => {
+it("uses GPT-6 Sol with medium reasoning by default", async () => {
 	const result = await analyzeVisualBatch("user", "site", "drawing");
 	expect(mockParse).toHaveBeenCalledWith(
 		expect.objectContaining({
-			model: "gpt-6-astra",
+			model: "gpt-6-sol",
 			reasoning: { effort: "medium" },
 		}),
 		{ timeout: 150_000 },
 	);
-	expect(result.state.attempts[0].model).toBe("gpt-6-astra");
+	expect(result.state.attempts[0].model).toBe("gpt-6-sol");
 });
 
 it("preserves the visual-only model override with medium reasoning", async () => {
