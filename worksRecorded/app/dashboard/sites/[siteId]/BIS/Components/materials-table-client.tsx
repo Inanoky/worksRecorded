@@ -758,8 +758,6 @@ export default function MaterialsTableClient({
       ),
     )
 
-    setEditSaveLoading(true)
-
     try {
       await updateMaterialConfiguration(recordId, config)
       return { success: true as const }
