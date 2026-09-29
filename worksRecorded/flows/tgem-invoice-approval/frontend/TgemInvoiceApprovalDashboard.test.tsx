@@ -285,6 +285,81 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		});
 	});
 
+	it("refreshes the scoped register without clearing its filters", async () => {
+		let finishRefresh!: (value: TgemDashboardData) => void;
+		const refreshPromise = new Promise<TgemDashboardData>((resolve) => {
+			finishRefresh = resolve;
+		});
+		jest
+			.mocked(getTgemInvoiceDashboardData)
+			.mockResolvedValueOnce(dashboardData)
+			.mockReturnValueOnce(refreshPromise);
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				organizationLanguage="en"
+			/>,
+		);
+		await screen.findByTestId("tgem-invoice-register");
+		const search = screen.getByLabelText(
+			"Search number, supplier, registration, reference, or bank account",
+		);
+		fireEvent.change(search, { target: { value: "TG-2026" } });
+		fireEvent.click(screen.getByRole("button", { name: "Refresh invoices" }));
+
+		const pendingButton = screen.getByRole("button", { name: "Refreshing…" });
+		expect(pendingButton).toBeDisabled();
+		expect(pendingButton).toHaveAttribute("aria-busy", "true");
+		expect(pendingButton.querySelector(".animate-spin")).toBeInTheDocument();
+		expect(getTgemInvoiceDashboardData).toHaveBeenLastCalledWith("site-1");
+
+		finishRefresh({
+			...dashboardData,
+			invoices: [
+				{
+					...dashboardData.invoices[0],
+					supplierName: "Refreshed supplier",
+				},
+			],
+		});
+
+		expect(await screen.findAllByText("Refreshed supplier")).not.toHaveLength(
+			0,
+		);
+		expect(search).toHaveValue("TG-2026");
+		expect(
+			screen.getByRole("button", { name: "Refresh invoices" }),
+		).toBeEnabled();
+	});
+
+	it("keeps the approval workspace visible when a manual refresh fails", async () => {
+		jest
+			.mocked(getTgemInvoiceDashboardData)
+			.mockResolvedValueOnce(dashboardData)
+			.mockRejectedValueOnce(new Error("Private refresh failure"));
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				initialView="approval"
+				organizationLanguage="en"
+			/>,
+		);
+		await screen.findByTestId("tgem-invoice-case-1");
+		fireEvent.click(screen.getByRole("button", { name: "Refresh invoices" }));
+
+		await waitFor(() =>
+			expect(
+				screen.getAllByText("Could not refresh. Try again."),
+			).not.toHaveLength(0),
+		);
+		expect(screen.getByTestId("tgem-invoice-case-1")).toBeInTheDocument();
+		expect(
+			screen.queryByText("Private refresh failure"),
+		).not.toBeInTheDocument();
+	});
+
 	it("requires confirmation for single archive and supports cancellation", async () => {
 		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue(dashboardData);
 		render(<TgemInvoiceApprovalDashboard organizationLanguage="en" />);
@@ -1851,7 +1926,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		).not.toBeInTheDocument();
 	});
 
-	it("hides the dedicated WhatsApp processing panel while refresh continues", async () => {
+	it("refreshes in the background once per minute without showing a processing panel", async () => {
 		jest.useFakeTimers();
 		const whatsappInvoice: TgemDashboardData["invoices"][number] = {
 			...dashboardData.invoices[0],
@@ -1899,7 +1974,13 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			).not.toBeInTheDocument();
 
 			await act(async () => {
-				jest.advanceTimersByTime(5_000);
+				jest.advanceTimersByTime(59_999);
+				await Promise.resolve();
+			});
+			expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(1);
+
+			await act(async () => {
+				jest.advanceTimersByTime(1);
 				await Promise.resolve();
 			});
 			expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(2);

@@ -21,6 +21,7 @@ import {
 	Loader2,
 	Pencil,
 	ReceiptText,
+	RefreshCw,
 	Search,
 	X,
 } from "lucide-react";
@@ -109,6 +110,8 @@ type Props = {
 	organizationLanguage?: string | null;
 };
 
+const DASHBOARD_REFRESH_INTERVAL_MS = 60_000;
+
 function getCopy(language?: string | null) {
 	if (language === "lv") {
 		return {
@@ -119,6 +122,10 @@ function getCopy(language?: string | null) {
 			loading: "Ielādē rēķinus…",
 			empty: "Šim objektam vēl nav rēķinu.",
 			failed: "Neizdevās ielādēt rēķinus.",
+			refresh: "Atjaunināt rēķinus",
+			refreshing: "Atjaunina…",
+			refreshedAt: "Atjaunināts",
+			refreshFailed: "Neizdevās atjaunināt. Mēģiniet vēlreiz.",
 			supplier: "Piegādātājs",
 			invoiceNumber: "Rēķina numurs",
 			invoiceDate: "Rēķina datums",
@@ -310,6 +317,10 @@ function getCopy(language?: string | null) {
 			loading: "Загрузка счетов…",
 			empty: "Для этого проекта счетов пока нет.",
 			failed: "Не удалось загрузить счета.",
+			refresh: "Обновить счета",
+			refreshing: "Обновление…",
+			refreshedAt: "Обновлено",
+			refreshFailed: "Не удалось обновить. Попробуйте ещё раз.",
 			supplier: "Поставщик",
 			invoiceNumber: "Номер счета",
 			invoiceDate: "Дата счета",
@@ -500,6 +511,10 @@ function getCopy(language?: string | null) {
 		loading: "Loading invoices…",
 		empty: "No invoices exist for this project yet.",
 		failed: "Could not load invoices.",
+		refresh: "Refresh invoices",
+		refreshing: "Refreshing…",
+		refreshedAt: "Updated",
+		refreshFailed: "Could not refresh. Try again.",
 		supplier: "Supplier",
 		invoiceNumber: "Invoice number",
 		invoiceDate: "Invoice date",
@@ -694,6 +709,13 @@ function formatDate(value: string | null, language?: string | null) {
 		month: "2-digit",
 		year: "numeric",
 	}).format(new Date(value));
+}
+
+function formatTime(value: Date, language?: string | null) {
+	return new Intl.DateTimeFormat(localeForLanguage(language), {
+		hour: "2-digit",
+		minute: "2-digit",
+	}).format(value);
 }
 
 function formatMoney(
@@ -2609,6 +2631,11 @@ export function TgemInvoiceApprovalDashboard({
 		string | null
 	>(null);
 	const [error, setError] = React.useState(false);
+	const [refreshing, setRefreshing] = React.useState(false);
+	const [refreshError, setRefreshError] = React.useState(false);
+	const [lastRefreshedAt, setLastRefreshedAt] = React.useState<Date | null>(
+		null,
+	);
 	const [dashboardView, setDashboardView] = React.useState<
 		"approval" | "register"
 	>(initialView);
@@ -2620,6 +2647,8 @@ export function TgemInvoiceApprovalDashboard({
 		setProjectFilter(initialFilter);
 		setSelectedInvoiceId(null);
 		setRegisterFilters(createDefaultTgemInvoiceRegisterFilters());
+		setRefreshError(false);
+		setLastRefreshedAt(null);
 	}, [initialFilter]);
 	React.useEffect(() => {
 		setDashboardView(initialView);
@@ -2644,6 +2673,7 @@ export function TgemInvoiceApprovalDashboard({
 				projectFilter === "all" ? null : projectFilter,
 			);
 			setData(nextData);
+			setLastRefreshedAt(new Date());
 			setSelectedInvoiceId((currentId) => {
 				if (
 					preferredInvoiceId &&
@@ -2664,6 +2694,20 @@ export function TgemInvoiceApprovalDashboard({
 		},
 		[projectFilter],
 	);
+
+	const refreshData = React.useCallback(async () => {
+		if (refreshing) return;
+		setRefreshing(true);
+		setRefreshError(false);
+		try {
+			await loadData(selectedInvoiceId ?? undefined);
+		} catch {
+			setRefreshError(true);
+			if (data === null) setError(true);
+		} finally {
+			setRefreshing(false);
+		}
+	}, [data, loadData, refreshing, selectedInvoiceId]);
 
 	const changeProjectFilter = React.useCallback(
 		(nextFilter: string) => {
@@ -2698,6 +2742,7 @@ export function TgemInvoiceApprovalDashboard({
 				hasLoaded = true;
 				setError(false);
 				setData(nextData);
+				setLastRefreshedAt(new Date());
 				setSelectedInvoiceId((currentId) => {
 					if (
 						currentId &&
@@ -2718,7 +2763,7 @@ export function TgemInvoiceApprovalDashboard({
 		void refreshDashboard();
 		const intervalId = window.setInterval(() => {
 			if (!document.hidden) void refreshDashboard();
-		}, 5_000);
+		}, DASHBOARD_REFRESH_INTERVAL_MS);
 
 		return () => {
 			active = false;
@@ -2741,7 +2786,7 @@ export function TgemInvoiceApprovalDashboard({
 
 	return (
 		<div className="mx-auto flex min-h-[calc(100dvh-5rem)] w-full max-w-[116rem] flex-col gap-4 px-3 py-4 sm:px-5">
-			<div className="flex items-start justify-between gap-3 border-b pb-3">
+			<div className="flex flex-wrap items-start justify-between gap-3 border-b pb-3">
 				<div className="min-w-0 flex-1">
 					<h1 className="text-2xl font-semibold tracking-normal">
 						{copy.title}
@@ -2762,9 +2807,47 @@ export function TgemInvoiceApprovalDashboard({
 						</div>
 					) : null}
 				</div>
-				<DashboardOrganizationBrand
-					flowModuleKey={FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL}
-				/>
+				<div className="flex shrink-0 flex-col items-end gap-2">
+					<DashboardOrganizationBrand
+						flowModuleKey={FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL}
+					/>
+					<div className="flex items-center gap-2">
+						<div
+							aria-live="polite"
+							className={`hidden max-w-56 text-right text-xs sm:block ${refreshError ? "text-red-600" : "text-muted-foreground"}`}
+						>
+							{refreshError
+								? copy.refreshFailed
+								: lastRefreshedAt
+									? `${copy.refreshedAt} ${formatTime(lastRefreshedAt, organizationLanguage)}`
+									: null}
+						</div>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							data-testid="tgem-refresh-invoices"
+							aria-busy={refreshing}
+							disabled={refreshing || (data === null && !error)}
+							onClick={() => void refreshData()}
+							className="border-tgem-primary/30 bg-tgem-primary/10 text-tgem-primary shadow-xs hover:border-tgem-primary/45 hover:bg-tgem-primary/15 hover:text-tgem-primary"
+						>
+							<RefreshCw
+								aria-hidden="true"
+								className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+							/>
+							{refreshing ? copy.refreshing : copy.refresh}
+						</Button>
+					</div>
+					{refreshError ? (
+						<div
+							aria-live="polite"
+							className="text-right text-xs text-red-600 sm:hidden"
+						>
+							{copy.refreshFailed}
+						</div>
+					) : null}
+				</div>
 			</div>
 
 			{data === null && !error ? (
