@@ -18,16 +18,16 @@ const inputSchema = z
 	.min(1)
 	.max(1000);
 
-export type TgemInvoiceDeleteResult =
-	| { ok: true; deletedIds: string[] }
+export type TgemInvoiceArchiveResult =
+	| { ok: true; archivedIds: string[] }
 	| {
 			ok: false;
 			error: "invalid_input" | "access_denied" | "processing" | "conflict";
 	  };
 
-export async function deleteTgemInvoices(
+export async function archiveTgemInvoices(
 	input: { id: string; updatedAt: string }[],
-): Promise<TgemInvoiceDeleteResult> {
+): Promise<TgemInvoiceArchiveResult> {
 	const user = await requireUser();
 	const parsed = inputSchema.safeParse(input);
 	if (!parsed.success) return { ok: false, error: "invalid_input" };
@@ -44,12 +44,16 @@ export async function deleteTgemInvoices(
 	if (flow !== FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL) {
 		return { ok: false, error: "access_denied" };
 	}
-	const conflict = new Error("Invoice deletion conflict");
+	const conflict = new Error("Invoice archive conflict");
 	try {
 		return await prisma.$transaction(
-			async (tx): Promise<TgemInvoiceDeleteResult> => {
+			async (tx): Promise<TgemInvoiceArchiveResult> => {
 				const invoices = await tx.tgemInvoiceCase.findMany({
-					where: { organizationId, id: { in: targets.map((item) => item.id) } },
+					where: {
+						organizationId,
+						archivedAt: null,
+						id: { in: targets.map((item) => item.id) },
+					},
 					select: {
 						id: true,
 						updatedAt: true,
@@ -58,8 +62,9 @@ export async function deleteTgemInvoices(
 						extractionStatus: true,
 					},
 				});
-				if (invoices.length !== targets.length)
+				if (invoices.length !== targets.length) {
 					return { ok: false, error: "access_denied" };
+				}
 				if (
 					invoices.some(
 						(invoice) =>
@@ -68,8 +73,9 @@ export async function deleteTgemInvoices(
 							invoice.ocrStatus === "processing" ||
 							invoice.extractionStatus === "processing",
 					)
-				)
+				) {
 					return { ok: false, error: "processing" };
+				}
 				const versions = new Map(
 					targets.map((item) => [item.id, new Date(item.updatedAt).getTime()]),
 				);
@@ -81,9 +87,11 @@ export async function deleteTgemInvoices(
 				) {
 					return { ok: false, error: "conflict" };
 				}
-				const deleted = await tx.tgemInvoiceCase.deleteMany({
+				const archivedAt = new Date();
+				const archived = await tx.tgemInvoiceCase.updateMany({
 					where: {
 						organizationId,
+						archivedAt: null,
 						OR: targets.map((item) => ({
 							id: item.id,
 							updatedAt: new Date(item.updatedAt),
@@ -92,9 +100,22 @@ export async function deleteTgemInvoices(
 						ocrStatus: { not: "processing" },
 						extractionStatus: { not: "processing" },
 					},
+					data: { archivedAt },
 				});
-				if (deleted.count !== targets.length) throw conflict;
-				return { ok: true, deletedIds: targets.map((item) => item.id) };
+				if (archived.count !== targets.length) throw conflict;
+				await tx.tgemInvoiceAuditEvent.createMany({
+					data: invoices.map((invoice) => ({
+						invoiceCaseId: invoice.id,
+						organizationId,
+						actorUserId: user.id,
+						actorType: "user",
+						eventType: "invoice_archived",
+						fromStatus: invoice.status,
+						toStatus: invoice.status,
+						payload: { archivedAt: archivedAt.toISOString() },
+					})),
+				});
+				return { ok: true, archivedIds: targets.map((item) => item.id) };
 			},
 		);
 	} catch (error) {

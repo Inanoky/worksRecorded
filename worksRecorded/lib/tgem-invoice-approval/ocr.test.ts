@@ -4,12 +4,12 @@ describe("persistTgemInvoiceOcrResult", () => {
 	it.each(["credit", "debit", "receipt", undefined, "invalid"])(
 		"persists only a valid extracted invoice type: %s",
 		async (invoiceType) => {
-			const update = jest.fn();
+			const updateMany = jest.fn().mockResolvedValue({ count: 1 });
 			await persistTgemInvoiceOcrResult(
 				{
 					tgemInvoiceOcrPage: { upsert: jest.fn() },
 					tgemInvoiceLine: { upsert: jest.fn() },
-					tgemInvoiceCase: { update },
+					tgemInvoiceCase: { updateMany },
 				} as never,
 				{
 					invoiceCaseId: "case-1",
@@ -32,7 +32,7 @@ describe("persistTgemInvoiceOcrResult", () => {
 					},
 				},
 			);
-			const data = update.mock.calls[0][0].data;
+			const data = updateMany.mock.calls[0][0].data;
 			if (
 				invoiceType === "credit" ||
 				invoiceType === "debit" ||
@@ -52,11 +52,11 @@ describe("persistTgemInvoiceOcrResult", () => {
 	it("upserts OCR pages and marks the invoice OCR complete", async () => {
 		const upsert = jest.fn().mockResolvedValue({ id: "ocr-page-1" });
 		const lineUpsert = jest.fn().mockResolvedValue({ id: "line-1" });
-		const update = jest.fn().mockResolvedValue({ id: "case-1" });
+		const updateMany = jest.fn().mockResolvedValue({ count: 1 });
 		const database = {
 			tgemInvoiceOcrPage: { upsert },
 			tgemInvoiceLine: { upsert: lineUpsert },
-			tgemInvoiceCase: { update },
+			tgemInvoiceCase: { updateMany },
 		} as never;
 
 		await expect(
@@ -133,9 +133,9 @@ describe("persistTgemInvoiceOcrResult", () => {
 				}),
 			}),
 		);
-		expect(update).toHaveBeenCalledWith(
+		expect(updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
-				where: { id: "case-1" },
+				where: { id: "case-1", archivedAt: null },
 				data: expect.objectContaining({
 					ocrStatus: "complete",
 					extractionStatus: "complete",
@@ -165,11 +165,11 @@ describe("persistTgemInvoiceOcrResult", () => {
 	});
 
 	it("warns when the priority amount excluding VAT is missing", async () => {
-		const update = jest.fn().mockResolvedValue({ id: "case-1" });
+		const updateMany = jest.fn().mockResolvedValue({ count: 1 });
 		const database = {
 			tgemInvoiceOcrPage: { upsert: jest.fn() },
 			tgemInvoiceLine: { upsert: jest.fn() },
-			tgemInvoiceCase: { update },
+			tgemInvoiceCase: { updateMany },
 		} as never;
 
 		await expect(
@@ -211,7 +211,7 @@ describe("persistTgemInvoiceOcrResult", () => {
 			warningCount: 1,
 		});
 
-		expect(update).toHaveBeenCalledWith(
+		expect(updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({
 					validationSummary: {
@@ -224,11 +224,11 @@ describe("persistTgemInvoiceOcrResult", () => {
 	});
 
 	it("accepts a receipt without invoice-only subtotal and due-date fields", async () => {
-		const update = jest.fn().mockResolvedValue({ id: "case-1" });
+		const updateMany = jest.fn().mockResolvedValue({ count: 1 });
 		const database = {
 			tgemInvoiceOcrPage: { upsert: jest.fn() },
 			tgemInvoiceLine: { upsert: jest.fn() },
-			tgemInvoiceCase: { update },
+			tgemInvoiceCase: { updateMany },
 		} as never;
 
 		await expect(
@@ -267,7 +267,7 @@ describe("persistTgemInvoiceOcrResult", () => {
 			warningCount: 0,
 		});
 
-		expect(update).toHaveBeenCalledWith(
+		expect(updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({
 					invoiceType: "receipt",

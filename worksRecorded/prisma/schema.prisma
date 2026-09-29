@@ -258,6 +258,7 @@ model TgemInvoiceCase {
   paymentStatus             String   @default("unpaid")
   paidAt                    DateTime?
   approvalRound             Int      @default(0)
+  archivedAt                DateTime?
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
@@ -270,7 +271,9 @@ model TgemInvoiceCase {
   auditEvents               TgemInvoiceAuditEvent[]
 
   @@index([organizationId, status, createdAt])
+  @@index([organizationId, archivedAt, createdAt])
   @@index([siteId, status, createdAt])
+  @@index([siteId, archivedAt, createdAt])
   @@index([organizationId, source, sourceMessageId])
   @@index([organizationId, costCode])
   @@index([organizationId, paymentStatus, createdAt])

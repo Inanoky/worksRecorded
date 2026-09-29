@@ -20,6 +20,12 @@ export type TgemInvoiceProcessingInput = {
 	documentId: string;
 };
 
+type TgemInvoiceArchivedDuplicate = {
+	invoiceCaseId: string;
+	documentId: string | null;
+	archived: true;
+};
+
 type InboundAttachment = {
 	id: string;
 	filename?: string;
@@ -178,7 +184,7 @@ export async function storeTgemInboundAttachmentStep(input: {
 	sender: string;
 	sourceContext: TgemInvoiceSourceContext;
 	attachment: InboundAttachment;
-}): Promise<TgemInvoiceProcessingInput> {
+}): Promise<TgemInvoiceProcessingInput | TgemInvoiceArchivedDuplicate> {
 	"use step";
 
 	const sourceMessageId = `${input.emailId}:${input.attachment.id}`;
@@ -191,6 +197,7 @@ export async function storeTgemInboundAttachmentStep(input: {
 		where: { idempotencyKey },
 		select: {
 			id: true,
+			archivedAt: true,
 			documents: {
 				orderBy: { createdAt: "asc" },
 				take: 1,
@@ -199,6 +206,13 @@ export async function storeTgemInboundAttachmentStep(input: {
 		},
 	});
 	const existingDocument = existingCase?.documents[0];
+	if (existingCase?.archivedAt) {
+		return {
+			invoiceCaseId: existingCase.id,
+			documentId: existingDocument?.id ?? null,
+			archived: true,
+		};
+	}
 	if (existingCase && existingDocument) {
 		return {
 			invoiceCaseId: existingCase.id,
@@ -282,12 +296,20 @@ export async function processTgemInvoiceStep(
 					submittedByUserId: true,
 					source: true,
 					status: true,
+					archivedAt: true,
 				},
 			},
 		},
 	});
 	if (!document)
 		throw new FatalError("Queued TGEM invoice document was not found");
+	if (document.invoiceCase.archivedAt) {
+		return {
+			invoiceCaseId: document.invoiceCase.id,
+			status: "archived",
+			skipped: true,
+		};
+	}
 	if (
 		!["received", "failed_processing"].includes(document.invoiceCase.status)
 	) {
@@ -376,15 +398,14 @@ export async function processTgemInboundEmailWorkflow(emailId: string) {
 	);
 	const queuedCases: TgemInvoiceProcessingInput[] = [];
 	for (const attachment of inbound.attachments) {
-		queuedCases.push(
-			await storeTgemInboundAttachmentStep({
-				emailId,
-				organizationId,
-				sender: inbound.sender,
-				sourceContext: inbound.sourceContext,
-				attachment,
-			}),
-		);
+		const queuedCase = await storeTgemInboundAttachmentStep({
+			emailId,
+			organizationId,
+			sender: inbound.sender,
+			sourceContext: inbound.sourceContext,
+			attachment,
+		});
+		if (!("archived" in queuedCase)) queuedCases.push(queuedCase);
 	}
 	const processingRunIds = await spawnTgemInvoiceProcessingStep(queuedCases);
 	return {

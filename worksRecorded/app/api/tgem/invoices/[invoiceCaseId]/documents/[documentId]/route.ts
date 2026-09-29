@@ -43,7 +43,7 @@ export async function GET(
 	}
 
 	const invoiceCase = await prisma.tgemInvoiceCase.findFirst({
-		where: { id: invoiceCaseId },
+		where: { id: invoiceCaseId, archivedAt: null },
 		select: { id: true, siteId: true, organizationId: true },
 	});
 

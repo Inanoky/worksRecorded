@@ -154,8 +154,8 @@ export async function persistTgemInvoiceOcrResult(
 		warnings,
 	};
 
-	await database.tgemInvoiceCase.update({
-		where: { id: input.invoiceCaseId },
+	const updated = await database.tgemInvoiceCase.updateMany({
+		where: { id: input.invoiceCaseId, archivedAt: null },
 		data: {
 			status: processingComplete ? "needs_review" : "failed_processing",
 			ocrStatus: processingComplete ? "complete" : "failed",
@@ -185,6 +185,7 @@ export async function persistTgemInvoiceOcrResult(
 			processedAt: new Date(),
 		},
 	});
+	if (updated.count !== 1) throw new Error("Invoice is archived");
 
 	return {
 		pageCount: input.result.pages.length,

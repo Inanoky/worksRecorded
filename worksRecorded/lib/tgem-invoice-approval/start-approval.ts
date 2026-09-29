@@ -18,6 +18,7 @@ export async function startTgemInvoiceApproval(input: {
 	const invoiceCase = await prisma.tgemInvoiceCase.findFirst({
 		where: {
 			id: input.invoiceCaseId,
+			archivedAt: null,
 			status: { in: ["needs_review", "changes_requested"] },
 			...(input.actorUserId
 				? {
@@ -96,6 +97,7 @@ export async function startTgemInvoiceApproval(input: {
 		const claimed = await tx.tgemInvoiceCase.updateMany({
 			where: {
 				id: invoiceCase.id,
+				archivedAt: null,
 				siteId: invoiceCase.siteId,
 				status: invoiceCase.status,
 				approvalRound: invoiceCase.approvalRound,

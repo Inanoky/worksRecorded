@@ -21,8 +21,11 @@ jest.mock("@/server/actions/tgem-project-actions", () => ({
 import { TgemInvoiceApprovalDashboard } from "./TgemInvoiceApprovalDashboard";
 
 const mockRefresh = jest.fn();
+const mockReplace = jest.fn((href: string) => {
+	window.history.replaceState(null, "", href);
+});
 jest.mock("next/navigation", () => ({
-	useRouter: () => ({ refresh: mockRefresh }),
+	useRouter: () => ({ refresh: mockRefresh, replace: mockReplace }),
 }));
 
 const mockStartUpload = jest.fn();
@@ -34,7 +37,7 @@ const mockAssignProject = jest.fn();
 const mockMarkInvoicePaid = jest.fn();
 const mockUpdateInvoiceAccounting = jest.fn();
 const mockUpdateInvoiceDetail = jest.fn();
-const mockDeleteInvoices = jest.fn();
+const mockArchiveInvoices = jest.fn();
 const mockDownloadInvoiceWorkbook = jest.fn();
 
 jest.mock("@/lib/tgem-invoice-approval/register-export", () => ({
@@ -42,8 +45,8 @@ jest.mock("@/lib/tgem-invoice-approval/register-export", () => ({
 		mockDownloadInvoiceWorkbook(...args),
 }));
 
-jest.mock("@/server/actions/tgem-invoice-delete-actions", () => ({
-	deleteTgemInvoices: (...args: unknown[]) => mockDeleteInvoices(...args),
+jest.mock("@/server/actions/tgem-invoice-archive-actions", () => ({
+	archiveTgemInvoices: (...args: unknown[]) => mockArchiveInvoices(...args),
 }));
 
 jest.mock("@/server/actions/tgem-invoice-actions", () => ({
@@ -236,11 +239,11 @@ function approvalStep(
 describe("TgemInvoiceApprovalDashboard", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
-		mockDeleteInvoices
+		mockArchiveInvoices
 			.mockReset()
 			.mockImplementation(async (targets: { id: string }[]) => ({
 				ok: true,
-				deletedIds: targets.map((item) => item.id),
+				archivedIds: targets.map((item) => item.id),
 			}));
 		mockDownloadInvoiceWorkbook.mockReset().mockResolvedValue(undefined);
 		mockUpdateInvoiceDetail
@@ -282,28 +285,107 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		});
 	});
 
-	it("requires confirmation for single deletion and supports cancellation", async () => {
+	it("refreshes the scoped register without clearing its filters", async () => {
+		let finishRefresh!: (value: TgemDashboardData) => void;
+		const refreshPromise = new Promise<TgemDashboardData>((resolve) => {
+			finishRefresh = resolve;
+		});
+		jest
+			.mocked(getTgemInvoiceDashboardData)
+			.mockResolvedValueOnce(dashboardData)
+			.mockReturnValueOnce(refreshPromise);
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				organizationLanguage="en"
+			/>,
+		);
+		await screen.findByTestId("tgem-invoice-register");
+		const search = screen.getByLabelText(
+			"Search number, supplier, registration, reference, or bank account",
+		);
+		fireEvent.change(search, { target: { value: "TG-2026" } });
+		fireEvent.click(screen.getByRole("button", { name: "Refresh invoices" }));
+
+		const pendingButton = screen.getByRole("button", { name: "Refreshing…" });
+		expect(pendingButton).toBeDisabled();
+		expect(pendingButton).toHaveAttribute("aria-busy", "true");
+		expect(pendingButton.querySelector(".animate-spin")).toBeInTheDocument();
+		expect(getTgemInvoiceDashboardData).toHaveBeenLastCalledWith("site-1");
+
+		finishRefresh({
+			...dashboardData,
+			invoices: [
+				{
+					...dashboardData.invoices[0],
+					supplierName: "Refreshed supplier",
+				},
+			],
+		});
+
+		expect(await screen.findAllByText("Refreshed supplier")).not.toHaveLength(
+			0,
+		);
+		expect(search).toHaveValue("TG-2026");
+		expect(
+			screen.getByRole("button", { name: "Refresh invoices" }),
+		).toBeEnabled();
+	});
+
+	it("keeps the approval workspace visible when a manual refresh fails", async () => {
+		jest
+			.mocked(getTgemInvoiceDashboardData)
+			.mockResolvedValueOnce(dashboardData)
+			.mockRejectedValueOnce(new Error("Private refresh failure"));
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				initialView="approval"
+				organizationLanguage="en"
+			/>,
+		);
+		await screen.findByTestId("tgem-invoice-case-1");
+		fireEvent.click(screen.getByRole("button", { name: "Refresh invoices" }));
+
+		await waitFor(() =>
+			expect(
+				screen.getAllByText("Could not refresh. Try again."),
+			).not.toHaveLength(0),
+		);
+		expect(screen.getByTestId("tgem-invoice-case-1")).toBeInTheDocument();
+		expect(
+			screen.queryByText("Private refresh failure"),
+		).not.toBeInTheDocument();
+	});
+
+	it("requires confirmation for single archive and supports cancellation", async () => {
 		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue(dashboardData);
 		render(<TgemInvoiceApprovalDashboard organizationLanguage="en" />);
 		const row = await screen.findByTestId("tgem-register-invoice-case-1");
 		fireEvent.click(
-			within(row).getByRole("button", { name: "Delete invoice: TG-2026-0718" }),
+			within(row).getByRole("button", {
+				name: "Archive invoice: TG-2026-0718",
+			}),
 		);
 		const dialog = screen.getByRole("alertdialog");
 		expect(
-			within(dialog).getByText("Are you sure you want to delete?"),
+			within(dialog).getByText("Are you sure you want to archive?"),
 		).toBeInTheDocument();
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-		expect(mockDeleteInvoices).not.toHaveBeenCalled();
+		expect(mockArchiveInvoices).not.toHaveBeenCalled();
 		fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
 		expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-		expect(mockDeleteInvoices).not.toHaveBeenCalled();
+		expect(mockArchiveInvoices).not.toHaveBeenCalled();
 		fireEvent.click(
-			within(row).getByRole("button", { name: "Delete invoice: TG-2026-0718" }),
+			within(row).getByRole("button", {
+				name: "Archive invoice: TG-2026-0718",
+			}),
 		);
-		fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+		fireEvent.click(screen.getByRole("button", { name: "Yes, archive" }));
 		await waitFor(() =>
-			expect(mockDeleteInvoices).toHaveBeenCalledWith([
+			expect(mockArchiveInvoices).toHaveBeenCalledWith([
 				{ id: "case-1", updatedAt: dashboardData.invoices[0].updatedAt },
 			]),
 		);
@@ -312,10 +394,12 @@ describe("TgemInvoiceApprovalDashboard", () => {
 				screen.queryByTestId("tgem-register-invoice-case-1"),
 			).not.toBeInTheDocument(),
 		);
-		expect(screen.getByRole("status")).toHaveTextContent("Invoices deleted: 1");
+		expect(screen.getByRole("status")).toHaveTextContent(
+			"Invoices archived: 1",
+		);
 	});
 
-	it("puts checkboxes first and bulk-deletes only the current filtered selection", async () => {
+	it("puts checkboxes first and bulk-archives only the current filtered selection", async () => {
 		const invoices = [
 			dashboardData.invoices[0],
 			{ ...dashboardData.invoices[0], id: "case-2", invoiceNumber: "SECOND" },
@@ -330,7 +414,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			name: "Select all visible invoices",
 		});
 		expect(
-			screen.queryByRole("button", { name: /Delete selected/ }),
+			screen.queryByRole("button", { name: /Archive selected/ }),
 		).not.toBeInTheDocument();
 		expect(
 			within(screen.getAllByRole("columnheader")[0]).getByRole("checkbox"),
@@ -342,7 +426,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		);
 		expect(selectAll).toHaveAttribute("data-state", "indeterminate");
 		expect(
-			screen.getByRole("button", { name: "Delete selected (1)" }),
+			screen.getByRole("button", { name: "Archive selected (1)" }),
 		).toBeVisible();
 		fireEvent.click(
 			within(screen.getByTestId("tgem-register-invoice-case-1")).getByRole(
@@ -350,12 +434,12 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			),
 		);
 		expect(
-			screen.queryByRole("button", { name: /Delete selected/ }),
+			screen.queryByRole("button", { name: /Archive selected/ }),
 		).not.toBeInTheDocument();
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 		fireEvent.click(selectAll);
 		expect(
-			screen.getByRole("button", { name: "Delete selected (2)" }),
+			screen.getByRole("button", { name: "Archive selected (2)" }),
 		).toBeEnabled();
 		fireEvent.change(
 			screen.getByRole("textbox", {
@@ -364,19 +448,19 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			{ target: { value: "SECOND" } },
 		);
 		expect(
-			screen.queryByRole("button", { name: /Delete selected/ }),
+			screen.queryByRole("button", { name: /Archive selected/ }),
 		).not.toBeInTheDocument();
 		fireEvent.click(selectAll);
 		fireEvent.click(
-			screen.getByRole("button", { name: "Delete selected (1)" }),
+			screen.getByRole("button", { name: "Archive selected (1)" }),
 		);
-		expect(mockDeleteInvoices).not.toHaveBeenCalled();
+		expect(mockArchiveInvoices).not.toHaveBeenCalled();
 		expect(screen.getByRole("alertdialog")).not.toHaveTextContent(
 			"TG-2026-0718",
 		);
-		fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+		fireEvent.click(screen.getByRole("button", { name: "Yes, archive" }));
 		await waitFor(() =>
-			expect(mockDeleteInvoices).toHaveBeenCalledWith([
+			expect(mockArchiveInvoices).toHaveBeenCalledWith([
 				{ id: "case-2", updatedAt: invoices[1].updatedAt },
 			]),
 		);
@@ -398,44 +482,46 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			}),
 		);
 		fireEvent.click(
-			screen.getByRole("button", { name: "Delete selected (2)" }),
+			screen.getByRole("button", { name: "Archive selected (2)" }),
 		);
-		fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+		fireEvent.click(screen.getByRole("button", { name: "Yes, archive" }));
 		await waitFor(() =>
-			expect(mockDeleteInvoices).toHaveBeenCalledWith(
+			expect(mockArchiveInvoices).toHaveBeenCalledWith(
 				invoices.map(({ id, updatedAt }) => ({ id, updatedAt })),
 			),
 		);
 	});
 
-	it("retains records and confirmation when deletion fails, allowing retry", async () => {
+	it("retains records and confirmation when archiving fails, allowing retry", async () => {
 		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue(dashboardData);
-		mockDeleteInvoices.mockRejectedValueOnce(
+		mockArchiveInvoices.mockRejectedValueOnce(
 			new Error("Private database details"),
 		);
 		render(<TgemInvoiceApprovalDashboard organizationLanguage="en" />);
 		const row = await screen.findByTestId("tgem-register-invoice-case-1");
 		fireEvent.click(
-			within(row).getByRole("button", { name: "Delete invoice: TG-2026-0718" }),
+			within(row).getByRole("button", {
+				name: "Archive invoice: TG-2026-0718",
+			}),
 		);
-		fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+		fireEvent.click(screen.getByRole("button", { name: "Yes, archive" }));
 		expect(await screen.findByRole("alert")).toHaveTextContent(
-			"Could not delete invoices. Please try again.",
+			"Could not archive invoices. Please try again.",
 		);
 		expect(
 			screen.queryByText("Private database details"),
 		).not.toBeInTheDocument();
 		expect(row).toBeInTheDocument();
-		fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+		fireEvent.click(screen.getByRole("button", { name: "Yes, archive" }));
 		await waitFor(() =>
 			expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
 		);
 	});
 
-	it("supports mobile deletion with Latvian confirmation and guards pending requests", async () => {
+	it("supports mobile archive with Latvian confirmation and guards pending requests", async () => {
 		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue(dashboardData);
 		let complete: (value: unknown) => void = () => {};
-		mockDeleteInvoices.mockImplementationOnce(
+		mockArchiveInvoices.mockImplementationOnce(
 			() =>
 				new Promise((resolve) => {
 					complete = resolve;
@@ -449,17 +535,19 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		if (!card) throw new Error("Expected mobile invoice card");
 		expect(within(card).getByRole("checkbox")).toBeInTheDocument();
 		fireEvent.click(
-			within(card).getByRole("button", { name: "Dzēst rēķinu: TG-2026-0718" }),
+			within(card).getByRole("button", {
+				name: "Arhivēt rēķinu: TG-2026-0718",
+			}),
 		);
 		expect(screen.getByRole("alertdialog")).toHaveTextContent(
-			"Vai tiešām vēlaties dzēst?",
+			"Vai tiešām vēlaties arhivēt?",
 		);
-		fireEvent.click(screen.getByRole("button", { name: "Jā, dzēst" }));
-		expect(screen.getByRole("button", { name: "Dzēš…" })).toBeDisabled();
+		fireEvent.click(screen.getByRole("button", { name: "Jā, arhivēt" }));
+		expect(screen.getByRole("button", { name: "Arhivē…" })).toBeDisabled();
 		expect(screen.getByRole("button", { name: "Atcelt" })).toBeDisabled();
-		fireEvent.click(screen.getByRole("button", { name: "Dzēš…" }));
-		expect(mockDeleteInvoices).toHaveBeenCalledTimes(1);
-		await act(async () => complete({ ok: true, deletedIds: ["case-1"] }));
+		fireEvent.click(screen.getByRole("button", { name: "Arhivē…" }));
+		expect(mockArchiveInvoices).toHaveBeenCalledTimes(1);
+		await act(async () => complete({ ok: true, archivedIds: ["case-1"] }));
 	});
 
 	it("renders the authorized server-backed invoice fixture", async () => {
@@ -1607,6 +1695,9 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		).not.toBeInTheDocument();
 		expect(screen.getByTestId("tgem-invoice-case-1")).toBeInTheDocument();
 		expect(window.location.search).toBe("?view=approval");
+		expect(mockReplace).toHaveBeenCalledWith("/?view=approval", {
+			scroll: false,
+		});
 	});
 
 	it("exports the sorted filtered rows regardless of checkbox selection", async () => {
@@ -1668,7 +1759,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			await screen.findByText("Invoices shown: 1 / 2"),
 		).toBeInTheDocument();
 		expect(
-			screen.queryByRole("button", { name: "Delete selected (1)" }),
+			screen.queryByRole("button", { name: "Archive selected (1)" }),
 		).not.toBeInTheDocument();
 		fireEvent.click(screen.getByRole("button", { name: "Export invoices: 1" }));
 		await waitFor(() =>
@@ -1835,7 +1926,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		).not.toBeInTheDocument();
 	});
 
-	it("hides the dedicated WhatsApp processing panel while refresh continues", async () => {
+	it("refreshes in the background once per minute without showing a processing panel", async () => {
 		jest.useFakeTimers();
 		const whatsappInvoice: TgemDashboardData["invoices"][number] = {
 			...dashboardData.invoices[0],
@@ -1883,7 +1974,13 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			).not.toBeInTheDocument();
 
 			await act(async () => {
-				jest.advanceTimersByTime(5_000);
+				jest.advanceTimersByTime(59_999);
+				await Promise.resolve();
+			});
+			expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(1);
+
+			await act(async () => {
+				jest.advanceTimersByTime(1);
 				await Promise.resolve();
 			});
 			expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(2);

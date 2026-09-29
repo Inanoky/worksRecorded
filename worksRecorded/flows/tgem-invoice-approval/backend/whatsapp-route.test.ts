@@ -244,6 +244,7 @@ describe("TGEM WhatsApp invoice handler", () => {
 			select: {
 				id: true,
 				status: true,
+				archivedAt: true,
 				documents: {
 					orderBy: { createdAt: "asc" },
 					take: 1,

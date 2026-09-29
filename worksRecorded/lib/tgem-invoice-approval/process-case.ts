@@ -31,8 +31,8 @@ async function resolveEmailInvoiceProject(
 ) {
 	if (input.source !== "email" || input.siteId) return;
 
-	const invoiceCase = await prisma.tgemInvoiceCase.findUnique({
-		where: { id: input.invoiceCaseId },
+	const invoiceCase = await prisma.tgemInvoiceCase.findFirst({
+		where: { id: input.invoiceCaseId, archivedAt: null },
 		select: { sourceContext: true, siteId: true },
 	});
 	if (!invoiceCase || invoiceCase.siteId) return;
@@ -61,8 +61,8 @@ async function resolveEmailInvoiceProject(
 			result,
 		});
 		await prisma.$transaction(async (tx) => {
-			await tx.tgemInvoiceCase.update({
-				where: { id: input.invoiceCaseId },
+			const updated = await tx.tgemInvoiceCase.updateMany({
+				where: { id: input.invoiceCaseId, archivedAt: null },
 				data: {
 					siteId: resolution.selectedSiteId,
 					projectMatchConfidence: resolution.confidence,
@@ -70,6 +70,7 @@ async function resolveEmailInvoiceProject(
 					projectMatchSummary: resolution.summary as Prisma.InputJsonValue,
 				},
 			});
+			if (updated.count !== 1) return;
 			await tx.tgemInvoiceAuditEvent.create({
 				data: {
 					invoiceCaseId: input.invoiceCaseId,
@@ -92,8 +93,8 @@ async function resolveEmailInvoiceProject(
 			});
 		});
 	} catch (error) {
-		await prisma.tgemInvoiceCase.update({
-			where: { id: input.invoiceCaseId },
+		const updated = await prisma.tgemInvoiceCase.updateMany({
+			where: { id: input.invoiceCaseId, archivedAt: null },
 			data: {
 				projectMatchConfidence: null,
 				projectMatchMethod: "unassigned",
@@ -102,6 +103,7 @@ async function resolveEmailInvoiceProject(
 				},
 			},
 		});
+		if (updated.count !== 1) return;
 		await prisma.tgemInvoiceAuditEvent.create({
 			data: {
 				invoiceCaseId: input.invoiceCaseId,
@@ -123,8 +125,13 @@ async function resolveEmailInvoiceProject(
 async function processTgemInvoiceCaseInternal(
 	input: ProcessTgemInvoiceCaseInput,
 ) {
-	await prisma.tgemInvoiceCase.update({
-		where: { id: input.invoiceCaseId },
+	const claim = await prisma.tgemInvoiceCase.updateMany({
+		where: {
+			id: input.invoiceCaseId,
+			organizationId: input.organizationId,
+			archivedAt: null,
+			status: { in: ["received", "failed_processing"] },
+		},
 		data: {
 			status: "processing",
 			ocrStatus: "processing",
@@ -132,6 +139,9 @@ async function processTgemInvoiceCaseInternal(
 			processingError: null,
 		},
 	});
+	if (claim.count !== 1) {
+		return { skipped: true, status: "unavailable" };
+	}
 	await prisma.tgemInvoiceAuditEvent.create({
 		data: {
 			invoiceCaseId: input.invoiceCaseId,
@@ -212,8 +222,8 @@ async function processTgemInvoiceCaseInternal(
 		};
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "OCR failed";
-		await prisma.tgemInvoiceCase.update({
-			where: { id: input.invoiceCaseId },
+		await prisma.tgemInvoiceCase.updateMany({
+			where: { id: input.invoiceCaseId, archivedAt: null },
 			data: {
 				status: "failed_processing",
 				ocrStatus: "failed",

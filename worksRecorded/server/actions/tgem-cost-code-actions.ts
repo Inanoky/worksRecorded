@@ -130,6 +130,7 @@ export async function updateTgemInvoiceAccounting(input: {
 			where: {
 				id: input.invoiceCaseId,
 				organizationId: context.organizationId,
+				archivedAt: null,
 			},
 			select: {
 				id: true,
@@ -165,7 +166,11 @@ export async function updateTgemInvoiceAccounting(input: {
 		}
 
 		const updated = await tx.tgemInvoiceCase.updateMany({
-			where: { id: invoiceCase.id, updatedAt: expectedUpdatedAt },
+			where: {
+				id: invoiceCase.id,
+				archivedAt: null,
+				updatedAt: expectedUpdatedAt,
+			},
 			data: { invoiceType: input.invoiceType, costCode },
 		});
 		if (updated.count !== 1) {

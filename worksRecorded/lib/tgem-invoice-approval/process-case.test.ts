@@ -5,8 +5,8 @@ const mockStartTgemInvoiceApproval = jest.fn();
 
 const mockPrisma = {
 	tgemInvoiceCase: {
-		findUnique: jest.fn(),
-		update: jest.fn(),
+		findFirst: jest.fn(),
+		updateMany: jest.fn(),
 	},
 	tgemInvoiceAuditEvent: { create: jest.fn() },
 	site: { findMany: jest.fn() },
@@ -39,7 +39,7 @@ describe("processTgemInvoiceCase email project resolution", () => {
 			async (callback: (database: typeof mockPrisma) => unknown) =>
 				callback(mockPrisma),
 		);
-		mockPrisma.tgemInvoiceCase.findUnique.mockResolvedValue({
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
 			siteId: null,
 			sourceContext: {
 				sender: "supplier@example.com",
@@ -93,6 +93,7 @@ describe("processTgemInvoiceCase email project resolution", () => {
 		mockStartTgemInvoiceApproval.mockResolvedValue({
 			invoiceCaseId: "case-1",
 		});
+		mockPrisma.tgemInvoiceCase.updateMany.mockResolvedValue({ count: 1 });
 	});
 
 	it("assigns a confident organization project before automatic approval", async () => {
@@ -118,8 +119,8 @@ describe("processTgemInvoiceCase email project resolution", () => {
 				}),
 			}),
 		);
-		expect(mockPrisma.tgemInvoiceCase.update).toHaveBeenCalledWith({
-			where: { id: "case-1" },
+		expect(mockPrisma.tgemInvoiceCase.updateMany).toHaveBeenCalledWith({
+			where: { id: "case-1", archivedAt: null },
 			data: expect.objectContaining({
 				siteId: "site-1",
 				projectMatchConfidence: 0.96,

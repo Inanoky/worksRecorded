@@ -52,7 +52,7 @@ export async function updateTgemInvoiceDetail(input: {
 
 	return prisma.$transaction(async (tx): Promise<UpdateResult> => {
 		const invoice = await tx.tgemInvoiceCase.findFirst({
-			where: { id: invoiceCaseId, organizationId },
+			where: { id: invoiceCaseId, organizationId, archivedAt: null },
 			select: {
 				id: true,
 				status: true,
@@ -95,7 +95,12 @@ export async function updateTgemInvoiceDetail(input: {
 			Math.max(Date.now(), invoice.updatedAt.getTime() + 1),
 		);
 		const updated = await tx.tgemInvoiceCase.updateMany({
-			where: { id: invoice.id, organizationId, updatedAt: expectedUpdatedAt },
+			where: {
+				id: invoice.id,
+				organizationId,
+				archivedAt: null,
+				updatedAt: expectedUpdatedAt,
+			},
 			data: { [field]: next, updatedAt },
 		});
 		if (updated.count !== 1) return { ok: false, error: "conflict" };
