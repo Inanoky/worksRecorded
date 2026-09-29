@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { traceable } from "langsmith/traceable";
 import type { TgemInvoiceSource } from "@/lib/tgem-invoice-approval/intake";
 import {
@@ -7,6 +8,7 @@ import {
 } from "@/lib/tgem-invoice-approval/langsmith";
 import { persistTgemInvoiceOcrResult } from "@/lib/tgem-invoice-approval/ocr";
 import { processTgemInvoice } from "@/lib/tgem-invoice-approval/processor";
+import { resolveTgemInvoiceProject } from "@/lib/tgem-invoice-approval/project-resolution";
 import { startTgemInvoiceApproval } from "@/lib/tgem-invoice-approval/start-approval";
 import { prisma } from "@/lib/utils/db";
 
@@ -15,13 +17,108 @@ type ProcessTgemInvoiceCaseInput = {
 	documentId: string;
 	organizationId: string;
 	siteId?: string | null;
-	actorUserId: string;
-	actorType: "user" | "whatsapp";
+	actorUserId: string | null;
+	actorType: "user" | "whatsapp" | "email";
 	source: TgemInvoiceSource;
 	content: Buffer | (() => Promise<Buffer>);
 	contentType: string;
 	byteSize?: number | null;
 };
+
+async function resolveEmailInvoiceProject(
+	input: ProcessTgemInvoiceCaseInput,
+	result: Awaited<ReturnType<typeof processTgemInvoice>>,
+) {
+	if (input.source !== "email" || input.siteId) return;
+
+	const invoiceCase = await prisma.tgemInvoiceCase.findUnique({
+		where: { id: input.invoiceCaseId },
+		select: { sourceContext: true, siteId: true },
+	});
+	if (!invoiceCase || invoiceCase.siteId) return;
+	const context =
+		invoiceCase.sourceContext &&
+		typeof invoiceCase.sourceContext === "object" &&
+		!Array.isArray(invoiceCase.sourceContext)
+			? invoiceCase.sourceContext
+			: {};
+
+	try {
+		const projects = await prisma.site.findMany({
+			where: { organizationId: input.organizationId },
+			select: {
+				id: true,
+				name: true,
+				description: true,
+				subdirectory: true,
+				bisCaseNumber: true,
+				bisCaseName: true,
+			},
+		});
+		const resolution = await resolveTgemInvoiceProject({
+			projects,
+			sourceContext: context,
+			result,
+		});
+		await prisma.$transaction(async (tx) => {
+			await tx.tgemInvoiceCase.update({
+				where: { id: input.invoiceCaseId },
+				data: {
+					siteId: resolution.selectedSiteId,
+					projectMatchConfidence: resolution.confidence,
+					projectMatchMethod: resolution.method,
+					projectMatchSummary: resolution.summary as Prisma.InputJsonValue,
+				},
+			});
+			await tx.tgemInvoiceAuditEvent.create({
+				data: {
+					invoiceCaseId: input.invoiceCaseId,
+					organizationId: input.organizationId,
+					actorUserId: null,
+					actorType: "system",
+					eventType: resolution.selectedSiteId
+						? "invoice_project_auto_assigned"
+						: "invoice_project_assignment_deferred",
+					fromStatus: "needs_review",
+					toStatus: "needs_review",
+					payload: {
+						projectId: resolution.selectedSiteId,
+						confidence: resolution.confidence,
+						reason: resolution.summary.reason,
+						margin: resolution.summary.margin ?? null,
+						conflictDetected: resolution.summary.conflictDetected,
+					} satisfies Prisma.InputJsonValue,
+				},
+			});
+		});
+	} catch (error) {
+		await prisma.tgemInvoiceCase.update({
+			where: { id: input.invoiceCaseId },
+			data: {
+				projectMatchConfidence: null,
+				projectMatchMethod: "unassigned",
+				projectMatchSummary: {
+					reason: "resolution_failed",
+				},
+			},
+		});
+		await prisma.tgemInvoiceAuditEvent.create({
+			data: {
+				invoiceCaseId: input.invoiceCaseId,
+				organizationId: input.organizationId,
+				actorUserId: null,
+				actorType: "system",
+				eventType: "invoice_project_assignment_deferred",
+				fromStatus: "needs_review",
+				toStatus: "needs_review",
+				payload: {
+					reason: "resolution_failed",
+					errorType: error instanceof Error ? error.name : "UnknownError",
+				},
+			},
+		});
+	}
+}
 
 async function processTgemInvoiceCaseInternal(
 	input: ProcessTgemInvoiceCaseInput,
@@ -61,6 +158,7 @@ async function processTgemInvoiceCaseInternal(
 			documentId: input.documentId,
 			result,
 		});
+		await resolveEmailInvoiceProject(input, result);
 		await prisma.tgemInvoiceAuditEvent.create({
 			data: {
 				invoiceCaseId: input.invoiceCaseId,

@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
-
+import { withWorkflow } from "workflow/next";
 
 // const { PrismaPlugin } = require("@prisma/nextjs-monorepo-workaround-plugin");
 // const withBundleAnalyzer = require("@next/bundle-analyzer")({
@@ -12,32 +12,32 @@ import createNextIntlPlugin from "next-intl/plugin";
 // //------------------------------
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    root: process.cwd(),
-  },
-  images: {
-    qualities: [75, 90],
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "utfs.io",
-        port: "",
-      },
-      {
-        protocol: "https",
-        hostname: "*.ufs.sh",
-      },
-      {
-        protocol: "https",
-        hostname: "ufs.sh",
-      },
-    ],
-  },
+	turbopack: {
+		root: process.cwd(),
+	},
+	images: {
+		qualities: [75, 90],
+		remotePatterns: [
+			{
+				protocol: "https",
+				hostname: "utfs.io",
+				port: "",
+			},
+			{
+				protocol: "https",
+				hostname: "*.ufs.sh",
+			},
+			{
+				protocol: "https",
+				hostname: "ufs.sh",
+			},
+		],
+	},
 
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-}
+	typescript: {
+		ignoreBuildErrors: true,
+	},
+};
 
 //   webpack: (config, { isServer }) => {
 //     if (isServer) {
@@ -47,7 +47,6 @@ const nextConfig: NextConfig = {
 //   },
 // };
 
-
 //comment this in for bundle analyzer
 // export default withBundleAnalyzer(nextConfig);
 
@@ -55,6 +54,4 @@ const nextConfig: NextConfig = {
 
 //Comment this in for production
 const withNextIntl = createNextIntlPlugin();
-export default withNextIntl(nextConfig);
-
-
+export default withWorkflow(withNextIntl(nextConfig));

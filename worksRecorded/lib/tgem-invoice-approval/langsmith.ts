@@ -82,8 +82,8 @@ export function buildTgemInvoiceProcessingTraceInput(input: {
 	documentId: string;
 	organizationId: string;
 	siteId?: string | null;
-	actorUserId: string;
-	actorType: "user" | "whatsapp";
+	actorUserId: string | null;
+	actorType: "user" | "whatsapp" | "email";
 	source: TgemInvoiceSource;
 	content: Buffer | (() => Promise<Buffer>);
 	contentType: string;

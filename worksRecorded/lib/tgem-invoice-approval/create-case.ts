@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { traceable } from "langsmith/traceable";
 
 import {
@@ -35,6 +35,9 @@ async function createTgemInvoiceCaseRecordInternal({
 			source: normalized.source,
 			sourceMessageId: normalized.sourceMessageId,
 			sourceSender: normalized.sourceSender,
+			sourceContext: normalized.sourceContext
+				? (normalized.sourceContext as Prisma.InputJsonObject)
+				: undefined,
 			status: normalized.status,
 			ocrStatus: normalized.ocrStatus,
 			extractionStatus: normalized.extractionStatus,

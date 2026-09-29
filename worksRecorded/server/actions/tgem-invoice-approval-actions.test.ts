@@ -551,6 +551,8 @@ describe("TGEM invoice approval actions", () => {
 			where: { id: "case-1", updatedAt },
 			data: {
 				siteId: "site-2",
+				projectMatchConfidence: null,
+				projectMatchMethod: "manual",
 				status: "needs_review",
 				approvedAt: null,
 			},
@@ -612,6 +614,8 @@ describe("TGEM invoice approval actions", () => {
 				where: { id: "case-1", updatedAt },
 				data: {
 					siteId: "site-2",
+					projectMatchConfidence: null,
+					projectMatchMethod: "manual",
 					status: nextStatus,
 					...(clearsApproval ? { approvedAt: null } : {}),
 				},

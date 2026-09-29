@@ -6,6 +6,20 @@ import type { UploadThingUrlLike } from "@/lib/utils/uploadthing-file-url";
 
 export const TGEM_INVOICE_SOURCES = ["dashboard", "whatsapp", "email"] as const;
 export type TgemInvoiceSource = (typeof TGEM_INVOICE_SOURCES)[number];
+export const TGEM_INVOICE_CONTENT_TYPES = [
+	"application/pdf",
+	"image/jpeg",
+	"image/png",
+	"image/webp",
+] as const;
+export const MAX_TGEM_INVOICE_BYTES = 16 * 1024 * 1024;
+
+export type TgemInvoiceSourceContext = {
+	sender?: string | null;
+	subject?: string | null;
+	cc?: string[];
+	description?: string | null;
+};
 
 export type TgemInvoiceIntakeInput = {
 	organizationId: string;
@@ -20,6 +34,7 @@ export type TgemInvoiceIntakeInput = {
 	contentType: string;
 	byteSize?: number | null;
 	sha256?: string | null;
+	sourceContext?: TgemInvoiceSourceContext | null;
 };
 
 export type TgemInvoiceIntakeRecord = {
@@ -30,6 +45,7 @@ export type TgemInvoiceIntakeRecord = {
 	source: TgemInvoiceSource;
 	sourceMessageId: string | null;
 	sourceSender: string | null;
+	sourceContext: TgemInvoiceSourceContext | null;
 	status: "received";
 	ocrStatus: "pending";
 	extractionStatus: "pending";
@@ -63,7 +79,9 @@ export function buildTgemInvoiceIdempotencyKey(input: {
 
 export function isSupportedTgemInvoiceContentType(contentType: string) {
 	const normalized = contentType.trim().toLowerCase();
-	return normalized === "application/pdf" || normalized.startsWith("image/");
+	return TGEM_INVOICE_CONTENT_TYPES.some(
+		(supportedType) => supportedType === normalized,
+	);
 }
 
 export function normalizeTgemInvoiceIntake(
@@ -101,6 +119,7 @@ export function normalizeTgemInvoiceIntake(
 		source: input.source,
 		sourceMessageId: input.sourceMessageId ?? null,
 		sourceSender: input.sourceSender ?? null,
+		sourceContext: input.sourceContext ?? null,
 		status: "received",
 		ocrStatus: "pending",
 		extractionStatus: "pending",

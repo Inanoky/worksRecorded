@@ -16,6 +16,7 @@ describe("TGEM invoice intake", () => {
 		contentType: "application/pdf",
 		byteSize: 1200,
 		sha256: "hash-1",
+		sourceContext: null,
 	};
 
 	it("normalizes all intake sources into one persisted shape", () => {
@@ -27,6 +28,7 @@ describe("TGEM invoice intake", () => {
 			source: "whatsapp",
 			sourceMessageId: "wamid-1",
 			sourceSender: "+37120000000",
+			sourceContext: null,
 			status: "received",
 			ocrStatus: "pending",
 			extractionStatus: "pending",
@@ -63,5 +65,8 @@ describe("TGEM invoice intake", () => {
 				source: "email",
 			}),
 		).toThrow("source message ID or storage identifier");
+		expect(() =>
+			normalizeTgemInvoiceIntake({ ...baseInput, contentType: "image/gif" }),
+		).toThrow("Unsupported TGEM invoice content type");
 	});
 });
