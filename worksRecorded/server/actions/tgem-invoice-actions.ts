@@ -82,6 +82,7 @@ export async function getTgemInvoiceCase(invoiceCaseId: string) {
 		where: {
 			id: invoiceCaseId,
 			organizationId: dbUser.organizationId,
+			archivedAt: null,
 		},
 		include: {
 			documents: {
@@ -141,6 +142,7 @@ export async function runTgemInvoiceOcr(input: {
 			invoiceCase: {
 				id: input.invoiceCaseId,
 				organizationId: dbUser.organizationId,
+				archivedAt: null,
 			},
 		},
 		select: {
@@ -194,6 +196,7 @@ export async function getTgemInvoiceProcessingStatus(input: {
 		where: {
 			id: input.invoiceCaseId,
 			organizationId: dbUser.organizationId,
+			archivedAt: null,
 			documents: { some: { id: input.documentId } },
 		},
 		select: {
@@ -464,6 +467,7 @@ export async function getTgemInvoiceDashboardData(
 			prisma.tgemInvoiceCase.findMany({
 				where: {
 					organizationId: dbUser.organizationId,
+					archivedAt: null,
 					...(projectFilter === TGEM_UNASSIGNED_PROJECT_FILTER
 						? { siteId: null }
 						: selectedProject

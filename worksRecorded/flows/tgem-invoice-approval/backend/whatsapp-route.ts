@@ -261,6 +261,7 @@ async function handleTgemInvoiceWhatsappRouteInternal(
 		select: {
 			id: true,
 			status: true,
+			archivedAt: true,
 			documents: {
 				orderBy: { createdAt: "asc" },
 				take: 1,
@@ -270,7 +271,11 @@ async function handleTgemInvoiceWhatsappRouteInternal(
 	});
 	if (existingInvoice) {
 		const existingDocument = existingInvoice.documents?.[0];
-		if (existingInvoice.status === "received" && existingDocument) {
+		if (
+			!existingInvoice.archivedAt &&
+			existingInvoice.status === "received" &&
+			existingDocument
+		) {
 			await enqueueTgemInvoiceProcessing({
 				invoiceCaseId: existingInvoice.id,
 				documentId: existingDocument.id,

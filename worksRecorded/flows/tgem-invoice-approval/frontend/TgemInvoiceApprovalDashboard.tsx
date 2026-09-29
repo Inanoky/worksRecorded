@@ -2,6 +2,7 @@
 
 import {
 	AlertTriangle,
+	Archive,
 	ArrowDown,
 	ArrowRight,
 	ArrowUp,
@@ -21,10 +22,10 @@ import {
 	Pencil,
 	ReceiptText,
 	Search,
-	Trash2,
 	X,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 import { DashboardOrganizationBrand } from "@/components/dashboard/DashboardOrganizationBrand";
 import {
@@ -93,7 +94,7 @@ import {
 	assignTgemInvoiceProject,
 	markTgemInvoicePaid,
 } from "@/server/actions/tgem-invoice-approval-actions";
-import { deleteTgemInvoices } from "@/server/actions/tgem-invoice-delete-actions";
+import { archiveTgemInvoices } from "@/server/actions/tgem-invoice-archive-actions";
 import { updateTgemInvoiceDetail } from "@/server/actions/tgem-invoice-details-actions";
 import { TgemApprovalControls } from "./TgemApprovalControls";
 import { TgemImageViewer } from "./TgemImageViewer";
@@ -140,24 +141,24 @@ function getCopy(language?: string | null) {
 			noOcrText: "OCR teksts vēl nav pieejams.",
 			approvalWorkspace: "Apstiprināšanas skats",
 			allInvoices: "Visi rēķini",
-			deleteInvoice: "Dzēst rēķinu",
-			deleteSelected: "Dzēst atlasītos",
+			deleteInvoice: "Arhivēt rēķinu",
+			deleteSelected: "Arhivēt atlasītos",
 			selectInvoice: "Atlasīt rēķinu",
 			selectAllInvoices: "Atlasīt visus redzamos rēķinus",
-			deleteTitle: "Vai tiešām vēlaties dzēst?",
+			deleteTitle: "Vai tiešām vēlaties arhivēt?",
 			deleteDescription:
-				"Atlasītie rēķini, to pozīcijas, dokumentu ieraksti un apstiprināšanas vēsture tiks neatgriezeniski dzēsti.",
-			confirmDelete: "Jā, dzēst",
+				"Atlasītie rēķini vairs nebūs redzami klienta skatos, bet to dokumenti, pozīcijas un apstiprināšanas vēsture tiks saglabāta arhīvā.",
+			confirmDelete: "Jā, arhivēt",
 			cancelDelete: "Atcelt",
-			deletingInvoices: "Dzēš…",
-			deleteFailed: "Neizdevās dzēst rēķinus. Mēģiniet vēlreiz.",
+			deletingInvoices: "Arhivē…",
+			deleteFailed: "Neizdevās arhivēt rēķinus. Mēģiniet vēlreiz.",
 			deleteConflict:
 				"Kāds no rēķiniem ir mainīts. Atceliet un atlasiet rēķinus vēlreiz.",
 			deleteProcessing: "Rēķini vēl tiek apstrādāti. Mēģiniet vēlāk.",
 			deleteAccessDenied:
 				"Kāds no rēķiniem vairs nav pieejams vai jums nav piekļuves.",
-			deleteLimit: "Vienlaikus var dzēst līdz 1000 rēķiniem.",
-			deletedInvoices: "Dzēstie rēķini",
+			deleteLimit: "Vienlaikus var arhivēt līdz 1000 rēķiniem.",
+			deletedInvoices: "Arhivētie rēķini",
 			registerDescription:
 				"Meklējiet un pārskatiet visus šī projekta rēķinus vienuviet.",
 			searchInvoices: "Meklēt pēc numura vai piegādātāja",
@@ -288,6 +289,8 @@ function getCopy(language?: string | null) {
 				invoice_accounting_updated: "Mainīta rēķina klasifikācija",
 				invoice_details_updated: "Laboti rēķina dati",
 				invoice_marked_paid: "Rēķins atzīmēts kā apmaksāts",
+				invoice_archived: "Rēķins arhivēts",
+				invoice_restored: "Rēķins atjaunots no arhīva",
 			},
 			actors: {
 				user: "Lietotājs",
@@ -329,24 +332,24 @@ function getCopy(language?: string | null) {
 			noOcrText: "Текст OCR пока недоступен.",
 			approvalWorkspace: "Согласование",
 			allInvoices: "Все счета",
-			deleteInvoice: "Удалить счёт",
-			deleteSelected: "Удалить выбранные",
+			deleteInvoice: "Архивировать счёт",
+			deleteSelected: "Архивировать выбранные",
 			selectInvoice: "Выбрать счёт",
 			selectAllInvoices: "Выбрать все видимые счета",
-			deleteTitle: "Вы уверены, что хотите удалить?",
+			deleteTitle: "Вы уверены, что хотите архивировать?",
 			deleteDescription:
-				"Выбранные счета, их позиции, записи документов и история согласования будут удалены безвозвратно.",
-			confirmDelete: "Да, удалить",
+				"Выбранные счета больше не будут видны клиенту, но документы, позиции и история согласования сохранятся в архиве.",
+			confirmDelete: "Да, архивировать",
 			cancelDelete: "Отмена",
-			deletingInvoices: "Удаление…",
-			deleteFailed: "Не удалось удалить счета. Попробуйте ещё раз.",
+			deletingInvoices: "Архивирование…",
+			deleteFailed: "Не удалось архивировать счета. Попробуйте ещё раз.",
 			deleteConflict:
 				"Один из счетов изменён. Отмените действие и выберите счета повторно.",
 			deleteProcessing: "Счета ещё обрабатываются. Попробуйте позже.",
 			deleteAccessDenied:
 				"Один из счетов больше не доступен или у вас нет доступа.",
-			deleteLimit: "Можно удалить до 1000 счетов за один раз.",
-			deletedInvoices: "Удалено счетов",
+			deleteLimit: "Можно архивировать до 1000 счетов за один раз.",
+			deletedInvoices: "Архивировано счетов",
 			registerDescription:
 				"Ищите и просматривайте все счета этого проекта в одном месте.",
 			searchInvoices: "Поиск по номеру или поставщику",
@@ -477,6 +480,8 @@ function getCopy(language?: string | null) {
 				invoice_accounting_updated: "Классификация счета изменена",
 				invoice_details_updated: "Данные счета исправлены",
 				invoice_marked_paid: "Счёт отмечен как оплаченный",
+				invoice_archived: "Счёт архивирован",
+				invoice_restored: "Счёт восстановлен из архива",
 			},
 			actors: {
 				user: "Пользователь",
@@ -517,24 +522,24 @@ function getCopy(language?: string | null) {
 		noOcrText: "OCR text is not available yet.",
 		approvalWorkspace: "Approval workspace",
 		allInvoices: "All invoices",
-		deleteInvoice: "Delete invoice",
-		deleteSelected: "Delete selected",
+		deleteInvoice: "Archive invoice",
+		deleteSelected: "Archive selected",
 		selectInvoice: "Select invoice",
 		selectAllInvoices: "Select all visible invoices",
-		deleteTitle: "Are you sure you want to delete?",
+		deleteTitle: "Are you sure you want to archive?",
 		deleteDescription:
-			"The selected invoices, their line items, document records, and approval history will be permanently deleted.",
-		confirmDelete: "Yes, delete",
+			"The selected invoices will be hidden from customer views while their documents, line items, and approval history remain archived.",
+		confirmDelete: "Yes, archive",
 		cancelDelete: "Cancel",
-		deletingInvoices: "Deleting…",
-		deleteFailed: "Could not delete invoices. Please try again.",
+		deletingInvoices: "Archiving…",
+		deleteFailed: "Could not archive invoices. Please try again.",
 		deleteConflict:
 			"An invoice has changed. Cancel and select the invoices again.",
 		deleteProcessing: "Invoices are still processing. Please try again later.",
 		deleteAccessDenied:
 			"An invoice is no longer available or you do not have access.",
-		deleteLimit: "You can delete up to 1000 invoices at a time.",
-		deletedInvoices: "Invoices deleted",
+		deleteLimit: "You can archive up to 1000 invoices at a time.",
+		deletedInvoices: "Invoices archived",
 		registerDescription:
 			"Search and review every invoice for this project in one place.",
 		searchInvoices: "Search by number or supplier",
@@ -664,6 +669,8 @@ function getCopy(language?: string | null) {
 			invoice_accounting_updated: "Invoice classification changed",
 			invoice_details_updated: "Invoice details corrected",
 			invoice_marked_paid: "Invoice marked as paid",
+			invoice_archived: "Invoice archived",
+			invoice_restored: "Invoice restored from archive",
 		},
 		actors: {
 			user: "User",
@@ -1049,7 +1056,7 @@ function InvoiceRegister({
 		setDeleting(true);
 		setDeleteError(null);
 		try {
-			const result = await deleteTgemInvoices(
+			const result = await archiveTgemInvoices(
 				deleteTargets.map(({ id, updatedAt }) => ({ id, updatedAt })),
 			);
 			if (!result.ok) {
@@ -1064,11 +1071,11 @@ function InvoiceRegister({
 				);
 				return;
 			}
-			setDeletedIds((current) => new Set([...current, ...result.deletedIds]));
+			setDeletedIds((current) => new Set([...current, ...result.archivedIds]));
 			setSelectedIds(new Set());
 			setDeleteTargets([]);
 			setPreviewInvoiceId(null);
-			setDeletedCount(result.deletedIds.length);
+			setDeletedCount(result.archivedIds.length);
 			try {
 				await onChanged();
 			} catch {}
@@ -1199,7 +1206,7 @@ function InvoiceRegister({
 								disabled={deleting}
 								onClick={() => requestDelete(selectedInvoices)}
 							>
-								<Trash2 className="h-4 w-4" />
+								<Archive className="h-4 w-4" />
 								{copy.deleteSelected} ({selectedInvoices.length})
 							</Button>
 						) : null}
@@ -1427,7 +1434,7 @@ function InvoiceRegister({
 													}}
 													className="text-destructive hover:text-destructive"
 												>
-													<Trash2 className="h-4 w-4" />
+													<Archive className="h-4 w-4" />
 												</Button>
 												<ArrowRight className="inline h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
 											</TableCell>
@@ -1518,7 +1525,7 @@ function InvoiceRegister({
 										onClick={() => requestDelete([invoice])}
 										className="shrink-0 text-destructive hover:text-destructive"
 									>
-										<Trash2 className="h-4 w-4" />
+										<Archive className="h-4 w-4" />
 									</Button>
 								</div>
 							);
@@ -2591,6 +2598,7 @@ export function TgemInvoiceApprovalDashboard({
 	organizationLanguage,
 }: Props) {
 	const copy = getCopy(organizationLanguage);
+	const router = useRouter();
 	const initialFilter =
 		initialProjectFilter !== undefined
 			? (initialProjectFilter ?? "all")
@@ -2625,9 +2633,9 @@ export function TgemInvoiceApprovalDashboard({
 			const url = new URL(window.location.href);
 			if (nextView === "approval") url.searchParams.set("view", "approval");
 			else url.searchParams.delete("view");
-			window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+			router.replace(`${url.pathname}${url.search}`, { scroll: false });
 		},
-		[],
+		[router],
 	);
 	const loadData = React.useCallback(
 		async (preferredInvoiceId?: string) => {
@@ -2657,17 +2665,20 @@ export function TgemInvoiceApprovalDashboard({
 		[projectFilter],
 	);
 
-	const changeProjectFilter = React.useCallback((nextFilter: string) => {
-		setProjectFilter(nextFilter);
-		setSelectedInvoiceId(null);
-		setRegisterFilters(createDefaultTgemInvoiceRegisterFilters());
-		if (typeof window !== "undefined") {
-			const url = new URL(window.location.href);
-			if (nextFilter === "all") url.searchParams.delete("project");
-			else url.searchParams.set("project", nextFilter);
-			window.history.replaceState(null, "", `${url.pathname}${url.search}`);
-		}
-	}, []);
+	const changeProjectFilter = React.useCallback(
+		(nextFilter: string) => {
+			setProjectFilter(nextFilter);
+			setSelectedInvoiceId(null);
+			setRegisterFilters(createDefaultTgemInvoiceRegisterFilters());
+			if (typeof window !== "undefined") {
+				const url = new URL(window.location.href);
+				if (nextFilter === "all") url.searchParams.delete("project");
+				else url.searchParams.set("project", nextFilter);
+				router.replace(`${url.pathname}${url.search}`, { scroll: false });
+			}
+		},
+		[router],
+	);
 
 	React.useEffect(() => {
 		let active = true;

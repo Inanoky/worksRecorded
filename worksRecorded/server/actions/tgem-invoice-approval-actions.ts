@@ -183,6 +183,7 @@ export async function assignTgemInvoiceProject(input: {
 		const invoiceCase = await tx.tgemInvoiceCase.findFirst({
 			where: {
 				id: input.invoiceCaseId,
+				archivedAt: null,
 				organization: {
 					users: { some: { id: user.id, status: "active" } },
 				},
@@ -228,6 +229,7 @@ export async function assignTgemInvoiceProject(input: {
 		const claimed = await tx.tgemInvoiceCase.updateMany({
 			where: {
 				id: invoiceCase.id,
+				archivedAt: null,
 				updatedAt: expectedUpdatedAt,
 			},
 			data: {
@@ -361,6 +363,7 @@ export async function markTgemInvoicePaid(input: {
 		const invoiceCase = await tx.tgemInvoiceCase.findFirst({
 			where: {
 				id: input.invoiceCaseId,
+				archivedAt: null,
 				organization: {
 					users: { some: { id: user.id, status: "active" } },
 				},
@@ -388,6 +391,7 @@ export async function markTgemInvoicePaid(input: {
 		const updated = await tx.tgemInvoiceCase.updateMany({
 			where: {
 				id: invoiceCase.id,
+				archivedAt: null,
 				updatedAt: expectedUpdatedAt,
 				status: "approved",
 				paymentStatus: "unpaid",
@@ -438,6 +442,7 @@ export async function decideTgemInvoiceApproval(input: {
 		const invoiceCase = await tx.tgemInvoiceCase.findFirst({
 			where: {
 				id: input.invoiceCaseId,
+				archivedAt: null,
 				status: "in_approval",
 				organization: {
 					users: { some: { id: user.id, status: "active" } },
@@ -465,6 +470,18 @@ export async function decideTgemInvoiceApproval(input: {
 		}
 
 		const decidedAt = new Date();
+		const parentClaim = await tx.tgemInvoiceCase.updateMany({
+			where: {
+				id: invoiceCase.id,
+				archivedAt: null,
+				status: "in_approval",
+				approvalRound: invoiceCase.approvalRound,
+			},
+			data: { updatedAt: decidedAt },
+		});
+		if (parentClaim.count !== 1) {
+			throw new Error("Invoice approval is not available");
+		}
 		const stepStatus =
 			input.decision === "approve"
 				? "approved"
@@ -501,10 +518,13 @@ export async function decideTgemInvoiceApproval(input: {
 				});
 			} else {
 				resultingInvoiceStatus = "approved";
-				await tx.tgemInvoiceCase.update({
-					where: { id: invoiceCase.id },
+				const updated = await tx.tgemInvoiceCase.updateMany({
+					where: { id: invoiceCase.id, archivedAt: null },
 					data: { status: "approved", approvedAt: decidedAt },
 				});
+				if (updated.count !== 1) {
+					throw new Error("Invoice approval is not available");
+				}
 			}
 		} else {
 			const nextStatus =
@@ -519,10 +539,13 @@ export async function decideTgemInvoiceApproval(input: {
 				},
 				data: { status: "cancelled" },
 			});
-			await tx.tgemInvoiceCase.update({
-				where: { id: invoiceCase.id },
+			const updated = await tx.tgemInvoiceCase.updateMany({
+				where: { id: invoiceCase.id, archivedAt: null },
 				data: { status: nextStatus },
 			});
+			if (updated.count !== 1) {
+				throw new Error("Invoice approval is not available");
+			}
 		}
 
 		const eventSuffix =

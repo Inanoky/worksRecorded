@@ -109,6 +109,7 @@ describe("TGEM cost code actions", () => {
 		expect(mockPrisma.tgemInvoiceCase.updateMany).toHaveBeenCalledWith({
 			where: {
 				id: "invoice-1",
+				archivedAt: null,
 				updatedAt: new Date("2026-09-16T10:00:00.000Z"),
 			},
 			data: { invoiceType: "credit", costCode: "A123" },

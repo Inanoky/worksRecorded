@@ -4,7 +4,11 @@ const mockPersistTgemInvoiceOcrResult = jest.fn();
 const mockStartTgemInvoiceApproval = jest.fn();
 const mockPrisma = {
 	site: { findFirst: jest.fn(), findMany: jest.fn() },
-	tgemInvoiceCase: { findMany: jest.fn(), update: jest.fn() },
+	tgemInvoiceCase: {
+		findMany: jest.fn(),
+		update: jest.fn(),
+		updateMany: jest.fn(),
+	},
 	tgemInvoiceDocument: { findFirst: jest.fn() },
 	tgemInvoiceAuditEvent: { create: jest.fn() },
 	user: { findFirst: jest.fn(), findMany: jest.fn(), findUnique: jest.fn() },
@@ -133,7 +137,9 @@ describe("TGEM invoice dashboard authorization data", () => {
 		const result = await getTgemInvoiceDashboardData();
 
 		expect(mockPrisma.tgemInvoiceCase.findMany).toHaveBeenCalledWith(
-			expect.objectContaining({ where: { organizationId: "org-1" } }),
+			expect.objectContaining({
+				where: { organizationId: "org-1", archivedAt: null },
+			}),
 		);
 		expect(result).toEqual(
 			expect.objectContaining({
@@ -151,7 +157,7 @@ describe("TGEM invoice dashboard authorization data", () => {
 
 		expect(mockPrisma.tgemInvoiceCase.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({
-				where: { organizationId: "org-1", siteId: null },
+				where: { organizationId: "org-1", archivedAt: null, siteId: null },
 			}),
 		);
 	});
@@ -276,6 +282,7 @@ describe("TGEM invoice processing", () => {
 			currentApproverUserId: "approver-1",
 			finalApproverUserId: "approver-3",
 		});
+		mockPrisma.tgemInvoiceCase.updateMany.mockResolvedValue({ count: 1 });
 	});
 
 	afterAll(() => {

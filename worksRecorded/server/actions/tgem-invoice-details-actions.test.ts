@@ -53,12 +53,13 @@ describe("TGEM invoice detail corrections", () => {
 			select: { organizationId: true },
 		});
 		expect(mockPrisma.tgemInvoiceCase.findFirst.mock.calls[0][0].where).toEqual(
-			{ id: "invoice-1", organizationId: "org-1" },
+			{ id: "invoice-1", organizationId: "org-1", archivedAt: null },
 		);
 		const write = mockPrisma.tgemInvoiceCase.updateMany.mock.calls[0][0];
 		expect(write.where).toEqual({
 			id: "invoice-1",
 			organizationId: "org-1",
+			archivedAt: null,
 			updatedAt: invoice.updatedAt,
 		});
 		expect(Object.keys(write.data).sort()).toEqual([

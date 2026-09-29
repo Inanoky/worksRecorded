@@ -453,6 +453,7 @@ describe("TGEM invoice approval actions", () => {
 		expect(mockPrisma.tgemInvoiceCase.updateMany).toHaveBeenCalledWith({
 			where: {
 				id: "case-1",
+				archivedAt: null,
 				updatedAt,
 				status: "approved",
 				paymentStatus: "unpaid",
@@ -548,7 +549,7 @@ describe("TGEM invoice approval actions", () => {
 			unchanged: false,
 		});
 		expect(mockPrisma.tgemInvoiceCase.updateMany).toHaveBeenCalledWith({
-			where: { id: "case-1", updatedAt },
+			where: { id: "case-1", archivedAt: null, updatedAt },
 			data: {
 				siteId: "site-2",
 				projectMatchConfidence: null,
@@ -611,7 +612,7 @@ describe("TGEM invoice approval actions", () => {
 			});
 
 			expect(mockPrisma.tgemInvoiceCase.updateMany).toHaveBeenCalledWith({
-				where: { id: "case-1", updatedAt },
+				where: { id: "case-1", archivedAt: null, updatedAt },
 				data: {
 					siteId: "site-2",
 					projectMatchConfidence: null,
@@ -828,8 +829,8 @@ describe("TGEM invoice approval actions", () => {
 			},
 			data: { status: "cancelled" },
 		});
-		expect(mockPrisma.tgemInvoiceCase.update).toHaveBeenCalledWith({
-			where: { id: "case-1" },
+		expect(mockPrisma.tgemInvoiceCase.updateMany).toHaveBeenLastCalledWith({
+			where: { id: "case-1", archivedAt: null },
 			data: { status: "changes_requested" },
 		});
 	});
