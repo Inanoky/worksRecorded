@@ -4803,10 +4803,10 @@ export async function getPhotosByDate({
 }
 
 export async function deletePhotoById(id: string) {
-  const { siteId } = await deleteDiaryPhoto(id);
+  const { siteId, deletedUrls } = await deleteDiaryPhoto(id);
   revalidatePath(`/dashboard/sites/${siteId}`, "layout");
   revalidatePath("/dashboard/all-projects");
-  return { ok: true };
+  return { ok: true, siteId, deletedUrls };
 }
 
 function parsePhotoMoveTargetDate(value: string) {

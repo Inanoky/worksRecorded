@@ -1,4 +1,5 @@
 import { hasInlineDiaryPhotos } from "@/flows/default-construction/lib/diary-photos";
+import { deleteVisualPhotoEvidence } from "@/flows/default-construction/visual/delete-photo-evidence";
 import { PHOTO_MEDIA_PURPOSE_WAREHOUSE_INVOICE } from "@/lib/photos/media-purpose";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
@@ -25,7 +26,7 @@ export async function deleteDiaryPhoto(id: string) {
 		);
 	}
 	const siteId = photo.siteId;
-	await prisma.$transaction(async (tx) => {
+	const deletedUrls = await prisma.$transaction(async (tx) => {
 		const deleted = await tx.photos.delete({
 			where: {
 				id,
@@ -35,7 +36,7 @@ export async function deleteDiaryPhoto(id: string) {
 			},
 			select: { URL: true, fileUrl: true },
 		});
-		if (!hasInlineDiaryPhotos(site.organizationId)) return;
+		if (!hasInlineDiaryPhotos(site.organizationId)) return [];
 		const urls = [
 			...new Set(
 				[deleted.URL, deleted.fileUrl].filter(
@@ -51,6 +52,8 @@ export async function deleteDiaryPhoto(id: string) {
           AND ${url} = ANY("Photos")
       `;
 		}
+		await deleteVisualPhotoEvidence(tx, siteId, site.organizationId, urls);
+		return urls;
 	});
-	return { siteId };
+	return { siteId, deletedUrls };
 }

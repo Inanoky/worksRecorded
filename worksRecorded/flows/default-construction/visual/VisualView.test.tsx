@@ -7,6 +7,7 @@ import {
 	within,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { DIARY_PHOTO_DELETED } from "@/lib/photos/photo-deleted-event";
 import {
 	deleteVisualDrawing,
 	getVisualDrawings,
@@ -147,10 +148,63 @@ async function selectDrawing() {
 	await selectLocation();
 }
 
+it("hides and shows all layers instantly, including from a mixed selection", async () => {
+	await selectDrawing();
+	mockFetch.mockClear();
+	const pdf = screen.getByTestId("pdf");
+	fireEvent.click(screen.getByRole("checkbox", { name: "Paslēpt visus" }));
+	expect(pdf).toHaveTextContent("0 zones");
+	expect(
+		screen.getByRole("checkbox", { name: "Smilts (1)" }),
+	).not.toBeChecked();
+	fireEvent.click(screen.getByRole("checkbox", { name: "Rādīt visus" }));
+	expect(pdf).toHaveTextContent("1 zones");
+	fireEvent.click(screen.getByRole("checkbox", { name: "Smilts (1)" }));
+	expect(screen.getByRole("checkbox", { name: "Rādīt visus" })).toHaveAttribute(
+		"aria-checked",
+		"mixed",
+	);
+	fireEvent.click(screen.getByRole("checkbox", { name: "Rādīt visus" }));
+	expect(pdf).toHaveTextContent("1 zones");
+	expect(screen.getByRole("checkbox", { name: "Paslēpt visus" })).toBeChecked();
+	expect(screen.getByTestId("pdf")).toBe(pdf);
+	expect(mockFetch).not.toHaveBeenCalled();
+});
+
+it("removes deleted-photo zones from the retained view without reloading or changing location", async () => {
+	await selectDrawing();
+	const pdf = screen.getByTestId("pdf");
+	mockFetch.mockClear();
+	act(() =>
+		window.dispatchEvent(
+			new CustomEvent(DIARY_PHOTO_DELETED, {
+				detail: {
+					siteId: "other",
+					deletedUrls: [complete.state.evidence[0].photoUrl],
+				},
+			}),
+		),
+	);
+	expect(pdf).toHaveTextContent("1 zones");
+	act(() =>
+		window.dispatchEvent(
+			new CustomEvent(DIARY_PHOTO_DELETED, {
+				detail: {
+					siteId: "site",
+					deletedUrls: [complete.state.evidence[0].photoUrl],
+				},
+			}),
+		),
+	);
+	expect(pdf).toHaveTextContent("0 zones");
+	expect(screen.getAllByRole("combobox")[0]).toHaveValue("1. stāvs");
+	expect(mockFetch).not.toHaveBeenCalled();
+});
+
 it("does not reload the PDF or call AI when the diary has no new photos", async () => {
 	jest
 		.mocked(refreshVisualDrawing)
-		.mockResolvedValue({ drawing: complete, addedCount: 0 });
+		.mockResolvedValue({ drawing: complete, addedCount: 0, removedCount: 0 });
 	await selectDrawing();
 	const pdf = screen.getByTestId("pdf");
 	mockFetch.mockClear();
@@ -177,7 +231,7 @@ it("keeps existing zones visible while analyzing appended diary photos in the sa
 	};
 	jest
 		.mocked(refreshVisualDrawing)
-		.mockResolvedValue({ drawing: updated, addedCount: 1 });
+		.mockResolvedValue({ drawing: updated, addedCount: 1, removedCount: 0 });
 	await selectDrawing();
 	const pdf = screen.getByTestId("pdf");
 	let finish!: (value: unknown) => void;

@@ -24,6 +24,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import {
+	DIARY_PHOTO_DELETED,
+	type DiaryPhotoDeleted,
+} from "@/lib/photos/photo-deleted-event";
 import { useUploadThing } from "@/lib/utils/UploadthingsComponents";
 import { DiaryRecordPhotos } from "../frontend/DiaryRecordPhotos";
 import {
@@ -41,6 +45,7 @@ import {
 	type VisualLayer,
 	visualLayers,
 } from "./model";
+import { pruneVisualEvidence } from "./prune-evidence";
 import {
 	buildVisualTimeline,
 	cumulativeVisualMarks,
@@ -113,6 +118,24 @@ export default function VisualView({ siteId }: { siteId: string }) {
 		};
 	}, [siteId]);
 	const pollDrawingId = drawing?.id;
+	useEffect(() => {
+		function onPhotoDeleted(event: Event) {
+			const detail = (event as CustomEvent<DiaryPhotoDeleted>).detail;
+			if (detail.siteId !== siteId) return;
+			const urls = new Set(detail.deletedUrls);
+			setDrawing((previous) => {
+				if (!previous) return previous;
+				const state = pruneVisualEvidence(
+					previous.state,
+					(item) => !urls.has(item.photoUrl),
+				);
+				return state === previous.state ? previous : { ...previous, state };
+			});
+		}
+		window.addEventListener(DIARY_PHOTO_DELETED, onPhotoDeleted);
+		return () =>
+			window.removeEventListener(DIARY_PHOTO_DELETED, onPhotoDeleted);
+	}, [siteId]);
 	const shouldPoll =
 		phase === "analyzing" || drawing?.state.status === "running";
 	useEffect(() => {
@@ -257,9 +280,11 @@ export default function VisualView({ siteId }: { siteId: string }) {
 				loaded = result.drawing;
 				setDrawing(loaded);
 				setNotice(
-					result.addedCount
-						? `Pievienoti ${result.addedCount} jauni attēli. Esošās zonas un labojumi ir saglabāti.`
-						: "Šai lokācijai nav jaunu žurnāla attēlu. Esošie rezultāti nav mainīti.",
+					result.removedCount
+						? `Noņemti ${result.removedCount} dzēsto foto avoti un to zonas. Pievienoti ${result.addedCount} jauni attēli.`
+						: result.addedCount
+							? `Pievienoti ${result.addedCount} jauni attēli. Esošās zonas un labojumi ir saglabāti.`
+							: "Šai lokācijai nav jaunu žurnāla attēlu. Esošie rezultāti nav mainīti.",
 				);
 				if (!result.addedCount) return;
 				setThroughDay(null);
@@ -566,6 +591,30 @@ export default function VisualView({ siteId }: { siteId: string }) {
 									<legend className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 										<Layers className="h-3.5 w-3.5" /> Darbu slāņi
 									</legend>
+									<label
+										htmlFor={`${fileId}-all-layers`}
+										className="mb-1 flex cursor-pointer items-center gap-2 border-b px-2 py-2 text-sm font-medium"
+									>
+										<Checkbox
+											id={`${fileId}-all-layers`}
+											checked={
+												layers.length === allLayers.length
+													? true
+													: layers.length
+														? "indeterminate"
+														: false
+											}
+											disabled={editing}
+											onCheckedChange={() =>
+												setLayers((values) =>
+													values.length === allLayers.length ? [] : allLayers,
+												)
+											}
+										/>
+										{layers.length === allLayers.length
+											? "Paslēpt visus"
+											: "Rādīt visus"}
+									</label>
 									{allLayers.map((key) => (
 										<label
 											key={key}

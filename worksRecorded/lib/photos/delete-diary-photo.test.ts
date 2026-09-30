@@ -11,6 +11,7 @@ jest.mock("@/lib/utils/requireUser", () => ({ requireUser: jest.fn() }));
 jest.mock("@/server/actions/shared-actions", () => ({ orgCheck: jest.fn() }));
 const remove = jest.fn();
 const execute = jest.fn();
+const drawings = jest.fn();
 const photo = {
 	siteId: "site",
 	organizationId: LIMENI_ORGANIZATION_ID,
@@ -27,8 +28,13 @@ beforeEach(() => {
 	jest
 		.mocked(prisma.$transaction)
 		.mockImplementation(async (run) =>
-			run({ photos: { delete: remove }, $executeRaw: execute } as never),
+			run({
+				photos: { delete: remove },
+				$executeRaw: execute,
+				$queryRaw: drawings,
+			} as never),
 		);
+	drawings.mockResolvedValue([]);
 	remove.mockResolvedValue({
 		URL: "https://host/original",
 		fileUrl: "https://host/stored",
@@ -37,7 +43,10 @@ beforeEach(() => {
 });
 
 it("atomically removes both photo URLs from Limeni diary records in the same project only", async () => {
-	expect(await deleteDiaryPhoto("photo")).toEqual({ siteId: "site" });
+	expect(await deleteDiaryPhoto("photo")).toEqual({
+		siteId: "site",
+		deletedUrls: ["https://host/original", "https://host/stored"],
+	});
 	expect(orgCheck).toHaveBeenCalledWith("user", "site");
 	expect(remove).toHaveBeenCalledWith({
 		where: { id: "photo", ...photo },
@@ -113,4 +122,12 @@ it("does not unlink when deletion fails or the photo changed project", async () 
 	remove.mockRejectedValue(new Error("Record not found"));
 	await expect(deleteDiaryPhoto("photo")).rejects.toThrow("Record not found");
 	expect(execute).not.toHaveBeenCalled();
+});
+
+it("rolls back photo deletion if drawing cleanup fails", async () => {
+	drawings.mockRejectedValue(new Error("drawing unavailable"));
+	await expect(deleteDiaryPhoto("photo")).rejects.toThrow(
+		"drawing unavailable",
+	);
+	expect(prisma.$transaction).toHaveBeenCalledTimes(1);
 });

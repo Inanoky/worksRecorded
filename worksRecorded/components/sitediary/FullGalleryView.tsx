@@ -19,8 +19,8 @@ import {
 } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDiaryImagePreload } from "@/flows/default-construction/frontend/useDiaryImagePreload";
+import { deletePhotoById } from "@/lib/photos/delete-photo-client";
 import { cn } from "@/lib/utils/utils";
-import { deletePhotoById } from "@/server/actions/site-diary-actions";
 
 // ----------------------------
 

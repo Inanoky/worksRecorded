@@ -22,9 +22,9 @@ import {
 	getSiteDiaryDialogMessages,
 	normalizeOrganizationLanguage,
 } from "@/lib/dashboard-i18n";
+import { deletePhotoById } from "@/lib/photos/delete-photo-client";
 import { cn } from "@/lib/utils/utils";
 import {
-	deletePhotoById,
 	getPhotosByDate,
 	movePhotosToDate,
 } from "@/server/actions/site-diary-actions";

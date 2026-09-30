@@ -16,6 +16,7 @@ import {
 	visualStateSchema,
 } from "./model";
 import { polygonEditSchema } from "./polygon-edit";
+import { pruneVisualEvidence } from "./prune-evidence";
 
 const archivedVisualType = `${VISUAL_DOCUMENT_TYPE}-archived`;
 
@@ -293,7 +294,7 @@ export async function appendVisualDiaryEvidence(
 	drawingId: string,
 ) {
 	const { row, drawing } = await loadVisualDrawing(userId, siteId, drawingId);
-	const state = drawing.state;
+	let state = drawing.state;
 	requireIdleDrawing(state);
 	if (!row.organizationId)
 		throw new Error("Rasējuma organizācija nav atrasta.");
@@ -304,11 +305,18 @@ export async function appendVisualDiaryEvidence(
 	);
 	const key = (item: { recordId: string; photoUrl: string }) =>
 		JSON.stringify([item.recordId, item.photoUrl]);
+	const currentKeys = new Set(current.map(key));
+	state = pruneVisualEvidence(state, (item) => currentKeys.has(key(item)));
+	const removedCount = drawing.state.evidence.length - state.evidence.length;
+	drawing.state = state;
 	const existing = new Set(state.evidence.map(key));
 	const added = current
 		.filter((item) => !existing.has(key(item)))
 		.map((item) => ({ ...item, id: `${item.recordId}:${randomUUID()}` }));
-	if (!added.length) return { drawing, addedCount: 0 };
+	if (!added.length) {
+		if (removedCount) await saveVisualState(row, state);
+		return { drawing, addedCount: 0, removedCount };
+	}
 	if (state.evidence.length + added.length > VISUAL_MAX_PHOTOS)
 		throw new Error(
 			`Lokācijai ir vairāk nekā ${VISUAL_MAX_PHOTOS} attēlu. Esošie rezultāti nav mainīti.`,
@@ -326,7 +334,7 @@ export async function appendVisualDiaryEvidence(
 	state.lockedAt = null;
 	state.error = null;
 	await saveVisualState(row, state);
-	return { drawing, addedCount: added.length };
+	return { drawing, addedCount: added.length, removedCount };
 }
 
 export async function removeVisualDrawing(
@@ -409,8 +417,17 @@ export async function resetVisualDrawing(
 ) {
 	const { row, drawing } = await loadVisualDrawing(userId, siteId, id);
 	requireIdleDrawing(drawing.state);
+	if (!row.organizationId) throw new Error("Drawing organization missing");
+	const evidence = await loadVisualEvidence(
+		siteId,
+		row.organizationId,
+		drawing.state.location,
+	);
+	if (evidence.length > VISUAL_MAX_PHOTOS)
+		throw new Error(`Too many photos (maximum ${VISUAL_MAX_PHOTOS})`);
 	const state: VisualState = {
 		...drawing.state,
+		evidence,
 		status: "uploaded",
 		processed: 0,
 		marks: [],

@@ -294,13 +294,69 @@ it("appends new linked photos without replacing snapshots, manual zones or compl
 	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
 });
 
-it("does not write when there are no new photos or previous photos were removed", async () => {
-	const { state } = await mockSavedDrawing();
+it("removes deleted sources and their zones even without new photos", async () => {
+	await mockEditableDrawing();
 	jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([]);
 	const result = await appendVisualDiaryEvidence("user", "site", "drawing");
 	expect(result.addedCount).toBe(0);
-	expect(result.drawing.state).toEqual(state);
-	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
+	expect(result.removedCount).toBe(1);
+	expect(result.drawing.state).toMatchObject({
+		evidence: [],
+		marks: [],
+		unlocated: [],
+		processed: 0,
+		imageProgress: [],
+	});
+	expect(prisma.documents.updateMany).toHaveBeenCalledTimes(1);
+});
+
+it("reanalyzes even the same URL if it was deleted and then reattached", async () => {
+	const { row } = await mockEditableDrawing();
+	const records = await prisma.sitediaryrecords.findMany();
+	jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([]);
+	const removed = await appendVisualDiaryEvidence("user", "site", "drawing");
+	row.description = JSON.stringify(removed.drawing.state);
+	jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue(records);
+	const readded = await appendVisualDiaryEvidence("user", "site", "drawing");
+	expect(readded.addedCount).toBe(1);
+	expect(readded.drawing.state.marks).toEqual([]);
+	expect(readded.drawing.state.processed).toBe(0);
+	expect(readded.drawing.state.imageProgress?.[0].status).toBe("pending");
+	expect(readded.drawing.state.evidence[0].id).not.toBe("first:0");
+});
+
+it("restarts using current diary links instead of deleted photo snapshots", async () => {
+	await mockEditableDrawing();
+	jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([]);
+	const result = await resetVisualDrawing("user", "site", "drawing");
+	expect(result.state.evidence).toEqual([]);
+	expect(result.state.marks).toEqual([]);
+});
+
+it("treats a replacement photo as fresh evidence and never carries over the old zone", async () => {
+	await mockEditableDrawing();
+	jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([
+		{
+			id: "first",
+			Location: "1. stāvs",
+			Works: "XPS",
+			Comments: "",
+			Photos: ["https://example.com/readded.jpg"],
+			Date: null,
+			Amounts: 10,
+			Units: "m2",
+		},
+	] as never);
+	const result = await appendVisualDiaryEvidence("user", "site", "drawing");
+	expect(result).toMatchObject({ addedCount: 1, removedCount: 1 });
+	expect(result.drawing.state).toMatchObject({
+		marks: [],
+		processed: 0,
+		status: "paused",
+		unlocated: [],
+	});
+	expect(result.drawing.state.imageProgress?.[0].status).toBe("pending");
+	expect(result.drawing.state.evidence[0].id).not.toBe("first:0");
 });
 
 it("rejects updates during analysis and concurrent changes without overwriting saved data", async () => {
@@ -328,6 +384,21 @@ it("rejects exceeding the total photo limit without changing the drawing", async
 		photoUrl: `https://example.com/old-${i}.jpg`,
 	}));
 	row.description = JSON.stringify(state);
+	jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([
+		{
+			id: "first",
+			Location: "1. stāvs",
+			Works: "XPS",
+			Comments: "",
+			Date: null,
+			Amounts: 10,
+			Units: "m2",
+			Photos: [
+				...state.evidence.map((item) => item.photoUrl),
+				"https://example.com/new.jpg",
+			],
+		},
+	] as never);
 	await expect(
 		appendVisualDiaryEvidence("user", "site", "drawing"),
 	).rejects.toThrow("vairāk nekā 200");

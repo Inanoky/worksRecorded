@@ -127,6 +127,27 @@ it("highlights a hovered or focused zone without selecting or saving it", async 
 	expect(global.fetch).toHaveBeenCalledTimes(1);
 });
 
+it("uses translucent fills with stronger opacity for the selected zone", async () => {
+	const { container } = render(
+		<VisualPdf
+			url="/drawing"
+			marks={[mark, { ...mark, id: "sand", layer: "sand" }]}
+			selected="sand"
+			onSelect={jest.fn()}
+		/>,
+	);
+	await waitFor(() =>
+		expect(container.querySelectorAll("polygon")).toHaveLength(2),
+	);
+	const polygons = container.querySelectorAll("polygon");
+	expect(polygons[0]).toHaveAttribute("fill", "#eab308");
+	expect(polygons[1]).toHaveAttribute("fill", "#16a34a");
+	expect(polygons[0]).toHaveAttribute("fill-opacity", "0.5");
+	expect(polygons[1]).toHaveAttribute("fill-opacity", "0.7");
+	expect(polygons[1]).toHaveAttribute("stroke", "#16a34a");
+	expect(polygons[1]).toHaveAttribute("stroke-width", "2");
+});
+
 it("shows a PDF load error without drawing overlays", async () => {
 	jest.mocked(global.fetch).mockResolvedValue({ ok: false } as Response);
 	const { container } = render(
