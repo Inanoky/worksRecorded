@@ -14,7 +14,7 @@ export async function deleteVisualPhotoEvidence(
 ) {
 	if (!urls.length) return;
 	const rows = await tx.$queryRaw<Array<{ id: string; description: string }>>`
-    SELECT id, description FROM documents
+    SELECT id, description FROM "Documents"
     WHERE "siteId" = ${siteId} AND "organizationId" = ${organizationId}
       AND "documentType" = ${VISUAL_DOCUMENT_TYPE}
     ORDER BY id FOR UPDATE
