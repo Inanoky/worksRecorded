@@ -1,5 +1,5 @@
 "use client";
-import { DiaryPhotoUploadMenuItem } from "@/flows/default-construction/frontend/DiaryPhotoActions";
+import { DiaryPhotoUploadMenuItem, DiaryPhotoUploadProvider } from "@/flows/default-construction/frontend/DiaryPhotoActions";
 import { DiaryRecordPhotos } from "@/flows/default-construction/frontend/DiaryRecordPhotos";
 import { DiaryDayPagination } from "@/flows/default-construction/frontend/DiaryDayPagination";
 import { useDiaryDayPagination } from "@/flows/default-construction/frontend/useDiaryDayPagination";
@@ -2932,6 +2932,7 @@ export default function SiteDiaryCalendar({
 
   return (
     <TooltipProvider>
+      <DiaryPhotoUploadProvider>
       {active && !isZtcFlow && !error && (!hasLoadedRowsOnce || imagesPreloading) ? (
         <ProjectOpeningOverlay label={language === "lv" ? "Ielādē būvdarbu žurnālu…" : "Loading construction diary…"} />
       ) : null}
@@ -6920,6 +6921,7 @@ export default function SiteDiaryCalendar({
           </DialogContent>
         </Dialog>
       </div>
+      </DiaryPhotoUploadProvider>
     </TooltipProvider>
   );
 }
