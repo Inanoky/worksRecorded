@@ -1,3 +1,4 @@
+import { auditZtcMutation } from "@/flows/ztc-production/lib/ztc-record-audit";
 import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-session-markers";
 import { getZtcTaskIdentityKey } from "@/flows/ztc-production/lib/ztc-task-identity";
 import { prisma } from "@/lib/utils/db";
@@ -26,9 +27,16 @@ function normalizeText(value: unknown) {
   return String(value ?? "").trim().toLowerCase();
 }
 
-function isHourlyUnit(value: unknown) {
-  const normalized = normalizeText(value).replace(/\.$/, "");
-  return ["st", "h", "hr", "hour", "hours", "stunda", "stundas"].includes(normalized);
+export function isZtcAreaAllocationEligible(row: {
+  Units?: unknown;
+  Works_Custom_1?: unknown;
+  Location?: unknown;
+  Works?: unknown;
+}) {
+  return ["m2", "m²"].includes(normalizeText(row.Units)) &&
+    !["papilddarbi", "papilddetāļas"].includes(normalizeText(row.Works_Custom_1)) &&
+    normalizeText(row.Location) !== "papilddarbi" &&
+    normalizeText(row.Works) !== "kvalitātes kontrole";
 }
 
 function positiveNumber(value: unknown) {
@@ -95,9 +103,9 @@ function getOriginalTaskAmount(args: {
       const work = element?.works?.find(
         (candidate) => getZtcTaskIdentityKey(candidate.name) === normalizedTask,
       );
-      const amount =
-        positiveNumber(work?.amountM2) ??
-        positiveNumber(element?.totalAreaM2);
+      const amount = work
+        ? positiveNumber(work.amountM2) ?? positiveNumber(element?.totalAreaM2)
+        : null;
       if (amount != null) return amount;
     } catch {
       // Ignore old or unrelated metadata and try the next matching record.
@@ -132,10 +140,7 @@ export async function rebalanceZtcCompletedTaskAmounts(args: {
     !anchor.Location_Custom_1 ||
     !anchor.Works ||
     !anchor.Date_Custom_2 ||
-    normalizeText(anchor.Location) === "papilddarbi" ||
-    normalizeText(anchor.Works_Custom_1) === "papilddetāļas" ||
-    normalizeText(anchor.Works) === "kvalitātes kontrole" ||
-    isHourlyUnit(anchor.Units)
+    !isZtcAreaAllocationEligible(anchor)
   ) {
     return { updated: 0, totalAmount: null };
   }
@@ -168,8 +173,7 @@ export async function rebalanceZtcCompletedTaskAmounts(args: {
   const matchingRows = candidates.filter(
     (row) =>
       getZtcTaskIdentityKey(row.Works) === normalizedTask &&
-      normalizeText(row.Works_Custom_1) !== "papilddetāļas" &&
-      !isHourlyUnit(row.Units),
+      isZtcAreaAllocationEligible(row),
   );
   if (matchingRows.length === 0) {
     return { updated: 0, totalAmount: null };
@@ -180,11 +184,9 @@ export async function rebalanceZtcCompletedTaskAmounts(args: {
       metadataValues: matchingRows.map((row) => row.Comments_Custom_2),
       elementName: anchor.Location_Custom_1,
       taskName: anchor.Works,
-    }) ??
-    positiveNumber(args.fallbackTotalAmount) ??
-    Math.max(...matchingRows.map((row) => positiveNumber(row.Amounts) ?? 0));
+    });
 
-  if (!Number.isFinite(originalAmount) || originalAmount <= 0) {
+  if (originalAmount == null || !Number.isFinite(originalAmount) || originalAmount <= 0) {
     return { updated: 0, totalAmount: null };
   }
 
@@ -200,17 +202,38 @@ export async function rebalanceZtcCompletedTaskAmounts(args: {
         )
       : matchingRows.map((row) => ({ id: row.id, amount: originalAmount }));
 
-  await prisma.$transaction(
-    allocations.map((allocation) =>
-      prisma.ztcRecords.update({
-        where: { id: allocation.id },
+  const updated = await auditZtcMutation("rebalanceZtcCompletedTaskAmounts", async (tx) => {
+    const manualQuantityEdit = await tx.ztcRecordAudit.findFirst({
+      where: {
+        recordId: { in: matchingRows.map((row) => row.id) },
+        source: "manual",
+        operation: "UPDATE",
+        changedFields: { has: "Amounts" },
+      },
+      select: { id: true },
+    });
+    if (manualQuantityEdit) return 0;
+    for (const allocation of allocations) {
+      const snapshot = matchingRows.find((row) => row.id === allocation.id)!;
+      const result = await tx.ztcRecords.updateMany({
+        where: {
+          id: allocation.id,
+          Amounts: snapshot.Amounts,
+          TimeInvolved: snapshot.TimeInvolved,
+          Works: snapshot.Works,
+          Units: snapshot.Units,
+          Location: anchor.Location,
+          Location_Custom_1: anchor.Location_Custom_1,
+        },
         data: { Amounts: allocation.amount },
-      }),
-    ),
-  );
+      });
+      if (result.count !== 1) throw new Error("ZTC allocation changed concurrently; retry required");
+    }
+    return allocations.length;
+  }, { details: { totalAmount: originalAmount, allocations } });
 
   return {
-    updated: allocations.length,
+    updated,
     totalAmount: originalAmount,
   };
 }

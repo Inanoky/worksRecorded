@@ -49,6 +49,38 @@ function rateProject(
 }
 
 describe("matchZtcCanonicalEntities", () => {
+	it("rechecks global work matches after resolving the AM project and its exclusions", async () => {
+		mockSiteFindUnique.mockResolvedValue({ siteDiaryRecordsMap: { otherSettings: { ztcDefaultTaskRates: {
+			projects: [
+				rateProject("Visi projekti", { works: [{ task: "koka karkas 95 mm. 145 mm. 195 mm. 245", rate: "3", unit: "m2" }] }),
+				rateProject("AM piebūve", {
+					excludedTasks: { works: ["koka karkas 95 mm. 145 mm. 195 mm. 245"] },
+					works: [{ task: "koka karkas 195 x 45 mm", rate: "2.7", unit: "m2" }],
+				}),
+			],
+		} } } });
+		mockResponsesParse.mockResolvedValue({ output_parsed: {
+			projectCandidateId: "project_0", projectConfidence: 0.99,
+			workMatches: [{ rawIndex: 0, workCandidateId: "work_0", confidence: 0.99 }],
+		} });
+		const result = await matchZtcCanonicalEntities({ siteId: "am-regression", rawProjectName: "AM",
+			rawWorks: ["TL - Koka karkass 195x45mm"], category: "works" });
+		expect(result.works[0].task).toBe("koka karkas 195 x 45 mm");
+		expect(result.works[0].rate?.rate).toBe("2.7");
+	});
+
+	it("prefers a project override when a global rate has the same name", async () => {
+		mockSiteFindUnique.mockResolvedValue({ siteDiaryRecordsMap: { otherSettings: { ztcDefaultTaskRates: {
+			projects: [
+				rateProject("Visi projekti", { works: [{ task: "koka karkas 195x45 mm", rate: "3", unit: "m2" }] }),
+				rateProject("AM piebūve", { works: [{ task: "koka karkas 195x45 mm", rate: "2.7", unit: "m2" }] }),
+			],
+		} } } });
+		const result = await matchZtcCanonicalEntities({ siteId: "am-override", rawProjectName: "AM piebūve",
+			rawWorks: ["TL - koka karkas 195x45 mm"], category: "works" });
+		expect(result.works[0].rate?.rate).toBe("2.7");
+		expect(result.modelCalled).toBe(false);
+	});
 	beforeEach(() => {
 		jest.clearAllMocks();
 		mockSiteFindUnique.mockResolvedValue({

@@ -686,6 +686,28 @@ model ZtcRecords {
   @@map("ZTCrecords")
 }
 
+model ZtcRecordAudit {
+  id             BigInt   @id @default(autoincrement())
+  recordId       String
+  siteId         String?
+  organizationId String?
+  operation      String
+  source         String
+  actorId        String?
+  correlationId  String?
+  step           String?
+  changedFields  String[]
+  before         Json?
+  after          Json?
+  context        Json
+  databaseUser   String
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([recordId, id])
+  @@index([siteId, createdAt])
+  @@index([correlationId])
+}
+
 model ZtcRateChangeAudit {
   id             String   @id @default(uuid())
   siteId         String

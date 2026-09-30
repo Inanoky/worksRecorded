@@ -1,3 +1,4 @@
+import { auditZtcMutation, withZtcRecordAudit, ztcMessageAuditContext } from "@/flows/ztc-production/lib/ztc-record-audit";
 import { drawingLogText, drawingRejectionReasons, summarizeDrawingExtraction } from "@/flows/ztc-production/lib/ztc-drawing-diagnostics";
 import { validateZtcDrawingProjectCode } from "@/flows/ztc-production/lib/ztc-drawing-project-code";
 import { UTApi } from "uploadthing/server";
@@ -1367,118 +1368,23 @@ function getDrawingElementMetadata(
   );
 }
 
-function canonicalizeDrawingExtractionFromMetadata(
-  extraction: DrawingExtraction,
-  metadata: ZtcDrawingMetadata | null,
-) {
-  const element = getDrawingElementMetadata(metadata, extraction.elementName);
-  if (!element?.works?.length) return extraction;
-
-  const canonicalWorks = new Map(
-    element.works
-      .map((work) => [getZtcTaskIdentityKey(work.name), work] as const)
-      .filter(([key, work]) => key && work.name),
-  );
-  if (!canonicalWorks.size) return extraction;
-
-  const canonicalizeWorkItem = (
-    item: DrawingExtraction["workItems"][number],
-  ): DrawingExtraction["workItems"][number] => {
-    const canonical = canonicalWorks.get(getZtcTaskIdentityKey(item.name));
-    if (!canonical?.name) return item;
-
-    return {
-      ...item,
-      name: normalizeZtcDrawingWorkName(canonical.name),
-    };
-  };
-
-  const workItems = extraction.workItems.map(canonicalizeWorkItem);
-  const workList = extraction.workList.map((workName) => {
-    const canonical = canonicalWorks.get(getZtcTaskIdentityKey(workName));
-    return normalizeZtcDrawingWorkName(canonical?.name ?? workName);
-  });
-
-  return {
-    ...extraction,
-    workItems,
-    workList: workList.length ? workList : workItems.map((item) => item.name),
-  };
-}
-
 async function canonicalizeDrawingExtractionFromPreviousContext(
   extraction: DrawingExtraction,
   worker: ZtcWorker,
 ) {
-  const projectName = String(extraction.projectName ?? "").trim();
-  const elementName = String(extraction.elementName ?? "").trim();
-  if (!projectName || !elementName) return extraction;
-
   const context = getZtcFlowContext(worker);
-  const rawWorks = extraction.workItems.length
-    ? extraction.workItems.map((item) => item.name)
-    : extraction.workList;
   const entityMatch = await matchZtcCanonicalEntities({
     siteId: context.siteId,
-    rawProjectName: projectName,
-    rawWorks,
-    category: "works",
+    rawProjectName: extraction.projectName,
+    rawWorks: [],
   });
-  const canonicalProjectName =
-    entityMatch.project?.source === "exact" || entityMatch.project?.source === "llm"
-      ? entityMatch.project.name
-      : await canonicalizeZtcExtractedProjectName({
-          siteId: context.siteId,
-          extractedProjectName: projectName,
-        });
-  const workMatchesByIndex = new Map(
-    entityMatch.works.map((match) => [match.rawIndex, match]),
-  );
-  const workItems = extraction.workItems.map((item, index) => ({
-    ...item,
-    name: workMatchesByIndex.get(index)?.canonicalWork ?? item.name,
-  }));
-  const workList = extraction.workItems.length
-    ? workItems.map((item) => item.name)
-    : extraction.workList.map(
-        (workName, index) => workMatchesByIndex.get(index)?.canonicalWork ?? workName,
-      );
-  const projectCanonicalized = {
-    ...extraction,
-    projectName: canonicalProjectName,
-    workItems,
-    workList,
-  };
-
-  const previousContexts = await prisma.ztcRecords.findMany({
-    where: {
-      siteId: context.siteId,
-      organizationId: context.organizationId,
-      Location_Custom_1: elementName,
-      Comments_Custom_2: { contains: "ztc_drawing_context" },
-      NOT: [{ Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } }],
-    },
-    orderBy: [{ Date_Custom_1: "desc" }, { createdAt: "desc" }],
-    take: 10,
-    select: {
-      Location: true,
-      Comments_Custom_2: true,
-    },
-  });
-
-  for (const context of previousContexts.filter(
-    (context) =>
-      getZtcProjectIdentityKey(context.Location) ===
-      getZtcProjectIdentityKey(canonicalProjectName),
-  )) {
-    const canonicalized = canonicalizeDrawingExtractionFromMetadata(
-      projectCanonicalized,
-      parseZtcDrawingMetadata(context.Comments_Custom_2),
-    );
-    if (canonicalized !== projectCanonicalized) return canonicalized;
-  }
-
-  return projectCanonicalized;
+  const projectName = entityMatch.project?.source === "exact" || entityMatch.project?.source === "llm"
+    ? entityMatch.project.name
+    : await canonicalizeZtcExtractedProjectName({
+        siteId: context.siteId,
+        extractedProjectName: String(extraction.projectName ?? ""),
+      });
+  return { ...extraction, projectName };
 }
 
 export function buildDrawingMetadata(extraction: DrawingExtraction): ZtcDrawingMetadata {
@@ -2085,7 +1991,7 @@ async function ensureSessionHasDrawingContext(args: {
   const { session, drawingContext, worker } = args;
   if (hasZtcDrawingContext(session) || !drawingContext) return session;
 
-  const repaired = await prisma.ztcRecords.update({
+  const repaired = await auditZtcMutation("ensureSessionHasDrawingContext", (tx) => tx.ztcRecords.update({
     where: { id: session.id },
     data: {
       Location: drawingContext.Location,
@@ -2094,7 +2000,7 @@ async function ensureSessionHasDrawingContext(args: {
       Comments_Custom_2: drawingContext.Comments_Custom_2,
       Photos: drawingContext.Photos?.[0] ? [drawingContext.Photos[0]] : session.Photos ?? [],
     },
-  });
+  }));
 
   logZtcSession("session_drawing_context_repaired", {
     session: repaired,
@@ -2247,10 +2153,10 @@ async function pauseZtcSession(args: {
   }
 
   const now = new Date();
-  const updated = await prisma.ztcRecords.update({
+  const updated = await auditZtcMutation("pauseZtcSession", (tx) => tx.ztcRecords.update({
     where: { id: session.id },
     data: { pausedAt: now },
-  });
+  }));
 
   logZtcSession("session_paused", {
     session: updated,
@@ -2288,13 +2194,13 @@ async function resumeZtcSession(args: {
   const intervals = closeActivePauseInterval(session, now);
   const pauseStart = new Date(session.pausedAt);
   const pausedHours = Number(((now.getTime() - pauseStart.getTime()) / 3_600_000).toFixed(2));
-  const updated = await prisma.ztcRecords.update({
+  const updated = await auditZtcMutation("resumeZtcSession", (tx) => tx.ztcRecords.update({
     where: { id: session.id },
     data: {
       pausedAt: null,
       pauseIntervals: intervals,
     },
-  });
+  }));
 
   logZtcSession("session_resumed", {
     session: updated,
@@ -2334,13 +2240,13 @@ async function restoreInterruptedDrawingSession(
   }
 
   const pauseIntervals = closeActivePauseInterval(parent, restoredAt);
-  return prisma.ztcRecords.update({
+  return auditZtcMutation("restoreInterruptedDrawingSession", (tx) => tx.ztcRecords.update({
     where: { id: parent.id },
     data: {
       pausedAt: null,
       pauseIntervals,
     },
-  });
+  }));
 }
 
 async function getPausedDrawingParent(
@@ -2380,7 +2286,7 @@ async function cancelWholeZtcSession(args: {
     element: session.Location_Custom_1 ?? null,
   };
 
-  const updated = await prisma.ztcRecords.update({
+  const updated = await auditZtcMutation("cancelWholeZtcSession", (tx) => tx.ztcRecords.update({
     where: { id: session.id },
     data: {
       Date_Custom_2: now,
@@ -2392,7 +2298,7 @@ async function cancelWholeZtcSession(args: {
         ? `${session.Comments}\nAtcelts: lietotāja komanda.`
         : "Atcelts: lietotāja komanda.",
     },
-  });
+  }));
 
   logZtcSession("session_cancelled", {
     session: updated,
@@ -2440,13 +2346,13 @@ async function cancelTlDiagonalAttempt(args: {
     ? (session.Photos ?? []).filter((url) => !removedPhotoUrls.includes(url))
     : session.Photos ?? [];
 
-  const updated = await prisma.ztcRecords.update({
+  const updated = await auditZtcMutation("cancelTlDiagonalAttempt", (tx) => tx.ztcRecords.update({
     where: { id: session.id },
     data: {
       Comments_Custom_1: `${DIAGONAL_FIRST_PHOTO_PENDING_PREFIX} ${JSON.stringify(resetPayload)}`,
       Photos: nextPhotos,
     },
-  });
+  }));
 
   logZtcSession("tl_diagonal_attempt_cancelled", {
     session: updated,
@@ -2555,7 +2461,7 @@ async function createAdditionalDetailRows(args: {
     }),
   );
 
-  await prisma.ztcRecords.createMany({ data: rows });
+  await auditZtcMutation("createAdditionalDetailRows", (tx) => tx.ztcRecords.createMany({ data: rows }));
 }
 
 async function completeSession(args: {
@@ -2617,7 +2523,7 @@ async function completeSession(args: {
       finishText: completedText,
     });
 
-  const updated = await prisma.ztcRecords.update({
+  const updated = await auditZtcMutation("completeSession", (tx) => tx.ztcRecords.update({
     where: { id: session.id },
     data: {
       Date_Custom_2: completionTime,
@@ -2630,7 +2536,7 @@ async function completeSession(args: {
       Comments: finalWorkerComment,
       originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
     },
-  });
+  }));
 
   logZtcSession("session_completed", {
     session: updated,
@@ -2722,7 +2628,7 @@ async function askForTlDiagonals(args: {
   const completedText = args.completedText?.trim() || "";
   const promptedAt = Date.now();
 
-  const updated = await prisma.ztcRecords.update({
+  const updated = await auditZtcMutation("askForTlDiagonals", (tx) => tx.ztcRecords.update({
     where: { id: args.session.id },
     data: {
       Comments_Custom_1: `${DIAGONAL_FIRST_PHOTO_PENDING_PREFIX} ${JSON.stringify({
@@ -2735,7 +2641,7 @@ async function askForTlDiagonals(args: {
       Amounts: args.session.Amounts ?? undefined,
       originalAudioUrl: mergeOriginalAudioUrls(args.session.originalAudioUrl, args.originalAudioUrl),
     },
-  });
+  }));
 
   logZtcSession("tl_diagonal_flow_started", {
     session: updated,
@@ -2803,12 +2709,12 @@ async function handleDiagonalMeasurementText(args: {
     diagonalB: diagonals[1],
   };
 
-  await prisma.ztcRecords.update({
+  await auditZtcMutation("handleDiagonalMeasurementText", (tx) => tx.ztcRecords.update({
     where: { id: args.session.id },
     data: {
       Comments_Custom_1: `${DIAGONALS_CONFIRM_PREFIX} ${JSON.stringify(payload)}`,
     },
-  });
+  }));
 
   await sendZtcMessage(
     args.to,
@@ -2846,12 +2752,12 @@ async function handleDiagonalConfirmationText(args: {
   }
 
   if (isNegativeConfirmation(args.text)) {
-    await prisma.ztcRecords.update({
+    await auditZtcMutation("handleDiagonalConfirmationText", (tx) => tx.ztcRecords.update({
       where: { id: args.session.id },
       data: {
         Comments_Custom_1: `${DIAGONALS_PENDING_PREFIX} ${payload.completedText}`,
       },
-    });
+    }));
     await sendZtcMessage(args.to, "Labi, atsūtiet pareizos 2 diagonāļu mērījumus vēlreiz.");
     return;
   }
@@ -2935,13 +2841,13 @@ async function handleTlDiagonalMeasureText(args: {
       firstMeasureMm: measure,
     };
 
-    const updated = await prisma.ztcRecords.update({
+    const updated = await auditZtcMutation("handleTlDiagonalMeasureText", (tx) => tx.ztcRecords.update({
       where: { id: args.session.id },
       data: {
         Comments_Custom_1: `${DIAGONAL_SECOND_PHOTO_PENDING_PREFIX} ${JSON.stringify(payload)}`,
         originalAudioUrl: mergeOriginalAudioUrls(args.session.originalAudioUrl, args.originalAudioUrl),
       },
-    });
+    }));
 
     logZtcSession("tl_diagonal_one_measured", {
       session: updated,
@@ -3035,13 +2941,13 @@ async function handleTlDiagonalPhoto(args: {
     };
     const nextPhotos = [...(args.session.Photos ?? []), image.publicUrl];
 
-    const updated = await prisma.ztcRecords.update({
+    const updated = await auditZtcMutation("handleTlDiagonalPhoto", (tx) => tx.ztcRecords.update({
       where: { id: args.session.id },
       data: {
         Photos: nextPhotos,
         Comments_Custom_1: `${DIAGONAL_FIRST_MEASURE_PENDING_PREFIX} ${JSON.stringify(payload)}`,
       },
-    });
+    }));
 
     logZtcSession("tl_diagonal_one_photo_saved", {
       session: updated,
@@ -3068,13 +2974,13 @@ async function handleTlDiagonalPhoto(args: {
     };
     const nextPhotos = [...(args.session.Photos ?? []), image.publicUrl];
 
-    const updated = await prisma.ztcRecords.update({
+    const updated = await auditZtcMutation("handleTlDiagonalPhoto", (tx) => tx.ztcRecords.update({
       where: { id: args.session.id },
       data: {
         Photos: nextPhotos,
         Comments_Custom_1: `${DIAGONAL_SECOND_MEASURE_PENDING_PREFIX} ${JSON.stringify(payload)}`,
       },
-    });
+    }));
 
     logZtcSession("tl_diagonal_two_photo_saved", {
       session: updated,
@@ -3194,13 +3100,13 @@ async function appendPhotosToRecentCompletedSession(args: {
 
   const nextPhotos = [...(session.Photos ?? []), ...uploadedUrls];
 
-  const updated = await prisma.ztcRecords.update({
+  const updated = await auditZtcMutation("appendPhotosToRecentCompletedSession", (tx) => tx.ztcRecords.update({
     where: { id: session.id },
     data: {
       Photos: nextPhotos,
       Comments_Custom_1: photoBatchMarker(),
     },
-  });
+  }));
 
   await Promise.all(
     uploadedUrls.map((publicUrl) =>
@@ -3245,10 +3151,10 @@ async function appendTlWorkPhotosDuringDiagonalGrace(args: {
   }
 
   const nextPhotos = [...(args.session.Photos ?? []), ...uploadedUrls];
-  const updated = await prisma.ztcRecords.update({
+  const updated = await auditZtcMutation("appendTlWorkPhotosDuringDiagonalGrace", (tx) => tx.ztcRecords.update({
     where: { id: args.session.id },
     data: { Photos: nextPhotos },
-  });
+  }));
 
   await Promise.all(
     uploadedUrls.map((publicUrl) =>
@@ -3349,7 +3255,7 @@ async function handleDrawingPhoto(args: {
   const drawingMetadata = JSON.stringify(buildDrawingMetadata(canonicalExtraction));
 
   if (existing && !existing.Works) {
-    const updated = await prisma.ztcRecords.update({
+    const updated = await auditZtcMutation("handleDrawingPhoto", (tx) => tx.ztcRecords.update({
       where: { id: existing.id },
       data: {
         Date_Custom_1: new Date(),
@@ -3360,7 +3266,7 @@ async function handleDrawingPhoto(args: {
         Comments: null,
         Photos: [image.publicUrl],
       },
-    });
+    }));
 
     logZtcSession("drawing_context_updated", {
       session: updated,
@@ -3371,7 +3277,7 @@ async function handleDrawingPhoto(args: {
       },
     });
   } else {
-    const created = await prisma.ztcRecords.create({
+    const created = await auditZtcMutation("handleDrawingPhoto", (tx) => tx.ztcRecords.create({
       data: {
         workerId: worker.id,
         siteId: getZtcFlowContext(worker).siteId,
@@ -3385,7 +3291,7 @@ async function handleDrawingPhoto(args: {
         originalUserComment: `${workerFullName(worker)} : rasējuma foto`,
         Photos: [image.publicUrl],
       },
-    });
+    }));
 
     logZtcSession("drawing_context_created", {
       session: created,
@@ -3413,7 +3319,7 @@ async function createSessionFromLatestDrawing(worker: ZtcWorker) {
   });
   const canonicalProjectName = entityMatch.project?.name ?? previous.Location;
 
-  const created = await prisma.ztcRecords.create({
+  const created = await auditZtcMutation("createSessionFromLatestDrawing", (tx) => tx.ztcRecords.create({
     data: {
       workerId: worker.id,
       siteId: context.siteId,
@@ -3430,7 +3336,7 @@ async function createSessionFromLatestDrawing(worker: ZtcWorker) {
       originalUserComment: `${workerFullName(worker)} : atkārtots darbs pie tā paša rasējuma`,
       Photos: previous.Photos?.[0] ? [previous.Photos[0]] : [],
     },
-  });
+  }));
 
   logZtcSession("session_created_from_latest_drawing", {
     session: created,
@@ -3542,21 +3448,21 @@ async function createAdditionalWorkSession(args: {
 
   let created;
   if (origin === "fresh_drawing" && drawingContext && !drawingContext.Works) {
-    created = await prisma.ztcRecords.update({
+    created = await auditZtcMutation("createAdditionalWorkSession", (tx) => tx.ztcRecords.update({
       where: { id: drawingContext.id },
       data,
-    });
+    }));
   } else if (origin === "active_drawing" && drawingContext?.Works) {
-    const [, additionalSession] = await prisma.$transaction([
-      prisma.ztcRecords.update({
+    const [, additionalSession] = await auditZtcMutation("createAdditionalWorkSession", (tx) => Promise.all([
+      tx.ztcRecords.update({
         where: { id: drawingContext.id },
         data: { pausedAt: now },
       }),
-      prisma.ztcRecords.create({ data }),
-    ]);
+      tx.ztcRecords.create({ data }),
+    ]));
     created = additionalSession;
   } else {
-    created = await prisma.ztcRecords.create({ data });
+    created = await auditZtcMutation("createAdditionalWorkSession", (tx) => tx.ztcRecords.create({ data }));
   }
 
   logZtcSession("additional_work_started", {
@@ -3780,7 +3686,7 @@ async function handleWorkText(args: {
         : isAdditionalWorkSession(session)
           ? "st"
           : "m2";
-      const updated = await prisma.ztcRecords.update({
+      const updated = await auditZtcMutation("handleWorkText", (tx) => tx.ztcRecords.update({
         where: { id: session.id },
         data: {
           Amounts: session.Amounts ?? undefined,
@@ -3791,7 +3697,7 @@ async function handleWorkText(args: {
           }),
           originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
         },
-      });
+      }));
       logZtcTiming("finish_pending_db_update", dbStartedAt, {
         workerId: worker.id,
         sessionId: session.id,
@@ -3903,7 +3809,7 @@ async function handleWorkText(args: {
   );
 
   const dbStartedAt = Date.now();
-  const updated = await prisma.ztcRecords.update({
+  const updated = await auditZtcMutation("handleWorkText", (tx) => tx.ztcRecords.update({
     where: { id: session.id },
     data: {
       Date: now,
@@ -3924,7 +3830,14 @@ async function handleWorkText(args: {
       originalUserComment: `${workerFullName(worker)} : ${text}`,
       originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
     },
-  });
+  }), { details: {
+    selectedDrawingWork: selectedWorkName,
+    matchedTask: defaultRateMatch?.task ?? null,
+    matchedRate: defaultRateMatch?.rate ?? null,
+    matchSource: entityWorkMatch?.source ?? "raw",
+    matchConfidence: entityWorkMatch?.confidence ?? 0,
+    projectName: canonicalProjectName,
+  } });
   logZtcTiming("work_started_db_update", dbStartedAt, {
     workerId: worker.id,
     sessionId: session.id,
@@ -4017,13 +3930,13 @@ async function handleFinishedPhoto(args: {
     ? session.Comments_Custom_1
     : photoBatchMarker();
 
-  await prisma.ztcRecords.update({
+  await auditZtcMutation("handleFinishedPhoto", (tx) => tx.ztcRecords.update({
     where: { id: session.id },
     data: {
       Photos: nextPhotos,
       Comments_Custom_1: nextPhotoState,
     },
-  });
+  }));
 
   logZtcSession("completed_work_photo_saved", {
     session: {
@@ -4112,6 +4025,13 @@ export async function handleZtcWorkerRoute(args: {
   worker: ZtcWorker;
   drawingProfile?: ProductionDrawingExtractionProfile;
 }) {
+  return withZtcRecordAudit(
+    ztcMessageAuditContext("whatsapp-worker", args.worker.id, args.formData),
+    () => handleZtcWorkerRouteWithAudit(args),
+  );
+}
+
+async function handleZtcWorkerRouteWithAudit(args: Parameters<typeof handleZtcWorkerRoute>[0]) {
   const startedAt = Date.now();
   const { formData, worker } = args;
   const from = getString(formData, "From");
@@ -4147,12 +4067,12 @@ export async function handleZtcWorkerRoute(args: {
     if (audioIdx >= 0) {
       await sendZtcMessage(from, "Balss ziņa saņemta, lūdzu uzgaidiet...");
       const transcript = await transcribeAudioWithSource(formData, audioIdx);
-      await handleWorkText({
+      await withZtcRecordAudit({ source: "whatsapp-worker", inputText: transcript.text }, () => handleWorkText({
         text: transcript.text,
         to: from,
         worker,
         originalAudioUrl: transcript.originalAudioUrl,
-      });
+      }));
       outcome = "audio_work_text";
       return;
     }

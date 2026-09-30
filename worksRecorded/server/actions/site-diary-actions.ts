@@ -1,4 +1,5 @@
 "use server";
+import { auditZtcMutation } from "@/flows/ztc-production/lib/ztc-record-audit";
 import { getDiarySourcePhotoUrls } from "@/flows/default-construction/backend/diary-photo-source";
 import { hasInlineDiaryPhotos } from "@/flows/default-construction/lib/diary-photos";
 
@@ -2075,7 +2076,12 @@ export async function deleteSiteDiaryRecord({
 }) {
   // id is the Prisma row ID (UUID)
   if (await shouldUseZtcRecordsForSite(siteId, { flowId })) {
-    await prisma.ztcRecords.delete({ where: { id } });
+    const user = await requireUser();
+    const record = await prisma.ztcRecords.findUnique({ where: { id }, select: { siteId: true } });
+    if (!record?.siteId || (siteId && record.siteId !== siteId)) throw new Error("Record not found");
+    await orgCheck(user.id, record.siteId);
+    await auditZtcMutation("deleteSiteDiaryRecord", (tx) => tx.ztcRecords.delete({ where: { id } }),
+      { source: "manual", actorId: user.id });
   } else {
     await prisma.sitediaryrecords.delete({ where: { id } });
   }
@@ -4155,7 +4161,8 @@ export async function copySiteDiaryRecordToDate(
     bisStatus: null,
   };
   const copied = useZtcRecords
-    ? await prisma.ztcRecords.create({ data: copyData, select: { id: true } })
+    ? await auditZtcMutation("copySiteDiaryRecord", (tx) => tx.ztcRecords.create({ data: copyData, select: { id: true } }),
+        { source: "manual", actorId: user.id, details: { copiedFromRecordId: recordId } })
     : await prisma.sitediaryrecords.create({
         data: copyData,
         select: { id: true },

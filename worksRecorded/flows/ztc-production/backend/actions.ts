@@ -1,5 +1,6 @@
 "use server";
 
+import { auditZtcMutation } from "@/flows/ztc-production/lib/ztc-record-audit";
 import type { Prisma } from "@prisma/client";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import {
@@ -1088,6 +1089,26 @@ export async function getZtcSiteDiaryRecords(args: {
   return loadZtcSiteDiaryRecords({ ...context, date: args.date });
 }
 
+export async function getZtcRecordHistory(args: {
+  siteId: string;
+  recordId: string;
+  beforeId?: string;
+}) {
+  const context = await requireZtcAccess(args.siteId);
+  if (args.beforeId && !/^\d+$/.test(args.beforeId)) throw new Error("Invalid history cursor");
+  const events = await prisma.ztcRecordAudit.findMany({
+    where: {
+      siteId: context.siteId,
+      organizationId: context.organizationId,
+      recordId: args.recordId,
+      ...(args.beforeId ? { id: { lt: BigInt(args.beforeId) } } : {}),
+    },
+    orderBy: { id: "desc" },
+    take: 100,
+  });
+  return events.map((event) => ({ ...event, id: event.id.toString() }));
+}
+
 export async function getZtcScopeSummary(args: {
   siteId: string;
   projectName?: string | null;
@@ -1608,7 +1629,7 @@ export async function createZtcSiteDiaryRecords(args: {
   if (!rows.length)
     return { ok: false, message: "Nav ierakstu, ko pievienot." };
 
-  await prisma.ztcRecords.createMany({ data: rows });
+  await auditZtcMutation("createZtcSiteDiaryRecords", (tx) => tx.ztcRecords.createMany({ data: rows }), { source: "manual", actorId: user.id });
   return { ok: true, count: rows.length };
 }
 
@@ -1836,9 +1857,9 @@ export async function saveZtcSiteDiaryDialogRows(args: {
     }
 
     await trace.measure("transaction", () =>
-      prisma.$transaction([
+      auditZtcMutation("saveZtcSiteDiaryDialogRows", (tx) => Promise.all([
         ...existingRows.map((row) =>
-          prisma.ztcRecords.updateMany({
+          tx.ztcRecords.updateMany({
             where: {
               id: row.id,
               siteId,
@@ -1848,7 +1869,7 @@ export async function saveZtcSiteDiaryDialogRows(args: {
           }),
         ),
         ...relatedElementUpdates.map((row) =>
-          prisma.ztcRecords.updateMany({
+          tx.ztcRecords.updateMany({
             where: {
               id: row.id,
               siteId,
@@ -1858,9 +1879,9 @@ export async function saveZtcSiteDiaryDialogRows(args: {
           }),
         ),
         ...(newRows.length
-          ? [prisma.ztcRecords.createMany({ data: newRows })]
+          ? [tx.ztcRecords.createMany({ data: newRows })]
           : []),
-      ]),
+      ]), { source: "manual", actorId: user.id }),
     );
 
     const result = {
@@ -1886,14 +1907,14 @@ export async function updateZtcSiteDiaryRecord(args: {
   const config = await loadZtcSiteDiaryConfig(siteId);
   const defaultRates = getDefaultTaskRatesFromConfig(config);
 
-  const result = await prisma.ztcRecords.updateMany({
+  const result = await auditZtcMutation("updateZtcSiteDiaryRecord", (tx) => tx.ztcRecords.updateMany({
     where: {
       id,
       siteId: context.siteId,
       organizationId: context.organizationId,
     },
     data: sanitizeZtcRecordRow({ ...row, __ztcDefaultTaskRates: defaultRates }),
-  });
+  }), { source: "manual", actorId: context.user.id });
 
   if (result.count !== 1) {
     return { ok: false, message: "Ražošanas ieraksts nav atrasts." };
@@ -1939,13 +1960,13 @@ export async function deleteZtcSiteDiaryRecord(args: {
     },
   });
 
-  const result = await prisma.ztcRecords.deleteMany({
+  const result = await auditZtcMutation("deleteZtcSiteDiaryRecord", (tx) => tx.ztcRecords.deleteMany({
     where: {
       id: args.id,
       siteId,
       organizationId,
     },
-  });
+  }), { source: "manual", actorId: user.id });
 
   console.info(
     `[ZTC_DELETE_AUDIT] ${JSON.stringify({
@@ -1999,7 +2020,7 @@ export async function updateZtcPayrollFields(args: {
     };
   }
 
-  const result = await prisma.ztcRecords.updateMany({
+  const result = await auditZtcMutation("updateZtcPayrollFields", (tx) => tx.ztcRecords.updateMany({
     where: {
       id: args.id,
       siteId: context.siteId,
@@ -2010,7 +2031,7 @@ export async function updateZtcPayrollFields(args: {
       Works_Custom_2: coefficient,
       WorkersInvolved: complexity ?? null,
     },
-  });
+  }), { source: "manual", actorId: context.user.id });
 
   if (result.count !== 1) {
     return { ok: false, message: "Ražošanas ieraksts nav atrasts." };

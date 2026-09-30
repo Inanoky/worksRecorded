@@ -298,6 +298,18 @@ describe("findZtcDefaultRateForTask", () => {
 });
 
 describe("canonicalizeZtcMatchedWorkName", () => {
+  it("selects the exact AM timber dimensions ahead of generic framing", () => {
+    const exact = { task: "koka karkas 195 x 45 mm", rate: "2.7", unit: "m2" as const };
+    expect(findZtcDefaultRateForTask("TL - Koka karkass 195x45mm", [
+      { task: "koka karkas 95 mm. 145 mm. 195 mm. 245", rate: "3", unit: "m2" }, exact,
+      { task: "koka karkas 245x45 mm", rate: "2.7", unit: "m2" },
+    ], { category: "works" })?.entry).toEqual(exact);
+  });
+  it("does not substitute a different timber cross-section", () => {
+    expect(findZtcDefaultRateForTask("TL - Koka karkass 195x45mm", [
+      { task: "koka karkas 245x45 mm", rate: "2.7", unit: "m2" },
+    ], { category: "works" })).toBeNull();
+  });
   it("keeps the drawing code and displays the configured task name", () => {
     expect(
       canonicalizeZtcMatchedWorkName(

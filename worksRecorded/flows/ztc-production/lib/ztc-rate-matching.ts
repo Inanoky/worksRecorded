@@ -197,6 +197,10 @@ export function hasZtcRateCrossSection(value: unknown) {
   return Boolean(getZtcRateCrossSection(String(value ?? "")));
 }
 
+export function isZtcTimberFrameTask(value: string) {
+  return /\b(karkas\w*|timber|frame)\b/i.test(value) || /^TL\s*[-:/]/i.test(value);
+}
+
 export function getZtcRateCrossSectionMatch(
   taskName: string,
   rateTask: string,
@@ -204,13 +208,10 @@ export function getZtcRateCrossSectionMatch(
   const taskDimensions = getZtcRateCrossSection(taskName);
   const rateDimensions = getZtcRateCrossSection(rateTask);
 
-  if (!taskDimensions && !rateDimensions) {
+  if (!rateDimensions) {
     return { kind: "not_applicable", distance: null };
   }
-  if (taskDimensions && !rateDimensions) {
-    return { kind: "not_applicable", distance: null };
-  }
-  if (!taskDimensions && rateDimensions) {
+  if (!taskDimensions) {
     return { kind: "incompatible", distance: null };
   }
 
@@ -225,6 +226,9 @@ export function getZtcRateCrossSectionMatch(
       (rateDimension) => Math.abs(taskDimension - rateDimension) < 0.001,
     ),
   );
+  if (isZtcTimberFrameTask(taskName) && isZtcTimberFrameTask(rateTask)) {
+    return { kind: "incompatible", distance };
+  }
   return hasSharedDimension
     ? { kind: "compatible", distance }
     : { kind: "incompatible", distance };
@@ -280,6 +284,7 @@ export function findZtcDefaultRateForTask(
     crossSectionRank: number;
     crossSectionDistance: number;
   } | null = null;
+  let ambiguous = false;
 
   for (const entry of rates) {
     if (isZtcComplexityCoefficientTask(entry.task)) continue;
@@ -356,8 +361,13 @@ export function findZtcDefaultRateForTask(
         score > best.score);
     if (score >= threshold && isBetterMatch) {
       best = { entry, score, crossSectionRank, crossSectionDistance };
+      ambiguous = false;
+    } else if (best && score >= threshold && score === best.score &&
+      crossSectionRank === best.crossSectionRank && crossSectionDistance === best.crossSectionDistance &&
+      isZtcTimberFrameTask(taskName) && entry.task !== best.entry.task) {
+      ambiguous = true;
     }
   }
 
-  return best ? { entry: best.entry, score: best.score } : null;
+  return best && !ambiguous ? { entry: best.entry, score: best.score } : null;
 }

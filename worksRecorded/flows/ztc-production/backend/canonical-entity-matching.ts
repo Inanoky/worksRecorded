@@ -403,7 +403,7 @@ function exactWorkMatch(
 ) {
 	const eligibleCandidates = candidates.filter(
 		(candidate) => isWorkCandidateEligible(candidate, projectCandidateId),
-	);
+	).sort((left, right) => Number(Boolean(right.projectCandidateId)) - Number(Boolean(left.projectCandidateId)));
 	const exact = eligibleCandidates.find(
 		(candidate) =>
 			taskIdentity(canonicalizeZtcMatchedWorkName(rawWork, candidate.task)) ===
@@ -547,6 +547,7 @@ function modelCacheKey(args: {
 			candidate.task,
 			candidate.projectCandidateId,
 			candidate.excludedProjectCandidateIds,
+			candidate.rate,
 		]),
 	});
 }
@@ -616,7 +617,7 @@ export async function matchZtcCanonicalEntities(args: {
 	const exactWorks = rawWorks.map((rawWork, rawIndex) => ({
 		rawIndex,
 		rawWork,
-		candidate: rawWork
+		candidate: rawWork && (!rawProjectName || exactProject)
 			? exactWorkMatch(rawWork, catalog.works, exactProject?.id ?? null)
 			: null,
 	}));
@@ -669,7 +670,10 @@ export async function matchZtcCanonicalEntities(args: {
 		modelMatch = await callCanonicalMatcher({
 			rawProjectName,
 			rawWorks: unresolvedWorks,
-			catalog,
+			catalog: exactProject ? {
+				...catalog,
+				works: catalog.works.filter((candidate) => isWorkCandidateEligible(candidate, exactProject.id)),
+			} : catalog,
 		});
 	} catch (error) {
 		console.error("ZTC canonical entity matching failed", {
@@ -704,18 +708,20 @@ export async function matchZtcCanonicalEntities(args: {
 		catalog.works.map((candidate) => [candidate.id, candidate]),
 	);
 	const works = exactWorks.map((work) => {
-		if (work.candidate) {
+		if (rawProjectName && !projectCandidateId) return rawWorkResult(work.rawWork, work.rawIndex);
+		const resolvedCandidate = exactWorkMatch(work.rawWork, catalog.works, projectCandidateId);
+		if (resolvedCandidate) {
 			return {
 				rawIndex: work.rawIndex,
 				rawWork: work.rawWork,
-				task: work.candidate.task,
+				task: resolvedCandidate.task,
 				canonicalWork: canonicalizeZtcMatchedWorkName(
 					work.rawWork,
-					work.candidate.task,
+					resolvedCandidate.task,
 				),
 				confidence: 1,
 				source: "exact" as const,
-				rate: work.candidate.rate,
+				rate: resolvedCandidate.rate,
 			};
 		}
 		const modelWork = modelWorksByIndex.get(work.rawIndex);
