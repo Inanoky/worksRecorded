@@ -30,13 +30,18 @@ export function formatVisualDay(day: number) {
 	}).format(new Date(day * dayMs));
 }
 
-export function buildVisualTimeline(evidence: VisualEvidence[]) {
+export function buildVisualTimeline(
+	evidence: VisualEvidence[],
+	latestDiaryDate?: string | null,
+) {
 	const dayByEvidence = new Map(
 		evidence.map((item) => [item.id, visualDiaryDay(item.date)]),
 	);
 	const days = [...dayByEvidence.values()].filter(
 		(day): day is number => day !== null,
 	);
+	const latestDiaryDay = visualDiaryDay(latestDiaryDate ?? null);
+	if (latestDiaryDay !== null) days.push(latestDiaryDay);
 	return {
 		dayByEvidence,
 		firstDay: days.length ? Math.min(...days) : null,

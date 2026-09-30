@@ -237,22 +237,45 @@ export async function loadVisualDrawing(
 	id: string,
 ) {
 	const access = await requireVisualAccess(userId, siteId);
-	const row = await prisma.documents.findFirst({
-		where: {
-			id,
-			siteId,
-			organizationId: access.organizationId,
-			documentType: VISUAL_DOCUMENT_TYPE,
-		},
-	});
+	const [row, diaryDates] = await Promise.all([
+		prisma.documents.findFirst({
+			where: {
+				id,
+				siteId,
+				organizationId: access.organizationId,
+				documentType: VISUAL_DOCUMENT_TYPE,
+			},
+		}),
+		prisma.sitediaryrecords.groupBy({
+			by: ["Location"],
+			where: {
+				siteId,
+				organizationId: access.organizationId,
+				archivedAt: null,
+				Date: { not: null },
+			},
+			_max: { Date: true },
+		}),
+	]);
 	if (!row) throw new Error("Rasējums nav atrasts vai nav pieejams.");
 	const state = visualStateSchema.parse(JSON.parse(row.description));
+	const dates = diaryDates
+		.filter(
+			(item) =>
+				normalizeVisualLocation(item.Location || "") ===
+				normalizeVisualLocation(state.location),
+		)
+		.flatMap((item) => (item._max.Date ? [item._max.Date.getTime()] : []));
+	const latestDiaryDate = dates.length
+		? new Date(Math.max(...dates)).toISOString()
+		: null;
 	return {
 		row,
 		drawing: {
 			id: row.id,
 			name: row.documentName,
 			createdAt: row.createdAt.toISOString(),
+			latestDiaryDate,
 			state,
 		} satisfies VisualDrawing,
 	};

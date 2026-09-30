@@ -120,6 +120,7 @@ export type VisualDrawing = {
 	id: string;
 	name: string;
 	createdAt: string;
+	latestDiaryDate?: string | null;
 	state: VisualState;
 };
 

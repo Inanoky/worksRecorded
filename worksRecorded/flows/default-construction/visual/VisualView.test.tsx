@@ -148,6 +148,30 @@ async function selectDrawing() {
 	await selectLocation();
 }
 
+it("ends the slider at the latest diary day even when analyzed photos stop earlier", async () => {
+	mockFetch.mockResolvedValue({
+		ok: true,
+		json: async () => ({
+			...complete,
+			latestDiaryDate: "2026-09-29T12:00:00Z",
+			state: {
+				...complete.state,
+				evidence: [
+					{ ...complete.state.evidence[0], date: "2026-09-28T12:00:00Z" },
+				],
+			},
+		}),
+	});
+	await selectDrawing();
+	const slider = screen.getByRole("slider", { name: "Progresa datums" });
+	expect(slider).toHaveAttribute("max", String(visualDiaryDay("2026-09-29")));
+	expect(slider).toHaveAttribute("aria-valuetext", "29.09.2026");
+	expect(screen.getByTestId("pdf")).toHaveTextContent("1 zones");
+	expect(
+		mockFetch.mock.calls.every(([, options]) => options?.method !== "POST"),
+	).toBe(true);
+});
+
 it("hides and shows all layers instantly, including from a mixed selection", async () => {
 	await selectDrawing();
 	mockFetch.mockClear();

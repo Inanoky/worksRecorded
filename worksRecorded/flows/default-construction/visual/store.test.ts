@@ -25,7 +25,7 @@ jest.mock("@/lib/utils/db", () => ({
 	prisma: {
 		$transaction: jest.fn(),
 		$executeRaw: jest.fn(),
-		sitediaryrecords: { findMany: jest.fn() },
+		sitediaryrecords: { findMany: jest.fn(), groupBy: jest.fn() },
 		documents: {
 			findMany: jest.fn(),
 			create: jest.fn(),
@@ -38,6 +38,7 @@ jest.mock("@/lib/utils/db", () => ({
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	jest.mocked(prisma.sitediaryrecords.groupBy).mockResolvedValue([]);
 	jest
 		.mocked(prisma.$transaction)
 		.mockImplementation((async (callback: unknown) =>
@@ -95,6 +96,48 @@ async function mockSavedDrawing() {
 	jest.mocked(prisma.documents.updateMany).mockResolvedValue({ count: 1 });
 	return { row, state };
 }
+
+it("reads the latest active diary date for the normalized location without filtering for photos or changing analysis", async () => {
+	const { state } = await mockSavedDrawing();
+	jest.mocked(prisma.sitediaryrecords.groupBy).mockResolvedValue([
+		{ Location: "1. stāvs", _max: { Date: new Date("2026-09-28T12:00:00Z") } },
+		{
+			Location: " 1. STĀVS ",
+			_max: { Date: new Date("2026-09-29T12:00:00Z") },
+		},
+		{ Location: "2. stāvs", _max: { Date: new Date("2026-09-30T12:00:00Z") } },
+	] as never);
+	const { drawing } = await loadVisualDrawing("user", "site", "drawing");
+	expect(drawing.latestDiaryDate).toBe("2026-09-29T12:00:00.000Z");
+	expect(drawing.state).toEqual(state);
+	expect(prisma.sitediaryrecords.groupBy).toHaveBeenCalledWith({
+		by: ["Location"],
+		where: {
+			siteId: "site",
+			organizationId: LIMENI_ORGANIZATION_ID,
+			archivedAt: null,
+			Date: { not: null },
+		},
+		_max: { Date: true },
+	});
+	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
+});
+
+it("refreshes the end date even when there are no new photo sources", async () => {
+	await mockSavedDrawing();
+	jest
+		.mocked(prisma.sitediaryrecords.groupBy)
+		.mockResolvedValue([
+			{
+				Location: "1. stāvs",
+				_max: { Date: new Date("2026-09-29T12:00:00Z") },
+			},
+		] as never);
+	const result = await appendVisualDiaryEvidence("user", "site", "drawing");
+	expect(result.addedCount).toBe(0);
+	expect(result.drawing.latestDiaryDate).toBe("2026-09-29T12:00:00.000Z");
+	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
+});
 
 const uploadArgs = {
 	userId: "user",

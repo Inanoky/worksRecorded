@@ -11,6 +11,32 @@ const evidence = (id: string, date: string | null) =>
 	({ id, date }) as VisualEvidence;
 const mark = (id: string) => ({ id, evidenceId: id }) as VisualMark;
 
+it("extends through the latest diary day without inventing a new zone", () => {
+	const timeline = buildVisualTimeline(
+		[evidence("photo", "2026-09-28")],
+		"2026-09-29T12:00:00Z",
+	);
+	expect(timeline.firstDay).toBe(visualDiaryDay("2026-09-28"));
+	expect(timeline.lastDay).toBe(visualDiaryDay("2026-09-29"));
+	expect(timeline.dayByEvidence.size).toBe(1);
+	expect(
+		cumulativeVisualMarks(
+			[mark("photo")],
+			timeline.dayByEvidence,
+			timeline.lastDay,
+			false,
+		),
+	).toEqual([mark("photo")]);
+});
+
+it("keeps the source range for missing or invalid diary dates", () => {
+	for (const date of [null, undefined, "invalid", "2026-09-20"]) {
+		expect(
+			buildVisualTimeline([evidence("photo", "2026-09-28")], date).lastDay,
+		).toBe(visualDiaryDay("2026-09-28"));
+	}
+});
+
 it("sorts source zones oldest first with times and undated zones last without mutating input", () => {
 	const marks = [mark("missing"), mark("late"), mark("early"), mark("older")];
 	expect(

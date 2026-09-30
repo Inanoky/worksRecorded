@@ -356,8 +356,12 @@ export default function VisualView({ siteId }: { siteId: string }) {
 				normalizeVisualLocation(location),
 		) ?? [];
 	const timeline = useMemo(
-		() => buildVisualTimeline(drawing?.state.evidence ?? []),
-		[drawing?.state.evidence],
+		() =>
+			buildVisualTimeline(
+				drawing?.state.evidence ?? [],
+				drawing?.latestDiaryDate,
+			),
+		[drawing?.state.evidence, drawing?.latestDiaryDate],
 	);
 	const selectedDay =
 		timeline.firstDay !== null && timeline.lastDay !== null
