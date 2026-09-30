@@ -2,6 +2,7 @@
 
 import { MessageCircle } from "lucide-react";
 import React from "react";
+import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import TourRunner from "@/components/joyride/TourRunner";
 import DialogWindow from "@/components/sitediary/DialogWindow";
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,8 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false }) {
   const [currentYear, setCurrentYear] = React.useState(today.getFullYear());
   const [date, setDate] = React.useState(null);
   const [filledDays, setFilledDays] = React.useState<number[]>([]);
+  const [loadedSiteId, setLoadedSiteId] = React.useState<string | null>(null);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
   const weeks = getCalendarGrid(currentYear, currentMonth);
   const monthName = new Date(currentYear, currentMonth).toLocaleString(
@@ -114,13 +117,23 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false }) {
     let cancelled = false;
     async function fetchFilledDays() {
       if (!siteId) return setFilledDays([]);
-      const days = await getFilledDays({
-        siteId,
-        year: currentYear,
-        month: currentMonth,
-        flowId: isZtcFlow ? "ztc" : undefined,
-      });
-      if (!cancelled) setFilledDays(days);
+      setLoadError(null);
+      try {
+        const days = await getFilledDays({
+          siteId,
+          year: currentYear,
+          month: currentMonth,
+          flowId: isZtcFlow ? "ztc" : undefined,
+        });
+        if (!cancelled) {
+          setFilledDays(days);
+          setLoadedSiteId(siteId);
+        }
+      } catch {
+        if (!cancelled) {
+          setLoadError("Neizdevās ielādēt būvdarbu žurnālu. Lūdzu, mēģiniet vēlreiz.");
+        }
+      }
     }
     fetchFilledDays();
     return () => {
@@ -135,6 +148,8 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false }) {
 
   return (
     <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 py-4">
+      {siteId && loadedSiteId !== siteId && !loadError ? <ProjectOpeningOverlay label="Ielādē būvdarbu žurnālu…" /> : null}
+      {loadError ? <p role="alert" className="text-destructive">{loadError}</p> : null}
       <div className="flex flex-row justify-between">
         <h2 className="text-xl sm:text-2xl gap-5 font-semibold mb-2">
           Site Diary

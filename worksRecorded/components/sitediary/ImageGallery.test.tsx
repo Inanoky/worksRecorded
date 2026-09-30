@@ -37,6 +37,47 @@ jest.mock("@/server/actions/site-diary-actions", () => ({
 }));
 
 describe("ImageGallery photo moves", () => {
+	it("keeps the photo visible if deletion fails", async () => {
+		jest.spyOn(window, "confirm").mockReturnValue(true);
+		mockDeletePhotoById.mockRejectedValue(new Error("failed"));
+		const onMediaChanged = jest.fn();
+		render(
+			<ImageGallery
+				date={new Date("2026-08-05T12:00:00Z")}
+				siteId="site-1"
+				organizationLanguage="en"
+				onMediaChanged={onMediaChanged}
+			/>,
+		);
+		await screen.findByRole("button", { name: "Progress photo" });
+		fireEvent.click(screen.getAllByRole("button", { name: "Delete photo" })[0]);
+		await waitFor(() =>
+			expect(mockDeletePhotoById).toHaveBeenCalledWith("photo-1"),
+		);
+		expect(
+			screen.getByRole("button", { name: "Progress photo" }),
+		).toBeInTheDocument();
+		expect(onMediaChanged).not.toHaveBeenCalled();
+	});
+	it("refreshes diary previews only after successful deletion", async () => {
+		jest.spyOn(window, "confirm").mockReturnValue(true);
+		mockDeletePhotoById.mockResolvedValue({ ok: true });
+		const onMediaChanged = jest.fn();
+		render(
+			<ImageGallery
+				date={new Date("2026-08-05T12:00:00Z")}
+				siteId="site-1"
+				organizationLanguage="en"
+				onMediaChanged={onMediaChanged}
+			/>,
+		);
+		await screen.findByRole("button", { name: "Progress photo" });
+		fireEvent.click(screen.getAllByRole("button", { name: "Delete photo" })[0]);
+		await waitFor(() => expect(onMediaChanged).toHaveBeenCalledTimes(1));
+		expect(
+			screen.queryByRole("button", { name: "Progress photo" }),
+		).toBeNull();
+	});
 	beforeEach(() => {
 		jest.clearAllMocks();
 		mockGetPhotosByDate.mockResolvedValue({

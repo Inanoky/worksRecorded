@@ -20,11 +20,10 @@ export type FlowFrontendModule = {
 	SiteDiary: ComponentType<FlowSiteDiaryProps>;
 };
 
-const flowLoading = () => (
-	<div className="space-y-3" aria-busy="true">
-		<div className="h-12 animate-pulse rounded-xl bg-muted" />
-		<div className="h-64 animate-pulse rounded-xl bg-muted" />
-	</div>
+const flowLoading = () => <ProjectOpeningOverlay label="Ielādē projektu…" />;
+
+const diaryLoading = () => (
+	<ProjectOpeningOverlay label="Ielādē būvdarbu žurnālu…" />
 );
 
 const DefaultConstructionDashboardFlow = dynamic<FlowDashboardProps>(
@@ -32,42 +31,42 @@ const DefaultConstructionDashboardFlow = dynamic<FlowDashboardProps>(
 		import("@/flows/default-construction/frontend/DefaultProductionFlow").then(
 			(module) => module.DefaultProductionFlow,
 		),
-	{ loading: () => <ProjectOpeningOverlay label="Ielādē būvdarbu žurnālu…" /> },
+	{ loading: diaryLoading },
 );
 const DefaultConstructionSiteDiaryFlow = dynamic<FlowSiteDiaryProps>(
 	() =>
 		import("@/flows/default-construction/frontend/DefaultSiteDiaryFlow").then(
 			(module) => module.DefaultSiteDiaryFlow,
 		),
-	{ loading: flowLoading },
+	{ loading: diaryLoading },
 );
 const DefaultProductionFlow = dynamic<FlowDashboardProps>(
 	() =>
 		import("@/flows/default-production/frontend/DefaultProductionFlow").then(
 			(module) => module.DefaultProductionFlow,
 		),
-	{ loading: flowLoading },
+	{ loading: diaryLoading },
 );
 const DefaultSiteDiaryFlow = dynamic<FlowSiteDiaryProps>(
 	() =>
 		import("@/flows/default-production/frontend/DefaultSiteDiaryFlow").then(
 			(module) => module.DefaultSiteDiaryFlow,
 		),
-	{ loading: flowLoading },
+	{ loading: diaryLoading },
 );
 const ZtcProductionFlow = dynamic<FlowDashboardProps>(
 	() =>
 		import("@/flows/ztc-production/frontend/ZtcProductionFlow").then(
 			(module) => module.ZtcProductionFlow,
 		),
-	{ loading: flowLoading },
+	{ loading: diaryLoading },
 );
 const ZtcSiteDiaryFlow = dynamic<FlowSiteDiaryProps>(
 	() =>
 		import("@/flows/ztc-production/frontend/ZtcSiteDiaryFlow").then(
 			(module) => module.ZtcSiteDiaryFlow,
 		),
-	{ loading: flowLoading },
+	{ loading: diaryLoading },
 );
 const TgemInvoiceApprovalDashboard = dynamic<FlowDashboardProps>(
 	() =>

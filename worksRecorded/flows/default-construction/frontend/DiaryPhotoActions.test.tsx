@@ -21,6 +21,7 @@ const refresh = jest.fn();
 const success = jest.fn();
 const error = jest.fn();
 let callbacks: {
+	onUploadBegin: () => void;
 	onUploadProgress: (value: number) => void;
 	onUploadError: (value: { code: string }) => void;
 };
@@ -173,6 +174,35 @@ it("displays the SDK error code even when the SDK resolves undefined", async () 
 	start();
 	await waitFor(() =>
 		expect(screen.getByRole("alert")).toHaveTextContent("FORBIDDEN"),
+	);
+});
+it("clearly reports rejection before uploading without claiming photos may be saved", async () => {
+	upload.mockImplementation(async () => {
+		callbacks.onUploadError({ code: "BAD_REQUEST" });
+		return undefined;
+	});
+	menu();
+	select();
+	start();
+	await waitFor(() =>
+		expect(screen.getByRole("alert")).toHaveTextContent(
+			"Foto augšupielāde nav sākta",
+		),
+	);
+	expect(screen.getByRole("alert")).not.toHaveTextContent("Daži foto");
+	expect(success).not.toHaveBeenCalled();
+});
+it("keeps the partial-upload warning if a file already started uploading", async () => {
+	upload.mockImplementation(async () => {
+		callbacks.onUploadBegin();
+		callbacks.onUploadError({ code: "BAD_REQUEST" });
+		return undefined;
+	});
+	menu();
+	select();
+	start();
+	await waitFor(() =>
+		expect(screen.getByRole("alert")).toHaveTextContent("Daži foto"),
 	);
 });
 it.each(["pdf", "count", "size"])(

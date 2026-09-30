@@ -159,9 +159,11 @@ function GalleryPagination({
 export default function FullPhotoGallery({
 	siteId,
 	preloadAll = false,
+	onMediaChanged,
 }: {
 	siteId: string;
 	preloadAll?: boolean;
+	onMediaChanged?: () => void | Promise<void>;
 }) {
 	// --- State ---
 	const [photos, setPhotos] = useState<Photo[]>([]);
@@ -480,7 +482,14 @@ export default function FullPhotoGallery({
 
 			try {
 				setDeleting(true);
-				await Promise.all(ids.map((id) => deletePhotoById(id)));
+				const results = await Promise.allSettled(
+					ids.map((id) => deletePhotoById(id)),
+				);
+				await onMediaChanged?.();
+				if (results.some((result) => result.status === "rejected")) {
+					await fetchPhotos();
+					throw new Error("Some photos could not be deleted");
+				}
 
 				setPhotos((current) => {
 					const deleteSet = new Set(ids);
@@ -516,7 +525,7 @@ export default function FullPhotoGallery({
 				setDeleting(false);
 			}
 		},
-		[currentPage, deleting, fetchPhotos, photos],
+		[currentPage, deleting, fetchPhotos, photos, onMediaChanged],
 	);
 
 	const selectAllCurrentPage = useCallback(() => {

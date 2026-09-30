@@ -1,4 +1,6 @@
 "use server";
+import { revalidatePath } from "next/cache";
+import { deleteDiaryPhoto } from "@/lib/photos/delete-diary-photo";
 import { auditZtcMutation } from "@/flows/ztc-production/lib/ztc-record-audit";
 import { getDiarySourcePhotoUrls } from "@/flows/default-construction/backend/diary-photo-source";
 import { hasInlineDiaryPhotos } from "@/flows/default-construction/lib/diary-photos";
@@ -4801,10 +4803,9 @@ export async function getPhotosByDate({
 }
 
 export async function deletePhotoById(id: string) {
-  // Optionally: add auth/ownership checks here
-  await prisma.photos.delete({
-    where: { id },
-  });
+  const { siteId } = await deleteDiaryPhoto(id);
+  revalidatePath(`/dashboard/sites/${siteId}`, "layout");
+  revalidatePath("/dashboard/all-projects");
   return { ok: true };
 }
 

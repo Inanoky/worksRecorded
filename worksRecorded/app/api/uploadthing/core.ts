@@ -1,4 +1,5 @@
 import { requireDiaryPhotoAccess, appendDiaryPhoto } from "@/flows/default-construction/backend/diary-photo-upload";
+import { diaryPhotoUploadInput } from "@/flows/default-construction/lib/diary-photo-upload-input";
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { createUploadthing, type FileRouter } from "uploadthing/next";
 import { UploadThingError } from "uploadthing/server";
@@ -22,7 +23,7 @@ const f = createUploadthing();
 // FileRouter for your app, can contain multiple FileRoutes
 export const ourFileRouter = {
   limeniDiaryPhotoUploader: f({ image: { maxFileSize: "16MB", maxFileCount: 10 } })
-    .input(z.object({ siteId: z.string().uuid(), recordId: z.string().uuid() }))
+    .input(diaryPhotoUploadInput)
     .middleware(async ({ input }) => {
       const { getUser } = getKindeServerSession();
       const user = await getUser();

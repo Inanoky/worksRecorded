@@ -65,6 +65,7 @@ function PhotoUploadDialog({
 	const router = useRouter();
 	const input = useRef<HTMLInputElement>(null);
 	const uploading = useRef(false);
+	const uploadStarted = useRef(false);
 	const uploadError = useRef<string | null>(null);
 	const [files, setFiles] = useState<File[]>([]);
 	const [phase, setPhase] = useState<"ready" | "uploading" | "saved" | "error">(
@@ -76,6 +77,9 @@ function PhotoUploadDialog({
 	const lv = !target.language || target.language.startsWith("lv");
 	const busy = phase === "uploading";
 	const { startUpload } = useUploadThing("limeniDiaryPhotoUploader", {
+		onUploadBegin: () => {
+			uploadStarted.current = true;
+		},
 		onUploadProgress: setProgress,
 		onUploadError: (failure) => {
 			uploadError.current = failure.code;
@@ -91,6 +95,7 @@ function PhotoUploadDialog({
 		)
 			return;
 		uploading.current = true;
+		uploadStarted.current = false;
 		uploadError.current = null;
 		setPhase("uploading");
 		setError(null);
@@ -116,9 +121,15 @@ function PhotoUploadDialog({
 			setPhase("saved");
 			toast.success(lv ? "Foto pievienoti." : "Photos added.");
 		} catch {
-			const message = lv
-				? "Neizdevās apstiprināt visu foto pievienošanu. Daži foto, iespējams, ir saglabāti. Aizveriet šo logu un atjaunojiet ierakstus pirms atkārtota mēģinājuma."
-				: "Could not confirm all photo attachments. Some photos may have been saved. Close this window and refresh the records before retrying.";
+			const rejectedBeforeUpload =
+				!uploadStarted.current && uploadError.current === "BAD_REQUEST";
+			const message = rejectedBeforeUpload
+				? lv
+					? "Augšupielādes pieprasījums noraidīts. Foto augšupielāde nav sākta. Pārlādējiet lapu un mēģiniet vēlreiz."
+					: "The upload request was rejected before uploading started. Reload the page and try again."
+				: lv
+					? "Neizdevās apstiprināt visu foto pievienošanu. Daži foto, iespējams, ir saglabāti. Aizveriet šo logu un atjaunojiet ierakstus pirms atkārtota mēģinājuma."
+					: "Could not confirm all photo attachments. Some photos may have been saved. Close this window and refresh the records before retrying.";
 			setPhase("error");
 			setError(message);
 			setErrorCode(uploadError.current);

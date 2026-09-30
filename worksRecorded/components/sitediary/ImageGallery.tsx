@@ -295,17 +295,19 @@ export function ImageGallery({
 	}, [date, siteId, preloadAll, t.failedLoadPhotos]);
 
 	async function handleDelete(id: string) {
+		if (deleting) return;
 		if (!window.confirm(t.confirmDeletePhoto)) return;
 
 		setDeleting(id);
-		setPhotos((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
-		setSelectedPhotoIds((prev) => {
-			const next = new Set(prev);
-			next.delete(id);
-			return next;
-		});
+		setError(null);
 		try {
 			await deletePhotoById(id);
+			setPhotos((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
+			setSelectedPhotoIds((prev) => {
+				const next = new Set(prev);
+				next.delete(id);
+				return next;
+			});
 			await onMediaChanged?.();
 		} catch {
 			setError(t.failedDeletePhoto);
@@ -599,6 +601,11 @@ export function ImageGallery({
 	return (
 		<div className={cn("flex min-h-0 flex-col bg-background", className)}>
 			<div className="relative min-h-0 flex-1">
+				{error ? (
+					<p role="alert" className="p-2 text-sm text-destructive">
+						{error}
+					</p>
+				) : null}
 				{imageProgress && loading ? (
 					<output
 						className="block p-2 text-sm text-muted-foreground"
@@ -616,9 +623,10 @@ export function ImageGallery({
 							<Skeleton key={skeletonKey} className="aspect-square" />
 						))}
 					</div>
-				) : error ? (
-					<div className="p-2 text-sm text-muted-foreground">{error}</div>
-				) : (photos?.length ?? 0) === 0 && (audioRecords?.length ?? 0) === 0 ? (
+				) : error &&
+					!photos?.length &&
+					!audioRecords?.length ? null : (photos?.length ?? 0) === 0 &&
+					(audioRecords?.length ?? 0) === 0 ? (
 					<div className="text-sm text-muted-foreground p-2">
 						{t.noMediaForDate}
 					</div>

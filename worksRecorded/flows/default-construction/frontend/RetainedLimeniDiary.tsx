@@ -13,7 +13,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 
 const Diary = lazy(() => import("@/components/sitediary/SiteDiaryList"));
 
@@ -82,7 +82,19 @@ export function RetainedLimeniDiary({
 			{children}
 			<section hidden={!active} aria-label="Būvdarbu žurnāls">
 				{ready && settings ? (
-					<Suspense fallback={<Skeleton className="h-64 w-full" />}>
+					<Suspense
+						fallback={
+							active ? (
+								<ProjectOpeningOverlay
+									label={
+										settings.organizationLanguage === "en"
+											? "Loading construction diary…"
+											: "Ielādē būvdarbu žurnālu…"
+									}
+								/>
+							) : null
+						}
+					>
 						<Diary
 							key={scope}
 							siteId={siteId}

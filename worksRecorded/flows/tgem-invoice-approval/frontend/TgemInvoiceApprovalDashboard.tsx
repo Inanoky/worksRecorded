@@ -1,4 +1,5 @@
 "use client";
+import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 
 import {
 	AlertTriangle,
@@ -2910,10 +2911,7 @@ export function TgemInvoiceApprovalDashboard({
 			</div>
 
 			{data === null && !error ? (
-				<div className="flex min-h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
-					<Loader2 className="h-4 w-4 animate-spin" />
-					{copy.loading}
-				</div>
+				<ProjectOpeningOverlay label={copy.loading} />
 			) : error ? (
 				<div className="flex min-h-32 items-center justify-center gap-2 text-sm text-red-600">
 					<AlertTriangle className="h-4 w-4" />

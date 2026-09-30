@@ -2933,7 +2933,7 @@ export default function SiteDiaryCalendar({
   return (
     <TooltipProvider>
       <DiaryPhotoUploadProvider>
-      {active && !isZtcFlow && !error && (!hasLoadedRowsOnce || imagesPreloading) ? (
+      {active && siteId && !error && (!hasLoadedRowsOnce || imagesPreloading) ? (
         <ProjectOpeningOverlay label={language === "lv" ? "Ielādē būvdarbu žurnālu…" : "Loading construction diary…"} />
       ) : null}
       <div
@@ -6000,7 +6000,7 @@ export default function SiteDiaryCalendar({
           {/* GALLERY VIEW */}
           <TabsContent value="gallery" className="mt-0">
             <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
-              <FullPhotoGallery siteId={siteId ?? ""} preloadAll={!isZtcFlow} />
+              <FullPhotoGallery siteId={siteId ?? ""} preloadAll={!isZtcFlow} onMediaChanged={async () => { await refreshRowsWithBisSync({ skipSync: true }); }} />
             </React.Suspense>
           </TabsContent>
         </Tabs>

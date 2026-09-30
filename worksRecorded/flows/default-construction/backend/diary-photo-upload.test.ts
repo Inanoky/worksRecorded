@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/utils/db";
-import { requireWarehouseImportAccess } from "./warehouse-import-upload";
+import { LIMENI_ORGANIZATION_ID } from "../lib/diary-photos";
 import {
 	appendDiaryPhoto,
 	requireDiaryPhotoAccess,
 } from "./diary-photo-upload";
-import { LIMENI_ORGANIZATION_ID } from "../lib/diary-photos";
+import { requireWarehouseImportAccess } from "./warehouse-import-upload";
+
 jest.mock("@/lib/utils/db", () => ({
 	prisma: { sitediaryrecords: { findFirst: jest.fn() }, $queryRaw: jest.fn() },
 }));
@@ -13,13 +14,11 @@ jest.mock("./warehouse-import-upload", () => ({
 }));
 beforeEach(() => {
 	jest.resetAllMocks();
-	jest
-		.mocked(requireWarehouseImportAccess)
-		.mockResolvedValue({
-			userId: "u",
-			siteId: "s",
-			organizationId: LIMENI_ORGANIZATION_ID,
-		});
+	jest.mocked(requireWarehouseImportAccess).mockResolvedValue({
+		userId: "u",
+		siteId: "s",
+		organizationId: LIMENI_ORGANIZATION_ID,
+	});
 	jest
 		.mocked(prisma.sitediaryrecords.findFirst)
 		.mockResolvedValue({ id: "r" } as never);
@@ -44,6 +43,21 @@ it("rejects other organizations", async () => {
 		"organization",
 	);
 	expect(prisma.sitediaryrecords.findFirst).not.toHaveBeenCalled();
+});
+it("authorizes legacy non-UUID record IDs against the same tenant and project", async () => {
+	const recordId =
+		"14d918ca2be80811479dad626cf0016d923a139b0e550f81525628b8fe00bb44";
+	const result = await requireDiaryPhotoAccess("u", "s", recordId);
+	expect(result.recordId).toBe(recordId);
+	expect(prisma.sitediaryrecords.findFirst).toHaveBeenCalledWith({
+		where: {
+			id: recordId,
+			siteId: "s",
+			organizationId: LIMENI_ORGANIZATION_ID,
+			archivedAt: null,
+		},
+		select: { id: true },
+	});
 });
 it("rejects missing, archived or different-project records", async () => {
 	jest.mocked(prisma.sitediaryrecords.findFirst).mockResolvedValue(null);

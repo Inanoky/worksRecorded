@@ -69,6 +69,51 @@ function mockFetchResponse(photos = pageOnePhotos, totalCount = photos.length) {
 }
 
 describe("FullPhotoGallery", () => {
+	it("refreshes diary previews after a confirmed gallery deletion", async () => {
+		jest.spyOn(window, "confirm").mockReturnValue(true);
+		mockDeletePhotoById.mockResolvedValue({ ok: true });
+		const onMediaChanged = jest.fn();
+		render(
+			<FullPhotoGallery siteId="site-1" onMediaChanged={onMediaChanged} />,
+		);
+		fireEvent.click(await screen.findByAltText("First photo"));
+		fireEvent.click(
+			screen.getByRole("button", { name: "Delete" }),
+		);
+		await waitFor(() => expect(onMediaChanged).toHaveBeenCalledTimes(1));
+		expect(mockDeletePhotoById).toHaveBeenCalledWith("photo-1");
+	});
+	it("does not delete or refresh when confirmation is cancelled", async () => {
+		jest.spyOn(window, "confirm").mockReturnValue(false);
+		const onMediaChanged = jest.fn();
+		render(
+			<FullPhotoGallery siteId="site-1" onMediaChanged={onMediaChanged} />,
+		);
+		fireEvent.click(await screen.findByAltText("First photo"));
+		fireEvent.click(
+			screen.getByRole("button", { name: "Delete" }),
+		);
+		expect(mockDeletePhotoById).not.toHaveBeenCalled();
+		expect(onMediaChanged).not.toHaveBeenCalled();
+	});
+	it("refreshes persisted state on a failed deletion and shows the error", async () => {
+		jest.spyOn(window, "confirm").mockReturnValue(true);
+		jest.spyOn(console, "error").mockImplementation(() => {});
+		mockDeletePhotoById.mockRejectedValue(new Error("failed"));
+		const onMediaChanged = jest.fn();
+		render(
+			<FullPhotoGallery siteId="site-1" onMediaChanged={onMediaChanged} />,
+		);
+		fireEvent.click(await screen.findByAltText("First photo"));
+		fireEvent.click(
+			screen.getByRole("button", { name: "Delete" }),
+		);
+		await waitFor(() => expect(onMediaChanged).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+		expect(
+			await screen.findByText("Could not delete photos. Please try again."),
+		).toBeInTheDocument();
+	});
 	it("preloads all gallery originals before showing thumbnails or opening the viewer", async () => {
 		const images: HTMLImageElement[] = [];
 		const spy = jest.spyOn(window, "Image").mockImplementation(() => {
