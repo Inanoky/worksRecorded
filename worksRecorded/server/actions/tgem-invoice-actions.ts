@@ -371,6 +371,12 @@ function serializeTgemDashboardInvoice(
 		createdAt: invoiceCase.createdAt.toISOString(),
 		updatedAt: invoiceCase.updatedAt.toISOString(),
 		approvalRound: invoiceCase.approvalRound,
+		splitKind:
+			invoiceCase.splitKind === "allocated" ||
+			invoiceCase.splitKind === "residual"
+				? invoiceCase.splitKind
+				: null,
+		splitGeneration: invoiceCase.splitGeneration,
 		documents: invoiceCase.documents.map((document) => ({
 			id: document.id,
 			contentType: document.contentType,

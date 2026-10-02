@@ -1,5 +1,4 @@
 "use client";
-import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 
 import {
 	AlertTriangle,
@@ -16,6 +15,7 @@ import {
 	Copy,
 	Files,
 	FileText,
+	GitBranch,
 	History,
 	Info,
 	ListChecks,
@@ -30,6 +30,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { DashboardOrganizationBrand } from "@/components/dashboard/DashboardOrganizationBrand";
+import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -101,6 +102,7 @@ import { updateTgemInvoiceDetail } from "@/server/actions/tgem-invoice-details-a
 import { TgemApprovalControls } from "./TgemApprovalControls";
 import { TgemImageViewer } from "./TgemImageViewer";
 import { TgemInvoiceRegisterFilters } from "./TgemInvoiceRegisterFilters";
+import { TgemInvoiceSplitWorkspace } from "./TgemInvoiceSplitWorkspace";
 import { TgemInvoiceUpload } from "./TgemInvoiceUpload";
 import { TgemPdfViewer } from "./TgemPdfViewer";
 
@@ -129,6 +131,8 @@ function getCopy(language?: string | null) {
 			refreshFailed: "Neizdevās atjaunināt. Mēģiniet vēlreiz.",
 			supplier: "Piegādātājs",
 			invoiceNumber: "Rēķina numurs",
+			splitInvoice: "Sadalīts rēķins",
+			residualInvoice: "Oriģināls",
 			newestDuplicateInvoiceNumber:
 				"Šis jaunākais rēķins dublē iepriekš saņemta rēķina numuru.",
 			invoiceDate: "Rēķina datums",
@@ -327,6 +331,8 @@ function getCopy(language?: string | null) {
 			refreshFailed: "Не удалось обновить. Попробуйте ещё раз.",
 			supplier: "Поставщик",
 			invoiceNumber: "Номер счета",
+			splitInvoice: "Разделённый счёт",
+			residualInvoice: "Остаточный счёт",
 			newestDuplicateInvoiceNumber:
 				"Этот новый счёт дублирует номер ранее полученного счёта.",
 			invoiceDate: "Дата счета",
@@ -524,6 +530,8 @@ function getCopy(language?: string | null) {
 		refreshFailed: "Could not refresh. Try again.",
 		supplier: "Supplier",
 		invoiceNumber: "Invoice number",
+		splitInvoice: "Split invoice",
+		residualInvoice: "Residual invoice",
 		newestDuplicateInvoiceNumber:
 			"This newer invoice duplicates a previously received invoice number.",
 		invoiceDate: "Invoice date",
@@ -749,6 +757,31 @@ function statusClass(status: string) {
 	if (status === "received")
 		return "border-[#E1E6ED] bg-slate-50 text-slate-600";
 	return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
+function SplitInvoiceBadge({
+	invoice,
+	copy,
+}: {
+	invoice: TgemDashboardInvoice;
+	copy: ReturnType<typeof getCopy>;
+}) {
+	if (!invoice.splitKind || !invoice.splitGeneration) return null;
+	return (
+		<Badge
+			variant="outline"
+			className={
+				invoice.splitKind === "residual"
+					? "gap-1 border-amber-200 bg-amber-50 text-amber-800"
+					: "gap-1 border-tgem-primary/25 bg-tgem-primary/10 text-tgem-primary"
+			}
+		>
+			<GitBranch className="h-3.5 w-3.5" />
+			{invoice.splitKind === "residual"
+				? copy.residualInvoice
+				: copy.splitInvoice}
+		</Badge>
+	);
 }
 
 function PaymentStatusControl({
@@ -1027,6 +1060,7 @@ function approvalPosition(invoice: TgemDashboardInvoice) {
 
 function InvoiceRegister({
 	invoices,
+	projects,
 	costCodes,
 	currentUserId,
 	filters,
@@ -1037,6 +1071,7 @@ function InvoiceRegister({
 	onFiltersChange,
 }: {
 	invoices: TgemDashboardInvoice[];
+	projects: TgemDashboardData["projects"];
 	costCodes: TgemDashboardData["costCodes"];
 	currentUserId: string;
 	filters: TgemInvoiceRegisterFilterState;
@@ -1425,6 +1460,7 @@ function InvoiceRegister({
 													{invoice.isNewestDuplicateInvoiceNumber ? (
 														<NewestDuplicateInvoiceNumberWarning copy={copy} />
 													) : null}
+													<SplitInvoiceBadge invoice={invoice} copy={copy} />
 												</div>
 											</TableCell>
 											<TableCell>
@@ -1539,6 +1575,7 @@ function InvoiceRegister({
 												{invoice.isNewestDuplicateInvoiceNumber ? (
 													<NewestDuplicateInvoiceNumberWarning copy={copy} />
 												) : null}
+												<SplitInvoiceBadge invoice={invoice} copy={copy} />
 											</div>
 											<div className="mt-0.5 truncate text-sm text-muted-foreground">
 												{invoice.supplierName || "—"}
@@ -1686,6 +1723,7 @@ function InvoiceRegister({
 								{previewInvoice.isNewestDuplicateInvoiceNumber ? (
 									<NewestDuplicateInvoiceNumberWarning copy={copy} />
 								) : null}
+								<SplitInvoiceBadge invoice={previewInvoice} copy={copy} />
 							</DialogDescription>
 							<DialogClose asChild>
 								<button
@@ -1733,6 +1771,7 @@ function InvoiceRegister({
 							<InvoiceInformationCard
 								key={previewInvoice.id}
 								invoice={previewInvoice}
+								projects={projects}
 								costCodes={costCodes}
 								copy={copy}
 								organizationLanguage={organizationLanguage}
@@ -2347,12 +2386,14 @@ function InvoiceAccountingClassification({
 
 function InvoiceInformationCard({
 	invoice,
+	projects,
 	costCodes,
 	copy,
 	organizationLanguage,
 	onChanged,
 }: {
 	invoice: TgemDashboardInvoice;
+	projects: TgemDashboardData["projects"];
 	costCodes: TgemDashboardData["costCodes"];
 	copy: ReturnType<typeof getCopy>;
 	organizationLanguage?: string | null;
@@ -2363,13 +2404,24 @@ function InvoiceInformationCard({
 	);
 	return (
 		<Card>
-			<CardHeader>
+			<CardHeader className="flex-row flex-wrap items-center justify-between gap-3">
 				<CardTitle className="flex items-center gap-2 text-base">
 					<ReceiptText className="h-4 w-4 text-tgem-primary" />
 					{copy.details}
 				</CardTitle>
+				<TgemInvoiceSplitWorkspace
+					invoice={invoice}
+					projects={projects}
+					organizationLanguage={organizationLanguage}
+					onChanged={onChanged}
+				/>
 			</CardHeader>
 			<CardContent className="grid gap-3 sm:grid-cols-2">
+				{invoice.splitKind && invoice.splitGeneration ? (
+					<div className="sm:col-span-2">
+						<SplitInvoiceBadge invoice={invoice} copy={copy} />
+					</div>
+				) : null}
 				{invoice.isNewestDuplicateInvoiceNumber ? (
 					<div className="sm:col-span-2">
 						<NewestDuplicateInvoiceNumberWarning copy={copy} showLabel />
@@ -2515,6 +2567,7 @@ function InvoiceDetails({
 				) : null}
 				<InvoiceInformationCard
 					invoice={invoice}
+					projects={projects}
 					costCodes={costCodes}
 					copy={copy}
 					organizationLanguage={organizationLanguage}
@@ -2935,6 +2988,7 @@ export function TgemInvoiceApprovalDashboard({
 						<InvoiceRegister
 							key={projectFilter}
 							invoices={data.invoices}
+							projects={data.projects}
 							costCodes={data.costCodes}
 							currentUserId={data.currentUserId}
 							filters={registerFilters}
@@ -2968,6 +3022,7 @@ export function TgemInvoiceApprovalDashboard({
 												<span className="truncate font-medium">
 													{invoice.invoiceNumber || invoice.id}
 												</span>
+												<SplitInvoiceBadge invoice={invoice} copy={copy} />
 												<Badge
 													variant="outline"
 													className={statusClass(invoice.status)}
