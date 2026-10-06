@@ -51,8 +51,8 @@ describe("whatsapp reminder time helpers", () => {
   it("handles exact business-hour boundaries", () => {
     const before = getReminderLocalParts(new Date("2026-01-05T05:59:00.000Z"), "Europe/Riga");
     const start = getReminderLocalParts(new Date("2026-01-05T06:00:00.000Z"), "Europe/Riga");
-    const end = getReminderLocalParts(new Date("2026-01-05T16:00:00.000Z"), "Europe/Riga");
-    const after = getReminderLocalParts(new Date("2026-01-05T16:01:00.000Z"), "Europe/Riga");
+    const end = getReminderLocalParts(new Date("2026-01-05T18:00:00.000Z"), "Europe/Riga");
+    const after = getReminderLocalParts(new Date("2026-01-05T18:01:00.000Z"), "Europe/Riga");
 
     expect(isWithinReminderBusinessWindow(before)).toBe(false);
     expect(isWithinReminderBusinessWindow(start)).toBe(true);
@@ -100,11 +100,11 @@ describe("whatsapp reminder time helpers", () => {
     ) as { crons: Array<{ path: string; schedule: string }> };
     const reminderCron = vercelConfig.crons.find((cron) => cron.path === "/api/webhook/reminders");
 
-    expect(reminderCron?.schedule).toBe("*/15 5-16 * * 1-5");
+    expect(reminderCron?.schedule).toBe("*/15 5-18 * * 1-5");
     expect(getReminderLocalParts(new Date("2026-01-05T06:00:00.000Z"), "Europe/Riga").hhmm).toBe("08:00");
-    expect(getReminderLocalParts(new Date("2026-01-05T16:00:00.000Z"), "Europe/Riga").hhmm).toBe("18:00");
+    expect(getReminderLocalParts(new Date("2026-01-05T18:00:00.000Z"), "Europe/Riga").hhmm).toBe("20:00");
     expect(getReminderLocalParts(new Date("2026-07-06T05:00:00.000Z"), "Europe/Riga").hhmm).toBe("08:00");
-    expect(getReminderLocalParts(new Date("2026-07-06T15:00:00.000Z"), "Europe/Riga").hhmm).toBe("18:00");
+    expect(getReminderLocalParts(new Date("2026-07-06T17:00:00.000Z"), "Europe/Riga").hhmm).toBe("20:00");
   });
 
   it("treats holidays as optional local-date rules", () => {

@@ -1,7 +1,7 @@
 export const DEFAULT_REMINDER_TIMEZONE = "Europe/Riga";
 export const REMINDER_DUE_WINDOW_MINUTES = 20;
 export const REMINDER_BUSINESS_START_MINUTE = 8 * 60;
-export const REMINDER_BUSINESS_END_MINUTE = 18 * 60;
+export const REMINDER_BUSINESS_END_MINUTE = 20 * 60;
 
 export type NormalizedReminderTimezone = {
   timeZone: string;
