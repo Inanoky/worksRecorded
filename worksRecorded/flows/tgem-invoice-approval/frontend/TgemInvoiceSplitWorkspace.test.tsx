@@ -232,6 +232,73 @@ it("accepts a localized decimal quantity and submits its normalized value", asyn
 	);
 });
 
+it("splits the whole invoice evenly across two new projects and the original", async () => {
+	renderWorkspace({
+		invoice: invoice({
+			subtotal: "100.00",
+			vat: "21.00",
+			total: "121.00",
+			lines: [
+				{
+					...invoice().lines[0],
+					quantity: "1",
+					unitPrice: "100",
+					total: "100.00",
+				},
+			],
+		}),
+	});
+	const dialog = openWorkspace();
+	fireEvent.click(within(dialog).getByRole("button", { name: "Add project" }));
+	fireEvent.click(
+		within(dialog).getByRole("button", { name: "Whole invoice %" }),
+	);
+	fireEvent.click(within(dialog).getByRole("button", { name: "Split evenly" }));
+
+	expect(within(dialog).getByLabelText("Percentage for Project A")).toHaveValue(
+		"33.33",
+	);
+	expect(within(dialog).getByLabelText("Percentage for Project B")).toHaveValue(
+		"33.33",
+	);
+	expect(
+		within(dialog).getByText("Original project keeps: 33.34%"),
+	).toBeInTheDocument();
+	expect(within(dialog).getByText("Balanced")).toBeInTheDocument();
+
+	fireEvent.click(
+		within(dialog).getByRole("button", { name: "Confirm split" }),
+	);
+	await waitFor(() =>
+		expect(mockSplitInvoice).toHaveBeenCalledWith(
+			expect.objectContaining({
+				invoicePercentageAllocations: [
+					{ projectId: "project-a", percentage: "33.33" },
+					{ projectId: "project-b", percentage: "33.33" },
+				],
+				lineRequests: [],
+			}),
+		),
+	);
+});
+
+it("splits an individual item by a percentage with two-decimal validation", () => {
+	renderWorkspace();
+	const dialog = openWorkspace();
+	fireEvent.click(within(dialog).getByRole("button", { name: "Line item %" }));
+	const percentageInput = within(dialog).getByLabelText(
+		"Percentage for Project A: Materials",
+	);
+	fireEvent.change(percentageInput, { target: { value: "33.333" } });
+	expect(
+		within(dialog).getByText(
+			"A percentage can have at most two decimal places.",
+		),
+	).toBeInTheDocument();
+	fireEvent.change(percentageInput, { target: { value: "33,33" } });
+	expect(within(dialog).getByText("Balanced")).toBeInTheDocument();
+});
+
 it("requires a manual source quantity before partially splitting a missing count", () => {
 	renderWorkspace({
 		invoice: invoice({

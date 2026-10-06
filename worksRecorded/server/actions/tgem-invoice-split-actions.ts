@@ -20,6 +20,17 @@ const inputSchema = z
 		expectedUpdatedAt: z.string().datetime(),
 		destinationProjectIds: z.array(projectIdSchema).min(1).max(100),
 		residualProjectId: projectIdSchema.nullish(),
+		invoicePercentageAllocations: z
+			.array(
+				z
+					.object({
+						projectId: projectIdSchema,
+						percentage: decimalStringSchema,
+					})
+					.strict(),
+			)
+			.max(100)
+			.optional(),
 		lineRequests: z
 			.array(
 				z
@@ -33,6 +44,17 @@ const inputSchema = z
 									.object({
 										projectId: projectIdSchema,
 										quantity: decimalStringSchema,
+									})
+									.strict(),
+							)
+							.max(100)
+							.optional(),
+						percentageAllocations: z
+							.array(
+								z
+									.object({
+										projectId: projectIdSchema,
+										percentage: decimalStringSchema,
 									})
 									.strict(),
 							)
@@ -71,6 +93,8 @@ export async function splitTgemInvoice(input: SplitTgemInvoiceInput) {
 		destinationProjectIds: parsed.data.destinationProjectIds,
 		residualProjectId: parsed.data.residualProjectId ?? null,
 		lineRequests: parsed.data.lineRequests,
+		invoicePercentageAllocations:
+			parsed.data.invoicePercentageAllocations ?? [],
 		organizationId: dbUser.organizationId,
 		actorUserId: user.id,
 	});

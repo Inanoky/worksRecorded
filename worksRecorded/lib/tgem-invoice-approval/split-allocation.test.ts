@@ -275,6 +275,113 @@ describe("calculateTgemInvoiceSplit", () => {
 		]);
 	});
 
+	it("splits the whole invoice into exact thirds with deterministic cent rounding", () => {
+		const result = calculateTgemInvoiceSplit(
+			calculationInput({
+				subtotal: "100.00",
+				vat: "21.00",
+				total: "121.00",
+				destinationProjectIds: ["project-a", "project-b"],
+				lines: [
+					sourceLine({
+						id: "line-1",
+						lineNumber: 1,
+						quantity: "1",
+						unitPrice: "100",
+						total: "100.00",
+					}),
+				],
+				lineRequests: [],
+				invoicePercentageAllocations: [
+					{ projectId: "project-a", percentage: "33.33" },
+					{ projectId: "project-b", percentage: "33.33" },
+				],
+			}),
+		);
+
+		expect(result.hasResidual).toBe(true);
+		expect(
+			result.cases.map((entry) => ({
+				projectId: entry.projectId,
+				quantity: entry.lines[0].quantity,
+				lineTotal: entry.lines[0].total,
+				vat: entry.vat,
+				total: entry.total,
+			})),
+		).toEqual([
+			{
+				projectId: "project-a",
+				quantity: "0.3333",
+				lineTotal: "33.33",
+				vat: "7.00",
+				total: "40.33",
+			},
+			{
+				projectId: "project-b",
+				quantity: "0.3333",
+				lineTotal: "33.33",
+				vat: "7.00",
+				total: "40.33",
+			},
+			{
+				projectId: "project-original",
+				quantity: "0.3334",
+				lineTotal: "33.34",
+				vat: "7.00",
+				total: "40.34",
+			},
+		]);
+	});
+
+	it("splits one item by percentage while leaving other items untouched", () => {
+		const result = calculateTgemInvoiceSplit(
+			calculationInput({
+				lineRequests: [
+					{
+						lineId: "line-1",
+						percentageAllocations: [
+							{ projectId: "project-a", percentage: "25.50" },
+						],
+					},
+				],
+			}),
+		);
+
+		expect(result.cases[0].lines[0]).toEqual(
+			expect.objectContaining({ quantity: "0.51", total: "5.10" }),
+		);
+		expect(result.cases[1].lines).toEqual([
+			expect.objectContaining({ sourceLineId: "line-1", quantity: "1.49" }),
+			expect.objectContaining({ sourceLineId: "line-2", quantity: "3" }),
+		]);
+		expect(result.cases.map((entry) => entry.total)).toEqual(["6.12", "53.88"]);
+	});
+
+	it.each([
+		[
+			"percentage_exceeds_100",
+			[
+				{ projectId: "project-a", percentage: "50.01" },
+				{ projectId: "project-b", percentage: "50.00" },
+			],
+		],
+		[
+			"invalid_percentage_precision",
+			[{ projectId: "project-a", percentage: "33.333" }],
+		],
+	] as const)(
+		"rejects invalid percentage input with %s",
+		(code, allocations) => {
+			expectCalculationError(
+				calculationInput({
+					destinationProjectIds: ["project-a", "project-b"],
+					invoicePercentageAllocations: [...allocations],
+				}),
+				code,
+			);
+		},
+	);
+
 	it("rounds high-precision source money before splitting and preserves the rounded total", () => {
 		const result = calculateTgemInvoiceSplit(
 			calculationInput({

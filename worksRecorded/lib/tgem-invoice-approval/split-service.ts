@@ -12,6 +12,10 @@ export type TgemInvoiceSplitServiceInput = {
 	destinationProjectIds: string[];
 	residualProjectId: string | null;
 	lineRequests: TgemInvoiceSplitLineRequest[];
+	invoicePercentageAllocations?: Array<{
+		projectId: string;
+		percentage: string;
+	}>;
 	organizationId: string;
 	actorUserId: string;
 };
@@ -119,6 +123,23 @@ function buildRequestFingerprint(
 			index,
 		]),
 	);
+	const normalizePercentageAllocations = (
+		allocations: NonNullable<
+			TgemInvoiceSplitLineRequest["percentageAllocations"]
+		>,
+	) =>
+		[...allocations]
+			.map((allocation) => ({
+				projectId: allocation.projectId.trim(),
+				percentage: normalizeDecimalForFingerprint(allocation.percentage),
+			}))
+			.sort(
+				(left, right) =>
+					(destinationOrder.get(left.projectId) ?? Number.MAX_SAFE_INTEGER) -
+						(destinationOrder.get(right.projectId) ??
+							Number.MAX_SAFE_INTEGER) ||
+					left.projectId.localeCompare(right.projectId),
+			);
 	const lineRequests = input.lineRequests
 		.map((request) => ({
 			lineId: request.lineId.trim(),
@@ -138,6 +159,13 @@ function buildRequestFingerprint(
 								Number.MAX_SAFE_INTEGER) ||
 						left.projectId.localeCompare(right.projectId),
 				),
+			...(request.percentageAllocations?.length
+				? {
+						percentageAllocations: normalizePercentageAllocations(
+							request.percentageAllocations,
+						),
+					}
+				: {}),
 		}))
 		.sort((left, right) => left.lineId.localeCompare(right.lineId));
 
@@ -150,6 +178,13 @@ function buildRequestFingerprint(
 					projectId.trim(),
 				),
 				residualProjectId: effectiveResidualProjectId,
+				...(input.invoicePercentageAllocations?.length
+					? {
+							invoicePercentageAllocations: normalizePercentageAllocations(
+								input.invoicePercentageAllocations,
+							),
+						}
+					: {}),
 				lineRequests,
 			}),
 		)
@@ -354,6 +389,7 @@ async function runSplitTransaction(
 					sourceText: line.sourceText,
 				})),
 				lineRequests: input.lineRequests,
+				invoicePercentageAllocations: input.invoicePercentageAllocations ?? [],
 			});
 			const projects = await tx.site.findMany({
 				where: {

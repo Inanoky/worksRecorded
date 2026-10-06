@@ -41,6 +41,8 @@ type LineDraft = {
 	allocations: Record<string, string>;
 };
 
+type SplitMode = "quantity" | "itemPercentage" | "invoicePercentage";
+
 type PreviewState =
 	| {
 			result: ReturnType<typeof calculateTgemInvoiceSplit>;
@@ -70,6 +72,14 @@ function getCopy(language?: string | null) {
 			remainingProjectHelp:
 				"Rēķinam pašlaik nav projekta. Izvēlieties, kur saglabāt neizdalītās pozīcijas.",
 			allocations: "Pozīciju sadalījums",
+			splitMethod: "Sadalīšanas veids",
+			quantityMethod: "Daudzums",
+			itemPercentageMethod: "Pozīcijas %",
+			invoicePercentageMethod: "Visa rēķina %",
+			percentageFor: "Procenti projektam",
+			percentage: "Procenti",
+			equalSplit: "Sadalīt vienādi",
+			remainingPercentage: "Oriģinālajam projektam paliek",
 			sourceQuantity: "Sākotnējais daudzums",
 			manualSourceQuantity: "Ievadiet sākotnējo daudzumu",
 			manualSourceHelp:
@@ -132,6 +142,13 @@ function getCopy(language?: string | null) {
 					"Kāda no rēķina summām nav derīga. Pirms sadalīšanas izlabojiet rēķina datus.",
 				invalid_money_precision:
 					"Kādai no rēķina summām ir pārāk daudz zīmju aiz komata. Pirms sadalīšanas izlabojiet rēķina datus.",
+				invalid_percentage:
+					"Procentam jābūt lielākam par 0 un ne lielākam par 100.",
+				invalid_percentage_precision:
+					"Procentam drīkst būt ne vairāk kā divas zīmes aiz komata.",
+				percentage_exceeds_100: "Piešķirto procentu summa pārsniedz 100%.",
+				percentage_mode_conflict:
+					"Izvēlieties tikai vienu procentu sadalīšanas veidu.",
 				irreconcilable_headers:
 					"Rēķina summa bez PVN un PVN nesakrīt ar kopējo summu. Pirms sadalīšanas izlabojiet rēķina kopsummas.",
 				monetary_basis_required:
@@ -155,6 +172,14 @@ function getCopy(language?: string | null) {
 			remainingProjectHelp:
 				"Счёт пока не назначен проекту. Выберите, где сохранить нераспределённые позиции.",
 			allocations: "Распределение позиций",
+			splitMethod: "Способ разделения",
+			quantityMethod: "Количество",
+			itemPercentageMethod: "% позиции",
+			invoicePercentageMethod: "% всего счёта",
+			percentageFor: "Процент для проекта",
+			percentage: "Процент",
+			equalSplit: "Разделить поровну",
+			remainingPercentage: "Исходному проекту остаётся",
 			sourceQuantity: "Исходное количество",
 			manualSourceQuantity: "Введите исходное количество",
 			manualSourceHelp:
@@ -217,6 +242,13 @@ function getCopy(language?: string | null) {
 					"Одна из сумм счёта некорректна. Исправьте данные счёта перед разделением.",
 				invalid_money_precision:
 					"В одной из сумм счёта слишком много знаков после запятой. Исправьте данные перед разделением.",
+				invalid_percentage: "Процент должен быть больше 0 и не больше 100.",
+				invalid_percentage_precision:
+					"Процент может содержать не более двух знаков после запятой.",
+				percentage_exceeds_100:
+					"Сумма распределённых процентов превышает 100%.",
+				percentage_mode_conflict:
+					"Выберите только один способ процентного разделения.",
 				irreconcilable_headers:
 					"Сумма без НДС и НДС не совпадают с итоговой суммой. Исправьте итоги счёта перед разделением.",
 				monetary_basis_required:
@@ -240,6 +272,14 @@ function getCopy(language?: string | null) {
 		remainingProjectHelp:
 			"This invoice is currently unassigned. Choose where unallocated lines should remain.",
 		allocations: "Line allocation",
+		splitMethod: "Split method",
+		quantityMethod: "Quantity",
+		itemPercentageMethod: "Line item %",
+		invoicePercentageMethod: "Whole invoice %",
+		percentageFor: "Percentage for",
+		percentage: "Percentage",
+		equalSplit: "Split evenly",
+		remainingPercentage: "Original project keeps",
 		sourceQuantity: "Source quantity",
 		manualSourceQuantity: "Enter source quantity",
 		manualSourceHelp:
@@ -302,6 +342,12 @@ function getCopy(language?: string | null) {
 				"An invoice amount is invalid. Correct the invoice data before splitting.",
 			invalid_money_precision:
 				"An invoice amount has too many decimal places. Correct the invoice data before splitting.",
+			invalid_percentage:
+				"A percentage must be greater than 0 and no more than 100.",
+			invalid_percentage_precision:
+				"A percentage can have at most two decimal places.",
+			percentage_exceeds_100: "The allocated percentages exceed 100%.",
+			percentage_mode_conflict: "Choose only one percentage split method.",
 			irreconcilable_headers:
 				"The subtotal plus VAT does not match the invoice total. Correct the invoice totals before splitting.",
 			monetary_basis_required:
@@ -372,7 +418,9 @@ function getErrorCode(error: unknown) {
 function buildLineRequests(
 	invoice: TgemDashboardInvoice,
 	drafts: Record<string, LineDraft>,
+	mode: SplitMode,
 ): TgemInvoiceSplitLineRequest[] {
+	if (mode === "invoicePercentage") return [];
 	const requests: TgemInvoiceSplitLineRequest[] = [];
 	for (const line of invoice.lines) {
 		const draft = drafts[line.id];
@@ -384,16 +432,17 @@ function buildLineRequests(
 			});
 			continue;
 		}
-		const allocations = Object.entries(draft.allocations).flatMap(
-			([projectId, quantity]) =>
-				normalizeQuantityInput(quantity)
-					? [{ projectId, quantity: normalizeQuantityInput(quantity) }]
-					: [],
+		const normalizedAllocations = Object.entries(draft.allocations).flatMap(
+			([projectId, value]) => {
+				const normalized = normalizeQuantityInput(value);
+				return normalized ? [{ projectId, value: normalized }] : [];
+			},
 		);
-		if (allocations.length === 0) continue;
-		requests.push({
+		if (normalizedAllocations.length === 0) continue;
+		const request: TgemInvoiceSplitLineRequest = {
 			lineId: line.id,
-			...(line.quantity === null &&
+			...(mode === "quantity" &&
+			line.quantity === null &&
 			normalizeQuantityInput(draft.correctedSourceQuantity)
 				? {
 						correctedSourceQuantity: normalizeQuantityInput(
@@ -401,8 +450,17 @@ function buildLineRequests(
 						),
 					}
 				: {}),
-			allocations,
-		});
+		};
+		if (mode === "itemPercentage") {
+			request.percentageAllocations = normalizedAllocations.map(
+				({ projectId, value }) => ({ projectId, percentage: value }),
+			);
+		} else {
+			request.allocations = normalizedAllocations.map(
+				({ projectId, value }) => ({ projectId, quantity: value }),
+			);
+		}
+		requests.push(request);
 	}
 	return requests;
 }
@@ -441,6 +499,10 @@ export function TgemInvoiceSplitWorkspace({
 	const [destinationProjectIds, setDestinationProjectIds] = React.useState([
 		initialDestination,
 	]);
+	const [splitMode, setSplitMode] = React.useState<SplitMode>("quantity");
+	const [invoicePercentages, setInvoicePercentages] = React.useState<
+		Record<string, string>
+	>({});
 	const [residualProjectId, setResidualProjectId] = React.useState("");
 	const [lineDrafts, setLineDrafts] = React.useState<Record<string, LineDraft>>(
 		() => initialLineDrafts(invoice),
@@ -450,6 +512,8 @@ export function TgemInvoiceSplitWorkspace({
 
 	const reset = React.useCallback(() => {
 		setDestinationProjectIds([initialDestination]);
+		setSplitMode("quantity");
+		setInvoicePercentages({});
 		setResidualProjectId("");
 		setLineDrafts(initialLineDrafts(invoice));
 		setPending(false);
@@ -465,8 +529,18 @@ export function TgemInvoiceSplitWorkspace({
 		[invoice.lines],
 	);
 	const lineRequests = React.useMemo(
-		() => buildLineRequests(invoice, lineDrafts),
-		[invoice, lineDrafts],
+		() => buildLineRequests(invoice, lineDrafts, splitMode),
+		[invoice, lineDrafts, splitMode],
+	);
+	const invoicePercentageAllocations = React.useMemo(
+		() =>
+			destinationProjectIds.flatMap((projectId) => {
+				const percentage = normalizeQuantityInput(
+					invoicePercentages[projectId] ?? "",
+				);
+				return percentage ? [{ projectId, percentage }] : [];
+			}),
+		[destinationProjectIds, invoicePercentages],
 	);
 	const preview = React.useMemo<PreviewState>(() => {
 		if (
@@ -507,6 +581,9 @@ export function TgemInvoiceSplitWorkspace({
 						sourceText: null,
 					})),
 					lineRequests,
+					...(splitMode === "invoicePercentage"
+						? { invoicePercentageAllocations }
+						: {}),
 				}),
 				error: null,
 			};
@@ -516,7 +593,15 @@ export function TgemInvoiceSplitWorkspace({
 				error: calculationErrorCopy(getErrorCode(error), copy),
 			};
 		}
-	}, [copy, destinationProjectIds, invoice, lineRequests, residualProjectId]);
+	}, [
+		copy,
+		destinationProjectIds,
+		invoice,
+		invoicePercentageAllocations,
+		lineRequests,
+		residualProjectId,
+		splitMode,
+	]);
 
 	function changeDestination(index: number, projectId: string) {
 		const previousProjectId = destinationProjectIds[index];
@@ -544,6 +629,11 @@ export function TgemInvoiceSplitWorkspace({
 				}),
 			),
 		);
+		setInvoicePercentages((current) => {
+			const next = { ...current };
+			delete next[previousProjectId];
+			return next;
+		});
 		if (residualProjectId === projectId) setResidualProjectId("");
 		setSubmitError(null);
 	}
@@ -588,6 +678,11 @@ export function TgemInvoiceSplitWorkspace({
 				}),
 			),
 		);
+		setInvoicePercentages((current) => {
+			const next = { ...current };
+			delete next[projectId];
+			return next;
+		});
 		setSubmitError(null);
 	}
 
@@ -605,6 +700,40 @@ export function TgemInvoiceSplitWorkspace({
 		}));
 		setSubmitError(null);
 	}
+
+	function changeSplitMode(mode: SplitMode) {
+		setSplitMode(mode);
+		setLineDrafts(initialLineDrafts(invoice));
+		setInvoicePercentages({});
+		setSubmitError(null);
+	}
+
+	function splitInvoiceEvenly() {
+		const hasResidualProject = invoice.project
+			? !destinationProjectIds.includes(invoice.project.id)
+			: Boolean(residualProjectId);
+		const partCount =
+			destinationProjectIds.length + (hasResidualProject ? 1 : 0);
+		if (partCount === 0) return;
+		const baseHundredths = Math.floor(10000 / partCount);
+		setInvoicePercentages(
+			Object.fromEntries(
+				destinationProjectIds.map((projectId) => [
+					projectId,
+					(baseHundredths / 100).toFixed(2),
+				]),
+			),
+		);
+		setSubmitError(null);
+	}
+
+	const remainingInvoicePercentage = React.useMemo(() => {
+		const allocated = invoicePercentageAllocations.reduce(
+			(total, allocation) => total + Number(allocation.percentage),
+			0,
+		);
+		return Number.isFinite(allocated) ? Math.max(0, 100 - allocated) : 0;
+	}, [invoicePercentageAllocations]);
 
 	function toggleWholeLine(lineId: string, projectId: string) {
 		setLineDrafts((current) => {
@@ -632,6 +761,9 @@ export function TgemInvoiceSplitWorkspace({
 				destinationProjectIds,
 				residualProjectId: invoice.project ? null : residualProjectId || null,
 				lineRequests,
+				...(splitMode === "invoicePercentage"
+					? { invoicePercentageAllocations }
+					: {}),
 			});
 			if (!response.ok) {
 				if (response.error === "conflict") {
@@ -793,129 +925,219 @@ export function TgemInvoiceSplitWorkspace({
 							) : null}
 						</section>
 
-						<section className="overflow-hidden rounded-lg border bg-background">
-							<div className="border-b px-4 py-3">
-								<h3 className="text-sm font-semibold">{copy.allocations}</h3>
+						<section className="rounded-lg border bg-background p-4">
+							<h3 className="text-sm font-semibold">{copy.splitMethod}</h3>
+							<div className="mt-3 grid gap-2 sm:grid-cols-3">
+								{(
+									[
+										["quantity", copy.quantityMethod],
+										["itemPercentage", copy.itemPercentageMethod],
+										["invoicePercentage", copy.invoicePercentageMethod],
+									] as const
+								).map(([mode, label]) => (
+									<button
+										key={mode}
+										type="button"
+										disabled={pending}
+										aria-pressed={splitMode === mode}
+										onClick={() => changeSplitMode(mode)}
+										className={`h-9 rounded-md border px-3 text-sm font-medium transition ${splitMode === mode ? "border-tgem-primary bg-tgem-primary text-white" : "border-input bg-background hover:bg-muted"}`}
+									>
+										{label}
+									</button>
+								))}
 							</div>
-							<div className="overflow-x-auto">
-								<table className="w-full min-w-[46rem] text-sm">
-									<thead className="bg-slate-50 text-left text-xs text-muted-foreground dark:bg-slate-950/40">
-										<tr>
-											<th className="min-w-56 px-4 py-3 font-medium">
-												{copy.allocations}
-											</th>
-											<th className="w-40 px-3 py-3 font-medium">
-												{copy.sourceQuantity}
-											</th>
-											{destinationProjectIds.map((projectId) => (
-												<th
-													key={projectId || `destination-${invoice.id}`}
-													className="min-w-48 px-3 py-3 font-medium text-tgem-primary"
-												>
-													{projectById.get(projectId)?.name ||
-														copy.chooseProject}
-												</th>
-											))}
-										</tr>
-									</thead>
-									<tbody className="divide-y">
-										{invoice.lines.map((line) => {
-											const draft = lineDrafts[line.id];
+
+							{splitMode === "invoicePercentage" ? (
+								<div className="mt-4 rounded-md border bg-slate-50/70 p-3 dark:bg-slate-950/30">
+									<div className="mb-3 flex items-center justify-between gap-3">
+										<span className="text-xs font-semibold text-muted-foreground">
+											{copy.invoicePercentageMethod}
+										</span>
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											disabled={pending}
+											onClick={splitInvoiceEvenly}
+										>
+											{copy.equalSplit}
+										</Button>
+									</div>
+									<div className="grid gap-3 sm:grid-cols-2">
+										{destinationProjectIds.map((projectId, index) => {
+											const projectName =
+												projectById.get(projectId)?.name ||
+												`${copy.destination} ${index + 1}`;
 											return (
-												<tr key={line.id} className="align-top">
-													<td className="px-4 py-3">
-														<div className="font-medium">
-															{line.description || `#${line.lineNumber}`}
-														</div>
-														<div className="mt-1 text-xs text-muted-foreground">
-															{formatMoney(
-																line.total,
-																line.currency || invoice.currency,
-																organizationLanguage,
-															)}
-														</div>
-													</td>
-													<td className="px-3 py-3">
-														{line.quantity !== null ? (
-															<div className="rounded-md border bg-slate-50 px-3 py-2 font-semibold tabular-nums dark:bg-slate-950/40">
-																{line.quantity} {line.unit || ""}
-															</div>
-														) : (
-															<div className="rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-900/60 dark:bg-amber-950/30">
-																<Input
-																	value={draft.correctedSourceQuantity}
-																	disabled={
-																		pending || Boolean(draft.wholeProjectId)
-																	}
-																	inputMode="decimal"
-																	aria-label={`${copy.manualSourceQuantity}: ${line.description || line.lineNumber}`}
-																	placeholder={copy.manualSourceQuantity}
-																	onChange={(event) => {
-																		setLineDrafts((current) => ({
-																			...current,
-																			[line.id]: {
-																				...current[line.id],
-																				correctedSourceQuantity:
-																					event.target.value,
-																			},
-																		}));
-																		setSubmitError(null);
-																	}}
-																/>
-																<p className="mt-1.5 text-[11px] leading-4 text-amber-800 dark:text-amber-200">
-																	{copy.manualSourceHelp}
-																</p>
-															</div>
-														)}
-													</td>
-													{destinationProjectIds.map((projectId, index) => {
-														const projectName =
-															projectById.get(projectId)?.name ||
-															`${copy.destination} ${index + 1}`;
-														const whole = draft.wholeProjectId === projectId;
-														return (
-															<td
-																key={projectId || `destination-${invoice.id}`}
-																className="px-3 py-3"
-															>
-																<Input
-																	value={draft.allocations[projectId] ?? ""}
-																	disabled={
-																		pending || Boolean(draft.wholeProjectId)
-																	}
-																	inputMode="decimal"
-																	aria-label={`${copy.quantityFor} ${projectName}: ${line.description || line.lineNumber}`}
-																	placeholder="0"
-																	onChange={(event) =>
-																		setAllocation(
-																			line.id,
-																			projectId,
-																			event.target.value,
-																		)
-																	}
-																/>
-																<button
-																	type="button"
-																	disabled={pending}
-																	aria-pressed={whole}
-																	aria-label={`${copy.wholeRowTo} ${projectName}: ${line.description || line.lineNumber}`}
-																	onClick={() =>
-																		toggleWholeLine(line.id, projectId)
-																	}
-																	className={`mt-2 inline-flex h-7 w-full items-center justify-center rounded-md border px-2 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/40 disabled:opacity-50 ${whole ? "border-tgem-primary bg-tgem-primary text-white" : "border-tgem-primary/25 bg-tgem-primary/10 text-tgem-primary hover:bg-tgem-primary/15"}`}
-																>
-																	{copy.wholeRow}
-																</button>
-															</td>
-														);
-													})}
-												</tr>
+												<div key={projectId} className="text-xs font-medium">
+													<span>{projectName}</span>
+													<div className="relative mt-1.5">
+														<Input
+															value={invoicePercentages[projectId] ?? ""}
+															disabled={pending}
+															inputMode="decimal"
+															aria-label={`${copy.percentageFor} ${projectName}`}
+															placeholder="0.00"
+															onChange={(event) => {
+																setInvoicePercentages((current) => ({
+																	...current,
+																	[projectId]: event.target.value,
+																}));
+																setSubmitError(null);
+															}}
+															className="pr-8"
+														/>
+														<span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
+															%
+														</span>
+													</div>
+												</div>
 											);
 										})}
-									</tbody>
-								</table>
-							</div>
+									</div>
+									{(invoice.project &&
+										!destinationProjectIds.includes(invoice.project.id)) ||
+									(!invoice.project && residualProjectId) ? (
+										<div className="mt-3 text-xs font-medium text-muted-foreground">
+											{copy.remainingPercentage}:{" "}
+											{remainingInvoicePercentage.toFixed(2)}%
+										</div>
+									) : null}
+								</div>
+							) : null}
 						</section>
+
+						{splitMode !== "invoicePercentage" ? (
+							<section className="overflow-hidden rounded-lg border bg-background">
+								<div className="border-b px-4 py-3">
+									<h3 className="text-sm font-semibold">{copy.allocations}</h3>
+								</div>
+								<div className="overflow-x-auto">
+									<table className="w-full min-w-[46rem] text-sm">
+										<thead className="bg-slate-50 text-left text-xs text-muted-foreground dark:bg-slate-950/40">
+											<tr>
+												<th className="min-w-56 px-4 py-3 font-medium">
+													{copy.allocations}
+												</th>
+												<th className="w-40 px-3 py-3 font-medium">
+													{copy.sourceQuantity}
+												</th>
+												{destinationProjectIds.map((projectId) => (
+													<th
+														key={projectId || `destination-${invoice.id}`}
+														className="min-w-48 px-3 py-3 font-medium text-tgem-primary"
+													>
+														{projectById.get(projectId)?.name ||
+															copy.chooseProject}
+													</th>
+												))}
+											</tr>
+										</thead>
+										<tbody className="divide-y">
+											{invoice.lines.map((line) => {
+												const draft = lineDrafts[line.id];
+												return (
+													<tr key={line.id} className="align-top">
+														<td className="px-4 py-3">
+															<div className="font-medium">
+																{line.description || `#${line.lineNumber}`}
+															</div>
+															<div className="mt-1 text-xs text-muted-foreground">
+																{formatMoney(
+																	line.total,
+																	line.currency || invoice.currency,
+																	organizationLanguage,
+																)}
+															</div>
+														</td>
+														<td className="px-3 py-3">
+															{line.quantity !== null ? (
+																<div className="rounded-md border bg-slate-50 px-3 py-2 font-semibold tabular-nums dark:bg-slate-950/40">
+																	{line.quantity} {line.unit || ""}
+																</div>
+															) : (
+																<div className="rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-900/60 dark:bg-amber-950/30">
+																	<Input
+																		value={draft.correctedSourceQuantity}
+																		disabled={
+																			pending || Boolean(draft.wholeProjectId)
+																		}
+																		inputMode="decimal"
+																		aria-label={`${copy.manualSourceQuantity}: ${line.description || line.lineNumber}`}
+																		placeholder={copy.manualSourceQuantity}
+																		onChange={(event) => {
+																			setLineDrafts((current) => ({
+																				...current,
+																				[line.id]: {
+																					...current[line.id],
+																					correctedSourceQuantity:
+																						event.target.value,
+																				},
+																			}));
+																			setSubmitError(null);
+																		}}
+																	/>
+																	<p className="mt-1.5 text-[11px] leading-4 text-amber-800 dark:text-amber-200">
+																		{copy.manualSourceHelp}
+																	</p>
+																</div>
+															)}
+														</td>
+														{destinationProjectIds.map((projectId, index) => {
+															const projectName =
+																projectById.get(projectId)?.name ||
+																`${copy.destination} ${index + 1}`;
+															const whole = draft.wholeProjectId === projectId;
+															return (
+																<td
+																	key={projectId || `destination-${invoice.id}`}
+																	className="px-3 py-3"
+																>
+																	<Input
+																		value={draft.allocations[projectId] ?? ""}
+																		disabled={
+																			pending || Boolean(draft.wholeProjectId)
+																		}
+																		inputMode="decimal"
+																		aria-label={`${splitMode === "itemPercentage" ? copy.percentageFor : copy.quantityFor} ${projectName}: ${line.description || line.lineNumber}`}
+																		placeholder="0"
+																		onChange={(event) =>
+																			setAllocation(
+																				line.id,
+																				projectId,
+																				event.target.value,
+																			)
+																		}
+																	/>
+																	{splitMode === "itemPercentage" ? (
+																		<div className="mt-1 text-right text-xs text-muted-foreground">
+																			%
+																		</div>
+																	) : null}
+																	<button
+																		type="button"
+																		disabled={pending}
+																		aria-pressed={whole}
+																		aria-label={`${copy.wholeRowTo} ${projectName}: ${line.description || line.lineNumber}`}
+																		onClick={() =>
+																			toggleWholeLine(line.id, projectId)
+																		}
+																		className={`mt-2 inline-flex h-7 w-full items-center justify-center rounded-md border px-2 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/40 disabled:opacity-50 ${whole ? "border-tgem-primary bg-tgem-primary text-white" : "border-tgem-primary/25 bg-tgem-primary/10 text-tgem-primary hover:bg-tgem-primary/15"}`}
+																	>
+																		{copy.wholeRow}
+																	</button>
+																</td>
+															);
+														})}
+													</tr>
+												);
+											})}
+										</tbody>
+									</table>
+								</div>
+							</section>
+						) : null}
 					</div>
 
 					<aside className="min-w-0 xl:sticky xl:top-0 xl:self-start">

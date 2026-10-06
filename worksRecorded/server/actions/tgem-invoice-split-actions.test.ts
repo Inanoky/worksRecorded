@@ -312,6 +312,49 @@ it("atomically archives the parent and creates allocated and residual children",
 	});
 });
 
+it("persists a whole-invoice percentage split with an exact rounded total", async () => {
+	mockPrisma.site.findMany.mockResolvedValue([
+		{ id: "project-a" },
+		{ id: "project-b" },
+		{ id: "project-original" },
+	]);
+
+	const result = await splitTgemInvoice(
+		input({
+			destinationProjectIds: ["project-a", "project-b"],
+			lineRequests: [],
+			invoicePercentageAllocations: [
+				{ projectId: "project-a", percentage: "33.33" },
+				{ projectId: "project-b", percentage: "33.33" },
+			],
+		}),
+	);
+
+	expect(result.children.map((child) => child.total)).toEqual([
+		"20",
+		"20",
+		"20",
+	]);
+	expect(
+		mockPrisma.tgemInvoiceCase.create.mock.calls.map(
+			([call]) => call.data.lines.create,
+		),
+	).toEqual([
+		[
+			expect.objectContaining({ quantity: "0.6666", total: "6.67" }),
+			expect.objectContaining({ quantity: "0.9999", total: "10.00" }),
+		],
+		[
+			expect.objectContaining({ quantity: "0.6666", total: "6.66" }),
+			expect.objectContaining({ quantity: "0.9999", total: "10.00" }),
+		],
+		[
+			expect.objectContaining({ quantity: "0.6668", total: "6.67" }),
+			expect.objectContaining({ quantity: "1.0002", total: "10.00" }),
+		],
+	]);
+});
+
 it("preserves exact subtotal, VAT, and total conservation in persisted children", async () => {
 	await splitTgemInvoice(input());
 	const childData = mockPrisma.tgemInvoiceCase.create.mock.calls.map(

@@ -30,6 +30,15 @@ export type TgemInvoiceSplitLineRequest = {
 		projectId: string;
 		quantity: string;
 	}>;
+	percentageAllocations?: Array<{
+		projectId: string;
+		percentage: string;
+	}>;
+};
+
+export type TgemInvoiceSplitPercentageAllocation = {
+	projectId: string;
+	percentage: string;
 };
 
 export type TgemInvoiceSplitCalculationInput = {
@@ -41,6 +50,7 @@ export type TgemInvoiceSplitCalculationInput = {
 	residualProjectId: string | null;
 	lines: TgemInvoiceSplitSourceLine[];
 	lineRequests: TgemInvoiceSplitLineRequest[];
+	invoicePercentageAllocations?: TgemInvoiceSplitPercentageAllocation[];
 };
 
 export type TgemInvoiceSplitCalculatedLine = Omit<
@@ -86,9 +96,13 @@ export type TgemInvoiceSplitCalculationErrorCode =
 	| "invalid_currency"
 	| "invalid_money"
 	| "invalid_money_precision"
+	| "invalid_percentage"
+	| "invalid_percentage_precision"
 	| "invalid_quantity"
 	| "irreconcilable_headers"
 	| "monetary_basis_required"
+	| "percentage_exceeds_100"
+	| "percentage_mode_conflict"
 	| "residual_matches_destination"
 	| "residual_project_required"
 	| "source_quantity_required"
@@ -135,7 +149,7 @@ function fail(
 
 function decimal(
 	value: string,
-	code: "invalid_money" | "invalid_quantity",
+	code: "invalid_money" | "invalid_percentage" | "invalid_quantity",
 	options?: { lineId?: string; projectId?: string },
 ) {
 	try {
@@ -181,6 +195,24 @@ function assertMoneyPrecision(value: Decimal, scale: number, lineId?: string) {
 	if (!value.eq(value.toDecimalPlaces(scale, Prisma.Decimal.ROUND_HALF_UP))) {
 		fail("invalid_money_precision", lineId ? { lineId } : undefined);
 	}
+}
+
+function percentage(
+	value: string,
+	options?: { lineId?: string; projectId?: string },
+) {
+	const normalized = value.trim();
+	if (!/^\d+(?:\.\d+)?$/.test(normalized)) {
+		fail("invalid_percentage", options);
+	}
+	if ((normalized.split(".")[1]?.length ?? 0) > 2) {
+		fail("invalid_percentage_precision", options);
+	}
+	const parsed = decimal(normalized, "invalid_percentage", options);
+	if (!parsed.greaterThan(0) || parsed.greaterThan(100)) {
+		fail("invalid_percentage", options);
+	}
+	return parsed;
 }
 
 function formatMoney(value: Decimal, scale: number) {
@@ -364,6 +396,13 @@ export function calculateTgemInvoiceSplit(
 		}
 		requestsByLineId.set(request.lineId, request);
 	}
+	const invoicePercentageAllocations = input.invoicePercentageAllocations ?? [];
+	if (
+		invoicePercentageAllocations.length > 0 &&
+		input.lineRequests.length > 0
+	) {
+		fail("percentage_mode_conflict");
+	}
 
 	const workingCases = new Map<string, WorkingCase>();
 	for (const projectId of destinationProjectIds) {
@@ -403,10 +442,18 @@ export function calculateTgemInvoiceSplit(
 	for (const line of input.lines) {
 		const request = requestsByLineId.get(line.id);
 		const allocations = request?.allocations ?? [];
+		const percentageAllocations =
+			invoicePercentageAllocations.length > 0
+				? invoicePercentageAllocations
+				: (request?.percentageAllocations ?? []);
 		const wholeProjectId = request?.wholeProjectId?.trim() || null;
 		const correctedSourceQuantity =
 			request?.correctedSourceQuantity?.trim() || null;
-		if (wholeProjectId && allocations.length > 0) {
+		if (
+			(wholeProjectId &&
+				(allocations.length > 0 || percentageAllocations.length > 0)) ||
+			(allocations.length > 0 && percentageAllocations.length > 0)
+		) {
 			fail("whole_line_conflict", { lineId: line.id });
 		}
 		if (wholeProjectId && !destinationSet.has(wholeProjectId)) {
@@ -440,6 +487,77 @@ export function calculateTgemInvoiceSplit(
 				monetaryBasis(sourceLineTotal, extractedQuantity, unitPrice) ??
 				new Prisma.Decimal(0);
 			addLine(wholeProjectId, line, extractedQuantity, sourceLineTotal, basis);
+			continue;
+		}
+
+		if (percentageAllocations.length > 0) {
+			const seenProjects = new Set<string>();
+			const parsedPercentages = percentageAllocations.map((allocation) => {
+				const projectId = allocation.projectId.trim();
+				if (!destinationSet.has(projectId)) {
+					fail("unknown_destination", { lineId: line.id, projectId });
+				}
+				if (seenProjects.has(projectId)) {
+					fail("duplicate_line_allocation", { lineId: line.id, projectId });
+				}
+				seenProjects.add(projectId);
+				return {
+					projectId,
+					percentage: percentage(allocation.percentage, {
+						lineId: line.id,
+						projectId,
+					}),
+				};
+			});
+			parsedPercentages.sort(
+				(left, right) =>
+					destinationProjectIds.indexOf(left.projectId) -
+					destinationProjectIds.indexOf(right.projectId),
+			);
+			const allocatedPercentage = sum(
+				parsedPercentages.map((allocation) => allocation.percentage),
+			);
+			if (allocatedPercentage.greaterThan(100)) {
+				fail("percentage_exceeds_100", { lineId: line.id });
+			}
+			const residualPercentage = new Prisma.Decimal(100).minus(
+				allocatedPercentage,
+			);
+			const basisTotal =
+				monetaryBasis(sourceLineTotal, extractedQuantity, unitPrice) ??
+				new Prisma.Decimal(1);
+			const percentageShares = parsedPercentages.map(
+				(allocation) => allocation.percentage,
+			);
+			if (residualPercentage.greaterThan(0)) {
+				percentageShares.push(residualPercentage);
+			}
+			const totalShares = sourceLineTotal
+				? allocateMoney(sourceLineTotal, percentageShares, currencyMinorUnits)
+				: percentageShares.map(() => null);
+
+			for (const [index, allocation] of parsedPercentages.entries()) {
+				addLine(
+					allocation.projectId,
+					line,
+					extractedQuantity
+						? extractedQuantity.times(allocation.percentage).dividedBy(100)
+						: null,
+					totalShares[index],
+					basisTotal.times(allocation.percentage).dividedBy(100),
+				);
+			}
+			if (residualPercentage.greaterThan(0)) {
+				addLine(
+					residualKey,
+					line,
+					extractedQuantity
+						? extractedQuantity.times(residualPercentage).dividedBy(100)
+						: null,
+					totalShares[totalShares.length - 1],
+					basisTotal.times(residualPercentage).dividedBy(100),
+				);
+			}
 			continue;
 		}
 
@@ -596,9 +714,12 @@ export function calculateTgemInvoiceSplit(
 			? caseLineSums[index].plus(subtotalAdjustments[index] ?? 0)
 			: null,
 	);
-	const headerWeights = caseSubtotals.map(
-		(subtotal, index) => subtotal?.abs() ?? caseWeights[index],
-	);
+	const headerWeights =
+		invoicePercentageAllocations.length > 0
+			? caseWeights
+			: caseSubtotals.map(
+					(subtotal, index) => subtotal?.abs() ?? caseWeights[index],
+				);
 	const caseVat = headers.vat
 		? allocateMoney(headers.vat, headerWeights, currencyMinorUnits)
 		: orderedCases.map(() => null);
