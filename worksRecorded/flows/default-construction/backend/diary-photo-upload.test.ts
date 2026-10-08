@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/utils/db";
+import { ensureDiaryPhotoAttachmentsById } from "@/lib/photos/diary-photo-attachments";
 import { LIMENI_ORGANIZATION_ID } from "../lib/diary-photos";
 import {
 	appendDiaryPhoto,
@@ -7,13 +8,23 @@ import {
 import { requireWarehouseImportAccess } from "./warehouse-import-upload";
 
 jest.mock("@/lib/utils/db", () => ({
-	prisma: { sitediaryrecords: { findFirst: jest.fn() }, $queryRaw: jest.fn() },
+	prisma: {
+		sitediaryrecords: { findFirst: jest.fn() },
+		$queryRaw: jest.fn(),
+		$transaction: jest.fn(),
+	},
+}));
+jest.mock("@/lib/photos/diary-photo-attachments", () => ({
+	ensureDiaryPhotoAttachmentsById: jest.fn(),
 }));
 jest.mock("./warehouse-import-upload", () => ({
 	requireWarehouseImportAccess: jest.fn(),
 }));
 beforeEach(() => {
 	jest.resetAllMocks();
+	jest
+		.mocked(prisma.$transaction)
+		.mockImplementation(async (run) => run(prisma as never));
 	jest.mocked(requireWarehouseImportAccess).mockResolvedValue({
 		userId: "u",
 		siteId: "s",
@@ -82,6 +93,12 @@ it("returns existing plus uploaded photos using a scoped atomic append", async (
 			url: photos[1],
 		}),
 	).toEqual({ photos, url: photos[1] });
+	expect(ensureDiaryPhotoAttachmentsById).toHaveBeenCalledWith(
+		prisma,
+		"r",
+		"s",
+		LIMENI_ORGANIZATION_ID,
+	);
 	const [sql, ...params] = jest.mocked(prisma.$queryRaw).mock.calls[0];
 	expect((sql as unknown as string[]).join("?")).toContain(
 		'ANY(COALESCE("Photos"',
@@ -96,6 +113,23 @@ it("returns existing plus uploaded photos using a scoped atomic append", async (
 		"s",
 		LIMENI_ORGANIZATION_ID,
 	]);
+});
+it("rolls back the append if attachment creation fails", async () => {
+	jest
+		.mocked(prisma.$queryRaw)
+		.mockResolvedValue([{ Photos: ["https://host/new"] }]);
+	jest
+		.mocked(ensureDiaryPhotoAttachmentsById)
+		.mockRejectedValue(new Error("attachment failed"));
+	await expect(
+		appendDiaryPhoto({
+			userId: "u",
+			siteId: "s",
+			recordId: "r",
+			url: "https://host/new",
+		}),
+	).rejects.toThrow("attachment failed");
+	expect(prisma.$transaction).toHaveBeenCalledTimes(1);
 });
 it("fails if the record is archived during upload", async () => {
 	jest.mocked(prisma.$queryRaw).mockResolvedValue([]);

@@ -101,7 +101,10 @@ async function fetchBisJson(path: string, accessToken: string, init?: RequestIni
       const latestToken = await getUserBisTokenByUserId(user.id);
 
       if (latestToken?.refreshToken) {
-        const refreshed = await refreshBisAccessToken(user.id, latestToken.refreshToken);
+        if (latestToken.accessToken !== tokenToUse) {
+          return fetchBisJson(path, latestToken.accessToken, init, false);
+        }
+        const refreshed = await refreshBisAccessToken(user.id, latestToken.refreshToken, tokenToUse);
         return fetchBisJson(path, refreshed.accessToken, init, false);
       }
     } catch (refreshError) {

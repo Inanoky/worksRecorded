@@ -84,7 +84,13 @@ it("locks scoped drawings and removes only matching URLs with compare-and-swap",
 		$queryRaw: query,
 		documents: { updateMany: update },
 	} as unknown as Prisma.TransactionClient;
-	await deleteVisualPhotoEvidence(tx, "site", "org", [evidence[0].photoUrl]);
+	await deleteVisualPhotoEvidence(
+		tx,
+		"site",
+		"org",
+		[evidence[0].photoUrl],
+		["old"],
+	);
 	expect(query.mock.calls[0].slice(1)).toEqual([
 		"site",
 		"org",
@@ -103,13 +109,23 @@ it("locks scoped drawings and removes only matching URLs with compare-and-swap",
 		JSON.parse(update.mock.calls[0][0].data.description).marks,
 	).toHaveLength(1);
 	update.mockClear();
-	await deleteVisualPhotoEvidence(tx, "site", "org", [
-		"https://example.com/unrelated",
-	]);
+	await deleteVisualPhotoEvidence(
+		tx,
+		"site",
+		"org",
+		["https://example.com/unrelated"],
+		["old"],
+	);
 	expect(update).not.toHaveBeenCalled();
 	update.mockResolvedValue({ count: 0 });
 	await expect(
-		deleteVisualPhotoEvidence(tx, "site", "org", [evidence[0].photoUrl]),
+		deleteVisualPhotoEvidence(
+			tx,
+			"site",
+			"org",
+			[evidence[0].photoUrl],
+			["old"],
+		),
 	).rejects.toThrow("Drawing changed");
 });
 
@@ -125,7 +141,52 @@ it("rejects deletion of an active source so analysis cannot resurrect it", async
 		documents: { updateMany: update },
 	} as unknown as Prisma.TransactionClient;
 	await expect(
-		deleteVisualPhotoEvidence(tx, "site", "org", [evidence[0].photoUrl]),
+		deleteVisualPhotoEvidence(
+			tx,
+			"site",
+			"org",
+			[evidence[0].photoUrl],
+			["old"],
+		),
 	).rejects.toThrow("Analīze vēl notiek");
 	expect(update).not.toHaveBeenCalled();
+});
+
+it("preserves the copy's map zones even when both records use the same photo URL", async () => {
+	const state = fixture();
+	state.evidence = state.evidence.map((item) => ({
+		...item,
+		photoUrl: evidence[0].photoUrl,
+	}));
+	const update = jest.fn().mockResolvedValue({ count: 1 });
+	const query = jest
+		.fn()
+		.mockResolvedValue([{ id: "drawing", description: JSON.stringify(state) }]);
+	const tx = {
+		$queryRaw: query,
+		documents: { updateMany: update },
+	} as unknown as Prisma.TransactionClient;
+	await deleteVisualPhotoEvidence(
+		tx,
+		"site",
+		"org",
+		[evidence[0].photoUrl],
+		["old"],
+	);
+	const next = JSON.parse(update.mock.calls[0][0].data.description);
+	expect(
+		next.evidence.map((item: { recordId: string }) => item.recordId),
+	).toEqual(["keep"]);
+	expect(
+		next.marks.map((item: { evidenceId: string }) => item.evidenceId),
+	).toEqual(["keep"]);
+	query.mockClear();
+	await deleteVisualPhotoEvidence(
+		tx,
+		"site",
+		"org",
+		[evidence[0].photoUrl],
+		[],
+	);
+	expect(query).not.toHaveBeenCalled();
 });

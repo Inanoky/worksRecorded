@@ -15,6 +15,8 @@ const photosUpdateManyMock = jest.fn();
 const photosDeleteMock = jest.fn();
 const bisMaterialFindManyMock = jest.fn();
 const siteDiaryFindManyMock = jest.fn();
+const siteDiaryFindUniqueMock = jest.fn();
+const siteDiaryFindFirstMock = jest.fn();
 const batchCreateMock = jest.fn();
 const batchFindFirstMock = jest.fn();
 const batchFindUniqueMock = jest.fn();
@@ -60,6 +62,8 @@ jest.mock("@/lib/utils/db", () => ({
       update: updateMock,
       updateMany: updateManyMock,
       findMany: siteDiaryFindManyMock,
+      findUnique: siteDiaryFindUniqueMock,
+      findFirst: siteDiaryFindFirstMock,
     },
     siteDiarySaveBatch: {
       create: batchCreateMock,
@@ -105,6 +109,7 @@ jest.mock("./whatsapp-actions", () => ({
 import {
   archiveAndReplaceSiteDiaryBatch,
   copySiteDiaryRecordsToProject,
+  copySiteDiaryRecordToDate,
   getConfig,
   getLimeniDiarySnapshot,
   getPendingSiteDiaryCorrection,
@@ -798,11 +803,11 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     expect(photosFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         siteId: "site-1",
-        AND: [
+        AND: expect.arrayContaining([
           {
             OR: [{ mediaPurpose: null }, { mediaPurpose: "site_diary" }],
           },
-        ],
+        ]),
       }),
     }));
     expect(bisMaterialFindManyMock).not.toHaveBeenCalled();
@@ -1126,6 +1131,38 @@ describe("site diary project copy actions", () => {
       }),
     ).rejects.toThrow("Target project must belong to the same organization");
     expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["date", "project"])("creates separate Limeni photo attachments in the %s copy transaction", async (mode) => {
+    const organizationId = "58467603-196e-4661-83ff-fe26e4b0ff0b";
+    const source = { ...sourceRecord, organizationId, archivedAt: null };
+    const attachments = new Map<string, unknown>();
+    const upsert = jest.fn(async ({ where, create }) => {
+      attachments.set(where.diaryRecordId_fileUrl.diaryRecordId, create);
+      return create;
+    });
+    (orgCheck as jest.Mock).mockImplementation(async (_userId, siteId) => ({ id: siteId, organizationId }));
+    siteFindUniqueMock.mockResolvedValue({ organizationId });
+    siteDiaryFindUniqueMock.mockResolvedValue(source);
+    siteDiaryFindManyMock.mockResolvedValue([source]);
+    siteDiaryFindFirstMock.mockImplementation(async ({ where }) => where.id === source.id ? source : { ...source, id: "copy", Date: new Date("2026-09-29T12:00:00Z") });
+    createMock.mockResolvedValue({ id: "copy" });
+    transactionMock.mockImplementation(async (run) => run({
+      sitediaryrecords: { create: createMock, findMany: siteDiaryFindManyMock, findFirst: siteDiaryFindFirstMock },
+      photos: {
+        findUnique: jest.fn(async ({ where }) => attachments.get(where.diaryRecordId_fileUrl.diaryRecordId) ?? null),
+        findFirst: jest.fn(async () => null), upsert,
+      },
+    }));
+    if (mode === "date") {
+      await copySiteDiaryRecordToDate(source.id, "2026-09-29T12:00:00Z", "site-1");
+    } else {
+      await copySiteDiaryRecordsToProject({ sourceSiteId: "site-1", targetSiteId: "site-2", recordIds: [source.id] });
+    }
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(upsert).toHaveBeenCalledTimes(2);
+    expect(attachments.get(source.id)).toMatchObject({ diaryRecordId: source.id, URL: source.Photos[0], siteId: "site-1" });
+    expect(attachments.get("copy")).toMatchObject({ diaryRecordId: "copy", URL: source.Photos[0], siteId: mode === "project" ? "site-2" : "site-1" });
   });
 
   it("rejects selected records that do not belong to the source project", async () => {

@@ -12,6 +12,7 @@ jest.mock("@/server/actions/shared-actions", () => ({ orgCheck: jest.fn() }));
 const remove = jest.fn();
 const execute = jest.fn();
 const drawings = jest.fn();
+const records = jest.fn();
 const photo = {
 	siteId: "site",
 	organizationId: LIMENI_ORGANIZATION_ID,
@@ -25,32 +26,34 @@ beforeEach(() => {
 		organizationId: LIMENI_ORGANIZATION_ID,
 	} as never);
 	jest.mocked(prisma.photos.findUnique).mockResolvedValue(photo as never);
-	jest
-		.mocked(prisma.$transaction)
-		.mockImplementation(async (run) =>
-			run({
-				photos: { delete: remove },
-				$executeRaw: execute,
-				$queryRaw: drawings,
-			} as never),
-		);
+	jest.mocked(prisma.$transaction).mockImplementation(async (run) =>
+		run({
+			photos: { delete: remove },
+			sitediaryrecords: { findMany: records },
+			$executeRaw: execute,
+			$queryRaw: drawings,
+		} as never),
+	);
 	drawings.mockResolvedValue([]);
+	records.mockResolvedValue([{ id: "owner" }]);
 	remove.mockResolvedValue({
 		URL: "https://host/original",
 		fileUrl: "https://host/stored",
+		diaryRecordId: "owner",
 	});
 	execute.mockResolvedValue(2);
 });
 
-it("atomically removes both photo URLs from Limeni diary records in the same project only", async () => {
+it("atomically removes photo URLs from only the owning record, not its copies", async () => {
 	expect(await deleteDiaryPhoto("photo")).toEqual({
 		siteId: "site",
 		deletedUrls: ["https://host/original", "https://host/stored"],
+		deletedRecordIds: ["owner"],
 	});
 	expect(orgCheck).toHaveBeenCalledWith("user", "site");
 	expect(remove).toHaveBeenCalledWith({
 		where: { id: "photo", ...photo },
-		select: { URL: true, fileUrl: true },
+		select: { URL: true, fileUrl: true, diaryRecordId: true },
 	});
 	expect(execute).toHaveBeenCalledTimes(2);
 	for (const [index, url] of [
@@ -60,8 +63,50 @@ it("atomically removes both photo URLs from Limeni diary records in the same pro
 		const [sql, ...values] = execute.mock.calls[index];
 		expect(sql.join("?")).toContain('array_remove("Photos", ?)');
 		expect(sql.join("?")).toContain('"siteId" = ? AND "organizationId" = ?');
-		expect(values).toEqual([url, "site", LIMENI_ORGANIZATION_ID, url]);
+		expect(sql.join("?")).toContain("AND id = ?");
+		expect(values).toEqual([url, "site", LIMENI_ORGANIZATION_ID, "owner", url]);
 	}
+	expect(records).not.toHaveBeenCalled();
+});
+
+it("rejects ambiguous legacy shared photos without unlinking either record", async () => {
+	remove.mockResolvedValue({
+		URL: "https://host/same",
+		fileUrl: "https://host/same",
+		diaryRecordId: null,
+	});
+	records.mockResolvedValue([{ id: "source" }, { id: "copy" }]);
+	await expect(deleteDiaryPhoto("photo")).rejects.toThrow("koplietots");
+	expect(execute).not.toHaveBeenCalled();
+	expect(drawings).not.toHaveBeenCalled();
+});
+
+it("does not unlink independently owned records when deleting an orphaned legacy gallery entry", async () => {
+	remove.mockResolvedValue({
+		URL: "https://host/same",
+		fileUrl: "https://host/same",
+		diaryRecordId: null,
+	});
+	records.mockResolvedValue([]);
+	expect(await deleteDiaryPhoto("photo")).toMatchObject({
+		deletedRecordIds: [],
+	});
+	expect(records).toHaveBeenCalledWith(
+		expect.objectContaining({
+			where: expect.objectContaining({
+				photoAttachments: {
+					none: {
+						OR: [
+							{ URL: { in: ["https://host/same"] } },
+							{ fileUrl: { in: ["https://host/same"] } },
+						],
+					},
+				},
+			}),
+		}),
+	);
+	expect(execute).not.toHaveBeenCalled();
+	expect(drawings).not.toHaveBeenCalled();
 });
 it("deduplicates URLs and ignores empty values", async () => {
 	remove.mockResolvedValue({

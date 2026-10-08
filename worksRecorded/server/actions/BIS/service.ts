@@ -44,7 +44,7 @@ function isJsonRecord(value: unknown): value is JsonRecord {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
-function isMissingBisTokenRelationError(error: unknown) {
+function isMissingBisTokenRelationError(error: unknown): error is { code: "P2010"; meta: { code: "42P01" } } {
   if (!isJsonRecord(error) || error.code !== "P2010" || !isJsonRecord(error.meta)) {
     return false;
   }
@@ -53,11 +53,7 @@ function isMissingBisTokenRelationError(error: unknown) {
     .filter((value): value is string => typeof value === "string")
     .join(" ");
 
-  return (
-    error.meta.code === "42P01" &&
-    message.includes("BisToken") &&
-    message.includes("does not exist")
-  );
+  return error.meta.code === "42P01" && message.includes("BisToken") && message.includes("does not exist");
 }
 
 function getJsonApiErrorMessage(payload: unknown, fallback: string) {
@@ -84,26 +80,9 @@ class BisTokenRefreshError extends Error {
 
 const BIS_BASE_URL = (process.env.BIS_BASE_URL ?? "https://test.bis.gov.lv/").replace(/\/+$/, "");
 const BIS_SCOPES = process.env.BIS_SCOPES ?? "bis_case_documents:manage logbooks:manage";
-const BIS_ACCESS_TOKEN_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+const BIS_ACCESS_TOKEN_MAX_AGE_MS = 2 * 60 * 60 * 1000 - 60 * 1000;
+const bisTokenRefreshes = new Map<string, Promise<UserBisTokenRow>>();
 const WORKS_RECORDED_PRODUCTION_URL = "https://www.worksrecorded.com";
-
-function shouldLogFullBisTokens() {
-  return process.env.BIS_LOG_FULL_TOKENS === "true" || process.env.BIS_LOG_FULL_ACCESS_TOKEN === "true";
-}
-
-function maskBisToken(token: string | null | undefined) {
-  if (!token) return null;
-
-  if (shouldLogFullBisTokens()) {
-    return token;
-  }
-
-  if (token.length <= 16) {
-    return `${token.slice(0, 4)}...${token.slice(-4)}`;
-  }
-
-  return `${token.slice(0, 8)}...${token.slice(-8)}`;
-}
 
 function logBisTokenPair(
   label: string,
@@ -112,9 +91,8 @@ function logBisTokenPair(
 ) {
   console.log(label, {
     ...context,
-    accessToken: maskBisToken(token.accessToken),
-    refreshToken: maskBisToken(token.refreshToken),
-    fullTokensLogged: shouldLogFullBisTokens(),
+    hasAccessToken: Boolean(token.accessToken),
+    hasRefreshToken: Boolean(token.refreshToken),
   });
 }
 
@@ -212,16 +190,11 @@ export async function getCurrentUserBisToken() {
 }
 
 function isBisAccessTokenStale(token: UserBisTokenRow) {
-  return Date.now() - new Date(token.updatedAt).getTime() >= BIS_ACCESS_TOKEN_MAX_AGE_MS;
+  const updatedAt = new Date(token.updatedAt).getTime();
+  return !Number.isFinite(updatedAt) || Date.now() - updatedAt >= BIS_ACCESS_TOKEN_MAX_AGE_MS;
 }
 
-export async function refreshBisAccessToken(userId: string, refreshToken: string) {
-  console.log("[BIS API] Refresh token used", {
-    userId,
-    refreshToken: maskBisToken(refreshToken),
-    fullTokensLogged: shouldLogFullBisTokens(),
-  });
-
+async function exchangeBisRefreshToken(refreshToken: string) {
   const body = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: refreshToken,
@@ -236,6 +209,7 @@ export async function refreshBisAccessToken(userId: string, refreshToken: string
     },
     body,
     cache: "no-store",
+    signal: AbortSignal.timeout(20_000),
   });
 
   const text = await response.text();
@@ -254,25 +228,63 @@ export async function refreshBisAccessToken(userId: string, refreshToken: string
     );
   }
 
-  if (!response.ok || !json?.access_token) {
+  if (!response.ok || typeof json?.access_token !== "string" || !json.access_token) {
     throw new BisTokenRefreshError(
       json?.error_description || json?.error || "Failed to refresh BIS access token",
       "BIS_REFRESH_REJECTED",
     );
   }
 
-  const nextRefreshToken = json?.refresh_token || refreshToken;
-  await upsertUserBisToken(userId, json.access_token, nextRefreshToken);
-
-  logBisTokenPair("[BIS API] Refreshed token pair", {
-    accessToken: String(json.access_token),
-    refreshToken: String(nextRefreshToken),
-  }, { userId });
-
   return {
-    accessToken: String(json.access_token),
-    refreshToken: String(nextRefreshToken),
+    accessToken: json.access_token,
+    refreshToken: typeof json.refresh_token === "string" && json.refresh_token ? json.refresh_token : refreshToken,
   };
+}
+
+export async function refreshBisAccessToken(userId: string, refreshToken?: string, expectedAccessToken?: string) {
+  const pending = bisTokenRefreshes.get(userId);
+  if (pending) return pending;
+
+  const refresh = prisma.$transaction(
+    async (transaction) => {
+      const rows = await transaction.$queryRaw<UserBisTokenRow[]>`
+      SELECT id, "accessToken", "refreshToken", "updatedAt", "userId"
+      FROM "public"."BisToken"
+      WHERE "userId" = ${userId}
+      ORDER BY "updatedAt" DESC
+      LIMIT 1
+      FOR UPDATE
+    `;
+      const current = rows[0];
+      if (!current?.refreshToken) {
+        throw new BisTokenRefreshError("BIS is not connected", "BIS_REFRESH_NOT_CONNECTED");
+      }
+      if (
+        current.accessToken &&
+        !isBisAccessTokenStale(current) &&
+        ((refreshToken !== undefined && current.refreshToken !== refreshToken) ||
+          (expectedAccessToken !== undefined && current.accessToken !== expectedAccessToken))
+      ) {
+        return current;
+      }
+
+      const renewed = await exchangeBisRefreshToken(current.refreshToken);
+      await transaction.$executeRaw`
+      UPDATE "public"."BisToken"
+      SET "accessToken" = ${renewed.accessToken}, "refreshToken" = ${renewed.refreshToken}, "updatedAt" = NOW()
+      WHERE id = ${current.id} AND "userId" = ${userId}
+    `;
+      return { ...current, ...renewed, updatedAt: new Date() };
+    },
+    { maxWait: 10_000, timeout: 30_000 },
+  );
+
+  bisTokenRefreshes.set(userId, refresh);
+  try {
+    return await refresh;
+  } finally {
+    if (bisTokenRefreshes.get(userId) === refresh) bisTokenRefreshes.delete(userId);
+  }
 }
 
 export async function ensureUserBisAccessToken(userId: string) {
@@ -292,21 +304,13 @@ export async function ensureUserBisAccessToken(userId: string) {
 
   if (!token.accessToken || isBisAccessTokenStale(token)) {
     try {
-      const refreshed = await refreshBisAccessToken(userId, token.refreshToken);
-      return {
-        ...token,
-        accessToken: refreshed.accessToken,
-        refreshToken: refreshed.refreshToken,
-        updatedAt: new Date(),
-      };
+      return await refreshBisAccessToken(userId, token.refreshToken, token.accessToken);
     } catch (error) {
-      console.error("BIS token refresh failed, clearing stored BIS tokens", {
+      console.error("BIS token refresh failed; stored connection retained", {
         userId,
-        error,
+        code: error instanceof BisTokenRefreshError ? error.code : "BIS_REFRESH_FAILED",
       });
-
-      await deleteUserBisTokens(userId);
-      return null;
+      throw error;
     }
   }
 
@@ -315,10 +319,11 @@ export async function ensureUserBisAccessToken(userId: string) {
 }
 
 export async function upsertUserBisToken(userId: string, accessToken: string, refreshToken: string) {
-  await prisma.$executeRaw`DELETE FROM "public"."BisToken" WHERE "userId" = ${userId}`;
   await prisma.$executeRaw`
     INSERT INTO "public"."BisToken" (id, "accessToken", "refreshToken", "updatedAt", "userId")
     VALUES (${crypto.randomUUID()}, ${accessToken}, ${refreshToken}, NOW(), ${userId})
+    ON CONFLICT ("userId") DO UPDATE
+    SET "accessToken" = EXCLUDED."accessToken", "refreshToken" = EXCLUDED."refreshToken", "updatedAt" = NOW()
   `;
 }
 
@@ -440,15 +445,11 @@ export async function fetchBisAvailableCases(accessToken: string) {
       preview: text.slice(0, 300),
     });
 
-    throw new Error(
-      `BIS cases endpoint returned non-JSON response (status ${response.status}).`
-    );
+    throw new Error(`BIS cases endpoint returned non-JSON response (status ${response.status}).`);
   }
 
   if (!response.ok) {
-    throw new Error(
-      getJsonApiErrorMessage(json, "Failed to fetch BIS cases"),
-    );
+    throw new Error(getJsonApiErrorMessage(json, "Failed to fetch BIS cases"));
   }
 
   const jsonRecord = isJsonRecord(json) ? json : {};
@@ -470,11 +471,7 @@ export async function fetchBisAvailableCases(accessToken: string) {
           attributes.construction_name == null &&
           attributes.construction_board_name == null
             ? null
-            : String(
-                attributes.bis_case_name ??
-                attributes.construction_name ??
-                attributes.construction_board_name,
-              ),
+            : String(attributes.bis_case_name ?? attributes.construction_name ?? attributes.construction_board_name),
         stageName: attributes.stage_name == null ? null : String(attributes.stage_name),
       };
     })
@@ -502,15 +499,11 @@ export async function fetchBisCaseConstructionRounds(
   try {
     json = text ? JSON.parse(text) : {};
   } catch {
-    throw new Error(
-      `BIS construction rounds endpoint returned non-JSON response (status ${response.status}).`,
-    );
+    throw new Error(`BIS construction rounds endpoint returned non-JSON response (status ${response.status}).`);
   }
 
   if (!response.ok) {
-    throw new Error(
-      getJsonApiErrorMessage(json, "Failed to fetch BIS construction rounds"),
-    );
+    throw new Error(getJsonApiErrorMessage(json, "Failed to fetch BIS construction rounds"));
   }
 
   const jsonRecord = isJsonRecord(json) ? json : {};
@@ -522,8 +515,7 @@ export async function fetchBisCaseConstructionRounds(
       const id = String(item.id ?? "");
       const attributes = isJsonRecord(item.attributes) ? item.attributes : {};
       const name = attributes.name == null ? null : String(attributes.name);
-      const roundNumber =
-        attributes.round_number == null ? null : Number(attributes.round_number);
+      const roundNumber = attributes.round_number == null ? null : Number(attributes.round_number);
       const status = attributes.status == null ? null : String(attributes.status);
       const numberLabel = Number.isFinite(roundNumber) ? `${roundNumber}. ` : "";
       const label = `${numberLabel}${name || `Round ${id}`}${status ? ` (${status})` : ""}`;

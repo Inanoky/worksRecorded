@@ -14,6 +14,7 @@ it("notifies retained views only after a successful server deletion", async () =
 			ok: true,
 			siteId: "site",
 			deletedUrls: ["https://example.com/old"],
+			deletedRecordIds: ["owner"],
 		};
 		jest.mocked(serverDelete).mockResolvedValue(result);
 		await deletePhotoById("photo");

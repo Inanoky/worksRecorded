@@ -4,6 +4,7 @@ export const FLOW_MODULE_KEYS = {
 	ZTC_PRODUCTION: "ztc-production",
 	TGEM_INVOICE_APPROVAL: "tgem-invoice-approval",
 	SPRINKLER_ATTENDANCE: "sprinkler-attendance",
+	FIMA: "fima",
 } as const;
 
 export type BuiltInFlowModuleKey =
