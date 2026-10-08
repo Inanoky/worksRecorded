@@ -276,9 +276,10 @@ it("cancels geometry changes without persisting and retains edits if saving fail
 	expect(onSave).toHaveBeenCalledTimes(1);
 });
 
-it("shows the zone's work, date and full diary description on focus", async () => {
+it("shows the zone's exact source photo, work, date and full diary description on focus", async () => {
 	const source = {
 		id: "photo",
+		photoUrl: "https://example.com/zone-source.jpg",
 		work: "XPS 150 mm",
 		description: "Installed insulation in rooms 1 and 2.",
 		date: "2026-09-22T09:00:00Z",
@@ -290,16 +291,65 @@ it("shows the zone's work, date and full diary description on focus", async () =
 		<VisualPdf
 			url="/drawing"
 			marks={[mark]}
-			evidence={[source]}
+			evidence={[
+				{
+					...source,
+					id: "other-photo",
+					photoUrl: "https://example.com/other.jpg",
+				},
+				source,
+			]}
 			selected={null}
 			onSelect={jest.fn()}
 		/>,
 	);
 	const target = await screen.findByRole("button", { name: /^XPS:/ });
+	expect(
+		screen.queryByRole("img", { name: /^Zonas avota attēls:/ }),
+	).not.toBeInTheDocument();
 	fireEvent.focus(target);
 	expect(await screen.findByText(source.description)).toBeInTheDocument();
 	expect(screen.getByText("XPS 150 mm")).toBeInTheDocument();
 	expect(screen.getByText(/22.09.2026/)).toBeInTheDocument();
+	const image = screen.getByRole("img", {
+		name: "Zonas avota attēls: XPS 150 mm",
+	});
+	expect(image).toHaveAttribute("src", source.photoUrl);
+	expect(image).toHaveClass("object-contain");
+	expect(
+		screen.getByRole("status", { name: "Avota attēla statuss" }),
+	).toHaveTextContent("Ielādē avota attēlu");
+	fireEvent.load(image);
+	expect(
+		screen.queryByRole("status", { name: "Avota attēla statuss" }),
+	).not.toBeInTheDocument();
+	fireEvent.error(image);
+	expect(
+		screen.getByRole("status", { name: "Avota attēla statuss" }),
+	).toHaveTextContent("Avota attēls nav pieejams.");
+	expect(
+		screen.queryByRole("img", { name: /^Zonas avota attēls:/ }),
+	).not.toBeInTheDocument();
+	expect(screen.getByText(source.description)).toBeInTheDocument();
+});
+
+it("keeps the zone hover description usable when source evidence is unavailable", async () => {
+	render(
+		<VisualPdf
+			url="/drawing"
+			marks={[mark]}
+			selected={null}
+			onSelect={jest.fn()}
+		/>,
+	);
+	fireEvent.focus(await screen.findByRole("button", { name: /^XPS:/ }));
+	expect(await screen.findByText("Apraksts nav norādīts.")).toBeInTheDocument();
+	expect(
+		screen.queryByRole("img", { name: /^Zonas avota attēls:/ }),
+	).not.toBeInTheDocument();
+	expect(
+		screen.queryByRole("status", { name: "Avota attēla statuss" }),
+	).not.toBeInTheDocument();
 });
 
 it("drags corners using the zoomed surface bounds without losing pointer capture", async () => {
