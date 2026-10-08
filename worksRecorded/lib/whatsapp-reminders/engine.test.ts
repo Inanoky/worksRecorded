@@ -203,13 +203,13 @@ describe("whatsapp reminder engine", () => {
         siteId: "site-1",
         phone: "+37124885690",
         timezone: "Europe/Riga",
-        reminderTime: new Date("1970-01-01T18:00:00.000Z"),
+        reminderTime: new Date("1970-01-01T20:00:00.000Z"),
         reminderText: "Lūdzu aizpildi dienas atskaiti",
       },
     ]);
 
     const result = await runScheduledWhatsappReminders({
-      now: new Date("2026-01-05T16:01:00.000Z"),
+      now: new Date("2026-01-05T18:01:00.000Z"),
     });
 
     expect(result.skipped).toBe(1);

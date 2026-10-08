@@ -11,6 +11,7 @@
 !.yarn/versions
 /.codex
 /docs/*.md
+!/docs/tgem-invoice-recursive-splitting-plan.md
 
 # testing
 /coverage

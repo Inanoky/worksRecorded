@@ -39,6 +39,7 @@ const mockMarkInvoicePaid = jest.fn();
 const mockUpdateInvoiceAccounting = jest.fn();
 const mockUpdateInvoiceDetail = jest.fn();
 const mockArchiveInvoices = jest.fn();
+const mockSplitInvoice = jest.fn();
 const mockDownloadInvoiceWorkbook = jest.fn();
 
 jest.mock("@/lib/tgem-invoice-approval/register-export", () => ({
@@ -48,6 +49,10 @@ jest.mock("@/lib/tgem-invoice-approval/register-export", () => ({
 
 jest.mock("@/server/actions/tgem-invoice-archive-actions", () => ({
 	archiveTgemInvoices: (...args: unknown[]) => mockArchiveInvoices(...args),
+}));
+
+jest.mock("@/server/actions/tgem-invoice-split-actions", () => ({
+	submitTgemInvoiceSplit: (...args: unknown[]) => mockSplitInvoice(...args),
 }));
 
 jest.mock("@/server/actions/tgem-invoice-actions", () => ({
@@ -291,6 +296,15 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			invoiceCaseId: "case-1",
 			unchanged: false,
 		});
+		mockSplitInvoice.mockResolvedValue({
+			ok: true,
+			value: {
+				parentInvoiceCaseId: "case-1",
+				rootInvoiceCaseId: "case-1",
+				children: [],
+				replayed: false,
+			},
+		});
 	});
 
 	it("refreshes the scoped register without clearing its filters", async () => {
@@ -339,6 +353,29 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		expect(
 			screen.getByRole("button", { name: "Refresh invoices" }),
 		).toBeEnabled();
+	});
+
+	it("labels generated split invoices in the register and preview", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
+			...dashboardData,
+			invoices: [
+				{
+					...dashboardData.invoices[0],
+					splitKind: "allocated",
+					splitGeneration: 1,
+				},
+			],
+		});
+		render(<TgemInvoiceApprovalDashboard organizationLanguage="lv" />);
+
+		const row = await screen.findByTestId("tgem-register-invoice-case-1");
+		expect(within(row).getByText("Sadalīts rēķins")).toBeInTheDocument();
+		fireEvent.click(row);
+
+		const drawer = await screen.findByRole("dialog");
+		expect(
+			within(drawer).getAllByText("Sadalīts rēķins").length,
+		).toBeGreaterThan(0);
 	});
 
 	it("keeps the approval workspace visible when a manual refresh fails", async () => {
@@ -1692,6 +1729,11 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
 		expect(screen.getByText("Step 1 / 1")).toBeInTheDocument();
+		expect(
+			within(screen.getByRole("dialog")).getByRole("button", {
+				name: "Split invoice",
+			}),
+		).toBeEnabled();
 
 		const openApprovalButton = screen.getByRole("button", {
 			name: "Open in approval workspace",
@@ -1702,6 +1744,7 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			screen.queryByTestId("tgem-invoice-register"),
 		).not.toBeInTheDocument();
 		expect(screen.getByTestId("tgem-invoice-case-1")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Split invoice" })).toBeEnabled();
 		expect(window.location.search).toBe("?view=approval");
 		expect(mockReplace).toHaveBeenCalledWith("/?view=approval", {
 			scroll: false,

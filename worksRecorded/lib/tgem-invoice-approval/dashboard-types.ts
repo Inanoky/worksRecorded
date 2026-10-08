@@ -73,6 +73,8 @@ export type TgemDashboardInvoice = {
 	createdAt: string;
 	updatedAt: string;
 	approvalRound: number;
+	splitKind?: "allocated" | "residual" | null;
+	splitGeneration?: number;
 	documents: TgemDashboardInvoiceDocument[];
 	lines: Array<{
 		id: string;
