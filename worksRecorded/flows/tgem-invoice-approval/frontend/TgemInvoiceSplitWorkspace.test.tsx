@@ -5,7 +5,10 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/react";
-import type { TgemDashboardInvoice } from "@/lib/tgem-invoice-approval/dashboard-types";
+import type {
+	TgemDashboardData,
+	TgemDashboardInvoice,
+} from "@/lib/tgem-invoice-approval/dashboard-types";
 
 const mockSplitInvoice = jest.fn();
 
@@ -15,11 +18,27 @@ jest.mock("@/server/actions/tgem-invoice-split-actions", () => ({
 
 import { TgemInvoiceSplitWorkspace } from "./TgemInvoiceSplitWorkspace";
 
-const projects = [
-	{ id: "project-original", name: "Original project" },
-	{ id: "project-a", name: "Project A" },
-	{ id: "project-b", name: "Project B" },
-	{ id: "project-c", name: "Project C" },
+const projects: TgemDashboardData["projects"] = [
+	{
+		id: "project-original",
+		name: "Original project",
+		permissions: ["invoice.view", "invoice.assign_project"],
+	},
+	{
+		id: "project-a",
+		name: "Project A",
+		permissions: ["invoice.view", "invoice.assign_project"],
+	},
+	{
+		id: "project-b",
+		name: "Project B",
+		permissions: ["invoice.view", "invoice.assign_project"],
+	},
+	{
+		id: "project-c",
+		name: "Project C",
+		permissions: ["invoice.view", "invoice.assign_project"],
+	},
 ];
 
 function invoice(
@@ -27,6 +46,7 @@ function invoice(
 ): TgemDashboardInvoice {
 	return {
 		id: "invoice-1",
+		permissions: ["invoice.view", "invoice.split"],
 		project: { id: "project-original", name: "Original project" },
 		source: "email",
 		status: "needs_review",

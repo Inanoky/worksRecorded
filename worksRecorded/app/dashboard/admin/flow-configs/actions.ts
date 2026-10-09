@@ -5,7 +5,11 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { getFlowModuleByKey } from "@/lib/flows/registry";
-import { saveFlowAssignment } from "@/lib/flows/assignments-server";
+import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
+import {
+  ensureTgemAccessDefaults,
+  removeTgemUserAccessForOrganization,
+} from "@/lib/tgem-invoice-approval/access";
 import {
   canAccessFlowConfigAdmin,
   getProductionFlowConfigByKey,
@@ -33,6 +37,7 @@ async function requireFlowConfigAdmin() {
   ) {
     notFound();
   }
+  return user;
 }
 
 export type AssignFlowState = {
@@ -49,7 +54,7 @@ export async function assignFlowToOrganizationAction(
   _previousState: AssignFlowState,
   formData: FormData,
 ): Promise<AssignFlowState> {
-  await requireFlowConfigAdmin();
+  const actor = await requireFlowConfigAdmin();
 
   try {
     const organizationId = String(formData.get("organizationId") ?? "").trim();
@@ -66,10 +71,23 @@ export async function assignFlowToOrganizationAction(
     });
     if (!organization) throw new Error("Organization not found.");
 
-    await saveFlowAssignment({
-      organizationId: organization.id,
-      flowModuleKey: flowModule.key,
-      enabled: true,
+    await prisma.$transaction(async (tx) => {
+      await tx.flowAssignment.upsert({
+        where: { organizationId: organization.id },
+        create: {
+          organizationId: organization.id,
+          flowModuleKey: flowModule.key,
+          enabled: true,
+        },
+        update: { flowModuleKey: flowModule.key, enabled: true },
+      });
+
+      if (flowModule.key === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL) {
+        await ensureTgemAccessDefaults(tx, {
+          organizationId: organization.id,
+          actorUserId: actor.id,
+        });
+      }
     });
 
     if (flowModule.productionConfigKey) {
@@ -108,7 +126,7 @@ export async function switchUserOrganizationAction(
   _previousState: SwitchUserOrganizationState,
   formData: FormData,
 ): Promise<SwitchUserOrganizationState> {
-  await requireFlowConfigAdmin();
+  const actor = await requireFlowConfigAdmin();
 
   try {
     const userId = String(formData.get("userId") ?? "").trim();
@@ -143,13 +161,29 @@ export async function switchUserOrganizationAction(
       };
     }
 
-    await prisma.user.update({
-      where: { id: selectedUser.id },
-      data: {
+    await prisma.$transaction(async (tx) => {
+      if (selectedUser.organizationId) {
+        await removeTgemUserAccessForOrganization(tx, {
+          organizationId: selectedUser.organizationId,
+          userId: selectedUser.id,
+          actorUserId: actor.id,
+        });
+      }
+
+      await tx.user.update({
+        where: { id: selectedUser.id },
+        data: {
+          organizationId: organization.id,
+          lastSelectedSiteIdforWhatsapp: null,
+          siteManagerSelectIdforWhatsapp: null,
+        },
+      });
+
+      await ensureTgemAccessDefaults(tx, {
         organizationId: organization.id,
-        lastSelectedSiteIdforWhatsapp: null,
-        siteManagerSelectIdforWhatsapp: null,
-      },
+        actorUserId: actor.id,
+        userIds: [selectedUser.id],
+      });
     });
 
     revalidatePath("/dashboard/admin/flow-configs");

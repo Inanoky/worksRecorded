@@ -490,7 +490,10 @@ export function TgemInvoiceSplitWorkspace({
 	const hasUsableProjects = invoice.project
 		? projects.some((project) => project.id !== invoice.project?.id)
 		: projects.length >= 2;
-	const available = canSplitInvoice(invoice) && hasUsableProjects;
+	const available =
+		invoice.permissions.includes("invoice.split") &&
+		canSplitInvoice(invoice) &&
+		hasUsableProjects;
 	const initialDestination =
 		projects.find((project) => project.id !== invoice.project?.id)?.id ??
 		projects[0]?.id ??

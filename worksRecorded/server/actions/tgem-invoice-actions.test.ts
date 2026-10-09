@@ -18,6 +18,13 @@ const mockPrisma = {
 };
 
 jest.mock("@/lib/utils/db", () => ({ prisma: mockPrisma }));
+jest.mock("@/lib/tgem-invoice-approval/access", () => ({
+	loadTgemAccessScope: async () => ({}),
+	canTgem: () => true,
+	getTgemPermissionsForSite: () =>
+		new Set(["invoice.view", "invoice.edit_basic"]),
+	visibleTgemSiteIds: (_scope: unknown, siteIds: string[]) => siteIds,
+}));
 jest.mock("@/lib/utils/requireUser", () => ({
 	requireUser: (...args: unknown[]) => mockRequireUser(...args),
 }));
@@ -138,12 +145,21 @@ describe("TGEM invoice dashboard authorization data", () => {
 
 		expect(mockPrisma.tgemInvoiceCase.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({
-				where: { organizationId: "org-1", archivedAt: null },
+				where: expect.objectContaining({
+					organizationId: "org-1",
+					archivedAt: null,
+				}),
 			}),
 		);
 		expect(result).toEqual(
 			expect.objectContaining({
-				projects: [{ id: "site-1", name: "Riga office" }],
+				projects: [
+					{
+						id: "site-1",
+						name: "Riga office",
+						permissions: ["invoice.view", "invoice.edit_basic"],
+					},
+				],
 				approvalSetup: null,
 			}),
 		);
@@ -157,7 +173,11 @@ describe("TGEM invoice dashboard authorization data", () => {
 
 		expect(mockPrisma.tgemInvoiceCase.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({
-				where: { organizationId: "org-1", archivedAt: null, siteId: null },
+				where: expect.objectContaining({
+					organizationId: "org-1",
+					archivedAt: null,
+					siteId: null,
+				}),
 			}),
 		);
 	});

@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Settings2 } from "lucide-react";
 
@@ -75,9 +76,17 @@ export default async function FlowConfigsPage() {
             Assign registered flow modules to organizations.
           </p>
         </div>
-        <Badge variant="outline" className="w-fit">
-          {assignments.length} assignments
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/dashboard/admin/tgem-access"
+            className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted"
+          >
+            TGEM piekļuves grupas
+          </Link>
+          <Badge variant="outline" className="w-fit">
+            {assignments.length} assignments
+          </Badge>
+        </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">

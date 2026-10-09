@@ -1,5 +1,6 @@
 import type { TgemApprovalRoleKey } from "@/lib/tgem-invoice-approval/approval";
 import type { TgemInvoiceType } from "@/lib/tgem-invoice-approval/ocr-types";
+import type { TgemPermission } from "@/lib/tgem-invoice-approval/permissions";
 
 export type TgemDashboardOcrBlock = {
 	text: string;
@@ -41,6 +42,7 @@ export type TgemDashboardInvoiceDocument = {
 
 export type TgemDashboardInvoice = {
 	id: string;
+	permissions: TgemPermission[];
 	project: {
 		id: string;
 		name: string;
@@ -126,6 +128,7 @@ export type TgemDashboardData = {
 	projects: Array<{
 		id: string;
 		name: string;
+		permissions: TgemPermission[];
 	}>;
 	invoices: TgemDashboardInvoice[];
 	approvalSetup: {

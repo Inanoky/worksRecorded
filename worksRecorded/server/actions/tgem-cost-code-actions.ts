@@ -2,6 +2,10 @@
 
 import type { Prisma } from "@prisma/client";
 import {
+	canTgem,
+	loadTgemAccessScope,
+} from "@/lib/tgem-invoice-approval/access";
+import {
 	TGEM_INVOICE_TYPES,
 	type TgemInvoiceType,
 } from "@/lib/tgem-invoice-approval/ocr-types";
@@ -134,6 +138,7 @@ export async function updateTgemInvoiceAccounting(input: {
 			},
 			select: {
 				id: true,
+				siteId: true,
 				organizationId: true,
 				status: true,
 				invoiceType: true,
@@ -142,6 +147,13 @@ export async function updateTgemInvoiceAccounting(input: {
 			},
 		});
 		if (!invoiceCase) throw new Error("Invoice access denied");
+		const access = await loadTgemAccessScope(tx, {
+			userId: context.userId,
+			organizationId: context.organizationId,
+		});
+		if (!access || !canTgem(access, invoiceCase.siteId, "invoice.edit_basic")) {
+			throw new Error("TGEM permission denied");
+		}
 		if (invoiceCase.updatedAt.getTime() !== expectedUpdatedAt.getTime()) {
 			throw new Error("The invoice changed. Reload it and try again");
 		}

@@ -3,9 +3,12 @@ import path from "node:path";
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { NextResponse } from "next/server";
 
+import {
+	canTgem,
+	loadTgemAccessScope,
+} from "@/lib/tgem-invoice-approval/access";
 import { isTgemInvoiceFixtureModeEnabled } from "@/lib/tgem-invoice-approval/fixture";
 import { prisma } from "@/lib/utils/db";
-import { orgCheck } from "@/server/actions/shared-actions";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -51,19 +54,12 @@ export async function GET(
 		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 
-	if (invoiceCase.siteId) {
-		const site = await orgCheck(user.id, invoiceCase.siteId);
-		if (!site || site.organizationId !== invoiceCase.organizationId) {
-			return NextResponse.json({ error: "Not found" }, { status: 404 });
-		}
-	} else {
-		const dbUser = await prisma.user.findFirst({
-			where: { id: user.id, organizationId: invoiceCase.organizationId },
-			select: { id: true },
-		});
-		if (!dbUser) {
-			return NextResponse.json({ error: "Not found" }, { status: 404 });
-		}
+	const access = await loadTgemAccessScope(prisma, {
+		userId: user.id,
+		organizationId: invoiceCase.organizationId,
+	});
+	if (!access || !canTgem(access, invoiceCase.siteId, "invoice.view")) {
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 
 	const document = await prisma.tgemInvoiceDocument.findFirst({

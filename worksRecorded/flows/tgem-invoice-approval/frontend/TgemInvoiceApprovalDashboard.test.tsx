@@ -99,8 +99,34 @@ const dashboardData: TgemDashboardData = {
 		{ id: "cost-code-2", code: "021C", name: "Materials expense" },
 	],
 	projects: [
-		{ id: "site-1", name: "Riga office" },
-		{ id: "site-2", name: "Jurmala warehouse" },
+		{
+			id: "site-1",
+			name: "Riga office",
+			permissions: [
+				"invoice.view",
+				"invoice.edit_basic",
+				"invoice.assign_project",
+				"invoice.split",
+				"invoice.submit_approval",
+				"invoice.approve",
+				"invoice.archive",
+				"invoice.mark_paid",
+			],
+		},
+		{
+			id: "site-2",
+			name: "Jurmala warehouse",
+			permissions: [
+				"invoice.view",
+				"invoice.edit_basic",
+				"invoice.assign_project",
+				"invoice.split",
+				"invoice.submit_approval",
+				"invoice.approve",
+				"invoice.archive",
+				"invoice.mark_paid",
+			],
+		},
 	],
 	approvalSetup: {
 		canManageWorkflow: true,
@@ -116,6 +142,16 @@ const dashboardData: TgemDashboardData = {
 	invoices: [
 		{
 			id: "case-1",
+			permissions: [
+				"invoice.view",
+				"invoice.edit_basic",
+				"invoice.assign_project",
+				"invoice.split",
+				"invoice.submit_approval",
+				"invoice.approve",
+				"invoice.archive",
+				"invoice.mark_paid",
+			],
 			project: { id: "site-1", name: "Riga office" },
 			source: "fixture",
 			status: "needs_review",

@@ -1,5 +1,6 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { NextResponse } from "next/server";
+import { ensureTgemAccessDefaults } from "@/lib/tgem-invoice-approval/access";
 import { prisma } from "@/lib/utils/db";
 
 export async function GET() {
@@ -14,7 +15,6 @@ export async function GET() {
   }
 
   let createdNewUser = false;
-
   console.log("🔍 Checking if user exists in DB by ID...");
   let dbUser = await prisma.user.findUnique({
     where: { id: user.id },
@@ -63,6 +63,12 @@ export async function GET() {
           },
         });
 
+        await ensureTgemAccessDefaults(tx, {
+          organizationId: orgId,
+          actorUserId: created.id,
+          userIds: [created.id],
+        });
+
         return created;
       });
 
@@ -70,24 +76,34 @@ export async function GET() {
     } else {
       console.log("🆕 No pending user. Creating brand new org + user...");
 
-      const organization = await prisma.organization.create({
-        data: { name: user.email ?? "" },
-        select: { id: true },
-      });
+      dbUser = await prisma.$transaction(async (tx) => {
+        const organization = await tx.organization.create({
+          data: { name: user.email ?? "" },
+          select: { id: true },
+        });
 
-      console.log("🏗️ New organization created:", organization.id);
+        console.log("🏗️ New organization created:", organization.id);
 
-      dbUser = await prisma.user.create({
-        data: {
-          id: user.id,
-          firstName: user.given_name ?? "",
-          lastName: user.family_name ?? "",
-          email: user.email ?? "",
+        const created = await tx.user.create({
+          data: {
+            id: user.id,
+            firstName: user.given_name ?? "",
+            lastName: user.family_name ?? "",
+            email: user.email ?? "",
+            organizationId: organization.id,
+            profileImage:
+              user.picture ?? `https://avatar.vercel.sh/rauchg${user.given_name}`,
+            status: "active",
+          },
+        });
+
+        await ensureTgemAccessDefaults(tx, {
           organizationId: organization.id,
-          profileImage:
-            user.picture ?? `https://avatar.vercel.sh/rauchg${user.given_name}`,
-          status: "active",
-        },
+          actorUserId: created.id,
+          userIds: [created.id],
+        });
+
+        return created;
       });
 
       console.log("🎉 New user created:", dbUser.id);

@@ -1,5 +1,9 @@
 import type { Prisma } from "@prisma/client";
 import {
+	canTgem,
+	loadTgemAccessScope,
+} from "@/lib/tgem-invoice-approval/access";
+import {
 	normalizeTgemApprovalTemplateSteps,
 	type TgemApprovalRoleKey,
 	validateTgemInvoiceApprovalParticipants,
@@ -168,6 +172,7 @@ async function loadSnapshot(input: {
 async function validateSnapshotUsers(
 	tx: Prisma.TransactionClient,
 	organizationId: string,
+	siteId: string,
 	snapshot: TgemApprovalRouteSnapshot,
 ) {
 	const userIds = snapshot.steps.map((step) => step.approverUserId);
@@ -182,6 +187,20 @@ async function validateSnapshotUsers(
 	if (activeUsers.length !== new Set(userIds).size) {
 		throw new Error(
 			"The saved approval flow contains an unavailable user. Update the flow, reset this invoice, and submit it again.",
+		);
+	}
+	const accessScopes = await Promise.all(
+		activeUsers.map((user) =>
+			loadTgemAccessScope(tx, { organizationId, userId: user.id }),
+		),
+	);
+	if (
+		accessScopes.some(
+			(scope) => !scope || !canTgem(scope, siteId, "invoice.approve"),
+		)
+	) {
+		throw new Error(
+			"The saved approval flow contains an approver without permission for this project. Update access, reset this invoice, and submit it again.",
 		);
 	}
 }
@@ -224,12 +243,29 @@ export async function startTgemInvoiceApproval(input: {
 		if (!invoiceCase?.siteId) {
 			throw new Error("Invoice is not ready for approval");
 		}
+		if (input.trigger === "manual" && input.actorUserId) {
+			const actorAccess = await loadTgemAccessScope(tx, {
+				organizationId: invoiceCase.organizationId,
+				userId: input.actorUserId,
+			});
+			if (
+				!actorAccess ||
+				!canTgem(actorAccess, invoiceCase.siteId, "invoice.submit_approval")
+			) {
+				throw new Error("TGEM permission denied");
+			}
+		}
 
 		const snapshot = await loadSnapshot({
 			tx,
 			invoiceCase: { ...invoiceCase, siteId: invoiceCase.siteId },
 		});
-		await validateSnapshotUsers(tx, invoiceCase.organizationId, snapshot);
+		await validateSnapshotUsers(
+			tx,
+			invoiceCase.organizationId,
+			invoiceCase.siteId,
+			snapshot,
+		);
 		const normalizedSteps = normalizeTgemApprovalTemplateSteps(
 			snapshot.steps.map((step) => ({
 				approverUserId: step.approverUserId,

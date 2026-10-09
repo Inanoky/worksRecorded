@@ -1,4 +1,5 @@
 const mockRequireUser = jest.fn();
+const mockCanTgem = jest.fn();
 const mockPrisma = {
 	site: { findFirst: jest.fn(), findMany: jest.fn() },
 	user: { findFirst: jest.fn(), findMany: jest.fn() },
@@ -47,6 +48,10 @@ const mockPrisma = {
 };
 
 jest.mock("@/lib/utils/db", () => ({ prisma: mockPrisma }));
+jest.mock("@/lib/tgem-invoice-approval/access", () => ({
+	loadTgemAccessScope: async () => ({}),
+	canTgem: (...args: unknown[]) => mockCanTgem(...args),
+}));
 jest.mock("@/lib/utils/requireUser", () => ({
 	requireUser: (...args: unknown[]) => mockRequireUser(...args),
 }));
@@ -155,6 +160,7 @@ function peopleFlow(id = "flow-1") {
 describe("TGEM invoice approval actions", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		mockCanTgem.mockReturnValue(true);
 		mockRequireUser.mockResolvedValue({ id: "user-1" });
 		mockPrisma.$transaction.mockImplementation(
 			(callback: (transaction: typeof mockPrisma) => unknown) =>
@@ -827,6 +833,27 @@ describe("TGEM invoice approval actions", () => {
 		expect(mockPrisma.tgemInvoiceCase.updateMany).not.toHaveBeenCalled();
 	});
 
+	it("denies a direct payment call without payment permission", async () => {
+		const updatedAt = new Date("2026-09-24T16:00:00.000Z");
+		mockCanTgem.mockReturnValue(false);
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			siteId: "site-1",
+			status: "approved",
+			paymentStatus: "unpaid",
+			updatedAt,
+		});
+
+		await expect(
+			markTgemInvoicePaid({
+				invoiceCaseId: "case-1",
+				expectedUpdatedAt: updatedAt.toISOString(),
+			}),
+		).rejects.toThrow("permission denied");
+		expect(mockPrisma.tgemInvoiceCase.updateMany).not.toHaveBeenCalled();
+	});
+
 	it("does not snapshot approvers after the invoice project changes", async () => {
 		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
 			id: "case-1",
@@ -1075,6 +1102,33 @@ describe("TGEM invoice approval actions", () => {
 		).rejects.toThrow("unavailable user");
 	});
 
+	it("rejects an approval route whose approver lacks project permission", async () => {
+		mockCanTgem.mockImplementation(
+			(_scope, _siteId, permission) => permission === "invoice.submit_approval",
+		);
+		mockRequireUser.mockResolvedValue({ id: "submitter-1" });
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			siteId: "site-1",
+			submittedByUserId: "submitter-1",
+			status: "needs_review",
+			approvalRound: 0,
+			total: { toString: () => "9000" },
+			currency: "EUR",
+		});
+		mockPrisma.tgemInvoiceApprovalTemplate.findFirst.mockResolvedValue(
+			approvalTemplate(),
+		);
+
+		await expect(
+			submitTgemInvoiceForApproval({ invoiceCaseId: "case-1" }),
+		).rejects.toThrow("approver without permission");
+		expect(
+			mockPrisma.tgemInvoiceApprovalStep.createMany,
+		).not.toHaveBeenCalled();
+	});
+
 	it("allows only the current approver and advances one step", async () => {
 		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
 			id: "case-1",
@@ -1107,6 +1161,24 @@ describe("TGEM invoice approval actions", () => {
 			where: { id: "step-2" },
 			data: { status: "current" },
 		});
+	});
+
+	it("blocks the named current approver after approval permission is revoked", async () => {
+		mockCanTgem.mockReturnValue(false);
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			siteId: "site-1",
+			approvalRound: 1,
+		});
+
+		await expect(
+			decideTgemInvoiceApproval({
+				invoiceCaseId: "case-1",
+				decision: "approve",
+			}),
+		).rejects.toThrow("permission denied");
+		expect(mockPrisma.tgemInvoiceApprovalStep.findFirst).not.toHaveBeenCalled();
 	});
 
 	it("rejects a duplicate approval decision claimed by another request", async () => {
