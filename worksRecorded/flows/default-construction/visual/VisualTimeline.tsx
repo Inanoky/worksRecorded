@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronLeft, ChevronRight, ChevronsRight } from "lucide-react";
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,6 +17,7 @@ export function VisualTimeline({
 	includeUndated,
 	onIncludeUndated,
 	visibleCount,
+	compact = false,
 }: {
 	firstDay: number | null;
 	lastDay: number | null;
@@ -25,8 +27,102 @@ export function VisualTimeline({
 	includeUndated: boolean;
 	onIncludeUndated: (include: boolean) => void;
 	visibleCount: number;
+	compact?: boolean;
 }) {
 	const id = useId();
+	if (compact)
+		return (
+			<section
+				className="flex min-w-0 items-center gap-2 border-t bg-background px-3 py-2"
+				aria-label="Darbu progress pa dienām"
+			>
+				<Label htmlFor={id} className="sr-only">
+					Kumulatīvais darbu progress
+				</Label>
+				<output className="shrink-0 text-xs tabular-nums" aria-live="polite">
+					{day === null
+						? "Nav datētu ierakstu"
+						: `Līdz ${formatVisualDay(day)}`}
+					<span className="hidden text-muted-foreground md:inline">
+						{" "}
+						· {visibleCount} zonas
+					</span>
+				</output>
+				{firstDay !== null && lastDay !== null && day !== null ? (
+					<>
+						<Button
+							size="icon"
+							variant="ghost"
+							className="h-7 w-7 shrink-0"
+							aria-label="Iepriekšējā diena"
+							disabled={day <= firstDay}
+							onClick={() => onChange(day - 1)}
+						>
+							<ChevronLeft className="h-4 w-4" />
+						</Button>
+						<div className="min-w-0 flex-1">
+							<Input
+								id={id}
+								type="range"
+								min={firstDay}
+								max={lastDay}
+								step={1}
+								value={day}
+								disabled={firstDay === lastDay}
+								aria-label="Progresa datums"
+								aria-valuetext={formatVisualDay(day)}
+								className="h-7 w-full cursor-pointer border-0 bg-transparent px-0 accent-primary shadow-none disabled:cursor-default"
+								onChange={(event) => onChange(Number(event.target.value))}
+							/>
+						</div>
+						<Button
+							size="icon"
+							variant="ghost"
+							className="h-7 w-7 shrink-0"
+							aria-label="Nākamā diena"
+							disabled={day >= lastDay}
+							onClick={() => onChange(day + 1)}
+						>
+							<ChevronRight className="h-4 w-4" />
+						</Button>
+						<Button
+							size="icon"
+							variant="ghost"
+							className="h-7 w-7 shrink-0"
+							aria-label="Jaunākais datums"
+							title="Jaunākais datums"
+							disabled={day === lastDay}
+							onClick={() => onChange(lastDay)}
+						>
+							<ChevronsRight className="h-4 w-4" />
+						</Button>
+					</>
+				) : (
+					<span className="min-w-0 flex-1 text-xs text-muted-foreground">
+						Redzamas visas pieejamās zonas
+					</span>
+				)}
+				{undatedCount > 0 && day !== null ? (
+					<label
+						htmlFor={`${id}-undated`}
+						className="flex shrink-0 cursor-pointer items-center gap-2 text-xs"
+						title={`Rādīt arī zonas bez datuma (${undatedCount})`}
+					>
+						<Checkbox
+							id={`${id}-undated`}
+							checked={includeUndated}
+							onCheckedChange={(checked) => onIncludeUndated(checked === true)}
+						/>
+						<span className="sr-only">
+							Rādīt arī zonas bez datuma ({undatedCount})
+						</span>
+						<span aria-hidden="true" className="hidden sm:inline">
+							Bez datuma ({undatedCount})
+						</span>
+					</label>
+				) : null}
+			</section>
+		);
 	return (
 		<section
 			className="space-y-3 rounded-md border bg-muted/40 p-4"

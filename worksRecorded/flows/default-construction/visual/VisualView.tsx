@@ -1,6 +1,12 @@
 "use client";
 
-import { Layers, Loader2, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import {
+	Loader2,
+	PanelLeftClose,
+	PanelLeftOpen,
+	RefreshCw,
+	Settings2,
+} from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
 	AlertDialog,
@@ -13,10 +19,13 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -52,16 +61,17 @@ import { pruneVisualEvidence } from "./prune-evidence";
 import {
 	buildVisualTimeline,
 	cumulativeVisualMarks,
-	formatVisualDay,
 	sortVisualMarksChronologically,
 	visualDiaryDay,
 } from "./timeline";
 import { useVisualAutoSync } from "./useVisualAutoSync";
+import { useVisualWorkspace } from "./useVisualWorkspace";
 import {
 	type VisualAnalysisPhase,
 	VisualAnalysisProgress,
 } from "./VisualAnalysisProgress";
 import { VisualPdf } from "./VisualPdf";
+import { VisualSidebar } from "./VisualSidebar";
 import { VisualTimeline } from "./VisualTimeline";
 import { VisualZoneDetails } from "./VisualZoneDetails";
 
@@ -75,6 +85,7 @@ export default function VisualView({
 	siteId: string;
 	active?: boolean;
 }) {
+	const { workspace, height } = useVisualWorkspace(active);
 	const [index, setIndex] = useState<Index | null>(null);
 	const [location, setLocation] = useState("");
 	const [drawing, setDrawing] = useState<VisualDrawing | null>(null);
@@ -469,484 +480,443 @@ export default function VisualView({
 					(item) => item.evidenceId === source.id,
 				)
 			: null;
+
 	return (
-		<Card className="gap-0 overflow-hidden py-0">
-			<CardHeader className="border-b py-4">
-				<CardTitle>Izpildshēmas — darbu slāņi</CardTitle>
-				<p className="text-sm text-muted-foreground">
-					Izvēlieties lokāciju, lai atvērtu tās rasējumu un darbu slāņus. PDF
-					rasējums jāpievieno tikai vienreiz; to var aizstāt, ja nepieciešams.
-				</p>
-			</CardHeader>
-			<CardContent className="space-y-4 p-4">
-				<div className="grid gap-3 md:grid-cols-2">
-					<div className="min-w-0 space-y-2">
-						<Label>Lokācija</Label>
-						<Select
-							value={location}
-							disabled={controlsLocked || !index}
-							onValueChange={selectLocation}
+		<section
+			ref={workspace}
+			data-testid="visual-workspace"
+			aria-label="Izpildshēmu darba telpa"
+			className="relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-background"
+			style={{ height: height ?? "calc(100dvh - 240px)" }}
+		>
+			<header className="flex h-14 shrink-0 items-center gap-2 border-b px-3">
+				<Button
+					variant="ghost"
+					size="icon"
+					className="h-8 w-8 shrink-0"
+					disabled={!drawing}
+					aria-expanded={sidebarOpen}
+					aria-controls={`${fileId}-sidebar`}
+					aria-label={
+						sidebarOpen ? "Paslēpt slāņus un avotus" : "Rādīt slāņus un avotus"
+					}
+					title={
+						sidebarOpen ? "Paslēpt slāņus un avotus" : "Rādīt slāņus un avotus"
+					}
+					onClick={() => setSidebarOpen((value) => !value)}
+				>
+					{sidebarOpen ? (
+						<PanelLeftClose className="h-4 w-4" />
+					) : (
+						<PanelLeftOpen className="h-4 w-4" />
+					)}
+				</Button>
+				<h3 className="hidden shrink-0 text-sm font-semibold xl:block">
+					Izpildshēmas
+				</h3>
+				<Select
+					value={location}
+					disabled={controlsLocked || !index}
+					onValueChange={selectLocation}
+				>
+					<SelectTrigger className="h-8 w-36 shrink-0" aria-label="Lokācija">
+						<SelectValue placeholder="Lokācija" />
+					</SelectTrigger>
+					<SelectContent>
+						{index?.locations.map((item) => (
+							<SelectItem key={item} value={item}>
+								{item}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+				<span
+					className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+					title={drawing?.name}
+				>
+					{drawing?.name || locationDrawings[0]?.name}
+				</span>
+				{drawing ? (
+					<>
+						<output
+							className="hidden shrink-0 text-xs text-muted-foreground lg:block"
+							aria-live="polite"
 						>
-							<SelectTrigger aria-label="Lokācija">
-								<SelectValue placeholder="Izvēlieties lokāciju" />
-							</SelectTrigger>
-							<SelectContent>
-								{index?.locations.map((item) => (
-									<SelectItem key={item} value={item}>
-										{item}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</div>
-					<div className="min-w-0 space-y-2">
-						<p className="text-sm font-medium">Lokācijas rasējums</p>
-						<p className="py-2 text-sm [overflow-wrap:anywhere]">
-							{drawing?.name ||
-								locationDrawings[0]?.name ||
-								(location
-									? "Rasējums vēl nav pievienots"
-									: "Izvēlieties lokāciju")}
+							{automatic ? (
+								<span className="flex items-center gap-2">
+									<Loader2 className="h-3 w-3 animate-spin" />
+									{phase === "analyzing"
+										? `Atjaunina zonas… ${completedImages}/${drawing.state.evidence.length}`
+										: "Pārbauda izmaiņas…"}
+								</span>
+							) : (
+								`Automātiska atjaunošana ieslēgta${syncedAt ? ` · Pārbaudīts ${new Date(syncedAt).toLocaleTimeString("lv", { hour: "2-digit", minute: "2-digit" })}` : ""}`
+							)}
+						</output>
+						{!["complete", "unlocated"].includes(drawing.state.status) ? (
+							<Button
+								size="sm"
+								variant="outline"
+								disabled={controlsLocked}
+								onClick={() => void process("resume")}
+							>
+								Turpināt analīzi
+							</Button>
+						) : null}
+						<Button
+							size="sm"
+							className="shrink-0"
+							aria-label="Atjaunot no žurnāla"
+							title="Atjaunot no žurnāla"
+							variant="outline"
+							disabled={controlsLocked}
+							onClick={() => void process("refresh")}
+						>
+							<RefreshCw className="h-4 w-4" />
+							<span className="hidden sm:inline">Atjaunot no žurnāla</span>
+						</Button>
+					</>
+				) : null}
+				<Popover>
+					<PopoverTrigger asChild>
+						<Button
+							size="icon"
+							variant="ghost"
+							className="h-8 w-8 shrink-0"
+							aria-label="Rasējuma iestatījumi"
+							title="Rasējuma iestatījumi"
+						>
+							<Settings2 className="h-4 w-4" />
+						</Button>
+					</PopoverTrigger>
+					<PopoverContent
+						align="end"
+						className="w-[min(480px,calc(100vw-2rem))] max-h-[70dvh] space-y-4 overflow-y-auto"
+					>
+						<h4 className="text-sm font-semibold">Rasējuma iestatījumi</h4>
+						<p className="text-xs text-muted-foreground">
+							PDF rasējums jāpievieno tikai vienreiz; to var aizstāt, ja
+							nepieciešams.
 						</p>
+						<details
+							open={!locationDrawings.length && !drawing}
+							className="rounded-lg border bg-muted/20 px-3 py-2"
+						>
+							<summary className="cursor-pointer text-sm font-medium">
+								{drawing || locationDrawings.length
+									? "Aizstāt PDF rasējumu"
+									: "Augšupielādēt PDF rasējumu"}
+							</summary>
+							<div className="mt-3 flex flex-wrap items-end gap-3 pb-1">
+								<div className="min-w-0 flex-1 space-y-2">
+									<Label htmlFor={fileId}>
+										Jauns PDF rasējums (līdz 16 MB, 10 lapām)
+									</Label>
+									<Input
+										key={location}
+										id={fileId}
+										type="file"
+										accept="application/pdf,.pdf"
+										disabled={controlsLocked || loading || !location}
+										onChange={(event) =>
+											setFile(event.target.files?.[0] ?? null)
+										}
+									/>
+								</div>
+								<Button
+									disabled={controlsLocked || loading || !file || !location}
+									onClick={() =>
+										locationDrawings.length
+											? setConfirmation("replace")
+											: void process("upload")
+									}
+								>
+									Augšupielādēt un analizēt
+								</Button>
+							</div>
+						</details>
+
+						{drawing ? (
+							<>
+								<div className="flex flex-wrap gap-2">
+									<Button
+										variant="outline"
+										disabled={controlsLocked || loading}
+										onClick={() => setConfirmation("restart")}
+									>
+										Sākt analīzi no jauna
+									</Button>
+									<Button
+										variant="destructive"
+										disabled={controlsLocked || loading}
+										onClick={() => setConfirmation("delete")}
+									>
+										Dzēst rasējumu
+									</Button>
+								</div>
+								<details className="text-xs text-muted-foreground">
+									<summary className="cursor-pointer">
+										AI aptuvenās zonas — pārbaudiet pirms izmantošanas
+									</summary>
+									<p className="mt-2 max-w-4xl leading-relaxed">
+										AI aptuvenās zonas — arī pēc svītrām un nepilnīgām atzīmēm.
+										Robežas var būt interpretētas; pirms izmantošanas pārbaudiet
+										avota attēlus. Tas nav precīzs uzmērījums vai apstiprināts
+										darbu apjoms. Slāņi var pārklāties. Kamēr šis skats ir
+										atvērts, jauni un mainīti ieraksti tiek atjaunoti
+										automātiski.
+									</p>
+								</details>
+
+								{drawing.state.unlocated.length ? (
+									<details className="rounded-md border p-3">
+										<summary className="cursor-pointer text-sm font-medium">
+											Neizdevās izvietot: {drawing.state.unlocated.length}{" "}
+											attēli
+										</summary>
+										<ul className="mt-3 space-y-3">
+											{drawing.state.unlocated.map((issue) => {
+												const item = drawing.state.evidence.find(
+													(entry) => entry.id === issue.evidenceId,
+												);
+												return (
+													<li
+														key={issue.evidenceId}
+														className="flex flex-wrap gap-3 border-t pt-3 text-sm"
+													>
+														<DiaryRecordPhotos
+															photos={item ? [item.photoUrl] : []}
+															language="lv"
+														/>
+														<div className="min-w-0 flex-1">
+															<p className="font-medium">{item?.work}</p>
+															<p>{issue.reason}</p>
+														</div>
+													</li>
+												);
+											})}
+										</ul>
+									</details>
+								) : null}
+							</>
+						) : null}
+					</PopoverContent>
+				</Popover>
+			</header>
+			<div
+				className="relative min-h-0 flex-1 overflow-hidden"
+				data-testid="visual-canvas-workspace"
+			>
+				{drawing ? (
+					<>
+						<VisualPdf
+							key={drawing.id}
+							fillWorkspace
+							url={`${endpoint(drawing.id)}?pdf=1`}
+							marks={visibleMarks}
+							selected={selectedMark?.id ?? null}
+							onSelect={selectZone}
+							editable={
+								!busy && !workEditing && drawing.state.status !== "running"
+							}
+							onEditingChange={setEditing}
+							onSave={async (edit) => {
+								const updated = await saveVisualPolygon(
+									siteId,
+									drawing.id,
+									edit,
+								);
+								setDrawing(updated);
+							}}
+						/>
+						<VisualZoneDetails
+							siteId={siteId}
+							drawingId={drawing.id}
+							source={source}
+							mark={selectedMark}
+							progressPending={
+								!!sourceProgress && sourceProgress.status !== "complete"
+							}
+							editorLocked={busy || editing || remoteActive}
+							closeLocked={editing || workEditing}
+							controlsLocked={controlsLocked}
+							onClose={() => selectZone(null)}
+							onEditingChange={setWorkEditing}
+							onResolveReview={resolveReview}
+							onSaved={(updated) => {
+								if (!source) return;
+								setDrawing(updated);
+								setLayers((values) => [
+									...new Set([
+										...values,
+										workLayer(
+											updated.state.evidence.find(
+												(item) => item.id === source.id,
+											)?.work ?? source.work,
+										),
+									]),
+								]);
+								setNotice(
+									updated.assignmentWarning ??
+										"Darba tips saglabāts žurnālā un visās ieraksta zonās.",
+								);
+							}}
+						/>
+
+						<VisualSidebar
+							id={`${fileId}-sidebar`}
+							open={sidebarOpen}
+							marks={visibleMarks}
+							datedMarks={datedMarks}
+							evidence={drawing.state.evidence}
+							dayByEvidence={timeline.dayByEvidence}
+							layers={layers}
+							onLayers={setLayers}
+							selected={selected}
+							onSelect={selectZone}
+							locked={editing || workEditing}
+						/>
+					</>
+				) : (
+					<div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
+						<h3 className="text-lg font-medium">
+							{location ? "Lokācijai vēl nav rasējuma" : "Izvēlieties lokāciju"}
+						</h3>
+						<p className="max-w-md text-sm text-muted-foreground">
+							{index && !index.locations.length
+								? "Vispirms norādiet lokāciju būvdarbu žurnāla ierakstos un pievienojiet tai darbu attēlus."
+								: "Izvēlieties lokāciju un rasējuma iestatījumos pievienojiet PDF."}
+						</p>
+					</div>
+				)}
+				{!index || loading || deleting ? (
+					<output className="absolute inset-0 z-40 flex items-center justify-center gap-2 bg-background/80 text-sm">
+						<Loader2 className="h-5 w-5 animate-spin" />
+						{deleting ? "Dzēš rasējumu…" : "Ielādē…"}
+					</output>
+				) : null}
+				{(!automatic &&
+					(busy ||
+						(drawing &&
+							!["complete", "unlocated"].includes(drawing.state.status)))) ||
+				error ||
+				drawing?.state.error ||
+				reviewedSources.length ? (
+					<div className="absolute bottom-14 left-3 right-16 z-40 max-h-[calc(100%-8rem)] max-w-xl space-y-2 overflow-y-auto rounded-lg border bg-background/95 p-3 shadow-lg">
+						{!automatic ? (
+							<VisualAnalysisProgress
+								phase={phase}
+								drawing={drawing}
+								uploadProgress={progress}
+								interrupted={!!error}
+								progressUnavailable={progressUnavailable}
+							/>
+						) : null}
+						{error || drawing?.state.error ? (
+							<p role="alert" className="text-xs text-destructive">
+								{error || drawing?.state.error}
+							</p>
+						) : null}
 						{error && !drawing && locationDrawings[0] ? (
 							<Button
-								variant="outline"
 								size="sm"
+								variant="outline"
 								disabled={loading || controlsLocked}
 								onClick={() => void loadDrawing(locationDrawings[0].id)}
 							>
 								Mēģināt vēlreiz
 							</Button>
 						) : null}
-					</div>
-				</div>
-				{index && !index.locations.length ? (
-					<p className="text-sm text-muted-foreground">
-						Vispirms norādiet lokāciju būvdarbu žurnāla ierakstos un
-						pievienojiet tai darbu attēlus.
-					</p>
-				) : null}
-				<details
-					open={!locationDrawings.length && !drawing}
-					className="rounded-lg border bg-muted/20 px-3 py-2"
-				>
-					<summary className="cursor-pointer text-sm font-medium">
-						{drawing || locationDrawings.length
-							? "Aizstāt PDF rasējumu"
-							: "Augšupielādēt PDF rasējumu"}
-					</summary>
-					<div className="mt-3 flex flex-wrap items-end gap-3 pb-1">
-						<div className="min-w-0 flex-1 space-y-2">
-							<Label htmlFor={fileId}>
-								Jauns PDF rasējums (līdz 16 MB, 10 lapām)
-							</Label>
-							<Input
-								key={location}
-								id={fileId}
-								type="file"
-								accept="application/pdf,.pdf"
-								disabled={controlsLocked || loading || !location}
-								onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-							/>
-						</div>
-						<Button
-							disabled={controlsLocked || loading || !file || !location}
-							onClick={() =>
-								locationDrawings.length
-									? setConfirmation("replace")
-									: void process("upload")
-							}
-						>
-							Augšupielādēt un analizēt
-						</Button>
-					</div>
-				</details>
-				{!index || loading ? (
-					<output className="block text-sm">Ielādē…</output>
-				) : null}
-				{deleting ? (
-					<output className="block text-sm">Dzēš rasējumu…</output>
-				) : automatic ? (
-					<output
-						className="flex items-center gap-2 text-sm text-muted-foreground"
-						aria-live="polite"
-					>
-						<Loader2
-							className="h-4 w-4 animate-spin motion-reduce:animate-none"
-							aria-hidden="true"
-						/>
-						{phase === "analyzing" && drawing
-							? `Atjaunina zonas… Apstrādāti ${completedImages} no ${drawing.state.evidence.length} attēliem.`
-							: "Pārbauda žurnāla izmaiņas…"}
-					</output>
-				) : (
-					<VisualAnalysisProgress
-						phase={phase}
-						drawing={drawing}
-						uploadProgress={progress}
-						interrupted={!!error}
-						progressUnavailable={progressUnavailable}
-					/>
-				)}
-				{error || drawing?.state.error ? (
-					<p role="alert" className="text-sm text-destructive">
-						{error || drawing?.state.error}
-					</p>
-				) : null}
-				{notice ? (
-					<output className="block text-sm text-muted-foreground">
-						{notice}
-					</output>
-				) : null}
-				{drawing ? (
-					<>
-						{!busy ? (
-							<output className="block text-xs text-muted-foreground">
-								Automātiska atjaunošana ieslēgta
-								{syncedAt
-									? ` · Pārbaudīts ${new Date(syncedAt).toLocaleTimeString("lv", { hour: "2-digit", minute: "2-digit" })}`
-									: ""}
-							</output>
-						) : null}
 						{reviewedSources.length ? (
-							<div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+							<p className="text-xs">
 								Žurnālā mainīti {reviewedSources.length} manuāli pielāgotu zonu
 								avoti. Zonas saglabātas; izvēlieties avotu un pārskatiet
 								izmaiņas.
-							</div>
-						) : null}
-						<div className="flex flex-wrap items-center gap-2">
-							<h3
-								className="min-w-0 flex-1 truncate text-sm font-medium"
-								title={drawing.name}
-							>
-								{drawing.name} · {drawing.state.location}
-							</h3>
-							{!["complete", "unlocated"].includes(drawing.state.status) ? (
-								<Button
-									variant="outline"
-									disabled={controlsLocked}
-									onClick={() => void process("resume")}
-								>
-									Turpināt analīzi
-								</Button>
-							) : null}
-							<Button
-								variant="outline"
-								disabled={controlsLocked}
-								onClick={() => void process("refresh")}
-								title="Analizēt jaunus un mainītus žurnāla ierakstus. Nemainīto ierakstu zonas un manuālie labojumi tiek saglabāti."
-							>
-								Atjaunot no žurnāla
-							</Button>
-							<Button
-								variant="outline"
-								disabled={controlsLocked || loading}
-								onClick={() => setConfirmation("restart")}
-							>
-								Sākt analīzi no jauna
-							</Button>
-							<Button
-								variant="destructive"
-								disabled={controlsLocked || loading}
-								onClick={() => setConfirmation("delete")}
-							>
-								Dzēst rasējumu
-							</Button>
-						</div>
-						<details className="text-xs text-muted-foreground">
-							<summary className="cursor-pointer">
-								AI aptuvenās zonas — pārbaudiet pirms izmantošanas
-							</summary>
-							<p className="mt-2 max-w-4xl leading-relaxed">
-								AI aptuvenās zonas — arī pēc svītrām un nepilnīgām atzīmēm.
-								Robežas var būt interpretētas; pirms izmantošanas pārbaudiet
-								avota attēlus. Tas nav precīzs uzmērījums vai apstiprināts darbu
-								apjoms. Slāņi var pārklāties. Kamēr šis skats ir atvērts, jauni
-								un mainīti ieraksti tiek atjaunoti automātiski.
 							</p>
-						</details>
-						<div className="flex items-center justify-between border-t pt-3">
-							<span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-								Rasējuma karte · {visibleMarks.length} zonas
-							</span>
-							<Button
-								variant="outline"
-								size="sm"
-								aria-expanded={sidebarOpen}
-								aria-controls={`${fileId}-sidebar`}
-								onClick={() => setSidebarOpen((value) => !value)}
-							>
-								{sidebarOpen ? (
-									<PanelLeftClose className="mr-2 h-4 w-4" />
-								) : (
-									<PanelLeftOpen className="mr-2 h-4 w-4" />
-								)}
-								{sidebarOpen
-									? "Paslēpt slāņus un avotus"
-									: "Rādīt slāņus un avotus"}
-							</Button>
-						</div>
-						<div
-							className={`grid min-w-0 items-start gap-4 ${sidebarOpen ? "lg:grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-1"}`}
-						>
-							<aside
-								id={`${fileId}-sidebar`}
-								hidden={!sidebarOpen}
-								className="order-2 flex min-w-0 flex-col gap-4 overflow-y-auto rounded-xl border bg-background p-3 lg:order-1 lg:max-h-[min(70dvh,800px)]"
-								aria-label="Darbu slāņi un avoti"
-							>
-								<fieldset
-									className="flex flex-col gap-1"
-									aria-label="Darbu slāņi"
-								>
-									<legend className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-										<Layers className="h-3.5 w-3.5" /> Darbu slāņi
-									</legend>
-									<label
-										htmlFor={`${fileId}-all-layers`}
-										className="mb-1 flex cursor-pointer items-center gap-2 border-b px-2 py-2 text-sm font-medium"
-									>
-										<Checkbox
-											id={`${fileId}-all-layers`}
-											checked={
-												layers.length === allLayers.length
-													? true
-													: layers.length
-														? "indeterminate"
-														: false
-											}
-											disabled={editing || workEditing}
-											onCheckedChange={() =>
-												setLayers((values) =>
-													values.length === allLayers.length ? [] : allLayers,
-												)
-											}
-										/>
-										{layers.length === allLayers.length
-											? "Paslēpt visus"
-											: "Rādīt visus"}
-									</label>
-									{allLayers.map((key) => (
-										<label
-											key={key}
-											htmlFor={`${fileId}-${key}`}
-											className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted"
-										>
-											<Checkbox
-												id={`${fileId}-${key}`}
-												checked={layers.includes(key)}
-												disabled={editing || workEditing}
-												onCheckedChange={(checked) =>
-													setLayers((values) =>
-														checked
-															? [...values, key]
-															: values.filter((item) => item !== key),
-													)
-												}
-											/>
-											<span
-												aria-hidden="true"
-												className="h-3 w-3 rounded-sm"
-												style={{ backgroundColor: visualLayers[key].color }}
-											/>
-											{visualLayers[key].label} (
-											{datedMarks.filter((mark) => mark.layer === key).length})
-										</label>
-									))}
-								</fieldset>
-								<div className="flex flex-col gap-3">
-									<h4 className="font-medium">Zonu avoti</h4>
-									<div className="max-h-64 space-y-1 overflow-y-auto">
-										{visibleMarks.map((mark, i) => (
-											<Button
-												key={mark.id}
-												disabled={editing || workEditing}
-												variant={selected === mark.id ? "secondary" : "ghost"}
-												className="h-auto w-full justify-start whitespace-normal text-left"
-												onClick={() => selectZone(mark.id)}
-											>
-												<span className="min-w-0">
-													<span className="block text-xs text-muted-foreground">
-														{timeline.dayByEvidence.get(mark.evidenceId) != null
-															? formatVisualDay(
-																	timeline.dayByEvidence.get(
-																		mark.evidenceId,
-																	) as number,
-																)
-															: "Bez datuma"}{" "}
-														· lapa {mark.page}
-													</span>
-													<span className="block [overflow-wrap:anywhere]">
-														{i + 1}.{" "}
-														{drawing.state.evidence.find(
-															(item) => item.id === mark.evidenceId,
-														)?.work || visualLayers[mark.layer].label}
-														{drawing.state.evidence.find(
-															(item) => item.id === mark.evidenceId,
-														)?.reviewRequired
-															? " · Jāpārskata"
-															: ""}
-													</span>
-												</span>
-											</Button>
-										))}
-									</div>
-								</div>
-							</aside>
-							<div className="order-1 min-w-0 space-y-4 lg:order-2">
-								<div className="relative overflow-hidden rounded-xl">
-									<VisualPdf
-										key={drawing.id}
-										url={`${endpoint(drawing.id)}?pdf=1`}
-										marks={visibleMarks}
-										evidence={drawing.state.evidence}
-										selected={selectedMark?.id ?? null}
-										onSelect={selectZone}
-										editable={
-											!busy &&
-											!workEditing &&
-											drawing.state.status !== "running"
-										}
-										onEditingChange={setEditing}
-										onSave={async (edit) => {
-											const updated = await saveVisualPolygon(
-												siteId,
-												drawing.id,
-												edit,
-											);
-											setDrawing(updated);
-										}}
-									/>
-									<VisualZoneDetails
-										siteId={siteId}
-										drawingId={drawing.id}
-										source={source}
-										mark={selectedMark}
-										progressPending={
-											!!sourceProgress && sourceProgress.status !== "complete"
-										}
-										editorLocked={busy || editing || remoteActive}
-										closeLocked={editing || workEditing}
-										controlsLocked={controlsLocked}
-										onClose={() => selectZone(null)}
-										onEditingChange={setWorkEditing}
-										onResolveReview={resolveReview}
-										onSaved={(updated) => {
-											if (!source) return;
-											setDrawing(updated);
-											setLayers((values) => [
-												...new Set([
-													...values,
-													workLayer(
-														updated.state.evidence.find(
-															(item) => item.id === source.id,
-														)?.work ?? source.work,
-													),
-												]),
-											]);
-											setNotice(
-												updated.assignmentWarning ??
-													"Darba tips saglabāts žurnālā un visās ieraksta zonās.",
-											);
-										}}
-									/>
-								</div>
-								<fieldset disabled={editing || workEditing} className="min-w-0">
-									<VisualTimeline
-										firstDay={timeline.firstDay}
-										lastDay={timeline.lastDay}
-										day={selectedDay}
-										onChange={(day) => {
-											if (!editing) {
-												setThroughDay(day);
-												setSelected(null);
-											}
-										}}
-										undatedCount={undatedCount}
-										includeUndated={includeUndated}
-										onIncludeUndated={(value) => {
-											if (!editing) setIncludeUndated(value);
-										}}
-										visibleCount={visibleMarks.length}
-									/>
-								</fieldset>
-							</div>
-						</div>
-						{drawing.state.unlocated.length ? (
-							<details className="rounded-md border p-3">
-								<summary className="cursor-pointer text-sm font-medium">
-									Neizdevās izvietot: {drawing.state.unlocated.length} attēli
-								</summary>
-								<ul className="mt-3 space-y-3">
-									{drawing.state.unlocated.map((issue) => {
-										const item = drawing.state.evidence.find(
-											(entry) => entry.id === issue.evidenceId,
-										);
-										return (
-											<li
-												key={issue.evidenceId}
-												className="flex flex-wrap gap-3 border-t pt-3 text-sm"
-											>
-												<DiaryRecordPhotos
-													photos={item ? [item.photoUrl] : []}
-													language="lv"
-												/>
-												<div className="min-w-0 flex-1">
-													<p className="font-medium">{item?.work}</p>
-													<p>{issue.reason}</p>
-												</div>
-											</li>
-										);
-									})}
-								</ul>
-							</details>
 						) : null}
-					</>
+					</div>
 				) : null}
-				<AlertDialog
-					open={confirmation !== null}
-					onOpenChange={(open) => {
-						if (!open) setConfirmation(null);
-					}}
-				>
-					<AlertDialogContent>
-						<AlertDialogHeader>
-							<AlertDialogTitle>
-								{confirmation === "delete"
-									? "Dzēst rasējumu?"
-									: confirmation === "replace"
-										? "Aizstāt lokācijas rasējumu?"
-										: "Sākt analīzi no jauna?"}
-							</AlertDialogTitle>
-							<AlertDialogDescription>
-								{confirmation === "delete"
-									? `Rasējums “${drawing?.name}” un tā analīzes rezultāti tiks neatgriezeniski noņemti no izpildshēmu skata. Žurnāla ieraksti, fotoattēli un citi rasējumi netiks mainīti.`
-									: confirmation === "replace"
-										? "Katrai lokācijai ir viens aktīvs rasējums. Iepriekšējais rasējums un tā zonas tiks arhivēti; jaunais PDF tiks analizēts no jauna."
-										: "Esošās zonas un manuālie labojumi tiks aizstāti ar jaunu analīzi, izmantojot to pašu PDF un saglabātos avota attēlus. Lai iekļautu tikai jaunus žurnāla attēlus un saglabātu esošās zonas, izmantojiet “Atjaunot no žurnāla”."}
-							</AlertDialogDescription>
-						</AlertDialogHeader>
-						<AlertDialogFooter>
-							<AlertDialogCancel>Atcelt</AlertDialogCancel>
-							<AlertDialogAction
-								disabled={busy}
-								onClick={() => {
-									if (confirmation === "delete") void removeDrawing();
-									else if (confirmation === "replace") void process("upload");
-									else void process("restart");
-								}}
-							>
-								{confirmation === "delete"
-									? "Jā, dzēst"
-									: confirmation === "replace"
-										? "Jā, aizstāt"
-										: "Jā, sākt no jauna"}
-							</AlertDialogAction>
-						</AlertDialogFooter>
-					</AlertDialogContent>
-				</AlertDialog>
-			</CardContent>
-		</Card>
+				{notice ? (
+					<output className="pointer-events-none absolute bottom-3 left-1/2 z-40 max-w-[90%] -translate-x-1/2 rounded-md border bg-background/95 px-3 py-2 text-xs shadow-sm">
+						{notice}
+					</output>
+				) : null}
+				{automatic ? (
+					<output
+						className="pointer-events-none absolute bottom-3 left-3 z-40 flex items-center gap-2 rounded-md border bg-background/95 px-3 py-2 text-xs shadow-sm lg:hidden"
+						aria-live="polite"
+					>
+						<Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" />
+						{phase === "analyzing" && drawing
+							? `Atjaunina zonas… ${completedImages}/${drawing.state.evidence.length}`
+							: "Pārbauda izmaiņas…"}
+					</output>
+				) : null}
+			</div>
+			{drawing ? (
+				<fieldset disabled={editing || workEditing} className="min-w-0">
+					<VisualTimeline
+						compact
+						firstDay={timeline.firstDay}
+						lastDay={timeline.lastDay}
+						day={selectedDay}
+						onChange={(day) => {
+							if (!editing) {
+								setThroughDay(day);
+								setSelected(null);
+							}
+						}}
+						undatedCount={undatedCount}
+						includeUndated={includeUndated}
+						onIncludeUndated={(value) => {
+							if (!editing) setIncludeUndated(value);
+						}}
+						visibleCount={visibleMarks.length}
+					/>
+				</fieldset>
+			) : null}
+			<AlertDialog
+				open={confirmation !== null}
+				onOpenChange={(open) => {
+					if (!open) setConfirmation(null);
+				}}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							{confirmation === "delete"
+								? "Dzēst rasējumu?"
+								: confirmation === "replace"
+									? "Aizstāt lokācijas rasējumu?"
+									: "Sākt analīzi no jauna?"}
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							{confirmation === "delete"
+								? `Rasējums “${drawing?.name}” un tā analīzes rezultāti tiks neatgriezeniski noņemti no izpildshēmu skata. Žurnāla ieraksti, fotoattēli un citi rasējumi netiks mainīti.`
+								: confirmation === "replace"
+									? "Katrai lokācijai ir viens aktīvs rasējums. Iepriekšējais rasējums un tā zonas tiks arhivēti; jaunais PDF tiks analizēts no jauna."
+									: "Esošās zonas un manuālie labojumi tiks aizstāti ar jaunu analīzi, izmantojot to pašu PDF un saglabātos avota attēlus. Lai iekļautu tikai jaunus žurnāla attēlus un saglabātu esošās zonas, izmantojiet “Atjaunot no žurnāla”."}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Atcelt</AlertDialogCancel>
+						<AlertDialogAction
+							disabled={busy}
+							onClick={() => {
+								if (confirmation === "delete") void removeDrawing();
+								else if (confirmation === "replace") void process("upload");
+								else void process("restart");
+							}}
+						>
+							{confirmation === "delete"
+								? "Jā, dzēst"
+								: confirmation === "replace"
+									? "Jā, aizstāt"
+									: "Jā, sākt no jauna"}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</section>
 	);
 }

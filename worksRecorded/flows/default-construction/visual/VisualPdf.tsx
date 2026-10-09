@@ -11,7 +11,7 @@ import {
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { type VisualEvidence, type VisualMark, visualLayers } from "./model";
+import { type VisualMark, visualLayers } from "./model";
 import { type PolygonEdit, polygonEditSchema } from "./polygon-edit";
 import { useDrawingViewport } from "./useDrawingViewport";
 import { VisualZoneTarget } from "./VisualZoneTarget";
@@ -22,19 +22,19 @@ export function VisualPdf({
 	marks,
 	selected,
 	onSelect,
-	evidence = [],
 	editable = false,
 	onSave,
 	onEditingChange,
+	fillWorkspace = false,
 }: {
 	url: string;
 	marks: VisualMark[];
 	selected: string | null;
 	onSelect: (id: string | null) => void;
-	evidence?: VisualEvidence[];
 	editable?: boolean;
 	onSave?: (edit: PolygonEdit) => Promise<void>;
 	onEditingChange?: (editing: boolean) => void;
+	fillWorkspace?: boolean;
 }) {
 	const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
 	const [page, setPage] = useState(1);
@@ -180,7 +180,9 @@ export function VisualPdf({
 		};
 	}, [document, page]);
 	return (
-		<div className="relative min-w-0 overflow-hidden rounded-xl border bg-muted/40">
+		<div
+			className={`relative min-w-0 overflow-hidden bg-muted/40 ${fillWorkspace ? "h-full" : "rounded-xl border"}`}
+		>
 			<div
 				data-drawing-control
 				className="absolute left-3 top-3 z-30 flex max-w-[calc(100%-5rem)] flex-wrap items-center gap-1 rounded-lg border bg-background p-1 shadow-sm"
@@ -364,7 +366,7 @@ export function VisualPdf({
 			) : null}
 			<section
 				ref={navigation.viewport}
-				className={`relative h-[min(70dvh,800px)] min-h-[360px] w-full touch-none select-none overflow-hidden bg-muted/40 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${draft ? "cursor-default" : navigation.panning ? "cursor-grabbing" : "cursor-grab"}`}
+				className={`relative ${fillWorkspace ? "h-full min-h-0" : "h-[min(70dvh,800px)] min-h-[360px]"} w-full touch-none select-none overflow-hidden bg-muted/40 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${draft ? "cursor-default" : navigation.panning ? "cursor-grabbing" : "cursor-grab"}`}
 				aria-label="Rasējuma karte"
 				onClickCapture={(event) => {
 					if (navigation.suppressClick.current) {
@@ -459,9 +461,6 @@ export function VisualPdf({
 										key={`hit-${mark.id}`}
 										mark={mark}
 										selected={selected === mark.id}
-										source={evidence.find(
-											(item) => item.id === mark.evidenceId,
-										)}
 										disabled={interactionLocked}
 										onHighlight={(active) =>
 											setHighlighted((current) =>

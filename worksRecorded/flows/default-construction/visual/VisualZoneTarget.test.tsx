@@ -1,26 +1,6 @@
-import {
-	fireEvent,
-	render,
-	screen,
-	waitFor,
-	within,
-} from "@testing-library/react";
-import type { ComponentProps } from "react";
-import type { VisualEvidence, VisualMark } from "./model";
+import { fireEvent, render, screen } from "@testing-library/react";
+import type { VisualMark } from "./model";
 import { VisualZoneTarget } from "./VisualZoneTarget";
-
-jest.mock("next/image", () => ({
-	__esModule: true,
-	default: ({
-		fill,
-		sizes,
-		unoptimized,
-		alt,
-		...props
-	}: ComponentProps<"img"> & { fill?: boolean; unoptimized?: boolean }) => (
-		<img alt={alt} {...props} />
-	),
-}));
 
 const mark: VisualMark = {
 	id: "zone",
@@ -36,105 +16,83 @@ const mark: VisualMark = {
 	anchors: [],
 	explanation: "Completed XPS",
 };
-const source: VisualEvidence = {
-	id: "photo",
-	recordId: "record",
-	photoUrl: "https://example.com/actual-source.jpg",
-	work: "XPS 150 mm",
-	location: "1. stāvs",
-	description: "Installed XPS",
-	date: "2026-10-09",
-	amount: 10,
-	unit: "m2",
-};
 
-it("opens the original source image from the hover preview with diary zoom controls and keeps it open after hover closes", async () => {
+it("highlights on hover and keyboard focus without opening any popup or image dialog", () => {
+	const onSelect = jest.fn();
+	const onHighlight = jest.fn();
+	const { container } = render(
+		<VisualZoneTarget
+			mark={mark}
+			disabled={false}
+			onSelect={onSelect}
+			onHighlight={onHighlight}
+		/>,
+	);
+	const zone = screen.getByRole("button", { name: "XPS: Completed XPS" });
+	fireEvent.pointerEnter(zone);
+	expect(onHighlight).toHaveBeenLastCalledWith(true);
+	fireEvent.pointerLeave(zone);
+	expect(onHighlight).toHaveBeenLastCalledWith(false);
+	fireEvent.focus(zone);
+	expect(onHighlight).toHaveBeenLastCalledWith(true);
+	fireEvent.blur(zone);
+	expect(onHighlight).toHaveBeenLastCalledWith(false);
+	expect(onSelect).not.toHaveBeenCalled();
+	expect(
+		container.querySelector('[data-slot="hover-card-content"]'),
+	).toBeNull();
+	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	expect(screen.queryByRole("img")).not.toBeInTheDocument();
+});
+it("keeps click selection and pressed state for the right-side panel", () => {
 	const onSelect = jest.fn();
 	render(
 		<VisualZoneTarget
 			mark={mark}
-			source={source}
 			disabled={false}
+			selected
 			onSelect={onSelect}
 			onHighlight={jest.fn()}
 		/>,
 	);
 	const zone = screen.getByRole("button", { name: "XPS: Completed XPS" });
-	fireEvent.focus(zone);
-	const preview = await screen.findByRole("button", {
-		name: "Atvērt zonas avota attēlu: XPS 150 mm",
-	});
-	fireEvent.load(within(preview).getByRole("img"));
-	fireEvent.click(preview);
-	const dialog = within(screen.getByRole("dialog"));
-	expect(dialog.getByRole("img")).toHaveAttribute("src", source.photoUrl);
-	expect(dialog.getByLabelText("Tālummaiņa")).toHaveTextContent("100%");
-	fireEvent.pointerLeave(zone);
-	fireEvent.click(dialog.getByRole("button", { name: "Pietuvināt" }));
-	expect(dialog.getByLabelText("Tālummaiņa")).toHaveTextContent("150%");
-	fireEvent.wheel(
-		dialog.getByRole("region", { name: "Foto tālummaiņas skats" }),
-		{ deltaY: -100 },
-	);
-	expect(dialog.getByLabelText("Tālummaiņa")).toHaveTextContent("175%");
-	fireEvent.click(dialog.getByRole("button", { name: "Ietilpināt" }));
-	expect(dialog.getByLabelText("Tālummaiņa")).toHaveTextContent("100%");
-	expect(onSelect).not.toHaveBeenCalled();
-	fireEvent.click(dialog.getByRole("button", { name: "Close" }));
-	await waitFor(() =>
-		expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
-	);
-	expect(zone).toHaveFocus();
-	fireEvent.focus(zone);
-	fireEvent.click(
-		await screen.findByRole("button", {
-			name: "Atvērt zonas avota attēlu: XPS 150 mm",
-		}),
-	);
-	expect(
-		within(screen.getByRole("dialog")).getByLabelText("Tālummaiņa"),
-	).toHaveTextContent("100%");
+	expect(zone).toHaveAttribute("aria-pressed", "true");
+	fireEvent.click(zone);
+	expect(onSelect).toHaveBeenCalledTimes(1);
 });
-
-it("hides the hover popup once a zone is selected so details only appear in the right panel", async () => {
-	const props = {
-		mark,
-		source,
-		disabled: false,
-		onSelect: jest.fn(),
-		onHighlight: jest.fn(),
-	};
-	const { rerender } = render(<VisualZoneTarget {...props} />);
-	fireEvent.focus(screen.getByRole("button", { name: "XPS: Completed XPS" }));
-	await screen.findByRole("button", {
-		name: "Atvērt zonas avota attēlu: XPS 150 mm",
-	});
-	rerender(<VisualZoneTarget {...props} selected />);
-	await waitFor(() =>
-		expect(
-			screen.queryByRole("button", {
-				name: "Atvērt zonas avota attēlu: XPS 150 mm",
-			}),
-		).not.toBeInTheDocument(),
-	);
-});
-
-it("does not offer an unavailable source image for zoom", async () => {
+it("does not select or highlight a disabled editing target", () => {
+	const onSelect = jest.fn();
+	const onHighlight = jest.fn();
 	render(
 		<VisualZoneTarget
 			mark={mark}
-			source={source}
+			disabled
+			onSelect={onSelect}
+			onHighlight={onHighlight}
+		/>,
+	);
+	const zone = screen.getByRole("button", { name: "XPS: Completed XPS" });
+	fireEvent.pointerEnter(zone);
+	fireEvent.focus(zone);
+	fireEvent.click(zone);
+	expect(onHighlight).not.toHaveBeenCalled();
+	expect(onSelect).not.toHaveBeenCalled();
+});
+it("does not render a target for a polygon without area", () => {
+	render(
+		<VisualZoneTarget
+			mark={{
+				...mark,
+				polygon: [
+					{ x: 0.1, y: 0.1 },
+					{ x: 0.1, y: 0.5 },
+					{ x: 0.1, y: 0.7 },
+				],
+			}}
 			disabled={false}
 			onSelect={jest.fn()}
 			onHighlight={jest.fn()}
 		/>,
 	);
-	fireEvent.focus(screen.getByRole("button", { name: "XPS: Completed XPS" }));
-	const preview = await screen.findByRole("button", {
-		name: "Atvērt zonas avota attēlu: XPS 150 mm",
-	});
-	fireEvent.error(within(preview).getByRole("img"));
-	expect(preview).toBeDisabled();
-	fireEvent.click(preview);
-	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	expect(screen.queryByRole("button")).not.toBeInTheDocument();
 });

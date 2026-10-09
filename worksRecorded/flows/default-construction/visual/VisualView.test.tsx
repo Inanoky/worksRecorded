@@ -162,6 +162,11 @@ afterEach(() => {
 	jest.useRealTimers();
 });
 
+function openSettings() {
+	const trigger = screen.getByRole("button", { name: "Rasējuma iestatījumi" });
+	if(trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger);
+}
+
 async function selectLocation() {
 	await screen.findByRole("option", { name: "1. stāvs" });
 	fireEvent.change(screen.getAllByRole("combobox")[0], {
@@ -180,11 +185,11 @@ it("clears the selected source card on an empty drawing click but protects unsav
 	const sidebar = screen.getByRole("complementary", {
 		name: "Darbu slāņi un avoti",
 	});
-	fireEvent.click(within(sidebar).getAllByRole("button")[0]);
+	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
 	expect(screen.getByText("Izvēlētā zona")).toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Empty drawing" }));
 	expect(screen.queryByText("Izvēlētā zona")).not.toBeInTheDocument();
-	fireEvent.click(within(sidebar).getAllByRole("button")[0]);
+	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
 	await waitFor(() =>
 		expect(screen.getByLabelText("Darba tips")).toBeEnabled(),
 	);
@@ -222,6 +227,13 @@ it("slides zone details from the right without reopening the left sidebar or rem
 		screen.queryByRole("complementary", { name: "Darbu slāņi un avoti" }),
 	).not.toBeInTheDocument();
 	expect(panel.parentElement).toBe(surface);
+	expect(within(panel).getByTestId("zone-source-image")).toHaveClass(
+		"flex-1",
+		"min-h-0",
+	);
+	expect(
+		within(panel).getByText("Darba apraksts").parentElement,
+	).not.toHaveAttribute("open");
 	expect(screen.getByTestId("pdf")).toBe(pdf);
 	fireEvent.click(
 		within(panel).getByRole("button", { name: "Aizvērt zonas informāciju" }),
@@ -299,7 +311,7 @@ it("runs new-image analysis automatically with inline progress and retains the m
 	expect(mockFetch).toHaveBeenCalledWith("/api/sites/site/visual/drawing", {
 		method: "POST",
 	});
-	expect(screen.getByText(/Atjaunina zonas/)).toHaveTextContent("2 attēliem");
+	expect(screen.getByText(/Atjaunina zonas/)).toHaveTextContent("1/2");
 	expect(screen.getByTestId("pdf")).toBe(pdf);
 	await act(async () => fail(new Error("Network failed")));
 	expect(screen.getByRole("alert")).toHaveTextContent("Network failed");
@@ -505,11 +517,13 @@ it("retains the selected drawing when checking for new diary photos fails", asyn
 
 it("requires confirmation before deletion and removes the drawing from the view", async () => {
 	await selectDrawing();
+	openSettings();
 	fireEvent.click(screen.getByRole("button", { name: "Dzēst rasējumu" }));
 	expect(screen.getByRole("alertdialog")).toBeInTheDocument();
 	expect(deleteVisualDrawing).not.toHaveBeenCalled();
 	fireEvent.click(screen.getByRole("button", { name: "Atcelt" }));
 	expect(deleteVisualDrawing).not.toHaveBeenCalled();
+	openSettings();
 	fireEvent.click(screen.getByRole("button", { name: "Dzēst rasējumu" }));
 	fireEvent.click(screen.getByRole("button", { name: "Jā, dzēst" }));
 	await waitFor(() =>
@@ -522,6 +536,7 @@ it("requires confirmation before deletion and removes the drawing from the view"
 it("keeps the drawing visible when deletion fails", async () => {
 	jest.mocked(deleteVisualDrawing).mockRejectedValue(new Error("Failed"));
 	await selectDrawing();
+	openSettings();
 	fireEvent.click(screen.getByRole("button", { name: "Dzēst rasējumu" }));
 	fireEvent.click(screen.getByRole("button", { name: "Jā, dzēst" }));
 	expect(await screen.findByRole("alert")).toHaveTextContent("Neizdevās dzēst");
@@ -530,6 +545,7 @@ it("keeps the drawing visible when deletion fails", async () => {
 
 it("restarts a completed analysis only after confirmation", async () => {
 	await selectDrawing();
+	openSettings();
 	fireEvent.click(
 		screen.getByRole("button", { name: "Sākt analīzi no jauna" }),
 	);
@@ -544,7 +560,7 @@ it("restarts a completed analysis only after confirmation", async () => {
 	expect(mockUpload).not.toHaveBeenCalled();
 	await waitFor(() =>
 		expect(
-			screen.getByRole("button", { name: "Sākt analīzi no jauna" }),
+			screen.getByRole("button", { name: "Atjaunot no žurnāla" }),
 		).not.toBeDisabled(),
 	);
 });
@@ -561,7 +577,7 @@ it("loads saved location drawings and toggles layer visibility instantly", async
 		target: { value: "2. stāvs" },
 	});
 	expect(screen.queryByTestId("pdf")).not.toBeInTheDocument();
-	expect(screen.getByText("Rasējums vēl nav pievienots")).toBeInTheDocument();
+	expect(screen.getByText("Lokācijai vēl nav rasējuma")).toBeInTheDocument();
 	expect(mockFetch).toHaveBeenCalledTimes(1);
 	expect(mockUpload).not.toHaveBeenCalled();
 });
@@ -602,11 +618,10 @@ it("places layer toggles and dated sources in the sidebar in chronological order
 	expect(
 		within(sidebar).getByRole("checkbox", { name: "Smilts (2)" }),
 	).toBeInTheDocument();
-	const entries = within(sidebar).getAllByRole("button");
-	expect(sidebar).toHaveClass("lg:order-1");
-	expect(sidebar.parentElement).toHaveClass(
-		"lg:grid-cols-[280px_minmax(0,1fr)]",
-	);
+	fireEvent.click(within(sidebar).getByRole("button", { name: "Zonu avoti" }));
+	const entries = within(sidebar).getAllByRole("button", { name: /lapa/ });
+	expect(sidebar).toHaveClass("absolute", "overflow-hidden");
+	expect(sidebar.parentElement).toHaveClass("relative", "overflow-hidden");
 	expect(entries[0]).toHaveTextContent("20.09.2026");
 	expect(entries[0]).toHaveTextContent("Earlier work");
 	expect(entries[1]).toHaveTextContent("23.09.2026");
@@ -627,6 +642,7 @@ it("places layer toggles and dated sources in the sidebar in chronological order
 it("uploads with the selected project/location and runs saved analysis", async () => {
 	render(<VisualView siteId="site" />);
 	await selectLocation();
+	openSettings();
 	fireEvent.click(screen.getByText("Aizstāt PDF rasējumu"));
 	const file = new File(["%PDF-1.7"], "plan.pdf", { type: "application/pdf" });
 	fireEvent.change(screen.getByLabelText(/Jauns PDF/), {
@@ -678,6 +694,7 @@ it("clearly displays a cannot-locate result", async () => {
 it("rejects non-PDF uploads before calling the server", async () => {
 	render(<VisualView siteId="site" />);
 	await selectLocation();
+	openSettings();
 	fireEvent.click(screen.getByText("Aizstāt PDF rasējumu"));
 	fireEvent.change(screen.getByLabelText(/Jauns PDF/), {
 		target: {

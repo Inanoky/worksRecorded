@@ -2,15 +2,22 @@ import {
 	fireEvent,
 	render,
 	screen,
-	within,
 	waitFor,
+	within,
 } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { DiaryRecordPhotos } from "./DiaryRecordPhotos";
 
 jest.mock("next/image", () => ({
 	__esModule: true,
-	default: ({ fill, sizes, unoptimized, ...props }: any) => (
-		<img data-unoptimized={unoptimized || undefined} {...props} />
+	default: ({
+		fill,
+		sizes,
+		unoptimized,
+		alt,
+		...props
+	}: ComponentProps<"img"> & { fill?: boolean; unoptimized?: boolean }) => (
+		<img alt={alt} data-unoptimized={unoptimized || undefined} {...props} />
 	),
 }));
 
@@ -18,6 +25,26 @@ it("shows a placeholder when there are no photos", () => {
 	render(<DiaryRecordPhotos photos={null} />);
 	expect(screen.getByText("—")).toBeInTheDocument();
 	expect(screen.queryByRole("img")).toBeNull();
+});
+
+it("uses the full available area without cropping or a duplicate hover popup for featured source images, and keeps click-to-zoom", async () => {
+	render(
+		<DiaryRecordPhotos photos={["https://utfs.io/f/1"]} variant="featured" />,
+	);
+	const preview = screen.getByRole("button", { name: "Ziņojuma foto 1" });
+	expect(preview).toHaveClass("w-full", "h-full", "cursor-zoom-in");
+	expect(screen.getByRole("img")).toHaveClass("object-contain");
+	expect(screen.getByRole("img")).toHaveAttribute("loading", "eager");
+	fireEvent.focus(preview);
+	expect(document.querySelector('[data-slot="hover-card-content"]')).toBeNull();
+	fireEvent.click(preview);
+	const dialog = within(screen.getByRole("dialog"));
+	expect(dialog.getByRole("img")).toHaveAttribute("src", "https://utfs.io/f/1");
+	fireEvent.wheel(
+		dialog.getByRole("region", { name: "Foto tālummaiņas skats" }),
+		{ deltaY: -100 },
+	);
+	expect(dialog.getByLabelText("Tālummaiņa")).toHaveTextContent("125%");
 });
 it("reuses the original download URL rather than requesting another optimized image", async () => {
 	render(<DiaryRecordPhotos photos={["https://utfs.io/f/1"]} />);

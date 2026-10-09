@@ -28,7 +28,7 @@ const fixture = {
 		].map((work, i) => ({
 			id: `photo-${i}`,
 			recordId: `record-${i}`,
-			photoUrl: "",
+			photoUrl: `https://visual-preview.test/source-${i}.svg`,
 			work,
 			location: "1. stāvs",
 			description: [
@@ -60,7 +60,7 @@ const fixture = {
 const modules = {
 	actions: `let drawing=${JSON.stringify(fixture)}; export async function getVisualDrawings(){return {locations:['1. stāvs'],drawings:[{id:drawing.id,name:drawing.name,location:drawing.state.location,createdAt:drawing.createdAt,status:'complete'}]}}; export async function saveVisualPolygon(site,id,edit){drawing=structuredClone(drawing);drawing.state.marks.find(x=>x.id===edit.markId).polygon=edit.polygon;window.__visualPreviewDrawing=drawing;return drawing}; export async function deleteVisualDrawing(){};export async function refreshVisualDrawing(){return {drawing,addedCount:0,updatedCount:0,removedCount:0,analysisCount:0,reviewCount:0}};export async function restartVisualDrawing(){throw Error('Preview only')};export async function getVisualWorkTypes(){return ['Smilts līdzināšana','XPS izolācija 150 mm','Estrich grīda 70 mm']};export async function saveVisualWorkType(site,id,edit){drawing=structuredClone(drawing);const source=drawing.state.evidence.find(x=>x.id===edit.evidenceId);const layer=edit.work.includes('XPS')?'xps':edit.work.includes('Estrich')?'estrich':'sand';for(const item of drawing.state.evidence.filter(x=>x.recordId===source.recordId)){item.work=edit.work;for(const mark of drawing.state.marks.filter(x=>x.evidenceId===item.id))mark.layer=layer}window.__visualPreviewDrawing=drawing;return drawing};export async function resolveVisualSourceReview(){throw Error('Preview only')}`,
 	upload: `export const useUploadThing=()=>({startUpload:async()=>{throw Error('Preview only')}});`,
-	photos: `export const DiaryRecordPhotos=()=>null;export const ZoomablePhoto=()=>null;`,
+	image: `import React from 'react';export default function Image({fill,unoptimized,sizes,style,...props}){return React.createElement('img',{...props,style:{...(fill?{position:'absolute',inset:0,width:'100%',height:'100%'}:{}),...style}})}`,
 	worker: `export const pdfWorkerUrl='/worker.mjs';`,
 };
 const bundled = await build({
@@ -88,8 +88,8 @@ const bundled = await build({
 					path: "upload",
 					namespace: "fixture",
 				}));
-				build.onResolve({ filter: /DiaryRecordPhotos$/ }, () => ({
-					path: "photos",
+				build.onResolve({ filter: /^next\/image$/ }, () => ({
+					path: "image",
 					namespace: "fixture",
 				}));
 				build.onResolve({ filter: /pdf-worker-url$/ }, () => ({
@@ -99,6 +99,7 @@ const bundled = await build({
 				build.onLoad({ filter: /.*/, namespace: "fixture" }, (args) => ({
 					contents: modules[args.path],
 					loader: "js",
+					resolveDir: root,
 				}));
 			},
 		},
@@ -159,6 +160,12 @@ const assets = new Map([
 	["/worker.mjs", ["text/javascript", worker]],
 	["/plan.pdf", ["application/pdf", pdfBytes]],
 ]);
+for (let i = 0; i < 3; i++) {
+	assets.set(`/source-${i}.svg`, [
+		"image/svg+xml",
+		`<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="700" viewBox="0 0 1000 700"><rect width="1000" height="700" fill="white"/><text x="60" y="60" font-family="Arial" font-size="22">Original message image · ${i + 1}</text><rect x="75" y="120" width="850" height="410" fill="none" stroke="#333" stroke-width="3"/>${[0, 1, 2].map((j) => `<rect x="${100 + j * 280}" y="140" width="240" height="315" fill="none" stroke="#333" stroke-width="2"/><text x="${140 + j * 280}" y="270" font-size="20" font-family="Arial">ROOM ${101 + j}</text>`).join("")}<path d="M${110 + i * 280} 160 l205 265 m-205 -225 l205 225 m-205 -185 l205 185" stroke="${["#16a34a", "#eab308", "#ef4444"][i]}" fill="none" stroke-width="12"/></svg>`,
+	]);
+}
 createServer((request, response) => {
 	const asset = assets.get(request.url);
 	if (!asset) {

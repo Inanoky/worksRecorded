@@ -51,7 +51,7 @@ export function VisualZoneDetails({
 			aria-hidden={!open}
 			inert={!open}
 			data-state={open ? "open" : "closed"}
-			className={`absolute bottom-14 right-3 top-16 z-40 flex w-[min(360px,calc(100%-1.5rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-xl transition-[transform,opacity] duration-200 ease-out motion-reduce:transition-none ${open ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-[calc(100%+1rem)] opacity-0"}`}
+			className={`absolute bottom-14 right-3 top-16 z-40 flex w-[min(440px,calc(100%-1.5rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-xl transition-[transform,opacity] duration-200 ease-out motion-reduce:transition-none ${open ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-[calc(100%+1rem)] opacity-0"}`}
 			onKeyDown={(event) => {
 				if (
 					event.key === "Escape" &&
@@ -67,8 +67,31 @@ export function VisualZoneDetails({
 				}
 			}}
 		>
-			<div className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">
-				<h3 className="text-sm font-semibold">{open ? "Izvēlētā zona" : ""}</h3>
+			<div className="flex shrink-0 items-start justify-between gap-3 border-b px-3 py-2">
+				<div className="min-w-0 space-y-1">
+					<h3 className="text-xs text-muted-foreground">
+						{open ? "Izvēlētā zona" : ""}
+					</h3>
+					{source && mark ? (
+						<>
+							<p className="font-medium text-sm [overflow-wrap:anywhere]">
+								{source.work}
+							</p>
+							<p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+								<span
+									className="h-2.5 w-2.5 shrink-0 rounded-full"
+									style={{ backgroundColor: visualLayers[mark.layer].color }}
+									aria-hidden="true"
+								/>
+								{source.location} ·{" "}
+								{visualDiaryDay(source.date) !== null
+									? formatVisualDay(visualDiaryDay(source.date) as number)
+									: "—"}{" "}
+								· lapa {mark.page}
+							</p>
+						</>
+					) : null}
+				</div>
 				<Button
 					type="button"
 					variant="ghost"
@@ -81,37 +104,45 @@ export function VisualZoneDetails({
 					<X className="h-4 w-4" aria-hidden="true" />
 				</Button>
 			</div>
-			<div
-				ref={content}
-				className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 text-sm"
-			>
-				{source && mark ? (
-					<>
-						<div className="flex items-center gap-2 text-xs text-muted-foreground">
-							<span
-								className="h-2.5 w-2.5 shrink-0 rounded-full"
-								style={{ backgroundColor: visualLayers[mark.layer].color }}
-								aria-hidden="true"
+			{source && mark ? (
+				<>
+					<div className="min-h-0 flex-1 p-2" data-testid="zone-source-image">
+						{source.photoUrl ? (
+							<DiaryRecordPhotos
+								key={source.photoUrl}
+								photos={[source.photoUrl]}
+								language="lv"
+								variant="featured"
 							/>
-							{visualLayers[mark.layer].label} · lapa {mark.page}
-						</div>
-						<p className="font-medium">{source.work}</p>
+						) : (
+							<p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+								Avota attēls nav pieejams.
+							</p>
+						)}
+					</div>
+					<div
+						ref={content}
+						className="max-h-[35%] shrink-0 space-y-3 overflow-y-auto overscroll-contain border-t px-3 py-2 text-sm"
+					>
+						<details>
+							<summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+								Darba apraksts
+							</summary>
+							<p className="mt-2 whitespace-pre-wrap [overflow-wrap:anywhere]">
+								{source.description}
+							</p>
+							{source.amount != null ? (
+								<p className="mt-2 text-xs text-muted-foreground">
+									Daudzums: {source.amount} {source.unit}
+								</p>
+							) : null}
+						</details>
 						{progressPending ? (
 							<p className="text-xs text-amber-800">
 								Redzama iepriekš saglabātā zona. Šī avota atjaunošana vēl nav
 								pabeigta.
 							</p>
 						) : null}
-						<p>
-							{source.location} ·{" "}
-							{visualDiaryDay(source.date) !== null
-								? formatVisualDay(visualDiaryDay(source.date) as number)
-								: "—"}
-						</p>
-						<p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
-							{source.description}
-						</p>
-						<DiaryRecordPhotos photos={[source.photoUrl]} language="lv" />
 						<VisualWorkEditor
 							key={`${source.recordId}:${source.work}`}
 							siteId={siteId}
@@ -144,9 +175,9 @@ export function VisualZoneDetails({
 								</Button>
 							</div>
 						) : null}
-					</>
-				) : null}
-			</div>
+					</div>
+				</>
+			) : null}
 		</aside>
 	);
 }

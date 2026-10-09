@@ -226,9 +226,11 @@ export function ZoomablePhoto({
 export function DiaryRecordPhotos({
 	photos,
 	language = "lv",
+	variant = "thumbnail",
 }: {
 	photos: unknown;
 	language?: string;
+	variant?: "thumbnail" | "featured";
 }) {
 	const urls = normalizeDiaryPhotoUrls(photos);
 	const [expanded, setExpanded] = useState(false);
@@ -239,14 +241,20 @@ export function DiaryRecordPhotos({
 	const label = lv ? "Ziņojuma foto" : "Report photo";
 	if (!urls.length) return <span className="text-muted-foreground">—</span>;
 	return (
-		<div className="min-w-0 space-y-1">
-			<div className="flex flex-wrap gap-1.5">
+		<div
+			className={`min-w-0 space-y-1 ${variant === "featured" ? "h-full" : ""}`}
+		>
+			<div
+				className={`flex flex-wrap gap-1.5 ${variant === "featured" ? "h-full" : ""}`}
+			>
 				{(expanded ? urls : urls.slice(0, 1)).map((url, index) => (
 					<HoverCard
 						key={url}
 						openDelay={0}
 						closeDelay={100}
-						open={hovered === url && selected === null}
+						open={
+							variant === "thumbnail" && hovered === url && selected === null
+						}
 						onOpenChange={(open) =>
 							setHovered((current) =>
 								open ? url : current === url ? null : current,
@@ -257,12 +265,13 @@ export function DiaryRecordPhotos({
 							<button
 								type="button"
 								aria-label={`${label} ${index + 1}`}
-								className="relative aspect-[4/3] w-[120px] max-w-full overflow-hidden rounded-md border bg-muted focus-visible:outline-2 focus-visible:outline-primary"
+								className={`relative max-w-full overflow-hidden rounded-md border bg-muted focus-visible:outline-2 focus-visible:outline-primary ${variant === "featured" ? "h-full w-full cursor-zoom-in" : "aspect-[4/3] w-[120px]"}`}
 								onClick={() => setSelected(url)}
 							>
 								<Photo
 									url={url}
 									label={`${label} ${index + 1}`}
+									large={variant === "featured"}
 									onReady={(src) =>
 										setThumbnails((current) =>
 											current[url] === src
@@ -271,6 +280,12 @@ export function DiaryRecordPhotos({
 										)
 									}
 								/>
+								{variant === "featured" ? (
+									<span className="pointer-events-none absolute bottom-2 right-2 flex items-center gap-1 rounded-md border bg-background/90 px-2 py-1 text-xs shadow-sm">
+										<ZoomIn className="h-3.5 w-3.5" aria-hidden="true" />
+										{lv ? "Pietuvināt" : "Zoom in"}
+									</span>
+								) : null}
 							</button>
 						</HoverCardTrigger>
 						<HoverCardContent
