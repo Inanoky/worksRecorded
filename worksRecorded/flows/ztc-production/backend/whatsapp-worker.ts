@@ -8,7 +8,8 @@ import {
   fetchWhatsAppMediaAsBuffer,
   getString,
 } from "@/lib/utils/whatsapp-helpers/shared/helpers";
-import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
+import { getMetaReplyContext, sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
+import { sendMetaGraphMessage } from "@/lib/utils/whatsapp-helpers/meta/sender";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
@@ -66,6 +67,8 @@ import {
   type ZtcAdditionalWorkOrigin,
 } from "@/flows/ztc-production/lib/ztc-additional-work-context";
 import { selectLatestReusableZtcDrawingContext } from "@/flows/ztc-production/lib/ztc-drawing-context-selection";
+import { assertZtcMessageActive, getZtcMessageRecoveryContext } from "./message-recovery-context";
+import { retainZtcUploadedMedia } from "./message-recovery";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -799,9 +802,20 @@ function photoBatchMarker(now = Date.now()) {
 }
 
 export async function sendZtcMessage(to: string | null, message: string) {
+  assertZtcMessageActive();
   const startedAt = Date.now();
   try {
-    await sendMessage(to, message);
+    if (getZtcMessageRecoveryContext() && to && message) {
+      const replyContext = getMetaReplyContext();
+      if (!replyContext) throw new Error("ZTC Meta reply context is missing");
+      await sendMetaGraphMessage({
+        businessPhoneNumberId: replyContext.businessPhoneNumberId,
+        recipient: to,
+        body: { text: { body: message.replace(/\*/g, "") } },
+      });
+    } else {
+      await sendMessage(to, message);
+    }
   } finally {
     logZtcTiming("send_whatsapp_message", startedAt, {
       to,
@@ -1162,6 +1176,7 @@ Examples:
     if (extracted.isValid && normalizedTextMeasure != null) return normalizedTextMeasure;
   } catch (error) {
     console.warn("[ZTC workflow] diagonal measure extraction failed", error);
+    if (getZtcMessageRecoveryContext()) throw error;
   }
 
   const numericFallback = normalizeDiagonalMeasureMm(pickDiagonalMeasureMmFromText(normalized) ?? parseDiagonalMeasureMm(normalized));
@@ -1555,6 +1570,8 @@ async function uploadFetchedMediaImage(image: FetchedMediaImage) {
     throw new Error("UploadThing upload completed without a file URL");
   }
 
+  await retainZtcUploadedMedia(publicUrl, contentType);
+
   logZtcTiming("image_upload", startedAt, {
     contentType,
     bufferBytes: buffer.byteLength,
@@ -1617,6 +1634,9 @@ async function uploadZtcImages(formData: FormData, idxs: number[], context: stri
         result.reason instanceof Error ? result.reason.message : String(result.reason),
       ),
     });
+    if (getZtcMessageRecoveryContext()) {
+      throw new Error(`ZTC photo upload failed for ${failed.length} image(s)`);
+    }
   }
 
   return uploaded;
@@ -1640,6 +1660,7 @@ async function uploadOriginalAudioBuffer(buffer: Buffer, contentType: string) {
   }
 
   const publicUrl = getUploadThingFileUrl(first.data);
+  await retainZtcUploadedMedia(publicUrl, contentType);
   logZtcTiming("audio_upload", startedAt, {
     contentType,
     bufferBytes: buffer.byteLength,
@@ -1900,7 +1921,11 @@ async function extractWorkInfo(
     effectiveWorkOptionCount: effectiveWorkOptions.length,
   });
 
-  const extracted = parseJsonObject<WorkExtraction>(response.choices[0]?.message?.content, {
+  const content = response.choices[0]?.message?.content;
+  if (getZtcMessageRecoveryContext() && !parseJsonObject<WorkExtraction | null>(content, null)) {
+    throw new Error("ZTC work extraction returned an empty or invalid JSON response");
+  }
+  const extracted = parseJsonObject<WorkExtraction>(content, {
     isGibberish: true,
     isFinish: false,
     isAdditionalWork: false,
@@ -2787,6 +2812,7 @@ async function saveDiagonalMeasurePhoto(args: {
 }) {
   const { worker, publicUrl, session, label } = args;
 
+  assertZtcMessageActive();
   await prisma.ztcPhoto.create({
     data: {
       Date: new Date(),
@@ -3007,6 +3033,7 @@ async function saveCompletedWorkPhoto(args: {
 }) {
   const { worker, publicUrl, session } = args;
 
+  assertZtcMessageActive();
   await prisma.ztcPhoto.create({
     data: {
       Date: new Date(),
@@ -4090,6 +4117,7 @@ async function handleZtcWorkerRouteWithAudit(args: Parameters<typeof handleZtcWo
   } catch (error) {
     outcome = "error";
     console.error("[ZTC workflow] failed", error);
+    if (getZtcMessageRecoveryContext()) throw error;
     if (isZtcTimeoutError(error)) {
       logZtcSession("workflow_timeout", {
         worker,

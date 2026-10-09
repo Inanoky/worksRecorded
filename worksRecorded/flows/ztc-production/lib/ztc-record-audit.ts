@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/utils/db";
+import { assertZtcMessageActive } from "@/flows/ztc-production/backend/message-recovery-context";
 
 type AuditContext = {
   source: "whatsapp-worker" | "whatsapp-quality" | "manual" | "system";
@@ -39,6 +40,7 @@ export async function auditZtcMutation<T>(
   mutate: (tx: Prisma.TransactionClient) => Promise<T>,
   context?: Partial<AuditContext>,
 ): Promise<T> {
+  assertZtcMessageActive();
   const event = {
     source: "system",
     correlationId: randomUUID(),
@@ -49,6 +51,7 @@ export async function auditZtcMutation<T>(
   return prisma.$transaction(
     async (tx) => {
       await tx.$queryRaw`SELECT set_config('app.ztc_audit_context', ${JSON.stringify(event)}, true)`;
+      assertZtcMessageActive();
       return mutate(tx);
     },
     { timeout: 30_000, maxWait: 10_000 },

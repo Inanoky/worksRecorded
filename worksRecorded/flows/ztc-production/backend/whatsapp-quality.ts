@@ -28,6 +28,7 @@ import {
   ZTC_OPENAI_REASONING_EFFORT,
 } from "@/flows/ztc-production/backend/openai-config";
 import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-session-markers";
+import { assertZtcMessageActive, getZtcMessageRecoveryContext } from "./message-recovery-context";
 
 const QA_PENDING_PREFIX = "__ZTC_QA_PENDING__";
 const QA_COMPLETED_PHOTO_BATCH_PREFIX = "__ZTC_QA_COMPLETED_PHOTO_BATCH__";
@@ -271,6 +272,9 @@ async function analyzeQualityMessage(text: string): Promise<{
     const parsed = parseJsonObject<
       (Partial<QaQualityEvaluation> & { polishedText?: string | null }) | null
     >(response.choices[0]?.message?.content, null);
+    if (!parsed && getZtcMessageRecoveryContext()) {
+      throw new Error("ZTC quality analysis returned an empty or invalid JSON response");
+    }
     const polishedText = String(parsed?.polishedText ?? "").trim() || normalized;
     const evaluation = normalizeQualityEvaluation(parsed);
 
@@ -290,6 +294,7 @@ async function analyzeQualityMessage(text: string): Promise<{
     return result;
   } catch (error) {
     console.warn("[ZTC QA] quality message analysis failed", error);
+    if (getZtcMessageRecoveryContext()) throw error;
     const result = {
       polishedText: normalized,
       evaluation: fallbackQualityEvaluation(normalized),
@@ -452,6 +457,9 @@ async function uploadQualityImages(formData: FormData, idxs: number[], context: 
       failedPhotoCount: failed.length,
       errors: failed.map((result) => result.reason instanceof Error ? result.reason.message : String(result.reason)),
     });
+    if (getZtcMessageRecoveryContext()) {
+      throw new Error(`ZTC quality photo upload failed for ${failed.length} image(s)`);
+    }
   }
 
   return uploaded;
@@ -550,6 +558,7 @@ async function saveQualityPhotos(args: {
 }) {
   if (!args.urls.length) return;
 
+  assertZtcMessageActive();
   await prisma.ztcPhoto.createMany({
     data: args.urls.map((url) => ({
       Date: new Date(),
@@ -1211,6 +1220,7 @@ async function handleZtcQualityRouteWithAudit(args: Parameters<typeof handleZtcQ
   } catch (error) {
     outcome = "error";
     console.error("[ZTC QA] failed", error);
+    if (getZtcMessageRecoveryContext()) throw error;
     await sendZtcMessage(
       from,
       isZtcTimeoutError(error) || imageIdx >= 0

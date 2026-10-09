@@ -169,3 +169,62 @@ Shared processing helpers:
 1. File name `twillio.ts` is intentionally kept as-is to match current imports.
 2. Meta media payloads differ from Twilio media payloads; the adapter allows shared routing, but media handling details still depend on the helper implementations and message type data available in each provider payload.
 3. If adding new provider-specific behavior, keep the role handlers provider-agnostic and contain protocol specifics in webhook routes + shared send context.
+
+## 7) ZTC technical failures and recovery
+
+ZTC worker and quality messages are retained before media resolution and business
+processing in the existing production-only `ZtcInboundMediaBatch` table. Recovery
+rows use `mode = 'ztc_recovery'` and `batchKey = 'ztc_recovery:<messageId>'`;
+they are separate from temporary photo album rows and are not deleted when an
+album finishes. No new migration is required.
+
+The recovery payload contains the original message, its timestamp and reply
+context, worker/organization identity, resolved FormData and permanent URLs from
+the normal photo/audio upload path. It does not add another media upload.
+If media resolution or upload fails, the original Meta media ID remains available
+for recovery; the file itself is not yet durably stored. Recover those files
+promptly while Meta still makes them available.
+
+Technical failures, malformed model responses, media failures and routing lock
+timeouts send the approved Latvian message once:
+
+> Atvainojiet, šobrīd sistēmā ir tehniski traucējumi. Turpiniet sūtīt ziņas un foto kā parasti — nav jāgaida sistēmas atbilde. Jūsu iesūtīto informāciju apstrādāsim vēlāk.
+
+Recovery statuses are `processing`, `awaiting_batch`, `completed` and
+`pending_review`. Album failures mark all retained member messages for review.
+The ordinary Meta receipt is marked `failed`, not `completed`, and duplicate
+webhooks do not run the business flow or resend the fallback. A late album
+collector cannot change a completed recovery row back to `awaiting_batch`.
+
+There is a shared 240-second processing deadline measured from webhook arrival,
+not a new deadline for each model call. Timed-out continuations cannot start new
+audited diary mutations, gallery writes or normal ZTC replies. In-flight database
+writes may already have completed before a failure; retained messages therefore
+require review against record audit history before replay. There is deliberately
+no automatic business-record replay in this change.
+
+Following messages from an affected worker are also retained for review until
+their backlog is resolved, rather than interpreting a finish/pause message against
+a potentially broken session. Other workers continue normally. Recovery backlog
+checks also detect `processing`/`awaiting_batch` rows with no update for five minutes.
+Once an authorized operator has reconciled a message with the diary/audit history,
+its recovery status can be marked `completed` to resume that worker's processing.
+
+When the original message cannot be retained, the reply explicitly says receipt
+cannot be confirmed rather than promising later processing. The webhook releases
+its deduplication claim and returns HTTP 500 so Meta can retry delivery. If the
+database, WhatsApp delivery service or entire runtime is unavailable, a reply
+cannot be guaranteed. Stale `processing`/`awaiting_batch` recovery rows should
+also be reviewed after crashes; process termination cannot execute a catch block.
+
+An authorized operator can inspect the recovery backlog in chronological order:
+
+```sql
+SELECT "lastMessageId", "workerId", "organizationId", "status", "items", "firstReceivedAt"
+FROM "ZtcInboundMediaBatch"
+WHERE "mode" = 'ztc_recovery' AND "status" <> 'completed'
+ORDER BY "firstReceivedAt", "lastMessageId";
+```
+
+Recovery is scoped to the resolved `ztc-production` worker flow. Construction,
+Limeni and default-production keep their existing error handling.

@@ -18,7 +18,19 @@ import {
 	handleZtcWorkerRoute,
 	isZtcQualityWorkerRole,
 	type ProductionDrawingExtractionProfile,
+	ZTC_ORGANIZATION_ID,
 } from "@/flows/ztc-production/backend";
+import {
+	assertZtcMessageActive,
+	getZtcMessageRecoveryContext,
+	markZtcRecoveryAwaitingBatch,
+	setZtcRecoveryBatch,
+} from "@/flows/ztc-production/backend/message-recovery-context";
+import {
+	retainZtcMessageFormData,
+	runWithZtcMessageRecovery,
+	ZtcMessageRetentionError,
+} from "@/flows/ztc-production/backend/message-recovery";
 import { routeRegisteredWhatsappUserByFlow } from "@/lib/flows/registered-user-whatsapp-runtime-server";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
@@ -975,10 +987,8 @@ async function runWhatsappRoutingForMeta(args: {
 	value: any;
 	businessPhoneNumberId: string;
 }) {
-	const routingStartedAt = Date.now();
 	const { message, value, businessPhoneNumberId } = args;
 	const messageIdForLog = message?.id ?? null;
-	let routeOutcome = "started";
 	const webhookIdentity = extractMetaWebhookIdentity({
 		value,
 		message,
@@ -993,8 +1003,49 @@ async function runWhatsappRoutingForMeta(args: {
 		hasWorker: Boolean(resolved.worker),
 		replyTarget: resolved.replyTarget,
 	});
+	let ztcFlow = false;
+	let flowResolutionError: unknown;
+	if (resolved.worker) {
+		try {
+			ztcFlow = (await resolveFlowModuleKeyForRuntime({
+				organizationId: resolved.worker.organizationId,
+				siteId: resolved.worker.siteId,
+			})) === FLOW_MODULE_KEYS.ZTC_PRODUCTION;
+		} catch (error) {
+			if (resolved.worker.organizationId !== ZTC_ORGANIZATION_ID) throw error;
+			ztcFlow = true;
+			flowResolutionError = error;
+		}
+	}
+	const run = () => {
+		if (flowResolutionError) return Promise.reject(flowResolutionError);
+		return runResolvedWhatsappRoutingForMeta({ ...args, resolved });
+	};
+	if (ztcFlow && resolved.worker) {
+		return runWithZtcMessageRecovery({
+			worker: resolved.worker,
+			message,
+			metadata: value?.metadata ?? {},
+			businessPhoneNumberId,
+			recipient: resolved.replyTarget,
+		}, run);
+	}
+	return run();
+}
+
+async function runResolvedWhatsappRoutingForMeta(args: {
+	message: any;
+	value: any;
+	businessPhoneNumberId: string;
+	resolved: ResolvedWhatsAppIdentity;
+}) {
+	const routingStartedAt = Date.now();
+	const { message, value, businessPhoneNumberId, resolved } = args;
+	const messageIdForLog = message?.id ?? null;
+	let routeOutcome = "started";
 
 	let formData = await toWhatsAppFormData(message, resolved);
+	await retainZtcMessageFormData(formData);
 
 	let lockHeld = false;
 	let lockKey: string | null = null;
@@ -1085,10 +1136,12 @@ async function runWhatsappRoutingForMeta(args: {
 
 			if (!batchDecision.ready) {
 				routeOutcome = "ztc_image_batch_deferred";
+				markZtcRecoveryAwaitingBatch();
 				return;
 			}
 
 			formData = batchDecision.formData;
+			setZtcRecoveryBatch(formData);
 			ztcImageBatchId = batchDecision.batchId;
 			numMedia = Number(getString(formData, "NumMedia") || "0") || 0;
 			messageId = getString(formData, "MessageId") || messageId;
@@ -1138,11 +1191,15 @@ async function runWhatsappRoutingForMeta(args: {
 				type: message?.type,
 				numMedia,
 			});
+			if (getZtcMessageRecoveryContext()) {
+				throw new Error("ZTC message routing lock timed out");
+			}
 			return;
 		}
 
 		lockHeld = true;
 		lockKey = identityKey;
+		assertZtcMessageActive();
 
 		if (worker) {
 			if (ztcWorker) {
@@ -1258,7 +1315,7 @@ async function runWhatsappRoutingForMeta(args: {
 			value,
 			businessPhoneNumberId,
 		);
-		if (fallbackTarget) {
+		if (fallbackTarget && !getZtcMessageRecoveryContext()) {
 			await sendMetaGraphMessage({
 				businessPhoneNumberId,
 				recipient: fallbackTarget,
@@ -1446,6 +1503,7 @@ export async function POST(req: Request): Promise<Response> {
 			if (!claimed) continue;
 
 			let processingError: unknown;
+			let retryUnretainedZtcMessage = false;
 			try {
 				if (!isReadableMetaMessage(message)) {
 					logUnsupportedMetaMessage(message);
@@ -1616,19 +1674,34 @@ export async function POST(req: Request): Promise<Response> {
 				}
 			} catch (error) {
 				processingError = error;
+				retryUnretainedZtcMessage = error instanceof ZtcMessageRetentionError;
 				console.error("Meta inbound message processing failed", {
 					messageId: message.id,
 					error,
 				});
 			} finally {
-				await finishMetaInboundMessage(message.id, processingError).catch(
-					(error) => {
-						console.error("Meta inbound message status update failed", {
+				if (retryUnretainedZtcMessage) {
+					await prisma.metaInboundMessage.deleteMany({
+						where: { messageId: message.id, status: "processing" },
+					}).catch((error) => {
+						console.error("Could not release unretained ZTC message claim", {
 							messageId: message.id,
 							error,
 						});
-					},
-				);
+					});
+				} else {
+					await finishMetaInboundMessage(message.id, processingError).catch(
+						(error) => {
+							console.error("Meta inbound message status update failed", {
+								messageId: message.id,
+								error,
+							});
+						},
+					);
+				}
+			}
+			if (retryUnretainedZtcMessage) {
+				return new Response("Temporary failure", { status: 500 });
 			}
 		}
 

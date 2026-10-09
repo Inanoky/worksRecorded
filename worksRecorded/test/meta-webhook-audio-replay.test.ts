@@ -44,6 +44,9 @@ function installRouteMocks(args?: {
   mediaInfo?: { url?: string; mime_type?: string } | null;
   claimError?: Error;
   routeError?: Error;
+  ztcRole?: "worker" | "quality";
+  recoveryError?: Error;
+  mediaError?: Error;
 }) {
   const handleSiteManagerRoute = args?.routeError
     ? jest.fn().mockRejectedValue(args.routeError)
@@ -62,6 +65,10 @@ function installRouteMocks(args?: {
         return data;
       }),
       update: jest.fn().mockResolvedValue({}),
+      deleteMany: jest.fn(async ({ where }: any) => {
+        claimedMessageIds.delete(where.messageId);
+        return { count: 1 };
+      }),
     },
     whatsappTextLock: {
       create: jest.fn().mockResolvedValue({ id: "lock-1" }),
@@ -71,6 +78,13 @@ function installRouteMocks(args?: {
       findFirst: jest.fn().mockResolvedValue(null),
     },
     $queryRaw: jest.fn(),
+    $executeRaw: jest.fn().mockResolvedValue(1),
+    ztcInboundMediaBatch: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      create: args?.recoveryError
+        ? jest.fn().mockRejectedValue(args.recoveryError)
+        : jest.fn().mockResolvedValue({}),
+    },
   };
 
   const resolvedIdentity = {
@@ -80,7 +94,10 @@ function installRouteMocks(args?: {
       phone: "37120000001",
       lastSelectedSiteIdforWhatsapp: "site-1",
     },
-    worker: null,
+    worker: args?.ztcRole ? {
+      id: "ztc-worker-1", organizationId: "ztc-org", siteId: "ztc-site",
+      phone: "37120000001", name: "Test", surname: "Worker", role: args.ztcRole,
+    } : null,
     webhookIdentity: {
       phone: "37120000001",
       waId: "37120000001",
@@ -118,9 +135,10 @@ function installRouteMocks(args?: {
     resolveMetaWhatsAppIdentity: jest.fn().mockResolvedValue(resolvedIdentity),
     applyMetaUserIdUpdate: jest.fn(),
   }));
+  const sendMetaGraphMessage = jest.fn().mockResolvedValue(undefined);
   jest.doMock("@/lib/utils/whatsapp-helpers/meta/sender", () => ({
     sendMetaContactRequest: jest.fn(),
-    sendMetaGraphMessage: jest.fn().mockResolvedValue(undefined),
+    sendMetaGraphMessage,
     buildMetaRecipientPayload: jest.fn((to: string) => ({ to })),
     normalizeMetaPhone: jest.fn((value: string | null | undefined) =>
       value ? String(value).replace(/\D/g, "") : null,
@@ -132,19 +150,34 @@ function installRouteMocks(args?: {
     updateSession: jest.fn(),
     deleteSession: jest.fn(),
   }));
+  const handleZtcWorkerRoute = args?.routeError
+    ? jest.fn().mockRejectedValue(args.routeError) : jest.fn().mockResolvedValue(undefined);
+  const handleZtcQualityRoute = args?.routeError
+    ? jest.fn().mockRejectedValue(args.routeError) : jest.fn().mockResolvedValue(undefined);
   jest.doMock("@/flows/ztc-production/backend", () => ({
-    handleZtcWorkerRoute: jest.fn(),
-    handleZtcQualityRoute: jest.fn(),
-    isZtcQualityWorkerRole: jest.fn().mockReturnValue(false),
+    handleZtcWorkerRoute,
+    handleZtcQualityRoute,
+    isZtcQualityWorkerRole: jest.fn().mockReturnValue(args?.ztcRole === "quality"),
+    ZTC_ORGANIZATION_ID: "ztc-org",
   }));
   jest.doMock("@/lib/production-flow/runtime-server", () => ({
-    resolveAdvancedProductionWorkflowContextForWorker: jest.fn(),
+    resolveAdvancedProductionWorkflowContextForWorker: jest.fn().mockResolvedValue(
+      args?.ztcRole ? { organizationId: "ztc-org", siteId: "ztc-site" } : null,
+    ),
   }));
   jest.doMock("@/lib/flows/resolve-flow-module-server", () => ({
-    resolveFlowModuleKeyForRuntime: jest.fn().mockResolvedValue("default-construction"),
+    resolveFlowModuleKeyForRuntime: jest.fn().mockResolvedValue(
+      args?.ztcRole ? "ztc-production" : "default-construction",
+    ),
   }));
   jest.doMock("@/lib/flows/worker-runtime-server", () => ({
-    resolveWorkerFlowRuntime: jest.fn(),
+    resolveWorkerFlowRuntime: jest.fn().mockResolvedValue(args?.ztcRole ? {
+      flowModuleKey: "ztc-production",
+      productionConfig: {
+        flowModuleKey: "ztc-production",
+        strategies: { whatsappWorker: "ztc-worker-v1", whatsappQuality: "ztc-quality-v1" },
+      },
+    } : null),
   }));
 
   const mediaInfo = args?.mediaInfo === undefined
@@ -155,6 +188,7 @@ function installRouteMocks(args?: {
     const url = typeof input === "string" ? input : input.toString();
 
     if (url === `${graphBaseUrl}/meta-audio-media-site-manager-001`) {
+      if (args?.mediaError) throw args.mediaError;
       return mediaInfo ? jsonResponse(mediaInfo) : jsonResponse({}, { status: 200 });
     }
 
@@ -171,6 +205,9 @@ function installRouteMocks(args?: {
     handleSiteManagerRoute,
     handleWorkerRoute,
     prisma,
+    sendMetaGraphMessage,
+    handleZtcWorkerRoute,
+    handleZtcQualityRoute,
   };
 }
 
@@ -368,5 +405,67 @@ describe("Meta webhook audio replay", () => {
         data: expect.objectContaining({ status: "failed", lastError: "route failed" }),
       }),
     );
+  });
+
+  it.each(["worker", "quality"] as const)("sends one Latvian fallback for a ZTC %s failure and retains the message", async (ztcRole) => {
+    const mocks = installRouteMocks({ ztcRole, routeError: new Error("LLM unavailable") });
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+    const { ZTC_TECHNICAL_FAILURE_REPLY } = await import("@/flows/ztc-production/backend/message-recovery");
+    const fixture = JSON.parse(JSON.stringify(siteManagerAudioFixture));
+    const message = fixture.entry[0].changes[0].value.messages[0];
+    message.type = "text";
+    message.text = { body: "Sāku darbu" };
+    delete message.audio;
+    await POST({ json: async () => fixture } as Request);
+    await POST({ json: async () => fixture } as Request);
+    expect(mocks.sendMetaGraphMessage).toHaveBeenCalledTimes(1);
+    expect(mocks.sendMetaGraphMessage).toHaveBeenCalledWith(expect.objectContaining({
+      body: { text: { body: ZTC_TECHNICAL_FAILURE_REPLY } },
+    }));
+    expect(mocks.prisma.ztcInboundMediaBatch.create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      mode: "ztc_recovery", items: expect.objectContaining({ message }),
+    }) });
+    expect(mocks.prisma.metaInboundMessage.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: "failed", lastError: "LLM unavailable" }),
+    }));
+    expect(ztcRole === "worker" ? mocks.handleZtcWorkerRoute : mocks.handleZtcQualityRoute).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains the original ZTC audio ID and replies when media preprocessing fails", async () => {
+    const mocks = installRouteMocks({ ztcRole: "worker", mediaError: new Error("Meta media down") });
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+    await POST({ json: async () => siteManagerAudioFixture } as Request);
+    expect(mocks.prisma.ztcInboundMediaBatch.create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      items: expect.objectContaining({ message: expect.objectContaining({
+        audio: expect.objectContaining({ id: "meta-audio-media-site-manager-001" }),
+      }) }),
+    }) });
+    expect(mocks.sendMetaGraphMessage).toHaveBeenCalledTimes(1);
+    expect(mocks.handleZtcWorkerRoute).not.toHaveBeenCalled();
+    expect(mocks.prisma.metaInboundMessage.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: "failed" }),
+    }));
+  });
+
+  it("allows Meta to retry a ZTC message when recovery storage is unavailable", async () => {
+    const mocks = installRouteMocks({ ztcRole: "worker", recoveryError: new Error("recovery storage unavailable") });
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+    const first = await POST({ json: async () => siteManagerAudioFixture } as Request);
+    expect(first.status).toBe(500);
+    expect(mocks.prisma.metaInboundMessage.deleteMany).toHaveBeenCalledWith({
+      where: { messageId: "wamid.site-manager-audio-001", status: "processing" },
+    });
+    expect(mocks.handleZtcWorkerRoute).not.toHaveBeenCalled();
+    mocks.prisma.ztcInboundMediaBatch.create.mockResolvedValueOnce({});
+    const retry = await POST({ json: async () => siteManagerAudioFixture } as Request);
+    expect(retry.status).toBe(200);
+    expect(mocks.handleZtcWorkerRoute).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not create ZTC recovery entries for construction messages", async () => {
+    const mocks = installRouteMocks();
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+    await POST({ json: async () => siteManagerAudioFixture } as Request);
+    expect(mocks.prisma.ztcInboundMediaBatch.create).not.toHaveBeenCalled();
   });
 });

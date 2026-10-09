@@ -12,6 +12,7 @@ import {
   withZtcRecordAudit,
   ztcMessageAuditContext,
 } from "./ztc-record-audit";
+import { withZtcMessageRecoveryContext } from "@/flows/ztc-production/backend/message-recovery-context";
 
 describe("ZTC record audit context", () => {
   it("keeps message identity when adding an audio transcript", async () => {
@@ -79,6 +80,28 @@ describe("ZTC record audit context", () => {
     await expect(auditZtcMutation("save", mutate)).rejects.toThrow(
       "connection failed",
     );
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it("prevents new business writes after the ZTC fallback deadline", async () => {
+    const mutate = jest.fn();
+    await expect(withZtcMessageRecoveryContext({
+      workerId: "worker", messageIds: ["message"], deadline: Date.now() + 10_000,
+      stopped: true, awaitingBatch: false,
+    }, () => auditZtcMutation("late_save", mutate))).rejects.toThrow("ZTC message processing deadline exceeded");
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it("rechecks the deadline after waiting for the transaction context", async () => {
+    const context = {
+      workerId: "worker", messageIds: ["message"], deadline: Date.now() + 10_000,
+      stopped: false, awaitingBatch: false,
+    };
+    mockQuery.mockImplementationOnce(async () => { context.stopped = true; return []; });
+    const mutate = jest.fn();
+    await expect(withZtcMessageRecoveryContext(context, () => auditZtcMutation("late_save", mutate)))
+      .rejects.toThrow("ZTC message processing deadline exceeded");
     expect(mutate).not.toHaveBeenCalled();
   });
 
