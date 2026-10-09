@@ -1,5 +1,6 @@
 const mockRequireUser = jest.fn();
 const mockResolveFlow = jest.fn();
+const mockCanTgem = jest.fn();
 const mockPrisma = {
 	user: { findFirst: jest.fn() },
 	tgemInvoiceCase: { findMany: jest.fn(), updateMany: jest.fn() },
@@ -7,6 +8,10 @@ const mockPrisma = {
 	$transaction: jest.fn(),
 };
 jest.mock("@/lib/utils/db", () => ({ prisma: mockPrisma }));
+jest.mock("@/lib/tgem-invoice-approval/access", () => ({
+	loadTgemAccessScope: async () => ({}),
+	canTgem: (...args: unknown[]) => mockCanTgem(...args),
+}));
 jest.mock("@/lib/utils/requireUser", () => ({
 	requireUser: (...args: unknown[]) => mockRequireUser(...args),
 }));
@@ -30,6 +35,7 @@ const invoice = {
 
 beforeEach(() => {
 	jest.resetAllMocks();
+	mockCanTgem.mockReturnValue(true);
 	mockRequireUser.mockResolvedValue({ id: "user-1" });
 	mockResolveFlow.mockResolvedValue(FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL);
 	mockPrisma.user.findFirst.mockResolvedValue({ organizationId: "org-1" });
@@ -77,6 +83,15 @@ it("archives one invoice only in the authenticated active member's organization"
 			}),
 		],
 	});
+});
+
+it("denies a direct archive call without archive permission", async () => {
+	mockCanTgem.mockReturnValue(false);
+	await expect(archiveTgemInvoices([target])).resolves.toEqual({
+		ok: false,
+		error: "access_denied",
+	});
+	expect(mockPrisma.tgemInvoiceCase.updateMany).not.toHaveBeenCalled();
 });
 
 it("archives a deduplicated batch in one transaction", async () => {

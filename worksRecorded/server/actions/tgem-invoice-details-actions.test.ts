@@ -1,4 +1,5 @@
 const mockRequireUser = jest.fn();
+const mockCanTgem = jest.fn();
 const mockPrisma = {
 	user: { findFirst: jest.fn() },
 	tgemInvoiceCase: { findFirst: jest.fn(), updateMany: jest.fn() },
@@ -7,6 +8,10 @@ const mockPrisma = {
 };
 
 jest.mock("@/lib/utils/db", () => ({ prisma: mockPrisma }));
+jest.mock("@/lib/tgem-invoice-approval/access", () => ({
+	loadTgemAccessScope: async () => ({}),
+	canTgem: (...args: unknown[]) => mockCanTgem(...args),
+}));
 jest.mock("@/lib/utils/requireUser", () => ({
 	requireUser: (...args: unknown[]) => mockRequireUser(...args),
 }));
@@ -33,6 +38,7 @@ const input = {
 describe("TGEM invoice detail corrections", () => {
 	beforeEach(() => {
 		jest.resetAllMocks();
+		mockCanTgem.mockReturnValue(true);
 		mockRequireUser.mockResolvedValue({ id: "user-1" });
 		mockPrisma.user.findFirst.mockResolvedValue({ organizationId: "org-1" });
 		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue(invoice);
@@ -153,6 +159,15 @@ describe("TGEM invoice detail corrections", () => {
 
 	it("denies invoices outside the organization", async () => {
 		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue(null);
+		await expect(updateTgemInvoiceDetail(input)).resolves.toEqual({
+			ok: false,
+			error: "access_denied",
+		});
+		expect(mockPrisma.tgemInvoiceCase.updateMany).not.toHaveBeenCalled();
+	});
+
+	it("denies direct edits without the basic-edit permission", async () => {
+		mockCanTgem.mockReturnValue(false);
 		await expect(updateTgemInvoiceDetail(input)).resolves.toEqual({
 			ok: false,
 			error: "access_denied",

@@ -3,6 +3,10 @@
 import { z } from "zod";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
+import {
+	canTgem,
+	loadTgemAccessScope,
+} from "@/lib/tgem-invoice-approval/access";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 
@@ -48,6 +52,10 @@ export async function archiveTgemInvoices(
 	try {
 		return await prisma.$transaction(
 			async (tx): Promise<TgemInvoiceArchiveResult> => {
+				const access = await loadTgemAccessScope(tx, {
+					userId: user.id,
+					organizationId,
+				});
 				const invoices = await tx.tgemInvoiceCase.findMany({
 					where: {
 						organizationId,
@@ -56,6 +64,7 @@ export async function archiveTgemInvoices(
 					},
 					select: {
 						id: true,
+						siteId: true,
 						updatedAt: true,
 						status: true,
 						ocrStatus: true,
@@ -63,6 +72,14 @@ export async function archiveTgemInvoices(
 					},
 				});
 				if (invoices.length !== targets.length) {
+					return { ok: false, error: "access_denied" };
+				}
+				if (
+					!access ||
+					invoices.some(
+						(invoice) => !canTgem(access, invoice.siteId, "invoice.archive"),
+					)
+				) {
 					return { ok: false, error: "access_denied" };
 				}
 				if (

@@ -30,7 +30,7 @@ jest.mock("@/server/actions/tgem-cost-code-actions", () => ({
 }));
 
 describe("TgemCostCodeSettings", () => {
-	it("offers deletion only for a selected project", () => {
+	it("offers deletion only for an explicitly deletable project", () => {
 		const { rerender } = render(
 			<TgemCostCodeSettings initialCostCodes={[]} organizationLanguage="en" />,
 		);
@@ -42,6 +42,15 @@ describe("TgemCostCodeSettings", () => {
 				selectedProject={{ id: "site-1", name: "Project 1" }}
 			/>,
 		);
+		expect(screen.queryByRole("button", { name: "Delete project" })).toBeNull();
+		rerender(
+			<TgemCostCodeSettings
+				initialCostCodes={[]}
+				organizationLanguage="en"
+				selectedProject={{ id: "site-1", name: "Project 1" }}
+				deletableProject={{ id: "site-1", name: "Project 1" }}
+			/>,
+		);
 		expect(
 			screen.getByRole("button", { name: "Delete project" }),
 		).toBeInTheDocument();
@@ -49,6 +58,26 @@ describe("TgemCostCodeSettings", () => {
 			<TgemCostCodeSettings initialCostCodes={[]} organizationLanguage="en" />,
 		);
 		expect(screen.queryByRole("button", { name: "Delete project" })).toBeNull();
+	});
+
+	it("renders project access immediately before project deletion", () => {
+		render(
+			<TgemCostCodeSettings
+				initialCostCodes={[]}
+				organizationLanguage="en"
+				selectedProject={{ id: "site-1", name: "Project 1" }}
+				deletableProject={{ id: "site-1", name: "Project 1" }}
+			>
+				<div>Project access</div>
+			</TgemCostCodeSettings>,
+		);
+
+		const access = screen.getByText("Project access");
+		const deleteButton = screen.getByRole("button", { name: "Delete project" });
+		expect(
+			access.compareDocumentPosition(deleteButton) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
 	});
 	beforeEach(() => {
 		jest.clearAllMocks();

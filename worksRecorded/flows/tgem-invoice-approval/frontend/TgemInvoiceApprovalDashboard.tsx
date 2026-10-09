@@ -1111,12 +1111,15 @@ function InvoiceRegister({
 			),
 		[availableInvoices, organizationLanguage],
 	);
-	const selectedInvoices = filteredInvoices.filter((invoice) =>
+	const archivableInvoices = filteredInvoices.filter((invoice) =>
+		invoice.permissions.includes("invoice.archive"),
+	);
+	const selectedInvoices = archivableInvoices.filter((invoice) =>
 		selectedIds.has(invoice.id),
 	);
 	const allSelected =
-		filteredInvoices.length > 0 &&
-		selectedInvoices.length === filteredInvoices.length;
+		archivableInvoices.length > 0 &&
+		selectedInvoices.length === archivableInvoices.length;
 	function toggleSelection(id: string, checked: boolean) {
 		setSelectedIds((current) => {
 			const next = new Set(current);
@@ -1128,7 +1131,7 @@ function InvoiceRegister({
 	function toggleAll(checked: boolean) {
 		setSelectedIds(
 			checked
-				? new Set(filteredInvoices.map((invoice) => invoice.id))
+				? new Set(archivableInvoices.map((invoice) => invoice.id))
 				: new Set(),
 		);
 	}
@@ -1285,7 +1288,7 @@ function InvoiceRegister({
 											? "indeterminate"
 											: false
 								}
-								disabled={deleting || !filteredInvoices.length}
+								disabled={deleting || !archivableInvoices.length}
 								onCheckedChange={(checked) => toggleAll(checked === true)}
 							/>
 							{copy.selectAllInvoices}
@@ -1367,7 +1370,7 @@ function InvoiceRegister({
 														? "indeterminate"
 														: false
 											}
-											disabled={deleting || !filteredInvoices.length}
+											disabled={deleting || !archivableInvoices.length}
 											onCheckedChange={(checked) => toggleAll(checked === true)}
 										/>
 									</TableHead>
@@ -1439,7 +1442,10 @@ function InvoiceRegister({
 													className="data-[state=checked]:border-tgem-primary data-[state=checked]:bg-tgem-primary focus-visible:border-tgem-primary focus-visible:ring-tgem-primary/40 dark:data-[state=checked]:bg-tgem-primary"
 													aria-label={`${copy.selectInvoice}: ${invoiceLabel}`}
 													checked={selectedIds.has(invoice.id)}
-													disabled={deleting}
+													disabled={
+														deleting ||
+														!invoice.permissions.includes("invoice.archive")
+													}
 													onCheckedChange={(checked) =>
 														toggleSelection(invoice.id, checked === true)
 													}
@@ -1514,25 +1520,30 @@ function InvoiceRegister({
 													organizationLanguage={organizationLanguage}
 													onChanged={onChanged}
 													compact
+													allowAction={invoice.permissions.includes(
+														"invoice.mark_paid",
+													)}
 												/>
 											</TableCell>
 											<TableCell>
 												{currentStep?.approverName || copy.noCurrentApprover}
 											</TableCell>
 											<TableCell className="pr-4 text-right">
-												<Button
-													variant="ghost"
-													size="icon"
-													aria-label={`${copy.deleteInvoice}: ${invoiceLabel}`}
-													disabled={deleting}
-													onClick={(event) => {
-														event.stopPropagation();
-														requestDelete([invoice]);
-													}}
-													className="text-destructive hover:text-destructive"
-												>
-													<Archive className="h-4 w-4" />
-												</Button>
+												{invoice.permissions.includes("invoice.archive") ? (
+													<Button
+														variant="ghost"
+														size="icon"
+														aria-label={`${copy.deleteInvoice}: ${invoiceLabel}`}
+														disabled={deleting}
+														onClick={(event) => {
+															event.stopPropagation();
+															requestDelete([invoice]);
+														}}
+														className="text-destructive hover:text-destructive"
+													>
+														<Archive className="h-4 w-4" />
+													</Button>
+												) : null}
 												<ArrowRight className="inline h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
 											</TableCell>
 										</TableRow>
@@ -1552,7 +1563,10 @@ function InvoiceRegister({
 										className="mt-1 data-[state=checked]:border-tgem-primary data-[state=checked]:bg-tgem-primary focus-visible:border-tgem-primary focus-visible:ring-tgem-primary/40 dark:data-[state=checked]:bg-tgem-primary"
 										aria-label={`${copy.selectInvoice}: ${invoice.invoiceNumber || invoice.id}`}
 										checked={selectedIds.has(invoice.id)}
-										disabled={deleting}
+										disabled={
+											deleting ||
+											!invoice.permissions.includes("invoice.archive")
+										}
 										onCheckedChange={(checked) =>
 											toggleSelection(invoice.id, checked === true)
 										}
@@ -1619,17 +1633,22 @@ function InvoiceRegister({
 										organizationLanguage={organizationLanguage}
 										onChanged={onChanged}
 										compact
+										allowAction={invoice.permissions.includes(
+											"invoice.mark_paid",
+										)}
 									/>
-									<Button
-										variant="ghost"
-										size="icon"
-										aria-label={`${copy.deleteInvoice}: ${invoice.invoiceNumber || invoice.id}`}
-										disabled={deleting}
-										onClick={() => requestDelete([invoice])}
-										className="shrink-0 text-destructive hover:text-destructive"
-									>
-										<Archive className="h-4 w-4" />
-									</Button>
+									{invoice.permissions.includes("invoice.archive") ? (
+										<Button
+											variant="ghost"
+											size="icon"
+											aria-label={`${copy.deleteInvoice}: ${invoice.invoiceNumber || invoice.id}`}
+											disabled={deleting}
+											onClick={() => requestDelete([invoice])}
+											className="shrink-0 text-destructive hover:text-destructive"
+										>
+											<Archive className="h-4 w-4" />
+										</Button>
+									) : null}
 								</div>
 							);
 						})}
@@ -1932,11 +1951,15 @@ function ProjectAssignment({
 							<option value="" disabled>
 								{copy.unassigned}
 							</option>
-							{projects.map((project) => (
-								<option key={project.id} value={project.id}>
-									{project.name}
-								</option>
-							))}
+							{projects
+								.filter((project) =>
+									project.permissions.includes("invoice.assign_project"),
+								)
+								.map((project) => (
+									<option key={project.id} value={project.id}>
+										{project.name}
+									</option>
+								))}
 						</select>
 					</label>
 					<button
@@ -1975,6 +1998,7 @@ function EditableInvoiceDetail({
 	copy,
 	language,
 	onChanged,
+	editable = true,
 }: {
 	invoice: TgemDashboardInvoice;
 	field: TgemEditableInvoiceField;
@@ -1982,6 +2006,7 @@ function EditableInvoiceDetail({
 	copy: ReturnType<typeof getCopy>;
 	language?: string | null;
 	onChanged: () => Promise<void>;
+	editable?: boolean;
 }) {
 	const raw =
 		field === "invoiceNumber"
@@ -2153,7 +2178,7 @@ function EditableInvoiceDetail({
 				</div>
 			}
 			action={
-				!session ? (
+				editable && !session ? (
 					<button
 						type="button"
 						aria-label={`${copy.editDetail}: ${label}`}
@@ -2188,11 +2213,13 @@ function InvoiceAccountingClassification({
 	costCodes,
 	copy,
 	onChanged,
+	editable = true,
 }: {
 	invoice: TgemDashboardInvoice;
 	costCodes: TgemDashboardData["costCodes"];
 	copy: ReturnType<typeof getCopy>;
 	onChanged: () => Promise<void>;
+	editable?: boolean;
 }) {
 	const [invoiceType, setInvoiceType] = React.useState(invoice.invoiceType);
 	const [editingInvoiceType, setEditingInvoiceType] = React.useState(false);
@@ -2276,33 +2303,35 @@ function InvoiceAccountingClassification({
 					)
 				}
 				action={
-					<button
-						type="button"
-						aria-label={
-							editingInvoiceType
-								? copy.cancelInvoiceTypeEdit
-								: copy.editInvoiceType
-						}
-						title={
-							editingInvoiceType
-								? copy.cancelInvoiceTypeEdit
-								: copy.editInvoiceType
-						}
-						disabled={status === "saving"}
-						onClick={() => {
-							if (editingInvoiceType) setInvoiceType(invoice.invoiceType);
-							setEditingInvoiceType(!editingInvoiceType);
-							setStatus("idle");
-							setError(null);
-						}}
-						className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-tgem-primary disabled:opacity-50"
-					>
-						{editingInvoiceType ? (
-							<X className="h-4 w-4" />
-						) : (
-							<Pencil className="h-4 w-4" />
-						)}
-					</button>
+					editable ? (
+						<button
+							type="button"
+							aria-label={
+								editingInvoiceType
+									? copy.cancelInvoiceTypeEdit
+									: copy.editInvoiceType
+							}
+							title={
+								editingInvoiceType
+									? copy.cancelInvoiceTypeEdit
+									: copy.editInvoiceType
+							}
+							disabled={status === "saving"}
+							onClick={() => {
+								if (editingInvoiceType) setInvoiceType(invoice.invoiceType);
+								setEditingInvoiceType(!editingInvoiceType);
+								setStatus("idle");
+								setError(null);
+							}}
+							className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-tgem-primary disabled:opacity-50"
+						>
+							{editingInvoiceType ? (
+								<X className="h-4 w-4" />
+							) : (
+								<Pencil className="h-4 w-4" />
+							)}
+						</button>
+					) : undefined
 				}
 			/>
 			<Field
@@ -2342,6 +2371,7 @@ function InvoiceAccountingClassification({
 					<select
 						aria-label={copy.costCode}
 						value={costCode}
+						disabled={!editable}
 						onChange={(event) => {
 							setCostCode(event.target.value);
 							setStatus("idle");
@@ -2358,7 +2388,7 @@ function InvoiceAccountingClassification({
 					</select>
 				}
 			/>
-			{changed || status !== "idle" ? (
+			{editable && (changed || status !== "idle") ? (
 				<div className="flex flex-wrap items-center gap-3 sm:col-span-2">
 					<button
 						type="button"
@@ -2448,6 +2478,7 @@ function InvoiceInformationCard({
 					copy={copy}
 					language={organizationLanguage}
 					onChanged={onChanged}
+					editable={invoice.permissions.includes("invoice.edit_basic")}
 				/>
 				<EditableInvoiceDetail
 					key={`${invoice.id}-invoiceNumber`}
@@ -2461,6 +2492,7 @@ function InvoiceInformationCard({
 					copy={copy}
 					language={organizationLanguage}
 					onChanged={onChanged}
+					editable={invoice.permissions.includes("invoice.edit_basic")}
 				/>
 				{sourceField(copy.supplier, invoice.supplierName)}
 
@@ -2473,6 +2505,7 @@ function InvoiceInformationCard({
 						copy={copy}
 						language={organizationLanguage}
 						onChanged={onChanged}
+						editable={invoice.permissions.includes("invoice.edit_basic")}
 					/>
 				) : null}
 				<Field
@@ -2501,6 +2534,7 @@ function InvoiceInformationCard({
 							copy={copy}
 							organizationLanguage={organizationLanguage}
 							onChanged={onChanged}
+							allowAction={invoice.permissions.includes("invoice.mark_paid")}
 						/>
 					}
 				/>
@@ -2521,6 +2555,7 @@ function InvoiceInformationCard({
 					costCodes={costCodes}
 					copy={copy}
 					onChanged={onChanged}
+					editable={invoice.permissions.includes("invoice.edit_basic")}
 				/>
 			</CardContent>
 		</Card>
@@ -2573,12 +2608,14 @@ function InvoiceDetails({
 					organizationLanguage={organizationLanguage}
 					onChanged={onChanged}
 				/>
-				<ProjectAssignment
-					invoice={invoice}
-					projects={projects}
-					copy={copy}
-					onChanged={onProjectChanged}
-				/>
+				{invoice.permissions.includes("invoice.assign_project") ? (
+					<ProjectAssignment
+						invoice={invoice}
+						projects={projects}
+						copy={copy}
+						onChanged={onProjectChanged}
+					/>
+				) : null}
 
 				<Card>
 					<CardHeader>

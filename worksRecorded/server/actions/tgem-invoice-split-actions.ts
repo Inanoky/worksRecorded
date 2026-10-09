@@ -3,6 +3,10 @@
 import { z } from "zod";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
+import {
+	canTgem,
+	loadTgemAccessScope,
+} from "@/lib/tgem-invoice-approval/access";
 import { TgemInvoiceSplitCalculationError } from "@/lib/tgem-invoice-approval/split-allocation";
 import {
 	splitTgemInvoiceCase,
@@ -84,6 +88,43 @@ export async function splitTgemInvoice(input: SplitTgemInvoiceInput) {
 		organizationId: dbUser.organizationId,
 	});
 	if (flowModuleKey !== FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL) {
+		throw new TgemInvoiceSplitServiceError("access_denied");
+	}
+	const requestedProjectIds = Array.from(
+		new Set([
+			...parsed.data.destinationProjectIds,
+			...(parsed.data.residualProjectId ? [parsed.data.residualProjectId] : []),
+		]),
+	);
+	const [access, invoiceCase, destinationProjects] = await Promise.all([
+		loadTgemAccessScope(prisma, {
+			userId: user.id,
+			organizationId: dbUser.organizationId,
+		}),
+		prisma.tgemInvoiceCase.findFirst({
+			where: {
+				id: parsed.data.invoiceCaseId,
+				organizationId: dbUser.organizationId,
+				archivedAt: null,
+			},
+			select: { siteId: true },
+		}),
+		prisma.site.findMany({
+			where: {
+				id: { in: requestedProjectIds },
+				organizationId: dbUser.organizationId,
+			},
+			select: { id: true },
+		}),
+	]);
+	if (
+		!access ||
+		!invoiceCase ||
+		!canTgem(access, invoiceCase.siteId, "invoice.split") ||
+		destinationProjects.some(
+			(project) => !canTgem(access, project.id, "invoice.view"),
+		)
+	) {
 		throw new TgemInvoiceSplitServiceError("access_denied");
 	}
 

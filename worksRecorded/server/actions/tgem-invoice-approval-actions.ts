@@ -2,6 +2,10 @@
 
 import type { Prisma } from "@prisma/client";
 import {
+	canTgem,
+	loadTgemAccessScope,
+} from "@/lib/tgem-invoice-approval/access";
+import {
 	normalizeTgemApprovalCurrency,
 	normalizeTgemApprovalTemplateSteps,
 	type TgemApprovalDecision,
@@ -33,6 +37,13 @@ async function requireTgemSite(siteId: string, userId: string) {
 		},
 	});
 	if (!site?.organizationId) throw new Error("Project access denied");
+	const access = await loadTgemAccessScope(prisma, {
+		userId,
+		organizationId: site.organizationId,
+	});
+	if (!access || !canTgem(access, site.id, "invoice.view")) {
+		throw new Error("Project access denied");
+	}
 
 	const isSiteOwner = site.userId === userId;
 	return {
@@ -409,6 +420,16 @@ export async function assignTgemInvoiceProject(input: {
 			},
 		});
 		if (!invoiceCase) throw new Error("Invoice access denied");
+		const access = await loadTgemAccessScope(tx, {
+			userId: user.id,
+			organizationId: invoiceCase.organizationId,
+		});
+		if (
+			!access ||
+			!canTgem(access, invoiceCase.siteId, "invoice.assign_project")
+		) {
+			throw new Error("TGEM permission denied");
+		}
 		if (invoiceCase.updatedAt.getTime() !== expectedUpdatedAt.getTime()) {
 			throw new Error("The invoice changed. Reload it and try again");
 		}
@@ -421,6 +442,9 @@ export async function assignTgemInvoiceProject(input: {
 			select: { id: true, name: true },
 		});
 		if (!project) throw new Error("Project access denied");
+		if (!canTgem(access, project.id, "invoice.assign_project")) {
+			throw new Error("TGEM permission denied");
+		}
 		if (invoiceCase.siteId === project.id) {
 			return {
 				invoiceCaseId: invoiceCase.id,
@@ -581,6 +605,7 @@ export async function resetTgemInvoiceApprovalFlow(input: {
 			select: {
 				id: true,
 				organizationId: true,
+				siteId: true,
 				status: true,
 				approvalRound: true,
 				approvalRouteSnapshot: true,
@@ -588,6 +613,16 @@ export async function resetTgemInvoiceApprovalFlow(input: {
 			},
 		});
 		if (!invoiceCase) throw new Error("Invoice access denied");
+		const access = await loadTgemAccessScope(tx, {
+			userId: user.id,
+			organizationId: invoiceCase.organizationId,
+		});
+		if (
+			!access ||
+			!canTgem(access, invoiceCase.siteId, "invoice.submit_approval")
+		) {
+			throw new Error("TGEM permission denied");
+		}
 		if (invoiceCase.updatedAt.getTime() !== expectedUpdatedAt.getTime()) {
 			throw new Error("The invoice changed. Reload it and try again");
 		}
@@ -665,12 +700,20 @@ export async function markTgemInvoicePaid(input: {
 			select: {
 				id: true,
 				organizationId: true,
+				siteId: true,
 				status: true,
 				paymentStatus: true,
 				updatedAt: true,
 			},
 		});
 		if (!invoiceCase) throw new Error("Invoice access denied");
+		const access = await loadTgemAccessScope(tx, {
+			userId: user.id,
+			organizationId: invoiceCase.organizationId,
+		});
+		if (!access || !canTgem(access, invoiceCase.siteId, "invoice.mark_paid")) {
+			throw new Error("TGEM permission denied");
+		}
 		if (invoiceCase.updatedAt.getTime() !== expectedUpdatedAt.getTime()) {
 			throw new Error("The invoice changed. Reload it and try again");
 		}
@@ -745,10 +788,18 @@ export async function decideTgemInvoiceApproval(input: {
 			select: {
 				id: true,
 				organizationId: true,
+				siteId: true,
 				approvalRound: true,
 			},
 		});
 		if (!invoiceCase) throw new Error("Invoice approval is not available");
+		const access = await loadTgemAccessScope(tx, {
+			userId: user.id,
+			organizationId: invoiceCase.organizationId,
+		});
+		if (!access || !canTgem(access, invoiceCase.siteId, "invoice.approve")) {
+			throw new Error("TGEM permission denied");
+		}
 
 		const currentStep = await tx.tgemInvoiceApprovalStep.findFirst({
 			where: {

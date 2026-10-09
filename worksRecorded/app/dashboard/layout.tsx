@@ -23,7 +23,12 @@ import {
 import { isAiEvalUiEnabled } from "@/lib/ai-evals/local-gate";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
+import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { canAccessFlowConfigAdmin } from "@/lib/production-flow/config";
+import {
+	loadTgemAccessScope,
+	visibleTgemSites,
+} from "@/lib/tgem-invoice-approval/access";
 import { hasAiEvalAccess } from "@/lib/utils/ai-context-access";
 import { prisma } from "@/lib/utils/db";
 import { isSuperUserId } from "@/lib/utils/super-user";
@@ -55,7 +60,7 @@ export default async function DashboardLayout({
 		userId,
 		requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host"),
 	);
-	const [headerProjects, flowModuleKey] = await Promise.all([
+	const [allHeaderProjects, flowModuleKey] = await Promise.all([
 		prisma.site.findMany({
 			where: isSuperUser ? {} : { organizationId: organizationId ?? "" },
 			select: { id: true, name: true },
@@ -65,6 +70,17 @@ export default async function DashboardLayout({
 			? Promise.resolve(null)
 			: resolveFlowModuleKeyForRuntime({ organizationId }),
 	]);
+	let headerProjects = allHeaderProjects;
+	if (
+		flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL &&
+		organizationId
+	) {
+		const access = await loadTgemAccessScope(prisma, {
+			userId,
+			organizationId,
+		});
+		headerProjects = access ? visibleTgemSites(access, allHeaderProjects) : [];
+	}
 
 	return (
 		<ProjectProvider userId={userId}>

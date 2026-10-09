@@ -1,3 +1,12 @@
+const mockEnsureTgemAccessDefaults = jest.fn();
+const mockRemoveTgemUserAccessForOrganization = jest.fn();
+const mockPrisma = {
+	user: { findUnique: jest.fn(), update: jest.fn() },
+	organization: { findUnique: jest.fn() },
+	flowAssignment: { upsert: jest.fn() },
+	$transaction: jest.fn(),
+};
+
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 jest.mock("next/headers", () => ({ headers: jest.fn() }));
 jest.mock("next/navigation", () => ({
@@ -6,26 +15,30 @@ jest.mock("next/navigation", () => ({
 	}),
 }));
 jest.mock("@/lib/flows/registry", () => ({ getFlowModuleByKey: jest.fn() }));
-jest.mock("@/lib/flows/assignments-server", () => ({
-	saveFlowAssignment: jest.fn(),
+jest.mock("@/lib/tgem-invoice-approval/access", () => ({
+	ensureTgemAccessDefaults: (...args: unknown[]) =>
+		mockEnsureTgemAccessDefaults(...args),
+	removeTgemUserAccessForOrganization: (...args: unknown[]) =>
+		mockRemoveTgemUserAccessForOrganization(...args),
 }));
 jest.mock("@/lib/production-flow/config-server", () => ({
 	saveProductionFlowConfigOverride: jest.fn(),
 }));
 jest.mock("@/lib/utils/db", () => ({
-	prisma: {
-		user: { findUnique: jest.fn(), update: jest.fn() },
-		organization: { findUnique: jest.fn() },
-	},
+	prisma: mockPrisma,
 }));
 jest.mock("@/lib/utils/requireUser", () => ({ requireUser: jest.fn() }));
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { getFlowModuleByKey } from "@/lib/flows/registry";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
-import { switchUserOrganizationAction } from "./actions";
+import {
+	assignFlowToOrganizationAction,
+	switchUserOrganizationAction,
+} from "./actions";
 
 describe("switchUserOrganizationAction", () => {
 	const userId = "kp_2f5c0987b83a4162ac8819f6339534f8";
@@ -39,6 +52,14 @@ describe("switchUserOrganizationAction", () => {
 
 	beforeEach(() => {
 		jest.resetAllMocks();
+		mockPrisma.$transaction.mockImplementation(
+			(callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma),
+		);
+		mockEnsureTgemAccessDefaults.mockResolvedValue(null);
+		mockRemoveTgemUserAccessForOrganization.mockResolvedValue({
+			organizationMembershipsRemoved: 0,
+			siteMembershipsRemoved: 0,
+		});
 		jest.mocked(notFound).mockImplementation(() => {
 			throw new Error("NEXT_NOT_FOUND");
 		});
@@ -70,9 +91,51 @@ describe("switchUserOrganizationAction", () => {
 				siteManagerSelectIdforWhatsapp: null,
 			},
 		});
+		expect(mockRemoveTgemUserAccessForOrganization).toHaveBeenCalledWith(
+			mockPrisma,
+			expect.objectContaining({
+				organizationId: "old-org",
+				userId,
+			}),
+		);
+		expect(mockEnsureTgemAccessDefaults).toHaveBeenCalledWith(
+			mockPrisma,
+			expect.objectContaining({
+				organizationId: "new-org",
+				userIds: [userId],
+			}),
+		);
 		expect(revalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
 		expect(revalidatePath).toHaveBeenCalledWith(
 			"/dashboard/admin/flow-configs",
+		);
+	});
+
+	it("assigns the TGEM flow and provisions defaults in one transaction", async () => {
+		jest.mocked(getFlowModuleByKey).mockReturnValue({
+			key: "tgem-invoice-approval",
+			name: "TGEM",
+			category: "invoice",
+		} as never);
+		const formData = new FormData();
+		formData.set("organizationId", "new-org");
+		formData.set("flowModuleKey", "tgem-invoice-approval");
+
+		await expect(
+			assignFlowToOrganizationAction(null, formData),
+		).resolves.toMatchObject({ ok: true });
+		expect(mockPrisma.flowAssignment.upsert).toHaveBeenCalledWith({
+			where: { organizationId: "new-org" },
+			create: {
+				organizationId: "new-org",
+				flowModuleKey: "tgem-invoice-approval",
+				enabled: true,
+			},
+			update: { flowModuleKey: "tgem-invoice-approval", enabled: true },
+		});
+		expect(mockEnsureTgemAccessDefaults).toHaveBeenCalledWith(
+			mockPrisma,
+			expect.objectContaining({ organizationId: "new-org" }),
 		);
 	});
 
@@ -82,6 +145,19 @@ describe("switchUserOrganizationAction", () => {
 			switchUserOrganizationAction(null, switchForm()),
 		).resolves.toMatchObject({ ok: false });
 		expect(prisma.user.update).not.toHaveBeenCalled();
+		expect(revalidatePath).not.toHaveBeenCalled();
+	});
+
+	it("keeps the organization move and TGEM provisioning in one transaction", async () => {
+		mockEnsureTgemAccessDefaults.mockRejectedValue(
+			new Error("provisioning failed"),
+		);
+
+		await expect(
+			switchUserOrganizationAction(null, switchForm()),
+		).resolves.toEqual({ ok: false, message: "provisioning failed" });
+		expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+		expect(prisma.user.update).toHaveBeenCalled();
 		expect(revalidatePath).not.toHaveBeenCalled();
 	});
 

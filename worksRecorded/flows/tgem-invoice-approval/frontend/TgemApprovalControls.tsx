@@ -251,10 +251,12 @@ export function TgemApprovalControls({
 				.map((step) => step.approvalRound),
 		),
 	).sort((a, b) => b - a);
-	const canDecide = currentStep?.approverUserId === currentUserId;
-	const canSubmit = ["needs_review", "changes_requested"].includes(
-		invoice.status,
-	);
+	const canDecide =
+		invoice.permissions.includes("invoice.approve") &&
+		currentStep?.approverUserId === currentUserId;
+	const canSubmit =
+		invoice.permissions.includes("invoice.submit_approval") &&
+		["needs_review", "changes_requested"].includes(invoice.status);
 
 	async function submit() {
 		setPending("submit");
@@ -546,7 +548,9 @@ export function TgemApprovalControls({
 					</div>
 				) : null}
 
-				{invoice.approvalRound > 0 && invoice.status !== "approved" ? (
+				{invoice.permissions.includes("invoice.submit_approval") &&
+				invoice.approvalRound > 0 &&
+				invoice.status !== "approved" ? (
 					<button
 						type="button"
 						onClick={() => void resetFlow()}

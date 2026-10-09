@@ -3,6 +3,12 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Prisma } from "@prisma/client";
+import {
+	canTgem,
+	getTgemPermissionsForSite,
+	loadTgemAccessScope,
+	visibleTgemSiteIds,
+} from "@/lib/tgem-invoice-approval/access";
 import type { TgemApprovalRoleKey } from "@/lib/tgem-invoice-approval/approval";
 import { createTgemInvoiceCaseRecord } from "@/lib/tgem-invoice-approval/create-case";
 import type {
@@ -44,6 +50,13 @@ export async function createTgemInvoiceCase(input: CreateTgemInvoiceCaseInput) {
 	if (!dbUser?.organizationId) {
 		throw new Error("The current user is not assigned to an organization");
 	}
+	const access = await loadTgemAccessScope(prisma, {
+		userId: user.id,
+		organizationId: dbUser.organizationId,
+	});
+	if (!access || !canTgem(access, input.siteId ?? null, "invoice.view")) {
+		throw new Error("TGEM permission denied");
+	}
 
 	if (input.siteId) {
 		const site = await prisma.site.findFirst({
@@ -78,7 +91,7 @@ export async function getTgemInvoiceCase(invoiceCaseId: string) {
 
 	if (!dbUser?.organizationId) return null;
 
-	return prisma.tgemInvoiceCase.findFirst({
+	const invoiceCase = await prisma.tgemInvoiceCase.findFirst({
 		where: {
 			id: invoiceCaseId,
 			organizationId: dbUser.organizationId,
@@ -94,6 +107,14 @@ export async function getTgemInvoiceCase(invoiceCaseId: string) {
 			auditEvents: { orderBy: { createdAt: "asc" } },
 		},
 	});
+	if (!invoiceCase) return null;
+	const access = await loadTgemAccessScope(prisma, {
+		userId: user.id,
+		organizationId: dbUser.organizationId,
+	});
+	return access && canTgem(access, invoiceCase.siteId, "invoice.view")
+		? invoiceCase
+		: null;
 }
 
 async function readTgemInvoiceDocument(document: {
@@ -162,6 +183,16 @@ export async function runTgemInvoiceOcr(input: {
 	});
 
 	if (!document) return null;
+	const access = await loadTgemAccessScope(prisma, {
+		userId: user.id,
+		organizationId: dbUser.organizationId,
+	});
+	if (
+		!access ||
+		!canTgem(access, document.invoiceCase.siteId, "invoice.view")
+	) {
+		return null;
+	}
 
 	return processTgemInvoiceCase({
 		invoiceCaseId: input.invoiceCaseId,
@@ -200,6 +231,7 @@ export async function getTgemInvoiceProcessingStatus(input: {
 			documents: { some: { id: input.documentId } },
 		},
 		select: {
+			siteId: true,
 			status: true,
 			processingError: true,
 			validationSummary: true,
@@ -207,6 +239,13 @@ export async function getTgemInvoiceProcessingStatus(input: {
 		},
 	});
 	if (!invoiceCase) return null;
+	const access = await loadTgemAccessScope(prisma, {
+		userId: user.id,
+		organizationId: dbUser.organizationId,
+	});
+	if (!access || !canTgem(access, invoiceCase.siteId, "invoice.view")) {
+		return null;
+	}
 	const validationSummary =
 		invoiceCase.validationSummary &&
 		typeof invoiceCase.validationSummary === "object" &&
@@ -336,6 +375,7 @@ function serializeTgemDashboardInvoice(
 ): TgemDashboardInvoice {
 	return {
 		id: invoiceCase.id,
+		permissions: [],
 		project: invoiceCase.site,
 		source: invoiceCase.source,
 		status: invoiceCase.status,
@@ -472,12 +512,26 @@ export async function getTgemInvoiceDashboardData(
 		select: { organizationId: true },
 	});
 	if (!dbUser?.organizationId) return null;
+	const access = await loadTgemAccessScope(prisma, {
+		userId: user.id,
+		organizationId: dbUser.organizationId,
+	});
+	if (!access) return null;
 
-	const projects = await prisma.site.findMany({
+	const allProjects = await prisma.site.findMany({
 		where: { organizationId: dbUser.organizationId },
 		select: { id: true, name: true, userId: true },
 		orderBy: { createdAt: "desc" },
 	});
+	const visibleSiteIds = new Set(
+		visibleTgemSiteIds(
+			access,
+			allProjects.map((project) => project.id),
+		),
+	);
+	const projects = allProjects.filter((project) =>
+		visibleSiteIds.has(project.id),
+	);
 	const selectedProject =
 		projectFilter && projectFilter !== TGEM_UNASSIGNED_PROJECT_FILTER
 			? projects.find((project) => project.id === projectFilter)
@@ -501,12 +555,21 @@ export async function getTgemInvoiceDashboardData(
 		}
 	}
 
+	const visibleInvoiceWhere = {
+		OR: [
+			...(canTgem(access, null, "invoice.view") ? [{ siteId: null }] : []),
+			...(visibleSiteIds.size > 0
+				? [{ siteId: { in: Array.from(visibleSiteIds) } }]
+				: []),
+		],
+	};
 	const [invoiceCases, costCodes, users, template, workflowManagers] =
 		await Promise.all([
 			prisma.tgemInvoiceCase.findMany({
 				where: {
 					organizationId: dbUser.organizationId,
 					archivedAt: null,
+					...visibleInvoiceWhere,
 					...(projectFilter === TGEM_UNASSIGNED_PROJECT_FILTER
 						? { siteId: null }
 						: selectedProject
@@ -567,6 +630,7 @@ export async function getTgemInvoiceDashboardData(
 			organizationId: dbUser.organizationId,
 			archivedAt: null,
 			invoiceNumber: { not: null },
+			...visibleInvoiceWhere,
 		},
 		select: { id: true, invoiceNumber: true, createdAt: true },
 	});
@@ -577,10 +641,17 @@ export async function getTgemInvoiceDashboardData(
 	return {
 		currentUserId: user.id,
 		costCodes,
-		projects: projects.map(({ id, name }) => ({ id, name })),
-		invoices: invoiceCases.map((invoiceCase) =>
-			serializeTgemDashboardInvoice(invoiceCase, newestDuplicateInvoiceIds),
-		),
+		projects: projects.map(({ id, name }) => ({
+			id,
+			name,
+			permissions: Array.from(getTgemPermissionsForSite(access, id)),
+		})),
+		invoices: invoiceCases.map((invoiceCase) => ({
+			...serializeTgemDashboardInvoice(invoiceCase, newestDuplicateInvoiceIds),
+			permissions: Array.from(
+				getTgemPermissionsForSite(access, invoiceCase.siteId),
+			),
+		})),
 		approvalSetup: selectedProject
 			? {
 					canManageWorkflow: true,

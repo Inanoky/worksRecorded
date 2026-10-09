@@ -241,14 +241,18 @@ export function TgemCostCodeSettings({
 	initialCostCodes,
 	organizationLanguage,
 	selectedProject = null,
+	deletableProject = null,
 	approvalSetup = null,
 	submitterFlowSettings = { users: [], flows: [] },
+	children,
 }: {
 	initialCostCodes: CostCode[];
 	organizationLanguage?: string | null;
 	selectedProject?: { id: string; name: string } | null;
+	deletableProject?: { id: string; name: string } | null;
 	approvalSetup?: TgemDashboardApprovalSetup | null;
 	submitterFlowSettings?: TgemSubmitterApprovalFlowSettings;
+	children?: React.ReactNode;
 }) {
 	const copy = getCopy(organizationLanguage);
 	const router = useRouter();
@@ -502,10 +506,11 @@ export function TgemCostCodeSettings({
 					) : null}
 				</CardContent>
 			</Card>
-			{selectedProject ? (
+			{children}
+			{deletableProject ? (
 				<TgemProjectDeleteCard
-					key={selectedProject.id}
-					project={selectedProject}
+					key={deletableProject.id}
+					project={deletableProject}
 					organizationLanguage={organizationLanguage}
 				/>
 			) : null}

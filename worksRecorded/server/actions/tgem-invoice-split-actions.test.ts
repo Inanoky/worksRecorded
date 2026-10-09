@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 
 const mockRequireUser = jest.fn();
 const mockResolveFlow = jest.fn();
+const mockCanTgem = jest.fn();
 const mockPrisma = {
 	user: { findFirst: jest.fn() },
 	site: { findMany: jest.fn() },
@@ -16,6 +17,10 @@ const mockPrisma = {
 };
 
 jest.mock("@/lib/utils/db", () => ({ prisma: mockPrisma }));
+jest.mock("@/lib/tgem-invoice-approval/access", () => ({
+	loadTgemAccessScope: async () => ({}),
+	canTgem: (...args: unknown[]) => mockCanTgem(...args),
+}));
 jest.mock("@/lib/utils/requireUser", () => ({
 	requireUser: (...args: unknown[]) => mockRequireUser(...args),
 }));
@@ -171,6 +176,7 @@ async function expectServiceError(
 
 beforeEach(() => {
 	jest.resetAllMocks();
+	mockCanTgem.mockReturnValue(true);
 	mockRequireUser.mockResolvedValue({ id: "user-1" });
 	mockResolveFlow.mockResolvedValue(FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL);
 	mockPrisma.user.findFirst.mockResolvedValue({ organizationId: "org-1" });
@@ -310,6 +316,12 @@ it("atomically archives the parent and creates allocated and residual children",
 			}),
 		}),
 	});
+});
+
+it("denies a direct split call without split permission", async () => {
+	mockCanTgem.mockReturnValue(false);
+	await expectServiceError(splitTgemInvoice(input()), "access_denied");
+	expect(mockPrisma.$transaction).not.toHaveBeenCalled();
 });
 
 it("persists a whole-invoice percentage split with an exact rounded total", async () => {

@@ -2,6 +2,10 @@
 
 import { z } from "zod";
 import {
+	canTgem,
+	loadTgemAccessScope,
+} from "@/lib/tgem-invoice-approval/access";
+import {
 	normalizeTgemInvoiceDetailValue,
 	type TgemEditableInvoiceField,
 	type TgemInvoiceDetailsError,
@@ -55,6 +59,7 @@ export async function updateTgemInvoiceDetail(input: {
 			where: { id: invoiceCaseId, organizationId, archivedAt: null },
 			select: {
 				id: true,
+				siteId: true,
 				status: true,
 				ocrStatus: true,
 				extractionStatus: true,
@@ -65,6 +70,13 @@ export async function updateTgemInvoiceDetail(input: {
 			},
 		});
 		if (!invoice) return { ok: false, error: "access_denied" };
+		const access = await loadTgemAccessScope(tx, {
+			userId: user.id,
+			organizationId,
+		});
+		if (!access || !canTgem(access, invoice.siteId, "invoice.edit_basic")) {
+			return { ok: false, error: "access_denied" };
+		}
 		if (
 			invoice.status === "received" ||
 			invoice.status === "processing" ||
