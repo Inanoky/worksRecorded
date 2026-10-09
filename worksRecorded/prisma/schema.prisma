@@ -32,6 +32,7 @@ model Organization {
       ztcRecords ZtcRecords[]
       sitediarysettings sitediarysettings[]
       photos photos[]
+      ztcPhotos ZtcPhoto[]
       workers workers[]
       timelog timelog[]
       projectdiaryrecord projectdiaryrecord[]
@@ -84,6 +85,7 @@ model User {
   Subscription      Subscription?
   sitediarysettings sitediarysettings[]
   photos            photos[]
+  ztcPhotos         ZtcPhoto[]
   BISmaterialRecords BISmaterialRecords[] //on site can have many BIS material records. 
   bisToken          BisToken?
   whatsappIdentities WhatsAppIdentity[]
@@ -134,6 +136,8 @@ model Site {
   Documents         Documents[]
   projectdiaryrecord projectdiaryrecord[]
   photos            photos[] // on site can have many photos
+  ztcPhotos         ZtcPhoto[]
+  ztcConfiguration ZtcSiteConfiguration?
   timelog           timelog[] // on site can have timelogs
   sitediaryrecords  sitediaryrecords[] // one site can have many site diary records
   constructionPlans ConstructionPlan[]
@@ -662,6 +666,7 @@ model sitediaryrecords {
   archiveReason   String?
   archivedByMessageId String?
   Photos          String[]
+  photoAttachments photos[]
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   
@@ -762,6 +767,7 @@ model ZtcRecords {
   pausedAt          DateTime?
   pauseIntervals    Json?
   Photos            String[]
+  photoAttachments  ZtcPhoto[]
   organizationId    String?
   organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt         DateTime      @default(now())
@@ -808,6 +814,36 @@ model ZtcRateChangeAudit {
   @@index([organizationId, createdAt], map: "ZtcRateChangeAudit_org_created_idx")
 }
 
+model ZtcSiteConfiguration {
+  siteId String @id
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteDiaryRecordsMap Json?
+}
+
+model ZtcPhoto {
+  id String @id @default(uuid())
+  Date DateTime?
+  URL String?
+  Comment String?
+  Location String?
+  userId String?
+  User User? @relation(fields: [userId], references: [id])
+  workerId String?
+  Worker workers? @relation(fields: [workerId], references: [id])
+  fileUrl String?
+  mediaPurpose String? @default("site_diary")
+  diaryRecordId String?
+  diaryRecord ZtcRecords? @relation(fields: [diaryRecordId], references: [id], onDelete: SetNull)
+  siteId String?
+  Site Site? @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([siteId, Date])
+  @@index([siteId, mediaPurpose, Date])
+}
+
 model sitediarysettings {
   id      String  @id @default(uuid())
   User    User?   @relation(fields: [userId], references: [id])
@@ -836,6 +872,8 @@ model photos {
   workerId         String?
   fileUrl  String?
   mediaPurpose String? @default("site_diary")
+  diaryRecordId String?
+  diaryRecord sitediaryrecords? @relation(fields: [diaryRecordId], references: [id], onDelete: Cascade)
   Site     Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   siteId   String?
   organizationId String?
@@ -844,6 +882,7 @@ model photos {
 
   @@index([siteId, Date], map: "photos_site_date_idx")
   @@index([siteId, mediaPurpose, Date], map: "photos_site_purpose_date_idx")
+  @@unique([diaryRecordId, fileUrl], map: "photos_diary_record_file_url_key")
 }
 
 
@@ -862,6 +901,7 @@ model workers {
   photos photos[]
   sitediaryrecords sitediaryrecords[]
   ztcRecords ZtcRecords[]
+  ztcPhotos ZtcPhoto[]
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   reminderTime   DateTime?

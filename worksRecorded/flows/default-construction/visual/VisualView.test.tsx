@@ -205,6 +205,7 @@ it("removes deleted-photo zones from the retained view without reloading or chan
 				detail: {
 					siteId: "other",
 					deletedUrls: [complete.state.evidence[0].photoUrl],
+					deletedRecordIds: [complete.state.evidence[0].recordId],
 				},
 			}),
 		),
@@ -216,6 +217,19 @@ it("removes deleted-photo zones from the retained view without reloading or chan
 				detail: {
 					siteId: "site",
 					deletedUrls: [complete.state.evidence[0].photoUrl],
+					deletedRecordIds: ["different-copy"],
+				},
+			}),
+		),
+	);
+	expect(pdf).toHaveTextContent("1 zones");
+	act(() =>
+		window.dispatchEvent(
+			new CustomEvent(DIARY_PHOTO_DELETED, {
+				detail: {
+					siteId: "site",
+					deletedUrls: [complete.state.evidence[0].photoUrl],
+					deletedRecordIds: [complete.state.evidence[0].recordId],
 				},
 			}),
 		),
@@ -228,12 +242,12 @@ it("removes deleted-photo zones from the retained view without reloading or chan
 it("does not reload the PDF or call AI when the diary has no new photos", async () => {
 	jest
 		.mocked(refreshVisualDrawing)
-		.mockResolvedValue({ drawing: complete, addedCount: 0, removedCount: 0 });
+		.mockResolvedValue({ drawing: complete, addedCount: 0, updatedCount: 0, removedCount: 0 });
 	await selectDrawing();
 	const pdf = screen.getByTestId("pdf");
 	mockFetch.mockClear();
 	fireEvent.click(screen.getByRole("button", { name: "Atjaunot no žurnāla" }));
-	await screen.findByText(/nav jaunu žurnāla attēlu/);
+	await screen.findByText(/nav jaunu vai mainītu žurnāla attēlu/);
 	expect(refreshVisualDrawing).toHaveBeenCalledWith("site", "drawing");
 	expect(mockFetch).not.toHaveBeenCalled();
 	expect(screen.getByTestId("pdf")).toBe(pdf);
@@ -241,7 +255,7 @@ it("does not reload the PDF or call AI when the diary has no new photos", async 
 	expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
 });
 
-it("keeps existing zones visible while analyzing appended diary photos in the same drawing", async () => {
+it.each([{ addedCount: 1, updatedCount: 0 }, { addedCount: 0, updatedCount: 1 }])("analyzes new or edited records while keeping unrelated zones visible: %j", async ({ addedCount, updatedCount }) => {
 	const updated: VisualDrawing = {
 		...complete,
 		state: {
@@ -255,7 +269,7 @@ it("keeps existing zones visible while analyzing appended diary photos in the sa
 	};
 	jest
 		.mocked(refreshVisualDrawing)
-		.mockResolvedValue({ drawing: updated, addedCount: 1, removedCount: 0 });
+		.mockResolvedValue({ drawing: updated, addedCount, updatedCount, removedCount: 0 });
 	await selectDrawing();
 	const pdf = screen.getByTestId("pdf");
 	let finish!: (value: unknown) => void;
@@ -274,7 +288,7 @@ it("keeps existing zones visible while analyzing appended diary photos in the sa
 	);
 	expect(screen.getByTestId("pdf")).toBe(pdf);
 	expect(pdf).toHaveTextContent("1 zones");
-	expect(screen.getByText(/Pievienoti 1 jauni attēli/)).toBeInTheDocument();
+	expect(screen.getByText(new RegExp(`Pievienoti ${addedCount} jauni attēli. Atjaunināti ${updatedCount}`))).toBeInTheDocument();
 	await act(async () =>
 		finish({
 			ok: true,

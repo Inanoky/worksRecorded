@@ -483,7 +483,7 @@ export default function FullPhotoGallery({
 			try {
 				setDeleting(true);
 				const results = await Promise.allSettled(
-					ids.map((id) => deletePhotoById(id)),
+					ids.map((id) => deletePhotoById(id, siteId)),
 				);
 				await onMediaChanged?.();
 				if (results.some((result) => result.status === "rejected")) {
@@ -525,7 +525,7 @@ export default function FullPhotoGallery({
 				setDeleting(false);
 			}
 		},
-		[currentPage, deleting, fetchPhotos, photos, onMediaChanged],
+		[currentPage, deleting, fetchPhotos, photos, onMediaChanged, siteId],
 	);
 
 	const selectAllCurrentPage = useCallback(() => {

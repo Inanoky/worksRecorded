@@ -90,6 +90,11 @@ const SprinklerAttendanceDashboard = dynamic<FlowDashboardProps>(
 	{ loading: flowLoading },
 );
 
+const FimaDashboard = dynamic<FlowDashboardProps>(
+	() => import("@/flows/fima/frontend").then((module) => module.FimaDashboard),
+	{ loading: flowLoading },
+);
+
 function TgemDashboard(props: FlowDashboardProps) {
 	return <TgemInvoiceApprovalDashboard {...props} />;
 }
@@ -99,6 +104,10 @@ function TgemSiteDiary(props: FlowSiteDiaryProps) {
 }
 
 export const FLOW_FRONTEND_MODULES: Record<string, FlowFrontendModule> = {
+	[FLOW_MODULE_KEYS.FIMA]: {
+		Dashboard: FimaDashboard,
+		SiteDiary: DefaultConstructionSiteDiaryFlow,
+	},
 	[FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION]: {
 		Dashboard: DefaultConstructionDashboardFlow,
 		SiteDiary: DefaultConstructionSiteDiaryFlow,

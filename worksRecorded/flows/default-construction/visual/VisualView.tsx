@@ -123,11 +123,12 @@ export default function VisualView({ siteId }: { siteId: string }) {
 			const detail = (event as CustomEvent<DiaryPhotoDeleted>).detail;
 			if (detail.siteId !== siteId) return;
 			const urls = new Set(detail.deletedUrls);
+			const recordIds = new Set(detail.deletedRecordIds ?? []);
 			setDrawing((previous) => {
 				if (!previous) return previous;
 				const state = pruneVisualEvidence(
 					previous.state,
-					(item) => !urls.has(item.photoUrl),
+					(item) => !(urls.has(item.photoUrl) && recordIds.has(item.recordId)),
 				);
 				return state === previous.state ? previous : { ...previous, state };
 			});
@@ -280,13 +281,11 @@ export default function VisualView({ siteId }: { siteId: string }) {
 				loaded = result.drawing;
 				setDrawing(loaded);
 				setNotice(
-					result.removedCount
-						? `Noņemti ${result.removedCount} dzēsto foto avoti un to zonas. Pievienoti ${result.addedCount} jauni attēli.`
-						: result.addedCount
-							? `Pievienoti ${result.addedCount} jauni attēli. Esošās zonas un labojumi ir saglabāti.`
-							: "Šai lokācijai nav jaunu žurnāla attēlu. Esošie rezultāti nav mainīti.",
+					result.addedCount || result.updatedCount || result.removedCount
+						? `Pievienoti ${result.addedCount} jauni attēli. Atjaunināti ${result.updatedCount || 0} mainīto ierakstu attēli. Noņemti ${result.removedCount} dzēsto vai pārvietoto avotu attēli. Nemainīto ierakstu zonas un labojumi ir saglabāti.`
+						: "Šai lokācijai nav jaunu vai mainītu žurnāla attēlu. Esošie rezultāti nav mainīti.",
 				);
-				if (!result.addedCount) return;
+				if (!result.addedCount && !result.updatedCount) return;
 				setThroughDay(null);
 			} else if (mode === "restart" && id)
 				await restartVisualDrawing(siteId, id);
@@ -526,7 +525,7 @@ export default function VisualView({ siteId }: { siteId: string }) {
 								variant="outline"
 								disabled={controlsLocked}
 								onClick={() => void process("refresh")}
-								title="Pievienot jaunus žurnāla attēlus, saglabājot esošās zonas un manuālos labojumus"
+								title="Analizēt jaunus un mainītus žurnāla ierakstus. Nemainīto ierakstu zonas un manuālie labojumi tiek saglabāti."
 							>
 								Atjaunot no žurnāla
 							</Button>

@@ -2787,7 +2787,7 @@ async function saveDiagonalMeasurePhoto(args: {
 }) {
   const { worker, publicUrl, session, label } = args;
 
-  await prisma.photos.create({
+  await prisma.ztcPhoto.create({
     data: {
       Date: new Date(),
       URL: publicUrl,
@@ -2807,6 +2807,7 @@ async function saveDiagonalMeasurePhoto(args: {
       workerId: worker.id,
       siteId: getZtcFlowContext(worker).siteId,
       organizationId: getZtcFlowContext(worker).organizationId,
+      diaryRecordId: session.id,
     },
   });
 }
@@ -3006,7 +3007,7 @@ async function saveCompletedWorkPhoto(args: {
 }) {
   const { worker, publicUrl, session } = args;
 
-  await prisma.photos.create({
+  await prisma.ztcPhoto.create({
     data: {
       Date: new Date(),
       URL: publicUrl,
@@ -3025,6 +3026,7 @@ async function saveCompletedWorkPhoto(args: {
       workerId: worker.id,
       siteId: getZtcFlowContext(worker).siteId,
       organizationId: getZtcFlowContext(worker).organizationId,
+      diaryRecordId: session.id,
     },
   });
 }

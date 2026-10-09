@@ -9,12 +9,16 @@ const siteFindUniqueMock = jest.fn();
 const productionFlowConfigOverrideFindManyMock = jest.fn();
 const flowAssignmentFindUniqueMock = jest.fn();
 const photosFindManyMock = jest.fn();
+const ztcPhotosFindManyMock = jest.fn();
+const ztcRecordsFindManyMock = jest.fn();
 const photosFindUniqueMock = jest.fn();
 const photosUpdateMock = jest.fn();
 const photosUpdateManyMock = jest.fn();
 const photosDeleteMock = jest.fn();
 const bisMaterialFindManyMock = jest.fn();
 const siteDiaryFindManyMock = jest.fn();
+const siteDiaryFindUniqueMock = jest.fn();
+const siteDiaryFindFirstMock = jest.fn();
 const batchCreateMock = jest.fn();
 const batchFindFirstMock = jest.fn();
 const batchFindUniqueMock = jest.fn();
@@ -50,6 +54,8 @@ jest.mock("@/lib/utils/db", () => ({
       updateMany: photosUpdateManyMock,
       delete: photosDeleteMock,
     },
+    ztcPhoto: { findMany: ztcPhotosFindManyMock },
+    ztcRecords: { findMany: ztcRecordsFindManyMock },
     bISmaterialRecords: {
       findMany: bisMaterialFindManyMock,
     },
@@ -60,6 +66,8 @@ jest.mock("@/lib/utils/db", () => ({
       update: updateMock,
       updateMany: updateManyMock,
       findMany: siteDiaryFindManyMock,
+      findUnique: siteDiaryFindUniqueMock,
+      findFirst: siteDiaryFindFirstMock,
     },
     siteDiarySaveBatch: {
       create: batchCreateMock,
@@ -101,10 +109,20 @@ jest.mock("./whatsapp-actions", () => ({
   getUserFullNameById: jest.fn(async () => "Test Manager"),
   getWorkerFullNameById: jest.fn(async () => "Test Worker"),
 }));
+jest.mock("@/lib/photos/flow-photo-store", () => ({
+  getSitePhotoStore: jest.fn(async () => require("@/lib/utils/db").prisma.photos),
+  getUserPhotoStore: jest.fn(async () => require("@/lib/utils/db").prisma.photos),
+  photoStoreForFlow: jest.fn(() => require("@/lib/utils/db").prisma.photos),
+}));
+jest.mock("@/flows/ztc-production/backend/site-configuration", () => ({
+  loadZtcSiteConfiguration: jest.fn((siteId: string) => siteFindUniqueMock({ where: { id: siteId }, select: { siteDiaryRecordsMap: true } })),
+  saveZtcSiteConfiguration: jest.fn(),
+}));
 
 import {
   archiveAndReplaceSiteDiaryBatch,
   copySiteDiaryRecordsToProject,
+  copySiteDiaryRecordToDate,
   getConfig,
   getLimeniDiarySnapshot,
   getPendingSiteDiaryCorrection,
@@ -116,6 +134,8 @@ import {
   saveSiteDiaryRecord,
 } from "./site-diary-actions";
 import { requireUser } from "@/lib/utils/requireUser";
+import { getSitePhotoStore } from "@/lib/photos/flow-photo-store";
+import { prisma } from "@/lib/utils/db";
 import { orgCheck } from "./shared-actions";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
@@ -712,6 +732,17 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     );
   });
 
+  it("returns production photos and audio without reading construction tables", async () => {
+    jest.mocked(getSitePhotoStore).mockResolvedValueOnce(prisma.ztcPhoto as never);
+    ztcPhotosFindManyMock.mockResolvedValue([{ id: "ztc-photo" }]);
+    ztcRecordsFindManyMock.mockResolvedValue([{ id: "ztc-audio" }]);
+    const result = await getPhotosByDate({ siteId: "site-1", startISO: "2026-06-08T00:00:00Z", endISO: "2026-06-09T00:00:00Z" });
+    expect(result).toEqual({ photos: [{ id: "ztc-photo" }], audioRecords: [{ id: "ztc-audio" }] });
+    expect(photosFindManyMock).not.toHaveBeenCalled();
+    expect(siteDiaryFindManyMock).not.toHaveBeenCalled();
+    expect(ztcRecordsFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ siteId: "site-1", organizationId: "org-1" }) }));
+  });
+
   it("returns photos and same-day audio diary records for the media dialog", async () => {
     const photoRows = [
       {
@@ -798,11 +829,11 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     expect(photosFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         siteId: "site-1",
-        AND: [
+        AND: expect.arrayContaining([
           {
             OR: [{ mediaPurpose: null }, { mediaPurpose: "site_diary" }],
           },
-        ],
+        ]),
       }),
     }));
     expect(bisMaterialFindManyMock).not.toHaveBeenCalled();
@@ -1126,6 +1157,38 @@ describe("site diary project copy actions", () => {
       }),
     ).rejects.toThrow("Target project must belong to the same organization");
     expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["date", "project"])("creates separate Limeni photo attachments in the %s copy transaction", async (mode) => {
+    const organizationId = "58467603-196e-4661-83ff-fe26e4b0ff0b";
+    const source = { ...sourceRecord, organizationId, archivedAt: null };
+    const attachments = new Map<string, unknown>();
+    const upsert = jest.fn(async ({ where, create }) => {
+      attachments.set(where.diaryRecordId_fileUrl.diaryRecordId, create);
+      return create;
+    });
+    (orgCheck as jest.Mock).mockImplementation(async (_userId, siteId) => ({ id: siteId, organizationId }));
+    siteFindUniqueMock.mockResolvedValue({ organizationId });
+    siteDiaryFindUniqueMock.mockResolvedValue(source);
+    siteDiaryFindManyMock.mockResolvedValue([source]);
+    siteDiaryFindFirstMock.mockImplementation(async ({ where }) => where.id === source.id ? source : { ...source, id: "copy", Date: new Date("2026-09-29T12:00:00Z") });
+    createMock.mockResolvedValue({ id: "copy" });
+    transactionMock.mockImplementation(async (run) => run({
+      sitediaryrecords: { create: createMock, findMany: siteDiaryFindManyMock, findFirst: siteDiaryFindFirstMock },
+      photos: {
+        findUnique: jest.fn(async ({ where }) => attachments.get(where.diaryRecordId_fileUrl.diaryRecordId) ?? null),
+        findFirst: jest.fn(async () => null), upsert,
+      },
+    }));
+    if (mode === "date") {
+      await copySiteDiaryRecordToDate(source.id, "2026-09-29T12:00:00Z", "site-1");
+    } else {
+      await copySiteDiaryRecordsToProject({ sourceSiteId: "site-1", targetSiteId: "site-2", recordIds: [source.id] });
+    }
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(upsert).toHaveBeenCalledTimes(2);
+    expect(attachments.get(source.id)).toMatchObject({ diaryRecordId: source.id, URL: source.Photos[0], siteId: "site-1" });
+    expect(attachments.get("copy")).toMatchObject({ diaryRecordId: "copy", URL: source.Photos[0], siteId: mode === "project" ? "site-2" : "site-1" });
   });
 
   it("rejects selected records that do not belong to the source project", async () => {

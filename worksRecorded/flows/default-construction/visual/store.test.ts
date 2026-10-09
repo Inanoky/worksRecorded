@@ -125,14 +125,12 @@ it("reads the latest active diary date for the normalized location without filte
 
 it("refreshes the end date even when there are no new photo sources", async () => {
 	await mockSavedDrawing();
-	jest
-		.mocked(prisma.sitediaryrecords.groupBy)
-		.mockResolvedValue([
-			{
-				Location: "1. stāvs",
-				_max: { Date: new Date("2026-09-29T12:00:00Z") },
-			},
-		] as never);
+	jest.mocked(prisma.sitediaryrecords.groupBy).mockResolvedValue([
+		{
+			Location: "1. stāvs",
+			_max: { Date: new Date("2026-09-29T12:00:00Z") },
+		},
+	] as never);
 	const result = await appendVisualDiaryEvidence("user", "site", "drawing");
 	expect(result.addedCount).toBe(0);
 	expect(result.drawing.latestDiaryDate).toBe("2026-09-29T12:00:00.000Z");
@@ -277,11 +275,11 @@ it("appends new linked photos without replacing snapshots, manual zones or compl
 		{
 			id: "first",
 			Location: "1. stāvs",
-			Works: "Changed",
-			Comments: "Changed",
+			Works: "XPS",
+			Comments: "Pabeigts",
 			Photos: ["https://example.com/new.jpg", "https://example.com/one.jpg"],
 			Date: null,
-			Amounts: 12,
+			Amounts: 10,
 			Units: "m2",
 		},
 		{
@@ -335,6 +333,29 @@ it("appends new linked photos without replacing snapshots, manual zones or compl
 		(await appendVisualDiaryEvidence("user", "site", "drawing")).addedCount,
 	).toBe(0);
 	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
+});
+
+it("requeues a record when hours change even if its image and work are unchanged", async () => {
+	const { state } = await mockEditableDrawing();
+	const records = await prisma.sitediaryrecords.findMany();
+	jest
+		.mocked(prisma.sitediaryrecords.findMany)
+		.mockResolvedValue(
+			records.map((record) =>
+				record.id === "first" ? { ...record, TimeInvolved: 5 } : record,
+			),
+		);
+	const result = await appendVisualDiaryEvidence("user", "site", "drawing");
+	expect(result).toMatchObject({
+		addedCount: 0,
+		updatedCount: 1,
+		removedCount: 0,
+	});
+	expect(result.drawing.state.marks).toEqual([]);
+	expect(result.drawing.state.evidence[0].sourceRevision).not.toBe(
+		state.evidence[0].sourceRevision,
+	);
+	expect(result.drawing.state.imageProgress?.[0].status).toBe("pending");
 });
 
 it("removes deleted sources and their zones even without new photos", async () => {

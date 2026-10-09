@@ -13,6 +13,7 @@ import {
   setDefaultConstructionWorkDropdownOptions,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import { prisma } from "@/lib/utils/db";
+import { isZtcProductionFlowRuntime } from "@/lib/production-flow/runtime-server";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 
@@ -41,7 +42,11 @@ function normalizeSimpleOptions(input: string[], label: string) {
 
 async function readAuthorizedConfig(siteId: string) {
   const user = await requireUser();
-  await orgCheck(user.id, siteId);
+  const authorizedSite = await orgCheck(user.id, siteId);
+  if (!authorizedSite) throw new Error("Project access denied");
+  if (await isZtcProductionFlowRuntime({ siteId, organizationId: authorizedSite.organizationId })) {
+    throw new Error("Production settings must be edited through the production flow.");
+  }
   const site = await prisma.site.findUnique({
     where: { id: siteId },
     select: { siteDiaryRecordsMap: true },

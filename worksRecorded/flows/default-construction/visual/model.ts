@@ -40,6 +40,7 @@ export const visualEvidenceSchema = z.object({
 	date: z.string().nullable(),
 	amount: z.number().nullable(),
 	unit: z.string(),
+	sourceRevision: z.string().optional(),
 });
 export type VisualEvidence = z.infer<typeof visualEvidenceSchema>;
 

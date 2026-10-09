@@ -11,8 +11,9 @@ export async function deleteVisualPhotoEvidence(
 	siteId: string,
 	organizationId: string,
 	urls: string[],
+	recordIds: string[],
 ) {
-	if (!urls.length) return;
+	if (!urls.length || !recordIds.length) return;
 	const rows = await tx.$queryRaw<Array<{ id: string; description: string }>>`
     SELECT id, description FROM "Documents"
     WHERE "siteId" = ${siteId} AND "organizationId" = ${organizationId}
@@ -20,11 +21,12 @@ export async function deleteVisualPhotoEvidence(
     ORDER BY id FOR UPDATE
   `;
 	const removed = new Set(urls);
+	const owners = new Set(recordIds);
 	for (const row of rows) {
 		const state = visualStateSchema.parse(JSON.parse(row.description));
 		const next = pruneVisualEvidence(
 			state,
-			(item) => !removed.has(item.photoUrl),
+			(item) => !(removed.has(item.photoUrl) && owners.has(item.recordId)),
 		);
 		if (next === state) continue;
 		if (state.lockedAt && Date.now() - state.lockedAt < VISUAL_LEASE_MS)

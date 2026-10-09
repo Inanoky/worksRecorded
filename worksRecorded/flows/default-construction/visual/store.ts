@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { prisma } from "@/lib/utils/db";
 import { requireWarehouseImportAccess } from "../backend/warehouse-import-upload";
 import {
@@ -12,11 +12,10 @@ import {
 	VISUAL_MAX_PHOTOS,
 	type VisualDrawing,
 	type VisualState,
-	visualImageProgress,
 	visualStateSchema,
 } from "./model";
 import { polygonEditSchema } from "./polygon-edit";
-import { pruneVisualEvidence } from "./prune-evidence";
+import { syncVisualEvidence } from "./sync-evidence";
 
 const archivedVisualType = `${VISUAL_DOCUMENT_TYPE}-archived`;
 
@@ -109,16 +108,6 @@ async function loadVisualEvidence(
 			archivedAt: null,
 			Photos: { isEmpty: false },
 		},
-		select: {
-			id: true,
-			Location: true,
-			Works: true,
-			Comments: true,
-			Photos: true,
-			Date: true,
-			Amounts: true,
-			Units: true,
-		},
 		orderBy: [{ Date: "asc" }, { id: "asc" }],
 	});
 	return rows
@@ -138,6 +127,20 @@ async function loadVisualEvidence(
 				date: row.Date?.toISOString() ?? null,
 				amount: row.Amounts,
 				unit: row.Units || "",
+				sourceRevision: createHash("sha256")
+					.update(
+						JSON.stringify(
+							Object.fromEntries(
+								Object.entries({
+									...row,
+									Location: normalizeVisualLocation(row.Location || ""),
+								})
+									.filter(([key]) => key !== "Photos")
+									.sort(([a], [b]) => a.localeCompare(b)),
+							),
+						),
+					)
+					.digest("hex"),
 			})),
 		);
 }
@@ -317,7 +320,7 @@ export async function appendVisualDiaryEvidence(
 	drawingId: string,
 ) {
 	const { row, drawing } = await loadVisualDrawing(userId, siteId, drawingId);
-	let state = drawing.state;
+	const state = drawing.state;
 	requireIdleDrawing(state);
 	if (!row.organizationId)
 		throw new Error("Rasējuma organizācija nav atrasta.");
@@ -326,38 +329,15 @@ export async function appendVisualDiaryEvidence(
 		row.organizationId,
 		state.location,
 	);
-	const key = (item: { recordId: string; photoUrl: string }) =>
-		JSON.stringify([item.recordId, item.photoUrl]);
-	const currentKeys = new Set(current.map(key));
-	state = pruneVisualEvidence(state, (item) => currentKeys.has(key(item)));
-	const removedCount = drawing.state.evidence.length - state.evidence.length;
-	drawing.state = state;
-	const existing = new Set(state.evidence.map(key));
-	const added = current
-		.filter((item) => !existing.has(key(item)))
-		.map((item) => ({ ...item, id: `${item.recordId}:${randomUUID()}` }));
-	if (!added.length) {
-		if (removedCount) await saveVisualState(row, state);
-		return { drawing, addedCount: 0, removedCount };
-	}
-	if (state.evidence.length + added.length > VISUAL_MAX_PHOTOS)
-		throw new Error(
-			`Lokācijai ir vairāk nekā ${VISUAL_MAX_PHOTOS} attēlu. Esošie rezultāti nav mainīti.`,
-		);
-	state.imageProgress = [
-		...visualImageProgress(state),
-		...added.map((item) => ({
-			evidenceId: item.id,
-			status: "pending" as const,
-			error: null,
-		})),
-	];
-	state.evidence.push(...added);
-	state.status = "paused";
-	state.lockedAt = null;
-	state.error = null;
-	await saveVisualState(row, state);
-	return { drawing, addedCount: added.length, removedCount };
+	const result = syncVisualEvidence(state, current, randomUUID);
+	drawing.state = result.state;
+	if (result.changed) await saveVisualState(row, result.state);
+	return {
+		drawing,
+		addedCount: result.addedCount,
+		updatedCount: result.updatedCount,
+		removedCount: result.removedCount,
+	};
 }
 
 export async function removeVisualDrawing(

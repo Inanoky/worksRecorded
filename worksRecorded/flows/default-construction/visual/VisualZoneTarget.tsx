@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	HoverCard,
@@ -8,6 +9,37 @@ import {
 } from "@/components/ui/hover-card";
 import { type VisualEvidence, type VisualMark, visualLayers } from "./model";
 import { formatVisualDay, visualDiaryDay } from "./timeline";
+
+function SourcePhotoPreview({ url, work }: { url: string; work: string }) {
+	const [status, setStatus] = useState<"loading" | "loaded" | "error">(
+		"loading",
+	);
+	return (
+		<div className="relative flex h-52 items-center justify-center overflow-hidden rounded-md border bg-muted/30">
+			{status !== "loaded" ? (
+				<p
+					role="status"
+					aria-label="Avota attēla statuss"
+					className="absolute px-3 text-center text-xs text-muted-foreground"
+				>
+					{status === "error"
+						? "Avota attēls nav pieejams."
+						: "Ielādē avota attēlu…"}
+				</p>
+			) : null}
+			{status !== "error" ? (
+				<img
+					src={url}
+					alt={`Zonas avota attēls: ${work}`}
+					className={`h-full w-full object-contain ${status === "loaded" ? "opacity-100" : "opacity-0"}`}
+					decoding="async"
+					onLoad={() => setStatus("loaded")}
+					onError={() => setStatus("error")}
+				/>
+			) : null}
+		</div>
+	);
+}
 
 export function VisualZoneTarget({
 	mark,
@@ -58,7 +90,7 @@ export function VisualZoneTarget({
 			</HoverCardTrigger>
 			<HoverCardContent
 				side="top"
-				className="max-h-80 w-80 max-w-[calc(100vw-2rem)] space-y-2 overflow-auto text-sm"
+				className="max-h-[min(36rem,calc(100dvh-2rem))] w-96 max-w-[calc(100vw-2rem)] space-y-2 overflow-auto text-sm"
 			>
 				<p className="font-semibold">
 					{source?.work || visualLayers[mark.layer].label}
@@ -67,6 +99,13 @@ export function VisualZoneTarget({
 					{day === null ? "Bez datuma" : formatVisualDay(day)} ·{" "}
 					{source?.location || "—"}
 				</p>
+				{source?.photoUrl ? (
+					<SourcePhotoPreview
+						key={source.photoUrl}
+						url={source.photoUrl}
+						work={source.work || visualLayers[mark.layer].label}
+					/>
+				) : null}
 				<p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
 					{source?.description || "Apraksts nav norādīts."}
 				</p>

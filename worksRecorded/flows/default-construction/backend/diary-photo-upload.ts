@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/utils/db";
+import { ensureDiaryPhotoAttachmentsById } from "@/lib/photos/diary-photo-attachments";
 import {
 	LIMENI_ORGANIZATION_ID,
 	normalizeDiaryPhotoUrls,
@@ -39,7 +40,8 @@ export async function appendDiaryPhoto(input: {
 	);
 	if (normalizeDiaryPhotoUrls([input.url]).length !== 1)
 		throw new Error("Invalid photo URL");
-	const rows = await prisma.$queryRaw<Array<{ Photos: string[] }>>`
+	return prisma.$transaction(async (tx) => {
+		const rows = await tx.$queryRaw<Array<{ Photos: string[] }>>`
     UPDATE "sitediaryrecords"
     SET "Photos" = CASE
       WHEN ${input.url} = ANY(COALESCE("Photos", ARRAY[]::text[])) THEN "Photos"
@@ -49,6 +51,13 @@ export async function appendDiaryPhoto(input: {
       AND "organizationId" = ${access.organizationId} AND "archivedAt" IS NULL
     RETURNING "Photos"
   `;
-	if (!rows[0]) throw new Error("Diary record no longer available");
-	return { photos: rows[0].Photos, url: input.url };
+		if (!rows[0]) throw new Error("Diary record no longer available");
+		await ensureDiaryPhotoAttachmentsById(
+			tx,
+			input.recordId,
+			input.siteId,
+			access.organizationId,
+		);
+		return { photos: rows[0].Photos, url: input.url };
+	});
 }

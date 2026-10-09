@@ -3,7 +3,7 @@ const mockZtcRecordsFindMany = jest.fn();
 
 jest.mock("@/lib/utils/db", () => ({
   prisma: {
-    site: {
+    ztcSiteConfiguration: {
       findUnique: (...args: unknown[]) => mockSiteFindUnique(...args),
     },
     ztcRecords: {
