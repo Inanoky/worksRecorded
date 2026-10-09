@@ -92,7 +92,7 @@ export function VisualZoneTarget({
 			<HoverCard
 				openDelay={100}
 				closeDelay={100}
-				open={hovered && !imageOpen}
+				open={hovered && !imageOpen && !selected}
 				onOpenChange={setHovered}
 			>
 				<HoverCardTrigger asChild>

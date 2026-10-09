@@ -60,7 +60,7 @@ const fixture = {
 const modules = {
 	actions: `let drawing=${JSON.stringify(fixture)}; export async function getVisualDrawings(){return {locations:['1. stāvs'],drawings:[{id:drawing.id,name:drawing.name,location:drawing.state.location,createdAt:drawing.createdAt,status:'complete'}]}}; export async function saveVisualPolygon(site,id,edit){drawing=structuredClone(drawing);drawing.state.marks.find(x=>x.id===edit.markId).polygon=edit.polygon;window.__visualPreviewDrawing=drawing;return drawing}; export async function deleteVisualDrawing(){};export async function refreshVisualDrawing(){return {drawing,addedCount:0,updatedCount:0,removedCount:0,analysisCount:0,reviewCount:0}};export async function restartVisualDrawing(){throw Error('Preview only')};export async function getVisualWorkTypes(){return ['Smilts līdzināšana','XPS izolācija 150 mm','Estrich grīda 70 mm']};export async function saveVisualWorkType(site,id,edit){drawing=structuredClone(drawing);const source=drawing.state.evidence.find(x=>x.id===edit.evidenceId);const layer=edit.work.includes('XPS')?'xps':edit.work.includes('Estrich')?'estrich':'sand';for(const item of drawing.state.evidence.filter(x=>x.recordId===source.recordId)){item.work=edit.work;for(const mark of drawing.state.marks.filter(x=>x.evidenceId===item.id))mark.layer=layer}window.__visualPreviewDrawing=drawing;return drawing};export async function resolveVisualSourceReview(){throw Error('Preview only')}`,
 	upload: `export const useUploadThing=()=>({startUpload:async()=>{throw Error('Preview only')}});`,
-	photos: `export const DiaryRecordPhotos=()=>null;`,
+	photos: `export const DiaryRecordPhotos=()=>null;export const ZoomablePhoto=()=>null;`,
 	worker: `export const pdfWorkerUrl='/worker.mjs';`,
 };
 const bundled = await build({

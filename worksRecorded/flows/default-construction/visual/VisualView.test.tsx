@@ -38,11 +38,14 @@ jest.mock("./VisualPdf", () => ({
 		marks,
 		onSelect,
 	}: {
-		marks: unknown[];
+		marks: { id: string }[];
 		onSelect: (id: string | null) => void;
 	}) => (
 		<div data-testid="pdf">
 			{marks.length} zones
+			<button type="button" onClick={() => onSelect(marks[0]?.id ?? null)}>
+				Select drawing zone
+			</button>
 			<button type="button" onClick={() => onSelect(null)}>
 				Empty drawing
 			</button>
@@ -191,6 +194,56 @@ it("clears the selected source card on an empty drawing click but protects unsav
 	fireEvent.click(screen.getByRole("button", { name: "Empty drawing" }));
 	expect(screen.getByText("Izvēlētā zona")).toBeInTheDocument();
 	expect(screen.getByLabelText("Darba tips")).toHaveValue("XPS");
+	expect(
+		screen.getByRole("button", { name: "Aizvērt zonas informāciju" }),
+	).toBeDisabled();
+	fireEvent.keyDown(screen.getByLabelText("Darba tips"), { key: "Escape" });
+	expect(screen.getByLabelText("Darba tips")).toHaveValue("XPS");
+});
+
+it("slides zone details from the right without reopening the left sidebar or remounting the drawing, and supports close and Escape", async () => {
+	await selectDrawing();
+	const pdf = screen.getByTestId("pdf");
+	const surface = pdf.parentElement;
+	fireEvent.click(
+		screen.getByRole("button", { name: "Paslēpt slāņus un avotus" }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
+	const panel = screen.getByRole("complementary", {
+		name: "Izvēlētās zonas informācija",
+	});
+	expect(panel).toHaveAttribute("data-state", "open");
+	expect(panel).toHaveClass(
+		"right-3",
+		"translate-x-0",
+		"motion-reduce:transition-none",
+	);
+	expect(
+		screen.queryByRole("complementary", { name: "Darbu slāņi un avoti" }),
+	).not.toBeInTheDocument();
+	expect(panel.parentElement).toBe(surface);
+	expect(screen.getByTestId("pdf")).toBe(pdf);
+	fireEvent.click(
+		within(panel).getByRole("button", { name: "Aizvērt zonas informāciju" }),
+	);
+	expect(
+		screen.queryByRole("complementary", {
+			name: "Izvēlētās zonas informācija",
+		}),
+	).not.toBeInTheDocument();
+	expect(panel).toHaveAttribute("inert");
+	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
+	fireEvent.keyDown(
+		screen.getByRole("button", { name: "Aizvērt zonas informāciju" }),
+		{ key: "Escape" },
+	);
+	expect(
+		screen.queryByRole("complementary", {
+			name: "Izvēlētās zonas informācija",
+		}),
+	).not.toBeInTheDocument();
+	expect(screen.getByTestId("pdf")).toBe(pdf);
+	expect(mockFetch).toHaveBeenCalledTimes(1);
 });
 
 it("automatically checks the retained drawing, pauses when hidden and checks again on return without remounting the map", async () => {
@@ -559,7 +612,11 @@ it("places layer toggles and dated sources in the sidebar in chronological order
 	expect(entries[1]).toHaveTextContent("23.09.2026");
 	expect(entries[1]).toHaveTextContent("Later work");
 	fireEvent.click(entries[0]);
-	expect(within(sidebar).getByText("Pabeigts")).toBeInTheDocument();
+	const panel = screen.getByRole("complementary", {
+		name: "Izvēlētās zonas informācija",
+	});
+	expect(within(panel).getByText("Pabeigts")).toBeInTheDocument();
+	expect(within(sidebar).queryByText("Pabeigts")).not.toBeInTheDocument();
 	expect(within(sidebar).queryByText("Sakrīt")).not.toBeInTheDocument();
 	expect(within(sidebar).queryByText("A; B")).not.toBeInTheDocument();
 	expect(

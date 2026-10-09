@@ -55,7 +55,6 @@ it("opens the original source image from the hover preview with diary zoom contr
 			mark={mark}
 			source={source}
 			disabled={false}
-			selected
 			onSelect={onSelect}
 			onHighlight={jest.fn()}
 		/>,
@@ -95,6 +94,29 @@ it("opens the original source image from the hover preview with diary zoom contr
 	expect(
 		within(screen.getByRole("dialog")).getByLabelText("Tālummaiņa"),
 	).toHaveTextContent("100%");
+});
+
+it("hides the hover popup once a zone is selected so details only appear in the right panel", async () => {
+	const props = {
+		mark,
+		source,
+		disabled: false,
+		onSelect: jest.fn(),
+		onHighlight: jest.fn(),
+	};
+	const { rerender } = render(<VisualZoneTarget {...props} />);
+	fireEvent.focus(screen.getByRole("button", { name: "XPS: Completed XPS" }));
+	await screen.findByRole("button", {
+		name: "Atvērt zonas avota attēlu: XPS 150 mm",
+	});
+	rerender(<VisualZoneTarget {...props} selected />);
+	await waitFor(() =>
+		expect(
+			screen.queryByRole("button", {
+				name: "Atvērt zonas avota attēlu: XPS 150 mm",
+			}),
+		).not.toBeInTheDocument(),
+	);
 });
 
 it("does not offer an unavailable source image for zoom", async () => {

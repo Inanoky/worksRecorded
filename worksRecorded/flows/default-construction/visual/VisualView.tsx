@@ -63,7 +63,7 @@ import {
 } from "./VisualAnalysisProgress";
 import { VisualPdf } from "./VisualPdf";
 import { VisualTimeline } from "./VisualTimeline";
-import { VisualWorkEditor } from "./VisualWorkEditor";
+import { VisualZoneDetails } from "./VisualZoneDetails";
 
 type Index = Awaited<ReturnType<typeof getVisualDrawings>>;
 const allLayers = Object.keys(visualLayers) as VisualLayer[];
@@ -110,7 +110,6 @@ export default function VisualView({
 	const analysisVersion = useRef(0);
 	const previousAttempt = useRef<string | undefined>(undefined);
 	const fileId = useId();
-	const sidebar = useRef<HTMLElement>(null);
 	const { startUpload } = useUploadThing("limeniVisualDrawingUploader", {
 		onUploadProgress: setProgress,
 	});
@@ -456,9 +455,6 @@ export default function VisualView({
 	function selectZone(id: string | null) {
 		if (editing || workEditing) return;
 		setSelected(id);
-		if (id === null) return;
-		setSidebarOpen(true);
-		if (sidebar.current) sidebar.current.scrollTop = 0;
 	}
 	const reviewedSources =
 		drawing?.state.evidence.filter((item) => item.reviewRequired) ?? [];
@@ -695,7 +691,6 @@ export default function VisualView({
 							className={`grid min-w-0 items-start gap-4 ${sidebarOpen ? "lg:grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-1"}`}
 						>
 							<aside
-								ref={sidebar}
 								id={`${fileId}-sidebar`}
 								hidden={!sidebarOpen}
 								className="order-2 flex min-w-0 flex-col gap-4 overflow-y-auto rounded-xl border bg-background p-3 lg:order-1 lg:max-h-[min(70dvh,800px)]"
@@ -760,9 +755,7 @@ export default function VisualView({
 										</label>
 									))}
 								</fieldset>
-								<div
-									className={`flex flex-col gap-3 ${source ? "order-first" : ""}`}
-								>
+								<div className="flex flex-col gap-3">
 									<h4 className="font-medium">Zonu avoti</h4>
 									<div className="max-h-64 space-y-1 overflow-y-auto">
 										{visibleMarks.map((mark, i) => (
@@ -799,112 +792,66 @@ export default function VisualView({
 											</Button>
 										))}
 									</div>
-									{source && selectedMark ? (
-										<div className="order-first space-y-2 rounded-md border border-primary/40 bg-primary/5 p-3 text-sm">
-											<p className="text-xs font-semibold text-primary">
-												Izvēlētā zona
-											</p>
-											<p className="font-medium">{source.work}</p>
-											{sourceProgress &&
-											sourceProgress.status !== "complete" ? (
-												<p className="text-xs text-amber-800">
-													Redzama iepriekš saglabātā zona. Šī avota atjaunošana
-													vēl nav pabeigta.
-												</p>
-											) : null}
-											<p>
-												{source.location} ·{" "}
-												{visualDiaryDay(source.date) !== null
-													? formatVisualDay(
-															visualDiaryDay(source.date) as number,
-														)
-													: "—"}
-											</p>
-											<p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
-												{source.description}
-											</p>
-											<DiaryRecordPhotos
-												photos={[source.photoUrl]}
-												language="lv"
-											/>
-											<VisualWorkEditor
-												key={`${source.recordId}:${source.work}`}
-												siteId={siteId}
-												drawingId={drawing.id}
-												source={source}
-												disabled={busy || editing || remoteActive}
-												onEditingChange={setWorkEditing}
-												onSaved={(updated) => {
-													setDrawing(updated);
-													setLayers((values) => [
-														...new Set([
-															...values,
-															workLayer(
-																updated.state.evidence.find(
-																	(item) => item.id === source.id,
-																)?.work ?? source.work,
-															),
-														]),
-													]);
-													setNotice(
-														updated.assignmentWarning ??
-															"Darba tips saglabāts žurnālā un visās ieraksta zonās.",
-													);
-												}}
-											/>
-											{source.reviewRequired ? (
-												<div className="space-y-2 border-t pt-3">
-													<p className="text-xs">
-														Avots ir mainīts. Pārbaudiet attēlu un manuāli
-														pielāgoto zonu.
-													</p>
-													<Button
-														size="sm"
-														variant="outline"
-														disabled={controlsLocked}
-														onClick={() => void resolveReview(false)}
-													>
-														Paturēt zonu
-													</Button>
-													<Button
-														size="sm"
-														variant="outline"
-														disabled={controlsLocked}
-														onClick={() => void resolveReview(true)}
-													>
-														Analizēt vēlreiz
-													</Button>
-												</div>
-											) : null}
-										</div>
-									) : (
-										<p className="text-sm text-muted-foreground">
-											Izvēlieties zonu, lai pārbaudītu tās avotu.
-										</p>
-									)}
 								</div>
 							</aside>
 							<div className="order-1 min-w-0 space-y-4 lg:order-2">
-								<VisualPdf
-									key={drawing.id}
-									url={`${endpoint(drawing.id)}?pdf=1`}
-									marks={visibleMarks}
-									evidence={drawing.state.evidence}
-									selected={selectedMark?.id ?? null}
-									onSelect={selectZone}
-									editable={
-										!busy && !workEditing && drawing.state.status !== "running"
-									}
-									onEditingChange={setEditing}
-									onSave={async (edit) => {
-										const updated = await saveVisualPolygon(
-											siteId,
-											drawing.id,
-											edit,
-										);
-										setDrawing(updated);
-									}}
-								/>
+								<div className="relative overflow-hidden rounded-xl">
+									<VisualPdf
+										key={drawing.id}
+										url={`${endpoint(drawing.id)}?pdf=1`}
+										marks={visibleMarks}
+										evidence={drawing.state.evidence}
+										selected={selectedMark?.id ?? null}
+										onSelect={selectZone}
+										editable={
+											!busy &&
+											!workEditing &&
+											drawing.state.status !== "running"
+										}
+										onEditingChange={setEditing}
+										onSave={async (edit) => {
+											const updated = await saveVisualPolygon(
+												siteId,
+												drawing.id,
+												edit,
+											);
+											setDrawing(updated);
+										}}
+									/>
+									<VisualZoneDetails
+										siteId={siteId}
+										drawingId={drawing.id}
+										source={source}
+										mark={selectedMark}
+										progressPending={
+											!!sourceProgress && sourceProgress.status !== "complete"
+										}
+										editorLocked={busy || editing || remoteActive}
+										closeLocked={editing || workEditing}
+										controlsLocked={controlsLocked}
+										onClose={() => selectZone(null)}
+										onEditingChange={setWorkEditing}
+										onResolveReview={resolveReview}
+										onSaved={(updated) => {
+											if (!source) return;
+											setDrawing(updated);
+											setLayers((values) => [
+												...new Set([
+													...values,
+													workLayer(
+														updated.state.evidence.find(
+															(item) => item.id === source.id,
+														)?.work ?? source.work,
+													),
+												]),
+											]);
+											setNotice(
+												updated.assignmentWarning ??
+													"Darba tips saglabāts žurnālā un visās ieraksta zonās.",
+											);
+										}}
+									/>
+								</div>
 								<fieldset disabled={editing || workEditing} className="min-w-0">
 									<VisualTimeline
 										firstDay={timeline.firstDay}
