@@ -4,6 +4,7 @@ import {
 	Loader2,
 	PanelLeftClose,
 	PanelLeftOpen,
+	Play,
 	RefreshCw,
 	Settings2,
 } from "lucide-react";
@@ -519,7 +520,10 @@ export default function VisualView({
 					disabled={controlsLocked || !index}
 					onValueChange={selectLocation}
 				>
-					<SelectTrigger className="h-8 w-36 shrink-0" aria-label="Lokācija">
+					<SelectTrigger
+						className="h-8 w-28 shrink-0 sm:w-36"
+						aria-label="Lokācija"
+					>
 						<SelectValue placeholder="Lokācija" />
 					</SelectTrigger>
 					<SelectContent>
@@ -539,7 +543,11 @@ export default function VisualView({
 				{drawing ? (
 					<>
 						<output
-							className="hidden shrink-0 text-xs text-muted-foreground lg:block"
+							className={
+								automatic
+									? "absolute bottom-14 left-3 z-40 shrink-0 rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground shadow-sm lg:static lg:border-0 lg:p-0 lg:shadow-none"
+									: "hidden shrink-0 text-xs text-muted-foreground lg:block"
+							}
 							aria-live="polite"
 						>
 							{automatic ? (
@@ -557,10 +565,13 @@ export default function VisualView({
 							<Button
 								size="sm"
 								variant="outline"
+								aria-label="Turpināt analīzi"
+								title="Turpināt analīzi"
 								disabled={controlsLocked}
 								onClick={() => void process("resume")}
 							>
-								Turpināt analīzi
+								<Play className="h-4 w-4" />
+								<span className="hidden md:inline">Turpināt analīzi</span>
 							</Button>
 						) : null}
 						<Button
@@ -839,17 +850,6 @@ export default function VisualView({
 				{notice ? (
 					<output className="pointer-events-none absolute bottom-3 left-1/2 z-40 max-w-[90%] -translate-x-1/2 rounded-md border bg-background/95 px-3 py-2 text-xs shadow-sm">
 						{notice}
-					</output>
-				) : null}
-				{automatic ? (
-					<output
-						className="pointer-events-none absolute bottom-3 left-3 z-40 flex items-center gap-2 rounded-md border bg-background/95 px-3 py-2 text-xs shadow-sm lg:hidden"
-						aria-live="polite"
-					>
-						<Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" />
-						{phase === "analyzing" && drawing
-							? `Atjaunina zonas… ${completedImages}/${drawing.state.evidence.length}`
-							: "Pārbauda izmaiņas…"}
 					</output>
 				) : null}
 			</div>

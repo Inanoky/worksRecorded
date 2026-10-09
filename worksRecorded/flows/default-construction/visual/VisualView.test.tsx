@@ -164,7 +164,8 @@ afterEach(() => {
 
 function openSettings() {
 	const trigger = screen.getByRole("button", { name: "Rasējuma iestatījumi" });
-	if(trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger);
+	if (trigger.getAttribute("aria-expanded") !== "true")
+		fireEvent.click(trigger);
 }
 
 async function selectLocation() {

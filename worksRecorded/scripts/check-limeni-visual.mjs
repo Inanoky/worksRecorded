@@ -184,10 +184,13 @@ try {
 		beforePan,
 	);
 	await assertFits();
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.waitForTimeout(250);
+	await assertFits();
 	assert.equal(pdfRequests, 1);
 	assert.deepEqual(errors, []);
 	console.log(
-		"Verified image-first right panel, uncropped full-width source image, click-to-zoom, closing/reselection, unchanged map width, work-type save/recolor, one PDF load and desktop/tablet layout; no database or AI calls.",
+		"Verified fixed CAD workspace without page scrollbars, layer/source pagination without nested scrollbars, wheel zoom and drag-to-pan, image-first source panel and photo zoom, closing/reselection, work-type save/recolor, one PDF load, and desktop/tablet/laptop/mobile layout; no database or AI calls.",
 	);
 } finally {
 	await browser.close();
