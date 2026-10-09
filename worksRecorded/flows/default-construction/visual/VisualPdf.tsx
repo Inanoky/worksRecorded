@@ -30,7 +30,7 @@ export function VisualPdf({
 	url: string;
 	marks: VisualMark[];
 	selected: string | null;
-	onSelect: (id: string) => void;
+	onSelect: (id: string | null) => void;
 	evidence?: VisualEvidence[];
 	editable?: boolean;
 	onSave?: (edit: PolygonEdit) => Promise<void>;
@@ -371,6 +371,18 @@ export function VisualPdf({
 						event.preventDefault();
 						event.stopPropagation();
 						navigation.suppressClick.current = false;
+						return;
+					}
+					if (
+						ready &&
+						selected &&
+						!interactionLocked &&
+						(event.target === event.currentTarget ||
+							event.target === surface.current ||
+							event.target === canvas.current)
+					) {
+						setHighlighted(null);
+						onSelect(null);
 					}
 				}}
 				data-testid="visual-viewport"

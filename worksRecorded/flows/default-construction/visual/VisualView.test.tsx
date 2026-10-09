@@ -34,8 +34,19 @@ jest.mock("./actions", () => ({
 	resolveVisualSourceReview: jest.fn(),
 }));
 jest.mock("./VisualPdf", () => ({
-	VisualPdf: ({ marks }: { marks: unknown[] }) => (
-		<div data-testid="pdf">{marks.length} zones</div>
+	VisualPdf: ({
+		marks,
+		onSelect,
+	}: {
+		marks: unknown[];
+		onSelect: (id: string | null) => void;
+	}) => (
+		<div data-testid="pdf">
+			{marks.length} zones
+			<button type="button" onClick={() => onSelect(null)}>
+				Empty drawing
+			</button>
+		</div>
 	),
 }));
 jest.mock("@/components/ui/select", () => ({
@@ -160,6 +171,27 @@ async function selectDrawing() {
 	render(<VisualView siteId="site" />);
 	await selectLocation();
 }
+
+it("clears the selected source card on an empty drawing click but protects unsaved work edits", async () => {
+	await selectDrawing();
+	const sidebar = screen.getByRole("complementary", {
+		name: "Darbu slāņi un avoti",
+	});
+	fireEvent.click(within(sidebar).getAllByRole("button")[0]);
+	expect(screen.getByText("Izvēlētā zona")).toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Empty drawing" }));
+	expect(screen.queryByText("Izvēlētā zona")).not.toBeInTheDocument();
+	fireEvent.click(within(sidebar).getAllByRole("button")[0]);
+	await waitFor(() =>
+		expect(screen.getByLabelText("Darba tips")).toBeEnabled(),
+	);
+	fireEvent.change(screen.getByLabelText("Darba tips"), {
+		target: { value: "XPS" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Empty drawing" }));
+	expect(screen.getByText("Izvēlētā zona")).toBeInTheDocument();
+	expect(screen.getByLabelText("Darba tips")).toHaveValue("XPS");
+});
 
 it("automatically checks the retained drawing, pauses when hidden and checks again on return without remounting the map", async () => {
 	jest.useFakeTimers();

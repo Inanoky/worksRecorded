@@ -453,9 +453,10 @@ export default function VisualView({
 	const source = drawing?.state.evidence.find(
 		(item) => item.id === selectedMark?.evidenceId,
 	);
-	function selectZone(id: string) {
-		if (workEditing) return;
+	function selectZone(id: string | null) {
+		if (editing || workEditing) return;
 		setSelected(id);
+		if (id === null) return;
 		setSidebarOpen(true);
 		if (sidebar.current) sidebar.current.scrollTop = 0;
 	}

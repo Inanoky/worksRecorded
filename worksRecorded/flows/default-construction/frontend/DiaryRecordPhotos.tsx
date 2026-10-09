@@ -79,7 +79,7 @@ function Photo({
 	);
 }
 
-function ZoomablePhoto({
+export function ZoomablePhoto({
 	url,
 	label,
 	lv,

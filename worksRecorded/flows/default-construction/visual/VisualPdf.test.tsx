@@ -152,6 +152,77 @@ it("uses translucent fills with stronger opacity for the selected zone", async (
 	);
 });
 
+it.each(["canvas", "surface", "viewport"])(
+	"deselects the zone when clicking the empty %s without reloading the PDF",
+	async (background) => {
+		const onSelect = jest.fn();
+		const props = { url: "/drawing", marks: [mark], onSelect };
+		const { container, rerender } = render(
+			<VisualPdf {...props} selected="mark" />,
+		);
+		await screen.findByRole("button", { name: "XPS: Sakrīt" });
+		const canvas = container.querySelector("canvas") as HTMLCanvasElement;
+		const target =
+			background === "canvas"
+				? canvas
+				: background === "surface"
+					? (canvas.parentElement as HTMLElement)
+					: screen.getByTestId("visual-viewport");
+		fireEvent.click(target);
+		expect(onSelect).toHaveBeenCalledTimes(1);
+		expect(onSelect).toHaveBeenCalledWith(null);
+		rerender(<VisualPdf {...props} selected={null} />);
+		expect(container.querySelector("polygon")).toHaveAttribute(
+			"fill-opacity",
+			"0.5",
+		);
+		expect(global.fetch).toHaveBeenCalledTimes(1);
+	},
+);
+
+it("selects another zone without clearing it and keeps selection when using zoom controls", async () => {
+	const onSelect = jest.fn();
+	render(
+		<VisualPdf
+			url="/drawing"
+			marks={[mark, { ...mark, id: "sand", layer: "sand" }]}
+			selected="mark"
+			onSelect={onSelect}
+		/>,
+	);
+	fireEvent.click(await screen.findByRole("button", { name: /Smilts:/ }));
+	fireEvent.click(screen.getByRole("button", { name: "Tuvināt" }));
+	expect(onSelect.mock.calls).toEqual([["sand"]]);
+});
+
+it("does not deselect after dragging the map", async () => {
+	const originalPointerEvent = window.PointerEvent;
+	window.PointerEvent = MouseEvent as typeof PointerEvent;
+	const onSelect = jest.fn();
+	try {
+		render(
+			<VisualPdf
+				url="/drawing"
+				marks={[mark]}
+				selected="mark"
+				onSelect={onSelect}
+			/>,
+		);
+		await screen.findByRole("button", { name: "XPS: Sakrīt" });
+		const viewport = screen.getByTestId("visual-viewport");
+		viewport.setPointerCapture = jest.fn();
+		fireEvent.pointerDown(viewport, { button: 0, clientX: 100, clientY: 100 });
+		fireEvent.pointerMove(viewport, { clientX: 120, clientY: 100 });
+		fireEvent.pointerUp(viewport, { clientX: 120, clientY: 100 });
+		fireEvent.click(viewport);
+		expect(onSelect).not.toHaveBeenCalled();
+		fireEvent.click(viewport);
+		expect(onSelect).toHaveBeenCalledWith(null);
+	} finally {
+		window.PointerEvent = originalPointerEvent;
+	}
+});
+
 it("shows a PDF load error without drawing overlays", async () => {
 	jest.mocked(global.fetch).mockResolvedValue({ ok: false } as Response);
 	const { container } = render(
@@ -207,12 +278,13 @@ it("zooms with buttons and mouse wheel without reloading the drawing", async () 
 it("edits locally with stable corner focus, supports adding/removing corners and saves only on confirmation", async () => {
 	const onSave = jest.fn().mockResolvedValue(undefined);
 	const onEditingChange = jest.fn();
+	const onSelect = jest.fn();
 	const { container } = render(
 		<VisualPdf
 			url="/drawing"
 			marks={[mark]}
 			selected="mark"
-			onSelect={jest.fn()}
+			onSelect={onSelect}
 			editable
 			onSave={onSave}
 			onEditingChange={onEditingChange}
@@ -222,6 +294,8 @@ it("edits locally with stable corner focus, supports adding/removing corners and
 		expect(screen.getByRole("button", { name: "Pielāgot zonu" })).toBeEnabled(),
 	);
 	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	fireEvent.click(screen.getByTestId("visual-viewport"));
+	expect(onSelect).not.toHaveBeenCalled();
 	const corner = screen.getByRole("button", { name: "Stūris 1" });
 	corner.focus();
 	fireEvent.keyDown(corner, { key: "ArrowRight", shiftKey: true });
