@@ -7,12 +7,17 @@ import {
 	Minus,
 	Pencil,
 	Plus,
+	Trash2,
 } from "lucide-react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { type VisualMark, visualLayers } from "./model";
-import { type PolygonEdit, polygonEditSchema } from "./polygon-edit";
+import {
+	type PolygonDelete,
+	type PolygonEdit,
+	polygonEditSchema,
+} from "./polygon-edit";
 import { useDrawingViewport } from "./useDrawingViewport";
 import { VisualZoneTarget } from "./VisualZoneTarget";
 import { MAX_DRAWING_ZOOM, MIN_DRAWING_ZOOM } from "./viewport";
@@ -26,6 +31,7 @@ export function VisualPdf({
 	onSave,
 	onEditingChange,
 	fillWorkspace = false,
+	onDelete,
 }: {
 	url: string;
 	marks: VisualMark[];
@@ -35,6 +41,7 @@ export function VisualPdf({
 	onSave?: (edit: PolygonEdit) => Promise<void>;
 	onEditingChange?: (editing: boolean) => void;
 	fillWorkspace?: boolean;
+	onDelete?: (deletion: PolygonDelete) => void;
 }) {
 	const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
 	const [page, setPage] = useState(1);
@@ -214,6 +221,9 @@ export function VisualPdf({
 					<Button
 						size="sm"
 						variant="outline"
+						className="w-8 px-0 md:w-auto md:px-3"
+						aria-label="Pielāgot zonu"
+						title="Pielāgot zonu"
 						disabled={!editable || !selectedMark || !ready}
 						onClick={() => {
 							if (!selectedMark) return;
@@ -231,8 +241,29 @@ export function VisualPdf({
 							onEditingChange?.(true);
 						}}
 					>
-						<Pencil className="mr-1 h-3.5 w-3.5" />
-						Pielāgot zonu
+						<Pencil className="h-3.5 w-3.5 md:mr-1" />
+						<span className="hidden md:inline">Pielāgot zonu</span>
+					</Button>
+				) : null}
+				{onDelete && !draft ? (
+					<Button
+						size="icon"
+						variant="ghost"
+						className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+						aria-label="Dzēst poligonu"
+						title="Dzēst tikai izvēlēto poligonu"
+						disabled={!editable || !selectedMark || !ready}
+						onClick={() => {
+							if (selectedMark)
+								onDelete({
+									markId: selectedMark.id,
+									expectedPolygon: selectedMark.polygon.map((point) => ({
+										...point,
+									})),
+								});
+						}}
+					>
+						<Trash2 className="h-4 w-4" />
 					</Button>
 				) : null}
 				{draft ? (

@@ -58,7 +58,10 @@ try {
 			.evaluate((element) => element.scrollHeight <= element.clientHeight),
 	);
 	await page.getByRole("button", { name: "Paslēpt slāņus un avotus" }).click();
-	await page.getByRole("button", { name: /^Smilts: Aptuvena/ }).click();
+	await page
+		.getByRole("button", { name: /^Smilts: Aptuvena/ })
+		.first()
+		.click();
 	await page.mouse.move(1300, 100);
 	const selected = page
 		.getByTestId("visual-viewport")
@@ -187,10 +190,40 @@ try {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.waitForTimeout(250);
 	await assertFits();
+	await page.setViewportSize({ width: 1280, height: 720 });
+	await page.getByRole("button", { name: "Rādīt slāņus un avotus" }).click();
+	await page
+		.getByRole("button", { name: /20.09.2026.*1\./ })
+		.first()
+		.click();
+	await page.getByRole("button", { name: "Dzēst poligonu" }).click();
+	const deletionDialog = page.getByRole("alertdialog");
+	await deletionDialog.getByRole("button", { name: "Atcelt" }).click();
+	assert.equal(await page.locator("polygon").count(), 4);
+	await page.getByRole("button", { name: "Dzēst poligonu" }).click();
+	await deletionDialog.getByRole("button", { name: "Jā, dzēst" }).click();
+	await page.getByText(/Poligons dzēsts/).waitFor();
+	assert.equal(await page.locator("polygon").count(), 3);
+	const persisted = await page.evaluate(
+		() => window.__visualPreviewDrawing.state,
+	);
+	assert.equal(persisted.evidence.length, 3);
+	assert(
+		persisted.marks.some(
+			(mark) => mark.id === "mark-split" && mark.evidenceId === "photo-0",
+		),
+	);
+	assert.equal(persisted.deletedPolygons.length, 1);
+	await page
+		.getByRole("button", { name: /20.09.2026.*1\./ })
+		.first()
+		.click();
+	await sourceImage.waitFor();
+	await assertFits();
 	assert.equal(pdfRequests, 1);
 	assert.deepEqual(errors, []);
 	console.log(
-		"Verified fixed CAD workspace without page scrollbars, layer/source pagination without nested scrollbars, wheel zoom and drag-to-pan, image-first source panel and photo zoom, closing/reselection, work-type save/recolor, one PDF load, and desktop/tablet/laptop/mobile layout; no database or AI calls.",
+		"Verified CAD workspace, zoom/pan, source image zoom, work-type save/recolor, confirmed single-polygon deletion preserving its split sibling and photo, one PDF load, and desktop/tablet/laptop/mobile layout; no database or AI calls.",
 	);
 } finally {
 	await browser.close();

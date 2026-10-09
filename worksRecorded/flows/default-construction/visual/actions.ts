@@ -9,6 +9,7 @@ import {
 	listVisualDrawings,
 	listVisualWorkTypes,
 	removeVisualDrawing,
+	removeVisualPolygon,
 	resetVisualDrawing,
 	reviewVisualSource,
 } from "./store";
@@ -66,4 +67,13 @@ export async function saveVisualPolygon(
 ) {
 	const user = await requireUser();
 	return editVisualPolygon(user.id, siteId, drawingId, input);
+}
+
+export async function deleteVisualPolygon(
+	siteId: string,
+	drawingId: string,
+	input: unknown,
+) {
+	const user = await requireUser();
+	return removeVisualPolygon(user.id, siteId, drawingId, input);
 }

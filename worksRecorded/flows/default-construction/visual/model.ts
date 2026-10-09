@@ -98,6 +98,17 @@ export const visualStateSchema = z.object({
 		}),
 	),
 	unlocated: visualAnalysisSchema.shape.unlocated,
+	deletedPolygons: z
+		.array(
+			z.object({
+				markId: z.string(),
+				evidenceId: z.string(),
+				polygon: visualMatchSchema.shape.polygon,
+				deletedAt: z.string(),
+				deletedBy: z.string(),
+			}),
+		)
+		.optional(),
 	error: z.string().nullable(),
 	lockedAt: z.number().nullable(),
 	attempts: z.array(

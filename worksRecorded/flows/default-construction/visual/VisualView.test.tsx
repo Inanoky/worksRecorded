@@ -10,12 +10,14 @@ import type { ReactNode } from "react";
 import { DIARY_PHOTO_DELETED } from "@/lib/photos/photo-deleted-event";
 import {
 	deleteVisualDrawing,
+	deleteVisualPolygon,
 	getVisualDrawings,
 	getVisualWorkTypes,
 	refreshVisualDrawing,
 	restartVisualDrawing,
 } from "./actions";
-import type { VisualDrawing } from "./model";
+import type { VisualDrawing, VisualMark } from "./model";
+import type { PolygonDelete } from "./polygon-edit";
 import { visualDiaryDay } from "./timeline";
 import VisualView from "./VisualView";
 
@@ -27,6 +29,7 @@ jest.mock("./actions", () => ({
 	getVisualDrawings: jest.fn(),
 	refreshVisualDrawing: jest.fn(),
 	deleteVisualDrawing: jest.fn(),
+	deleteVisualPolygon: jest.fn(),
 	restartVisualDrawing: jest.fn(),
 	saveVisualPolygon: jest.fn(),
 	getVisualWorkTypes: jest.fn(),
@@ -37,9 +40,11 @@ jest.mock("./VisualPdf", () => ({
 	VisualPdf: ({
 		marks,
 		onSelect,
+		onDelete,
 	}: {
-		marks: { id: string }[];
+		marks: VisualMark[];
 		onSelect: (id: string | null) => void;
+		onDelete: (deletion: PolygonDelete) => void;
 	}) => (
 		<div data-testid="pdf">
 			{marks.length} zones
@@ -48,6 +53,14 @@ jest.mock("./VisualPdf", () => ({
 			</button>
 			<button type="button" onClick={() => onSelect(null)}>
 				Empty drawing
+			</button>
+			<button
+				type="button"
+				onClick={() =>
+					onDelete({ markId: marks[0].id, expectedPolygon: marks[0].polygon })
+				}
+			>
+				Dzēst poligonu
 			</button>
 		</div>
 	),
@@ -141,6 +154,7 @@ beforeEach(() => {
 		reviewCount: 0,
 	});
 	jest.mocked(deleteVisualDrawing).mockResolvedValue(undefined);
+	jest.mocked(deleteVisualPolygon).mockResolvedValue(complete);
 	global.fetch = mockFetch;
 	jest.mocked(getVisualDrawings).mockResolvedValue({
 		locations: ["1. stāvs", "2. stāvs"],
@@ -532,6 +546,79 @@ it("requires confirmation before deletion and removes the drawing from the view"
 	);
 	expect(deleteVisualDrawing).toHaveBeenCalledWith("site", "drawing");
 	expect(screen.queryByText("plan.pdf")).not.toBeInTheDocument();
+});
+
+it("confirms individual polygon deletion, retains its sibling/source and does not remount the PDF", async () => {
+	const split = {
+		...complete,
+		state: {
+			...complete.state,
+			marks: [
+				complete.state.marks[0],
+				{ ...complete.state.marks[0], id: "sibling" },
+			],
+		},
+	};
+	mockFetch.mockResolvedValue({ ok: true, json: async () => split });
+	jest.mocked(refreshVisualDrawing).mockResolvedValue({
+		drawing: split,
+		addedCount: 0,
+		updatedCount: 0,
+		removedCount: 0,
+		analysisCount: 0,
+		reviewCount: 0,
+	});
+	const updated = {
+		...split,
+		state: { ...split.state, marks: [split.state.marks[1]] },
+	};
+	jest.mocked(deleteVisualPolygon).mockResolvedValue(updated);
+	await selectDrawing();
+	const pdf = screen.getByTestId("pdf");
+	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
+	fireEvent.click(screen.getByRole("button", { name: "Dzēst poligonu" }));
+	expect(screen.getByRole("alertdialog")).toHaveTextContent(
+		"Tiks dzēsts tikai izvēlētais poligons",
+	);
+	expect(deleteVisualPolygon).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Atcelt" }));
+	expect(pdf).toHaveTextContent("2 zones");
+	fireEvent.click(screen.getByRole("button", { name: "Dzēst poligonu" }));
+	fireEvent.click(screen.getByRole("button", { name: "Jā, dzēst" }));
+	await screen.findByText(/Poligons dzēsts/);
+	expect(deleteVisualPolygon).toHaveBeenCalledWith("site", "drawing", {
+		markId: "mark",
+		expectedPolygon: complete.state.marks[0].polygon,
+	});
+	expect(screen.getByTestId("pdf")).toBe(pdf);
+	expect(pdf).toHaveTextContent("1 zones");
+	expect(
+		screen.queryByRole("complementary", {
+			name: "Izvēlētās zonas informācija",
+		}),
+	).not.toBeInTheDocument();
+	expect(deleteVisualDrawing).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
+	expect(screen.getByText("Izvēlētā zona")).toBeInTheDocument();
+	expect(
+		screen.getByRole("complementary", { name: "Izvēlētās zonas informācija" }),
+	).toHaveTextContent("Smilts");
+});
+
+it("retains the selected polygon and source if deletion fails", async () => {
+	jest
+		.mocked(deleteVisualPolygon)
+		.mockRejectedValue(new Error("Poligons jau ir mainīts"));
+	await selectDrawing();
+	const pdf = screen.getByTestId("pdf");
+	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
+	fireEvent.click(screen.getByRole("button", { name: "Dzēst poligonu" }));
+	fireEvent.click(screen.getByRole("button", { name: "Jā, dzēst" }));
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Poligons jau ir mainīts",
+	);
+	expect(pdf).toHaveTextContent("1 zones");
+	expect(screen.getByText("Izvēlētā zona")).toBeInTheDocument();
 });
 
 it("keeps the drawing visible when deletion fails", async () => {

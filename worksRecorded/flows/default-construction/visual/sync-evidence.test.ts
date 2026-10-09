@@ -73,6 +73,50 @@ it("protects manually adjusted zones and flags changed sources once in automatic
 	expect(previous.evidence[0].reviewRequired).toBeUndefined();
 });
 
+it("keeps deleted polygons absent on refresh, including the last polygon, and flags changed sources for review", () => {
+	const previous = savedState();
+	const removed = previous.marks[0];
+	previous.marks = previous.marks.slice(1);
+	previous.deletedPolygons = [
+		{
+			markId: removed.id,
+			evidenceId: removed.evidenceId,
+			polygon: removed.polygon,
+			deletedAt: "2026-10-09",
+			deletedBy: "user",
+		},
+	];
+	const unchanged = syncVisualEvidence(
+		previous,
+		previous.evidence,
+		() => "new",
+		true,
+	);
+	expect(unchanged.analysisCount).toBe(0);
+	expect(unchanged.state.marks).toEqual(previous.marks);
+	expect(unchanged.state.deletedPolygons).toEqual(previous.deletedPolygons);
+	const changed = syncVisualEvidence(
+		unchanged.state,
+		[{ ...evidence, description: "Updated" }, previous.evidence[1]],
+		() => "new",
+		true,
+	);
+	expect(changed).toMatchObject({
+		analysisCount: 0,
+		reviewCount: 1,
+		updatedCount: 1,
+	});
+	expect(changed.state.marks).toEqual(previous.marks);
+	expect(changed.state.evidence[0].reviewRequired).toBe(true);
+	const pruned = syncVisualEvidence(
+		previous,
+		[previous.evidence[1]],
+		() => "new",
+		true,
+	);
+	expect(pruned.state.deletedPolygons).toEqual([]);
+});
+
 it("keeps last valid zones while queuing changed unedited sources and removes deleted sources", () => {
 	const previous = savedState();
 	delete previous.marks[0].editedAt;

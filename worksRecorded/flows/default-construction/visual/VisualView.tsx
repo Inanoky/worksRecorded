@@ -42,6 +42,7 @@ import { useUploadThing } from "@/lib/utils/UploadthingsComponents";
 import { DiaryRecordPhotos } from "../frontend/DiaryRecordPhotos";
 import {
 	deleteVisualDrawing,
+	deleteVisualPolygon,
 	getVisualDrawings,
 	refreshVisualDrawing,
 	resolveVisualSourceReview,
@@ -58,6 +59,7 @@ import {
 	visualLayers,
 	workLayer,
 } from "./model";
+import type { PolygonDelete } from "./polygon-edit";
 import { pruneVisualEvidence } from "./prune-evidence";
 import {
 	buildVisualTimeline,
@@ -103,9 +105,13 @@ export default function VisualView({
 		Date.now() - drawing.state.lockedAt < VISUAL_LEASE_MS;
 	const controlsLocked = busy || editing || workEditing || remoteActive;
 	const [confirmation, setConfirmation] = useState<
-		"delete" | "restart" | "replace" | null
+		"delete" | "restart" | "replace" | "polygon" | null
 	>(null);
+	const [polygonDeletion, setPolygonDeletion] = useState<PolygonDelete | null>(
+		null,
+	);
 	const [deleting, setDeleting] = useState(false);
+	const [deletingPolygon, setDeletingPolygon] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
@@ -387,6 +393,37 @@ export default function VisualView({
 			if (run === epoch.current) {
 				setBusy(false);
 				setPhase("idle");
+			}
+		}
+	}
+	async function removePolygon(deletion: PolygonDelete) {
+		if (!drawing || busyRef.current || editing || workEditing) return;
+		const run = epoch.current;
+		busyRef.current = true;
+		setBusy(true);
+		setDeletingPolygon(true);
+		setError(null);
+		try {
+			const updated = await deleteVisualPolygon(siteId, drawing.id, deletion);
+			if (run !== epoch.current) return;
+			++requestId.current;
+			setDrawing(updated);
+			setSelected((value) => (value === deletion.markId ? null : value));
+			setNotice(
+				"Poligons dzēsts. Pārējie poligoni, žurnāla ieraksts un avota foto saglabāti.",
+			);
+		} catch (issue) {
+			if (run === epoch.current)
+				setError(
+					issue instanceof Error
+						? issue.message
+						: "Neizdevās dzēst poligonu. Mēģiniet vēlreiz.",
+				);
+		} finally {
+			busyRef.current = false;
+			if (run === epoch.current) {
+				setBusy(false);
+				setDeletingPolygon(false);
 			}
 		}
 	}
@@ -731,6 +768,10 @@ export default function VisualView({
 								!busy && !workEditing && drawing.state.status !== "running"
 							}
 							onEditingChange={setEditing}
+							onDelete={(deletion) => {
+								setPolygonDeletion(deletion);
+								setConfirmation("polygon");
+							}}
 							onSave={async (edit) => {
 								const updated = await saveVisualPolygon(
 									siteId,
@@ -814,7 +855,12 @@ export default function VisualView({
 				drawing?.state.error ||
 				reviewedSources.length ? (
 					<div className="absolute bottom-14 left-3 right-16 z-40 max-h-[calc(100%-8rem)] max-w-xl space-y-2 overflow-y-auto rounded-lg border bg-background/95 p-3 shadow-lg">
-						{!automatic ? (
+						{deletingPolygon ? (
+							<output className="flex items-center gap-2 text-xs">
+								<Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+								Dzēš poligonu…
+							</output>
+						) : !automatic ? (
 							<VisualAnalysisProgress
 								phase={phase}
 								drawing={drawing}
@@ -878,24 +924,31 @@ export default function VisualView({
 			<AlertDialog
 				open={confirmation !== null}
 				onOpenChange={(open) => {
-					if (!open) setConfirmation(null);
+					if (!open) {
+						setConfirmation(null);
+						setPolygonDeletion(null);
+					}
 				}}
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>
-							{confirmation === "delete"
-								? "Dzēst rasējumu?"
-								: confirmation === "replace"
-									? "Aizstāt lokācijas rasējumu?"
-									: "Sākt analīzi no jauna?"}
+							{confirmation === "polygon"
+								? "Dzēst izvēlēto poligonu?"
+								: confirmation === "delete"
+									? "Dzēst rasējumu?"
+									: confirmation === "replace"
+										? "Aizstāt lokācijas rasējumu?"
+										: "Sākt analīzi no jauna?"}
 						</AlertDialogTitle>
 						<AlertDialogDescription>
-							{confirmation === "delete"
-								? `Rasējums “${drawing?.name}” un tā analīzes rezultāti tiks neatgriezeniski noņemti no izpildshēmu skata. Žurnāla ieraksti, fotoattēli un citi rasējumi netiks mainīti.`
-								: confirmation === "replace"
-									? "Katrai lokācijai ir viens aktīvs rasējums. Iepriekšējais rasējums un tā zonas tiks arhivēti; jaunais PDF tiks analizēts no jauna."
-									: "Esošās zonas un manuālie labojumi tiks aizstāti ar jaunu analīzi, izmantojot to pašu PDF un saglabātos avota attēlus. Lai iekļautu tikai jaunus žurnāla attēlus un saglabātu esošās zonas, izmantojiet “Atjaunot no žurnāla”."}
+							{confirmation === "polygon"
+								? "Tiks dzēsts tikai izvēlētais poligons. Pārējie šī darba poligoni, žurnāla ieraksts un avota foto netiks mainīti. Parasta atjaunošana to neatjaunos; atkārtota avota analīze vai visas analīzes sākšana no jauna var to izveidot atkārtoti."
+								: confirmation === "delete"
+									? `Rasējums “${drawing?.name}” un tā analīzes rezultāti tiks neatgriezeniski noņemti no izpildshēmu skata. Žurnāla ieraksti, fotoattēli un citi rasējumi netiks mainīti.`
+									: confirmation === "replace"
+										? "Katrai lokācijai ir viens aktīvs rasējums. Iepriekšējais rasējums un tā zonas tiks arhivēti; jaunais PDF tiks analizēts no jauna."
+										: "Esošās zonas un manuālie labojumi tiks aizstāti ar jaunu analīzi, izmantojot to pašu PDF un saglabātos avota attēlus. Lai iekļautu tikai jaunus žurnāla attēlus un saglabātu esošās zonas, izmantojiet “Atjaunot no žurnāla”."}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -903,12 +956,14 @@ export default function VisualView({
 						<AlertDialogAction
 							disabled={busy}
 							onClick={() => {
-								if (confirmation === "delete") void removeDrawing();
+								if (confirmation === "polygon" && polygonDeletion)
+									void removePolygon(polygonDeletion);
+								else if (confirmation === "delete") void removeDrawing();
 								else if (confirmation === "replace") void process("upload");
 								else void process("restart");
 							}}
 						>
-							{confirmation === "delete"
+							{confirmation === "delete" || confirmation === "polygon"
 								? "Jā, dzēst"
 								: confirmation === "replace"
 									? "Jā, aizstāt"

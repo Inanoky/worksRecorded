@@ -57,8 +57,18 @@ const fixture = {
 		})),
 	},
 };
+fixture.state.marks.push({
+	...fixture.state.marks[0],
+	id: "mark-split",
+	polygon: [
+		{ x: 0.1, y: 0.74 },
+		{ x: 0.25, y: 0.74 },
+		{ x: 0.25, y: 0.84 },
+		{ x: 0.1, y: 0.84 },
+	],
+});
 const modules = {
-	actions: `let drawing=${JSON.stringify(fixture)}; export async function getVisualDrawings(){return {locations:['1. stāvs'],drawings:[{id:drawing.id,name:drawing.name,location:drawing.state.location,createdAt:drawing.createdAt,status:'complete'}]}}; export async function saveVisualPolygon(site,id,edit){drawing=structuredClone(drawing);drawing.state.marks.find(x=>x.id===edit.markId).polygon=edit.polygon;window.__visualPreviewDrawing=drawing;return drawing}; export async function deleteVisualDrawing(){};export async function refreshVisualDrawing(){return {drawing,addedCount:0,updatedCount:0,removedCount:0,analysisCount:0,reviewCount:0}};export async function restartVisualDrawing(){throw Error('Preview only')};export async function getVisualWorkTypes(){return ['Smilts līdzināšana','XPS izolācija 150 mm','Estrich grīda 70 mm']};export async function saveVisualWorkType(site,id,edit){drawing=structuredClone(drawing);const source=drawing.state.evidence.find(x=>x.id===edit.evidenceId);const layer=edit.work.includes('XPS')?'xps':edit.work.includes('Estrich')?'estrich':'sand';for(const item of drawing.state.evidence.filter(x=>x.recordId===source.recordId)){item.work=edit.work;for(const mark of drawing.state.marks.filter(x=>x.evidenceId===item.id))mark.layer=layer}window.__visualPreviewDrawing=drawing;return drawing};export async function resolveVisualSourceReview(){throw Error('Preview only')}`,
+	actions: `let drawing=${JSON.stringify(fixture)}; export async function getVisualDrawings(){return {locations:['1. stāvs'],drawings:[{id:drawing.id,name:drawing.name,location:drawing.state.location,createdAt:drawing.createdAt,status:'complete'}]}}; export async function saveVisualPolygon(site,id,edit){drawing=structuredClone(drawing);drawing.state.marks.find(x=>x.id===edit.markId).polygon=edit.polygon;window.__visualPreviewDrawing=drawing;return drawing}; export async function deleteVisualDrawing(){};export async function deleteVisualPolygon(site,id,input){drawing=structuredClone(drawing);const mark=drawing.state.marks.find(x=>x.id===input.markId);if(!mark)throw Error('Missing polygon');drawing.state.marks=drawing.state.marks.filter(x=>x.id!==input.markId);drawing.state.deletedPolygons=[...(drawing.state.deletedPolygons??[]),{markId:mark.id,evidenceId:mark.evidenceId,polygon:mark.polygon,deletedAt:new Date().toISOString(),deletedBy:'preview'}];window.__visualPreviewDrawing=drawing;return drawing};export async function refreshVisualDrawing(){return {drawing,addedCount:0,updatedCount:0,removedCount:0,analysisCount:0,reviewCount:0}};export async function restartVisualDrawing(){throw Error('Preview only')};export async function getVisualWorkTypes(){return ['Smilts līdzināšana','XPS izolācija 150 mm','Estrich grīda 70 mm']};export async function saveVisualWorkType(site,id,edit){drawing=structuredClone(drawing);const source=drawing.state.evidence.find(x=>x.id===edit.evidenceId);const layer=edit.work.includes('XPS')?'xps':edit.work.includes('Estrich')?'estrich':'sand';for(const item of drawing.state.evidence.filter(x=>x.recordId===source.recordId)){item.work=edit.work;for(const mark of drawing.state.marks.filter(x=>x.evidenceId===item.id))mark.layer=layer}window.__visualPreviewDrawing=drawing;return drawing};export async function resolveVisualSourceReview(){throw Error('Preview only')}`,
 	upload: `export const useUploadThing=()=>({startUpload:async()=>{throw Error('Preview only')}});`,
 	image: `import React from 'react';export default function Image({fill,unoptimized,sizes,style,...props}){return React.createElement('img',{...props,style:{...(fill?{position:'absolute',inset:0,width:'100%',height:'100%'}:{}),...style}})}`,
 	worker: `export const pdfWorkerUrl='/worker.mjs';`,

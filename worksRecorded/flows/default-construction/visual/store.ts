@@ -18,7 +18,7 @@ import {
 	visualStateSchema,
 	workLayer,
 } from "./model";
-import { polygonEditSchema } from "./polygon-edit";
+import { polygonDeleteSchema, polygonEditSchema } from "./polygon-edit";
 import { syncVisualEvidence } from "./sync-evidence";
 
 const archivedVisualType = `${VISUAL_DOCUMENT_TYPE}-archived`;
@@ -330,6 +330,10 @@ export async function reviewVisualSource(
 		throw new Error("Avots jau ir pārskatīts. Atjaunojiet skatu.");
 	delete source.reviewRequired;
 	if (reanalyze) {
+		if (drawing.state.deletedPolygons)
+			drawing.state.deletedPolygons = drawing.state.deletedPolygons.filter(
+				(item) => item.evidenceId !== evidenceId,
+			);
 		drawing.state.imageProgress = visualImageProgress(drawing.state).map(
 			(item) =>
 				item.evidenceId === evidenceId
@@ -614,6 +618,54 @@ export async function editVisualPolygon(
 	return drawing;
 }
 
+export async function removeVisualPolygon(
+	userId: string,
+	siteId: string,
+	drawingId: string,
+	input: unknown,
+) {
+	const deletion = polygonDeleteSchema.parse(input);
+	const { row, drawing } = await loadVisualDrawing(userId, siteId, drawingId);
+	requireIdleDrawing(drawing.state);
+	const state = drawing.state;
+	const mark = state.marks.find((item) => item.id === deletion.markId);
+	if (!mark) throw new Error("Poligons nav atrasts. Atjaunojiet rasējumu.");
+	if (JSON.stringify(mark.polygon) !== JSON.stringify(deletion.expectedPolygon))
+		throw new Error(
+			"Poligons jau ir mainīts. Atjaunojiet rasējumu pirms dzēšanas.",
+		);
+	const progress = visualImageProgress(state);
+	const source = state.evidence.find((item) => item.id === mark.evidenceId);
+	if (!source) throw new Error("Poligona avots nav atrasts.");
+	if (
+		progress.some(
+			(item) => item.evidenceId === source.id && item.status !== "complete",
+		)
+	)
+		source.reviewRequired = true;
+	state.imageProgress = progress.map((item) =>
+		item.evidenceId === source.id
+			? { ...item, status: "complete", error: null }
+			: item,
+	);
+	state.processed = state.imageProgress.filter(
+		(item) => item.status === "complete",
+	).length;
+	state.marks = state.marks.filter((item) => item.id !== mark.id);
+	state.deletedPolygons = [
+		...(state.deletedPolygons ?? []),
+		{
+			markId: mark.id,
+			evidenceId: mark.evidenceId,
+			polygon: mark.polygon,
+			deletedAt: new Date().toISOString(),
+			deletedBy: userId,
+		},
+	];
+	await saveVisualState(row, state);
+	return drawing;
+}
+
 export async function resetVisualDrawing(
 	userId: string,
 	siteId: string,
@@ -635,6 +687,7 @@ export async function resetVisualDrawing(
 		status: "uploaded",
 		processed: 0,
 		marks: [],
+		deletedPolygons: undefined,
 		imageProgress: undefined,
 		unlocated: [],
 		error: null,

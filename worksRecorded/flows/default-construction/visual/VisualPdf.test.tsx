@@ -78,6 +78,39 @@ it("renders the PDF and normalized overlay on the same surface", async () => {
 	expect(container.querySelector("polygon")).not.toBeInTheDocument();
 });
 
+it("deletes only the selected polygon and disables deletion during unsaved geometry edits", async () => {
+	const onDelete = jest.fn();
+	const props = {
+		url: "/drawing",
+		marks: [mark, { ...mark, id: "sibling" }],
+		selected: "sibling",
+		onSelect: jest.fn(),
+		editable: true,
+		onDelete,
+		onSave: jest.fn(),
+	};
+	const view = render(<VisualPdf {...props} />);
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Dzēst poligonu" }),
+		).toBeEnabled(),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Dzēst poligonu" }));
+	expect(onDelete).toHaveBeenCalledWith({
+		markId: "sibling",
+		expectedPolygon: mark.polygon,
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	expect(
+		screen.queryByRole("button", { name: "Dzēst poligonu" }),
+	).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Atcelt" }));
+	view.rerender(<VisualPdf {...props} editable={false} />);
+	expect(screen.getByRole("button", { name: "Dzēst poligonu" })).toBeDisabled();
+	view.rerender(<VisualPdf {...props} selected={null} />);
+	expect(screen.getByRole("button", { name: "Dzēst poligonu" })).toBeDisabled();
+});
+
 it("navigates to the selected source's page and destroys the PDF on unmount", async () => {
 	const { rerender, unmount } = render(
 		<VisualPdf

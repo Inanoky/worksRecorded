@@ -26,6 +26,13 @@ export function pruneVisualEvidence(
 		...state,
 		evidence,
 		marks,
+		...(state.deletedPolygons
+			? {
+					deletedPolygons: state.deletedPolygons.filter((item) =>
+						ids.has(item.evidenceId),
+					),
+				}
+			: {}),
 		unlocated: state.unlocated.filter((item) => ids.has(item.evidenceId)),
 		imageProgress,
 		processed,

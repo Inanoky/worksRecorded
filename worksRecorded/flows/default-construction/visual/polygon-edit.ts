@@ -10,3 +10,9 @@ export const polygonEditSchema = z.object({
 	),
 });
 export type PolygonEdit = z.infer<typeof polygonEditSchema>;
+
+export const polygonDeleteSchema = polygonEditSchema.pick({
+	markId: true,
+	expectedPolygon: true,
+});
+export type PolygonDelete = z.infer<typeof polygonDeleteSchema>;

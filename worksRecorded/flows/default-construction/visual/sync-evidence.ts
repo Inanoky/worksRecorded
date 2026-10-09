@@ -74,7 +74,8 @@ export function syncVisualEvidence(
 			const changed = changedKeys.has(evidenceKey(item));
 			const manual =
 				changed &&
-				state.marks.some((mark) => mark.evidenceId === id && mark.editedAt);
+				(state.marks.some((mark) => mark.evidenceId === id && mark.editedAt) ||
+					state.deletedPolygons?.some((item) => item.evidenceId === id));
 			if (!old || (changed && !manual)) {
 				progress.set(id, { evidenceId: id, status: "pending", error: null });
 				analysisCount++;

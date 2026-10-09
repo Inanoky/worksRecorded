@@ -16,6 +16,7 @@ import {
 	listVisualWorkTypes,
 	loadVisualDrawing,
 	removeVisualDrawing,
+	removeVisualPolygon,
 	requireVisualAccess,
 	resetVisualDrawing,
 	reviewVisualSource,
@@ -655,6 +656,128 @@ it("saves only polygon geometry with editor attribution and keeps diary evidence
 	});
 	expect(prisma.documents.updateMany).toHaveBeenCalledTimes(1);
 });
+
+it("deletes just one split polygon, preserves its siblings and evidence, and stores deletion attribution", async () => {
+	const { row, state, edit } = await mockEditableDrawing();
+	const sibling = { ...state.marks[0], id: "sibling" };
+	const other = { ...state.marks[0], id: "other", evidenceId: "other-source" };
+	state.evidence.push({
+		...state.evidence[0],
+		id: "other-source",
+		recordId: "other-record",
+	});
+	state.marks.push(sibling, other);
+	row.description = JSON.stringify(state);
+	const updated = await removeVisualPolygon("user", "site", "drawing", edit);
+	expect(updated.state.marks).toEqual([sibling, other]);
+	expect(updated.state.evidence).toEqual(state.evidence);
+	expect(updated.state.deletedPolygons).toEqual([
+		{
+			markId: edit.markId,
+			evidenceId: state.evidence[0].id,
+			polygon: edit.expectedPolygon,
+			deletedBy: "user",
+			deletedAt: expect.any(String),
+		},
+	]);
+	expect(prisma.documents.updateMany).toHaveBeenCalledWith(
+		expect.objectContaining({
+			where: expect.objectContaining({
+				description: row.description,
+				siteId: "site",
+				organizationId: LIMENI_ORGANIZATION_ID,
+			}),
+		}),
+	);
+	expect(prisma.sitediaryrecords.updateMany).not.toHaveBeenCalled();
+	expect(prisma.documents.deleteMany).not.toHaveBeenCalled();
+});
+
+it("rejects missing, stale and concurrent polygon deletions without changing diary data", async () => {
+	const { edit } = await mockEditableDrawing();
+	await expect(
+		removeVisualPolygon("user", "site", "drawing", {
+			...edit,
+			markId: "missing",
+		}),
+	).rejects.toThrow("Poligons nav atrasts");
+	await expect(
+		removeVisualPolygon("user", "site", "drawing", {
+			...edit,
+			expectedPolygon: edit.polygon,
+		}),
+	).rejects.toThrow("Poligons jau ir mainīts");
+	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
+	jest.mocked(prisma.documents.updateMany).mockResolvedValueOnce({ count: 0 });
+	await expect(
+		removeVisualPolygon("user", "site", "drawing", edit),
+	).rejects.toThrow("jau tiek atjaunināta");
+	expect(prisma.sitediaryrecords.updateMany).not.toHaveBeenCalled();
+});
+
+it("blocks polygon deletion during analysis and enforces organization/project access", async () => {
+	const { row, state, edit } = await mockEditableDrawing();
+	row.description = JSON.stringify({ ...state, lockedAt: Date.now() });
+	await expect(
+		removeVisualPolygon("user", "site", "drawing", edit),
+	).rejects.toThrow("Analīze vēl notiek");
+	jest
+		.mocked(requireWarehouseImportAccess)
+		.mockResolvedValueOnce({ organizationId: "another-org" } as never);
+	await expect(
+		removeVisualPolygon("user", "site", "drawing", edit),
+	).rejects.toThrow("organizācijai nav pieejams");
+	jest.mocked(prisma.documents.findFirst).mockResolvedValueOnce(null);
+	await expect(
+		removeVisualPolygon("user", "another-site", "drawing", edit),
+	).rejects.toThrow();
+	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
+});
+
+it("keeps the last deleted polygon's source completed and protects a pending source from silent recreation", async () => {
+	const { row, state, edit } = await mockEditableDrawing();
+	state.processed = 0;
+	state.imageProgress = [
+		{ evidenceId: state.evidence[0].id, status: "pending", error: null },
+	];
+	row.description = JSON.stringify(state);
+	const updated = await removeVisualPolygon("user", "site", "drawing", edit);
+	expect(updated.state.marks).toEqual([]);
+	expect(updated.state.processed).toBe(1);
+	expect(updated.state.imageProgress?.[0].status).toBe("complete");
+	expect(updated.state.evidence[0].reviewRequired).toBe(true);
+	row.description = JSON.stringify(updated.state);
+	const restarted = await resetVisualDrawing("user", "site", "drawing");
+	expect(restarted.state.deletedPolygons).toBeUndefined();
+});
+
+it.each([false, true])(
+	"only clears manual polygon deletion protection on explicit source reanalysis: %s",
+	async (reanalyze) => {
+		const { row, state } = await mockEditableDrawing();
+		state.deletedPolygons = [
+			{
+				markId: "deleted-part",
+				evidenceId: state.evidence[0].id,
+				polygon: state.marks[0].polygon,
+				deletedAt: "2026-10-09",
+				deletedBy: "user",
+			},
+		];
+		state.evidence[0].reviewRequired = true;
+		row.description = JSON.stringify(state);
+		const updated = await reviewVisualSource(
+			"user",
+			"site",
+			"drawing",
+			state.evidence[0].id,
+			reanalyze,
+		);
+		expect(updated.state.deletedPolygons).toEqual(
+			reanalyze ? [] : state.deletedPolygons,
+		);
+	},
+);
 
 it("rejects stale polygon edits and unknown zones", async () => {
 	const { edit } = await mockEditableDrawing();
