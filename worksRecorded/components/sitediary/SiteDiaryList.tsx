@@ -1466,6 +1466,7 @@ export default function SiteDiaryCalendar({
 
   const backgroundRefresh = React.useCallback(() => refreshRowsWithBisSync({ skipSync: true }), [refreshRowsWithBisSync]);
   const revalidationFailed = useDiaryRevalidation({
+    siteId: siteId ?? undefined,
     enabled: limeniClientDiary && hasLoadedRowsOnce,
     active,
     blocked: loading || dialogOpen,

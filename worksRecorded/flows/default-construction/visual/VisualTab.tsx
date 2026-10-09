@@ -26,7 +26,7 @@ export function VisualTab({
 		>
 			{visited || active ? (
 				<Suspense fallback={<Skeleton className="h-64 w-full" />}>
-					<VisualView siteId={siteId} />
+					<VisualView key={siteId} siteId={siteId} active={active} />
 				</Suspense>
 			) : null}
 		</TabsContent>

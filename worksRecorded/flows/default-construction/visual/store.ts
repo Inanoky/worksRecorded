@@ -1,10 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
+import { z } from "zod";
 import { prisma } from "@/lib/utils/db";
 import { requireWarehouseImportAccess } from "../backend/warehouse-import-upload";
 import {
 	LIMENI_ORGANIZATION_ID,
 	normalizeDiaryPhotoUrls,
 } from "../lib/diary-photos";
+import { withDefaultConstructionSystemWorks } from "../lib/site-diary-productivity-settings";
 import {
 	normalizeVisualLocation,
 	VISUAL_DOCUMENT_TYPE,
@@ -12,7 +14,9 @@ import {
 	VISUAL_MAX_PHOTOS,
 	type VisualDrawing,
 	type VisualState,
+	visualImageProgress,
 	visualStateSchema,
+	workLayer,
 } from "./model";
 import { polygonEditSchema } from "./polygon-edit";
 import { syncVisualEvidence } from "./sync-evidence";
@@ -100,8 +104,9 @@ async function loadVisualEvidence(
 	siteId: string,
 	organizationId: string,
 	location: string,
+	db: Pick<typeof prisma, "sitediaryrecords"> = prisma,
 ) {
-	const rows = await prisma.sitediaryrecords.findMany({
+	const rows = await db.sitediaryrecords.findMany({
 		where: {
 			siteId,
 			organizationId,
@@ -143,6 +148,202 @@ async function loadVisualEvidence(
 					.digest("hex"),
 			})),
 		);
+}
+
+export async function listVisualWorkTypes(userId: string, siteId: string) {
+	const access = await requireVisualAccess(userId, siteId);
+	const site = await prisma.site.findFirst({
+		where: { id: siteId, organizationId: access.organizationId },
+		select: { siteDiaryRecordsMap: true },
+	});
+	if (!site) throw new Error("Projekts nav atrasts.");
+	return withDefaultConstructionSystemWorks(
+		(site.siteDiaryRecordsMap ?? {}) as Record<string, unknown>,
+	);
+}
+
+export async function editVisualWorkType(
+	userId: string,
+	siteId: string,
+	drawingId: string,
+	input: unknown,
+) {
+	const edit = z
+		.object({
+			evidenceId: z.string().min(1),
+			expectedWork: z.string(),
+			work: z.string().trim().min(1).max(500),
+		})
+		.parse(input);
+	const options = await listVisualWorkTypes(userId, siteId);
+	if (!options.includes(edit.work))
+		throw new Error("Izvēlieties projekta darba tipu.");
+	const { row, drawing } = await loadVisualDrawing(userId, siteId, drawingId);
+	requireIdleDrawing(drawing.state);
+	const source = drawing.state.evidence.find(
+		(item) => item.id === edit.evidenceId,
+	);
+	if (!source || source.work !== edit.expectedWork)
+		throw new Error("Zonas avots jau ir mainīts. Atjaunojiet skatu.");
+	const result = await prisma.$transaction(
+		async (tx) => {
+			const before = (
+				await loadVisualEvidence(
+					siteId,
+					row.organizationId!,
+					drawing.state.location,
+					tx,
+				)
+			).find(
+				(item) =>
+					item.recordId === source.recordId &&
+					item.photoUrl === source.photoUrl,
+			);
+			if (
+				!before ||
+				(source.sourceRevision &&
+					source.sourceRevision !== before.sourceRevision) ||
+				source.work !== before.work ||
+				source.description !== before.description ||
+				source.amount !== before.amount ||
+				source.unit !== before.unit ||
+				source.date !== before.date
+			)
+				throw new Error(
+					"Žurnāla avots jau ir mainīts. Atjaunojiet skatu pirms darba tipa maiņas.",
+				);
+			const updated = await tx.sitediaryrecords.updateMany({
+				where: {
+					id: source.recordId,
+					siteId,
+					organizationId: row.organizationId,
+					archivedAt: null,
+					...(edit.expectedWork
+						? { Works: edit.expectedWork }
+						: { OR: [{ Works: "" }, { Works: null }] }),
+				},
+				data: { Works: edit.work },
+			});
+			if (updated.count !== 1)
+				throw new Error(
+					"Žurnāla ieraksts jau ir mainīts vai dzēsts. Atjaunojiet skatu.",
+				);
+			const documents = await tx.documents.findMany({
+				where: {
+					siteId,
+					organizationId: row.organizationId,
+					documentType: VISUAL_DOCUMENT_TYPE,
+				},
+			});
+			let current = drawing;
+			for (const document of documents) {
+				const state = visualStateSchema.parse(JSON.parse(document.description));
+				if (!state.evidence.some((item) => item.recordId === source.recordId))
+					continue;
+				requireIdleDrawing(state);
+				const snapshot = await loadVisualEvidence(
+					siteId,
+					row.organizationId!,
+					state.location,
+					tx,
+				);
+				const byPhoto = new Map(
+					snapshot
+						.filter((item) => item.recordId === source.recordId)
+						.map((item) => [item.photoUrl, item]),
+				);
+				state.evidence = state.evidence.map((item) => {
+					const fresh =
+						item.recordId === source.recordId
+							? byPhoto.get(item.photoUrl)
+							: undefined;
+					return fresh
+						? {
+								...fresh,
+								id: item.id,
+								...(item.reviewRequired ? { reviewRequired: true } : {}),
+							}
+						: item;
+				});
+				const ids = new Set(
+					state.evidence
+						.filter((item) => item.recordId === source.recordId)
+						.map((item) => item.id),
+				);
+				state.marks = state.marks.map((mark) =>
+					ids.has(mark.evidenceId)
+						? { ...mark, layer: workLayer(edit.work) }
+						: mark,
+				);
+				const saved = await tx.documents.updateMany({
+					where: {
+						id: document.id,
+						siteId,
+						organizationId: row.organizationId,
+						documentType: VISUAL_DOCUMENT_TYPE,
+						description: document.description,
+					},
+					data: { description: JSON.stringify(visualStateSchema.parse(state)) },
+				});
+				if (saved.count !== 1)
+					throw new Error("Rasējums jau ir mainīts. Mēģiniet vēlreiz.");
+				if (document.id === drawingId) current = { ...drawing, state };
+			}
+			if (
+				!documents.some(
+					(item) =>
+						item.id === drawingId && item.description === row.description,
+				)
+			)
+				throw new Error("Rasējums jau ir mainīts. Mēģiniet vēlreiz.");
+			return current;
+		},
+		{ isolationLevel: "Serializable" },
+	);
+	let assignmentWarning: string | undefined;
+	try {
+		const { syncDefaultConstructionForma2WorkAssignments } = await import(
+			"../backend/forma2-analytics-actions"
+		);
+		await syncDefaultConstructionForma2WorkAssignments({
+			siteId,
+			records: [{ id: source.recordId, work: edit.work }],
+		});
+	} catch {
+		assignmentWarning =
+			"Darba tips saglabāts, bet Forma 2 piesaiste netika atjaunota. Pārbaudiet to Forma 2 skatā.";
+	}
+	return { ...result, assignmentWarning };
+}
+
+export async function reviewVisualSource(
+	userId: string,
+	siteId: string,
+	drawingId: string,
+	evidenceId: string,
+	reanalyze: boolean,
+) {
+	const { row, drawing } = await loadVisualDrawing(userId, siteId, drawingId);
+	requireIdleDrawing(drawing.state);
+	const source = drawing.state.evidence.find((item) => item.id === evidenceId);
+	if (!source?.reviewRequired)
+		throw new Error("Avots jau ir pārskatīts. Atjaunojiet skatu.");
+	delete source.reviewRequired;
+	if (reanalyze) {
+		drawing.state.imageProgress = visualImageProgress(drawing.state).map(
+			(item) =>
+				item.evidenceId === evidenceId
+					? { ...item, status: "pending", error: null }
+					: item,
+		);
+		drawing.state.processed = drawing.state.imageProgress.filter(
+			(item) => item.status === "complete",
+		).length;
+		drawing.state.status = "paused";
+		drawing.state.error = null;
+	}
+	await saveVisualState(row, drawing.state);
+	return drawing;
 }
 
 export async function createVisualDrawing(args: {
@@ -272,16 +473,14 @@ export async function loadVisualDrawing(
 	const latestDiaryDate = dates.length
 		? new Date(Math.max(...dates)).toISOString()
 		: null;
-	return {
-		row,
-		drawing: {
-			id: row.id,
-			name: row.documentName,
-			createdAt: row.createdAt.toISOString(),
-			latestDiaryDate,
-			state,
-		} satisfies VisualDrawing,
+	const drawing: VisualDrawing = {
+		id: row.id,
+		name: row.documentName,
+		createdAt: row.createdAt.toISOString(),
+		latestDiaryDate,
+		state,
 	};
+	return { row, drawing };
 }
 
 export async function saveVisualState(
@@ -329,7 +528,7 @@ export async function appendVisualDiaryEvidence(
 		row.organizationId,
 		state.location,
 	);
-	const result = syncVisualEvidence(state, current, randomUUID);
+	const result = syncVisualEvidence(state, current, randomUUID, true);
 	drawing.state = result.state;
 	if (result.changed) await saveVisualState(row, result.state);
 	return {
@@ -337,6 +536,8 @@ export async function appendVisualDiaryEvidence(
 		addedCount: result.addedCount,
 		updatedCount: result.updatedCount,
 		removedCount: result.removedCount,
+		analysisCount: result.analysisCount,
+		reviewCount: result.reviewCount,
 	};
 }
 

@@ -17,15 +17,14 @@ function SourcePhotoPreview({ url, work }: { url: string; work: string }) {
 	return (
 		<div className="relative flex h-52 items-center justify-center overflow-hidden rounded-md border bg-muted/30">
 			{status !== "loaded" ? (
-				<p
-					role="status"
+				<output
 					aria-label="Avota attēla statuss"
 					className="absolute px-3 text-center text-xs text-muted-foreground"
 				>
 					{status === "error"
 						? "Avota attēls nav pieejams."
 						: "Ielādē avota attēlu…"}
-				</p>
+				</output>
 			) : null}
 			{status !== "error" ? (
 				<img
@@ -45,12 +44,14 @@ export function VisualZoneTarget({
 	mark,
 	source,
 	disabled,
+	selected = false,
 	onSelect,
 	onHighlight,
 }: {
 	mark: VisualMark;
 	source?: VisualEvidence;
 	disabled: boolean;
+	selected?: boolean;
 	onSelect: () => void;
 	onHighlight: (active: boolean) => void;
 }) {
@@ -68,6 +69,7 @@ export function VisualZoneTarget({
 				<Button
 					variant="ghost"
 					disabled={disabled}
+					aria-pressed={selected}
 					aria-label={`${visualLayers[mark.layer].label}: ${mark.explanation}`}
 					className="absolute cursor-pointer rounded-none bg-transparent p-0 hover:bg-transparent focus-visible:bg-primary/20"
 					style={{

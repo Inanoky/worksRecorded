@@ -1,8 +1,9 @@
 import {
+	VISUAL_MAX_PHOTOS,
 	type VisualEvidence,
 	type VisualState,
 	visualImageProgress,
-	VISUAL_MAX_PHOTOS,
+	workLayer,
 } from "./model";
 import { pruneVisualEvidence } from "./prune-evidence";
 
@@ -32,6 +33,7 @@ export function syncVisualEvidence(
 	previous: VisualState,
 	current: VisualEvidence[],
 	createId: () => string,
+	preserveResults = false,
 ) {
 	if (current.length > VISUAL_MAX_PHOTOS)
 		throw new Error(
@@ -54,6 +56,65 @@ export function syncVisualEvidence(
 	const removedCount = previous.evidence.filter(
 		(item) => !currentByKey.has(evidenceKey(item)),
 	).length;
+	if (preserveResults) {
+		const state = pruneVisualEvidence(previous, (item) =>
+			currentByKey.has(evidenceKey(item)),
+		);
+		const progress = new Map(
+			visualImageProgress(state).map((item) => [item.evidenceId, item]),
+		);
+		let analysisCount = 0;
+		const ordered = [
+			...state.evidence.map((item) => currentByKey.get(evidenceKey(item))!),
+			...current.filter((item) => !previousByKey.has(evidenceKey(item))),
+		];
+		const evidence = ordered.map((item) => {
+			const old = previousByKey.get(evidenceKey(item));
+			const id = old?.id ?? `${item.recordId}:${createId()}`;
+			const changed = changedKeys.has(evidenceKey(item));
+			const manual =
+				changed &&
+				state.marks.some((mark) => mark.evidenceId === id && mark.editedAt);
+			if (!old || (changed && !manual)) {
+				progress.set(id, { evidenceId: id, status: "pending", error: null });
+				analysisCount++;
+			}
+			return {
+				...item,
+				id,
+				...(manual || old?.reviewRequired ? { reviewRequired: true } : {}),
+			};
+		});
+		const byId = new Map(evidence.map((item) => [item.id, item]));
+		const next: VisualState = {
+			...state,
+			evidence,
+			marks: state.marks.map((mark) => {
+				const source = byId.get(mark.evidenceId)!;
+				return { ...mark, layer: workLayer(source.work) };
+			}),
+			...(state.imageProgress || analysisCount
+				? { imageProgress: evidence.map((item) => progress.get(item.id)!) }
+				: {}),
+			processed: [...progress.values()].filter(
+				(item) => item.status === "complete",
+			).length,
+			...(analysisCount
+				? { status: "paused", lockedAt: null, error: null }
+				: {}),
+		};
+		return {
+			state: next,
+			addedCount: current.filter(
+				(item) => !previousByKey.has(evidenceKey(item)),
+			).length,
+			updatedCount: changedKeys.size,
+			removedCount,
+			analysisCount,
+			reviewCount: evidence.filter((item) => item.reviewRequired).length,
+			changed: JSON.stringify(next) !== JSON.stringify(previous),
+		};
+	}
 	let state = pruneVisualEvidence(
 		previous,
 		(item) =>
@@ -94,6 +155,8 @@ export function syncVisualEvidence(
 		addedCount: queued.length - changedKeys.size,
 		updatedCount: changedKeys.size,
 		removedCount,
+		analysisCount: queued.length,
+		reviewCount: 0,
 		changed: JSON.stringify(state) !== JSON.stringify(previous),
 	};
 }

@@ -1,4 +1,4 @@
-import { type VisualEvidence, type VisualState } from "./model";
+import type { VisualEvidence, VisualState } from "./model";
 import { syncVisualEvidence } from "./sync-evidence";
 
 const evidence: VisualEvidence = {
@@ -43,6 +43,65 @@ function savedState(): VisualState {
 		lockedAt: null,
 	};
 }
+
+it("protects manually adjusted zones and flags changed sources once in automatic sync", () => {
+	const previous = savedState();
+	const current = [
+		{ ...evidence, work: "XPS", description: "Changed" },
+		previous.evidence[1],
+	];
+	const result = syncVisualEvidence(previous, current, () => "new", true);
+	expect(result).toMatchObject({
+		updatedCount: 1,
+		analysisCount: 0,
+		reviewCount: 1,
+	});
+	expect(result.state.evidence[0]).toMatchObject({
+		id: "old",
+		reviewRequired: true,
+		work: "XPS",
+	});
+	expect(result.state.marks[0]).toMatchObject({
+		id: "mark-old",
+		layer: "xps",
+		editedAt: previous.marks[0].editedAt,
+		polygon: previous.marks[0].polygon,
+	});
+	expect(
+		syncVisualEvidence(result.state, current, () => "new", true),
+	).toMatchObject({ analysisCount: 0, changed: false, reviewCount: 1 });
+	expect(previous.evidence[0].reviewRequired).toBeUndefined();
+});
+
+it("keeps last valid zones while queuing changed unedited sources and removes deleted sources", () => {
+	const previous = savedState();
+	delete previous.marks[0].editedAt;
+	const result = syncVisualEvidence(
+		previous,
+		[{ ...evidence, amount: 70 }],
+		() => "new",
+		true,
+	);
+	expect(result).toMatchObject({
+		updatedCount: 1,
+		removedCount: 1,
+		analysisCount: 1,
+		reviewCount: 0,
+	});
+	expect(result.state.evidence[0].id).toBe("old");
+	expect(result.state.marks).toEqual([previous.marks[0]]);
+	expect(result.state.imageProgress).toEqual([
+		{ evidenceId: "old", status: "pending", error: null },
+	]);
+	expect(
+		syncVisualEvidence(
+			result.state,
+			[{ ...evidence, amount: 70 }],
+			() => "new",
+			true,
+		).analysisCount,
+	).toBe(0);
+});
 
 it.each([
 	{ work: "Smilts līdzināšana 20-30mm" },

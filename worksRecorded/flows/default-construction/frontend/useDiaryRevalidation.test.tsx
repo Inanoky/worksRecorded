@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { notifyDiaryRecordUpdated } from "../lib/diary-record-updated-event";
 import { useDiaryRevalidation } from "./useDiaryRevalidation";
 
 beforeEach(() => {
@@ -14,6 +15,7 @@ function setup(overrides = {}) {
 	});
 	const props = {
 		enabled: true,
+		siteId: "site",
 		active: true,
 		blocked: false,
 		lastLoaded,
@@ -25,6 +27,19 @@ function setup(overrides = {}) {
 	});
 	return { ...hook, props, refresh, lastLoaded };
 }
+
+it("invalidates a retained diary after a work type is changed in the drawing and refreshes on return", async () => {
+	const { props, rerender, refresh } = setup();
+	rerender({ ...props, active: false });
+	await act(async () => notifyDiaryRecordUpdated("other-site"));
+	rerender(props);
+	expect(refresh).not.toHaveBeenCalled();
+	rerender({ ...props, active: false });
+	await act(async () => notifyDiaryRecordUpdated("site"));
+	expect(refresh).not.toHaveBeenCalled();
+	await act(async () => rerender(props));
+	expect(refresh).toHaveBeenCalledTimes(1);
+});
 
 it("does not refetch fresh data on rapid return and checks stale data in the background", async () => {
 	const { rerender, props, refresh } = setup();

@@ -208,6 +208,12 @@ export async function analyzeVisualBatch(
 						progress.error = attempt.error;
 					}
 					if (result) {
+						state.marks = state.marks.filter(
+							(mark) => mark.evidenceId !== item.id,
+						);
+						state.unlocated = state.unlocated.filter(
+							(entry) => entry.evidenceId !== item.id,
+						);
 						state.marks.push(...result.marks);
 						state.unlocated.push(...result.unlocated);
 						state.processed++;

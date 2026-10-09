@@ -11,6 +11,7 @@ import { DIARY_PHOTO_DELETED } from "@/lib/photos/photo-deleted-event";
 import {
 	deleteVisualDrawing,
 	getVisualDrawings,
+	getVisualWorkTypes,
 	refreshVisualDrawing,
 	restartVisualDrawing,
 } from "./actions";
@@ -28,6 +29,9 @@ jest.mock("./actions", () => ({
 	deleteVisualDrawing: jest.fn(),
 	restartVisualDrawing: jest.fn(),
 	saveVisualPolygon: jest.fn(),
+	getVisualWorkTypes: jest.fn(),
+	saveVisualWorkType: jest.fn(),
+	resolveVisualSourceReview: jest.fn(),
 }));
 jest.mock("./VisualPdf", () => ({
 	VisualPdf: ({ marks }: { marks: unknown[] }) => (
@@ -113,6 +117,15 @@ const complete: VisualDrawing = {
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	jest.mocked(getVisualWorkTypes).mockResolvedValue(["Smilts", "XPS"]);
+	jest.mocked(refreshVisualDrawing).mockResolvedValue({
+		drawing: complete,
+		addedCount: 0,
+		updatedCount: 0,
+		removedCount: 0,
+		analysisCount: 0,
+		reviewCount: 0,
+	});
 	jest.mocked(deleteVisualDrawing).mockResolvedValue(undefined);
 	global.fetch = mockFetch;
 	jest.mocked(getVisualDrawings).mockResolvedValue({
@@ -147,6 +160,70 @@ async function selectDrawing() {
 	render(<VisualView siteId="site" />);
 	await selectLocation();
 }
+
+it("automatically checks the retained drawing, pauses when hidden and checks again on return without remounting the map", async () => {
+	jest.useFakeTimers();
+	const { rerender } = render(<VisualView siteId="site" active />);
+	await selectLocation();
+	const pdf = screen.getByTestId("pdf");
+	mockFetch.mockClear();
+	await act(async () => jest.advanceTimersByTime(1000));
+	expect(refreshVisualDrawing).toHaveBeenCalledTimes(1);
+	expect(mockFetch).not.toHaveBeenCalled();
+	rerender(<VisualView siteId="site" active={false} />);
+	await act(async () => jest.advanceTimersByTime(90_000));
+	expect(refreshVisualDrawing).toHaveBeenCalledTimes(1);
+	rerender(<VisualView siteId="site" active />);
+	await act(async () => jest.advanceTimersByTime(1000));
+	expect(refreshVisualDrawing).toHaveBeenCalledTimes(2);
+	expect(screen.getByTestId("pdf")).toBe(pdf);
+	expect(screen.getAllByRole("combobox")[0]).toHaveValue("1. stāvs");
+});
+
+it("runs new-image analysis automatically with inline progress and retains the map after a failed call", async () => {
+	jest.useFakeTimers();
+	const updated: VisualDrawing = {
+		...complete,
+		state: {
+			...complete.state,
+			status: "paused",
+			evidence: [
+				...complete.state.evidence,
+				{ ...complete.state.evidence[0], id: "new", recordId: "new" },
+			],
+		},
+	};
+	jest.mocked(refreshVisualDrawing).mockResolvedValueOnce({
+		drawing: updated,
+		addedCount: 1,
+		updatedCount: 0,
+		removedCount: 0,
+		analysisCount: 1,
+		reviewCount: 0,
+	});
+	await selectDrawing();
+	const pdf = screen.getByTestId("pdf");
+	let fail!: (reason: unknown) => void;
+	mockFetch.mockImplementation(
+		() =>
+			new Promise((_resolve, reject) => {
+				fail = reject;
+			}),
+	);
+	await act(async () => jest.advanceTimersByTime(1000));
+	expect(mockFetch).toHaveBeenCalledWith("/api/sites/site/visual/drawing", {
+		method: "POST",
+	});
+	expect(screen.getByText(/Atjaunina zonas/)).toHaveTextContent("2 attēliem");
+	expect(screen.getByTestId("pdf")).toBe(pdf);
+	await act(async () => fail(new Error("Network failed")));
+	expect(screen.getByRole("alert")).toHaveTextContent("Network failed");
+	expect(pdf).toHaveTextContent("1 zones");
+	await act(async () => jest.advanceTimersByTime(30_000));
+	expect(
+		mockFetch.mock.calls.filter((call) => call[1]?.method === "POST"),
+	).toHaveLength(1);
+});
 
 it("ends the slider at the latest diary day even when analyzed photos stop earlier", async () => {
 	mockFetch.mockResolvedValue({
@@ -240,9 +317,14 @@ it("removes deleted-photo zones from the retained view without reloading or chan
 });
 
 it("does not reload the PDF or call AI when the diary has no new photos", async () => {
-	jest
-		.mocked(refreshVisualDrawing)
-		.mockResolvedValue({ drawing: complete, addedCount: 0, updatedCount: 0, removedCount: 0 });
+	jest.mocked(refreshVisualDrawing).mockResolvedValue({
+		drawing: complete,
+		addedCount: 0,
+		updatedCount: 0,
+		removedCount: 0,
+		analysisCount: 0,
+		reviewCount: 0,
+	});
 	await selectDrawing();
 	const pdf = screen.getByTestId("pdf");
 	mockFetch.mockClear();
@@ -255,56 +337,75 @@ it("does not reload the PDF or call AI when the diary has no new photos", async 
 	expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
 });
 
-it.each([{ addedCount: 1, updatedCount: 0 }, { addedCount: 0, updatedCount: 1 }])("analyzes new or edited records while keeping unrelated zones visible: %j", async ({ addedCount, updatedCount }) => {
-	const updated: VisualDrawing = {
-		...complete,
-		state: {
-			...complete.state,
-			status: "paused",
-			evidence: [
-				...complete.state.evidence,
-				{ ...complete.state.evidence[0], id: "new", recordId: "new-record" },
-			],
-		},
-	};
-	jest
-		.mocked(refreshVisualDrawing)
-		.mockResolvedValue({ drawing: updated, addedCount, updatedCount, removedCount: 0 });
-	await selectDrawing();
-	const pdf = screen.getByTestId("pdf");
-	let finish!: (value: unknown) => void;
-	mockFetch.mockImplementation(
-		() =>
-			new Promise((resolve) => {
-				finish = resolve;
-			}),
-	);
-	fireEvent.click(screen.getByRole("button", { name: "Atjaunot no žurnāla" }));
-	await waitFor(() =>
-		expect(mockFetch).toHaveBeenLastCalledWith(
-			"/api/sites/site/visual/drawing",
-			{ method: "POST" },
-		),
-	);
-	expect(screen.getByTestId("pdf")).toBe(pdf);
-	expect(pdf).toHaveTextContent("1 zones");
-	expect(screen.getByText(new RegExp(`Pievienoti ${addedCount} jauni attēli. Atjaunināti ${updatedCount}`))).toBeInTheDocument();
-	await act(async () =>
-		finish({
-			ok: true,
-			json: async () => ({
-				...updated,
-				state: { ...updated.state, status: "complete", processed: 2 },
-			}),
-		}),
-	);
-	expect(screen.getByTestId("pdf")).toBe(pdf);
-	await waitFor(() =>
-		expect(
+it.each([
+	{ addedCount: 1, updatedCount: 0 },
+	{ addedCount: 0, updatedCount: 1 },
+])(
+	"analyzes new or edited records while keeping unrelated zones visible: %j",
+	async ({ addedCount, updatedCount }) => {
+		const updated: VisualDrawing = {
+			...complete,
+			state: {
+				...complete.state,
+				status: "paused",
+				evidence: [
+					...complete.state.evidence,
+					{ ...complete.state.evidence[0], id: "new", recordId: "new-record" },
+				],
+			},
+		};
+		jest.mocked(refreshVisualDrawing).mockResolvedValue({
+			drawing: updated,
+			addedCount,
+			updatedCount,
+			removedCount: 0,
+			analysisCount: addedCount + updatedCount,
+			reviewCount: 0,
+		});
+		await selectDrawing();
+		const pdf = screen.getByTestId("pdf");
+		let finish!: (value: unknown) => void;
+		mockFetch.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					finish = resolve;
+				}),
+		);
+		fireEvent.click(
 			screen.getByRole("button", { name: "Atjaunot no žurnāla" }),
-		).toBeEnabled(),
-	);
-});
+		);
+		await waitFor(() =>
+			expect(mockFetch).toHaveBeenLastCalledWith(
+				"/api/sites/site/visual/drawing",
+				{ method: "POST" },
+			),
+		);
+		expect(screen.getByTestId("pdf")).toBe(pdf);
+		expect(pdf).toHaveTextContent("1 zones");
+		expect(
+			screen.getByText(
+				new RegExp(
+					`Pievienoti ${addedCount} jauni attēli. Atjaunināti ${updatedCount}`,
+				),
+			),
+		).toBeInTheDocument();
+		await act(async () =>
+			finish({
+				ok: true,
+				json: async () => ({
+					...updated,
+					state: { ...updated.state, status: "complete", processed: 2 },
+				}),
+			}),
+		);
+		expect(screen.getByTestId("pdf")).toBe(pdf);
+		await waitFor(() =>
+			expect(
+				screen.getByRole("button", { name: "Atjaunot no žurnāla" }),
+			).toBeEnabled(),
+		);
+	},
+);
 
 it("retains the selected drawing when checking for new diary photos fails", async () => {
 	jest

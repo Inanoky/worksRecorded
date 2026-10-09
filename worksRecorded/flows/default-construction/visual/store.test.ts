@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/utils/db";
+import { syncDefaultConstructionForma2WorkAssignments } from "../backend/forma2-analytics-actions";
 import { requireWarehouseImportAccess } from "../backend/warehouse-import-upload";
 import { LIMENI_ORGANIZATION_ID } from "../lib/diary-photos";
 import {
@@ -10,13 +11,22 @@ import {
 	appendVisualDiaryEvidence,
 	createVisualDrawing,
 	editVisualPolygon,
+	editVisualWorkType,
 	listVisualDrawings,
+	listVisualWorkTypes,
 	loadVisualDrawing,
 	removeVisualDrawing,
 	requireVisualAccess,
 	resetVisualDrawing,
+	reviewVisualSource,
 	saveVisualState,
 } from "./store";
+
+jest.mock("../backend/forma2-analytics-actions", () => ({
+	syncDefaultConstructionForma2WorkAssignments: jest.fn(async () => ({
+		syncedRecords: 1,
+	})),
+}));
 
 jest.mock("../backend/warehouse-import-upload", () => ({
 	requireWarehouseImportAccess: jest.fn(),
@@ -25,7 +35,12 @@ jest.mock("@/lib/utils/db", () => ({
 	prisma: {
 		$transaction: jest.fn(),
 		$executeRaw: jest.fn(),
-		sitediaryrecords: { findMany: jest.fn(), groupBy: jest.fn() },
+		sitediaryrecords: {
+			findMany: jest.fn(),
+			groupBy: jest.fn(),
+			updateMany: jest.fn(),
+		},
+		site: { findFirst: jest.fn() },
 		documents: {
 			findMany: jest.fn(),
 			create: jest.fn(),
@@ -38,6 +53,14 @@ jest.mock("@/lib/utils/db", () => ({
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	jest.mocked(prisma.site.findFirst).mockResolvedValue({
+		siteDiaryRecordsMap: {
+			Works: { DropDownOptions: { XPS: "XPS", Smilts: "Smilts" } },
+		},
+	} as never);
+	jest
+		.mocked(prisma.sitediaryrecords.updateMany)
+		.mockResolvedValue({ count: 1 });
 	jest.mocked(prisma.sitediaryrecords.groupBy).mockResolvedValue([]);
 	jest
 		.mocked(prisma.$transaction)
@@ -265,6 +288,156 @@ async function mockEditableDrawing() {
 	};
 }
 
+it("edits a diary work type and recolors every zone of the record without changing geometry or reanalyzing", async () => {
+	const { row, state } = await mockEditableDrawing();
+	state.evidence.push({
+		...state.evidence[0],
+		id: "second-photo",
+		photoUrl: "https://example.com/second.jpg",
+	});
+	state.marks.push({
+		...state.marks[0],
+		id: "second-zone",
+		evidenceId: "second-photo",
+		editedAt: "2026-10-09",
+	});
+	row.description = JSON.stringify(state);
+	const rows = await prisma.sitediaryrecords.findMany();
+	jest.mocked(prisma.documents.findMany).mockResolvedValue([row] as never);
+	jest
+		.mocked(prisma.sitediaryrecords.findMany)
+		.mockResolvedValueOnce(rows)
+		.mockResolvedValueOnce(
+			rows.map((item) =>
+				item.id === "first"
+					? {
+							...item,
+							Works: "Smilts",
+							Photos: [...item.Photos, "https://example.com/second.jpg"],
+						}
+					: item,
+			),
+		);
+	const result = await editVisualWorkType("user", "site", "drawing", {
+		evidenceId: "first:0",
+		expectedWork: "XPS",
+		work: "Smilts",
+	});
+	expect(prisma.sitediaryrecords.updateMany).toHaveBeenCalledWith({
+		where: {
+			id: "first",
+			siteId: "site",
+			organizationId: LIMENI_ORGANIZATION_ID,
+			archivedAt: null,
+			Works: "XPS",
+		},
+		data: { Works: "Smilts" },
+	});
+	expect(result.state.evidence.map((item) => item.work)).toEqual([
+		"Smilts",
+		"Smilts",
+	]);
+	expect(result.state.marks.map((item) => item.layer)).toEqual([
+		"sand",
+		"sand",
+	]);
+	expect(result.state.marks.map((item) => item.polygon)).toEqual(
+		state.marks.map((item) => item.polygon),
+	);
+	expect(result.state.marks[1].editedAt).toBe("2026-10-09");
+	expect(prisma.$transaction).toHaveBeenLastCalledWith(expect.any(Function), {
+		isolationLevel: "Serializable",
+	});
+	expect(syncDefaultConstructionForma2WorkAssignments).toHaveBeenCalledWith({
+		siteId: "site",
+		records: [{ id: "first", work: "Smilts" }],
+	});
+});
+
+it("rejects stale, unauthorized or unconfigured work-type edits", async () => {
+	await mockEditableDrawing();
+	for (const input of [
+		{ evidenceId: "first:0", expectedWork: "XPS", work: "Not configured" },
+		{ evidenceId: "first:0", expectedWork: "Wrong work", work: "Smilts" },
+		{ evidenceId: "missing", expectedWork: "XPS", work: "Smilts" },
+	])
+		await expect(
+			editVisualWorkType("user", "site", "drawing", input),
+		).rejects.toThrow();
+	jest
+		.mocked(requireWarehouseImportAccess)
+		.mockRejectedValue(new Error("Denied"));
+	await expect(listVisualWorkTypes("other-user", "site")).rejects.toThrow(
+		"Denied",
+	);
+	expect(prisma.sitediaryrecords.updateMany).not.toHaveBeenCalled();
+});
+
+it("rejects a diary source changed since the drawing snapshot and an active analysis", async () => {
+	const { row, state } = await mockEditableDrawing();
+	const rows = await prisma.sitediaryrecords.findMany();
+	jest
+		.mocked(prisma.sitediaryrecords.findMany)
+		.mockResolvedValue(
+			rows.map((item) =>
+				item.id === "first" ? { ...item, Comments: "New comment" } : item,
+			),
+		);
+	const input = { evidenceId: "first:0", expectedWork: "XPS", work: "Smilts" };
+	await expect(
+		editVisualWorkType("user", "site", "drawing", input),
+	).rejects.toThrow("Žurnāla avots jau ir mainīts");
+	row.description = JSON.stringify({ ...state, lockedAt: Date.now() });
+	await expect(
+		editVisualWorkType("user", "site", "drawing", input),
+	).rejects.toThrow("Analīze vēl notiek");
+	expect(prisma.sitediaryrecords.updateMany).not.toHaveBeenCalled();
+});
+
+it("rejects a concurrent drawing write rather than silently saving a mixed result", async () => {
+	const { row } = await mockEditableDrawing();
+	const rows = await prisma.sitediaryrecords.findMany();
+	jest
+		.mocked(prisma.sitediaryrecords.findMany)
+		.mockResolvedValueOnce(rows)
+		.mockResolvedValueOnce(rows.map((item) => ({ ...item, Works: "Smilts" })));
+	jest.mocked(prisma.documents.findMany).mockResolvedValue([row] as never);
+	jest.mocked(prisma.documents.updateMany).mockResolvedValue({ count: 0 });
+	await expect(
+		editVisualWorkType("user", "site", "drawing", {
+			evidenceId: "first:0",
+			expectedWork: "XPS",
+			work: "Smilts",
+		}),
+	).rejects.toThrow("Rasējums jau ir mainīts");
+	expect(syncDefaultConstructionForma2WorkAssignments).not.toHaveBeenCalled();
+});
+
+it.each([false, true])(
+	"resolves a manual-source review, reanalyze=%s, keeping geometry until a replacement succeeds",
+	async (reanalyze) => {
+		const { row, state } = await mockEditableDrawing();
+		state.evidence[0].reviewRequired = true;
+		row.description = JSON.stringify(state);
+		const result = await reviewVisualSource(
+			"user",
+			"site",
+			"drawing",
+			"first:0",
+			reanalyze,
+		);
+		expect(result.state.evidence[0].reviewRequired).toBeUndefined();
+		expect(result.state.marks).toEqual(state.marks);
+		if (reanalyze)
+			expect(result.state).toMatchObject({
+				status: "paused",
+				processed: 0,
+				imageProgress: [{ evidenceId: "first:0", status: "pending" }],
+			});
+		else expect(result.state.status).toBe("unlocated");
+	},
+);
+
 it("appends new linked photos without replacing snapshots, manual zones or completed progress", async () => {
 	const { row, state } = await mockEditableDrawing();
 	state.marks[0].editedAt = "2026-09-25T10:00:00Z";
@@ -351,7 +524,7 @@ it("requeues a record when hours change even if its image and work are unchanged
 		updatedCount: 1,
 		removedCount: 0,
 	});
-	expect(result.drawing.state.marks).toEqual([]);
+	expect(result.drawing.state.marks).toEqual(state.marks);
 	expect(result.drawing.state.evidence[0].sourceRevision).not.toBe(
 		state.evidence[0].sourceRevision,
 	);

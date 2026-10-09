@@ -403,6 +403,10 @@ export function VisualPdf({
 							</title>
 							{shownMarks
 								.filter((mark) => mark.page === page)
+								.sort(
+									(a, b) =>
+										Number(a.id === selected) - Number(b.id === selected),
+								)
 								.map((mark) => (
 									<polygon
 										key={mark.id}
@@ -411,19 +415,19 @@ export function VisualPdf({
 											.join(" ")}
 										fill={visualLayers[mark.layer].color}
 										fillOpacity={
-											highlighted === mark.id
-												? 0.8
-												: selected === mark.id
-													? 0.7
+											selected === mark.id
+												? 0.85
+												: highlighted === mark.id
+													? 0.8
 													: 0.5
 										}
 										stroke={
-											highlighted === mark.id
+											highlighted === mark.id || selected === mark.id
 												? "#0f172a"
 												: visualLayers[mark.layer].color
 										}
 										strokeWidth={
-											highlighted === mark.id ? 3 : selected === mark.id ? 2 : 1
+											selected === mark.id ? 4 : highlighted === mark.id ? 3 : 1
 										}
 										vectorEffect="non-scaling-stroke"
 										className="transition-[fill-opacity,stroke,stroke-width] duration-100 motion-reduce:transition-none"
@@ -442,6 +446,7 @@ export function VisualPdf({
 									<VisualZoneTarget
 										key={`hit-${mark.id}`}
 										mark={mark}
+										selected={selected === mark.id}
 										source={evidence.find(
 											(item) => item.id === mark.evidenceId,
 										)}

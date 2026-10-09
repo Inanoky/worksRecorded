@@ -1,6 +1,6 @@
 "use client";
 
-import { Layers, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Layers, Loader2, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
 	AlertDialog,
@@ -34,6 +34,7 @@ import {
 	deleteVisualDrawing,
 	getVisualDrawings,
 	refreshVisualDrawing,
+	resolveVisualSourceReview,
 	restartVisualDrawing,
 	saveVisualPolygon,
 } from "./actions";
@@ -43,7 +44,9 @@ import {
 	VISUAL_MAX_BYTES,
 	type VisualDrawing,
 	type VisualLayer,
+	visualImageProgress,
 	visualLayers,
+	workLayer,
 } from "./model";
 import { pruneVisualEvidence } from "./prune-evidence";
 import {
@@ -53,29 +56,40 @@ import {
 	sortVisualMarksChronologically,
 	visualDiaryDay,
 } from "./timeline";
+import { useVisualAutoSync } from "./useVisualAutoSync";
 import {
 	type VisualAnalysisPhase,
 	VisualAnalysisProgress,
 } from "./VisualAnalysisProgress";
 import { VisualPdf } from "./VisualPdf";
 import { VisualTimeline } from "./VisualTimeline";
+import { VisualWorkEditor } from "./VisualWorkEditor";
 
 type Index = Awaited<ReturnType<typeof getVisualDrawings>>;
 const allLayers = Object.keys(visualLayers) as VisualLayer[];
 
-export default function VisualView({ siteId }: { siteId: string }) {
+export default function VisualView({
+	siteId,
+	active = true,
+}: {
+	siteId: string;
+	active?: boolean;
+}) {
 	const [index, setIndex] = useState<Index | null>(null);
 	const [location, setLocation] = useState("");
 	const [drawing, setDrawing] = useState<VisualDrawing | null>(null);
 	const [file, setFile] = useState<File | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [editing, setEditing] = useState(false);
+	const [workEditing, setWorkEditing] = useState(false);
+	const [automatic, setAutomatic] = useState(false);
+	const [syncedAt, setSyncedAt] = useState<number | null>(null);
 	const [sidebarOpen, setSidebarOpen] = useState(true);
 	const remoteActive =
 		drawing?.state.status === "running" &&
 		drawing.state.lockedAt !== null &&
 		Date.now() - drawing.state.lockedAt < VISUAL_LEASE_MS;
-	const controlsLocked = busy || editing || remoteActive;
+	const controlsLocked = busy || editing || workEditing || remoteActive;
 	const [confirmation, setConfirmation] = useState<
 		"delete" | "restart" | "replace" | null
 	>(null);
@@ -96,6 +110,7 @@ export default function VisualView({ siteId }: { siteId: string }) {
 	const analysisVersion = useRef(0);
 	const previousAttempt = useRef<string | undefined>(undefined);
 	const fileId = useId();
+	const sidebar = useRef<HTMLElement>(null);
 	const { startUpload } = useUploadThing("limeniVisualDrawingUploader", {
 		onUploadProgress: setProgress,
 	});
@@ -138,7 +153,7 @@ export default function VisualView({ siteId }: { siteId: string }) {
 			window.removeEventListener(DIARY_PHOTO_DELETED, onPhotoDeleted);
 	}, [siteId]);
 	const shouldPoll =
-		phase === "analyzing" || drawing?.state.status === "running";
+		active && (phase === "analyzing" || drawing?.state.status === "running");
 	useEffect(() => {
 		if (!shouldPoll || !pollDrawingId) return;
 		const id = pollDrawingId;
@@ -249,11 +264,15 @@ export default function VisualView({ siteId }: { siteId: string }) {
 			++analysisVersion.current;
 		}
 	}
-	async function process(mode: "upload" | "resume" | "refresh" | "restart") {
-		if (busyRef.current) return;
+	async function process(
+		mode: "upload" | "resume" | "refresh" | "restart",
+		auto = false,
+	) {
+		if (busyRef.current || editing || workEditing || remoteActive) return;
 		const run = epoch.current;
 		busyRef.current = true;
 		setBusy(true);
+		setAutomatic(auto);
 		setError(null);
 		setNotice(null);
 		setProgress(0);
@@ -280,19 +299,26 @@ export default function VisualView({ siteId }: { siteId: string }) {
 				if (run !== epoch.current) return;
 				loaded = result.drawing;
 				setDrawing(loaded);
-				setNotice(
-					result.addedCount || result.updatedCount || result.removedCount
-						? `Pievienoti ${result.addedCount} jauni attēli. Atjaunināti ${result.updatedCount || 0} mainīto ierakstu attēli. Noņemti ${result.removedCount} dzēsto vai pārvietoto avotu attēli. Nemainīto ierakstu zonas un labojumi ir saglabāti.`
-						: "Šai lokācijai nav jaunu vai mainītu žurnāla attēlu. Esošie rezultāti nav mainīti.",
-				);
-				if (!result.addedCount && !result.updatedCount) return;
-				setThroughDay(null);
+				setSyncedAt(Date.now());
+				if (
+					!auto ||
+					result.addedCount ||
+					result.updatedCount ||
+					result.removedCount
+				)
+					setNotice(
+						result.addedCount || result.updatedCount || result.removedCount
+							? `Pievienoti ${result.addedCount} jauni attēli. Atjaunināti ${result.updatedCount || 0} mainīto ierakstu attēli. Noņemti ${result.removedCount} dzēsto vai pārvietoto avotu attēli. Nemainīto ierakstu zonas un labojumi ir saglabāti.`
+							: "Šai lokācijai nav jaunu vai mainītu žurnāla attēlu. Esošie rezultāti nav mainīti.",
+					);
+				if (!(result.analysisCount ?? result.addedCount + result.updatedCount))
+					return;
 			} else if (mode === "restart" && id)
 				await restartVisualDrawing(siteId, id);
 			if (!id) throw new Error("PDF augšupielāde neizdevās.");
 			if (run !== epoch.current) return;
 			setPhase("preparing");
-			loaded ??= await loadDrawing(id);
+			loaded ??= mode === "resume" ? drawing : await loadDrawing(id);
 			if (!loaded || run !== epoch.current) return;
 			previousAttempt.current = loaded.state.attempts.at(-1)?.id;
 			setProgressUnavailable(false);
@@ -305,6 +331,46 @@ export default function VisualView({ siteId }: { siteId: string }) {
 		} catch (issue) {
 			if (run === epoch.current)
 				setError(issue instanceof Error ? issue.message : "Analīze neizdevās.");
+		} finally {
+			busyRef.current = false;
+			if (run === epoch.current) {
+				setBusy(false);
+				setPhase("idle");
+				setAutomatic(false);
+			}
+		}
+	}
+	useVisualAutoSync({
+		active,
+		scope: drawing ? `${siteId}:${drawing.id}` : null,
+		blocked: controlsLocked || loading || !!confirmation,
+		sync: () => process("refresh", true),
+	});
+	async function resolveReview(reanalyze: boolean) {
+		if (!drawing || !source || controlsLocked || busyRef.current) return;
+		const run = epoch.current;
+		busyRef.current = true;
+		setBusy(true);
+		setError(null);
+		try {
+			const updated = await resolveVisualSourceReview(
+				siteId,
+				drawing.id,
+				source.id,
+				reanalyze,
+			);
+			if (run !== epoch.current) return;
+			setDrawing(updated);
+			if (reanalyze) {
+				previousAttempt.current = updated.state.attempts.at(-1)?.id;
+				setPhase("analyzing");
+				await analyze(drawing.id, run);
+			}
+		} catch (issue) {
+			if (run === epoch.current)
+				setError(
+					issue instanceof Error ? issue.message : "Neizdevās pārskatīt avotu.",
+				);
 		} finally {
 			busyRef.current = false;
 			if (run === epoch.current) {
@@ -387,6 +453,25 @@ export default function VisualView({ siteId }: { siteId: string }) {
 	const source = drawing?.state.evidence.find(
 		(item) => item.id === selectedMark?.evidenceId,
 	);
+	function selectZone(id: string) {
+		if (workEditing) return;
+		setSelected(id);
+		setSidebarOpen(true);
+		if (sidebar.current) sidebar.current.scrollTop = 0;
+	}
+	const reviewedSources =
+		drawing?.state.evidence.filter((item) => item.reviewRequired) ?? [];
+	const completedImages = drawing
+		? visualImageProgress(drawing.state).filter(
+				(item) => item.status === "complete",
+			).length
+		: 0;
+	const sourceProgress =
+		source && drawing
+			? visualImageProgress(drawing.state).find(
+					(item) => item.evidenceId === source.id,
+				)
+			: null;
 	return (
 		<Card className="gap-0 overflow-hidden py-0">
 			<CardHeader className="border-b py-4">
@@ -484,6 +569,19 @@ export default function VisualView({ siteId }: { siteId: string }) {
 				) : null}
 				{deleting ? (
 					<output className="block text-sm">Dzēš rasējumu…</output>
+				) : automatic ? (
+					<output
+						className="flex items-center gap-2 text-sm text-muted-foreground"
+						aria-live="polite"
+					>
+						<Loader2
+							className="h-4 w-4 animate-spin motion-reduce:animate-none"
+							aria-hidden="true"
+						/>
+						{phase === "analyzing" && drawing
+							? `Atjaunina zonas… Apstrādāti ${completedImages} no ${drawing.state.evidence.length} attēliem.`
+							: "Pārbauda žurnāla izmaiņas…"}
+					</output>
 				) : (
 					<VisualAnalysisProgress
 						phase={phase}
@@ -505,6 +603,21 @@ export default function VisualView({ siteId }: { siteId: string }) {
 				) : null}
 				{drawing ? (
 					<>
+						{!busy ? (
+							<output className="block text-xs text-muted-foreground">
+								Automātiska atjaunošana ieslēgta
+								{syncedAt
+									? ` · Pārbaudīts ${new Date(syncedAt).toLocaleTimeString("lv", { hour: "2-digit", minute: "2-digit" })}`
+									: ""}
+							</output>
+						) : null}
+						{reviewedSources.length ? (
+							<div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+								Žurnālā mainīti {reviewedSources.length} manuāli pielāgotu zonu
+								avoti. Zonas saglabātas; izvēlieties avotu un pārskatiet
+								izmaiņas.
+							</div>
+						) : null}
 						<div className="flex flex-wrap items-center gap-2">
 							<h3
 								className="min-w-0 flex-1 truncate text-sm font-medium"
@@ -552,9 +665,8 @@ export default function VisualView({ siteId }: { siteId: string }) {
 								AI aptuvenās zonas — arī pēc svītrām un nepilnīgām atzīmēm.
 								Robežas var būt interpretētas; pirms izmantošanas pārbaudiet
 								avota attēlus. Tas nav precīzs uzmērījums vai apstiprināts darbu
-								apjoms. Slāņi var pārklāties. Analīze izmanto augšupielādes
-								brīža ierakstus; jaunus ierakstus iekļauj ar “Atjaunot no
-								žurnāla”.
+								apjoms. Slāņi var pārklāties. Kamēr šis skats ir atvērts, jauni
+								un mainīti ieraksti tiek atjaunoti automātiski.
 							</p>
 						</details>
 						<div className="flex items-center justify-between border-t pt-3">
@@ -582,9 +694,10 @@ export default function VisualView({ siteId }: { siteId: string }) {
 							className={`grid min-w-0 items-start gap-4 ${sidebarOpen ? "lg:grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-1"}`}
 						>
 							<aside
+								ref={sidebar}
 								id={`${fileId}-sidebar`}
 								hidden={!sidebarOpen}
-								className="order-2 min-w-0 space-y-4 overflow-y-auto rounded-xl border bg-background p-3 lg:order-1 lg:max-h-[min(70dvh,800px)]"
+								className="order-2 flex min-w-0 flex-col gap-4 overflow-y-auto rounded-xl border bg-background p-3 lg:order-1 lg:max-h-[min(70dvh,800px)]"
 								aria-label="Darbu slāņi un avoti"
 							>
 								<fieldset
@@ -607,7 +720,7 @@ export default function VisualView({ siteId }: { siteId: string }) {
 														? "indeterminate"
 														: false
 											}
-											disabled={editing}
+											disabled={editing || workEditing}
 											onCheckedChange={() =>
 												setLayers((values) =>
 													values.length === allLayers.length ? [] : allLayers,
@@ -627,7 +740,7 @@ export default function VisualView({ siteId }: { siteId: string }) {
 											<Checkbox
 												id={`${fileId}-${key}`}
 												checked={layers.includes(key)}
-												disabled={editing}
+												disabled={editing || workEditing}
 												onCheckedChange={(checked) =>
 													setLayers((values) =>
 														checked
@@ -646,16 +759,18 @@ export default function VisualView({ siteId }: { siteId: string }) {
 										</label>
 									))}
 								</fieldset>
-								<div className="space-y-3">
+								<div
+									className={`flex flex-col gap-3 ${source ? "order-first" : ""}`}
+								>
 									<h4 className="font-medium">Zonu avoti</h4>
 									<div className="max-h-64 space-y-1 overflow-y-auto">
 										{visibleMarks.map((mark, i) => (
 											<Button
 												key={mark.id}
-												disabled={editing}
+												disabled={editing || workEditing}
 												variant={selected === mark.id ? "secondary" : "ghost"}
 												className="h-auto w-full justify-start whitespace-normal text-left"
-												onClick={() => setSelected(mark.id)}
+												onClick={() => selectZone(mark.id)}
 											>
 												<span className="min-w-0">
 													<span className="block text-xs text-muted-foreground">
@@ -673,14 +788,29 @@ export default function VisualView({ siteId }: { siteId: string }) {
 														{drawing.state.evidence.find(
 															(item) => item.id === mark.evidenceId,
 														)?.work || visualLayers[mark.layer].label}
+														{drawing.state.evidence.find(
+															(item) => item.id === mark.evidenceId,
+														)?.reviewRequired
+															? " · Jāpārskata"
+															: ""}
 													</span>
 												</span>
 											</Button>
 										))}
 									</div>
 									{source && selectedMark ? (
-										<div className="space-y-2 rounded-md border p-3 text-sm">
+										<div className="order-first space-y-2 rounded-md border border-primary/40 bg-primary/5 p-3 text-sm">
+											<p className="text-xs font-semibold text-primary">
+												Izvēlētā zona
+											</p>
 											<p className="font-medium">{source.work}</p>
+											{sourceProgress &&
+											sourceProgress.status !== "complete" ? (
+												<p className="text-xs text-amber-800">
+													Redzama iepriekš saglabātā zona. Šī avota atjaunošana
+													vēl nav pabeigta.
+												</p>
+											) : null}
 											<p>
 												{source.location} ·{" "}
 												{visualDiaryDay(source.date) !== null
@@ -696,6 +826,55 @@ export default function VisualView({ siteId }: { siteId: string }) {
 												photos={[source.photoUrl]}
 												language="lv"
 											/>
+											<VisualWorkEditor
+												key={`${source.recordId}:${source.work}`}
+												siteId={siteId}
+												drawingId={drawing.id}
+												source={source}
+												disabled={busy || editing || remoteActive}
+												onEditingChange={setWorkEditing}
+												onSaved={(updated) => {
+													setDrawing(updated);
+													setLayers((values) => [
+														...new Set([
+															...values,
+															workLayer(
+																updated.state.evidence.find(
+																	(item) => item.id === source.id,
+																)?.work ?? source.work,
+															),
+														]),
+													]);
+													setNotice(
+														updated.assignmentWarning ??
+															"Darba tips saglabāts žurnālā un visās ieraksta zonās.",
+													);
+												}}
+											/>
+											{source.reviewRequired ? (
+												<div className="space-y-2 border-t pt-3">
+													<p className="text-xs">
+														Avots ir mainīts. Pārbaudiet attēlu un manuāli
+														pielāgoto zonu.
+													</p>
+													<Button
+														size="sm"
+														variant="outline"
+														disabled={controlsLocked}
+														onClick={() => void resolveReview(false)}
+													>
+														Paturēt zonu
+													</Button>
+													<Button
+														size="sm"
+														variant="outline"
+														disabled={controlsLocked}
+														onClick={() => void resolveReview(true)}
+													>
+														Analizēt vēlreiz
+													</Button>
+												</div>
+											) : null}
 										</div>
 									) : (
 										<p className="text-sm text-muted-foreground">
@@ -711,8 +890,10 @@ export default function VisualView({ siteId }: { siteId: string }) {
 									marks={visibleMarks}
 									evidence={drawing.state.evidence}
 									selected={selectedMark?.id ?? null}
-									onSelect={setSelected}
-									editable={!busy && drawing.state.status !== "running"}
+									onSelect={selectZone}
+									editable={
+										!busy && !workEditing && drawing.state.status !== "running"
+									}
 									onEditingChange={setEditing}
 									onSave={async (edit) => {
 										const updated = await saveVisualPolygon(
@@ -723,7 +904,7 @@ export default function VisualView({ siteId }: { siteId: string }) {
 										setDrawing(updated);
 									}}
 								/>
-								<fieldset disabled={editing} className="min-w-0">
+								<fieldset disabled={editing || workEditing} className="min-w-0">
 									<VisualTimeline
 										firstDay={timeline.firstDay}
 										lastDay={timeline.lastDay}

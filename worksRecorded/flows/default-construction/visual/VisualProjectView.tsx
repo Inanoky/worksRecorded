@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import { lazy, type ReactNode, Suspense, useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const VisualView = lazy(() => import("./VisualView"));
@@ -25,7 +25,7 @@ export function VisualProjectView({
 			<section hidden={!active} aria-label="Izpildshēmas">
 				{visited || active ? (
 					<Suspense fallback={<Skeleton className="h-64 w-full" />}>
-						<VisualView siteId={siteId} />
+						<VisualView key={siteId} siteId={siteId} active={active} />
 					</Suspense>
 				) : null}
 			</section>

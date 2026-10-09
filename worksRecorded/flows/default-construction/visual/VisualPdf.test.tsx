@@ -143,9 +143,13 @@ it("uses translucent fills with stronger opacity for the selected zone", async (
 	expect(polygons[0]).toHaveAttribute("fill", "#eab308");
 	expect(polygons[1]).toHaveAttribute("fill", "#16a34a");
 	expect(polygons[0]).toHaveAttribute("fill-opacity", "0.5");
-	expect(polygons[1]).toHaveAttribute("fill-opacity", "0.7");
-	expect(polygons[1]).toHaveAttribute("stroke", "#16a34a");
-	expect(polygons[1]).toHaveAttribute("stroke-width", "2");
+	expect(polygons[1]).toHaveAttribute("fill-opacity", "0.85");
+	expect(polygons[1]).toHaveAttribute("stroke", "#0f172a");
+	expect(polygons[1]).toHaveAttribute("stroke-width", "4");
+	expect(screen.getByRole("button", { name: /Smilts:/ })).toHaveAttribute(
+		"aria-pressed",
+		"true",
+	);
 });
 
 it("shows a PDF load error without drawing overlays", async () => {

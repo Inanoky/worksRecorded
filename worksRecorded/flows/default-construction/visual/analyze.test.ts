@@ -44,6 +44,34 @@ const mark = {
 let drawing: VisualDrawing;
 const originalVisualModel = process.env.LIMENI_VISUAL_MODEL;
 
+it("keeps the last valid polygon after a changed source fails analysis", async () => {
+	drawing.state.marks = [{ ...mark, id: "old-zone", layer: "xps" }];
+	drawing.state.imageProgress = [
+		{ evidenceId: photo.id, status: "pending", error: null },
+	];
+	drawing.state.status = "paused";
+	mockParse.mockRejectedValue(new Error("timeout"));
+	const result = await analyzeVisualBatch("user", "site", "drawing");
+	expect(result.state.status).toBe("failed");
+	expect(result.state.marks).toEqual([
+		{ ...mark, id: "old-zone", layer: "xps" },
+	]);
+});
+
+it("replaces rather than duplicates the prior polygon after successful reanalysis", async () => {
+	drawing.state.marks = [{ ...mark, id: "old-zone", layer: "xps" }];
+	drawing.state.imageProgress = [
+		{ evidenceId: photo.id, status: "pending", error: null },
+	];
+	drawing.state.status = "paused";
+	mockParse.mockResolvedValue({
+		output_parsed: { marks: [mark], unlocated: [] },
+	});
+	const result = await analyzeVisualBatch("user", "site", "drawing");
+	expect(result.state.marks).toHaveLength(1);
+	expect(result.state.marks[0].id).not.toBe("old-zone");
+});
+
 afterEach(() => {
 	if (originalVisualModel === undefined) delete process.env.LIMENI_VISUAL_MODEL;
 	else process.env.LIMENI_VISUAL_MODEL = originalVisualModel;
