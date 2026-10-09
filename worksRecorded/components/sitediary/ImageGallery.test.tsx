@@ -52,7 +52,7 @@ describe("ImageGallery photo moves", () => {
 		await screen.findByRole("button", { name: "Progress photo" });
 		fireEvent.click(screen.getAllByRole("button", { name: "Delete photo" })[0]);
 		await waitFor(() =>
-			expect(mockDeletePhotoById).toHaveBeenCalledWith("photo-1"),
+			expect(mockDeletePhotoById).toHaveBeenCalledWith("photo-1", "site-1"),
 		);
 		expect(
 			screen.getByRole("button", { name: "Progress photo" }),
@@ -227,6 +227,7 @@ describe("ImageGallery photo moves", () => {
 			expect(mockMovePhotosToDate).toHaveBeenCalledWith({
 				photoIds: ["photo-1", "photo-2"],
 				targetDate: "2026-08-06",
+				siteId: "site-1",
 			});
 		});
 		expect(onMediaChanged).toHaveBeenCalledTimes(1);

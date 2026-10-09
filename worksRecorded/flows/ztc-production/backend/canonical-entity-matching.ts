@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
+import { loadZtcSiteConfiguration } from "./site-configuration";
 import {
 	ZTC_OPENAI_MODEL,
 	ZTC_OPENAI_REASONING_EFFORT,
@@ -228,10 +229,7 @@ function parseConfiguredProjects(config: unknown) {
 
 async function loadCanonicalCatalog(siteId: string, category: ZtcRateCategory) {
 	const [site, existingRows] = await Promise.all([
-		prisma.site.findUnique({
-			where: { id: siteId },
-			select: { siteDiaryRecordsMap: true },
-		}),
+		loadZtcSiteConfiguration(siteId),
 		prisma.ztcRecords.findMany({
 			where: { siteId, Location: { not: null } },
 			select: { Location: true },

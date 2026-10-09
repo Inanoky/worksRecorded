@@ -3,6 +3,7 @@
 import { auditZtcMutation } from "@/flows/ztc-production/lib/ztc-record-audit";
 import type { Prisma } from "@prisma/client";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
+import { loadZtcSiteConfiguration, saveZtcSiteConfiguration } from "./site-configuration";
 import {
   attachZtcLaborNormToMetadata,
   clearZtcLaborNormFromMetadata,
@@ -827,10 +828,7 @@ function mapZtcRecord(rec: any) {
 }
 
 async function loadZtcSiteDiaryConfig(siteId: string) {
-  const site = await prisma.site.findUnique({
-    where: { id: siteId },
-    select: { siteDiaryRecordsMap: true },
-  });
+  const site = await loadZtcSiteConfiguration(siteId);
 
   const baseMap = structuredClone(
     ztcSiteDiaryRecordsMap as Record<string, any>,
@@ -1025,14 +1023,9 @@ export async function updateZtcDefaultTaskRates(args: {
 }) {
   const context = await requireZtcAccess(args.siteId);
 
-  const site = await prisma.site.findUnique({
-    where: { id: args.siteId },
-    select: { siteDiaryRecordsMap: true },
-  });
-  if (!site) throw new Error("Ražošanas objekts nav atrasts.");
-
+  const site = await loadZtcSiteConfiguration(args.siteId);
   const currentMap =
-    site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
+    site?.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
       ? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
       : structuredClone(ztcSiteDiaryRecordsMap as Record<string, any>);
 
@@ -1047,10 +1040,7 @@ export async function updateZtcDefaultTaskRates(args: {
   };
 
   await prisma.$transaction([
-    prisma.site.update({
-      where: { id: args.siteId },
-      data: { siteDiaryRecordsMap: currentMap },
-    }),
+    saveZtcSiteConfiguration(args.siteId, currentMap),
     prisma.ztcRateChangeAudit.create({
       data: {
         siteId: args.siteId,

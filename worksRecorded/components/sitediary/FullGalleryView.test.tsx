@@ -81,7 +81,7 @@ describe("FullPhotoGallery", () => {
 			screen.getByRole("button", { name: "Delete" }),
 		);
 		await waitFor(() => expect(onMediaChanged).toHaveBeenCalledTimes(1));
-		expect(mockDeletePhotoById).toHaveBeenCalledWith("photo-1");
+		expect(mockDeletePhotoById).toHaveBeenCalledWith("photo-1", "site-1");
 	});
 	it("does not delete or refresh when confirmation is cancelled", async () => {
 		jest.spyOn(window, "confirm").mockReturnValue(false);

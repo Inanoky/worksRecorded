@@ -9,6 +9,8 @@ const siteFindUniqueMock = jest.fn();
 const productionFlowConfigOverrideFindManyMock = jest.fn();
 const flowAssignmentFindUniqueMock = jest.fn();
 const photosFindManyMock = jest.fn();
+const ztcPhotosFindManyMock = jest.fn();
+const ztcRecordsFindManyMock = jest.fn();
 const photosFindUniqueMock = jest.fn();
 const photosUpdateMock = jest.fn();
 const photosUpdateManyMock = jest.fn();
@@ -52,6 +54,8 @@ jest.mock("@/lib/utils/db", () => ({
       updateMany: photosUpdateManyMock,
       delete: photosDeleteMock,
     },
+    ztcPhoto: { findMany: ztcPhotosFindManyMock },
+    ztcRecords: { findMany: ztcRecordsFindManyMock },
     bISmaterialRecords: {
       findMany: bisMaterialFindManyMock,
     },
@@ -105,6 +109,15 @@ jest.mock("./whatsapp-actions", () => ({
   getUserFullNameById: jest.fn(async () => "Test Manager"),
   getWorkerFullNameById: jest.fn(async () => "Test Worker"),
 }));
+jest.mock("@/lib/photos/flow-photo-store", () => ({
+  getSitePhotoStore: jest.fn(async () => require("@/lib/utils/db").prisma.photos),
+  getUserPhotoStore: jest.fn(async () => require("@/lib/utils/db").prisma.photos),
+  photoStoreForFlow: jest.fn(() => require("@/lib/utils/db").prisma.photos),
+}));
+jest.mock("@/flows/ztc-production/backend/site-configuration", () => ({
+  loadZtcSiteConfiguration: jest.fn((siteId: string) => siteFindUniqueMock({ where: { id: siteId }, select: { siteDiaryRecordsMap: true } })),
+  saveZtcSiteConfiguration: jest.fn(),
+}));
 
 import {
   archiveAndReplaceSiteDiaryBatch,
@@ -121,6 +134,8 @@ import {
   saveSiteDiaryRecord,
 } from "./site-diary-actions";
 import { requireUser } from "@/lib/utils/requireUser";
+import { getSitePhotoStore } from "@/lib/photos/flow-photo-store";
+import { prisma } from "@/lib/utils/db";
 import { orgCheck } from "./shared-actions";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
@@ -715,6 +730,17 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
         originalAudioUrl: undefined,
       }),
     );
+  });
+
+  it("returns production photos and audio without reading construction tables", async () => {
+    jest.mocked(getSitePhotoStore).mockResolvedValueOnce(prisma.ztcPhoto as never);
+    ztcPhotosFindManyMock.mockResolvedValue([{ id: "ztc-photo" }]);
+    ztcRecordsFindManyMock.mockResolvedValue([{ id: "ztc-audio" }]);
+    const result = await getPhotosByDate({ siteId: "site-1", startISO: "2026-06-08T00:00:00Z", endISO: "2026-06-09T00:00:00Z" });
+    expect(result).toEqual({ photos: [{ id: "ztc-photo" }], audioRecords: [{ id: "ztc-audio" }] });
+    expect(photosFindManyMock).not.toHaveBeenCalled();
+    expect(siteDiaryFindManyMock).not.toHaveBeenCalled();
+    expect(ztcRecordsFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ siteId: "site-1", organizationId: "org-1" }) }));
   });
 
   it("returns photos and same-day audio diary records for the media dialog", async () => {

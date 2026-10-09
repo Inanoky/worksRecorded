@@ -550,7 +550,7 @@ async function saveQualityPhotos(args: {
 }) {
   if (!args.urls.length) return;
 
-  await prisma.photos.createMany({
+  await prisma.ztcPhoto.createMany({
     data: args.urls.map((url) => ({
       Date: new Date(),
       URL: url,

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/utils/db";
+import { loadZtcSiteConfiguration } from "./site-configuration";
 import {
   normalizeZtcProjectName,
   resolveZtcCanonicalProjectName,
@@ -33,7 +34,7 @@ function getConfiguredProjectNames(config: unknown, manual: boolean) {
     )
     .filter(
       (project): project is Record<string, unknown> =>
-        Boolean(project) &&
+        project !== null &&
         (manual ? project.manual === true : project.manual !== true),
     )
     .map((project) => String(project.projectName ?? "").trim())
@@ -50,10 +51,7 @@ export async function canonicalizeZtcExtractedProjectName(args: {
   extractedProjectName: unknown;
 }) {
   const [site, existingRows] = await Promise.all([
-    prisma.site.findUnique({
-      where: { id: args.siteId },
-      select: { siteDiaryRecordsMap: true },
-    }),
+    loadZtcSiteConfiguration(args.siteId),
     prisma.ztcRecords.findMany({
       where: { siteId: args.siteId, Location: { not: null } },
       select: { Location: true },

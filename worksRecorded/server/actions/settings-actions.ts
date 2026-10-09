@@ -9,6 +9,7 @@ import {
   hasDefaultConstructionQuantityProfile,
 } from "@/flows/default-construction/lib/quantity-plan-actual";
 import { prisma } from "@/lib/utils/db";
+import { isZtcProductionFlowRuntime } from "@/lib/production-flow/runtime-server";
 import { requireUser } from "@/lib/utils/requireUser";
 import { sendManualWhatsappReminder } from "@/lib/whatsapp-reminders/engine";
 import { orgCheck } from "@/server/actions/shared-actions";
@@ -250,7 +251,11 @@ export async function getSiteDiaryMode(siteId: string) {
 
 export async function saveSiteDiaryMode(siteId: string, mode: SiteDiaryMode) {
   const user = await requireUser();
-  await orgCheck(user.id, siteId);
+  const authorizedSite = await orgCheck(user.id, siteId);
+  if (!authorizedSite) throw new Error("Project access denied");
+  if (await isZtcProductionFlowRuntime({ siteId, organizationId: authorizedSite.organizationId })) {
+    throw new Error("Production settings must be edited through the production flow.");
+  }
 
   const site = await prisma.site.findUnique({
     where: { id: siteId },

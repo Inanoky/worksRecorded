@@ -301,7 +301,7 @@ export function ImageGallery({
 		setDeleting(id);
 		setError(null);
 		try {
-			await deletePhotoById(id);
+			await deletePhotoById(id, siteId ?? undefined);
 			setPhotos((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
 			setSelectedPhotoIds((prev) => {
 				const next = new Set(prev);
@@ -354,6 +354,7 @@ export function ImageGallery({
 			await movePhotosToDate({
 				photoIds,
 				targetDate: bulkMoveTargetDate,
+				siteId: siteId ?? undefined,
 			});
 			if (formatDateInputValue(date) !== bulkMoveTargetDate) {
 				const movedPhotoIds = new Set(photoIds);

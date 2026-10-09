@@ -3,7 +3,7 @@ import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 
 import { createPerfTrace } from "@/lib/observability/perf";
 import { siteDiaryPhotoPurposeWhere } from "@/lib/photos/media-purpose";
-import { prisma } from "@/lib/utils/db";
+import { getSitePhotoStore } from "@/lib/photos/flow-photo-store";
 import { orgCheck } from "@/server/actions/shared-actions";
 
 export const dynamic = "force-dynamic";
@@ -57,9 +57,10 @@ export async function GET(
       AND: [{ fileUrl: { not: null } }, { fileUrl: { not: "" } }, siteDiaryPhotoPurposeWhere()],
     };
 
+    const photoStore = await getSitePhotoStore({ siteId, organizationId: site.organizationId });
     const [photos, countedPhotos] = await Promise.all([
       trace.measure("photosQuery", () =>
-        prisma.photos.findMany({
+        photoStore.findMany({
           where,
           orderBy: { Date: "desc" },
           skip,
@@ -73,7 +74,7 @@ export async function GET(
           },
         }),
       ),
-      trace.measure("countQuery", () => prisma.photos.count({ where })),
+      trace.measure("countQuery", () => photoStore.count({ where })),
     ]);
     returnedCount = photos.length;
     totalCount = countedPhotos;

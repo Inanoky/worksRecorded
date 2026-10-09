@@ -1,6 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { deleteDiaryPhoto } from "@/lib/photos/delete-diary-photo";
+import { getSitePhotoStore, getUserPhotoStore, photoStoreForFlow } from "@/lib/photos/flow-photo-store";
+import { loadZtcSiteConfiguration, saveZtcSiteConfiguration } from "@/flows/ztc-production/backend/site-configuration";
 import { ensureDiaryPhotoAttachments, ensureDiaryPhotoAttachmentsById } from "@/lib/photos/diary-photo-attachments";
 import { diaryDayPhotoWhere } from "@/lib/photos/diary-day-photo-where";
 import { auditZtcMutation } from "@/flows/ztc-production/lib/ztc-record-audit";
@@ -299,7 +301,7 @@ export async function getConfig(
   options: SiteDiaryFlowHint = {},
 ) {
   const useZtcConfig = await shouldUseZtcRecordsForSite(siteId, options);
-  const clientConfig = await prisma.site.findUnique({
+  const clientConfig = useZtcConfig ? await loadZtcSiteConfiguration(siteId) : await prisma.site.findUnique({
     where: {
       id: siteId,
     },
@@ -359,8 +361,8 @@ export async function getConfig(
   const result = applyDefaultConstructionQuantityProfile(defaultConstructionMap);
   result.otherSettings = {
     ...result.otherSettings,
-    inlineDiaryPhotos: hasInlineDiaryPhotos(clientConfig.organizationId),
-    visualConstruction: hasInlineDiaryPhotos(clientConfig.organizationId),
+    inlineDiaryPhotos: hasInlineDiaryPhotos("organizationId" in clientConfig ? clientConfig.organizationId as string : null),
+    visualConstruction: hasInlineDiaryPhotos("organizationId" in clientConfig ? clientConfig.organizationId as string : null),
   };
   return result;
 }
@@ -374,7 +376,7 @@ export async function updateSiteDiaryDropdownOptions(args: {
   await orgCheck(user.id, args.siteId);
   const useZtcConfig = await shouldUseZtcRecordsForSite(args.siteId);
 
-  const site = await prisma.site.findUnique({
+  const site = useZtcConfig ? await loadZtcSiteConfiguration(args.siteId) : await prisma.site.findUnique({
     where: { id: args.siteId },
     select: { siteDiaryRecordsMap: true },
   });
@@ -417,10 +419,11 @@ export async function updateSiteDiaryDropdownOptions(args: {
     };
   }
 
-  await prisma.site.update({
-    where: { id: args.siteId },
-    data: { siteDiaryRecordsMap: currentMap },
-  });
+  if (useZtcConfig) {
+    await saveZtcSiteConfiguration(args.siteId, currentMap);
+  } else {
+    await prisma.site.update({ where: { id: args.siteId }, data: { siteDiaryRecordsMap: currentMap } });
+  }
 
   return { ok: true, options: normalizedOptions };
 }
@@ -2737,7 +2740,7 @@ export async function getSiteDiaryMediaOnlyDays(
       "mediaOnlyDaysQuery",
       () =>
         Promise.all([
-          prisma.photos.findMany({
+          photoStoreForFlow(useZtcRecords).findMany({
             where: photoWhere,
             orderBy: { Date: "desc" },
             select: {
@@ -3400,7 +3403,11 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
 export async function getSiteGalleryAttachments(siteId: string) {
   if (!siteId) return [];
 
-  const photos = await prisma.photos.findMany({
+  const user = await requireUser();
+  const site = await orgCheck(user.id, siteId);
+  if (!site || !site.organizationId) throw new Error("Project access denied");
+  const photoStore = await getSitePhotoStore({ siteId, organizationId: site.organizationId });
+  const photos = await photoStore.findMany({
     where: {
       siteId,
       AND: [siteDiaryPhotoPurposeWhere()],
@@ -4552,7 +4559,7 @@ export async function getFilledDays({
         recordsPromise,
 
         // photos in month (with a valid URL)
-        prisma.photos.findMany({
+        photoStoreForFlow(useZtcRecords).findMany({
           where: {
             siteId,
             Date: { gte: from, lt: to },
@@ -4716,7 +4723,8 @@ export async function savePhoto({
   console.log("Prisma create payload:", data);
 
   try {
-    const rec = await prisma.photos.create({ data });
+    const photoStore = await getSitePhotoStore({ siteId, organizationId: org });
+    const rec = await photoStore.create({ data });
 
     console.log("Photo saved successfully:", rec);
     return rec;
@@ -4747,9 +4755,22 @@ export async function getPhotosByDate({
     const site = await orgCheck(user.id, siteId);
     if (!site || !site.organizationId) throw new Error("Project access denied");
     const photoWhere = await diaryDayPhotoWhere({ siteId, organizationId: site.organizationId, start, end });
+    const photoStore = await getSitePhotoStore({ siteId, organizationId: site.organizationId });
+    const useZtcRecords = photoStore === (prisma.ztcPhoto as unknown);
+    const audioWhere = {
+      siteId,
+      organizationId: site.organizationId,
+      Date: { gte: start, lt: end },
+      AND: [{ originalAudioUrl: { not: null } }, { originalAudioUrl: { not: "" } }],
+    };
+    const audioSelect = {
+      id: true, Date: true, Location: true, Works: true,
+      originalUserComment: true, originalAudioUrl: true,
+      siteId: true, userId: true, workerId: true,
+    } as const;
     const [photos, audioRecords] = await trace.measure("dateQueries", () =>
       Promise.all([
-        prisma.photos.findMany({
+        photoStore.findMany({
           where: photoWhere,
           orderBy: { Date: "desc" },
           select: {
@@ -4763,33 +4784,9 @@ export async function getPhotosByDate({
             userId: true,
           },
         }),
-        prisma.sitediaryrecords.findMany({
-          where: {
-            siteId: siteId ?? undefined,
-            organizationId: site.organizationId,
-            archivedAt: null,
-            Date: {
-              gte: start,
-              lt: end,
-            },
-            AND: [
-              { originalAudioUrl: { not: null } },
-              { originalAudioUrl: { not: "" } },
-            ],
-          },
-          orderBy: { Date: "desc" },
-          select: {
-            id: true,
-            Date: true,
-            Location: true,
-            Works: true,
-            originalUserComment: true,
-            originalAudioUrl: true,
-            siteId: true,
-            userId: true,
-            workerId: true,
-          },
-        }),
+        useZtcRecords
+          ? prisma.ztcRecords.findMany({ where: audioWhere, orderBy: { Date: "desc" }, select: audioSelect })
+          : prisma.sitediaryrecords.findMany({ where: { ...audioWhere, archivedAt: null }, orderBy: { Date: "desc" }, select: audioSelect }),
       ]),
     );
 
@@ -4813,8 +4810,8 @@ export async function getPhotosByDate({
   }
 }
 
-export async function deletePhotoById(id: string) {
-  const { siteId, deletedUrls, deletedRecordIds } = await deleteDiaryPhoto(id);
+export async function deletePhotoById(id: string, requestedSiteId?: string) {
+  const { siteId, deletedUrls, deletedRecordIds } = await deleteDiaryPhoto(id, requestedSiteId);
   revalidatePath(`/dashboard/sites/${siteId}`, "layout");
   revalidatePath("/dashboard/all-projects");
   return { ok: true, siteId, deletedUrls, deletedRecordIds };
@@ -4834,9 +4831,11 @@ function parsePhotoMoveTargetDate(value: string) {
 export async function movePhotoToDate({
   photoId,
   targetDate,
+  siteId,
 }: {
   photoId: string;
   targetDate: string;
+  siteId?: string;
 }) {
   const normalizedPhotoId = photoId.trim();
   if (!normalizedPhotoId) throw new Error("Missing photoId");
@@ -4847,7 +4846,8 @@ export async function movePhotoToDate({
   }
 
   const user = await requireUser();
-  const photo = await prisma.photos.findUnique({
+  const photoStore = await getUserPhotoStore(user.id, siteId);
+  const photo = await photoStore.findUnique({
     where: { id: normalizedPhotoId },
     select: {
       id: true,
@@ -4871,7 +4871,7 @@ export async function movePhotoToDate({
     );
   }
 
-  const updated = await prisma.photos.update({
+  const updated = await photoStore.update({
     where: { id: normalizedPhotoId },
     data: { Date: parsedDate },
     select: {
@@ -4887,9 +4887,11 @@ export async function movePhotoToDate({
 export async function movePhotosToDate({
   photoIds,
   targetDate,
+  siteId,
 }: {
   photoIds: string[];
   targetDate: string;
+  siteId?: string;
 }) {
   const normalizedPhotoIds = Array.from(
     new Set(photoIds.map((id) => id.trim()).filter(Boolean)),
@@ -4902,7 +4904,8 @@ export async function movePhotosToDate({
   }
 
   const user = await requireUser();
-  const photos = await prisma.photos.findMany({
+  const photoStore = await getUserPhotoStore(user.id, siteId);
+  const photos = await photoStore.findMany({
     where: {
       id: { in: normalizedPhotoIds },
     },
@@ -4942,7 +4945,7 @@ export async function movePhotosToDate({
     );
   }
 
-  const updated = await prisma.photos.updateMany({
+  const updated = await photoStore.updateMany({
     where: {
       id: { in: normalizedPhotoIds },
     },
@@ -4975,6 +4978,10 @@ export async function getAllPhotos(
   endDate?: Date,
 ) {
   try {
+    const user = await requireUser();
+    const site = await orgCheck(user.id, siteId);
+    if (!site) throw new Error("Project access denied");
+    const photoStore = await getSitePhotoStore({ siteId, organizationId: site.organizationId });
     const skip = (page - 1) * PHOTOS_PER_PAGE;
 
     // Build the WHERE clause
@@ -4996,7 +5003,7 @@ export async function getAllPhotos(
     };
 
     // 1. Fetch the photos for the current page
-    const photos = await prisma.photos.findMany({
+    const photos = await photoStore.findMany({
       where: whereClause,
       orderBy: {
         Date: "desc",
@@ -5013,7 +5020,7 @@ export async function getAllPhotos(
     });
 
     // 2. Get the total count of all photos for pagination logic
-    const totalCount = await prisma.photos.count({
+    const totalCount = await photoStore.count({
       where: whereClause,
     });
 
