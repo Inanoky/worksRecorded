@@ -6,7 +6,10 @@ import {
 	LIMENI_ORGANIZATION_ID,
 	normalizeDiaryPhotoUrls,
 } from "../lib/diary-photos";
-import { withDefaultConstructionSystemWorks } from "../lib/site-diary-productivity-settings";
+import {
+	getDefaultConstructionOptionValues,
+	withDefaultConstructionSystemWorks,
+} from "../lib/site-diary-productivity-settings";
 import {
 	normalizeVisualLocation,
 	VISUAL_DOCUMENT_TYPE,
@@ -18,6 +21,7 @@ import {
 	visualStateSchema,
 	workLayer,
 } from "./model";
+import { VISUAL_PLAN_TYPE } from "./planning-model";
 import { polygonDeleteSchema, polygonEditSchema } from "./polygon-edit";
 import { syncVisualEvidence } from "./sync-evidence";
 
@@ -43,7 +47,7 @@ export async function requireVisualAccess(userId: string, siteId: string) {
 
 export async function listVisualDrawings(userId: string, siteId: string) {
 	const access = await requireVisualAccess(userId, siteId);
-	const [rows, documents] = await Promise.all([
+	const [rows, documents, site] = await Promise.all([
 		prisma.sitediaryrecords.findMany({
 			where: {
 				siteId,
@@ -68,7 +72,12 @@ export async function listVisualDrawings(userId: string, siteId: string) {
 				description: true,
 			},
 		}),
+		prisma.site.findFirst({
+			where: { id: siteId, organizationId: access.organizationId },
+			select: { siteDiaryRecordsMap: true },
+		}),
 	]);
+	if (!site) throw new Error("Projekts nav atrasts.");
 	const seenLocations = new Set<string>();
 	const drawings = documents.flatMap((row) => {
 		try {
@@ -89,14 +98,22 @@ export async function listVisualDrawings(userId: string, siteId: string) {
 			return [];
 		}
 	});
-	const locations = [
-		...new Set(
-			[
-				...rows.map((row) => row.Location?.trim() || ""),
-				...drawings.map((row) => row.location),
-			].filter(Boolean),
-		),
-	].sort((a, b) => a.localeCompare(b, "lv"));
+	const locationsByKey = new Map<string, string>();
+	for (const candidate of [
+		...getDefaultConstructionOptionValues(
+			(site.siteDiaryRecordsMap ?? {}) as Record<string, unknown>,
+		).locations,
+		...rows.map((row) => row.Location?.trim() || ""),
+		...drawings.map((row) => row.location),
+	]) {
+		const location = candidate.trim();
+		if (!location) continue;
+		const key = normalizeVisualLocation(location);
+		if (!locationsByKey.has(key)) locationsByKey.set(key, location);
+	}
+	const locations = [...locationsByKey.values()].sort((a, b) =>
+		a.localeCompare(b, "lv"),
+	);
 	return { locations, drawings };
 }
 
@@ -179,6 +196,9 @@ export async function editVisualWorkType(
 	if (!options.includes(edit.work))
 		throw new Error("Izvēlieties projekta darba tipu.");
 	const { row, drawing } = await loadVisualDrawing(userId, siteId, drawingId);
+	if (!row.organizationId)
+		throw new Error("Rasējuma organizācija nav atrasta.");
+	const organizationId = row.organizationId;
 	requireIdleDrawing(drawing.state);
 	const source = drawing.state.evidence.find(
 		(item) => item.id === edit.evidenceId,
@@ -190,7 +210,7 @@ export async function editVisualWorkType(
 			const before = (
 				await loadVisualEvidence(
 					siteId,
-					row.organizationId!,
+					organizationId,
 					drawing.state.location,
 					tx,
 				)
@@ -243,7 +263,7 @@ export async function editVisualWorkType(
 				requireIdleDrawing(state);
 				const snapshot = await loadVisualEvidence(
 					siteId,
-					row.organizationId!,
+					organizationId,
 					state.location,
 					tx,
 				);
@@ -367,10 +387,6 @@ export async function createVisualDrawing(args: {
 		access.organizationId,
 		location,
 	);
-	if (!evidence.length)
-		throw new Error(
-			"Nevar atrast darbus: šīs lokācijas žurnāla ierakstiem nav piesaistītu attēlu.",
-		);
 	if (evidence.length > VISUAL_MAX_PHOTOS)
 		throw new Error(
 			`Lokācijai ir vairāk nekā ${VISUAL_MAX_PHOTOS} attēlu. Sadaliet to precīzākās lokācijās.`,
@@ -423,9 +439,10 @@ export async function createVisualDrawing(args: {
 			if (archived.count !== 1)
 				throw new Error("Rasējums jau ir mainīts. Pārlādējiet Visual skatu.");
 		}
+		const drawingId = randomUUID();
 		const drawing = await tx.documents.create({
 			data: {
-				id: randomUUID(),
+				id: drawingId,
 				siteId: args.siteId,
 				organizationId: access.organizationId,
 				userId: args.userId,
@@ -435,6 +452,63 @@ export async function createVisualDrawing(args: {
 				description: JSON.stringify(visualStateSchema.parse(state)),
 			},
 		});
+		const replacedDrawingIds = existing.map((item) => item.id);
+		if (replacedDrawingIds.length) {
+			const linkedPlans = await tx.constructionPlan.findMany({
+				where: {
+					siteId: args.siteId,
+					planType: VISUAL_PLAN_TYPE,
+					visualDrawingId: { in: replacedDrawingIds },
+				},
+			});
+			for (const plan of linkedPlans) {
+				const changed = await tx.constructionPlan.updateMany({
+					where: {
+						id: plan.id,
+						siteId: args.siteId,
+						planType: VISUAL_PLAN_TYPE,
+						visualDrawingId: plan.visualDrawingId,
+						version: plan.version,
+					},
+					data: {
+						visualDrawingId: drawingId,
+						geometryReviewRequired: true,
+						updatedBy: args.userId,
+						version: { increment: 1 },
+					},
+				});
+				if (changed.count !== 1)
+					throw new Error(
+						"Plānotā zona jau ir mainīta. Pārlādējiet Visual skatu.",
+					);
+				const saved = await tx.constructionPlan.findUniqueOrThrow({
+					where: { id: plan.id },
+				});
+				await tx.constructionPlanRevision.create({
+					data: {
+						planId: saved.id,
+						version: saved.version,
+						action: "drawing_replace",
+						actorId: args.userId,
+						snapshot: {
+							id: saved.id,
+							version: saved.version,
+							drawingId: saved.visualDrawingId,
+							work: saved.work,
+							location: saved.location,
+							unit: saved.unit,
+							quantity: saved.quantity,
+							startDate: saved.startDate?.toISOString().slice(0, 10) ?? null,
+							endDate: saved.date.toISOString().slice(0, 10),
+							geometry: saved.visualAreas,
+							geometryReviewRequired: saved.geometryReviewRequired,
+							archivedAt: saved.archivedAt?.toISOString() ?? null,
+							planType: VISUAL_PLAN_TYPE,
+						},
+					},
+				});
+			}
+		}
 		return drawing.id;
 	});
 }

@@ -49,6 +49,12 @@ jest.mock("@/lib/utils/db", () => ({
 			updateMany: jest.fn(),
 			deleteMany: jest.fn(),
 		},
+		constructionPlan: {
+			findMany: jest.fn(),
+			updateMany: jest.fn(),
+			findUniqueOrThrow: jest.fn(),
+		},
+		constructionPlanRevision: { create: jest.fn() },
 	},
 }));
 
@@ -68,6 +74,13 @@ beforeEach(() => {
 		.mockImplementation((async (callback: unknown) =>
 			(callback as (tx: typeof prisma) => Promise<unknown>)(prisma)) as never);
 	jest.mocked(prisma.documents.findMany).mockResolvedValue([]);
+	jest.mocked(prisma.constructionPlan.findMany).mockResolvedValue([]);
+	jest
+		.mocked(prisma.constructionPlan.updateMany)
+		.mockResolvedValue({ count: 1 });
+	jest
+		.mocked(prisma.constructionPlanRevision.create)
+		.mockResolvedValue({} as never);
 	jest.mocked(requireWarehouseImportAccess).mockResolvedValue({
 		userId: "user",
 		siteId: "site",
@@ -169,6 +182,27 @@ const uploadArgs = {
 	url: "https://a.ufs.sh/f/new",
 };
 
+it("lists configured locations and creates a planning drawing before diary photos exist", async () => {
+	jest.mocked(prisma.site.findFirst).mockResolvedValue({
+		siteDiaryRecordsMap: {
+			Location: {
+				DropDownOptions: { first: "1. stāvs", second: "Pagrabs" },
+			},
+		},
+	} as never);
+	jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([]);
+
+	const index = await listVisualDrawings("user", "site");
+	expect(index.locations).toEqual(["1. stāvs", "Pagrabs"]);
+
+	await expect(createVisualDrawing(uploadArgs)).resolves.toBe("drawing");
+	const state = JSON.parse(
+		jest.mocked(prisma.documents.create).mock.calls[0][0].data
+			.description as string,
+	) as VisualState;
+	expect(state).toMatchObject({ status: "uploaded", evidence: [], marks: [] });
+});
+
 it("blocks duplicate location uploads including normalized names and stale replacement requests", async () => {
 	const { row } = await mockSavedDrawing();
 	jest.mocked(prisma.documents.findMany).mockResolvedValue([row] as never);
@@ -207,6 +241,66 @@ it("archives all old versions of only the selected location before creating its 
 		data: { documentType: `${VISUAL_DOCUMENT_TYPE}-archived` },
 	});
 	expect(prisma.documents.deleteMany).not.toHaveBeenCalled();
+});
+
+it("moves saved planning geometry to the replacement PDF and requires review", async () => {
+	const { row } = await mockSavedDrawing();
+	jest.mocked(prisma.documents.findMany).mockResolvedValue([row] as never);
+	const plan = {
+		id: "plan",
+		version: 3,
+		visualDrawingId: "drawing",
+		work: "XPS",
+		location: "1. stāvs",
+		unit: "m2",
+		quantity: 20,
+		startDate: new Date("2026-10-12"),
+		date: new Date("2026-10-18"),
+		visualAreas: { version: 1, areas: [] },
+		geometryReviewRequired: false,
+		archivedAt: null,
+	};
+	jest
+		.mocked(prisma.constructionPlan.findMany)
+		.mockResolvedValue([plan] as never);
+	jest
+		.mocked(prisma.constructionPlan.findUniqueOrThrow)
+		.mockImplementation((async () => ({
+			...plan,
+			version: 4,
+			visualDrawingId: jest
+				.mocked(prisma.documents.create)
+				.mock.calls.at(-1)?.[0].data.id,
+			geometryReviewRequired: true,
+		})) as never);
+
+	await createVisualDrawing({ ...uploadArgs, replaceDrawingId: "drawing" });
+	const replacementId = jest
+		.mocked(prisma.documents.create)
+		.mock.calls.at(-1)?.[0].data.id;
+	expect(prisma.constructionPlan.updateMany).toHaveBeenCalledWith({
+		where: expect.objectContaining({
+			id: "plan",
+			visualDrawingId: "drawing",
+			version: 3,
+		}),
+		data: expect.objectContaining({
+			visualDrawingId: replacementId,
+			geometryReviewRequired: true,
+			version: { increment: 1 },
+		}),
+	});
+	expect(prisma.constructionPlanRevision.create).toHaveBeenCalledWith({
+		data: expect.objectContaining({
+			planId: "plan",
+			version: 4,
+			action: "drawing_replace",
+			snapshot: expect.objectContaining({
+				drawingId: replacementId,
+				geometryReviewRequired: true,
+			}),
+		}),
+	});
 });
 
 it("does not replace a drawing while its analysis is running", async () => {
@@ -949,7 +1043,7 @@ it("snapshots only the selected location and enforces site/org/archive scope", a
 	expect(data.documentType).toBe(VISUAL_DOCUMENT_TYPE);
 });
 
-it("does not save a drawing with no linked photos in the location", async () => {
+it("saves a drawing with no linked photos so planning can start first", async () => {
 	await expect(
 		createVisualDrawing({
 			userId: "user",
@@ -958,8 +1052,11 @@ it("does not save a drawing with no linked photos in the location", async () => 
 			name: "Plan.pdf",
 			url: "https://a.ufs.sh/f/plan",
 		}),
-	).rejects.toThrow("Nevar atrast darbus");
-	expect(prisma.documents.create).not.toHaveBeenCalled();
+	).resolves.toBe("drawing");
+	const data = jest.mocked(prisma.documents.create).mock.calls[0][0].data;
+	expect(JSON.parse(data.description as string)).toMatchObject({
+		evidence: [],
+	});
 });
 
 it("scopes reads to the requested site and organization", async () => {

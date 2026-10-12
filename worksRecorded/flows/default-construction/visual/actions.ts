@@ -3,6 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/utils/requireUser";
 import {
+	archiveVisualPlan,
+	listVisualPlans,
+	persistVisualPlan,
+	restoreVisualPlan,
+	VisualPlanConflictError,
+} from "./planning-store";
+import {
 	appendVisualDiaryEvidence,
 	editVisualPolygon,
 	editVisualWorkType,
@@ -67,6 +74,72 @@ export async function saveVisualPolygon(
 ) {
 	const user = await requireUser();
 	return editVisualPolygon(user.id, siteId, drawingId, input);
+}
+
+export async function getVisualPlanning(siteId: string, drawingId: string) {
+	const user = await requireUser();
+	return listVisualPlans(user.id, siteId, drawingId);
+}
+
+function revalidateVisualPlanning(siteId: unknown) {
+	if (typeof siteId !== "string") return;
+	revalidatePath(`/dashboard/sites/${siteId}/izpildshemas`);
+	revalidatePath(`/dashboard/sites/${siteId}/siteDiary`);
+	revalidatePath(`/dashboard/sites/${siteId}/dashboard`);
+}
+
+function planningFailure(error: unknown) {
+	if (error instanceof VisualPlanConflictError)
+		return {
+			ok: false as const,
+			code: "overlap" as const,
+			error: error.message,
+			conflict: error.conflict,
+		};
+	if (error instanceof Error)
+		return {
+			ok: false as const,
+			code: "invalid" as const,
+			error: error.message,
+		};
+	return {
+		ok: false as const,
+		code: "invalid" as const,
+		error: "Neizdevās saglabāt plānoto darbu.",
+	};
+}
+
+export async function saveVisualPlanningItem(input: unknown) {
+	const user = await requireUser();
+	try {
+		const plan = await persistVisualPlan(user.id, input);
+		revalidateVisualPlanning((input as { siteId?: unknown })?.siteId);
+		return { ok: true as const, plan };
+	} catch (error) {
+		return planningFailure(error);
+	}
+}
+
+export async function archiveVisualPlanningItem(input: unknown) {
+	const user = await requireUser();
+	try {
+		const plan = await archiveVisualPlan(user.id, input);
+		revalidateVisualPlanning((input as { siteId?: unknown })?.siteId);
+		return { ok: true as const, plan };
+	} catch (error) {
+		return planningFailure(error);
+	}
+}
+
+export async function restoreVisualPlanningItem(input: unknown) {
+	const user = await requireUser();
+	try {
+		const plan = await restoreVisualPlan(user.id, input);
+		revalidateVisualPlanning((input as { siteId?: unknown })?.siteId);
+		return { ok: true as const, plan };
+	} catch (error) {
+		return planningFailure(error);
+	}
 }
 
 export async function deleteVisualPolygon(

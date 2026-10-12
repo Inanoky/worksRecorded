@@ -65,6 +65,20 @@ jest.mock("./VisualPdf", () => ({
 		</div>
 	),
 }));
+jest.mock("./VisualPlanningPanel", () => ({
+	VisualPlanningPanel: ({
+		onDirtyChange,
+	}: {
+		onDirtyChange: (dirty: boolean) => void;
+	}) => (
+		<div data-testid="planning-panel">
+			Darbu plānošana
+			<button type="button" onClick={() => onDirtyChange(true)}>
+				Mainīt plānu
+			</button>
+		</div>
+	),
+}));
 jest.mock("@/components/ui/select", () => ({
 	Select: ({
 		children,
@@ -195,9 +209,41 @@ async function selectDrawing() {
 	await selectLocation();
 }
 
+it("switches between execution and planning modes from the workspace header", async () => {
+	await selectDrawing();
+	const actualMode = screen.getByRole("button", { name: "Izpilde" });
+	const planningMode = screen.getByRole("button", { name: "Plānošana" });
+	const location = screen.getAllByRole("combobox")[0];
+	expect(
+		location.compareDocumentPosition(actualMode) &
+			Node.DOCUMENT_POSITION_FOLLOWING,
+	).toBeTruthy();
+	expect(actualMode).toHaveAttribute("aria-pressed", "true");
+	expect(planningMode).toHaveAttribute("aria-pressed", "false");
+	expect(screen.getByTestId("pdf")).toBeInTheDocument();
+
+	fireEvent.click(planningMode);
+	expect(planningMode).toHaveAttribute("aria-pressed", "true");
+	expect(screen.getByTestId("planning-panel")).toBeInTheDocument();
+	expect(screen.queryByTestId("pdf")).not.toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: "Paslēpt darbu plānu" }),
+	).toBeInTheDocument();
+
+	fireEvent.click(actualMode);
+	expect(screen.getByTestId("pdf")).toBeInTheDocument();
+	fireEvent.click(planningMode);
+	fireEvent.click(screen.getByRole("button", { name: "Mainīt plānu" }));
+	expect(actualMode).toBeDisabled();
+	expect(actualMode).toHaveAttribute(
+		"title",
+		"Saglabājiet vai atceliet plāna izmaiņas",
+	);
+});
+
 it("clears the selected source card on an empty drawing click but protects unsaved work edits", async () => {
 	await selectDrawing();
-	const sidebar = screen.getByRole("complementary", {
+	screen.getByRole("complementary", {
 		name: "Darbu slāņi un avoti",
 	});
 	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
@@ -736,9 +782,7 @@ it("uploads with the selected project/location and runs saved analysis", async (
 	fireEvent.change(screen.getByLabelText(/Jauns PDF/), {
 		target: { files: [file] },
 	});
-	fireEvent.click(
-		screen.getByRole("button", { name: "Augšupielādēt un analizēt" }),
-	);
+	fireEvent.click(screen.getByRole("button", { name: "Augšupielādēt PDF" }));
 	expect(mockUpload).not.toHaveBeenCalled();
 	fireEvent.click(screen.getByRole("button", { name: "Jā, aizstāt" }));
 	await waitFor(() =>
@@ -756,6 +800,54 @@ it("uploads with the selected project/location and runs saved analysis", async (
 			screen.getByRole("button", { name: "Atjaunot no žurnāla" }),
 		).not.toBeDisabled(),
 	);
+});
+
+it("uploads a planning PDF before photos exist without starting AI analysis", async () => {
+	const planningDrawing: VisualDrawing = {
+		...complete,
+		id: "planning-drawing",
+		state: {
+			...complete.state,
+			location: "2. stāvs",
+			status: "uploaded",
+			pageCount: null,
+			processed: 0,
+			evidence: [],
+			marks: [],
+		},
+	};
+	mockUpload.mockResolvedValue([
+		{ serverData: { drawingId: "planning-drawing" } },
+	]);
+	mockFetch.mockResolvedValue({ ok: true, json: async () => planningDrawing });
+	render(<VisualView siteId="site" />);
+	await screen.findByRole("option", { name: "2. stāvs" });
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "2. stāvs" },
+	});
+	openSettings();
+	const file = new File(["%PDF-1.7"], "floor-2.pdf", {
+		type: "application/pdf",
+	});
+	fireEvent.change(screen.getByLabelText(/Jauns PDF/), {
+		target: { files: [file] },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Augšupielādēt PDF" }));
+
+	expect(
+		await screen.findByText(/PDF saglabāts plānošanai/),
+	).toBeInTheDocument();
+	expect(mockUpload).toHaveBeenCalledWith([file], {
+		siteId: "site",
+		location: "2. stāvs",
+	});
+	expect(mockFetch).not.toHaveBeenCalledWith(
+		"/api/sites/site/visual/planning-drawing",
+		{ method: "POST" },
+	);
+	expect(
+		screen.queryByRole("button", { name: "Turpināt analīzi" }),
+	).not.toBeInTheDocument();
 });
 
 it("clearly displays a cannot-locate result", async () => {
@@ -789,9 +881,7 @@ it("rejects non-PDF uploads before calling the server", async () => {
 			files: [new File(["not pdf"], "test.txt", { type: "text/plain" })],
 		},
 	});
-	fireEvent.click(
-		screen.getByRole("button", { name: "Augšupielādēt un analizēt" }),
-	);
+	fireEvent.click(screen.getByRole("button", { name: "Augšupielādēt PDF" }));
 	fireEvent.click(screen.getByRole("button", { name: "Jā, aizstāt" }));
 	expect(await screen.findByRole("alert")).toHaveTextContent("Izvēlieties PDF");
 	expect(mockUpload).not.toHaveBeenCalled();

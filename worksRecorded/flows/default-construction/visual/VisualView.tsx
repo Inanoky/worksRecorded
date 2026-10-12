@@ -1,6 +1,8 @@
 "use client";
 
 import {
+	CalendarRange,
+	ClipboardCheck,
 	Loader2,
 	PanelLeftClose,
 	PanelLeftOpen,
@@ -65,7 +67,6 @@ import {
 	buildVisualTimeline,
 	cumulativeVisualMarks,
 	sortVisualMarksChronologically,
-	visualDiaryDay,
 } from "./timeline";
 import { useVisualAutoSync } from "./useVisualAutoSync";
 import { useVisualWorkspace } from "./useVisualWorkspace";
@@ -74,6 +75,7 @@ import {
 	VisualAnalysisProgress,
 } from "./VisualAnalysisProgress";
 import { VisualPdf } from "./VisualPdf";
+import { VisualPlanningPanel } from "./VisualPlanningPanel";
 import { VisualSidebar } from "./VisualSidebar";
 import { VisualTimeline } from "./VisualTimeline";
 import { VisualZoneDetails } from "./VisualZoneDetails";
@@ -99,11 +101,14 @@ export default function VisualView({
 	const [automatic, setAutomatic] = useState(false);
 	const [syncedAt, setSyncedAt] = useState<number | null>(null);
 	const [sidebarOpen, setSidebarOpen] = useState(true);
+	const [mode, setMode] = useState<"actual" | "planning">("actual");
+	const [planningDirty, setPlanningDirty] = useState(false);
 	const remoteActive =
 		drawing?.state.status === "running" &&
 		drawing.state.lockedAt !== null &&
 		Date.now() - drawing.state.lockedAt < VISUAL_LEASE_MS;
-	const controlsLocked = busy || editing || workEditing || remoteActive;
+	const controlsLocked =
+		busy || editing || workEditing || remoteActive || planningDirty;
 	const [confirmation, setConfirmation] = useState<
 		"delete" | "restart" | "replace" | "polygon" | null
 	>(null);
@@ -170,7 +175,9 @@ export default function VisualView({
 			window.removeEventListener(DIARY_PHOTO_DELETED, onPhotoDeleted);
 	}, [siteId]);
 	const shouldPoll =
-		active && (phase === "analyzing" || drawing?.state.status === "running");
+		active &&
+		mode === "actual" &&
+		(phase === "analyzing" || drawing?.state.status === "running");
 	useEffect(() => {
 		if (!shouldPoll || !pollDrawingId) return;
 		const id = pollDrawingId;
@@ -337,6 +344,15 @@ export default function VisualView({
 			setPhase("preparing");
 			loaded ??= mode === "resume" ? drawing : await loadDrawing(id);
 			if (!loaded || run !== epoch.current) return;
+			if (!loaded.state.evidence.length) {
+				setNotice(
+					"PDF saglabāts plānošanai. Kad žurnālam pievienosiet šīs lokācijas attēlus, izmantojiet “Atjaunot no žurnāla”, lai izveidotu izpildes zonas.",
+				);
+				setPhase("idle");
+				const data = await getVisualDrawings(siteId);
+				if (run === epoch.current) setIndex(data);
+				return;
+			}
 			previousAttempt.current = loaded.state.attempts.at(-1)?.id;
 			setProgressUnavailable(false);
 			setPhase("analyzing");
@@ -358,7 +374,7 @@ export default function VisualView({
 		}
 	}
 	useVisualAutoSync({
-		active,
+		active: active && mode === "actual",
 		scope: drawing ? `${siteId}:${drawing.id}` : null,
 		blocked: controlsLocked || loading || !!confirmation,
 		sync: () => process("refresh", true),
@@ -536,10 +552,22 @@ export default function VisualView({
 					aria-expanded={sidebarOpen}
 					aria-controls={`${fileId}-sidebar`}
 					aria-label={
-						sidebarOpen ? "Paslēpt slāņus un avotus" : "Rādīt slāņus un avotus"
+						mode === "planning"
+							? sidebarOpen
+								? "Paslēpt darbu plānu"
+								: "Rādīt darbu plānu"
+							: sidebarOpen
+								? "Paslēpt slāņus un avotus"
+								: "Rādīt slāņus un avotus"
 					}
 					title={
-						sidebarOpen ? "Paslēpt slāņus un avotus" : "Rādīt slāņus un avotus"
+						mode === "planning"
+							? sidebarOpen
+								? "Paslēpt darbu plānu"
+								: "Rādīt darbu plānu"
+							: sidebarOpen
+								? "Paslēpt slāņus un avotus"
+								: "Rādīt slāņus un avotus"
 					}
 					onClick={() => setSidebarOpen((value) => !value)}
 				>
@@ -571,13 +599,51 @@ export default function VisualView({
 						))}
 					</SelectContent>
 				</Select>
+				<fieldset className="flex shrink-0 items-center rounded-lg bg-muted p-0.5">
+					<legend className="sr-only">Izpildshēmu režīms</legend>
+					<Button
+						size="sm"
+						variant={mode === "actual" ? "outline" : "ghost"}
+						className="h-7 px-2 text-xs shadow-none"
+						aria-label="Izpilde"
+						aria-pressed={mode === "actual"}
+						disabled={planningDirty}
+						title={
+							planningDirty
+								? "Saglabājiet vai atceliet plāna izmaiņas"
+								: "Rādīt faktiski izpildīto"
+						}
+						onClick={() => setMode("actual")}
+					>
+						<ClipboardCheck className="h-3.5 w-3.5" />
+						<span className="sm:hidden">Fakts</span>
+						<span className="hidden sm:inline">Izpilde</span>
+					</Button>
+					<Button
+						size="sm"
+						variant={mode === "planning" ? "outline" : "ghost"}
+						className="h-7 px-2 text-xs shadow-none"
+						aria-label="Plānošana"
+						aria-pressed={mode === "planning"}
+						title="Plānot darbus rasējumā"
+						onClick={() => {
+							setSelected(null);
+							setSidebarOpen(true);
+							setMode("planning");
+						}}
+					>
+						<CalendarRange className="h-3.5 w-3.5" />
+						<span className="sm:hidden">Plāns</span>
+						<span className="hidden sm:inline">Plānošana</span>
+					</Button>
+				</fieldset>
 				<span
 					className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
 					title={drawing?.name}
 				>
 					{drawing?.name || locationDrawings[0]?.name}
 				</span>
-				{drawing ? (
+				{drawing && mode === "actual" ? (
 					<>
 						<output
 							className={
@@ -598,7 +664,8 @@ export default function VisualView({
 								`Automātiska atjaunošana ieslēgta${syncedAt ? ` · Pārbaudīts ${new Date(syncedAt).toLocaleTimeString("lv", { hour: "2-digit", minute: "2-digit" })}` : ""}`
 							)}
 						</output>
-						{!["complete", "unlocated"].includes(drawing.state.status) ? (
+						{drawing.state.evidence.length > 0 &&
+						!["complete", "unlocated"].includes(drawing.state.status) ? (
 							<Button
 								size="sm"
 								variant="outline"
@@ -679,7 +746,7 @@ export default function VisualView({
 											: void process("upload")
 									}
 								>
-									Augšupielādēt un analizēt
+									Augšupielādēt PDF
 								</Button>
 							</div>
 						</details>
@@ -756,79 +823,89 @@ export default function VisualView({
 				data-testid="visual-canvas-workspace"
 			>
 				{drawing ? (
-					<>
-						<VisualPdf
+					mode === "planning" ? (
+						<VisualPlanningPanel
 							key={drawing.id}
-							fillWorkspace
-							url={`${endpoint(drawing.id)}?pdf=1`}
-							marks={visibleMarks}
-							selected={selectedMark?.id ?? null}
-							onSelect={selectZone}
-							editable={
-								!busy && !workEditing && drawing.state.status !== "running"
-							}
-							onEditingChange={setEditing}
-							onDelete={(deletion) => {
-								setPolygonDeletion(deletion);
-								setConfirmation("polygon");
-							}}
-							onSave={async (edit) => {
-								const updated = await saveVisualPolygon(
-									siteId,
-									drawing.id,
-									edit,
-								);
-								setDrawing(updated);
-							}}
-						/>
-						<VisualZoneDetails
 							siteId={siteId}
-							drawingId={drawing.id}
-							source={source}
-							mark={selectedMark}
-							progressPending={
-								!!sourceProgress && sourceProgress.status !== "complete"
-							}
-							editorLocked={busy || editing || remoteActive}
-							closeLocked={editing || workEditing}
-							controlsLocked={controlsLocked}
-							onClose={() => selectZone(null)}
-							onEditingChange={setWorkEditing}
-							onResolveReview={resolveReview}
-							onSaved={(updated) => {
-								if (!source) return;
-								setDrawing(updated);
-								setLayers((values) => [
-									...new Set([
-										...values,
-										workLayer(
-											updated.state.evidence.find(
-												(item) => item.id === source.id,
-											)?.work ?? source.work,
-										),
-									]),
-								]);
-								setNotice(
-									updated.assignmentWarning ??
-										"Darba tips saglabāts žurnālā un visās ieraksta zonās.",
-								);
-							}}
+							drawing={drawing}
+							sidebarOpen={sidebarOpen}
+							onDirtyChange={setPlanningDirty}
 						/>
+					) : (
+						<>
+							<VisualPdf
+								key={drawing.id}
+								fillWorkspace
+								url={`${endpoint(drawing.id)}?pdf=1`}
+								marks={visibleMarks}
+								selected={selectedMark?.id ?? null}
+								onSelect={selectZone}
+								editable={
+									!busy && !workEditing && drawing.state.status !== "running"
+								}
+								onEditingChange={setEditing}
+								onDelete={(deletion) => {
+									setPolygonDeletion(deletion);
+									setConfirmation("polygon");
+								}}
+								onSave={async (edit) => {
+									const updated = await saveVisualPolygon(
+										siteId,
+										drawing.id,
+										edit,
+									);
+									setDrawing(updated);
+								}}
+							/>
+							<VisualZoneDetails
+								siteId={siteId}
+								drawingId={drawing.id}
+								source={source}
+								mark={selectedMark}
+								progressPending={
+									!!sourceProgress && sourceProgress.status !== "complete"
+								}
+								editorLocked={busy || editing || remoteActive}
+								closeLocked={editing || workEditing}
+								controlsLocked={controlsLocked}
+								onClose={() => selectZone(null)}
+								onEditingChange={setWorkEditing}
+								onResolveReview={resolveReview}
+								onSaved={(updated) => {
+									if (!source) return;
+									setDrawing(updated);
+									setLayers((values) => [
+										...new Set([
+											...values,
+											workLayer(
+												updated.state.evidence.find(
+													(item) => item.id === source.id,
+												)?.work ?? source.work,
+											),
+										]),
+									]);
+									setNotice(
+										updated.assignmentWarning ??
+											"Darba tips saglabāts žurnālā un visās ieraksta zonās.",
+									);
+								}}
+							/>
 
-						<VisualSidebar
-							id={`${fileId}-sidebar`}
-							open={sidebarOpen}
-							marks={visibleMarks}
-							datedMarks={datedMarks}
-							evidence={drawing.state.evidence}
-							dayByEvidence={timeline.dayByEvidence}
-							layers={layers}
-							onLayers={setLayers}
-							selected={selected}
-							onSelect={selectZone}
-							locked={editing || workEditing}
-						/>
-					</>
+							<VisualSidebar
+								id={`${fileId}-sidebar`}
+								open={sidebarOpen}
+								marks={visibleMarks}
+								datedMarks={datedMarks}
+								evidence={drawing.state.evidence}
+								dayByEvidence={timeline.dayByEvidence}
+								layers={layers}
+								onLayers={setLayers}
+								selected={selected}
+								onSelect={selectZone}
+								locked={editing || workEditing}
+							/>
+						</>
+					)
 				) : (
 					<div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
 						<h3 className="text-lg font-medium">
@@ -847,13 +924,14 @@ export default function VisualView({
 						{deleting ? "Dzēš rasējumu…" : "Ielādē…"}
 					</output>
 				) : null}
-				{(!automatic &&
+				{mode === "actual" &&
+				((!automatic &&
 					(busy ||
 						(drawing &&
 							!["complete", "unlocated"].includes(drawing.state.status)))) ||
-				error ||
-				drawing?.state.error ||
-				reviewedSources.length ? (
+					error ||
+					drawing?.state.error ||
+					reviewedSources.length) ? (
 					<div className="absolute bottom-14 left-3 right-16 z-40 max-h-[calc(100%-8rem)] max-w-xl space-y-2 overflow-y-auto rounded-lg border bg-background/95 p-3 shadow-lg">
 						{deletingPolygon ? (
 							<output className="flex items-center gap-2 text-xs">
@@ -893,13 +971,13 @@ export default function VisualView({
 						) : null}
 					</div>
 				) : null}
-				{notice ? (
+				{mode === "actual" && notice ? (
 					<output className="pointer-events-none absolute bottom-3 left-1/2 z-40 max-w-[90%] -translate-x-1/2 rounded-md border bg-background/95 px-3 py-2 text-xs shadow-sm">
 						{notice}
 					</output>
 				) : null}
 			</div>
-			{drawing ? (
+			{drawing && mode === "actual" ? (
 				<fieldset disabled={editing || workEditing} className="min-w-0">
 					<VisualTimeline
 						compact

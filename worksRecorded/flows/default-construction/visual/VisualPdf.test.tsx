@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import type { VisualMark } from "./model";
+import type { VisualPlanArea } from "./planning-model";
 import { VisualPdf } from "./VisualPdf";
 
 const mockGetDocument = jest.fn();
@@ -26,6 +28,40 @@ const mark: VisualMark = {
 	anchors: ["A", "B"],
 	explanation: "Sakrīt",
 };
+const plannedArea: VisualPlanArea = {
+	id: "plan-area-1",
+	page: 1,
+	polygon: [
+		{ x: 0.1, y: 0.1 },
+		{ x: 0.4, y: 0.1 },
+		{ x: 0.4, y: 0.4 },
+	],
+};
+
+function PlanningHarness({
+	initialAreas = [],
+	initialSelected = null,
+}: {
+	initialAreas?: VisualPlanArea[];
+	initialSelected?: string | null;
+}) {
+	const [areas, setAreas] = useState(initialAreas);
+	const [selectedAreaId, setSelectedAreaId] = useState(initialSelected);
+	return (
+		<VisualPdf
+			url="/drawing"
+			marks={[mark]}
+			selected={null}
+			onSelect={jest.fn()}
+			planning={{
+				areas,
+				selectedAreaId,
+				onChange: setAreas,
+				onSelectArea: setSelectedAreaId,
+			}}
+		/>
+	);
+}
 
 beforeEach(() => {
 	jest.clearAllMocks();
@@ -436,4 +472,208 @@ it("drags corners using the zoomed surface bounds without losing pointer capture
 	} finally {
 		window.PointerEvent = originalPointerEvent;
 	}
+});
+
+it("adds multiple editable planned areas using the execution-zone interaction", async () => {
+	const { container } = render(<PlanningHarness />);
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Jauna zona" })).toBeEnabled(),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Jauna zona" }));
+	expect(
+		container.querySelector('[data-plan-area="plan-area-1"]'),
+	).toHaveAttribute("points", "0.35,0.35 0.65,0.35 0.65,0.65 0.35,0.65");
+	expect(
+		screen.getByRole("button", { name: "Plānotās zonas stūris 1" }),
+	).toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Jauna zona" }));
+	expect(container.querySelectorAll("[data-plan-area]")).toHaveLength(2);
+	expect(
+		container.querySelector('[data-plan-area="plan-area-2"]'),
+	).toHaveAttribute("stroke-dasharray", "8 5");
+});
+
+it("adds and selects an editable area when requested from the planning form", async () => {
+	const onChange = jest.fn();
+	const onSelectArea = jest.fn();
+	const view = render(
+		<VisualPdf
+			url="/drawing"
+			marks={[]}
+			selected={null}
+			onSelect={jest.fn()}
+			planning={{
+				areas: [],
+				selectedAreaId: null,
+				areaRequest: 0,
+				onChange,
+				onSelectArea,
+			}}
+		/>,
+	);
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Jauna zona" })).toBeEnabled(),
+	);
+	view.rerender(
+		<VisualPdf
+			url="/drawing"
+			marks={[]}
+			selected={null}
+			onSelect={jest.fn()}
+			planning={{
+				areas: [],
+				selectedAreaId: null,
+				areaRequest: 1,
+				onChange,
+				onSelectArea,
+			}}
+		/>,
+	);
+	await waitFor(() =>
+		expect(onChange).toHaveBeenCalledWith([
+			expect.objectContaining({
+				id: "plan-area-1",
+				page: 1,
+				polygon: [
+					{ x: 0.35, y: 0.35 },
+					{ x: 0.65, y: 0.35 },
+					{ x: 0.65, y: 0.65 },
+					{ x: 0.35, y: 0.65 },
+				],
+			}),
+		]),
+	);
+	expect(onSelectArea).toHaveBeenCalledWith("plan-area-1");
+});
+
+it("reshapes a planned area, adds and removes vertices, and deletes only that area", async () => {
+	const sibling = { ...plannedArea, id: "plan-area-2", page: 2 };
+	const { container } = render(
+		<PlanningHarness
+			initialAreas={[plannedArea, sibling]}
+			initialSelected="plan-area-1"
+		/>,
+	);
+	const corner = await screen.findByRole("button", {
+		name: "Plānotās zonas stūris 1",
+	});
+	corner.focus();
+	fireEvent.keyDown(corner, { key: "ArrowRight", shiftKey: true });
+	expect(corner).toHaveFocus();
+	expect(
+		container.querySelector('[data-plan-area="plan-area-1"]'),
+	).toHaveAttribute("points", "0.11,0.1 0.4,0.1 0.4,0.4");
+	fireEvent.click(
+		screen.getByRole("button", {
+			name: "Pievienot plānotās zonas stūri pie malas 1",
+		}),
+	);
+	expect(
+		screen.getAllByRole("button", { name: /^Plānotās zonas stūris/ }),
+	).toHaveLength(4);
+	fireEvent.keyDown(
+		screen.getByRole("button", { name: "Plānotās zonas stūris 2" }),
+		{ key: "Delete" },
+	);
+	expect(
+		screen.getAllByRole("button", { name: /^Plānotās zonas stūris/ }),
+	).toHaveLength(3);
+	fireEvent.click(screen.getByRole("button", { name: "Dzēst plānoto zonu" }));
+	expect(
+		container.querySelector('[data-plan-area="plan-area-1"]'),
+	).not.toBeInTheDocument();
+	expect(
+		container.querySelector('[data-plan-area="plan-area-2"]'),
+	).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Nākamā lapa" }));
+	await waitFor(() =>
+		expect(
+			container.querySelector('[data-plan-area="plan-area-2"]'),
+		).toBeInTheDocument(),
+	);
+});
+
+it("moves a whole planned area by dragging its PDF hit target", async () => {
+	const originalPointerEvent = window.PointerEvent;
+	window.PointerEvent = MouseEvent as typeof PointerEvent;
+	try {
+		const { container } = render(
+			<PlanningHarness
+				initialAreas={[plannedArea]}
+				initialSelected="plan-area-1"
+			/>,
+		);
+		const target = await screen.findByRole("button", {
+			name: "Plānotā zona 1",
+		});
+		const surface = container.querySelector("canvas")
+			?.parentElement as HTMLElement;
+		jest.spyOn(surface, "getBoundingClientRect").mockReturnValue({
+			left: 100,
+			top: 50,
+			width: 1000,
+			height: 2000,
+		} as DOMRect);
+		target.setPointerCapture = jest.fn();
+		fireEvent.pointerDown(target, {
+			button: 0,
+			pointerId: 1,
+			clientX: 200,
+			clientY: 250,
+		});
+		fireEvent.pointerMove(target, {
+			pointerId: 1,
+			clientX: 300,
+			clientY: 450,
+		});
+		fireEvent.pointerUp(target, { pointerId: 1 });
+		await waitFor(() =>
+			expect(
+				container.querySelector('[data-plan-area="plan-area-1"]'),
+			).toHaveAttribute("points", "0.2,0.2 0.5,0.2 0.5,0.5"),
+		);
+	} finally {
+		window.PointerEvent = originalPointerEvent;
+	}
+});
+
+it("shows other saved plans as non-editable background envelopes", async () => {
+	const background = {
+		...plannedArea,
+		id: "other-plan-area",
+		color: "#eab308",
+	};
+	const { container } = render(
+		<VisualPdf
+			url="/drawing"
+			marks={[]}
+			selected={null}
+			onSelect={jest.fn()}
+			planning={{
+				areas: [plannedArea],
+				backgroundAreas: [background],
+				selectedAreaId: null,
+				color: "#16a34a",
+				onChange: jest.fn(),
+				onSelectArea: jest.fn(),
+			}}
+		/>,
+	);
+	await waitFor(() =>
+		expect(
+			container.querySelector('[data-plan-background="other-plan-area"]'),
+		).toBeInTheDocument(),
+	);
+	expect(
+		container.querySelector('[data-plan-background="other-plan-area"]'),
+	).toHaveAttribute("stroke", "#eab308");
+	expect(
+		container.querySelector('[data-plan-background="other-plan-area"]'),
+	).toHaveAttribute("fill", "#eab308");
+	expect(
+		container.querySelector('[data-plan-area="plan-area-1"]'),
+	).toHaveAttribute("fill", "#16a34a");
+	expect(screen.getAllByRole("button", { name: /^Plānotā zona/ })).toHaveLength(
+		1,
+	);
 });

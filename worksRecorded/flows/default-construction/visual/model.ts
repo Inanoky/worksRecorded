@@ -26,6 +26,10 @@ export function workLayer(work: string): VisualLayer {
 	return "other";
 }
 
+export function visualWorkColor(work: string) {
+	return visualLayers[workLayer(work)].color;
+}
+
 const pointSchema = z.object({
 	x: z.number().min(0).max(1),
 	y: z.number().min(0).max(1),

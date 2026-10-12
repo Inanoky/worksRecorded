@@ -2,6 +2,7 @@ import {
 	normalizeVisualLocation,
 	type VisualEvidence,
 	validateVisualMatches,
+	visualWorkColor,
 	workLayer,
 } from "./model";
 
@@ -57,6 +58,10 @@ describe("Visual geometry and source guards", () => {
 	])("colours %s consistently", (work, layer) =>
 		expect(workLayer(work)).toBe(layer),
 	);
+	it("returns the execution overlay colour for a work name", () => {
+		expect(visualWorkColor("XPS 150mm")).toBe("#eab308");
+		expect(visualWorkColor("Smilts līdzināšana")).toBe("#16a34a");
+	});
 	it("keeps only known evidence and derives the layer from the diary", () => {
 		const result = validateVisualMatches(
 			{

@@ -46,6 +46,18 @@ const emptyDraft = (date: string): Draft => ({
 	unit: "",
 	quantity: "",
 });
+const visualPlanStatus = {
+	scheduled: "Plānots",
+	active: "Notiek",
+	completed: "Izpildīts",
+	overdue: "Kavējas",
+} as const;
+const visualPlanTone = {
+	scheduled: "border-slate-300",
+	active: "border-teal-500",
+	completed: "border-emerald-500",
+	overdue: "border-amber-500",
+} as const;
 
 export function useConstructionPlanner(
 	siteId: string | null,
@@ -518,6 +530,58 @@ function PlanEditor({
 							))
 						)}
 					</div>
+					{data.visualPlans?.length ? (
+						<section
+							aria-label="Rasējuma plāni šajā nedēļā"
+							className="space-y-2 rounded-lg border border-dashed border-teal-700/40 bg-teal-50/30 p-3 dark:bg-teal-950/10"
+						>
+							<div className="flex flex-wrap items-baseline justify-between gap-2">
+								<div>
+									<h3 className="text-sm font-medium">Rasējuma plāni</h3>
+									<p className="text-xs text-muted-foreground">
+										Periodi, kas skar izvēlēto nedēļu. Rediģējiet zonas
+										Izpildshēmu skatā.
+									</p>
+								</div>
+								<a
+									href={`/dashboard/sites/${planner.siteId}/izpildshemas`}
+									className="text-xs font-medium text-teal-800 underline-offset-4 hover:underline dark:text-teal-300"
+								>
+									Atvērt izpildshēmas
+								</a>
+							</div>
+							<div className="grid gap-2 sm:grid-cols-2">
+								{data.visualPlans.map((plan) => (
+									<article
+										key={plan.id}
+										className={`rounded-md border-l-4 bg-background p-3 text-sm ${visualPlanTone[plan.progress.status]}`}
+									>
+										<div className="flex items-start justify-between gap-3">
+											<div className="min-w-0">
+												<p className="truncate font-medium">{plan.work}</p>
+												<p className="text-xs text-muted-foreground">
+													{plan.location} · {plan.startDate}–{plan.endDate}
+												</p>
+											</div>
+											<span className="shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium">
+												{visualPlanStatus[plan.progress.status]}
+											</span>
+										</div>
+										<p className="mt-2 tabular-nums">
+											{plan.progress.dataIncomplete
+												? `Faktiskais apjoms nav pilnīgs · plāns ${plan.quantity} ${plan.unit}`
+												: `${plan.progress.actualQuantity ?? 0} / ${plan.quantity} ${plan.unit} · ${Math.round(plan.progress.progressPercent ?? 0)}%`}
+										</p>
+										{plan.geometryReviewRequired ? (
+											<p className="mt-1 text-xs font-medium text-amber-800 dark:text-amber-300">
+												Pēc PDF maiņas jāpārbauda zonas
+											</p>
+										) : null}
+									</article>
+								))}
+							</div>
+						</section>
+					) : null}
 					<form
 						className="space-y-3 border-t pt-4"
 						onSubmit={(event) => {

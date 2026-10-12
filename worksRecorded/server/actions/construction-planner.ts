@@ -25,6 +25,11 @@ import {
 	planSchema,
 	weekStart,
 } from "@/flows/default-construction/planner/model";
+import {
+	compareVisualPlanProgress,
+	VISUAL_PLAN_TYPE,
+	type VisualPlanActual,
+} from "@/flows/default-construction/visual/planning-model";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { prisma } from "@/lib/utils/db";
 
@@ -109,39 +114,105 @@ export async function loadConstructionWeek(siteId: string, date: string) {
 	const options = getDefaultConstructionOptionValues(config);
 	const calculateCost = createDefaultConstructionRecordCostCalculator(config);
 	try {
-		const [plans, actuals] = await Promise.all([
+		const [plans, visualPlanRows] = await Promise.all([
 			prisma.constructionPlan.findMany({
-				where: { siteId, date: { gte: new Date(start), lt: new Date(end) } },
-				orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-			}),
-			prisma.sitediaryrecords.findMany({
 				where: {
 					siteId,
+					planType: "daily",
+					date: { gte: new Date(start), lt: new Date(end) },
+				},
+				orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+			}),
+			prisma.constructionPlan.findMany({
+				where: {
+					siteId,
+					planType: VISUAL_PLAN_TYPE,
 					archivedAt: null,
-					Date: { gte: new Date(addDays(start, -1)), lt: new Date(end) },
+					startDate: { lte: new Date(addDays(end, -1)) },
+					date: { gte: new Date(start) },
 				},
-				select: {
-					id: true,
-					Date: true,
-					Works: true,
-					Location: true,
-					Units: true,
-					Amounts: true,
-					Comments: true,
-					Comments_Custom_1: true,
-					createdAt: true,
-					WorkersInvolved: true,
-					TimeInvolved: true,
-				},
-				orderBy: { createdAt: "asc" },
+				orderBy: [{ date: "asc" }, { startDate: "asc" }],
 			}),
 		]);
+		const today = plannerToday();
+		const visualStart = visualPlanRows.reduce<string | null>(
+			(earliest, row) => {
+				const value = row.startDate?.toISOString().slice(0, 10);
+				return value && (!earliest || value < earliest) ? value : earliest;
+			},
+			null,
+		);
+		const actualStart =
+			visualStart && visualStart < start ? visualStart : start;
+		const actualEnd = end > addDays(today, 1) ? end : addDays(today, 1);
+		const actualRows = await prisma.sitediaryrecords.findMany({
+			where: {
+				siteId,
+				archivedAt: null,
+				Date: {
+					gte: new Date(addDays(actualStart, -1)),
+					lt: new Date(actualEnd),
+				},
+			},
+			select: {
+				id: true,
+				Date: true,
+				Works: true,
+				Location: true,
+				Units: true,
+				Amounts: true,
+				Comments: true,
+				Comments_Custom_1: true,
+				createdAt: true,
+				WorkersInvolved: true,
+				TimeInvolved: true,
+			},
+			orderBy: { createdAt: "asc" },
+		});
+		const visualActuals: VisualPlanActual[] = actualRows.flatMap((row) => {
+			if (!row.Date) return [];
+			const quantity = getDefaultConstructionQuantityComparison(row, config);
+			return [
+				{
+					id: row.id,
+					date: plannerToday(row.Date),
+					work: row.Works ?? "",
+					location: row.Location ?? "",
+					unit: row.Units ?? "",
+					quantity: quantity.enabled ? quantity.actualAmount : row.Amounts,
+				},
+			];
+		});
 		return {
 			start,
 			siteName: site.name,
 			organizationId: site.organizationId,
-			today: plannerToday(),
+			today,
 			plans: plans.map(serialize),
+			visualPlans: visualPlanRows.flatMap((row) => {
+				if (!row.startDate) return [];
+				const visualPlan = {
+					id: row.id,
+					drawingId: row.visualDrawingId,
+					startDate: row.startDate.toISOString().slice(0, 10),
+					endDate: row.date.toISOString().slice(0, 10),
+					work: row.work,
+					location: row.location,
+					unit: row.unit,
+					quantity: row.quantity,
+					geometryReviewRequired: row.geometryReviewRequired,
+				};
+				return [
+					{
+						...visualPlan,
+						progress: compareVisualPlanProgress(
+							visualPlan,
+							visualActuals,
+							today,
+						),
+					},
+				];
+			}),
 			options: {
 				works: options.productivity.works.map((row) => ({
 					work: row.work,
@@ -150,7 +221,7 @@ export async function loadConstructionWeek(siteId: string, date: string) {
 				locations: options.locations,
 				units: options.units,
 			},
-			actuals: actuals.flatMap((row) => {
+			actuals: actualRows.flatMap((row) => {
 				if (!row.Date) return [];
 				const date = plannerToday(row.Date);
 				if (date < start || date >= end) return [];
@@ -194,7 +265,7 @@ export async function loadConstructionDiaryPlans(siteId: string) {
 	try {
 		const plans = (
 			await prisma.constructionPlan.findMany({
-				where: { siteId },
+				where: { siteId, planType: "daily" },
 				orderBy: [{ date: "desc" }, { createdAt: "asc" }],
 			})
 		).map(serialize);
@@ -350,12 +421,18 @@ async function persistPlan(
 	};
 	if (!draft.id)
 		return tx.constructionPlan.create({
-			data: { ...data, siteId: site.id, createdBy: userId },
+			data: {
+				...data,
+				planType: "daily",
+				siteId: site.id,
+				createdBy: userId,
+			},
 		});
 	const changed = await tx.constructionPlan.updateMany({
 		where: {
 			id: draft.id,
 			siteId: site.id,
+			planType: "daily",
 			version: draft.version,
 			date: { gt: new Date(today) },
 		},
@@ -411,6 +488,7 @@ export async function saveConstructionPlanBatch(input: unknown) {
 						where: {
 							id: row.id,
 							siteId: site.id,
+							planType: "daily",
 							version: row.version,
 							site: { organizationId: site.organizationId },
 							date: {
@@ -454,6 +532,7 @@ export async function deleteConstructionPlan(input: unknown) {
 				site: { organizationId: site.organizationId },
 				id: draft.id,
 				siteId: draft.siteId,
+				planType: "daily",
 				version: draft.version,
 				date: { gt: new Date(plannerToday()) },
 			},

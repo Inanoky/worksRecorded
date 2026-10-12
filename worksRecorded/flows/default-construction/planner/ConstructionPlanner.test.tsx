@@ -23,6 +23,7 @@ jest.mock("@/server/actions/construction-planner", () => ({
 const siteId = "73bfa5f9-9e49-460e-876e-8d9eb58ba2cb";
 const data = {
 	siteName: "Testa objekts",
+	organizationId: "organization",
 	start: "2026-09-14",
 	today: "2026-09-16",
 	options: {
@@ -41,6 +42,7 @@ const data = {
 			version: 1,
 		},
 	],
+	visualPlans: [],
 	actuals: [],
 };
 function Harness({
@@ -105,6 +107,16 @@ function Harness({
 describe("construction planner interface", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		jest
+			.useFakeTimers({
+				doNotFake: [
+					"setTimeout",
+					"clearTimeout",
+					"setInterval",
+					"clearInterval",
+				],
+			})
+			.setSystemTime(new Date("2026-09-16T10:00:00Z"));
 		jest.mocked(loadConstructionWeek).mockResolvedValue(data);
 		jest
 			.mocked(loadConstructionDiaryPlans)
@@ -113,6 +125,7 @@ describe("construction planner interface", () => {
 			.mocked(saveConstructionPlanBatch)
 			.mockResolvedValue({ ok: false, error: "Save failed" });
 	});
+	afterEach(() => jest.useRealTimers());
 	it("does not load planning data or expose it to disabled flows", () => {
 		render(<Harness enabled={false} />);
 		expect(loadConstructionWeek).not.toHaveBeenCalled();
@@ -268,6 +281,47 @@ describe("construction planner interface", () => {
 		await waitFor(() =>
 			expect(screen.getByRole("button", { name: "Aizvērt" })).toBeEnabled(),
 		);
+	});
+	it("shows visual milestone progress as a read-only link to izpildshēmas", async () => {
+		jest.mocked(loadConstructionWeek).mockResolvedValue({
+			...data,
+			visualPlans: [
+				{
+					id: "visual-plan",
+					drawingId: "drawing",
+					startDate: "2026-09-14",
+					endDate: "2026-09-20",
+					work: "XPS",
+					location: "1. stāvs",
+					unit: "m2",
+					quantity: 100,
+					geometryReviewRequired: true,
+					progress: {
+						actualIds: ["actual"],
+						actualQuantity: 60,
+						progressPercent: 60,
+						variance: -40,
+						dataIncomplete: false,
+						status: "active" as const,
+					},
+				},
+			],
+		});
+		render(<Harness />);
+		fireEvent.click(screen.getByRole("button", { name: "Plāns" }));
+
+		const section = await screen.findByRole("region", {
+			name: "Rasējuma plāni šajā nedēļā",
+		});
+		expect(within(section).getByText("XPS")).toBeInTheDocument();
+		expect(within(section).getByText("60 / 100 m2 · 60%")).toBeInTheDocument();
+		expect(within(section).getByText("Notiek")).toBeInTheDocument();
+		expect(
+			within(section).getByRole("link", { name: "Atvērt izpildshēmas" }),
+		).toHaveAttribute("href", `/dashboard/sites/${siteId}/izpildshemas`);
+		expect(
+			within(section).getByText("Pēc PDF maiņas jāpārbauda zonas"),
+		).toBeInTheDocument();
 	});
 	it("stages multiple additions, edits and deletes locally until one Save", async () => {
 		const future = { ...data.plans[0], id: "existing", date: "2026-09-17" };

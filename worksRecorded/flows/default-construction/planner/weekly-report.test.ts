@@ -35,6 +35,7 @@ const report: WeeklyReport = {
 	today: "2026-09-16",
 	siteName: "Būvobjekts",
 	plans: [plan],
+	visualPlans: [],
 	actuals: [actual, { ...actual, id: "second", quantity: 10 }],
 	options: { works: [], locations: [], units: [] },
 };
@@ -97,6 +98,51 @@ it("includes planned-only and actual-only rows with dash placeholders", () => {
 	expect(days[3].rows[0].cells[6]).toBe("—");
 	expect(days[3].rows[1]).toMatchObject({ status: "future" });
 	expect(days[3].rows[1].cells[3]).toBe("—");
+});
+
+it("includes visual milestone progress once on its deadline day", () => {
+	const days = weeklyReportDays({
+		...report,
+		plans: [],
+		actuals: [],
+		visualPlans: [
+			{
+				id: "visual-plan",
+				drawingId: "drawing",
+				startDate: "2026-09-14",
+				endDate: "2026-09-20",
+				work: "XPS",
+				location: "2. stāvs",
+				unit: "m2",
+				quantity: 100,
+				geometryReviewRequired: false,
+				progress: {
+					actualIds: ["visual-actual"],
+					actualQuantity: 60,
+					progressPercent: 60,
+					variance: -40,
+					dataIncomplete: false,
+					status: "overdue",
+				},
+			},
+		],
+	});
+	expect(days.flatMap((day) => day.rows)).toHaveLength(1);
+	expect(days[6].rows[0]).toMatchObject({
+		status: "under",
+		note: "Rasējuma plāns · Kavējas",
+	});
+	expect(days[6].rows[0].cells.slice(0, 7)).toEqual([
+		"—",
+		"2. stāvs",
+		"XPS",
+		"—",
+		"m2",
+		"100",
+		"60",
+	]);
+	expect(days[6].rows[0].cells[11]).toContain("Rasējuma plāns · Periods:");
+	expect(days[6].summary).toContain("Plānoti darbi: 1");
 });
 
 it("paginates long comments without truncation and repeats headings and page numbers", () => {

@@ -5,6 +5,7 @@ import {
 	ChevronRight,
 	Expand,
 	Minus,
+	MousePointer2,
 	Pencil,
 	Plus,
 	Trash2,
@@ -14,13 +15,33 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { type VisualMark, visualLayers } from "./model";
 import {
+	insertVisualPlanVertex,
+	moveVisualPlanVertex,
+	nextVisualPlanAreaId,
+	removeVisualPlanVertex,
+	replaceVisualPlanArea,
+} from "./planning-geometry";
+import { type VisualPlanArea, visualPlanAreaSchema } from "./planning-model";
+import {
 	type PolygonDelete,
 	type PolygonEdit,
 	polygonEditSchema,
 } from "./polygon-edit";
 import { useDrawingViewport } from "./useDrawingViewport";
+import { VisualPlanAreaTarget } from "./VisualPlanAreaTarget";
 import { VisualZoneTarget } from "./VisualZoneTarget";
 import { MAX_DRAWING_ZOOM, MIN_DRAWING_ZOOM } from "./viewport";
+
+export type VisualPdfPlanning = {
+	areas: VisualPlanArea[];
+	backgroundAreas?: Array<VisualPlanArea & { color?: string }>;
+	selectedAreaId: string | null;
+	areaRequest?: number;
+	color?: string;
+	editable?: boolean;
+	onChange: (areas: VisualPlanArea[]) => void;
+	onSelectArea: (id: string | null) => void;
+};
 
 export function VisualPdf({
 	url,
@@ -32,6 +53,7 @@ export function VisualPdf({
 	onEditingChange,
 	fillWorkspace = false,
 	onDelete,
+	planning,
 }: {
 	url: string;
 	marks: VisualMark[];
@@ -42,6 +64,7 @@ export function VisualPdf({
 	onEditingChange?: (editing: boolean) => void;
 	fillWorkspace?: boolean;
 	onDelete?: (deletion: PolygonDelete) => void;
+	planning?: VisualPdfPlanning;
 }) {
 	const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
 	const [page, setPage] = useState(1);
@@ -56,13 +79,16 @@ export function VisualPdf({
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const drag = useRef<number | null>(null);
+	const planDrag = useRef<number | null>(null);
+	const handledAreaRequest = useRef(planning?.areaRequest ?? 0);
+	const planningEnabled = planning !== undefined;
 	const navigation = useDrawingViewport(
 		aspect,
 		`${url}:${page}`,
 		ready && !draft,
 	);
 	const { surface } = navigation;
-	const interactionLocked = !!draft || navigation.panning;
+	const interactionLocked = !!draft || planningEnabled || navigation.panning;
 	useEffect(() => {
 		setHighlighted((current) =>
 			interactionLocked ||
@@ -72,6 +98,14 @@ export function VisualPdf({
 		);
 	}, [page, interactionLocked, marks]);
 	const selectedMark = marks.find((mark) => mark.id === selected);
+	const selectedPlanArea = planning?.areas.find(
+		(area) => area.id === planning.selectedAreaId,
+	);
+	const planningEditable = planning?.editable !== false;
+	const planningColor = planning?.color ?? visualLayers.other.color;
+	const selectedPlanAreaValid = selectedPlanArea
+		? visualPlanAreaSchema.safeParse(selectedPlanArea).success
+		: true;
 	const shownMarks = marks.map((mark) =>
 		draft?.markId === mark.id ? { ...mark, polygon: draft.polygon } : mark,
 	);
@@ -98,6 +132,25 @@ export function VisualPdf({
 				: value,
 		);
 	}
+	function updatePlanArea(area: VisualPlanArea) {
+		if (!planning) return;
+		planning.onChange(replaceVisualPlanArea(planning.areas, area));
+	}
+	function addPlanArea() {
+		if (!planning || !planningEditable || planning.areas.length >= 50) return;
+		const area: VisualPlanArea = {
+			id: nextVisualPlanAreaId(planning.areas),
+			page,
+			polygon: [
+				{ x: 0.35, y: 0.35 },
+				{ x: 0.65, y: 0.35 },
+				{ x: 0.65, y: 0.65 },
+				{ x: 0.35, y: 0.65 },
+			],
+		};
+		planning.onChange([...planning.areas, area]);
+		planning.onSelectArea(area.id);
+	}
 	async function save() {
 		if (!draft || !onSave || !validDraft || saving) return;
 		setSaving(true);
@@ -115,8 +168,31 @@ export function VisualPdf({
 	}
 	const selectedPage = marks.find((mark) => mark.id === selected)?.page;
 	useEffect(() => {
-		if (selectedPage) setPage(selectedPage);
-	}, [selectedPage]);
+		const targetPage = selectedPlanArea?.page ?? selectedPage;
+		if (targetPage) setPage(targetPage);
+	}, [selectedPage, selectedPlanArea?.page]);
+	useEffect(() => {
+		const request = planning?.areaRequest ?? 0;
+		if (!planning) {
+			handledAreaRequest.current = request;
+			return;
+		}
+		if (!planningEditable || !ready || request <= handledAreaRequest.current)
+			return;
+		handledAreaRequest.current = request;
+		const area: VisualPlanArea = {
+			id: nextVisualPlanAreaId(planning.areas),
+			page,
+			polygon: [
+				{ x: 0.35, y: 0.35 },
+				{ x: 0.65, y: 0.35 },
+				{ x: 0.65, y: 0.65 },
+				{ x: 0.35, y: 0.65 },
+			],
+		};
+		planning.onChange([...planning.areas, area]);
+		planning.onSelectArea(area.id);
+	}, [planning, planningEditable, ready, page]);
 	useEffect(() => {
 		let active = true;
 		let task:
@@ -217,7 +293,37 @@ export function VisualPdf({
 				>
 					<ChevronRight className="h-4 w-4" />
 				</Button>
-				{onSave && !draft ? (
+				{planning && planningEditable ? (
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={!ready || planning.areas.length >= 50}
+						onClick={addPlanArea}
+					>
+						<MousePointer2 className="h-3.5 w-3.5" />
+						Jauna zona
+					</Button>
+				) : null}
+				{planning && planningEditable && selectedPlanArea ? (
+					<Button
+						size="icon"
+						variant="ghost"
+						className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+						aria-label="Dzēst plānoto zonu"
+						title="Dzēst izvēlēto plānoto zonu"
+						onClick={() => {
+							planning.onChange(
+								planning.areas.filter(
+									(area) => area.id !== selectedPlanArea.id,
+								),
+							);
+							planning.onSelectArea(null);
+						}}
+					>
+						<Trash2 className="h-4 w-4" />
+					</Button>
+				) : null}
+				{onSave && !planning && !draft ? (
 					<Button
 						size="sm"
 						variant="outline"
@@ -245,7 +351,7 @@ export function VisualPdf({
 						<span className="hidden md:inline">Pielāgot zonu</span>
 					</Button>
 				) : null}
-				{onDelete && !draft ? (
+				{onDelete && !planning && !draft ? (
 					<Button
 						size="icon"
 						variant="ghost"
@@ -342,9 +448,11 @@ export function VisualPdf({
 			</div>
 			<div className="pointer-events-none absolute bottom-3 left-3 right-3 z-30 flex items-end justify-between gap-3">
 				<p className="rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
-					{draft
-						? "Velciet stūrus · + pievieno · Delete noņem"
-						: "Velciet, lai pārvietotu · Ritenītis tuvina pie kursora"}
+					{planning && selectedPlanArea
+						? "Velciet zonu vai tās stūrus · + pievieno · Delete noņem stūri"
+						: draft
+							? "Velciet stūrus · + pievieno · Delete noņem"
+							: "Velciet, lai pārvietotu · Ritenītis tuvina pie kursora"}
 				</p>
 				<output
 					ref={navigation.scaleLabel}
@@ -354,7 +462,12 @@ export function VisualPdf({
 					100%
 				</output>
 			</div>
-			{draft ? (
+			{planning && selectedPlanArea ? (
+				<p className="sr-only">
+					Velciet plānoto zonu, lai pārvietotu visu laukumu, vai velciet tās
+					stūrus. “+” pie malas pievieno stūri; Delete to noņem.
+				</p>
+			) : draft ? (
 				<p className="sr-only">
 					Velciet stūrus. “+” pie malas pievieno stūri. Ar bulttaustiņiem var
 					pārvietot izvēlēto stūri; Delete to noņem. Izmaiņas saglabājas tikai
@@ -372,6 +485,15 @@ export function VisualPdf({
 				>
 					Zonas malas krustojas vai laukums ir pārāk mazs. Pielāgojiet stūrus
 					pirms saglabāšanas.
+				</p>
+			) : null}
+			{!selectedPlanAreaValid ? (
+				<p
+					role="alert"
+					className="absolute inset-x-3 top-16 z-30 rounded-md border bg-background p-3 text-sm text-destructive"
+				>
+					Plānotās zonas malas krustojas vai laukums ir pārāk mazs. Pielāgojiet
+					stūrus pirms plāna saglabāšanas.
 				</p>
 			) : null}
 			{saveError ? (
@@ -417,6 +539,15 @@ export function VisualPdf({
 						setHighlighted(null);
 						onSelect(null);
 					}
+					if (
+						ready &&
+						planning &&
+						planning.selectedAreaId &&
+						(event.target === event.currentTarget ||
+							event.target === surface.current ||
+							event.target === canvas.current)
+					)
+						planning.onSelectArea(null);
 				}}
 				data-testid="visual-viewport"
 			>
@@ -484,6 +615,60 @@ export function VisualPdf({
 								))}
 						</svg>
 					) : null}
+					{ready && planning ? (
+						<svg
+							className="pointer-events-none absolute inset-0 h-full w-full"
+							viewBox="0 0 1 1"
+							preserveAspectRatio="none"
+							aria-label="Plānotās darbu zonas"
+							role="img"
+						>
+							<title>
+								Plānotās darbu zonas ir attēlotas ar pārtrauktu kontūru.
+							</title>
+							{planning.backgroundAreas
+								?.filter((area) => area.page === page)
+								.map((area) => (
+									<polygon
+										key={`background-${area.id}`}
+										data-plan-background={area.id}
+										points={area.polygon
+											.map((point) => `${point.x},${point.y}`)
+											.join(" ")}
+										fill={area.color ?? visualLayers.other.color}
+										fillOpacity={0.12}
+										stroke={area.color ?? visualLayers.other.color}
+										strokeOpacity={0.8}
+										strokeWidth={1.5}
+										strokeDasharray="5 5"
+										vectorEffect="non-scaling-stroke"
+									/>
+								))}
+							{planning.areas
+								.filter((area) => area.page === page)
+								.map((area) => (
+									<polygon
+										key={area.id}
+										data-plan-area={area.id}
+										points={area.polygon
+											.map((point) => `${point.x},${point.y}`)
+											.join(" ")}
+										fill={planningColor}
+										fillOpacity={
+											planning.selectedAreaId === area.id ? 0.28 : 0.16
+										}
+										stroke={
+											planning.selectedAreaId === area.id
+												? "#0f172a"
+												: planningColor
+										}
+										strokeWidth={planning.selectedAreaId === area.id ? 3 : 2}
+										strokeDasharray="8 5"
+										vectorEffect="non-scaling-stroke"
+									/>
+								))}
+						</svg>
+					) : null}
 					{ready
 						? shownMarks
 								.filter((mark) => mark.page === page)
@@ -499,6 +684,22 @@ export function VisualPdf({
 											)
 										}
 										onSelect={() => onSelect(mark.id)}
+									/>
+								))
+						: null}
+					{ready && planning
+						? planning.areas
+								.filter((area) => area.page === page)
+								.map((area, index) => (
+									<VisualPlanAreaTarget
+										key={`plan-hit-${area.id}`}
+										area={area}
+										label={`Plānotā zona ${index + 1}`}
+										disabled={!planningEditable}
+										selected={planning.selectedAreaId === area.id}
+										surface={surface.current}
+										onSelect={() => planning.onSelectArea(area.id)}
+										onMove={updatePlanArea}
 									/>
 								))
 						: null}
@@ -613,6 +814,125 @@ export function VisualPdf({
 											});
 											setDraft({ ...draft, polygon });
 										}}
+									>
+										+
+									</Button>
+								);
+							})
+						: null}
+					{ready && planningEditable && selectedPlanArea?.page === page
+						? selectedPlanArea.polygon.map((point, index) => (
+								<Button
+									key={`${selectedPlanArea.id}-corner-${index}`}
+									type="button"
+									size="icon"
+									variant="outline"
+									data-drawing-control
+									aria-label={`Plānotās zonas stūris ${index + 1}`}
+									className="absolute z-20 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none rounded-sm border-2 border-teal-700 bg-teal-50"
+									style={{
+										transform: "scale(var(--drawing-inverse-scale, 1))",
+										left: `${point.x * 100}%`,
+										top: `${point.y * 100}%`,
+									}}
+									onPointerDown={(event) => {
+										event.stopPropagation();
+										event.preventDefault();
+										event.currentTarget.focus();
+										event.currentTarget.setPointerCapture(event.pointerId);
+										planDrag.current = index;
+									}}
+									onPointerMove={(event) => {
+										if (planDrag.current !== index || !surface.current) return;
+										const rect = surface.current.getBoundingClientRect();
+										if (!rect.width || !rect.height) return;
+										updatePlanArea(
+											moveVisualPlanVertex(selectedPlanArea, index, {
+												x: (event.clientX - rect.left) / rect.width,
+												y: (event.clientY - rect.top) / rect.height,
+											}),
+										);
+									}}
+									onPointerUp={() => {
+										planDrag.current = null;
+									}}
+									onPointerCancel={() => {
+										planDrag.current = null;
+									}}
+									onLostPointerCapture={() => {
+										planDrag.current = null;
+									}}
+									onKeyDown={(event) => {
+										const step = event.shiftKey ? 0.01 : 0.002;
+										if (
+											[
+												"ArrowLeft",
+												"ArrowRight",
+												"ArrowUp",
+												"ArrowDown",
+											].includes(event.key)
+										) {
+											event.preventDefault();
+											updatePlanArea(
+												moveVisualPlanVertex(selectedPlanArea, index, {
+													x:
+														point.x +
+														(event.key === "ArrowLeft"
+															? -step
+															: event.key === "ArrowRight"
+																? step
+																: 0),
+													y:
+														point.y +
+														(event.key === "ArrowUp"
+															? -step
+															: event.key === "ArrowDown"
+																? step
+																: 0),
+												}),
+											);
+										}
+										if (
+											(event.key === "Delete" || event.key === "Backspace") &&
+											selectedPlanArea.polygon.length > 3
+										) {
+											event.preventDefault();
+											updatePlanArea(
+												removeVisualPlanVertex(selectedPlanArea, index),
+											);
+										}
+									}}
+								/>
+							))
+						: null}
+					{ready &&
+					planningEditable &&
+					selectedPlanArea?.page === page &&
+					selectedPlanArea.polygon.length < 40
+						? selectedPlanArea.polygon.map((point, index) => {
+								const next =
+									selectedPlanArea.polygon[
+										(index + 1) % selectedPlanArea.polygon.length
+									];
+								return (
+									<Button
+										key={`${selectedPlanArea.id}-edge-${index}`}
+										type="button"
+										size="icon"
+										variant="outline"
+										data-drawing-control
+										aria-label={`Pievienot plānotās zonas stūri pie malas ${index + 1}`}
+										className="absolute z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-sm border-teal-700 bg-teal-50 text-xs text-teal-900"
+										style={{
+											transform: "scale(var(--drawing-inverse-scale, 1))",
+											left: `${(point.x + next.x) * 50}%`,
+											top: `${(point.y + next.y) * 50}%`,
+										}}
+										onClick={() =>
+											updatePlanArea(
+												insertVisualPlanVertex(selectedPlanArea, index),
+											)
+										}
 									>
 										+
 									</Button>

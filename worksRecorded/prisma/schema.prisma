@@ -679,20 +679,42 @@ model ConstructionPlan {
   id          String   @id @default(uuid())
   siteId      String
   site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  planType    String   @default("daily")
+  startDate   DateTime? @db.Date
   date        DateTime @db.Date
   work        String
   location    String
   unit        String
   quantity    Float
   matchKey    String
+  visualDrawingId String?
+  visualAreas Json?
+  geometryReviewRequired Boolean @default(false)
+  archivedAt  DateTime?
+  archivedBy  String?
   version     Int      @default(1)
   createdBy   String
   updatedBy   String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  revisions   ConstructionPlanRevision[]
 
-  @@unique([siteId, date, matchKey])
+  @@unique([siteId, date, matchKey, planType])
   @@index([siteId, date])
+  @@index([siteId, planType, archivedAt, startDate, date])
+}
+
+model ConstructionPlanRevision {
+  id        String   @id @default(uuid())
+  planId    String
+  plan      ConstructionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  version   Int
+  action    String
+  snapshot  Json
+  actorId   String
+  createdAt DateTime @default(now())
+
+  @@index([planId, createdAt])
 }
 
 model SiteDiarySaveBatch {

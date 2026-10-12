@@ -219,6 +219,7 @@ describe("construction planner actions", () => {
 			where: {
 				id: deletedId,
 				siteId,
+				planType: "daily",
 				version: 2,
 				site: { organizationId: "org" },
 				date: {
@@ -326,7 +327,13 @@ describe("construction planner actions", () => {
 		).toMatchObject({ ok: false });
 		expect(prisma.constructionPlan.updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
-				where: { id, siteId, version: 1, date: { gt: new Date("2026-09-16") } },
+				where: {
+					id,
+					siteId,
+					planType: "daily",
+					version: 1,
+					date: { gt: new Date("2026-09-16") },
+				},
 			}),
 		);
 		expect(prisma.constructionPlan.create).not.toHaveBeenCalled();
@@ -363,6 +370,7 @@ describe("construction planner actions", () => {
 			where: {
 				site: { organizationId: "org" },
 				siteId,
+				planType: "daily",
 				id,
 				version: 1,
 				date: { gt: new Date("2026-09-16") },
@@ -406,6 +414,66 @@ describe("construction planner actions", () => {
 		expect(
 			(await loadConstructionWeek(siteId, "2026-09-16")).actuals[0].quantity,
 		).toBe(12.5);
+	});
+	it("loads visual milestones with cumulative progress including late actual work", async () => {
+		jest
+			.mocked(prisma.constructionPlan.findMany)
+			.mockResolvedValueOnce([])
+			.mockResolvedValueOnce([
+				{
+					id: "visual-plan",
+					visualDrawingId: "drawing",
+					startDate: new Date("2026-09-14"),
+					date: new Date("2026-09-15"),
+					work: "Walls",
+					location: "Floor",
+					unit: "m2",
+					quantity: 100,
+					geometryReviewRequired: true,
+				},
+			] as never);
+		jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([
+			{
+				id: "on-time",
+				Date: new Date("2026-09-15T10:00:00Z"),
+				Works: "Walls",
+				Location: "Floor",
+				Units: "m2",
+				Amounts: 60,
+			},
+			{
+				id: "late",
+				Date: new Date("2026-09-16T10:00:00Z"),
+				Works: "Walls",
+				Location: "Floor",
+				Units: "m2",
+				Amounts: 50,
+			},
+		] as never);
+
+		const result = await loadConstructionWeek(siteId, "2026-09-16");
+		expect(result.visualPlans).toHaveLength(1);
+		expect(result.visualPlans[0]).toMatchObject({
+			id: "visual-plan",
+			startDate: "2026-09-14",
+			endDate: "2026-09-15",
+			geometryReviewRequired: true,
+			progress: expect.objectContaining({
+				actualIds: ["on-time", "late"],
+				actualQuantity: 110,
+				status: "completed",
+			}),
+		});
+		expect(result.visualPlans[0].progress.progressPercent).toBeCloseTo(110);
+		expect(prisma.constructionPlan.findMany).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({
+				where: expect.objectContaining({
+					planType: "visual_milestone",
+					archivedAt: null,
+				}),
+			}),
+		);
 	});
 	it("includes local midnight actuals and excludes records outside the selected Riga week", async () => {
 		jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([

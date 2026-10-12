@@ -1,6 +1,9 @@
 import type { loadConstructionWeek } from "@/server/actions/construction-planner";
 import { addDays, type Comparison, comparePlans } from "./model";
-import { getWeeklyReportMessages } from "./weekly-report-i18n";
+import {
+	formatWeeklyReportDate,
+	getWeeklyReportMessages,
+} from "./weekly-report-i18n";
 
 export type WeeklyReport = Awaited<ReturnType<typeof loadConstructionWeek>> & {
 	organizationLanguage?: string | null;
@@ -35,10 +38,20 @@ export function weeklyReportDays(report: WeeklyReport): ReportDay[] {
 	const byActual = new Map(
 		comparisons.flatMap((row) => row.actualIds.map((id) => [id, row] as const)),
 	);
+	const weekEnd = addDays(report.start, 6);
+	const visualPlanDate = (plan: WeeklyReport["visualPlans"][number]) =>
+		plan.endDate >= report.start && plan.endDate <= weekEnd
+			? plan.endDate
+			: plan.startDate >= report.start && plan.startDate <= weekEnd
+				? plan.startDate
+				: report.start;
 	return Array.from({ length: 7 }, (_, index) => {
 		const date = addDays(report.start, index);
 		const actuals = report.actuals.filter((row) => row.date === date);
 		const plans = report.plans.filter((row) => row.date === date);
+		const visualPlans = report.visualPlans.filter(
+			(plan) => visualPlanDate(plan) === date,
+		);
 		const seen = new Set<string>();
 		const rows: ReportRow[] = actuals.map((actual) => {
 			const comparison = byActual.get(actual.id);
@@ -87,6 +100,37 @@ export function weeklyReportDays(report: WeeklyReport): ReportDay[] {
 				note: statusLabels[row.status],
 			});
 		}
+		for (const plan of visualPlans) {
+			const status: Comparison["status"] = plan.progress.dataIncomplete
+				? "unknown"
+				: plan.progress.status === "completed"
+					? (plan.progress.actualQuantity ?? 0) > plan.quantity
+						? "over"
+						: "equal"
+					: plan.progress.status === "overdue"
+						? "under"
+						: "future";
+			rows.push({
+				cells: [
+					"—",
+					plan.location || "—",
+					plan.work || "—",
+					"—",
+					plan.unit || "—",
+					number(plan.quantity),
+					plan.progress.actualQuantity == null
+						? "—"
+						: numberFormat.format(plan.progress.actualQuantity),
+					"—",
+					"—",
+					"—",
+					"—",
+					`${t.visualPlan} · ${t.period}: ${formatWeeklyReportDate(plan.startDate, report.organizationLanguage)}–${formatWeeklyReportDate(plan.endDate, report.organizationLanguage)}`,
+				],
+				status,
+				note: `${t.visualPlan} · ${t.visualStatus[plan.progress.status]}`,
+			});
+		}
 		const costs = actuals.flatMap((row) =>
 			row.cost == null ? [] : [row.cost],
 		);
@@ -99,7 +143,7 @@ export function weeklyReportDays(report: WeeklyReport): ReportDay[] {
 				day: "numeric",
 				timeZone: "UTC",
 			}).format(new Date(date)),
-			summary: `${t.tasks}: ${numberFormat.format(actuals.length)} · ${t.plannedTasks}: ${numberFormat.format(plans.length)} · ${t.dailyCost}: ${money(costs.length ? costs.reduce((sum, cost) => sum + cost, 0) : null)}`,
+			summary: `${t.tasks}: ${numberFormat.format(actuals.length)} · ${t.plannedTasks}: ${numberFormat.format(plans.length + visualPlans.length)} · ${t.dailyCost}: ${money(costs.length ? costs.reduce((sum, cost) => sum + cost, 0) : null)}`,
 			rows,
 		};
 	});
