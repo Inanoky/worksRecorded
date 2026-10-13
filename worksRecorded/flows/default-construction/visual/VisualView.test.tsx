@@ -72,6 +72,14 @@ jest.mock("./VisualPdf", () => ({
 		</div>
 	),
 }));
+jest.mock("pdfjs-dist", () => ({
+	GlobalWorkerOptions: { workerSrc: "" },
+	getDocument: () => ({
+		promise: Promise.resolve({ numPages: 1 }),
+		destroy: jest.fn(),
+	}),
+}));
+jest.mock("./pdf-worker-url", () => ({ pdfWorkerUrl: "/worker.mjs" }));
 jest.mock("./VisualPlanningPanel", () => ({
 	VisualPlanningPanel: ({
 		onDirtyChange,
@@ -241,21 +249,19 @@ it("dismisses the review warning without clearing reviews and only reopens it fo
 		).not.toBeDisabled(),
 	);
 	expect(screen.queryByText(/Žurnālā mainīti/)).not.toBeInTheDocument();
-	jest
-		.mocked(refreshVisualDrawing)
-		.mockResolvedValue({
-			...refreshResult,
-			drawing: {
-				...reviewed,
-				state: {
-					...reviewed.state,
-					evidence: reviewed.state.evidence.map((source) => ({
-						...source,
-						sourceRevision: "revision-2",
-					})),
-				},
+	jest.mocked(refreshVisualDrawing).mockResolvedValue({
+		...refreshResult,
+		drawing: {
+			...reviewed,
+			state: {
+				...reviewed.state,
+				evidence: reviewed.state.evidence.map((source) => ({
+					...source,
+					sourceRevision: "revision-2",
+				})),
 			},
-		});
+		},
+	});
 	fireEvent.click(screen.getByRole("button", { name: "Atjaunot no žurnāla" }));
 	await screen.findByText(/Žurnālā mainīti 1 manuāli pielāgotu zonu/);
 	expect(resolveVisualSourceReview).not.toHaveBeenCalled();
@@ -847,6 +853,102 @@ it("loads saved location drawings and toggles layer visibility instantly", async
 	expect(mockUpload).not.toHaveBeenCalled();
 });
 
+it("switches back to a loaded location immediately on the client without a second request", async () => {
+	await selectDrawing();
+	expect(mockFetch).toHaveBeenCalledTimes(1);
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "2. stāvs" },
+	});
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "1. stāvs" },
+	});
+	expect(screen.getByTestId("pdf")).toHaveTextContent("1 zones");
+	expect(screen.queryByText("Ielādē…")).not.toBeInTheDocument();
+	expect(mockFetch).toHaveBeenCalledTimes(1);
+	expect(mockUpload).not.toHaveBeenCalled();
+});
+
+it("preloads the next assigned location without changing the selection and switches to it without waiting", async () => {
+	const second = {
+		...complete,
+		id: "second",
+		state: { ...complete.state, location: "2. stāvs", marks: [] },
+	};
+	jest.mocked(getVisualDrawings).mockResolvedValue({
+		locations: ["1. stāvs", "2. stāvs"],
+		drawings: [complete, second].map((item) => ({
+			id: item.id,
+			name: item.name,
+			location: item.state.location,
+			createdAt: item.createdAt,
+			status: item.state.status,
+		})),
+	});
+	mockFetch.mockImplementation(async (url: string) => ({
+		ok: true,
+		json: async () => (url.includes("/second") ? second : complete),
+		arrayBuffer: async () => new ArrayBuffer(4),
+	}));
+	await selectDrawing();
+	await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(3));
+	expect(screen.getByRole("combobox")).toHaveValue("1. stāvs");
+	expect(screen.getByTestId("pdf")).toHaveTextContent("1 zones");
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "2. stāvs" },
+	});
+	expect(screen.getByTestId("pdf")).toHaveTextContent("0 zones");
+	expect(screen.queryByText("Ielādē…")).not.toBeInTheDocument();
+	expect(mockFetch).toHaveBeenCalledTimes(3);
+});
+
+it("prunes photo evidence from a cached location even while another location is selected", async () => {
+	await selectDrawing();
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "2. stāvs" },
+	});
+	act(() =>
+		window.dispatchEvent(
+			new CustomEvent(DIARY_PHOTO_DELETED, {
+				detail: {
+					siteId: "site",
+					deletedUrls: ["https://example.com/photo.jpg"],
+					deletedRecordIds: ["record"],
+				},
+			}),
+		),
+	);
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "1. stāvs" },
+	});
+	expect(screen.getByTestId("pdf")).toHaveTextContent("0 zones");
+	expect(mockFetch).toHaveBeenCalledTimes(1);
+});
+
+it("keeps refreshed results in the client cache when switching locations", async () => {
+	const refreshed = { ...complete, state: { ...complete.state, marks: [] } };
+	jest.mocked(refreshVisualDrawing).mockResolvedValue({
+		drawing: refreshed,
+		addedCount: 0,
+		updatedCount: 1,
+		removedCount: 0,
+		analysisCount: 0,
+		reviewCount: 0,
+	});
+	await selectDrawing();
+	fireEvent.click(screen.getByRole("button", { name: "Atjaunot no žurnāla" }));
+	await waitFor(() =>
+		expect(screen.getByTestId("pdf")).toHaveTextContent("0 zones"),
+	);
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "2. stāvs" },
+	});
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "1. stāvs" },
+	});
+	expect(screen.getByTestId("pdf")).toHaveTextContent("0 zones");
+	expect(mockFetch).toHaveBeenCalledTimes(1);
+});
+
 it("places layer toggles and dated sources in the sidebar in chronological order", async () => {
 	mockFetch.mockResolvedValue({
 		ok: true,
@@ -1127,6 +1229,7 @@ it("can retry loading the assigned drawing without a second selector", async () 
 	expect(mockFetch).toHaveBeenCalledTimes(2);
 	expect(mockFetch).toHaveBeenLastCalledWith("/api/sites/site/visual/drawing", {
 		cache: "no-store",
+		signal: expect.any(AbortSignal),
 	});
 });
 

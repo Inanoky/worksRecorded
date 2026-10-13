@@ -11,7 +11,14 @@ import {
 	Settings2,
 	X,
 } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -89,6 +96,7 @@ import { VisualPlanningPanel } from "./VisualPlanningPanel";
 import { VisualSidebar } from "./VisualSidebar";
 import { VisualTimeline } from "./VisualTimeline";
 import { VisualZoneDetails } from "./VisualZoneDetails";
+import { VisualClientCache } from "./visual-client-cache";
 
 type Index = Awaited<ReturnType<typeof getVisualDrawings>>;
 const allLayers = Object.keys(visualLayers) as VisualLayer[];
@@ -106,6 +114,7 @@ export default function VisualView({
 	active?: boolean;
 }) {
 	const { workspace, height } = useVisualWorkspace(active);
+	const resourceCache = useMemo(() => new VisualClientCache(siteId), [siteId]);
 	const [index, setIndex] = useState<Index | null>(null);
 	const [location, setLocation] = useState("");
 	const [drawing, setDrawing] = useState<VisualDrawing | null>(null);
@@ -170,8 +179,22 @@ export default function VisualView({
 	});
 	const endpoint = (id: string) =>
 		`/api/sites/${encodeURIComponent(siteId)}/visual/${encodeURIComponent(id)}`;
+	const showDrawing = useCallback(
+		(value: VisualDrawing) => {
+			resourceCache.rememberDrawing(value);
+			setDrawing(value);
+		},
+		[resourceCache],
+	);
+	useEffect(() => () => resourceCache.clear(), [resourceCache]);
 	useEffect(() => {
 		const run = ++epoch.current;
+		setIndex(null);
+		setLocation("");
+		setDrawing(null);
+		setSelected(null);
+		setFile(null);
+		setSyncedAt(null);
 		void getVisualDrawings(siteId).then(
 			(data) => {
 				if (run === epoch.current) {
@@ -196,24 +219,40 @@ export default function VisualView({
 	}, [siteId]);
 	const pollDrawingId = drawing?.id;
 	useEffect(() => {
+		if (!active || !pollDrawingId || !index?.drawings.length) return;
+		const position = index.drawings.findIndex(
+			(item) => item.id === pollDrawingId,
+		);
+		const next = index.drawings[(position + 1) % index.drawings.length];
+		if (!next || next.id === pollDrawingId) return;
+		const timer = setTimeout(() => {
+			void resourceCache.prefetch(next.id).catch(() => {});
+		}, 300);
+		return () => clearTimeout(timer);
+	}, [active, pollDrawingId, index?.drawings, resourceCache]);
+	useEffect(() => {
 		function onPhotoDeleted(event: Event) {
 			const detail = (event as CustomEvent<DiaryPhotoDeleted>).detail;
 			if (detail.siteId !== siteId) return;
 			const urls = new Set(detail.deletedUrls);
 			const recordIds = new Set(detail.deletedRecordIds ?? []);
-			setDrawing((previous) => {
-				if (!previous) return previous;
+			const pruneDrawing = (previous: VisualDrawing) => {
 				const state = pruneVisualEvidence(
 					previous.state,
 					(item) => !(urls.has(item.photoUrl) && recordIds.has(item.recordId)),
 				);
 				return state === previous.state ? previous : { ...previous, state };
+			};
+			resourceCache.updateDrawings(pruneDrawing);
+			setDrawing((previous) => {
+				if (!previous) return previous;
+				return pruneDrawing(previous);
 			});
 		}
 		window.addEventListener(DIARY_PHOTO_DELETED, onPhotoDeleted);
 		return () =>
 			window.removeEventListener(DIARY_PHOTO_DELETED, onPhotoDeleted);
-	}, [siteId]);
+	}, [siteId, resourceCache]);
 	const shouldPoll =
 		active &&
 		mode === "actual" &&
@@ -256,7 +295,7 @@ export default function VisualView({
 						data.state.error =
 							"Analīze pārtraukta. Saglabātie rezultāti ir pieejami; turpiniet nepabeigto attēlu analīzi.";
 					}
-					setDrawing(data);
+					showDrawing(data);
 				}
 			} catch {
 				if (!controller.signal.aborted) setProgressUnavailable(true);
@@ -271,22 +310,23 @@ export default function VisualView({
 			controller.abort();
 			clearTimeout(timer);
 		};
-	}, [siteId, pollDrawingId, shouldPoll]);
-	async function loadDrawing(id: string) {
+	}, [siteId, pollDrawingId, shouldPoll, showDrawing]);
+	async function loadDrawing(id: string, fresh = false) {
 		const request = ++requestId.current;
-		setDrawing(null);
-		setLoading(true);
+		if (fresh) resourceCache.removeDrawing(id);
+		const cached = resourceCache.peekDrawing(id);
+		setDrawing(cached ?? null);
+		setLoading(!cached);
 		setSelected(null);
 		setThroughDay(null);
 		setIncludeUndated(false);
 		setError(null);
 		setNotice(null);
+		if (cached) return cached;
 		try {
-			const response = await fetch(endpoint(id), { cache: "no-store" });
-			const data = await response.json();
-			if (!response.ok) throw new Error(data.error);
+			const data = await resourceCache.loadDrawing(id);
 			if (request === requestId.current) {
-				setDrawing(data);
+				showDrawing(data);
 				setLocation(data.state.location);
 				return data as VisualDrawing;
 			}
@@ -306,6 +346,7 @@ export default function VisualView({
 		setFile(null);
 		setError(null);
 		setNotice(null);
+		setSyncedAt(null);
 		setLoading(false);
 		const assigned = index?.drawings.find(
 			(item) =>
@@ -323,7 +364,7 @@ export default function VisualView({
 			if (run !== epoch.current) return;
 			const result = data as VisualDrawing;
 			++analysisVersion.current;
-			setDrawing(result);
+			showDrawing(result);
 		} finally {
 			++analysisVersion.current;
 		}
@@ -362,7 +403,7 @@ export default function VisualView({
 				const result = await refreshVisualDrawing(siteId, id);
 				if (run !== epoch.current) return;
 				loaded = result.drawing;
-				setDrawing(loaded);
+				showDrawing(loaded);
 				setSyncedAt(Date.now());
 				if (
 					!auto ||
@@ -382,7 +423,7 @@ export default function VisualView({
 			if (!id) throw new Error("PDF augšupielāde neizdevās.");
 			if (run !== epoch.current) return;
 			setPhase("preparing");
-			loaded ??= mode === "resume" ? drawing : await loadDrawing(id);
+			loaded ??= mode === "resume" ? drawing : await loadDrawing(id, true);
 			if (!loaded || run !== epoch.current) return;
 			if (!loaded.state.evidence.length) {
 				setNotice(
@@ -433,7 +474,7 @@ export default function VisualView({
 				reanalyze,
 			);
 			if (run !== epoch.current) return;
-			setDrawing(updated);
+			showDrawing(updated);
 			if (reanalyze) {
 				previousAttempt.current = updated.state.attempts.at(-1)?.id;
 				setPhase("analyzing");
@@ -463,7 +504,7 @@ export default function VisualView({
 			const updated = await deleteVisualPolygon(siteId, drawing.id, deletion);
 			if (run !== epoch.current) return;
 			++requestId.current;
-			setDrawing(updated);
+			showDrawing(updated);
 			setSelected((value) => (value === deletion.markId ? null : value));
 			setNotice(
 				"Poligons dzēsts. Pārējie poligoni, žurnāla ieraksts un avota foto saglabāti.",
@@ -495,6 +536,7 @@ export default function VisualView({
 			await deleteVisualDrawing(siteId, id);
 			if (run !== epoch.current) return;
 			++requestId.current;
+			resourceCache.removeDrawing(id);
 			setDrawing(null);
 			setSelected(null);
 			setIndex((previous) =>
@@ -980,6 +1022,7 @@ export default function VisualView({
 				{drawing ? (
 					mode === "planning" ? (
 						<VisualPlanningPanel
+							resourceCache={resourceCache}
 							layerConfiguration={layerConfiguration}
 							key={drawing.id}
 							siteId={siteId}
@@ -990,6 +1033,7 @@ export default function VisualView({
 					) : (
 						<>
 							<VisualPdf
+								resourceCache={resourceCache}
 								layerStyles={layerStyles}
 								key={drawing.id}
 								fillWorkspace
@@ -1015,7 +1059,7 @@ export default function VisualView({
 										drawing.id,
 										edit,
 									);
-									setDrawing(updated);
+									showDrawing(updated);
 								}}
 							/>
 							<VisualZoneDetails
@@ -1049,7 +1093,7 @@ export default function VisualView({
 								onResolveReview={resolveReview}
 								onSaved={(updated) => {
 									if (!source) return;
-									setDrawing(updated);
+									showDrawing(updated);
 									setLayers((values) => [
 										...new Set([
 											...values,

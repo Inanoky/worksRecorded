@@ -29,6 +29,7 @@ import { VisualPlanAreaTarget } from "./VisualPlanAreaTarget";
 import { VisualPolygonEditor } from "./VisualPolygonEditor";
 import { VisualZoneTarget } from "./VisualZoneTarget";
 import { MAX_DRAWING_ZOOM, MIN_DRAWING_ZOOM } from "./viewport";
+import type { VisualClientCache } from "./visual-client-cache";
 
 export type VisualPdfPlanning = {
 	areas: VisualPlanArea[];
@@ -53,6 +54,7 @@ export function VisualPdf({
 	onDelete,
 	planning,
 	layerStyles = visualLayers,
+	resourceCache,
 }: {
 	url: string;
 	marks: VisualMark[];
@@ -65,6 +67,7 @@ export function VisualPdf({
 	onDelete?: (deletion: PolygonDelete) => void;
 	planning?: VisualPdfPlanning;
 	layerStyles?: Record<string, { label: string; color: string }>;
+	resourceCache?: VisualClientCache;
 }) {
 	const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
 	const [page, setPage] = useState(1);
@@ -178,6 +181,7 @@ export function VisualPdf({
 			| ReturnType<typeof import("pdfjs-dist")["getDocument"]>
 			| undefined;
 		const abort = new AbortController();
+		const cachedPdf = resourceCache?.openPdf(url);
 		setDocument(null);
 		setHighlighted(null);
 		setError(false);
@@ -185,6 +189,11 @@ export function VisualPdf({
 		setPage(1);
 		void (async () => {
 			try {
+				if (cachedPdf) {
+					const pdf = await cachedPdf.promise;
+					if (active) setDocument(pdf);
+					return;
+				}
 				const [response, pdfjs, worker] = await Promise.all([
 					fetch(url, { signal: abort.signal }),
 					import("pdfjs-dist"),
@@ -204,9 +213,10 @@ export function VisualPdf({
 		return () => {
 			active = false;
 			abort.abort();
+			cachedPdf?.release();
 			void task?.destroy();
 		};
-	}, [url]);
+	}, [url, resourceCache]);
 	useEffect(() => {
 		if (!document) return;
 		let active = true;

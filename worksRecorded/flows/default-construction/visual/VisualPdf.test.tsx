@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { VisualMark } from "./model";
 import type { VisualPlanArea } from "./planning-model";
 import { VisualPdf } from "./VisualPdf";
+import { VisualClientCache } from "./visual-client-cache";
 
 const mockGetDocument = jest.fn();
 const mockGetPage = jest.fn();
@@ -87,6 +88,29 @@ beforeEach(() => {
 afterEach(() => {
 	jest.restoreAllMocks();
 	global.fetch = originalFetch;
+});
+
+it("reuses a parsed PDF when switching locations back without downloading or parsing again", async () => {
+	const cache = new VisualClientCache("site");
+	const props = {
+		marks: [mark],
+		selected: null,
+		onSelect: jest.fn(),
+		resourceCache: cache,
+	};
+	const view = render(<VisualPdf {...props} url="/first.pdf" />);
+	await screen.findByRole("button", { name: "XPS: Sakrīt" });
+	view.rerender(<VisualPdf {...props} url="/second.pdf" />);
+	await waitFor(() => expect(mockGetDocument).toHaveBeenCalledTimes(2));
+	await screen.findByRole("button", { name: "XPS: Sakrīt" });
+	view.rerender(<VisualPdf {...props} url="/first.pdf" />);
+	await screen.findByRole("button", { name: "XPS: Sakrīt" });
+	expect(global.fetch).toHaveBeenCalledTimes(2);
+	expect(mockGetDocument).toHaveBeenCalledTimes(2);
+	expect(mockDestroy).not.toHaveBeenCalled();
+	view.unmount();
+	cache.clear();
+	expect(mockDestroy).toHaveBeenCalledTimes(2);
 });
 
 it("renders custom project layer names and colours without reloading the plan", async () => {

@@ -47,6 +47,7 @@ import {
 import { type VisualDrawing, visualLayers } from "./model";
 import type { VisualPlan, VisualPlanArea } from "./planning-model";
 import { VisualPdf } from "./VisualPdf";
+import type { VisualClientCache } from "./visual-client-cache";
 
 type PlanningIndex = Awaited<ReturnType<typeof getVisualPlanning>>;
 const defaultLayerConfiguration: VisualLayerConfiguration = {
@@ -193,12 +194,14 @@ export function VisualPlanningPanel({
 	sidebarOpen,
 	onDirtyChange,
 	layerConfiguration = defaultLayerConfiguration,
+	resourceCache,
 }: {
 	siteId: string;
 	drawing: VisualDrawing;
 	sidebarOpen: boolean;
 	onDirtyChange: (dirty: boolean) => void;
 	layerConfiguration?: VisualLayerConfiguration;
+	resourceCache?: VisualClientCache;
 }) {
 	const styles = visualLayerStyles(layerConfiguration.settings);
 	const workColor = (work: string) =>
@@ -467,6 +470,7 @@ export function VisualPlanningPanel({
 	return (
 		<div className="relative h-full min-h-0 overflow-hidden">
 			<VisualPdf
+				resourceCache={resourceCache}
 				fillWorkspace
 				url={`/api/sites/${encodeURIComponent(siteId)}/visual/${encodeURIComponent(drawing.id)}?pdf=1`}
 				marks={[]}
