@@ -365,8 +365,8 @@ it("guards the planning drawer while a zone geometry edit is active", async () =
 	);
 	expect(onDirtyChange).toHaveBeenLastCalledWith(true);
 	expect(
-		within(drawer).getByRole("button", { name: "Pievienot zonu" }),
-	).toBeDisabled();
+		within(drawer).queryByRole("button", { name: "Pievienot zonu" }),
+	).not.toBeInTheDocument();
 	fireEvent.click(
 		within(drawer).getByRole("button", { name: "Aizvērt plāna detaļas" }),
 	);
@@ -378,6 +378,9 @@ it("guards the planning drawer while a zone geometry edit is active", async () =
 		screen.getByRole("button", { name: "Beigt zonas rediģēšanu" }),
 	);
 	expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+	expect(
+		within(drawer).getByRole("button", { name: "Pievienot zonu" }),
+	).toBeEnabled();
 });
 
 it("creates a visual plan from project work, dates, quantity, and drawn areas", async () => {

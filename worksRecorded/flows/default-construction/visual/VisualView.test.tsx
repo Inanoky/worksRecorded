@@ -344,10 +344,9 @@ function openSettings() {
 }
 
 async function selectLocation() {
-	await screen.findByRole("option", { name: "1. stāvs" });
-	fireEvent.change(screen.getAllByRole("combobox")[0], {
-		target: { value: "1. stāvs" },
-	});
+	await waitFor(() =>
+		expect(screen.getAllByRole("combobox")[0]).toHaveValue("1. stāvs"),
+	);
 	await screen.findByTestId("pdf");
 }
 
@@ -355,6 +354,18 @@ async function selectDrawing() {
 	render(<VisualView siteId="site" />);
 	await selectLocation();
 }
+
+it("selects the first location when navigating to Izpildshēmas", async () => {
+	const view = render(<VisualView siteId="site" active={false} />);
+	await screen.findByRole("option", { name: "1. stāvs" });
+	expect(screen.getByRole("combobox")).toHaveValue("");
+	expect(screen.queryByTestId("pdf")).not.toBeInTheDocument();
+	view.rerender(<VisualView siteId="site" active />);
+	await waitFor(() =>
+		expect(screen.getByRole("combobox")).toHaveValue("1. stāvs"),
+	);
+	expect(await screen.findByTestId("pdf")).toBeInTheDocument();
+});
 
 it("switches between execution and planning modes from the workspace header", async () => {
 	await selectDrawing();
@@ -1228,10 +1239,9 @@ it("ignores an old drawing response after switching to an unassigned location", 
 it("can retry loading the assigned drawing without a second selector", async () => {
 	mockFetch.mockRejectedValueOnce(new Error("Network"));
 	render(<VisualView siteId="site" />);
-	await screen.findByRole("option", { name: "1. stāvs" });
-	fireEvent.change(screen.getByRole("combobox"), {
-		target: { value: "1. stāvs" },
-	});
+	await waitFor(() =>
+		expect(screen.getByRole("combobox")).toHaveValue("1. stāvs"),
+	);
 	expect(await screen.findByRole("alert")).toHaveTextContent(
 		"Neizdevās ielādēt rasējumu",
 	);

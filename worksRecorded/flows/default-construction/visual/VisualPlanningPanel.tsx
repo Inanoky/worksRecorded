@@ -880,15 +880,13 @@ export function VisualPlanningPanel({
 										{draft.areas.length}{" "}
 										{draft.areas.length === 1 ? "zona" : "zonas"}
 									</span>
-									{!draft.archivedAt ? (
+									{!draft.archivedAt && !areaEditing ? (
 										<Button
 											type="button"
 											size="sm"
 											variant="outline"
 											className="h-7"
-											disabled={
-												saving || areaEditing || draft.areas.length >= 50
-											}
+											disabled={saving || draft.areas.length >= 50}
 											onClick={() => setAreaRequest((value) => value + 1)}
 										>
 											<Plus className="h-3.5 w-3.5" />

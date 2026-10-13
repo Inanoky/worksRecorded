@@ -359,49 +359,60 @@ export default function VisualView({
 			clearTimeout(timer);
 		};
 	}, [siteId, pollDrawingId, shouldPoll, showDrawing]);
-	async function loadDrawing(id: string, fresh = false) {
-		const request = ++requestId.current;
-		if (fresh) resourceCache.removeDrawing(id);
-		const cached = resourceCache.peekDrawing(id);
-		setDrawing(cached ?? null);
-		setLoading(!cached);
-		setSelected(null);
-		setThroughDay(null);
-		setIncludeUndated(false);
-		setError(null);
-		setNotice(null);
-		try {
-			const data = await resourceCache.loadDrawing(id);
-			if (request === requestId.current) {
-				if (data !== cached) showDrawing(data);
-				setLocation(data.state.location);
-				return data as VisualDrawing;
+	const loadDrawing = useCallback(
+		async (id: string, fresh = false) => {
+			const request = ++requestId.current;
+			if (fresh) resourceCache.removeDrawing(id);
+			const cached = resourceCache.peekDrawing(id);
+			setDrawing(cached ?? null);
+			setLoading(!cached);
+			setSelected(null);
+			setThroughDay(null);
+			setIncludeUndated(false);
+			setError(null);
+			setNotice(null);
+			try {
+				const data = await resourceCache.loadDrawing(id);
+				if (request === requestId.current) {
+					if (data !== cached) showDrawing(data);
+					setLocation(data.state.location);
+					return data as VisualDrawing;
+				}
+			} catch {
+				if (request === requestId.current && !cached)
+					setError("Neizdevās ielādēt rasējumu.");
+			} finally {
+				if (request === requestId.current) setLoading(false);
 			}
-		} catch {
-			if (request === requestId.current && !cached)
-				setError("Neizdevās ielādēt rasējumu.");
-		} finally {
-			if (request === requestId.current) setLoading(false);
-		}
-		return null;
-	}
-	function selectLocation(value: string) {
-		++requestId.current;
-		setLocation(value);
-		setDrawing(null);
-		setSelected(null);
-		setFile(null);
-		setError(null);
-		setNotice(null);
-		setSyncedAt(null);
-		setLoading(false);
-		const assigned = index?.drawings.find(
-			(item) =>
-				normalizeVisualLocation(item.location) ===
-				normalizeVisualLocation(value),
-		);
-		if (assigned) void loadDrawing(assigned.id);
-	}
+			return null;
+		},
+		[resourceCache, showDrawing],
+	);
+	const selectLocation = useCallback(
+		(value: string) => {
+			++requestId.current;
+			setLocation(value);
+			setDrawing(null);
+			setSelected(null);
+			setFile(null);
+			setError(null);
+			setNotice(null);
+			setSyncedAt(null);
+			setLoading(false);
+			const assigned = index?.drawings.find(
+				(item) =>
+					normalizeVisualLocation(item.location) ===
+					normalizeVisualLocation(value),
+			);
+			if (assigned) void loadDrawing(assigned.id);
+		},
+		[index, loadDrawing],
+	);
+	const firstLocation = index?.locations[0] ?? "";
+	useEffect(() => {
+		if (!active || location || !firstLocation) return;
+		selectLocation(firstLocation);
+	}, [active, firstLocation, location, selectLocation]);
 	async function analyze(id: string, run: number) {
 		++analysisVersion.current;
 		try {

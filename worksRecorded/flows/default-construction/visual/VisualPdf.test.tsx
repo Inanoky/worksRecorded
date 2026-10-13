@@ -700,25 +700,72 @@ it("adds multiple editable planned areas using the execution-zone interaction", 
 	await waitFor(() =>
 		expect(screen.getByRole("button", { name: "Jauna zona" })).toBeEnabled(),
 	);
+	expect(
+		screen
+			.getByRole("button", { name: "Jauna zona" })
+			.closest("[data-drawing-control]"),
+	).toHaveClass("left-3");
 	fireEvent.click(screen.getByRole("button", { name: "Jauna zona" }));
+	expect(
+		screen
+			.getByRole("button", { name: "Saglabāt zonu" })
+			.closest('[data-area-editing="true"]'),
+	).toHaveClass("left-1/2", "-translate-x-1/2", "justify-center");
 	expect(
 		container.querySelector('[data-plan-area="plan-area-1"]'),
 	).toHaveAttribute("points", "0.35,0.35 0.65,0.35 0.65,0.65 0.35,0.65");
 	expect(
 		screen.getByRole("button", { name: "Plānotās zonas stūris 1" }),
 	).toBeInTheDocument();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Saglabāt un pievienot nākamo" }),
+	);
+	expect(container.querySelectorAll("[data-plan-area]")).toHaveLength(2);
+	expect(
+		container.querySelector('[data-plan-area="plan-area-2"]'),
+	).toHaveAttribute("stroke-dasharray", "4 3");
+	expect(
+		screen.getByRole("button", { name: "Plānotās zonas stūris 1" }),
+	).toBeInTheDocument();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Saglabāt un pievienot nākamo" }),
+	);
+	expect(container.querySelectorAll("[data-plan-area]")).toHaveLength(3);
+	expect(
+		container.querySelector('[data-plan-area="plan-area-3"]'),
+	).toHaveAttribute("stroke-dasharray", "4 3");
 	fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
+	expect(
+		screen
+			.getByRole("button", { name: "Pielāgot plānoto zonu" })
+			.closest('[data-area-controls="true"]'),
+	).toHaveClass("left-1/2", "-translate-x-1/2", "justify-center");
 	expect(
 		screen.queryByRole("button", { name: "Plānotās zonas stūris 1" }),
 	).not.toBeInTheDocument();
 	expect(
 		screen.getByRole("button", { name: "Pielāgot plānoto zonu" }),
 	).toBeEnabled();
-	fireEvent.click(screen.getByRole("button", { name: "Jauna zona" }));
-	expect(container.querySelectorAll("[data-plan-area]")).toHaveLength(2);
+	expect(container.querySelectorAll("[data-plan-area]")).toHaveLength(3);
 	expect(
-		container.querySelector('[data-plan-area="plan-area-2"]'),
-	).toHaveAttribute("stroke-dasharray", "8 5");
+		container.querySelectorAll('[data-plan-group-selected="true"]'),
+	).toHaveLength(3);
+	expect(
+		container.querySelector('[data-plan-area="plan-area-3"]'),
+	).toHaveAttribute("data-plan-area-selected", "true");
+	expect(
+		container.querySelector('[data-plan-area="plan-area-1"]'),
+	).toHaveAttribute("fill-opacity", "0.48");
+	expect(
+		container.querySelector('[data-plan-area="plan-area-3"]'),
+	).toHaveAttribute("fill-opacity", "0.64");
+	fireEvent.click(screen.getByRole("button", { name: "Plānotā zona 1" }));
+	expect(
+		container.querySelector('[data-plan-area="plan-area-1"]'),
+	).toHaveAttribute("data-plan-area-selected", "true");
+	expect(
+		container.querySelectorAll('[data-plan-group-selected="true"]'),
+	).toHaveLength(3);
 });
 
 it("adds and selects an editable area when requested from the planning form", async () => {
@@ -796,7 +843,7 @@ it("reshapes a planned area, adds and removes vertices, and deletes only that ar
 	await waitFor(() =>
 		expect(
 			container.querySelector('[data-plan-area="plan-area-1"]'),
-		).toHaveAttribute("fill-opacity", "0.58"),
+		).toHaveAttribute("fill-opacity", "0.64"),
 	);
 	fireEvent.click(editButton);
 	const corner = await screen.findByRole("button", {

@@ -99,6 +99,19 @@ export function visualPointInPolygon(
 	return inside;
 }
 
+function createVisualPlanArea(areas: VisualPlanArea[], page: number) {
+	return {
+		id: nextVisualPlanAreaId(areas),
+		page,
+		polygon: [
+			{ x: 0.35, y: 0.35 },
+			{ x: 0.65, y: 0.35 },
+			{ x: 0.65, y: 0.65 },
+			{ x: 0.35, y: 0.65 },
+		],
+	} satisfies VisualPlanArea;
+}
+
 export function VisualPdf({
 	url,
 	marks,
@@ -183,6 +196,12 @@ export function VisualPdf({
 	const selectedPlanAreaValid = selectedPlanArea
 		? visualPlanAreaSchema.safeParse(selectedPlanArea).success
 		: true;
+	const editingArea = !!draft || !!planningAreaDraft;
+	const areaControlsActive =
+		editingArea ||
+		(planning
+			? planningEditable && !!selectedPlanArea
+			: !!selectedMark && (!!onSave || !!onDelete));
 	const shownMarks = marks.map((mark) =>
 		draft?.markId === mark.id ? { ...mark, polygon: draft.polygon } : mark,
 	);
@@ -204,16 +223,7 @@ export function VisualPdf({
 			planning.areas.length >= 50
 		)
 			return;
-		const area: VisualPlanArea = {
-			id: nextVisualPlanAreaId(planning.areas),
-			page,
-			polygon: [
-				{ x: 0.35, y: 0.35 },
-				{ x: 0.65, y: 0.35 },
-				{ x: 0.65, y: 0.65 },
-				{ x: 0.35, y: 0.65 },
-			],
-		};
+		const area = createVisualPlanArea(planning.areas, page);
 		setPlanningAreaDraft({ area, isNew: true });
 		planning.onSelectArea({ planId: planning.planId, areaId: area.id });
 		planning.onEditingChange?.(true);
@@ -231,13 +241,18 @@ export function VisualPdf({
 		planning.onEditingChange?.(true);
 		setLayerPicker(null);
 	}
-	function finishPlanAreaEditing() {
+	function finishPlanAreaEditing(addAnother = false) {
 		if (!planning || !planningAreaDraft || !selectedPlanAreaValid) return;
-		planning.onChange(
-			planningAreaDraft.isNew
-				? [...planning.areas, planningAreaDraft.area]
-				: replaceVisualPlanArea(planning.areas, planningAreaDraft.area),
-		);
+		const areas = planningAreaDraft.isNew
+			? [...planning.areas, planningAreaDraft.area]
+			: replaceVisualPlanArea(planning.areas, planningAreaDraft.area);
+		planning.onChange(areas);
+		if (addAnother && areas.length < 50) {
+			const area = createVisualPlanArea(areas, page);
+			setPlanningAreaDraft({ area, isNew: true });
+			planning.onSelectArea({ planId: planning.planId, areaId: area.id });
+			return;
+		}
 		setPlanningAreaDraft(null);
 		planning.onEditingChange?.(false);
 	}
@@ -332,16 +347,7 @@ export function VisualPdf({
 		)
 			return;
 		handledAreaRequest.current = request;
-		const area: VisualPlanArea = {
-			id: nextVisualPlanAreaId(planning.areas),
-			page,
-			polygon: [
-				{ x: 0.35, y: 0.35 },
-				{ x: 0.65, y: 0.35 },
-				{ x: 0.65, y: 0.65 },
-				{ x: 0.35, y: 0.65 },
-			],
-		};
+		const area = createVisualPlanArea(planning.areas, page);
 		setPlanningAreaDraft({ area, isNew: true });
 		planning.onSelectArea({ planId: planning.planId, areaId: area.id });
 		planning.onEditingChange?.(true);
@@ -457,13 +463,18 @@ export function VisualPdf({
 			select: () => planning?.onSelectArea({ planId, areaId: area.id }),
 		}),
 	);
+	const activePlanGroupSelected =
+		!!planning?.selectedArea &&
+		planning.selectedArea.planId === planning.planId;
 	return (
 		<div
 			className={`relative min-w-0 overflow-hidden bg-muted/40 ${fillWorkspace ? "h-full" : "rounded-xl border"}`}
 		>
 			<div
 				data-drawing-control
-				className="absolute left-3 top-3 z-30 flex max-w-[calc(100%-5rem)] flex-wrap items-center gap-1 rounded-lg border bg-background p-1 shadow-sm"
+				data-area-editing={editingArea ? "true" : undefined}
+				data-area-controls={areaControlsActive ? "true" : undefined}
+				className={`absolute top-3 z-30 flex max-w-[calc(100%-5rem)] flex-wrap items-center gap-1 rounded-lg border bg-background p-1 shadow-sm transition-[left,transform] duration-150 motion-reduce:transition-none ${areaControlsActive ? "left-1/2 -translate-x-1/2 justify-center" : "left-3"}`}
 			>
 				<Button
 					variant="outline"
@@ -545,9 +556,23 @@ export function VisualPdf({
 						<Button
 							size="sm"
 							disabled={!selectedPlanAreaValid}
-							onClick={finishPlanAreaEditing}
+							onClick={() => finishPlanAreaEditing()}
 						>
 							Saglabāt zonu
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							disabled={
+								!selectedPlanAreaValid ||
+								(planning?.areas.length ?? 50) +
+									(planningAreaDraft.isNew ? 1 : 0) >=
+									50
+							}
+							onClick={() => finishPlanAreaEditing(true)}
+						>
+							<Plus className="h-3.5 w-3.5" />
+							Saglabāt un pievienot nākamo
 						</Button>
 						<Button size="sm" variant="outline" onClick={cancelPlanAreaEditing}>
 							Atcelt
@@ -925,25 +950,44 @@ export function VisualPdf({
 								))}
 							{shownPlanningAreas
 								.filter((area) => area.page === page)
-								.map((area) => (
-									<polygon
-										key={area.id}
-										data-plan-area={area.id}
-										points={area.polygon
-											.map((point) => `${point.x},${point.y}`)
-											.join(" ")}
-										fill={planningColor}
-										fillOpacity={selectedPlanArea?.id === area.id ? 0.58 : 0.34}
-										stroke={
-											selectedPlanArea?.id === area.id
-												? "#0f172a"
-												: planningColor
-										}
-										strokeWidth={selectedPlanArea?.id === area.id ? 3 : 2}
-										strokeDasharray="8 5"
-										vectorEffect="non-scaling-stroke"
-									/>
-								))}
+								.map((area) => {
+									const directlySelected = selectedPlanArea?.id === area.id;
+									return (
+										<polygon
+											key={area.id}
+											data-plan-area={area.id}
+											data-plan-area-selected={
+												directlySelected ? "true" : undefined
+											}
+											data-plan-group-selected={
+												activePlanGroupSelected ? "true" : undefined
+											}
+											points={area.polygon
+												.map((point) => `${point.x},${point.y}`)
+												.join(" ")}
+											fill={planningColor}
+											fillOpacity={
+												directlySelected
+													? 0.64
+													: activePlanGroupSelected
+														? 0.48
+														: 0.34
+											}
+											stroke={
+												directlySelected
+													? "#0f172a"
+													: activePlanGroupSelected
+														? "#334155"
+														: planningColor
+											}
+											strokeWidth={
+												directlySelected ? 4 : activePlanGroupSelected ? 3 : 2
+											}
+											strokeDasharray={directlySelected ? "4 3" : "8 5"}
+											vectorEffect="non-scaling-stroke"
+										/>
+									);
+								})}
 						</svg>
 					) : null}
 					{ready
