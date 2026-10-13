@@ -53,7 +53,7 @@ export function VisualPlanAreaTarget({
 			}}
 			onClick={onSelect}
 			onPointerDown={(event) => {
-				if (event.button !== 0 || !surface) return;
+				if (disabled || event.button !== 0 || !surface) return;
 				event.stopPropagation();
 				event.preventDefault();
 				onSelect();
@@ -68,6 +68,7 @@ export function VisualPlanAreaTarget({
 			}}
 			onPointerMove={(event) => {
 				if (
+					disabled ||
 					!drag.current ||
 					drag.current.pointerId !== event.pointerId ||
 					!surface
@@ -93,6 +94,7 @@ export function VisualPlanAreaTarget({
 				drag.current = null;
 			}}
 			onKeyDown={(event) => {
+				if (disabled) return;
 				const directions: Record<string, [number, number]> = {
 					ArrowLeft: [-1, 0],
 					ArrowRight: [1, 0],

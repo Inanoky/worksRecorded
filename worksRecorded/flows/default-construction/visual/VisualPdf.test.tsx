@@ -456,6 +456,164 @@ it("cancels geometry changes without persisting and retains edits if saving fail
 	expect(onSave).toHaveBeenCalledTimes(1);
 });
 
+it("uses the planning handles in execution and allows zooming while editing without saving", async () => {
+	const onSave = jest.fn().mockResolvedValue(undefined);
+	const { container } = render(
+		<VisualPdf
+			url="/drawing"
+			marks={[mark]}
+			selected="mark"
+			onSelect={jest.fn()}
+			editable
+			onSave={onSave}
+		/>,
+	);
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Pielāgot zonu" })).toBeEnabled(),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	const corner = screen.getByRole("button", { name: "Stūris 1" });
+	expect(corner).toHaveClass("rounded-sm", "border-teal-700");
+	expect(corner).toHaveAttribute("data-drawing-control");
+	fireEvent.click(screen.getByRole("button", { name: "Tuvināt" }));
+	await waitFor(() =>
+		expect(screen.getByLabelText("Mērogs")).toHaveTextContent("125%"),
+	);
+	fireEvent.wheel(screen.getByTestId("visual-viewport"), { deltaY: -100 });
+	await waitFor(() =>
+		expect(screen.getByLabelText("Mērogs")).toHaveTextContent("153%"),
+	);
+	expect(screen.getByRole("button", { name: "Stūris 1" })).toBe(corner);
+	fireEvent.keyDown(screen.getByRole("button", { name: "Pārvietot zonu" }), {
+		key: "ArrowRight",
+		shiftKey: true,
+	});
+	expect(container.querySelector("polygon")).toHaveAttribute(
+		"points",
+		"0.11,0.1 0.41000000000000003,0.1 0.41000000000000003,0.4",
+	);
+	expect(onSave).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Atcelt" }));
+	expect(container.querySelector("polygon")).toHaveAttribute(
+		"points",
+		"0.1,0.1 0.4,0.1 0.4,0.4",
+	);
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+});
+
+it("moves the whole execution polygon with the planning drag behavior and preserves its source and siblings", async () => {
+	const originalPointerEvent = window.PointerEvent;
+	window.PointerEvent = MouseEvent as typeof PointerEvent;
+	const onSave = jest.fn().mockResolvedValue(undefined);
+	const sibling = { ...mark, id: "sibling", layer: "sand" };
+	try {
+		const { container } = render(
+			<VisualPdf
+				url="/drawing"
+				marks={[mark, sibling]}
+				selected="mark"
+				onSelect={jest.fn()}
+				editable
+				onSave={onSave}
+			/>,
+		);
+		await waitFor(() =>
+			expect(
+				screen.getByRole("button", { name: "Pielāgot zonu" }),
+			).toBeEnabled(),
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+		const target = screen.getByRole("button", { name: "Pārvietot zonu" });
+		const surface = container.querySelector("canvas")
+			?.parentElement as HTMLElement;
+		jest.spyOn(surface, "getBoundingClientRect").mockReturnValue({
+			left: 100,
+			top: 50,
+			width: 1000,
+			height: 2000,
+		} as DOMRect);
+		target.setPointerCapture = jest.fn();
+		fireEvent.pointerDown(target, {
+			button: 0,
+			pointerId: 1,
+			clientX: 200,
+			clientY: 250,
+		});
+		fireEvent.pointerMove(target, { pointerId: 1, clientX: 300, clientY: 450 });
+		fireEvent.pointerUp(target, { pointerId: 1 });
+		expect(container.querySelectorAll("polygon")[0]).toHaveAttribute(
+			"points",
+			"0.1,0.1 0.4,0.1 0.4,0.4",
+		);
+		expect(container.querySelectorAll("polygon")[1]).toHaveAttribute(
+			"points",
+			"0.2,0.2 0.5,0.2 0.5,0.5",
+		);
+		expect(onSave).not.toHaveBeenCalled();
+		fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
+		await waitFor(() =>
+			expect(onSave).toHaveBeenCalledWith({
+				markId: mark.id,
+				expectedPolygon: mark.polygon,
+				polygon: [
+					{ x: 0.2, y: 0.2 },
+					{ x: 0.5, y: 0.2 },
+					{ x: 0.5, y: 0.5 },
+				],
+			}),
+		);
+		expect(mark.polygon[0]).toEqual({ x: 0.1, y: 0.1 });
+		expect(sibling.polygon).toEqual(mark.polygon);
+	} finally {
+		window.PointerEvent = originalPointerEvent;
+	}
+});
+
+it("locks the shared execution editor and viewport controls while saving", async () => {
+	let finishSave!: () => void;
+	const onSave = jest.fn().mockImplementation(
+		() =>
+			new Promise<void>((resolve) => {
+				finishSave = resolve;
+			}),
+	);
+	const { container } = render(
+		<VisualPdf
+			url="/drawing"
+			marks={[mark]}
+			selected="mark"
+			onSelect={jest.fn()}
+			editable
+			onSave={onSave}
+		/>,
+	);
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Pielāgot zonu" })).toBeEnabled(),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
+	for (const name of [
+		"Stūris 1",
+		"Pievienot stūri pie malas 1",
+		"Pārvietot zonu",
+		"Atcelt",
+		"Tuvināt",
+	]) {
+		expect(screen.getByRole("button", { name })).toBeDisabled();
+	}
+	fireEvent.keyDown(screen.getByRole("button", { name: "Stūris 1" }), {
+		key: "ArrowRight",
+	});
+	expect(container.querySelector("polygon")).toHaveAttribute(
+		"points",
+		"0.1,0.1 0.4,0.1 0.4,0.4",
+	);
+	finishSave();
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Pielāgot zonu" })).toBeEnabled(),
+	);
+});
+
 it("drags corners using the zoomed surface bounds without losing pointer capture", async () => {
 	const originalPointerEvent = window.PointerEvent;
 	window.PointerEvent = MouseEvent as typeof PointerEvent;

@@ -15,10 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { type VisualMark, visualLayers } from "./model";
 import {
-	insertVisualPlanVertex,
-	moveVisualPlanVertex,
 	nextVisualPlanAreaId,
-	removeVisualPlanVertex,
 	replaceVisualPlanArea,
 } from "./planning-geometry";
 import { type VisualPlanArea, visualPlanAreaSchema } from "./planning-model";
@@ -29,6 +26,7 @@ import {
 } from "./polygon-edit";
 import { useDrawingViewport } from "./useDrawingViewport";
 import { VisualPlanAreaTarget } from "./VisualPlanAreaTarget";
+import { VisualPolygonEditor } from "./VisualPolygonEditor";
 import { VisualZoneTarget } from "./VisualZoneTarget";
 import { MAX_DRAWING_ZOOM, MIN_DRAWING_ZOOM } from "./viewport";
 
@@ -76,18 +74,14 @@ export function VisualPdf({
 	const [highlighted, setHighlighted] = useState<string | null>(null);
 	const canvas = useRef<HTMLCanvasElement>(null);
 	const [draft, setDraft] = useState<PolygonEdit | null>(null);
-	const [cornerIds, setCornerIds] = useState<string[]>([]);
-	const nextCornerId = useRef(0);
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
-	const drag = useRef<number | null>(null);
-	const planDrag = useRef<number | null>(null);
 	const handledAreaRequest = useRef(planning?.areaRequest ?? 0);
 	const planningEnabled = planning !== undefined;
 	const navigation = useDrawingViewport(
 		aspect,
 		`${url}:${page}`,
-		ready && !draft,
+		ready && !saving,
 	);
 	const { surface } = navigation;
 	const interactionLocked = !!draft || planningEnabled || navigation.panning;
@@ -116,23 +110,6 @@ export function VisualPdf({
 		setDraft(null);
 		setSaveError(null);
 		onEditingChange?.(false);
-	}
-	function moveCorner(index: number, x: number, y: number) {
-		setDraft((value) =>
-			value
-				? {
-						...value,
-						polygon: value.polygon.map((point, i) =>
-							i === index
-								? {
-										x: Math.max(0, Math.min(1, x)),
-										y: Math.max(0, Math.min(1, y)),
-									}
-								: point,
-						),
-					}
-				: value,
-		);
 	}
 	function updatePlanArea(area: VisualPlanArea) {
 		if (!planning) return;
@@ -336,11 +313,6 @@ export function VisualPdf({
 						onClick={() => {
 							if (!selectedMark) return;
 							navigation.freeze();
-							setCornerIds(
-								selectedMark.polygon.map(
-									() => `corner-${nextCornerId.current++}`,
-								),
-							);
 							setDraft({
 								markId: selectedMark.id,
 								expectedPolygon: selectedMark.polygon,
@@ -400,7 +372,7 @@ export function VisualPdf({
 				role="toolbar"
 				aria-label="Rasējuma mērogs un pārvietošana"
 				onKeyDown={(event) => {
-					if (draft || !ready) return;
+					if (saving || !ready) return;
 					const directions: Record<string, [number, number]> = {
 						ArrowLeft: [60, 0],
 						ArrowRight: [-60, 0],
@@ -419,7 +391,7 @@ export function VisualPdf({
 					size="icon"
 					aria-label="Tuvināt"
 					title="Tuvināt · bulttaustiņi pārvieto rasējumu"
-					disabled={!ready || !!draft || navigation.zoom >= MAX_DRAWING_ZOOM}
+					disabled={!ready || saving || navigation.zoom >= MAX_DRAWING_ZOOM}
 					onClick={() => navigation.zoomAt(1.25)}
 					className="h-10 w-10 rounded-none"
 				>
@@ -430,7 +402,7 @@ export function VisualPdf({
 					size="icon"
 					aria-label="Attālināt"
 					title="Attālināt"
-					disabled={!ready || !!draft || navigation.zoom <= MIN_DRAWING_ZOOM}
+					disabled={!ready || saving || navigation.zoom <= MIN_DRAWING_ZOOM}
 					onClick={() => navigation.zoomAt(1 / 1.25)}
 					className="h-10 w-10 rounded-none border-t"
 				>
@@ -441,7 +413,7 @@ export function VisualPdf({
 					size="icon"
 					aria-label="Ietilpināt"
 					title="Ietilpināt rasējumu"
-					disabled={!ready || !!draft}
+					disabled={!ready || saving}
 					onClick={navigation.reset}
 					className="h-10 w-10 rounded-none border-t"
 				>
@@ -453,7 +425,7 @@ export function VisualPdf({
 					{planning && selectedPlanArea
 						? "Velciet zonu vai tās stūrus · + pievieno · Delete noņem stūri"
 						: draft
-							? "Velciet stūrus · + pievieno · Delete noņem"
+							? "Velciet zonu vai tās stūrus · + pievieno · Delete noņem stūri"
 							: "Velciet, lai pārvietotu · Ritenītis tuvina pie kursora"}
 				</p>
 				<output
@@ -471,9 +443,9 @@ export function VisualPdf({
 				</p>
 			) : draft ? (
 				<p className="sr-only">
-					Velciet stūrus. “+” pie malas pievieno stūri. Ar bulttaustiņiem var
-					pārvietot izvēlēto stūri; Delete to noņem. Izmaiņas saglabājas tikai
-					ar “Saglabāt zonu”.
+					Velciet zonu vai tās stūrus. “+” pie malas pievieno stūri. Ar
+					bulttaustiņiem var pārvietot izvēlēto stūri; Delete to noņem. Izmaiņas
+					saglabājas tikai ar “Saglabāt zonu”.
 				</p>
 			) : (
 				<p className="sr-only">
@@ -521,7 +493,7 @@ export function VisualPdf({
 			) : null}
 			<section
 				ref={navigation.viewport}
-				className={`relative ${fillWorkspace ? "h-full min-h-0" : "h-[min(70dvh,800px)] min-h-[360px]"} w-full touch-none select-none overflow-hidden bg-muted/40 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${draft ? "cursor-default" : navigation.panning ? "cursor-grabbing" : "cursor-grab"}`}
+				className={`relative ${fillWorkspace ? "h-full min-h-0" : "h-[min(70dvh,800px)] min-h-[360px]"} w-full touch-none select-none overflow-hidden bg-muted/40 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${navigation.panning ? "cursor-grabbing" : "cursor-grab"}`}
 				aria-label="Rasējuma karte"
 				onClickCapture={(event) => {
 					if (navigation.suppressClick.current) {
@@ -709,242 +681,43 @@ export function VisualPdf({
 									/>
 								))
 						: null}
-					{ready && draft
-						? draft.polygon.map((point, i) => (
-								<Button
-									key={cornerIds[i]}
-									size="icon"
-									variant="outline"
-									disabled={saving}
-									aria-label={`Stūris ${i + 1}`}
-									className="absolute z-20 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none rounded-full border-2 border-primary bg-background"
-									style={{
-										transform: "scale(var(--drawing-inverse-scale, 1))",
-										left: `${point.x * 100}%`,
-										top: `${point.y * 100}%`,
-									}}
-									onPointerDown={(event) => {
-										event.stopPropagation();
-										event.preventDefault();
-										event.currentTarget.focus();
-										event.currentTarget.setPointerCapture(event.pointerId);
-										drag.current = i;
-									}}
-									onPointerMove={(event) => {
-										if (drag.current !== i || !surface.current) return;
-										const rect = surface.current.getBoundingClientRect();
-										if (rect.width && rect.height)
-											moveCorner(
-												i,
-												(event.clientX - rect.left) / rect.width,
-												(event.clientY - rect.top) / rect.height,
-											);
-									}}
-									onPointerUp={() => {
-										drag.current = null;
-									}}
-									onPointerCancel={() => {
-										drag.current = null;
-									}}
-									onLostPointerCapture={() => {
-										drag.current = null;
-									}}
-									onKeyDown={(event) => {
-										const step = event.shiftKey ? 0.01 : 0.002;
-										if (
-											[
-												"ArrowLeft",
-												"ArrowRight",
-												"ArrowUp",
-												"ArrowDown",
-											].includes(event.key)
-										) {
-											event.preventDefault();
-											moveCorner(
-												i,
-												point.x +
-													(event.key === "ArrowLeft"
-														? -step
-														: event.key === "ArrowRight"
-															? step
-															: 0),
-												point.y +
-													(event.key === "ArrowUp"
-														? -step
-														: event.key === "ArrowDown"
-															? step
-															: 0),
-											);
-										}
-										if (
-											(event.key === "Delete" || event.key === "Backspace") &&
-											draft.polygon.length > 3
-										) {
-											event.preventDefault();
-											setCornerIds(cornerIds.filter((_, index) => index !== i));
-											setDraft({
-												...draft,
-												polygon: draft.polygon.filter(
-													(_, index) => index !== i,
-												),
-											});
-										}
-									}}
-								/>
-							))
-						: null}
-					{ready && draft && draft.polygon.length < 40
-						? draft.polygon.map((point, i) => {
-								const next = draft.polygon[(i + 1) % draft.polygon.length];
-								return (
-									<Button
-										key={`edge-${cornerIds[i]}`}
-										size="icon"
-										variant="outline"
-										disabled={saving}
-										aria-label={`Pievienot stūri pie malas ${i + 1}`}
-										className="absolute z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full text-xs"
-										style={{
-											transform: "scale(var(--drawing-inverse-scale, 1))",
-											left: `${(point.x + next.x) * 50}%`,
-											top: `${(point.y + next.y) * 50}%`,
-										}}
-										onClick={() => {
-											const polygon = [...draft.polygon];
-											const ids = [...cornerIds];
-											ids.splice(i + 1, 0, `corner-${nextCornerId.current++}`);
-											setCornerIds(ids);
-											polygon.splice(i + 1, 0, {
-												x: (point.x + next.x) / 2,
-												y: (point.y + next.y) / 2,
-											});
-											setDraft({ ...draft, polygon });
-										}}
-									>
-										+
-									</Button>
-								);
-							})
-						: null}
-					{ready && planningEditable && selectedPlanArea?.page === page
-						? selectedPlanArea.polygon.map((point, index) => (
-								<Button
-									key={`${selectedPlanArea.id}-corner-${index}`}
-									type="button"
-									size="icon"
-									variant="outline"
-									data-drawing-control
-									aria-label={`Plānotās zonas stūris ${index + 1}`}
-									className="absolute z-20 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none rounded-sm border-2 border-teal-700 bg-teal-50"
-									style={{
-										transform: "scale(var(--drawing-inverse-scale, 1))",
-										left: `${point.x * 100}%`,
-										top: `${point.y * 100}%`,
-									}}
-									onPointerDown={(event) => {
-										event.stopPropagation();
-										event.preventDefault();
-										event.currentTarget.focus();
-										event.currentTarget.setPointerCapture(event.pointerId);
-										planDrag.current = index;
-									}}
-									onPointerMove={(event) => {
-										if (planDrag.current !== index || !surface.current) return;
-										const rect = surface.current.getBoundingClientRect();
-										if (!rect.width || !rect.height) return;
-										updatePlanArea(
-											moveVisualPlanVertex(selectedPlanArea, index, {
-												x: (event.clientX - rect.left) / rect.width,
-												y: (event.clientY - rect.top) / rect.height,
-											}),
-										);
-									}}
-									onPointerUp={() => {
-										planDrag.current = null;
-									}}
-									onPointerCancel={() => {
-										planDrag.current = null;
-									}}
-									onLostPointerCapture={() => {
-										planDrag.current = null;
-									}}
-									onKeyDown={(event) => {
-										const step = event.shiftKey ? 0.01 : 0.002;
-										if (
-											[
-												"ArrowLeft",
-												"ArrowRight",
-												"ArrowUp",
-												"ArrowDown",
-											].includes(event.key)
-										) {
-											event.preventDefault();
-											updatePlanArea(
-												moveVisualPlanVertex(selectedPlanArea, index, {
-													x:
-														point.x +
-														(event.key === "ArrowLeft"
-															? -step
-															: event.key === "ArrowRight"
-																? step
-																: 0),
-													y:
-														point.y +
-														(event.key === "ArrowUp"
-															? -step
-															: event.key === "ArrowDown"
-																? step
-																: 0),
-												}),
-											);
-										}
-										if (
-											(event.key === "Delete" || event.key === "Backspace") &&
-											selectedPlanArea.polygon.length > 3
-										) {
-											event.preventDefault();
-											updatePlanArea(
-												removeVisualPlanVertex(selectedPlanArea, index),
-											);
-										}
-									}}
-								/>
-							))
-						: null}
-					{ready &&
-					planningEditable &&
-					selectedPlanArea?.page === page &&
-					selectedPlanArea.polygon.length < 40
-						? selectedPlanArea.polygon.map((point, index) => {
-								const next =
-									selectedPlanArea.polygon[
-										(index + 1) % selectedPlanArea.polygon.length
-									];
-								return (
-									<Button
-										key={`${selectedPlanArea.id}-edge-${index}`}
-										type="button"
-										size="icon"
-										variant="outline"
-										data-drawing-control
-										aria-label={`Pievienot plānotās zonas stūri pie malas ${index + 1}`}
-										className="absolute z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-sm border-teal-700 bg-teal-50 text-xs text-teal-900"
-										style={{
-											transform: "scale(var(--drawing-inverse-scale, 1))",
-											left: `${(point.x + next.x) * 50}%`,
-											top: `${(point.y + next.y) * 50}%`,
-										}}
-										onClick={() =>
-											updatePlanArea(
-												insertVisualPlanVertex(selectedPlanArea, index),
-											)
-										}
-									>
-										+
-									</Button>
-								);
-							})
-						: null}
+					{ready && draft ? (
+						<>
+							<VisualPlanAreaTarget
+								area={{ id: draft.markId, page, polygon: draft.polygon }}
+								label="Pārvietot zonu"
+								disabled={saving}
+								selected
+								surface={surface.current}
+								onSelect={() => {}}
+								onMove={(area) =>
+									setDraft((current) =>
+										current ? { ...current, polygon: area.polygon } : current,
+									)
+								}
+							/>
+							<VisualPolygonEditor
+								key={draft.markId}
+								area={{ id: draft.markId, page, polygon: draft.polygon }}
+								surface={surface}
+								disabled={saving}
+								onChange={(area) =>
+									setDraft((current) =>
+										current ? { ...current, polygon: area.polygon } : current,
+									)
+								}
+							/>
+						</>
+					) : null}
+					{ready && planningEditable && selectedPlanArea?.page === page ? (
+						<VisualPolygonEditor
+							key={selectedPlanArea.id}
+							area={selectedPlanArea}
+							surface={surface}
+							planned
+							onChange={updatePlanArea}
+						/>
+					) : null}
 				</div>
 			</section>
 		</div>
