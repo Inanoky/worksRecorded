@@ -9,6 +9,7 @@ import {
 	Play,
 	RefreshCw,
 	Settings2,
+	X,
 } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
@@ -49,8 +50,17 @@ import {
 	refreshVisualDrawing,
 	resolveVisualSourceReview,
 	restartVisualDrawing,
+	saveVisualLayers,
 	saveVisualPolygon,
 } from "./actions";
+import {
+	defaultVisualLayerSettings,
+	projectVisualMarks,
+	resolveVisualWorkLayer,
+	type VisualLayerConfiguration,
+	type VisualLayerSettings,
+	visualLayerStyles,
+} from "./layer-settings";
 import {
 	normalizeVisualLocation,
 	VISUAL_LEASE_MS,
@@ -59,7 +69,6 @@ import {
 	type VisualLayer,
 	visualImageProgress,
 	visualLayers,
-	workLayer,
 } from "./model";
 import type { PolygonDelete } from "./polygon-edit";
 import { pruneVisualEvidence } from "./prune-evidence";
@@ -74,6 +83,7 @@ import {
 	type VisualAnalysisPhase,
 	VisualAnalysisProgress,
 } from "./VisualAnalysisProgress";
+import { VisualLayerManager } from "./VisualLayerManager";
 import { VisualPdf } from "./VisualPdf";
 import { VisualPlanningPanel } from "./VisualPlanningPanel";
 import { VisualSidebar } from "./VisualSidebar";
@@ -82,6 +92,11 @@ import { VisualZoneDetails } from "./VisualZoneDetails";
 
 type Index = Awaited<ReturnType<typeof getVisualDrawings>>;
 const allLayers = Object.keys(visualLayers) as VisualLayer[];
+const defaultLayerConfiguration: VisualLayerConfiguration = {
+	settings: defaultVisualLayerSettings(),
+	workOptions: [],
+	positionIds: {},
+};
 
 export default function VisualView({
 	siteId,
@@ -103,12 +118,26 @@ export default function VisualView({
 	const [sidebarOpen, setSidebarOpen] = useState(true);
 	const [mode, setMode] = useState<"actual" | "planning">("actual");
 	const [planningDirty, setPlanningDirty] = useState(false);
+	const [managingLayers, setManagingLayers] = useState(false);
+	const [savingLayers, setSavingLayers] = useState(false);
+	const layerConfiguration =
+		index?.layerConfiguration ?? defaultLayerConfiguration;
+	const layerStyles = useMemo(
+		() => visualLayerStyles(layerConfiguration.settings),
+		[layerConfiguration.settings],
+	);
 	const remoteActive =
 		drawing?.state.status === "running" &&
 		drawing.state.lockedAt !== null &&
 		Date.now() - drawing.state.lockedAt < VISUAL_LEASE_MS;
 	const controlsLocked =
-		busy || editing || workEditing || remoteActive || planningDirty;
+		busy ||
+		editing ||
+		workEditing ||
+		remoteActive ||
+		planningDirty ||
+		managingLayers ||
+		savingLayers;
 	const [confirmation, setConfirmation] = useState<
 		"delete" | "restart" | "replace" | "polygon" | null
 	>(null);
@@ -120,6 +149,9 @@ export default function VisualView({
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
+	const [dismissedReviewWarnings, setDismissedReviewWarnings] = useState<
+		Set<string>
+	>(() => new Set());
 	const [progress, setProgress] = useState(0);
 	const [phase, setPhase] = useState<VisualAnalysisPhase>("idle");
 	const [progressUnavailable, setProgressUnavailable] = useState(false);
@@ -142,7 +174,15 @@ export default function VisualView({
 		const run = ++epoch.current;
 		void getVisualDrawings(siteId).then(
 			(data) => {
-				if (run === epoch.current) setIndex(data);
+				if (run === epoch.current) {
+					setIndex(data);
+					setLayers(
+						(
+							data.layerConfiguration?.settings ??
+							defaultLayerConfiguration.settings
+						).categories.map((c) => c.id),
+					);
+				}
 			},
 			() => {
 				if (run === epoch.current)
@@ -499,8 +539,21 @@ export default function VisualView({
 					Math.min(throughDay ?? timeline.lastDay, timeline.lastDay),
 				)
 			: null;
+	const categorizedMarks = useMemo(
+		() =>
+			drawing
+				? projectVisualMarks(
+						drawing.state.marks,
+						drawing.state.evidence,
+						drawing.id,
+						layerConfiguration.settings,
+						layerConfiguration.positionIds,
+					)
+				: [],
+		[drawing, layerConfiguration],
+	);
 	const datedMarks = cumulativeVisualMarks(
-		drawing?.state.marks ?? [],
+		categorizedMarks,
 		timeline.dayByEvidence,
 		selectedDay,
 		includeUndated || selectedDay === null,
@@ -518,11 +571,96 @@ export default function VisualView({
 		(item) => item.id === selectedMark?.evidenceId,
 	);
 	function selectZone(id: string | null) {
-		if (editing || workEditing) return;
+		if (editing || workEditing || savingLayers || managingLayers) return;
 		setSelected(id);
+	}
+	async function persistLayers(settings: VisualLayerSettings) {
+		const run = epoch.current;
+		const previous = layerConfiguration.settings;
+		setSavingLayers(true);
+		try {
+			const saved = await saveVisualLayers(siteId, settings, previous);
+			if (run !== epoch.current) return;
+			setIndex((current) =>
+				current
+					? {
+							...current,
+							layerConfiguration: { ...layerConfiguration, settings: saved },
+						}
+					: current,
+			);
+			setLayers((current) => [
+				...new Set([
+					...current
+						.map((id) =>
+							saved.categories.some((c) => c.id === id)
+								? id
+								: saved.redirects[id],
+						)
+						.filter((id): id is string => !!id),
+					...saved.categories
+						.filter((c) => !previous.categories.some((old) => old.id === c.id))
+						.map((c) => c.id),
+				]),
+			]);
+			setNotice(
+				"Slāņi saglabāti visām projekta lokācijām. Zonu ģeometrija nav mainīta.",
+			);
+		} finally {
+			if (run === epoch.current) setSavingLayers(false);
+		}
+	}
+	async function changeZoneLayer(layerId: string | null) {
+		if (!drawing || !selectedMark || controlsLocked) return;
+		const settings = layerConfiguration.settings;
+		const zones = settings.zones.filter(
+			(z) => z.drawingId !== drawing.id || z.markId !== selectedMark.id,
+		);
+		if (layerId)
+			zones.push({ drawingId: drawing.id, markId: selectedMark.id, layerId });
+		try {
+			await persistLayers({ ...settings, zones });
+			setLayers((values) => [
+				...new Set([
+					...values,
+					layerId ??
+						resolveVisualWorkLayer(
+							source?.work ?? "",
+							settings,
+							layerConfiguration.positionIds,
+						),
+				]),
+			]);
+		} catch (error) {
+			setError(
+				error instanceof Error
+					? error.message
+					: "Neizdevās mainīt zonas slāni.",
+			);
+		}
 	}
 	const reviewedSources =
 		drawing?.state.evidence.filter((item) => item.reviewRequired) ?? [];
+	const reviewWarningKey = JSON.stringify([
+		siteId,
+		drawing?.id,
+		reviewedSources
+			.map((item) => [
+				item.id,
+				item.sourceRevision ?? [
+					item.work,
+					item.photoUrl,
+					item.description,
+					item.date,
+					item.amount,
+					item.unit,
+				],
+			])
+			.sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+	]);
+	const showReviewWarning =
+		reviewedSources.length > 0 &&
+		!dismissedReviewWarnings.has(reviewWarningKey);
 	const completedImages = drawing
 		? visualImageProgress(drawing.state).filter(
 				(item) => item.status === "complete",
@@ -543,6 +681,23 @@ export default function VisualView({
 			className="relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-background"
 			style={{ height: height ?? "calc(100dvh - 240px)" }}
 		>
+			{managingLayers ? (
+				<VisualLayerManager
+					configuration={{
+						...layerConfiguration,
+						workOptions: [
+							...new Set([
+								...layerConfiguration.workOptions,
+								...(drawing?.state.evidence
+									.map((source) => source.work)
+									.filter(Boolean) ?? []),
+							]),
+						],
+					}}
+					onSave={persistLayers}
+					onClose={() => setManagingLayers(false)}
+				/>
+			) : null}
 			<header className="flex h-14 shrink-0 items-center gap-2 border-b px-3">
 				<Button
 					variant="ghost"
@@ -825,6 +980,7 @@ export default function VisualView({
 				{drawing ? (
 					mode === "planning" ? (
 						<VisualPlanningPanel
+							layerConfiguration={layerConfiguration}
 							key={drawing.id}
 							siteId={siteId}
 							drawing={drawing}
@@ -834,6 +990,7 @@ export default function VisualView({
 					) : (
 						<>
 							<VisualPdf
+								layerStyles={layerStyles}
 								key={drawing.id}
 								fillWorkspace
 								url={`${endpoint(drawing.id)}?pdf=1`}
@@ -841,7 +998,11 @@ export default function VisualView({
 								selected={selectedMark?.id ?? null}
 								onSelect={selectZone}
 								editable={
-									!busy && !workEditing && drawing.state.status !== "running"
+									!busy &&
+									!workEditing &&
+									!managingLayers &&
+									!savingLayers &&
+									drawing.state.status !== "running"
 								}
 								onEditingChange={setEditing}
 								onDelete={(deletion) => {
@@ -858,6 +1019,15 @@ export default function VisualView({
 								}}
 							/>
 							<VisualZoneDetails
+								layerStyles={layerStyles}
+								layerOverride={
+									layerConfiguration.settings.zones.find(
+										(z) =>
+											z.drawingId === drawing.id &&
+											z.markId === selectedMark?.id,
+									)?.layerId
+								}
+								onLayerChange={(layerId) => void changeZoneLayer(layerId)}
 								siteId={siteId}
 								drawingId={drawing.id}
 								source={source}
@@ -865,7 +1035,13 @@ export default function VisualView({
 								progressPending={
 									!!sourceProgress && sourceProgress.status !== "complete"
 								}
-								editorLocked={busy || editing || remoteActive}
+								editorLocked={
+									busy ||
+									editing ||
+									remoteActive ||
+									managingLayers ||
+									savingLayers
+								}
 								closeLocked={editing || workEditing}
 								controlsLocked={controlsLocked}
 								onClose={() => selectZone(null)}
@@ -877,10 +1053,12 @@ export default function VisualView({
 									setLayers((values) => [
 										...new Set([
 											...values,
-											workLayer(
+											resolveVisualWorkLayer(
 												updated.state.evidence.find(
 													(item) => item.id === source.id,
 												)?.work ?? source.work,
+												layerConfiguration.settings,
+												layerConfiguration.positionIds,
 											),
 										]),
 									]);
@@ -892,6 +1070,8 @@ export default function VisualView({
 							/>
 
 							<VisualSidebar
+								layerStyles={layerStyles}
+								onManageLayers={() => setManagingLayers(true)}
 								id={`${fileId}-sidebar`}
 								open={sidebarOpen}
 								marks={visibleMarks}
@@ -902,7 +1082,7 @@ export default function VisualView({
 								onLayers={setLayers}
 								selected={selected}
 								onSelect={selectZone}
-								locked={editing || workEditing}
+								locked={controlsLocked}
 							/>
 						</>
 					)
@@ -931,7 +1111,7 @@ export default function VisualView({
 							!["complete", "unlocated"].includes(drawing.state.status)))) ||
 					error ||
 					drawing?.state.error ||
-					reviewedSources.length) ? (
+					showReviewWarning) ? (
 					<div className="absolute bottom-14 left-3 right-16 z-40 max-h-[calc(100%-8rem)] max-w-xl space-y-2 overflow-y-auto rounded-lg border bg-background/95 p-3 shadow-lg">
 						{deletingPolygon ? (
 							<output className="flex items-center gap-2 text-xs">
@@ -962,12 +1142,28 @@ export default function VisualView({
 								Mēģināt vēlreiz
 							</Button>
 						) : null}
-						{reviewedSources.length ? (
-							<p className="text-xs">
-								Žurnālā mainīti {reviewedSources.length} manuāli pielāgotu zonu
-								avoti. Zonas saglabātas; izvēlieties avotu un pārskatiet
-								izmaiņas.
-							</p>
+						{showReviewWarning ? (
+							<div className="flex items-start gap-2">
+								<p className="min-w-0 flex-1 text-xs">
+									Žurnālā mainīti {reviewedSources.length} manuāli pielāgotu
+									zonu avoti. Zonas saglabātas; izvēlieties avotu un pārskatiet
+									izmaiņas.
+								</p>
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon"
+									className="h-7 w-7 shrink-0"
+									aria-label="Aizvērt brīdinājumu par zonu avotiem"
+									onClick={() =>
+										setDismissedReviewWarnings(
+											(previous) => new Set([...previous, reviewWarningKey]),
+										)
+									}
+								>
+									<X className="h-4 w-4" aria-hidden="true" />
+								</Button>
+							</div>
 						) : null}
 					</div>
 				) : null}

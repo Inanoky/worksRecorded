@@ -89,6 +89,39 @@ afterEach(() => {
 	global.fetch = originalFetch;
 });
 
+it("renders custom project layer names and colours without reloading the plan", async () => {
+	const styles = {
+		"custom-layer": { label: "Estrich 70 mm", color: "#123456" },
+	};
+	const { container, rerender } = render(
+		<VisualPdf
+			url="/drawing"
+			marks={[{ ...mark, layer: "custom-layer" }]}
+			selected={null}
+			onSelect={jest.fn()}
+			layerStyles={styles}
+		/>,
+	);
+	await screen.findByRole("button", { name: "Estrich 70 mm: Sakrīt" });
+	expect(container.querySelector("polygon")).toHaveAttribute("fill", "#123456");
+	rerender(
+		<VisualPdf
+			url="/drawing"
+			marks={[{ ...mark, layer: "custom-layer" }]}
+			selected={null}
+			onSelect={jest.fn()}
+			layerStyles={{
+				"custom-layer": { label: "Betona kārta", color: "#654321" },
+			}}
+		/>,
+	);
+	expect(
+		screen.getByRole("button", { name: "Betona kārta: Sakrīt" }),
+	).toBeInTheDocument();
+	expect(container.querySelector("polygon")).toHaveAttribute("fill", "#654321");
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+});
+
 it("renders the PDF and normalized overlay on the same surface", async () => {
 	const onSelect = jest.fn();
 	const { container } = render(

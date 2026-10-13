@@ -6,7 +6,7 @@ export const VISUAL_MAX_BYTES = 16 * 1024 * 1024;
 export const VISUAL_MAX_PAGES = 10;
 export const VISUAL_LEASE_MS = 210_000;
 
-export const visualLayers = {
+export const visualLayers: Record<string, { label: string; color: string }> = {
 	sand: { label: "Smilts", color: "#16a34a" },
 	xps: { label: "XPS", color: "#eab308" },
 	estrich: { label: "Estrich / betons", color: "#dc2626" },
@@ -14,7 +14,7 @@ export const visualLayers = {
 	thermowhite: { label: "ThermoWhite", color: "#ea580c" },
 	other: { label: "Citi darbi", color: "#9333ea" },
 } as const;
-export type VisualLayer = keyof typeof visualLayers;
+export type VisualLayer = string;
 
 export function workLayer(work: string): VisualLayer {
 	const name = work.normalize("NFKC").toLowerCase();
@@ -96,7 +96,7 @@ export const visualStateSchema = z.object({
 	marks: z.array(
 		visualMatchSchema.extend({
 			id: z.string(),
-			layer: z.enum(["sand", "xps", "estrich", "film", "thermowhite", "other"]),
+			layer: z.string().min(1).max(80),
 			editedAt: z.string().optional(),
 			editedBy: z.string().optional(),
 		}),

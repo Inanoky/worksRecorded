@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,8 +11,6 @@ import {
 	visualLayers,
 } from "./model";
 import { formatVisualDay } from "./timeline";
-
-const allLayers = Object.keys(visualLayers) as VisualLayer[];
 
 export function VisualSidebar({
 	id,
@@ -26,6 +24,8 @@ export function VisualSidebar({
 	selected,
 	onSelect,
 	locked,
+	layerStyles = visualLayers,
+	onManageLayers,
 }: {
 	id: string;
 	open: boolean;
@@ -38,7 +38,10 @@ export function VisualSidebar({
 	selected: string | null;
 	onSelect: (id: string) => void;
 	locked: boolean;
+	layerStyles?: Record<string, { label: string; color: string }>;
+	onManageLayers?: () => void;
 }) {
+	const allLayers = Object.keys(layerStyles);
 	const [tab, setTab] = useState<"layers" | "sources">("layers");
 	const [page, setPage] = useState(0);
 	const [pageSize, setPageSize] = useState(4);
@@ -127,12 +130,13 @@ export function VisualSidebar({
 				data-testid="visual-sidebar-list"
 			>
 				{tab === "layers" ? (
-					<fieldset aria-label="Darbu slāņi">
+					<fieldset className="min-w-0" aria-label="Darbu slāņi">
 						{allLayers.slice(start, start + pageSize).map((key) => (
 							<label
 								key={key}
 								htmlFor={`${id}-${key}`}
-								className="flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-xs hover:bg-muted"
+								title={layerStyles[key].label}
+								className="flex h-8 min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 text-xs hover:bg-muted"
 							>
 								<Checkbox
 									id={`${id}-${key}`}
@@ -149,11 +153,13 @@ export function VisualSidebar({
 								<span
 									aria-hidden="true"
 									className="h-3 w-3 shrink-0 rounded-sm"
-									style={{ backgroundColor: visualLayers[key].color }}
+									style={{ backgroundColor: layerStyles[key].color }}
 								/>
-								<span className="truncate">
-									{visualLayers[key].label} (
-									{datedMarks.filter((mark) => mark.layer === key).length})
+								<span className="min-w-0 flex-1 truncate">
+									{layerStyles[key].label}
+								</span>
+								<span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
+									({datedMarks.filter((mark) => mark.layer === key).length})
 								</span>
 							</label>
 						))}
@@ -162,7 +168,10 @@ export function VisualSidebar({
 					marks.slice(start, start + pageSize).map((mark, i) => {
 						const source = evidence.find((item) => item.id === mark.evidenceId);
 						const day = dayByEvidence.get(mark.evidenceId);
-						const work = source?.work || visualLayers[mark.layer].label;
+						const work =
+							source?.work ||
+							layerStyles[mark.layer]?.label ||
+							visualLayers.other.label;
 						return (
 							<Button
 								key={mark.id}
@@ -190,6 +199,18 @@ export function VisualSidebar({
 					<p className="p-2 text-xs text-muted-foreground">Nav redzamu zonu.</p>
 				) : null}
 			</div>
+			{onManageLayers ? (
+				<Button
+					variant="ghost"
+					size="sm"
+					className="shrink-0 rounded-none border-t text-xs"
+					disabled={locked}
+					onClick={onManageLayers}
+				>
+					<Settings2 className="mr-2 h-3.5 w-3.5" />
+					Pārvaldīt slāņus
+				</Button>
+			) : null}
 			<div className="flex h-9 shrink-0 items-center justify-between border-t px-1">
 				<Button
 					size="icon"

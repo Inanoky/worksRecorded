@@ -9,12 +9,14 @@ export function VisualZoneTarget({
 	selected = false,
 	onSelect,
 	onHighlight,
+	layerLabel,
 }: {
 	mark: VisualMark;
 	disabled: boolean;
 	selected?: boolean;
 	onSelect: () => void;
 	onHighlight: (active: boolean) => void;
+	layerLabel?: string;
 }) {
 	const xs = mark.polygon.map((point) => point.x);
 	const ys = mark.polygon.map((point) => point.y);
@@ -29,7 +31,7 @@ export function VisualZoneTarget({
 			variant="ghost"
 			disabled={disabled}
 			aria-pressed={selected}
-			aria-label={`${visualLayers[mark.layer].label}: ${mark.explanation}`}
+			aria-label={`${layerLabel ?? visualLayers[mark.layer]?.label ?? visualLayers.other.label}: ${mark.explanation}`}
 			className="absolute cursor-pointer rounded-none bg-transparent p-0 hover:bg-transparent focus-visible:bg-primary/20"
 			style={{
 				left: `${left * 100}%`,

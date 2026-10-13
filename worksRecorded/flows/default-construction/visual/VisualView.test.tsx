@@ -14,8 +14,11 @@ import {
 	getVisualDrawings,
 	getVisualWorkTypes,
 	refreshVisualDrawing,
+	resolveVisualSourceReview,
 	restartVisualDrawing,
+	saveVisualLayers,
 } from "./actions";
+import { defaultVisualLayerSettings } from "./layer-settings";
 import type { VisualDrawing, VisualMark } from "./model";
 import type { PolygonDelete } from "./polygon-edit";
 import { visualDiaryDay } from "./timeline";
@@ -35,6 +38,7 @@ jest.mock("./actions", () => ({
 	getVisualWorkTypes: jest.fn(),
 	saveVisualWorkType: jest.fn(),
 	resolveVisualSourceReview: jest.fn(),
+	saveVisualLayers: jest.fn(),
 }));
 jest.mock("./VisualPdf", () => ({
 	VisualPdf: ({
@@ -46,7 +50,10 @@ jest.mock("./VisualPdf", () => ({
 		onSelect: (id: string | null) => void;
 		onDelete: (deletion: PolygonDelete) => void;
 	}) => (
-		<div data-testid="pdf">
+		<div
+			data-testid="pdf"
+			data-layers={marks.map((mark) => mark.layer).join(",")}
+		>
 			{marks.length} zones
 			<button type="button" onClick={() => onSelect(marks[0]?.id ?? null)}>
 				Select drawing zone
@@ -188,6 +195,130 @@ beforeEach(() => {
 afterEach(() => {
 	global.fetch = originalFetch;
 	jest.useRealTimers();
+});
+
+it("dismisses the review warning without clearing reviews and only reopens it for changed sources", async () => {
+	const reviewed = {
+		...complete,
+		state: {
+			...complete.state,
+			evidence: complete.state.evidence.map((source) => ({
+				...source,
+				reviewRequired: true,
+				sourceRevision: "revision-1",
+			})),
+		},
+	};
+	mockFetch.mockResolvedValue({ ok: true, json: async () => reviewed });
+	const refreshResult = {
+		drawing: reviewed,
+		addedCount: 0,
+		updatedCount: 0,
+		removedCount: 0,
+		analysisCount: 0,
+		reviewCount: 1,
+	};
+	jest.mocked(refreshVisualDrawing).mockResolvedValue(refreshResult);
+	render(<VisualView siteId="site" />);
+	await selectLocation();
+	await screen.findByText(/Žurnālā mainīti 1 manuāli pielāgotu zonu/);
+	fireEvent.click(
+		screen.getByRole("button", {
+			name: "Aizvērt brīdinājumu par zonu avotiem",
+		}),
+	);
+	expect(screen.queryByText(/Žurnālā mainīti/)).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
+	expect(screen.getByText(/Avots ir mainīts/)).toBeInTheDocument();
+	expect(resolveVisualSourceReview).not.toHaveBeenCalled();
+	expect(reviewed.state.evidence[0].reviewRequired).toBe(true);
+	openSettings();
+	fireEvent.click(screen.getByRole("button", { name: "Atjaunot no žurnāla" }));
+	await waitFor(() => expect(refreshVisualDrawing).toHaveBeenCalledTimes(1));
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Atjaunot no žurnāla" }),
+		).not.toBeDisabled(),
+	);
+	expect(screen.queryByText(/Žurnālā mainīti/)).not.toBeInTheDocument();
+	jest
+		.mocked(refreshVisualDrawing)
+		.mockResolvedValue({
+			...refreshResult,
+			drawing: {
+				...reviewed,
+				state: {
+					...reviewed.state,
+					evidence: reviewed.state.evidence.map((source) => ({
+						...source,
+						sourceRevision: "revision-2",
+					})),
+				},
+			},
+		});
+	fireEvent.click(screen.getByRole("button", { name: "Atjaunot no žurnāla" }));
+	await screen.findByText(/Žurnālā mainīti 1 manuāli pielāgotu zonu/);
+	expect(resolveVisualSourceReview).not.toHaveBeenCalled();
+});
+
+it("renames project layers without reloading the PDF or invoking analysis", async () => {
+	jest
+		.mocked(saveVisualLayers)
+		.mockImplementation(
+			async (_site, settings) =>
+				settings as ReturnType<typeof defaultVisualLayerSettings>,
+		);
+	render(<VisualView siteId="site" />);
+	await selectLocation();
+	await screen.findByTestId("pdf");
+	const fetchCalls = mockFetch.mock.calls.length;
+	fireEvent.click(screen.getByRole("button", { name: "Pārvaldīt slāņus" }));
+	fireEvent.change(screen.getByLabelText("Slāņa nosaukums"), {
+		target: { value: "Smilšu slānis" },
+	});
+	expect(saveVisualLayers).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt" }));
+	await screen.findByRole("checkbox", { name: "Smilšu slānis (1)" });
+	expect(saveVisualLayers).toHaveBeenCalledWith(
+		"site",
+		expect.objectContaining({
+			categories: expect.arrayContaining([
+				expect.objectContaining({ id: "sand", label: "Smilšu slānis" }),
+			]),
+		}),
+		defaultVisualLayerSettings(),
+	);
+	expect(mockFetch).toHaveBeenCalledTimes(fetchCalls);
+	expect(refreshVisualDrawing).not.toHaveBeenCalled();
+	expect(screen.getByTestId("pdf")).toHaveAttribute("data-layers", "sand");
+});
+
+it("moves one selected polygon to a different layer without editing the journal", async () => {
+	jest
+		.mocked(saveVisualLayers)
+		.mockImplementation(
+			async (_site, settings) =>
+				settings as ReturnType<typeof defaultVisualLayerSettings>,
+		);
+	render(<VisualView siteId="site" />);
+	await selectLocation();
+	await screen.findByTestId("pdf");
+	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
+	fireEvent.change(screen.getByLabelText("Slānis šai zonai"), {
+		target: { value: "xps" },
+	});
+	await waitFor(() =>
+		expect(screen.getByTestId("pdf")).toHaveAttribute("data-layers", "xps"),
+	);
+	expect(saveVisualLayers).toHaveBeenCalledWith(
+		"site",
+		expect.objectContaining({
+			zones: [{ drawingId: "drawing", markId: "mark", layerId: "xps" }],
+		}),
+		defaultVisualLayerSettings(),
+	);
+	expect(complete.state.evidence[0].work).toBe("Smilts");
+	expect(refreshVisualDrawing).not.toHaveBeenCalled();
 });
 
 function openSettings() {

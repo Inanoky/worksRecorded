@@ -43,6 +43,25 @@ const props = {
 
 beforeEach(() => jest.clearAllMocks());
 
+it("constrains long layer names with an ellipsis while keeping counts and the full name available", () => {
+	const label = "PEPI Trafo 7 putu polietilēna plēve, 7mm";
+	render(
+		<VisualSidebar
+			{...props}
+			layerStyles={{ sand: { label, color: "#16a34a" } }}
+			layers={["sand"]}
+		/>,
+	);
+	const name = screen.getByText(label);
+	expect(name).toHaveClass("min-w-0", "flex-1", "truncate");
+	expect(name.closest("label")).toHaveAttribute("title", label);
+	expect(name.closest("fieldset")).toHaveClass("min-w-0");
+	expect(screen.getByText("(13)")).toHaveClass("shrink-0", "whitespace-nowrap");
+	const checkbox = screen.getByRole("checkbox", { name: `${label} (13)` });
+	fireEvent.click(checkbox);
+	expect(props.onLayers).toHaveBeenCalledWith([]);
+});
+
 it("paginates chronological sources without nested scrolling and keeps selection linked", () => {
 	render(<VisualSidebar {...props} />);
 	fireEvent.click(screen.getByRole("button", { name: "Zonu avoti" }));

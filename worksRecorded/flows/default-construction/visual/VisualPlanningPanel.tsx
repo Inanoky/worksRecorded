@@ -38,11 +38,22 @@ import {
 	restoreVisualPlanningItem,
 	saveVisualPlanningItem,
 } from "./actions";
-import { type VisualDrawing, visualWorkColor } from "./model";
+import {
+	defaultVisualLayerSettings,
+	resolveVisualWorkLayer,
+	type VisualLayerConfiguration,
+	visualLayerStyles,
+} from "./layer-settings";
+import { type VisualDrawing, visualLayers } from "./model";
 import type { VisualPlan, VisualPlanArea } from "./planning-model";
 import { VisualPdf } from "./VisualPdf";
 
 type PlanningIndex = Awaited<ReturnType<typeof getVisualPlanning>>;
+const defaultLayerConfiguration: VisualLayerConfiguration = {
+	settings: defaultVisualLayerSettings(),
+	workOptions: [],
+	positionIds: {},
+};
 type PlanningItem = PlanningIndex["plans"][number];
 type PlanningDraft = {
 	id: string | null;
@@ -181,12 +192,25 @@ export function VisualPlanningPanel({
 	drawing,
 	sidebarOpen,
 	onDirtyChange,
+	layerConfiguration = defaultLayerConfiguration,
 }: {
 	siteId: string;
 	drawing: VisualDrawing;
 	sidebarOpen: boolean;
 	onDirtyChange: (dirty: boolean) => void;
+	layerConfiguration?: VisualLayerConfiguration;
 }) {
+	const styles = visualLayerStyles(layerConfiguration.settings);
+	const workColor = (work: string) =>
+		(
+			styles[
+				resolveVisualWorkLayer(
+					work,
+					layerConfiguration.settings,
+					layerConfiguration.positionIds,
+				)
+			] ?? visualLayers.other
+		).color;
 	const [index, setIndex] = useState<PlanningIndex | null>(null);
 	const [draft, setDraft] = useState<PlanningDraft | null>(null);
 	const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
@@ -433,7 +457,7 @@ export function VisualPlanningPanel({
 			plan.geometry.areas.map((area) => ({
 				...area,
 				id: `${plan.id}:${area.id}`,
-				color: visualWorkColor(plan.work),
+				color: workColor(plan.work),
 			})),
 		);
 	const fixedUnit = index?.workOptions.find(
@@ -455,7 +479,7 @@ export function VisualPlanningPanel({
 								backgroundAreas,
 								selectedAreaId,
 								areaRequest,
-								color: visualWorkColor(draft.work),
+								color: workColor(draft.work),
 								editable: !saving && !draft.archivedAt,
 								onChange: (areas) => changeDraft({ areas }),
 								onSelectArea: setSelectedAreaId,
@@ -594,7 +618,7 @@ export function VisualPlanningPanel({
 									<ul className="space-y-2">
 										{visiblePlans.map((plan, position) => {
 											const bar = visualPlanningTimelineBar(plan, range);
-											const color = visualWorkColor(plan.work);
+											const color = workColor(plan.work);
 											return (
 												<li key={plan.id}>
 													<button

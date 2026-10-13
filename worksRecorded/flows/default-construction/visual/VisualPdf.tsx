@@ -54,6 +54,7 @@ export function VisualPdf({
 	fillWorkspace = false,
 	onDelete,
 	planning,
+	layerStyles = visualLayers,
 }: {
 	url: string;
 	marks: VisualMark[];
@@ -65,6 +66,7 @@ export function VisualPdf({
 	fillWorkspace?: boolean;
 	onDelete?: (deletion: PolygonDelete) => void;
 	planning?: VisualPdfPlanning;
+	layerStyles?: Record<string, { label: string; color: string }>;
 }) {
 	const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
 	const [page, setPage] = useState(1);
@@ -589,7 +591,7 @@ export function VisualPdf({
 										points={mark.polygon
 											.map((point) => `${point.x},${point.y}`)
 											.join(" ")}
-										fill={visualLayers[mark.layer].color}
+										fill={(layerStyles[mark.layer] ?? visualLayers.other).color}
 										fillOpacity={
 											selected === mark.id
 												? 0.85
@@ -600,7 +602,7 @@ export function VisualPdf({
 										stroke={
 											highlighted === mark.id || selected === mark.id
 												? "#0f172a"
-												: visualLayers[mark.layer].color
+												: (layerStyles[mark.layer] ?? visualLayers.other).color
 										}
 										strokeWidth={
 											selected === mark.id ? 4 : highlighted === mark.id ? 3 : 1
@@ -609,7 +611,8 @@ export function VisualPdf({
 										className="transition-[fill-opacity,stroke,stroke-width] duration-100 motion-reduce:transition-none"
 									>
 										<title>
-											{visualLayers[mark.layer].label}: {mark.explanation}
+											{(layerStyles[mark.layer] ?? visualLayers.other).label}:{" "}
+											{mark.explanation}
 										</title>
 									</polygon>
 								))}
@@ -674,6 +677,9 @@ export function VisualPdf({
 								.filter((mark) => mark.page === page)
 								.map((mark) => (
 									<VisualZoneTarget
+										layerLabel={
+											(layerStyles[mark.layer] ?? visualLayers.other).label
+										}
 										key={`hit-${mark.id}`}
 										mark={mark}
 										selected={selected === mark.id}

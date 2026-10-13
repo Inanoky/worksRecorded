@@ -11,6 +11,11 @@ import {
 	withDefaultConstructionSystemWorks,
 } from "../lib/site-diary-productivity-settings";
 import {
+	readVisualLayerSettings,
+	type VisualLayerConfiguration,
+	visualLayerPositionIds,
+} from "./layer-settings";
+import {
 	normalizeVisualLocation,
 	VISUAL_DOCUMENT_TYPE,
 	VISUAL_LEASE_MS,
@@ -114,7 +119,30 @@ export async function listVisualDrawings(userId: string, siteId: string) {
 	const locations = [...locationsByKey.values()].sort((a, b) =>
 		a.localeCompare(b, "lv"),
 	);
-	return { locations, drawings };
+	const config = (site.siteDiaryRecordsMap ?? {}) as Record<string, unknown>;
+	const workOptions = new Set(withDefaultConstructionSystemWorks(config));
+	for (const document of documents) {
+		try {
+			const state = visualStateSchema.parse(JSON.parse(document.description));
+			for (const source of state.evidence)
+				if (source.work.trim()) workOptions.add(source.work);
+		} catch {}
+	}
+	const layerConfiguration: VisualLayerConfiguration = {
+		settings: readVisualLayerSettings(config),
+		workOptions: [...workOptions].sort((a, b) => a.localeCompare(b, "lv")),
+		positionIds: visualLayerPositionIds(config),
+	};
+	const result: {
+		locations: typeof locations;
+		drawings: typeof drawings;
+		layerConfiguration?: VisualLayerConfiguration;
+	} = {
+		locations,
+		drawings,
+		layerConfiguration,
+	};
+	return result;
 }
 
 async function loadVisualEvidence(

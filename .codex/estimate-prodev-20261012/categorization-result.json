@@ -1,0 +1,158 @@
+{
+  "siteId": "c39cb04c-8ce5-477d-acd0-99586a82d850",
+  "records": 10,
+  "changedWorkNames": 10,
+  "assignedRecords": 10,
+  "mappings": [
+    {
+      "id": "28fd8972-e43e-488f-ae83-19b73d4ed0cb",
+      "positionId": "work:11:vedinasanas-restes-fasade-vtk-100-diametrs-100mm:43",
+      "oldWorks": "Iekārtu montāža",
+      "newWorks": "11 Tāme 2A - Aiļu aizpildījumu elementi. Logi - Vēdināšanas restes fasādē VTK 100 ( diametrs 100mm) montāža AR-20, ieskaitot montāžas vietas izbūvi",
+      "reason": "Aprakstā norādīta VTK 100 komplektu uzstādīšana.",
+      "categoryCode": "2A",
+      "positionName": "Vēdināšanas restes fasādē VTK 100 ( diametrs 100mm) montāža AR-20, ieskaitot montāžas vietas izbūvi"
+    },
+    {
+      "id": "20fbb04c-89f1-4c9e-a8d1-80dd6059d71b",
+      "positionId": "work:11:jumta-attirisana-un-sagatavosana-renovacijai-att:134",
+      "oldWorks": "Tīrīšana",
+      "newWorks": "11 6A - Jumta renovācija - ieejas jumtiņa renovācija - Jumta attīrīšana un sagatavošana renovācijai(attīrīšana no gaisa pūšļiem)",
+      "reason": "Jumta attīrīšana no gaisa pūšļiem, nevis cokola tīrīšana; precīza darba sakritība.",
+      "categoryCode": "6A",
+      "positionName": "Jumta attīrīšana un sagatavošana renovācijai(attīrīšana no gaisa pūšļiem)"
+    },
+    {
+      "id": "363baa73-050d-462a-aab5-db4d719445d9",
+      "positionId": "work:4:sienu-un-griest-siltinasana-limetas-akmens-vates:152",
+      "oldWorks": "Apdares darbi",
+      "newWorks": "4 7A - Pagrabstāva pārseguma siltināšana - Sienu un griest siltināšana-līmētas akmens vates plātnes PAROC CGL 20cy, 100mm, λ<=0.037 W/mK vai ekvivalents",
+      "reason": "Pagraba pārseguma siltināšana ar 100 mm akmens vates plātnēm.",
+      "categoryCode": "7A",
+      "positionName": "Sienu un griest siltināšana-līmētas akmens vates plātnes PAROC CGL 20cy, 100mm, λ<=0.037 W/mK vai ekvivalents"
+    },
+    {
+      "id": "3be65da3-43ec-430c-bf8b-3cbed85beaee",
+      "positionId": "work:papildarbs:apdares-cementa-skiedru-plaksnes-montaza-emerald:96",
+      "oldWorks": "Apdares darbi",
+      "newWorks": "Papildarbs 5A - Fasādes siltināšana un apdares darbi - Apdares cementa šķiedru plaksnes montāža EMERALD Granit (8+2mm), iesk. visas palīgdetaļas un palīgmateriālus, pretkukaiņu sietu logu ailēs un pie",
+      "reason": "550 m2 cementa šķiedru plākšņu montāža no 25.09. līdz 09.10. sakrīt ar 5a!F23:G23: EMERALD 300 + 250 m2 tajā pašā periodā.",
+      "categoryCode": "5A",
+      "positionName": "Apdares cementa šķiedru plaksnes montāža EMERALD Granit (8+2mm), iesk. visas palīgdetaļas un palīgmateriālus, pretkukaiņu sietu logu ailēs un pie cokola"
+    },
+    {
+      "id": "5dfb78b6-9802-4af5-a5fb-c8572ea09d8d",
+      "positionId": "work:2:skunisu-sienu-augstumu-samazinasana-un-nostiprin:150",
+      "oldWorks": "Sienu izbūve",
+      "newWorks": "2 7A - Pagrabstāva pārseguma siltināšana - Šķūnīšu sienu augstumu samazināšana un nostiprināšana.",
+      "reason": "Lietotāja pēdējais labojums un aktuālais komentārs norāda šķūnīšu sienu augstuma samazināšanu un nostiprināšanu, nevis sākotnējo koka brusu montāžu.",
+      "categoryCode": "7A",
+      "positionName": "Šķūnīšu sienu augstumu samazināšana un nostiprināšana."
+    },
+    {
+      "id": "634e77c3-3061-4bc9-a4ef-02fa00817cb8",
+      "positionId": "work:3:virsmu-sagatavosana-siltinasanai-esoso-komunikac:151",
+      "oldWorks": "Apdares darbi",
+      "newWorks": "3 7A - Pagrabstāva pārseguma siltināšana - Virsmu sagatavošana siltināšanai, esošo komunikāciju demontāža/montāža, Virsmas gruntēšana -saķeres grunts Sakret ; Līmjava Sakret BAK vai ekvivalents",
+      "reason": "Pagraba pārseguma gruntēšana ietilpst 7A virsmu sagatavošanas pozīcijā, nevis 5A pagraba sienu gruntēšanā.",
+      "categoryCode": "7A",
+      "positionName": "Virsmu sagatavošana siltināšanai, esošo komunikāciju demontāža/montāža, Virsmas gruntēšana -saķeres grunts Sakret ; Līmjava Sakret BAK vai ekvivalents"
+    },
+    {
+      "id": "87346752-0d20-45de-8959-3f9c7eaf6baa",
+      "positionId": "work:3:virsmu-sagatavosana-siltinasanai-esoso-komunikac:151",
+      "oldWorks": "Apdares darbi",
+      "newWorks": "3 7A - Pagrabstāva pārseguma siltināšana - Virsmu sagatavošana siltināšanai, esošo komunikāciju demontāža/montāža, Virsmas gruntēšana -saķeres grunts Sakret ; Līmjava Sakret BAK vai ekvivalents",
+      "reason": "Pēdējais labojums norāda pagraba pārseguma virsmas sagatavošanu siltināšanai. Datubāzē daudzums un mērvienība nav norādīti; tie netiek mainīti.",
+      "categoryCode": "7A",
+      "positionName": "Virsmu sagatavošana siltināšanai, esošo komunikāciju demontāža/montāža, Virsmas gruntēšana -saķeres grunts Sakret ; Līmjava Sakret BAK vai ekvivalents"
+    },
+    {
+      "id": "e8e95232-e18e-4e74-8bfb-61c6a87b6073",
+      "positionId": "work:papildarbs:ventilejamas-fasades-aluminija-karkasa-elementi-:94",
+      "oldWorks": "Saliekamo elementu montāža",
+      "newWorks": "Papildarbs 5A - Fasādes siltināšana un apdares darbi - Ventilējamās fasādes alumīnija karkasa elementi, tai skaitā logu un durvju ailu karkasi – alumīnija kronšteini (L70 peldoša 240 mm un L140 fixeta",
+      "reason": "Ventilējamās fasādes alumīnija karkasa kronšteini, arī logu un durvju ailēm; darba teksts un 120 m2 periodā 25.09.–02.10. sakrīt ar 5a!J21.",
+      "categoryCode": "5A",
+      "positionName": "Ventilējamās fasādes alumīnija karkasa elementi, tai skaitā logu un durvju ailu karkasi – alumīnija kronšteini (L70 peldoša 240 mm un L140 fixeta 240 mm ). Ventilējamās fasādes karkasa elementi – alumīnija kronšteinu stiprināšana (Dībeļskrūves Rawlplug R-FF1-N-10K120 un EJOT SDF KB 10Hx80 ), Ventilējamās fasādes karkasa elementi – termoizolācijas starplikas alumīnija kronšteiniem (Termosto termoizolācijas starplikas), Ventilējamās fasādes karkasa elementi – apakškonstrukcijas metāla profili (Ver"
+    },
+    {
+      "id": "f80dc93f-f378-4e94-8ea0-cec95a80766a",
+      "positionId": "work:11:vedinasanas-restes-fasade-vtk-100-diametrs-100mm:43",
+      "oldWorks": "Iekārtu montāža",
+      "newWorks": "11 Tāme 2A - Aiļu aizpildījumu elementi. Logi - Vēdināšanas restes fasādē VTK 100 ( diametrs 100mm) montāža AR-20, ieskaitot montāžas vietas izbūvi",
+      "reason": "VTK-100 montāža; darba nosaukums un 30 gabalu apjoms sakrīt ar logu tāmes VTK 100 pozīciju.",
+      "categoryCode": "2A",
+      "positionName": "Vēdināšanas restes fasādē VTK 100 ( diametrs 100mm) montāža AR-20, ieskaitot montāžas vietas izbūvi"
+    },
+    {
+      "id": "3006ab67-ec55-4545-a5d3-c72da8a15319",
+      "positionId": "work:11:vedinasanas-restes-fasade-vtk-100-diametrs-100mm:43",
+      "oldWorks": "Iekārtu montāža",
+      "newWorks": "11 Tāme 2A - Aiļu aizpildījumu elementi. Logi - Vēdināšanas restes fasādē VTK 100 ( diametrs 100mm) montāža AR-20, ieskaitot montāžas vietas izbūvi",
+      "reason": "Aprakstā norādīta VTK 100 komplektu uzstādīšana. Abus ierakstus ar 5 gabaliem saglabā, jo kopā tie veido ziņojuma 10 gabalus.",
+      "categoryCode": "2A",
+      "positionName": "Vēdināšanas restes fasādē VTK 100 ( diametrs 100mm) montāža AR-20, ieskaitot montāžas vietas izbūvi"
+    }
+  ],
+  "quantitySummary": [
+    {
+      "id": "work:11:vedinasanas-restes-fasade-vtk-100-diametrs-100mm:43",
+      "categoryCode": "2A",
+      "name": "Vēdināšanas restes fasādē VTK 100 ( diametrs 100mm) montāža AR-20, ieskaitot montāžas vietas izbūvi",
+      "actualQuantity": 40,
+      "excludedQuantityRecords": 0,
+      "assignedRecords": 3
+    },
+    {
+      "id": "work:papildarbs:ventilejamas-fasades-aluminija-karkasa-elementi-:94",
+      "categoryCode": "5A",
+      "name": "Ventilējamās fasādes alumīnija karkasa elementi, tai skaitā logu un durvju ailu karkasi – alumīnija kronšteini (L70 peldoša 240 mm un L140 fixeta 240 mm ). Ventilējamās fasādes karkasa elementi – alumīnija kronšteinu stiprināšana (Dībeļskrūves Rawlplug R-FF1-N-10K120 un EJOT SDF KB 10Hx80 ), Ventilējamās fasādes karkasa elementi – termoizolācijas starplikas alumīnija kronšteiniem (Termosto termoizolācijas starplikas), Ventilējamās fasādes karkasa elementi – apakškonstrukcijas metāla profili (Ver",
+      "actualQuantity": 120,
+      "excludedQuantityRecords": 0,
+      "assignedRecords": 1
+    },
+    {
+      "id": "work:papildarbs:apdares-cementa-skiedru-plaksnes-montaza-emerald:96",
+      "categoryCode": "5A",
+      "name": "Apdares cementa šķiedru plaksnes montāža EMERALD Granit (8+2mm), iesk. visas palīgdetaļas un palīgmateriālus, pretkukaiņu sietu logu ailēs un pie cokola",
+      "actualQuantity": 550,
+      "excludedQuantityRecords": 0,
+      "assignedRecords": 1
+    },
+    {
+      "id": "work:11:jumta-attirisana-un-sagatavosana-renovacijai-att:134",
+      "categoryCode": "6A",
+      "name": "Jumta attīrīšana un sagatavošana renovācijai(attīrīšana no gaisa pūšļiem)",
+      "actualQuantity": 316,
+      "excludedQuantityRecords": 0,
+      "assignedRecords": 1
+    },
+    {
+      "id": "work:2:skunisu-sienu-augstumu-samazinasana-un-nostiprin:150",
+      "categoryCode": "7A",
+      "name": "Šķūnīšu sienu augstumu samazināšana un nostiprināšana.",
+      "actualQuantity": 157.45,
+      "excludedQuantityRecords": 0,
+      "assignedRecords": 1
+    },
+    {
+      "id": "work:3:virsmu-sagatavosana-siltinasanai-esoso-komunikac:151",
+      "categoryCode": "7A",
+      "name": "Virsmu sagatavošana siltināšanai, esošo komunikāciju demontāža/montāža, Virsmas gruntēšana -saķeres grunts Sakret ; Līmjava Sakret BAK vai ekvivalents",
+      "actualQuantity": 157.45,
+      "excludedQuantityRecords": 1,
+      "assignedRecords": 2
+    },
+    {
+      "id": "work:4:sienu-un-griest-siltinasana-limetas-akmens-vates:152",
+      "categoryCode": "7A",
+      "name": "Sienu un griest siltināšana-līmētas akmens vates plātnes PAROC CGL 20cy, 100mm, λ<=0.037 W/mK vai ekvivalents",
+      "actualQuantity": 230,
+      "excludedQuantityRecords": 0,
+      "assignedRecords": 1
+    }
+  ],
+  "verifiedAt": "2026-10-12T12:47:23.220Z",
+  "quantitiesCommentsPhotosAndBisUnchanged": true
+}

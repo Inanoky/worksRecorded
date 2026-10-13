@@ -1,0 +1,128 @@
+{
+  "siteId": "c39cb04c-8ce5-477d-acd0-99586a82d850",
+  "siteName": "Laimas iela 6 (Sigulda)",
+  "positions": 314,
+  "preservedPositions": 133,
+  "addedPositions": 181,
+  "importedRateLinks": 314,
+  "rateOptions": 360,
+  "preservedAllocations": 12,
+  "preservedQuantityOverrides": [
+    {
+      "positionId": "work:3:atrakt-grunti-roku-darba-un-mehanizeti-gar-pamat:62",
+      "sheet": "4a",
+      "sourceRow": 19,
+      "sourceQuantity": 100,
+      "retainedQuantity": 80
+    },
+    {
+      "positionId": "work:4:cokola-attirisana-apmetuma-demontaza-un-mazgasan:63",
+      "sheet": "4a",
+      "sourceRow": 20,
+      "sourceQuantity": 203.05,
+      "retainedQuantity": 150
+    },
+    {
+      "positionId": "work:5:bojatas-pamatu-vietas-atjaunosana-plaisas-aizpil:64",
+      "sheet": "4a",
+      "sourceRow": 21,
+      "sourceQuantity": 203.05,
+      "retainedQuantity": 150
+    },
+    {
+      "positionId": "work:12:atbert-izrakto-grunti-atpakal-blietejot-pa-karta:70",
+      "sheet": "4a",
+      "sourceRow": 27,
+      "sourceQuantity": 100,
+      "retainedQuantity": 80
+    }
+  ],
+  "sheetSummary": [
+    {
+      "sheet": "1a",
+      "title": "Būvlaukuma ierīkošana un uzturēšana ( DOP, lapa AR-27)",
+      "positions": 19,
+      "preserved": 19,
+      "added": 0
+    },
+    {
+      "sheet": "2a",
+      "title": "Aiļu aizpildījumu elementi. Logi",
+      "positions": 15,
+      "preserved": 15,
+      "added": 0
+    },
+    {
+      "sheet": "3a",
+      "title": "Aiļu aizpildījumu elementi. Durvis",
+      "positions": 8,
+      "preserved": 8,
+      "added": 0
+    },
+    {
+      "sheet": "4a",
+      "title": "Cokola apdare",
+      "positions": 24,
+      "preserved": 24,
+      "added": 0
+    },
+    {
+      "sheet": "5a",
+      "title": "Fasādes siltināšana un apdares darbi",
+      "positions": 27,
+      "preserved": 27,
+      "added": 0
+    },
+    {
+      "sheet": "6a",
+      "title": "Jumta renovācija - ieejas jumtiņa renovācija",
+      "positions": 24,
+      "preserved": 24,
+      "added": 0
+    },
+    {
+      "sheet": "7a",
+      "title": "Pagrabstāva pārseguma siltināšana",
+      "positions": 4,
+      "preserved": 4,
+      "added": 0
+    },
+    {
+      "sheet": "8a",
+      "title": "Dažādi darbi",
+      "positions": 12,
+      "preserved": 12,
+      "added": 0
+    },
+    {
+      "sheet": "9a",
+      "title": "Iekšējās apkures sistēmas vienkāršotā rekonstrukcija",
+      "positions": 53,
+      "preserved": 0,
+      "added": 53
+    },
+    {
+      "sheet": "10a",
+      "title": "Ūdensapgāde Ū1, S3, S4",
+      "positions": 40,
+      "preserved": 0,
+      "added": 40
+    },
+    {
+      "sheet": "11a",
+      "title": "K1 sadzīves kanalizācija",
+      "positions": 24,
+      "preserved": 0,
+      "added": 24
+    },
+    {
+      "sheet": "12a",
+      "title": "Siltummezgla apsaiste",
+      "positions": 64,
+      "preserved": 0,
+      "added": 64
+    }
+  ],
+  "verifiedAt": "2026-10-12T09:01:52.826Z",
+  "diaryRecordsUnchanged": 12
+}

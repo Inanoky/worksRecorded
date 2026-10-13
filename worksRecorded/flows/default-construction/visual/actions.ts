@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/utils/requireUser";
+import { persistVisualLayers } from "./layer-store";
 import {
 	archiveVisualPlan,
 	listVisualPlans,
@@ -24,6 +25,17 @@ import {
 export async function getVisualDrawings(siteId: string) {
 	const user = await requireUser();
 	return listVisualDrawings(user.id, siteId);
+}
+
+export async function saveVisualLayers(
+	siteId: string,
+	input: unknown,
+	expected: unknown,
+) {
+	const user = await requireUser();
+	const settings = await persistVisualLayers(user.id, siteId, input, expected);
+	revalidatePath(`/dashboard/sites/${siteId}/izpildshemas`);
+	return settings;
 }
 
 export async function getVisualWorkTypes(siteId: string) {

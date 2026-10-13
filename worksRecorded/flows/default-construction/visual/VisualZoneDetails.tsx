@@ -26,6 +26,9 @@ export function VisualZoneDetails({
 	onEditingChange,
 	onSaved,
 	onResolveReview,
+	layerStyles = visualLayers,
+	layerOverride,
+	onLayerChange,
 }: {
 	siteId: string;
 	drawingId: string;
@@ -39,6 +42,9 @@ export function VisualZoneDetails({
 	onEditingChange: (editing: boolean) => void;
 	onSaved: (drawing: VisualDrawing & { assignmentWarning?: string }) => void;
 	onResolveReview: (reanalyze: boolean) => Promise<void>;
+	layerStyles?: Record<string, { label: string; color: string }>;
+	layerOverride?: string;
+	onLayerChange?: (layerId: string | null) => void;
 }) {
 	const open = !!source && !!mark;
 	const content = useRef<HTMLDivElement>(null);
@@ -80,7 +86,11 @@ export function VisualZoneDetails({
 							<p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
 								<span
 									className="h-2.5 w-2.5 shrink-0 rounded-full"
-									style={{ backgroundColor: visualLayers[mark.layer].color }}
+									style={{
+										backgroundColor: (
+											layerStyles[mark.layer] ?? visualLayers.other
+										).color,
+									}}
 									aria-hidden="true"
 								/>
 								{source.location} ·{" "}
@@ -152,6 +162,36 @@ export function VisualZoneDetails({
 							onEditingChange={onEditingChange}
 							onSaved={onSaved}
 						/>
+						{onLayerChange ? (
+							<label className="block space-y-1 text-xs">
+								Slānis šai zonai
+								<select
+									aria-label="Slānis šai zonai"
+									className="block h-9 w-full rounded-md border bg-background px-2 text-sm"
+									value={layerOverride ?? "automatic"}
+									disabled={controlsLocked}
+									onChange={(event) =>
+										onLayerChange(
+											event.target.value === "automatic"
+												? null
+												: event.target.value,
+										)
+									}
+								>
+									<option value="automatic">
+										Pēc darba piesaistes
+										{!layerOverride
+											? ` · ${layerStyles[mark.layer]?.label ?? ""}`
+											: ""}
+									</option>
+									{Object.entries(layerStyles).map(([id, appearance]) => (
+										<option key={id} value={id}>
+											{appearance.label}
+										</option>
+									))}
+								</select>
+							</label>
+						) : null}
 						{source.reviewRequired ? (
 							<div className="space-y-2 border-t pt-3">
 								<p className="text-xs">
