@@ -1,5 +1,9 @@
 import type { VisualDrawing } from "./model";
-import { VisualClientCache } from "./visual-client-cache";
+import {
+	VisualClientCache,
+	type VisualDrawingIndex,
+	type VisualPlanningIndex,
+} from "./visual-client-cache";
 
 const mockGetDocument = jest.fn();
 const mockDestroy = jest.fn();
@@ -11,6 +15,18 @@ jest.mock("./pdf-worker-url", () => ({ pdfWorkerUrl: "/worker.mjs" }));
 
 const originalFetch = global.fetch;
 const drawing = { id: "drawing", name: "plan.pdf" } as VisualDrawing;
+const drawingIndex = {
+	locations: ["1. stāvs"],
+	drawings: [],
+} as VisualDrawingIndex;
+const planningIndex = {
+	today: "2026-10-13",
+	location: "1. stāvs",
+	workOptions: [],
+	unitOptions: [],
+	contacts: [],
+	plans: [],
+} as VisualPlanningIndex;
 
 beforeEach(() => {
 	jest.clearAllMocks();
@@ -135,5 +151,66 @@ it("removes a failed PDF so the next opening can retry", async () => {
 	await retry.promise;
 	retry.release();
 	expect(global.fetch).toHaveBeenCalledTimes(2);
+	cache.clear();
+});
+
+it("deduplicates planning and project index requests and refreshes them after the TTL", async () => {
+	let now = 1_000;
+	const cache = new VisualClientCache("site", () => now);
+	const loadPlanning = jest.fn().mockResolvedValue(planningIndex);
+	const loadIndex = jest.fn().mockResolvedValue(drawingIndex);
+	const [first, second] = await Promise.all([
+		cache.loadPlanning("drawing", loadPlanning),
+		cache.loadPlanning("drawing", loadPlanning),
+	]);
+	expect(first).toBe(second);
+	expect(loadPlanning).toHaveBeenCalledTimes(1);
+	await Promise.all([cache.loadIndex(loadIndex), cache.loadIndex(loadIndex)]);
+	expect(loadIndex).toHaveBeenCalledTimes(1);
+	now += 59_999;
+	await cache.loadPlanning("drawing", loadPlanning);
+	await cache.loadIndex(loadIndex);
+	expect(loadPlanning).toHaveBeenCalledTimes(1);
+	expect(loadIndex).toHaveBeenCalledTimes(1);
+	now += 1;
+	await cache.loadPlanning("drawing", loadPlanning);
+	await cache.loadIndex(loadIndex);
+	expect(loadPlanning).toHaveBeenCalledTimes(2);
+	expect(loadIndex).toHaveBeenCalledTimes(2);
+	cache.clear();
+});
+
+it("keeps a mutation result when an older planning request finishes later", async () => {
+	let finish!: (value: VisualPlanningIndex) => void;
+	const cache = new VisualClientCache("site");
+	const pending = cache.loadPlanning(
+		"drawing",
+		() =>
+			new Promise((resolve) => {
+				finish = resolve;
+			}),
+	);
+	await Promise.resolve();
+	const updated = { ...planningIndex, today: "2026-10-14" };
+	cache.rememberPlanning("drawing", updated);
+	finish(planningIndex);
+	expect(await pending).toBe(updated);
+	expect(cache.peekPlanning("drawing")).toBe(updated);
+	cache.clear();
+});
+
+it("invalidates planning after mutations and retries a failed planning request", async () => {
+	const cache = new VisualClientCache("site");
+	const load = jest
+		.fn<Promise<VisualPlanningIndex>, []>()
+		.mockRejectedValueOnce(new Error("Network"))
+		.mockResolvedValue(planningIndex);
+	await expect(cache.loadPlanning("drawing", load)).rejects.toThrow("Network");
+	await cache.loadPlanning("drawing", load);
+	cache.invalidatePlanning("drawing");
+	await cache.loadPlanning("drawing", load);
+	expect(load).toHaveBeenCalledTimes(3);
+	cache.removeDrawing("drawing");
+	expect(cache.peekPlanning("drawing")).toBeUndefined();
 	cache.clear();
 });

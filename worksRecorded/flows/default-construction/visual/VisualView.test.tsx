@@ -12,6 +12,7 @@ import {
 	deleteVisualDrawing,
 	deleteVisualPolygon,
 	getVisualDrawings,
+	getVisualPlanning,
 	getVisualWorkTypes,
 	refreshVisualDrawing,
 	resolveVisualSourceReview,
@@ -30,6 +31,7 @@ jest.mock("@/lib/utils/UploadthingsComponents", () => ({
 }));
 jest.mock("./actions", () => ({
 	getVisualDrawings: jest.fn(),
+	getVisualPlanning: jest.fn(),
 	refreshVisualDrawing: jest.fn(),
 	deleteVisualDrawing: jest.fn(),
 	deleteVisualPolygon: jest.fn(),
@@ -174,6 +176,14 @@ const complete: VisualDrawing = {
 beforeEach(() => {
 	jest.clearAllMocks();
 	jest.mocked(getVisualWorkTypes).mockResolvedValue(["Smilts", "XPS"]);
+	jest.mocked(getVisualPlanning).mockResolvedValue({
+		today: "2026-10-13",
+		location: "1. stāvs",
+		workOptions: [],
+		unitOptions: [],
+		contacts: [],
+		plans: [],
+	});
 	jest.mocked(refreshVisualDrawing).mockResolvedValue({
 		drawing: complete,
 		addedCount: 0,
@@ -372,6 +382,7 @@ it("switches between execution and planning modes from the workspace header", as
 	fireEvent.click(planningMode);
 	fireEvent.click(screen.getByRole("button", { name: "Mainīt plānu" }));
 	expect(actualMode).toBeDisabled();
+	expect(location).toBeDisabled();
 	expect(actualMode).toHaveAttribute(
 		"title",
 		"Saglabājiet vai atceliet plāna izmaiņas",

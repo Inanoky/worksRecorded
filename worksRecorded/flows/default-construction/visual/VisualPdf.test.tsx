@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import type { VisualMark } from "./model";
 import type { VisualPlanArea } from "./planning-model";
-import { VisualPdf } from "./VisualPdf";
+import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
 import { VisualClientCache } from "./visual-client-cache";
 
 const mockGetDocument = jest.fn();
@@ -47,7 +47,12 @@ function PlanningHarness({
 	initialSelected?: string | null;
 }) {
 	const [areas, setAreas] = useState(initialAreas);
-	const [selectedAreaId, setSelectedAreaId] = useState(initialSelected);
+	const [selectedArea, setSelectedArea] =
+		useState<VisualPlanAreaSelection | null>(
+			initialSelected
+				? { planId: "active-plan", areaId: initialSelected }
+				: null,
+		);
 	return (
 		<VisualPdf
 			url="/drawing"
@@ -55,10 +60,11 @@ function PlanningHarness({
 			selected={null}
 			onSelect={jest.fn()}
 			planning={{
+				planId: "active-plan",
 				areas,
-				selectedAreaId,
+				selectedArea,
 				onChange: setAreas,
-				onSelectArea: setSelectedAreaId,
+				onSelectArea: setSelectedArea,
 			}}
 		/>
 	);
@@ -701,6 +707,13 @@ it("adds multiple editable planned areas using the execution-zone interaction", 
 	expect(
 		screen.getByRole("button", { name: "Plānotās zonas stūris 1" }),
 	).toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
+	expect(
+		screen.queryByRole("button", { name: "Plānotās zonas stūris 1" }),
+	).not.toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: "Pielāgot plānoto zonu" }),
+	).toBeEnabled();
 	fireEvent.click(screen.getByRole("button", { name: "Jauna zona" }));
 	expect(container.querySelectorAll("[data-plan-area]")).toHaveLength(2);
 	expect(
@@ -718,8 +731,9 @@ it("adds and selects an editable area when requested from the planning form", as
 			selected={null}
 			onSelect={jest.fn()}
 			planning={{
+				planId: null,
 				areas: [],
-				selectedAreaId: null,
+				selectedArea: null,
 				areaRequest: 0,
 				onChange,
 				onSelectArea,
@@ -736,29 +750,33 @@ it("adds and selects an editable area when requested from the planning form", as
 			selected={null}
 			onSelect={jest.fn()}
 			planning={{
+				planId: null,
 				areas: [],
-				selectedAreaId: null,
+				selectedArea: null,
 				areaRequest: 1,
 				onChange,
 				onSelectArea,
 			}}
 		/>,
 	);
-	await waitFor(() =>
-		expect(onChange).toHaveBeenCalledWith([
-			expect.objectContaining({
-				id: "plan-area-1",
-				page: 1,
-				polygon: [
-					{ x: 0.35, y: 0.35 },
-					{ x: 0.65, y: 0.35 },
-					{ x: 0.65, y: 0.65 },
-					{ x: 0.35, y: 0.65 },
-				],
-			}),
-		]),
-	);
-	expect(onSelectArea).toHaveBeenCalledWith("plan-area-1");
+	expect(onChange).not.toHaveBeenCalled();
+	expect(onSelectArea).toHaveBeenCalledWith({
+		planId: null,
+		areaId: "plan-area-1",
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
+	expect(onChange).toHaveBeenCalledWith([
+		expect.objectContaining({
+			id: "plan-area-1",
+			page: 1,
+			polygon: [
+				{ x: 0.35, y: 0.35 },
+				{ x: 0.65, y: 0.35 },
+				{ x: 0.65, y: 0.65 },
+				{ x: 0.35, y: 0.65 },
+			],
+		}),
+	]);
 });
 
 it("reshapes a planned area, adds and removes vertices, and deletes only that area", async () => {
@@ -769,6 +787,18 @@ it("reshapes a planned area, adds and removes vertices, and deletes only that ar
 			initialSelected="plan-area-1"
 		/>,
 	);
+	const editButton = await screen.findByRole("button", {
+		name: "Pielāgot plānoto zonu",
+	});
+	expect(
+		screen.queryByRole("button", { name: "Plānotās zonas stūris 1" }),
+	).not.toBeInTheDocument();
+	await waitFor(() =>
+		expect(
+			container.querySelector('[data-plan-area="plan-area-1"]'),
+		).toHaveAttribute("fill-opacity", "0.58"),
+	);
+	fireEvent.click(editButton);
 	const corner = await screen.findByRole("button", {
 		name: "Plānotās zonas stūris 1",
 	});
@@ -793,6 +823,7 @@ it("reshapes a planned area, adds and removes vertices, and deletes only that ar
 	expect(
 		screen.getAllByRole("button", { name: /^Plānotās zonas stūris/ }),
 	).toHaveLength(3);
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
 	fireEvent.click(screen.getByRole("button", { name: "Dzēst plānoto zonu" }));
 	expect(
 		container.querySelector('[data-plan-area="plan-area-1"]'),
@@ -817,6 +848,11 @@ it("moves a whole planned area by dragging its PDF hit target", async () => {
 				initialAreas={[plannedArea]}
 				initialSelected="plan-area-1"
 			/>,
+		);
+		fireEvent.click(
+			await screen.findByRole("button", {
+				name: "Pielāgot plānoto zonu",
+			}),
 		);
 		const target = await screen.findByRole("button", {
 			name: "Plānotā zona 1",
@@ -847,6 +883,10 @@ it("moves a whole planned area by dragging its PDF hit target", async () => {
 				container.querySelector('[data-plan-area="plan-area-1"]'),
 			).toHaveAttribute("points", "0.2,0.2 0.5,0.2 0.5,0.5"),
 		);
+		fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
+		expect(
+			screen.queryByRole("button", { name: "Plānotās zonas stūris 1" }),
+		).not.toBeInTheDocument();
 	} finally {
 		window.PointerEvent = originalPointerEvent;
 	}
@@ -856,8 +896,10 @@ it("shows other saved plans as non-editable background envelopes", async () => {
 	const background = {
 		...plannedArea,
 		id: "other-plan-area",
+		planId: "other-plan",
 		color: "#eab308",
 	};
+	const onSelectArea = jest.fn();
 	const { container } = render(
 		<VisualPdf
 			url="/drawing"
@@ -865,30 +907,109 @@ it("shows other saved plans as non-editable background envelopes", async () => {
 			selected={null}
 			onSelect={jest.fn()}
 			planning={{
+				planId: "active-plan",
 				areas: [plannedArea],
 				backgroundAreas: [background],
-				selectedAreaId: null,
+				selectedArea: null,
 				color: "#16a34a",
 				onChange: jest.fn(),
-				onSelectArea: jest.fn(),
+				onSelectArea,
 			}}
 		/>,
 	);
 	await waitFor(() =>
 		expect(
-			container.querySelector('[data-plan-background="other-plan-area"]'),
+			container.querySelector(
+				'[data-plan-background="other-plan:other-plan-area"]',
+			),
 		).toBeInTheDocument(),
 	);
 	expect(
-		container.querySelector('[data-plan-background="other-plan-area"]'),
+		container.querySelector(
+			'[data-plan-background="other-plan:other-plan-area"]',
+		),
 	).toHaveAttribute("stroke", "#eab308");
 	expect(
-		container.querySelector('[data-plan-background="other-plan-area"]'),
+		container.querySelector(
+			'[data-plan-background="other-plan:other-plan-area"]',
+		),
 	).toHaveAttribute("fill", "#eab308");
+	expect(
+		container.querySelector(
+			'[data-plan-background="other-plan:other-plan-area"]',
+		),
+	).toHaveAttribute("fill-opacity", "0.22");
 	expect(
 		container.querySelector('[data-plan-area="plan-area-1"]'),
 	).toHaveAttribute("fill", "#16a34a");
-	expect(screen.getAllByRole("button", { name: /^Plānotā zona/ })).toHaveLength(
-		1,
+	expect(
+		container.querySelector('[data-plan-area="plan-area-1"]'),
+	).toHaveAttribute("fill-opacity", "0.34");
+	const targets = screen.getAllByRole("button", { name: /^Plānotā zona/ });
+	expect(targets).toHaveLength(2);
+	const surface = container.querySelector("canvas")
+		?.parentElement as HTMLElement;
+	jest.spyOn(surface, "getBoundingClientRect").mockReturnValue({
+		left: 0,
+		top: 0,
+		width: 1000,
+		height: 1000,
+	} as DOMRect);
+	jest
+		.spyOn(screen.getByTestId("visual-viewport"), "getBoundingClientRect")
+		.mockReturnValue({
+			left: 0,
+			top: 0,
+			width: 1000,
+			height: 1000,
+		} as DOMRect);
+	fireEvent.click(targets[0], { clientX: 200, clientY: 200 });
+	expect(
+		screen.getByRole("dialog", { name: "Pārklājošās zonas" }),
+	).toBeInTheDocument();
+	fireEvent.click(
+		screen.getByRole("button", {
+			name: "Apakšējais · Cits plāns · zona 1",
+		}),
 	);
+	expect(onSelectArea).toHaveBeenCalledWith({
+		planId: "other-plan",
+		areaId: "other-plan-area",
+	});
+});
+
+it("offers the upper or lower work-log zone when areas overlap", async () => {
+	const onSelect = jest.fn();
+	const upperMark = { ...mark, id: "mark-2", explanation: "Virskārta" };
+	const { container } = render(
+		<VisualPdf
+			url="/drawing"
+			marks={[mark, upperMark]}
+			selected={null}
+			onSelect={onSelect}
+		/>,
+	);
+	const targets = await screen.findAllByRole("button", { name: /^XPS:/ });
+	const surface = container.querySelector("canvas")
+		?.parentElement as HTMLElement;
+	jest.spyOn(surface, "getBoundingClientRect").mockReturnValue({
+		left: 0,
+		top: 0,
+		width: 1000,
+		height: 1000,
+	} as DOMRect);
+	jest
+		.spyOn(screen.getByTestId("visual-viewport"), "getBoundingClientRect")
+		.mockReturnValue({
+			left: 0,
+			top: 0,
+			width: 1000,
+			height: 1000,
+		} as DOMRect);
+	fireEvent.click(targets[1], { clientX: 200, clientY: 200 });
+	expect(onSelect).not.toHaveBeenCalled();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Apakšējais · XPS: Sakrīt" }),
+	);
+	expect(onSelect).toHaveBeenCalledWith("mark");
 });

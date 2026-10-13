@@ -18,6 +18,13 @@ export function VisualTimeline({
 	onIncludeUndated,
 	visibleCount,
 	compact = false,
+	ariaLabel = "Darbu progress pa dienām",
+	title = "Kumulatīvais darbu progress",
+	dayPrefix = "Līdz",
+	emptyLabel = "Nav datētu ierakstu",
+	countLabel = (count) => `${count} zonas`,
+	emptyHint = "Redzamas visas pieejamās zonas",
+	sliderLabel = "Progresa datums",
 }: {
 	firstDay: number | null;
 	lastDay: number | null;
@@ -28,24 +35,29 @@ export function VisualTimeline({
 	onIncludeUndated: (include: boolean) => void;
 	visibleCount: number;
 	compact?: boolean;
+	ariaLabel?: string;
+	title?: string;
+	dayPrefix?: string;
+	emptyLabel?: string;
+	countLabel?: (count: number) => string;
+	emptyHint?: string;
+	sliderLabel?: string;
 }) {
 	const id = useId();
 	if (compact)
 		return (
 			<section
 				className="flex min-w-0 items-center gap-2 border-t bg-background px-3 py-2"
-				aria-label="Darbu progress pa dienām"
+				aria-label={ariaLabel}
 			>
 				<Label htmlFor={id} className="sr-only">
-					Kumulatīvais darbu progress
+					{title}
 				</Label>
 				<output className="shrink-0 text-xs tabular-nums" aria-live="polite">
-					{day === null
-						? "Nav datētu ierakstu"
-						: `Līdz ${formatVisualDay(day)}`}
+					{day === null ? emptyLabel : `${dayPrefix} ${formatVisualDay(day)}`}
 					<span className="hidden text-muted-foreground md:inline">
 						{" "}
-						· {visibleCount} zonas
+						· {countLabel(visibleCount)}
 					</span>
 				</output>
 				{firstDay !== null && lastDay !== null && day !== null ? (
@@ -69,7 +81,7 @@ export function VisualTimeline({
 								step={1}
 								value={day}
 								disabled={firstDay === lastDay}
-								aria-label="Progresa datums"
+								aria-label={sliderLabel}
 								aria-valuetext={formatVisualDay(day)}
 								className="h-7 w-full cursor-pointer border-0 bg-transparent px-0 accent-primary shadow-none disabled:cursor-default"
 								onChange={(event) => onChange(Number(event.target.value))}
@@ -99,7 +111,7 @@ export function VisualTimeline({
 					</>
 				) : (
 					<span className="min-w-0 flex-1 text-xs text-muted-foreground">
-						Redzamas visas pieejamās zonas
+						{emptyHint}
 					</span>
 				)}
 				{undatedCount > 0 && day !== null ? (
@@ -126,15 +138,13 @@ export function VisualTimeline({
 	return (
 		<section
 			className="space-y-3 rounded-md border bg-muted/40 p-4"
-			aria-label="Darbu progress pa dienām"
+			aria-label={ariaLabel}
 		>
 			<div className="flex flex-wrap items-center justify-between gap-2">
-				<Label htmlFor={id}>Kumulatīvais darbu progress</Label>
+				<Label htmlFor={id}>{title}</Label>
 				<output className="text-sm font-medium" aria-live="polite">
-					{day === null
-						? "Nav datētu ierakstu"
-						: `Līdz ${formatVisualDay(day)}`}{" "}
-					· {visibleCount} zonas
+					{day === null ? emptyLabel : `${dayPrefix} ${formatVisualDay(day)}`} ·{" "}
+					{countLabel(visibleCount)}
 				</output>
 			</div>
 			{firstDay !== null && lastDay !== null && day !== null ? (
@@ -147,7 +157,7 @@ export function VisualTimeline({
 						step={1}
 						value={day}
 						disabled={firstDay === lastDay}
-						aria-label="Progresa datums"
+						aria-label={sliderLabel}
 						aria-valuetext={formatVisualDay(day)}
 						className="h-8 w-full cursor-pointer border-0 bg-transparent px-0 accent-primary shadow-none disabled:cursor-default"
 						onChange={(event) => onChange(Number(event.target.value))}

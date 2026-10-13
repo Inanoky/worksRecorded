@@ -54,6 +54,7 @@ import {
 	deleteVisualDrawing,
 	deleteVisualPolygon,
 	getVisualDrawings,
+	getVisualPlanning,
 	refreshVisualDrawing,
 	resolveVisualSourceReview,
 	restartVisualDrawing,
@@ -96,7 +97,10 @@ import { VisualPlanningPanel } from "./VisualPlanningPanel";
 import { VisualSidebar } from "./VisualSidebar";
 import { VisualTimeline } from "./VisualTimeline";
 import { VisualZoneDetails } from "./VisualZoneDetails";
-import { VisualClientCache } from "./visual-client-cache";
+import {
+	VISUAL_PLANNING_CACHE_INVALIDATED,
+	VisualClientCache,
+} from "./visual-client-cache";
 
 type Index = Awaited<ReturnType<typeof getVisualDrawings>>;
 const allLayers = Object.keys(visualLayers) as VisualLayer[];
@@ -186,29 +190,46 @@ export default function VisualView({
 		},
 		[resourceCache],
 	);
+	const showIndex = useCallback((value: Index, resetLayers = false) => {
+		setIndex(value);
+		if (!resetLayers) return;
+		setLayers(
+			(
+				value.layerConfiguration?.settings ?? defaultLayerConfiguration.settings
+			).categories.map((category) => category.id),
+		);
+	}, []);
+	const loadIndex = useCallback(
+		(force = false) =>
+			resourceCache.loadIndex(() => getVisualDrawings(siteId), { force }),
+		[resourceCache, siteId],
+	);
 	useEffect(() => () => resourceCache.clear(), [resourceCache]);
 	useEffect(() => {
+		const invalidate = (event: Event) => {
+			const detail = (event as CustomEvent<{ siteId?: string }>).detail;
+			if (detail?.siteId === siteId) resourceCache.invalidatePlanning();
+		};
+		window.addEventListener(VISUAL_PLANNING_CACHE_INVALIDATED, invalidate);
+		return () =>
+			window.removeEventListener(VISUAL_PLANNING_CACHE_INVALIDATED, invalidate);
+	}, [resourceCache, siteId]);
+	useEffect(() => {
 		const run = ++epoch.current;
-		setIndex(null);
+		const cached = resourceCache.peekIndex();
+		setIndex(cached ?? null);
 		setLocation("");
 		setDrawing(null);
 		setSelected(null);
 		setFile(null);
 		setSyncedAt(null);
-		void getVisualDrawings(siteId).then(
+		if (cached) showIndex(cached, true);
+		void loadIndex().then(
 			(data) => {
-				if (run === epoch.current) {
-					setIndex(data);
-					setLayers(
-						(
-							data.layerConfiguration?.settings ??
-							defaultLayerConfiguration.settings
-						).categories.map((c) => c.id),
-					);
-				}
+				if (run === epoch.current) showIndex(data, !cached);
 			},
 			() => {
-				if (run === epoch.current)
+				if (run === epoch.current && !cached)
 					setError("Neizdevās ielādēt lokācijas un rasējumus.");
 			},
 		);
@@ -216,7 +237,7 @@ export default function VisualView({
 			++epoch.current;
 			++requestId.current;
 		};
-	}, [siteId]);
+	}, [loadIndex, resourceCache, showIndex]);
 	const pollDrawingId = drawing?.id;
 	useEffect(() => {
 		if (!active || !pollDrawingId || !index?.drawings.length) return;
@@ -226,10 +247,37 @@ export default function VisualView({
 		const next = index.drawings[(position + 1) % index.drawings.length];
 		if (!next || next.id === pollDrawingId) return;
 		const timer = setTimeout(() => {
-			void resourceCache.prefetch(next.id).catch(() => {});
+			void resourceCache
+				.prefetch(next.id, () => getVisualPlanning(siteId, next.id))
+				.catch(() => {});
 		}, 300);
 		return () => clearTimeout(timer);
-	}, [active, pollDrawingId, index?.drawings, resourceCache]);
+	}, [active, pollDrawingId, index?.drawings, resourceCache, siteId]);
+	useEffect(() => {
+		if (!active) return;
+		const refreshIfVisible = async () => {
+			if (document.visibilityState !== "visible") return;
+			const run = epoch.current;
+			try {
+				const data = await loadIndex();
+				if (run === epoch.current) showIndex(data);
+			} catch {}
+			if (!pollDrawingId) return;
+			try {
+				const value = await resourceCache.loadDrawing(pollDrawingId);
+				if (run === epoch.current && drawing?.id === pollDrawingId)
+					setDrawing(value);
+			} catch {}
+		};
+		const timer = window.setInterval(refreshIfVisible, 60_000);
+		window.addEventListener("focus", refreshIfVisible);
+		document.addEventListener("visibilitychange", refreshIfVisible);
+		return () => {
+			window.clearInterval(timer);
+			window.removeEventListener("focus", refreshIfVisible);
+			document.removeEventListener("visibilitychange", refreshIfVisible);
+		};
+	}, [active, drawing?.id, loadIndex, pollDrawingId, resourceCache, showIndex]);
 	useEffect(() => {
 		function onPhotoDeleted(event: Event) {
 			const detail = (event as CustomEvent<DiaryPhotoDeleted>).detail;
@@ -322,16 +370,15 @@ export default function VisualView({
 		setIncludeUndated(false);
 		setError(null);
 		setNotice(null);
-		if (cached) return cached;
 		try {
 			const data = await resourceCache.loadDrawing(id);
 			if (request === requestId.current) {
-				showDrawing(data);
+				if (data !== cached) showDrawing(data);
 				setLocation(data.state.location);
 				return data as VisualDrawing;
 			}
 		} catch {
-			if (request === requestId.current)
+			if (request === requestId.current && !cached)
 				setError("Neizdevās ielādēt rasējumu.");
 		} finally {
 			if (request === requestId.current) setLoading(false);
@@ -430,8 +477,9 @@ export default function VisualView({
 					"PDF saglabāts plānošanai. Kad žurnālam pievienosiet šīs lokācijas attēlus, izmantojiet “Atjaunot no žurnāla”, lai izveidotu izpildes zonas.",
 				);
 				setPhase("idle");
-				const data = await getVisualDrawings(siteId);
-				if (run === epoch.current) setIndex(data);
+				resourceCache.invalidateIndex();
+				const data = await loadIndex(true);
+				if (run === epoch.current) showIndex(data);
 				return;
 			}
 			previousAttempt.current = loaded.state.attempts.at(-1)?.id;
@@ -440,8 +488,9 @@ export default function VisualView({
 			await analyze(id, run);
 			if (run !== epoch.current) return;
 			setPhase("idle");
-			const data = await getVisualDrawings(siteId);
-			if (run === epoch.current) setIndex(data);
+			resourceCache.invalidateIndex();
+			const data = await loadIndex(true);
+			if (run === epoch.current) showIndex(data);
 		} catch (issue) {
 			if (run === epoch.current)
 				setError(issue instanceof Error ? issue.message : "Analīze neizdevās.");
@@ -539,14 +588,15 @@ export default function VisualView({
 			resourceCache.removeDrawing(id);
 			setDrawing(null);
 			setSelected(null);
-			setIndex((previous) =>
-				previous
-					? {
-							...previous,
-							drawings: previous.drawings.filter((item) => item.id !== id),
-						}
-					: previous,
-			);
+			setIndex((previous) => {
+				if (!previous) return previous;
+				const next = {
+					...previous,
+					drawings: previous.drawings.filter((item) => item.id !== id),
+				};
+				resourceCache.rememberIndex(next);
+				return next;
+			});
 		} catch {
 			if (run === epoch.current)
 				setError(
@@ -623,14 +673,15 @@ export default function VisualView({
 		try {
 			const saved = await saveVisualLayers(siteId, settings, previous);
 			if (run !== epoch.current) return;
-			setIndex((current) =>
-				current
-					? {
-							...current,
-							layerConfiguration: { ...layerConfiguration, settings: saved },
-						}
-					: current,
-			);
+			setIndex((current) => {
+				if (!current) return current;
+				const next = {
+					...current,
+					layerConfiguration: { ...layerConfiguration, settings: saved },
+				};
+				resourceCache.rememberIndex(next);
+				return next;
+			});
 			setLayers((current) => [
 				...new Set([
 					...current

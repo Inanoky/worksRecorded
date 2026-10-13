@@ -44,6 +44,7 @@ export const visualPlanInputSchema = z
 		quantity: z.number().finite().positive().max(1e9),
 		startDate: dateSchema,
 		endDate: dateSchema,
+		contactId: z.string().uuid().nullable().default(null),
 		geometry: visualPlanAreasSchema,
 	})
 	.strict()
@@ -65,6 +66,7 @@ export type VisualPlan = {
 	quantity: number;
 	startDate: string;
 	endDate: string;
+	contactId: string | null;
 	geometry: z.infer<typeof visualPlanAreasSchema>;
 	geometryReviewRequired: boolean;
 	archivedAt: string | null;

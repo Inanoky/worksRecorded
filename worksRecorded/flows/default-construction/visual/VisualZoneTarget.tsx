@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { type VisualMark, visualLayers } from "./model";
 
@@ -14,7 +15,7 @@ export function VisualZoneTarget({
 	mark: VisualMark;
 	disabled: boolean;
 	selected?: boolean;
-	onSelect: () => void;
+	onSelect: (event: MouseEvent<HTMLButtonElement>) => void;
 	onHighlight: (active: boolean) => void;
 	layerLabel?: string;
 }) {

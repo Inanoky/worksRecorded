@@ -17,6 +17,7 @@ function plan(overrides: Partial<VisualPlan> = {}): VisualPlan {
 		quantity: 100,
 		startDate: "2026-10-12",
 		endDate: "2026-10-18",
+		contactId: null,
 		geometry: {
 			version: 1,
 			areas: [
