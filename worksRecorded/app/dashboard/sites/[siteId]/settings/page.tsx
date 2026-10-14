@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { UploadImageForm } from "@/components/settings/UploadImageForm";
 import { PhotoExportCard } from "@/components/settings/PhotoExportCard";
+import { VisualPlanningContactsCard } from "@/components/settings/VisualPlanningContactsCard";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
 
@@ -40,6 +41,8 @@ import { UpdateSiteForm } from "./updatesiteform";
 import { getSiteSettingsMessages } from "@/lib/dashboard-i18n";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
+import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
+import { listVisualPlanningContacts } from "@/flows/default-construction/visual/planning-contacts";
 import { getFlowModuleUi } from "@/lib/flows/registry";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
@@ -74,6 +77,9 @@ export default async function SettingsSiteRoute({
   const hideBisSettings = Boolean(flowUi.hideBisSettings);
   const hideSiteAreaSettings = Boolean(flowUi.hideSiteAreaSettings);
   const showPhotoExport = Boolean(flowUi.showPhotoExport);
+  const showVisualPlanningContacts =
+    flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION &&
+    orgId === LIMENI_ORGANIZATION_ID;
 
   const [
     ,
@@ -257,6 +263,9 @@ export default async function SettingsSiteRoute({
   };
 
   const statusMessage = bisStatus ? statusMessageMap[bisStatus] ?? null : null;
+  const visualPlanningContacts = showVisualPlanningContacts
+    ? await listVisualPlanningContacts(user.id, siteId)
+    : [];
 
   return (
     <>
@@ -327,7 +336,15 @@ export default async function SettingsSiteRoute({
         hideSiteArea={hideSiteAreaSettings}
       /></div>
 
-      <Card data-tour="settings-danger-zone" className="border-red-500 bg-red-500/10">
+      {showVisualPlanningContacts ? (
+        <VisualPlanningContactsCard
+          siteId={siteId}
+          initialContacts={visualPlanningContacts}
+          organizationLanguage={organizationLanguage}
+        />
+      ) : null}
+
+      <Card data-tour="settings-danger-zone" className="mt-6 border-red-500 bg-red-500/10">
         <CardHeader>
           <CardTitle className="text-red-500">{t.danger}</CardTitle>
           <CardDescription>

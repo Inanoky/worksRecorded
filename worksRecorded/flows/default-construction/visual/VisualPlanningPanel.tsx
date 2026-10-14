@@ -2,15 +2,22 @@
 
 import {
 	Archive,
-	CalendarRange,
-	ChevronLeft,
-	ChevronRight,
+	ContactRound,
 	Loader2,
 	Plus,
 	RotateCcw,
 	TriangleAlert,
+	X,
 } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
+import {
+	useCallback,
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -46,8 +53,12 @@ import {
 } from "./layer-settings";
 import { type VisualDrawing, visualLayers } from "./model";
 import type { VisualPlan, VisualPlanArea } from "./planning-model";
-import { VisualPdf } from "./VisualPdf";
-import type { VisualClientCache } from "./visual-client-cache";
+import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
+import { VisualTimeline } from "./VisualTimeline";
+import {
+	VISUAL_PLANNING_CACHE_INVALIDATED,
+	type VisualClientCache,
+} from "./visual-client-cache";
 
 type PlanningIndex = Awaited<ReturnType<typeof getVisualPlanning>>;
 const defaultLayerConfiguration: VisualLayerConfiguration = {
@@ -64,11 +75,14 @@ type PlanningDraft = {
 	quantity: string;
 	startDate: string;
 	endDate: string;
+	contactId: string | null;
 	areas: VisualPlanArea[];
 	archivedAt: string | null;
 };
-
-type PlanningPeriod = "week" | "month";
+type PendingDrawerAction =
+	| { type: "new" }
+	| { type: "close" }
+	| { type: "select"; planId: string; areaId?: string };
 
 const statusLabels = {
 	scheduled: "Plānots",
@@ -84,46 +98,30 @@ const statusClasses = {
 	overdue: "border-amber-500 text-amber-900",
 } as const;
 
-function addUtcDays(date: string, days: number) {
-	const value = new Date(`${date}T00:00:00Z`);
-	value.setUTCDate(value.getUTCDate() + days);
-	return value.toISOString().slice(0, 10);
+function utcDay(date: string) {
+	return Date.parse(`${date}T00:00:00Z`) / 86_400_000;
 }
 
-function addUtcMonths(date: string, months: number) {
-	const value = new Date(`${date}T00:00:00Z`);
-	const day = value.getUTCDate();
-	value.setUTCDate(1);
-	value.setUTCMonth(value.getUTCMonth() + months);
-	const lastDay = new Date(
-		Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + 1, 0),
-	).getUTCDate();
-	value.setUTCDate(Math.min(day, lastDay));
-	return value.toISOString().slice(0, 10);
+function dateFromUtcDay(day: number) {
+	return new Date(day * 86_400_000).toISOString().slice(0, 10);
 }
 
-export function visualPlanningPeriodRange(
-	start: string,
-	period: PlanningPeriod,
+export function visualPlanningTimelineRange(
+	plans: Array<Pick<VisualPlan, "startDate" | "endDate">>,
 ) {
+	if (!plans.length) return { firstDay: null, lastDay: null };
 	return {
-		start,
-		end:
-			period === "week"
-				? addUtcDays(start, 6)
-				: addUtcDays(addUtcMonths(start, 1), -1),
+		firstDay: Math.min(...plans.map((plan) => utcDay(plan.startDate))),
+		lastDay: Math.max(...plans.map((plan) => utcDay(plan.endDate))),
 	};
 }
 
-function planIntersectsPeriod(
-	plan: Pick<VisualPlan, "startDate" | "endDate">,
-	range: { start: string; end: string },
-) {
-	return plan.endDate >= range.start && plan.startDate <= range.end;
-}
-
-function utcDay(date: string) {
-	return Date.parse(`${date}T00:00:00Z`) / 86_400_000;
+export function cumulativeVisualPlanningPlans<
+	T extends Pick<VisualPlan, "startDate">,
+>(plans: T[], day: number | null) {
+	return day === null
+		? []
+		: plans.filter((plan) => utcDay(plan.startDate) <= day);
 }
 
 export function visualPlanningTimelineBar(
@@ -154,6 +152,7 @@ function emptyDraft(
 		quantity: "",
 		startDate,
 		endDate: startDate,
+		contactId: null,
 		areas: [],
 		archivedAt: null,
 	};
@@ -168,6 +167,7 @@ function draftFromPlan(plan: VisualPlan): PlanningDraft {
 		quantity: String(plan.quantity),
 		startDate: plan.startDate,
 		endDate: plan.endDate,
+		contactId: plan.contactId,
 		areas: plan.geometry.areas,
 		archivedAt: plan.archivedAt,
 	};
@@ -216,19 +216,23 @@ export function VisualPlanningPanel({
 		).color;
 	const [index, setIndex] = useState<PlanningIndex | null>(null);
 	const [draft, setDraft] = useState<PlanningDraft | null>(null);
-	const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
+	const [selectedArea, setSelectedArea] =
+		useState<VisualPlanAreaSelection | null>(null);
 	const [areaRequest, setAreaRequest] = useState(0);
+	const [planningSession, setPlanningSession] = useState(0);
 	const [dirty, setDirty] = useState(false);
+	const [areaEditing, setAreaEditing] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [showArchived, setShowArchived] = useState(false);
-	const [period, setPeriod] = useState<PlanningPeriod>("week");
-	const [periodStart, setPeriodStart] = useState<string | null>(null);
-	const [confirmNewPlan, setConfirmNewPlan] = useState(false);
+	const [planningDay, setPlanningDay] = useState<number | null>(null);
+	const [pendingDrawerAction, setPendingDrawerAction] =
+		useState<PendingDrawerAction | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
 	const [conflict, setConflict] = useState<VisualPlan | null>(null);
 	const request = useRef(0);
+	const drawerCloseButton = useRef<HTMLButtonElement>(null);
 	const fieldId = useId();
 	const archiveId = `${fieldId}-archive`;
 	const workId = `${fieldId}-work`;
@@ -236,10 +240,15 @@ export function VisualPlanningPanel({
 	const unitId = `${fieldId}-unit`;
 	const startId = `${fieldId}-start`;
 	const endId = `${fieldId}-end`;
+	const contactId = `${fieldId}-contact`;
+	const drawerKey = draft ? (draft.id ?? "new") : null;
 
 	useEffect(() => {
-		onDirtyChange(dirty);
-	}, [dirty, onDirtyChange]);
+		onDirtyChange(dirty || areaEditing);
+	}, [areaEditing, dirty, onDirtyChange]);
+	useEffect(() => {
+		if (drawerKey) drawerCloseButton.current?.focus();
+	}, [drawerKey]);
 	useEffect(
 		() => () => {
 			onDirtyChange(false);
@@ -248,24 +257,28 @@ export function VisualPlanningPanel({
 	);
 	useEffect(() => {
 		const run = ++request.current;
-		setLoading(true);
+		const cached = resourceCache?.peekPlanning(drawing.id);
+		setLoading(!cached);
 		setError(null);
-		void getVisualPlanning(siteId, drawing.id)
+		const showInitial = (value: PlanningIndex) => {
+			setIndex(value);
+			setPlanningDay(null);
+			setDraft(null);
+			setPlanningSession((current) => current + 1);
+			setSelectedArea(null);
+			setDirty(false);
+			setAreaEditing(false);
+		};
+		if (cached) showInitial(cached);
+		const load = () => getVisualPlanning(siteId, drawing.id);
+		void (resourceCache ? resourceCache.loadPlanning(drawing.id, load) : load())
 			.then(
 				(value) => {
 					if (run !== request.current) return;
-					setIndex(value);
-					setPeriodStart(value.today);
-					const range = visualPlanningPeriodRange(value.today, "week");
-					const first = value.plans.find(
-						(plan) => !plan.archivedAt && planIntersectsPeriod(plan, range),
-					);
-					setDraft(first ? draftFromPlan(first) : emptyDraft(value));
-					setSelectedAreaId(null);
-					setDirty(false);
+					showInitial(value);
 				},
 				() => {
-					if (run === request.current)
+					if (run === request.current && !cached)
 						setError("Neizdevās ielādēt plānotos darbus.");
 				},
 			)
@@ -275,10 +288,60 @@ export function VisualPlanningPanel({
 		return () => {
 			++request.current;
 		};
-	}, [drawing.id, siteId]);
+	}, [drawing.id, resourceCache, siteId]);
 
-	async function reload(preferredId?: string | null) {
-		const value = await getVisualPlanning(siteId, drawing.id);
+	const refreshPlanning = useCallback(async () => {
+		if (dirty || areaEditing || saving) return;
+		try {
+			const load = () => getVisualPlanning(siteId, drawing.id);
+			const value = resourceCache
+				? await resourceCache.loadPlanning(drawing.id, load)
+				: await load();
+			setIndex(value);
+			setDraft((current) => {
+				if (!current) return null;
+				if (!current.id) return current;
+				const selected = value.plans.find((plan) => plan.id === current.id);
+				return selected ? draftFromPlan(selected) : null;
+			});
+		} catch {}
+	}, [areaEditing, dirty, drawing.id, resourceCache, saving, siteId]);
+
+	useEffect(() => {
+		const refreshIfVisible = () => {
+			if (document.visibilityState === "visible") void refreshPlanning();
+		};
+		const timer = window.setInterval(refreshIfVisible, 60_000);
+		window.addEventListener("focus", refreshIfVisible);
+		document.addEventListener("visibilitychange", refreshIfVisible);
+		return () => {
+			window.clearInterval(timer);
+			window.removeEventListener("focus", refreshIfVisible);
+			document.removeEventListener("visibilitychange", refreshIfVisible);
+		};
+	}, [refreshPlanning]);
+
+	useEffect(() => {
+		const invalidate = (event: Event) => {
+			const detail = (event as CustomEvent<{ siteId?: string }>).detail;
+			if (detail?.siteId !== siteId) return;
+			resourceCache?.invalidatePlanning();
+			queueMicrotask(() => void refreshPlanning());
+		};
+		window.addEventListener(VISUAL_PLANNING_CACHE_INVALIDATED, invalidate);
+		return () =>
+			window.removeEventListener(VISUAL_PLANNING_CACHE_INVALIDATED, invalidate);
+	}, [refreshPlanning, resourceCache, siteId]);
+
+	async function reload(
+		preferredId?: string | null,
+		fallbackPlan?: VisualPlan,
+	) {
+		const load = () => getVisualPlanning(siteId, drawing.id);
+		resourceCache?.invalidatePlanning(drawing.id);
+		const value = resourceCache
+			? await resourceCache.refreshPlanning(drawing.id, load)
+			: await load();
 		setIndex(value);
 		const selected = preferredId
 			? value.plans.find((plan) => plan.id === preferredId)
@@ -286,35 +349,93 @@ export function VisualPlanningPanel({
 		setDraft(
 			selected
 				? draftFromPlan(selected)
-				: emptyDraft(value, periodStart ?? value.today),
+				: fallbackPlan
+					? draftFromPlan(fallbackPlan)
+					: null,
 		);
-		setSelectedAreaId(null);
+		setPlanningSession((current) => current + 1);
+		setSelectedArea(null);
 		setDirty(false);
+		setAreaEditing(false);
 		return value;
 	}
 
-	function selectPlan(plan: PlanningItem) {
-		if (dirty) return;
+	function activatePlan(plan: PlanningItem, areaId?: string) {
+		const planStartDay = utcDay(plan.startDate);
+		setPlanningDay((current) =>
+			Math.max(
+				current ?? planningTimeline.lastDay ?? planStartDay,
+				planStartDay,
+			),
+		);
 		setDraft(draftFromPlan(plan));
-		setSelectedAreaId(null);
+		setPlanningSession((current) => current + 1);
+		setAreaEditing(false);
+		setSelectedArea(areaId ? { planId: plan.id, areaId } : null);
 		setError(null);
 		setNotice(null);
 		setConflict(null);
+	}
+
+	function selectPlan(plan: PlanningItem, areaId?: string) {
+		if (dirty || areaEditing) {
+			setPendingDrawerAction({ type: "select", planId: plan.id, areaId });
+			return;
+		}
+		activatePlan(plan, areaId);
 	}
 
 	function startNewPlan(discardChanges = false) {
 		if (!index || saving) return;
-		if (dirty && !discardChanges) {
-			setConfirmNewPlan(true);
+		if ((dirty || areaEditing) && !discardChanges) {
+			setPendingDrawerAction({ type: "new" });
 			return;
 		}
-		setDraft(emptyDraft(index, periodStart ?? index.today));
-		setSelectedAreaId(null);
+		setDraft(emptyDraft(index));
+		setPlanningSession((current) => current + 1);
+		setAreaEditing(false);
+		setSelectedArea(null);
 		setDirty(false);
 		setError(null);
 		setNotice(null);
 		setConflict(null);
-		setConfirmNewPlan(false);
+		setPendingDrawerAction(null);
+	}
+
+	function closeDrawer(discardChanges = false) {
+		if (saving) return;
+		if ((dirty || areaEditing) && !discardChanges) {
+			setPendingDrawerAction({ type: "close" });
+			return;
+		}
+		setDraft(null);
+		setPlanningSession((current) => current + 1);
+		setAreaEditing(false);
+		setSelectedArea(null);
+		setDirty(false);
+		setError(null);
+		setNotice(null);
+		setConflict(null);
+		setPendingDrawerAction(null);
+	}
+
+	function confirmDrawerAction() {
+		if (!pendingDrawerAction || !index) return;
+		const action = pendingDrawerAction;
+		setPendingDrawerAction(null);
+		if (action.type === "new") {
+			startNewPlan(true);
+			return;
+		}
+		if (action.type === "close") {
+			closeDrawer(true);
+			return;
+		}
+		const plan = index.plans.find((item) => item.id === action.planId);
+		if (plan) {
+			setDirty(false);
+			activatePlan(plan, action.areaId);
+		}
 	}
 
 	function changeDraft(change: Partial<PlanningDraft>) {
@@ -326,7 +447,7 @@ export function VisualPlanningPanel({
 	}
 
 	async function savePlan() {
-		if (!index || !draft || saving || draft.archivedAt) return;
+		if (!index || !draft || saving || draft.archivedAt || areaEditing) return;
 		const quantity = Number(draft.quantity);
 		if (!draft.work || !draft.unit) {
 			setError("Izvēlieties darbu un mērvienību.");
@@ -364,6 +485,7 @@ export function VisualPlanningPanel({
 				quantity,
 				startDate: draft.startDate,
 				endDate: draft.endDate,
+				contactId: draft.contactId,
 				geometry: { version: 1, areas: draft.areas },
 			});
 			if (!result.ok) {
@@ -371,7 +493,7 @@ export function VisualPlanningPanel({
 				setConflict(result.conflict ?? null);
 				return;
 			}
-			await reload(result.plan.id);
+			await reload(result.plan.id, result.plan);
 			setNotice(draft.id ? "Plāns atjaunināts." : "Plāns saglabāts.");
 		} catch {
 			setError("Neizdevās saglabāt plānu. Mēģiniet vēlreiz.");
@@ -381,7 +503,7 @@ export function VisualPlanningPanel({
 	}
 
 	async function archivePlan() {
-		if (!draft?.id || !draft.version || saving || dirty) return;
+		if (!draft?.id || !draft.version || saving || dirty || areaEditing) return;
 		setSaving(true);
 		setError(null);
 		try {
@@ -419,7 +541,7 @@ export function VisualPlanningPanel({
 				setConflict(result.conflict ?? null);
 				return;
 			}
-			await reload(result.plan.id);
+			await reload(result.plan.id, result.plan);
 			setNotice("Plāns atjaunots.");
 		} catch {
 			setError("Neizdevās atjaunot plānu.");
@@ -428,529 +550,635 @@ export function VisualPlanningPanel({
 		}
 	}
 
-	const range = visualPlanningPeriodRange(
-		periodStart ?? index?.today ?? new Date().toISOString().slice(0, 10),
-		period,
-	);
 	const selectedPlan = draft?.id
 		? index?.plans.find((plan) => plan.id === draft.id)
 		: null;
-	const visiblePlans = [
-		...(index?.plans.filter(
-			(plan) =>
-				(showArchived || !plan.archivedAt) &&
-				plan.endDate >= index.today &&
-				planIntersectsPeriod(plan, range),
-		) ?? []),
-	].sort(
-		(left, right) =>
-			left.startDate.localeCompare(right.startDate) ||
-			left.endDate.localeCompare(right.endDate) ||
-			left.work.localeCompare(right.work, "lv"),
+	const timelinePlans = useMemo(
+		() =>
+			[
+				...(index?.plans.filter((plan) => showArchived || !plan.archivedAt) ??
+					[]),
+			].sort(
+				(left, right) =>
+					left.startDate.localeCompare(right.startDate) ||
+					left.endDate.localeCompare(right.endDate) ||
+					left.work.localeCompare(right.work, "lv"),
+			),
+		[index?.plans, showArchived],
 	);
-	const backgroundAreas = (index?.plans ?? [])
-		.filter(
-			(plan) =>
-				!plan.archivedAt &&
-				plan.id !== draft?.id &&
-				plan.endDate >= (index?.today ?? range.start) &&
-				planIntersectsPeriod(plan, range),
-		)
+	const planningTimeline = useMemo(
+		() => visualPlanningTimelineRange(timelinePlans),
+		[timelinePlans],
+	);
+	const selectedPlanningDay =
+		planningTimeline.firstDay !== null && planningTimeline.lastDay !== null
+			? Math.max(
+					planningTimeline.firstDay,
+					Math.min(
+						planningDay ?? planningTimeline.lastDay,
+						planningTimeline.lastDay,
+					),
+				)
+			: null;
+	const visiblePdfPlans = cumulativeVisualPlanningPlans(
+		timelinePlans,
+		selectedPlanningDay,
+	);
+	const timelineRange =
+		planningTimeline.firstDay !== null && planningTimeline.lastDay !== null
+			? {
+					start: dateFromUtcDay(planningTimeline.firstDay),
+					end: dateFromUtcDay(planningTimeline.lastDay),
+				}
+			: null;
+	const activePlanVisible =
+		!!draft &&
+		(!draft.id ||
+			((showArchived || !draft.archivedAt) &&
+				selectedPlanningDay !== null &&
+				utcDay(draft.startDate) <= selectedPlanningDay));
+	const backgroundAreas = visiblePdfPlans
+		.filter((plan) => plan.id !== draft?.id)
 		.flatMap((plan) =>
 			plan.geometry.areas.map((area) => ({
 				...area,
-				id: `${plan.id}:${area.id}`,
+				planId: plan.id,
 				color: workColor(plan.work),
+				label: plan.work,
 			})),
 		);
 	const fixedUnit = index?.workOptions.find(
 		(option) => option.work === draft?.work,
 	)?.unit;
+	const selectableContacts = (index?.contacts ?? []).filter(
+		(contact) => !contact.archivedAt || contact.id === draft?.contactId,
+	);
 
 	return (
-		<div className="relative h-full min-h-0 overflow-hidden">
-			<VisualPdf
-				resourceCache={resourceCache}
-				fillWorkspace
-				url={`/api/sites/${encodeURIComponent(siteId)}/visual/${encodeURIComponent(drawing.id)}?pdf=1`}
-				marks={[]}
-				selected={null}
-				onSelect={() => {}}
-				planning={
-					draft
-						? {
-								areas: draft.areas,
-								backgroundAreas,
-								selectedAreaId,
-								areaRequest,
-								color: workColor(draft.work),
-								editable: !saving && !draft.archivedAt,
-								onChange: (areas) => changeDraft({ areas }),
-								onSelectArea: setSelectedAreaId,
+		<div className="flex h-full min-h-0 flex-col overflow-hidden">
+			<div className="relative min-h-0 flex-1 overflow-hidden">
+				<VisualPdf
+					resourceCache={resourceCache}
+					fillWorkspace
+					url={`/api/sites/${encodeURIComponent(siteId)}/visual/${encodeURIComponent(drawing.id)}?pdf=1`}
+					marks={[]}
+					selected={null}
+					onSelect={() => {}}
+					planning={{
+						planId: draft?.id ?? null,
+						interactionKey: `${draft ? (draft.id ?? "new") : "closed"}:${planningSession}`,
+						areas: activePlanVisible ? (draft?.areas ?? []) : [],
+						backgroundAreas,
+						selectedArea,
+						areaRequest,
+						color: draft ? workColor(draft.work) : undefined,
+						label: draft?.work,
+						editable:
+							activePlanVisible && !!draft && !saving && !draft.archivedAt,
+						onChange: (areas) => {
+							if (draft) changeDraft({ areas });
+						},
+						onEditingChange: setAreaEditing,
+						onSelectArea: (selection) => {
+							if (!selection) {
+								setSelectedArea(null);
+								return;
 							}
-						: undefined
-				}
-			/>
+							if (selection.planId === (draft?.id ?? null)) {
+								setSelectedArea(selection);
+								return;
+							}
+							const plan = index?.plans.find(
+								(item) => item.id === selection.planId,
+							);
+							if (plan) selectPlan(plan, selection.areaId);
+						},
+					}}
+				/>
 
-			{sidebarOpen ? (
+				{sidebarOpen ? (
+					<aside
+						aria-label="Darbu plānošana"
+						className="absolute inset-y-3 left-3 z-30 flex w-[min(380px,calc(100%-1.5rem))] flex-col overflow-hidden rounded-xl border bg-background/95 shadow-xl backdrop-blur-sm"
+					>
+						<div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+							<div>
+								<p className="text-xs font-medium uppercase tracking-[0.14em] text-teal-800">
+									Darbu plāns
+								</p>
+								<p className="text-xs text-muted-foreground">
+									{index?.location}
+								</p>
+							</div>
+							<Button
+								size="sm"
+								variant="outline"
+								disabled={!index || saving}
+								onClick={() => startNewPlan()}
+							>
+								<Plus className="h-4 w-4" />
+								Pievienot jaunu
+							</Button>
+						</div>
+
+						<div className="min-h-0 flex-1 overflow-y-auto p-3">
+							<div className="space-y-2">
+								<div className="flex items-center justify-between gap-3 px-1">
+									<div>
+										<p className="text-xs font-medium">Darbu secība</p>
+										<p className="text-[11px] text-muted-foreground">
+											No agrākā sākuma līdz vēlākajam
+										</p>
+									</div>
+									<Label
+										htmlFor={archiveId}
+										className="flex items-center gap-2 text-xs font-normal text-muted-foreground"
+									>
+										<Switch
+											id={archiveId}
+											checked={showArchived}
+											disabled={dirty || areaEditing || saving}
+											onCheckedChange={(checked) => {
+												setShowArchived(checked);
+												if (!checked && draft?.archivedAt) closeDrawer(true);
+											}}
+										/>
+										Arhīvs
+									</Label>
+								</div>
+								{timelinePlans.length && timelineRange ? (
+									<>
+										<div
+											aria-hidden="true"
+											className="flex justify-between px-1 text-[10px] tabular-nums text-muted-foreground"
+										>
+											<span>{formatPlanDate(timelineRange.start)}</span>
+											<span>{formatPlanDate(timelineRange.end)}</span>
+										</div>
+										<ul className="space-y-2">
+											{timelinePlans.map((plan, position) => {
+												const bar = visualPlanningTimelineBar(
+													plan,
+													timelineRange,
+												);
+												const color = workColor(plan.work);
+												const contact = index?.contacts?.find(
+													(item) => item.id === plan.contactId,
+												);
+												return (
+													<li key={plan.id}>
+														<button
+															type="button"
+															aria-pressed={draft?.id === plan.id}
+															disabled={saving}
+															className={`w-full rounded-lg border-l-4 bg-muted/20 px-3 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${statusClasses[plan.progress.status]} ${draft?.id === plan.id ? "ring-2 ring-teal-700/30" : ""}`}
+															onClick={() => selectPlan(plan)}
+														>
+															<span className="flex items-start gap-2.5">
+																<span className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+																	{String(position + 1).padStart(2, "0")}
+																</span>
+																<span className="min-w-0 flex-1">
+																	<span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground">
+																		<span
+																			aria-hidden="true"
+																			className="h-2.5 w-2.5 shrink-0 rounded-sm"
+																			style={{ backgroundColor: color }}
+																		/>
+																		<span className="truncate">
+																			{plan.work}
+																		</span>
+																	</span>
+																	<span className="block text-xs text-muted-foreground">
+																		{formatPlanDate(plan.startDate)}–
+																		{formatPlanDate(plan.endDate)}
+																	</span>
+																	{contact ? (
+																		<span className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+																			<ContactRound className="h-3 w-3" />
+																			{contact.name}
+																		</span>
+																	) : null}
+																</span>
+																<span className="shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium">
+																	{plan.archivedAt
+																		? "Arhivēts"
+																		: statusLabels[plan.progress.status]}
+																</span>
+															</span>
+															<span className="mt-1 block text-xs text-foreground">
+																{progressText(plan)}
+															</span>
+															<span className="relative mt-2 block h-1.5 overflow-hidden rounded-full bg-muted">
+																<span
+																	aria-hidden="true"
+																	data-plan-timeline={plan.id}
+																	className="absolute inset-y-0 rounded-full"
+																	style={{ ...bar, backgroundColor: color }}
+																/>
+															</span>
+														</button>
+													</li>
+												);
+											})}
+										</ul>
+									</>
+								) : (
+									<p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
+										Šai lokācijai vēl nav saglabātu plānu. Spiediet “Pievienot
+										jaunu”, lai ieplānotu pirmo darbu.
+									</p>
+								)}
+							</div>
+						</div>
+
+						{loading ? (
+							<output className="absolute inset-0 flex items-center justify-center gap-2 bg-background/85 text-sm">
+								<Loader2 className="h-4 w-4 animate-spin" />
+								Ielādē plānus…
+							</output>
+						) : null}
+					</aside>
+				) : null}
+
 				<aside
-					aria-label="Darbu plānošana"
-					className="absolute inset-y-3 left-3 z-30 flex w-[min(380px,calc(100%-1.5rem))] flex-col overflow-hidden rounded-xl border bg-background/95 shadow-xl backdrop-blur-sm"
+					aria-label="Plāna detaļas"
+					aria-hidden={!draft}
+					inert={!draft}
+					data-state={draft ? "open" : "closed"}
+					className={`absolute inset-y-3 right-3 z-40 flex w-[min(440px,calc(100%-1.5rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-xl transition-[transform,opacity] duration-200 ease-out motion-reduce:transition-none ${draft ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-[calc(100%+1rem)] opacity-0"}`}
+					onKeyDown={(event) => {
+						if (
+							event.key === "Escape" &&
+							!saving &&
+							!event.defaultPrevented &&
+							!(
+								event.target instanceof Element &&
+								event.target.closest('[role="dialog"]')
+							)
+						) {
+							event.stopPropagation();
+							closeDrawer();
+						}
+					}}
 				>
-					<div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-						<div>
-							<p className="text-xs font-medium uppercase tracking-[0.14em] text-teal-800">
-								Darbu plāns
+					<div className="flex shrink-0 items-start justify-between gap-3 border-b px-4 py-3">
+						<div className="min-w-0 space-y-1">
+							<p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+								{draft?.archivedAt
+									? "Arhivētais plāns"
+									: draft?.id
+										? "Plāna detaļas"
+										: "Jauns plāns"}
 							</p>
-							<p className="text-xs text-muted-foreground">{index?.location}</p>
+							<p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+								<span
+									aria-hidden="true"
+									className="h-3 w-3 shrink-0 rounded-sm"
+									style={{
+										backgroundColor: draft
+											? workColor(draft.work)
+											: visualLayers.other.color,
+									}}
+								/>
+								<span className="truncate">
+									{draft?.work || "Izvēlieties darbu"}
+								</span>
+							</p>
+							{draft ? (
+								<p className="text-xs tabular-nums text-muted-foreground">
+									{formatPlanDate(draft.startDate)}–
+									{formatPlanDate(draft.endDate)}
+								</p>
+							) : null}
 						</div>
 						<Button
-							size="sm"
-							variant="outline"
-							disabled={!index || saving}
-							onClick={() => startNewPlan()}
+							ref={drawerCloseButton}
+							type="button"
+							variant="ghost"
+							size="icon"
+							className="h-8 w-8 shrink-0"
+							aria-label="Aizvērt plāna detaļas"
+							disabled={saving}
+							onClick={() => closeDrawer()}
 						>
-							<Plus className="h-4 w-4" />
-							Pievienot jaunu
+							<X className="h-4 w-4" />
 						</Button>
 					</div>
 
-					<div className="space-y-2 border-b px-4 py-3">
-						<div className="flex items-center gap-2">
-							<fieldset className="flex flex-1 rounded-lg bg-muted p-0.5">
-								<legend className="sr-only">Plānošanas periods</legend>
-								{(["week", "month"] as const).map((value) => (
-									<Button
-										key={value}
-										type="button"
-										size="sm"
-										variant={period === value ? "outline" : "ghost"}
-										className="h-7 flex-1 text-xs shadow-none"
-										aria-pressed={period === value}
-										disabled={dirty || saving}
-										onClick={() => {
-											setPeriod(value);
-											if (index)
-												setDraft(emptyDraft(index, periodStart ?? index.today));
-										}}
-									>
-										{value === "week" ? "Nedēļa" : "Mēnesis"}
-									</Button>
-								))}
-							</fieldset>
-							<Button
-								type="button"
-								size="icon"
-								variant="outline"
-								className="h-8 w-8"
-								aria-label="Iepriekšējais periods"
-								disabled={
-									dirty ||
-									saving ||
-									!index ||
-									(periodStart ?? index.today) <= index.today
-								}
-								onClick={() => {
-									if (!index || !periodStart) return;
-									const candidate =
-										period === "week"
-											? addUtcDays(periodStart, -7)
-											: addUtcMonths(periodStart, -1);
-									const previous =
-										candidate < index.today ? index.today : candidate;
-									setPeriodStart(previous);
-									setDraft(emptyDraft(index, previous));
-								}}
-							>
-								<ChevronLeft className="h-4 w-4" />
-							</Button>
-							<Button
-								type="button"
-								size="icon"
-								variant="outline"
-								className="h-8 w-8"
-								aria-label="Nākamais periods"
-								disabled={dirty || saving || !index}
-								onClick={() => {
-									if (!index || !periodStart) return;
-									const next =
-										period === "week"
-											? addUtcDays(periodStart, 7)
-											: addUtcMonths(periodStart, 1);
-									setPeriodStart(next);
-									setDraft(emptyDraft(index, next));
-								}}
-							>
-								<ChevronRight className="h-4 w-4" />
-							</Button>
-						</div>
-						<p className="text-xs tabular-nums text-muted-foreground">
-							{formatPlanDate(range.start)}–{formatPlanDate(range.end)}
-						</p>
-					</div>
-
-					<div className="min-h-0 flex-1 overflow-y-auto">
-						<div className="space-y-2 border-b p-3">
-							<div className="flex items-center justify-between gap-3 px-1">
-								<div>
-									<p className="text-xs font-medium">Darbu secība</p>
-									<p className="text-[11px] text-muted-foreground">
-										No agrākā sākuma līdz vēlākajam
-									</p>
+					{draft && index ? (
+						<form
+							className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4"
+							onSubmit={(event) => {
+								event.preventDefault();
+								void savePlan();
+							}}
+						>
+							<div className="flex items-center justify-end gap-3">
+								<div className="flex items-center gap-2">
+									<span className="text-xs tabular-nums text-muted-foreground">
+										{draft.areas.length}{" "}
+										{draft.areas.length === 1 ? "zona" : "zonas"}
+									</span>
+									{!draft.archivedAt && !areaEditing ? (
+										<Button
+											type="button"
+											size="sm"
+											variant="outline"
+											className="h-7"
+											disabled={saving || draft.areas.length >= 50}
+											onClick={() => setAreaRequest((value) => value + 1)}
+										>
+											<Plus className="h-3.5 w-3.5" />
+											Pievienot zonu
+										</Button>
+									) : null}
 								</div>
-								<Label
-									htmlFor={archiveId}
-									className="flex items-center gap-2 text-xs font-normal text-muted-foreground"
-								>
-									<Switch
-										id={archiveId}
-										checked={showArchived}
-										onCheckedChange={setShowArchived}
-									/>
-									Arhīvs
-								</Label>
 							</div>
-							{visiblePlans.length ? (
-								<>
-									<div
-										aria-hidden="true"
-										className="flex justify-between px-1 text-[10px] tabular-nums text-muted-foreground"
-									>
-										<span>{formatPlanDate(range.start)}</span>
-										<span>{formatPlanDate(range.end)}</span>
-									</div>
-									<ul className="space-y-2">
-										{visiblePlans.map((plan, position) => {
-											const bar = visualPlanningTimelineBar(plan, range);
-											const color = workColor(plan.work);
-											return (
-												<li key={plan.id}>
-													<button
-														type="button"
-														aria-pressed={draft?.id === plan.id}
-														disabled={dirty || saving}
-														className={`w-full rounded-lg border-l-4 bg-muted/20 px-3 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${statusClasses[plan.progress.status]} ${draft?.id === plan.id ? "ring-2 ring-teal-700/30" : ""}`}
-														onClick={() => selectPlan(plan)}
-													>
-														<span className="flex items-start gap-2.5">
-															<span className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-																{String(position + 1).padStart(2, "0")}
-															</span>
-															<span className="min-w-0 flex-1">
-																<span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground">
-																	<span
-																		aria-hidden="true"
-																		className="h-2.5 w-2.5 shrink-0 rounded-sm"
-																		style={{ backgroundColor: color }}
-																	/>
-																	<span className="truncate">{plan.work}</span>
-																</span>
-																<span className="block text-xs text-muted-foreground">
-																	{formatPlanDate(plan.startDate)}–
-																	{formatPlanDate(plan.endDate)}
-																</span>
-															</span>
-															<span className="shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium">
-																{plan.archivedAt
-																	? "Arhivēts"
-																	: statusLabels[plan.progress.status]}
-															</span>
-														</span>
-														<span className="mt-1 block text-xs text-foreground">
-															{progressText(plan)}
-														</span>
-														<span className="relative mt-2 block h-1.5 overflow-hidden rounded-full bg-muted">
-															<span
-																aria-hidden="true"
-																data-plan-timeline={plan.id}
-																className="absolute inset-y-0 rounded-full"
-																style={{ ...bar, backgroundColor: color }}
-															/>
-														</span>
-													</button>
-												</li>
-											);
-										})}
-									</ul>
-								</>
-							) : (
-								<p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
-									Šajā nākotnes periodā vēl nav saglabātu plānu. Izvēlieties
-									darbu un uzzīmējiet pirmo zonu.
+
+							{selectedPlan?.geometryReviewRequired ? (
+								<p className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+									<TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+									PDF ir aizstāts. Pārbaudiet un vajadzības gadījumā
+									pārvietojiet plānotās zonas.
 								</p>
-							)}
-						</div>
+							) : null}
 
-						{draft && index ? (
-							<form
-								className="space-y-4 p-4"
-								onSubmit={(event) => {
-									event.preventDefault();
-									void savePlan();
-								}}
-							>
-								<div className="flex items-center justify-between gap-3">
-									<h4 className="text-sm font-semibold">
-										{draft.archivedAt
-											? "Arhivētais plāns"
-											: draft.id
-												? "Labot plānu"
-												: "Jauns plāns"}
-									</h4>
-									<div className="flex items-center gap-2">
-										<span className="text-xs tabular-nums text-muted-foreground">
-											{draft.areas.length}{" "}
-											{draft.areas.length === 1 ? "zona" : "zonas"}
-										</span>
-										{!draft.archivedAt ? (
-											<Button
-												type="button"
-												size="sm"
-												variant="outline"
-												className="h-7"
-												disabled={saving || draft.areas.length >= 50}
-												onClick={() => setAreaRequest((value) => value + 1)}
-											>
-												<Plus className="h-3.5 w-3.5" />
-												Pievienot zonu
-											</Button>
-										) : null}
-									</div>
-								</div>
+							<div className="space-y-2">
+								<Label htmlFor={workId}>Darbs</Label>
+								<Select
+									value={draft.work}
+									disabled={saving || !!draft.archivedAt}
+									onValueChange={(work) => {
+										const option = index.workOptions.find(
+											(item) => item.work === work,
+										);
+										changeDraft({
+											work,
+											unit:
+												option?.unit ||
+												draft.unit ||
+												index.unitOptions[0] ||
+												"",
+										});
+									}}
+								>
+									<SelectTrigger id={workId}>
+										<SelectValue placeholder="Izvēlieties darbu" />
+									</SelectTrigger>
+									<SelectContent>
+										{index.workOptions.map((option) => (
+											<SelectItem key={option.work} value={option.work}>
+												{option.work}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
 
-								{selectedPlan?.geometryReviewRequired ? (
-									<p className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
-										<TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-										PDF ir aizstāts. Pārbaudiet un vajadzības gadījumā
-										pārvietojiet plānotās zonas.
-									</p>
-								) : null}
-
+							<div className="grid grid-cols-[minmax(0,1fr)_110px] gap-3">
 								<div className="space-y-2">
-									<Label htmlFor={workId}>Darbs</Label>
-									<Select
-										value={draft.work}
+									<Label htmlFor={quantityId}>Plānotais apjoms</Label>
+									<Input
+										id={quantityId}
+										type="number"
+										min="0"
+										step="any"
+										value={draft.quantity}
 										disabled={saving || !!draft.archivedAt}
-										onValueChange={(work) => {
-											const option = index.workOptions.find(
-												(item) => item.work === work,
-											);
-											changeDraft({
-												work,
-												unit:
-													option?.unit ||
-													draft.unit ||
-													index.unitOptions[0] ||
-													"",
-											});
-										}}
+										onChange={(event) =>
+											changeDraft({ quantity: event.target.value })
+										}
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor={unitId}>Mērvienība</Label>
+									<Select
+										value={draft.unit}
+										disabled={saving || !!draft.archivedAt || !!fixedUnit}
+										onValueChange={(unit) => changeDraft({ unit })}
 									>
-										<SelectTrigger id={workId}>
-											<SelectValue placeholder="Izvēlieties darbu" />
+										<SelectTrigger id={unitId}>
+											<SelectValue placeholder="Vienība" />
 										</SelectTrigger>
 										<SelectContent>
-											{index.workOptions.map((option) => (
-												<SelectItem key={option.work} value={option.work}>
-													{option.work}
+											{[...new Set([draft.unit, ...index.unitOptions])]
+												.filter(Boolean)
+												.map((unit) => (
+													<SelectItem key={unit} value={unit}>
+														{unit}
+													</SelectItem>
+												))}
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+
+							<div className="grid grid-cols-2 gap-3">
+								<div className="col-span-2 space-y-2">
+									<Label htmlFor={contactId}>Atbildīgais kontakts</Label>
+									<Select
+										value={draft.contactId ?? "unassigned"}
+										disabled={saving || !!draft.archivedAt}
+										onValueChange={(value) =>
+											changeDraft({
+												contactId: value === "unassigned" ? null : value,
+											})
+										}
+									>
+										<SelectTrigger id={contactId}>
+											<SelectValue placeholder="Izvēlieties kontaktu" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="unassigned">Nav piešķirts</SelectItem>
+											{selectableContacts.map((contact) => (
+												<SelectItem key={contact.id} value={contact.id}>
+													{contact.name} · +{contact.phone}
+													{contact.archivedAt ? " (arhivēts)" : ""}
 												</SelectItem>
 											))}
 										</SelectContent>
 									</Select>
-								</div>
-
-								<div className="grid grid-cols-[minmax(0,1fr)_110px] gap-3">
-									<div className="space-y-2">
-										<Label htmlFor={quantityId}>Plānotais apjoms</Label>
-										<Input
-											id={quantityId}
-											type="number"
-											min="0"
-											step="any"
-											value={draft.quantity}
-											disabled={saving || !!draft.archivedAt}
-											onChange={(event) =>
-												changeDraft({ quantity: event.target.value })
-											}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor={unitId}>Mērvienība</Label>
-										<Select
-											value={draft.unit}
-											disabled={saving || !!draft.archivedAt || !!fixedUnit}
-											onValueChange={(unit) => changeDraft({ unit })}
+									<p className="text-xs text-muted-foreground">
+										Kontaktus var pārvaldīt sadaļā{" "}
+										<Link
+											href={`/dashboard/sites/${siteId}/settings`}
+											className="font-medium text-teal-800 underline-offset-4 hover:underline"
 										>
-											<SelectTrigger id={unitId}>
-												<SelectValue placeholder="Vienība" />
-											</SelectTrigger>
-											<SelectContent>
-												{[...new Set([draft.unit, ...index.unitOptions])]
-													.filter(Boolean)
-													.map((unit) => (
-														<SelectItem key={unit} value={unit}>
-															{unit}
-														</SelectItem>
-													))}
-											</SelectContent>
-										</Select>
-									</div>
+											Projekta iestatījumi
+										</Link>
+										.
+									</p>
 								</div>
-
-								<div className="grid grid-cols-2 gap-3">
-									<div className="space-y-2">
-										<Label htmlFor={startId}>Sākuma datums</Label>
-										<Input
-											id={startId}
-											type="date"
-											min={draft.id ? undefined : index.today}
-											value={draft.startDate}
-											disabled={saving || !!draft.archivedAt}
-											onChange={(event) =>
-												changeDraft({ startDate: event.target.value })
-											}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor={endId}>Izpildes termiņš</Label>
-										<Input
-											id={endId}
-											type="date"
-											min={draft.startDate || index.today}
-											value={draft.endDate}
-											disabled={saving || !!draft.archivedAt}
-											onChange={(event) =>
-												changeDraft({ endDate: event.target.value })
-											}
-										/>
-									</div>
+								<div className="space-y-2">
+									<Label htmlFor={startId}>Sākuma datums</Label>
+									<Input
+										id={startId}
+										type="date"
+										min={draft.id ? undefined : index.today}
+										value={draft.startDate}
+										disabled={saving || !!draft.archivedAt}
+										onChange={(event) =>
+											changeDraft({ startDate: event.target.value })
+										}
+									/>
 								</div>
+								<div className="space-y-2">
+									<Label htmlFor={endId}>Izpildes termiņš</Label>
+									<Input
+										id={endId}
+										type="date"
+										min={draft.startDate || index.today}
+										value={draft.endDate}
+										disabled={saving || !!draft.archivedAt}
+										onChange={(event) =>
+											changeDraft({ endDate: event.target.value })
+										}
+									/>
+								</div>
+							</div>
 
-								<p className="flex items-center gap-2 rounded-lg border border-dashed border-teal-300 bg-teal-50/60 p-3 text-xs text-teal-950">
-									<CalendarRange className="h-4 w-4 shrink-0" />
-									{draft.areas.length
-										? "Zonas var pārvietot un precizēt tieši rasējumā."
-										: "Izvēlieties “Pievienot zonu”, pēc tam pārvietojiet zonu un tās stūrus rasējumā."}
-								</p>
-
-								{error ? (
-									<div
-										role="alert"
-										className="space-y-2 text-xs text-destructive"
-									>
-										<p>{error}</p>
-										{conflict ? (
-											<Button
-												type="button"
-												size="sm"
-												variant="outline"
-												onClick={() => {
-													const existing = index.plans.find(
-														(plan) => plan.id === conflict.id,
-													);
-													if (existing) {
-														setDraft(draftFromPlan(existing));
-														setSelectedAreaId(null);
-														setDirty(false);
-														setError(null);
-														setConflict(null);
-													}
-												}}
-											>
-												Atvērt esošo plānu
-											</Button>
-										) : null}
-									</div>
-								) : null}
-								{notice ? (
-									<output className="block text-xs text-emerald-700">
-										{notice}
-									</output>
-								) : null}
-
-								<div className="flex flex-wrap gap-2">
-									{draft.archivedAt ? (
+							{error ? (
+								<div
+									role="alert"
+									className="space-y-2 text-xs text-destructive"
+								>
+									<p>{error}</p>
+									{conflict ? (
 										<Button
 											type="button"
-											disabled={saving}
-											onClick={() => void restorePlan()}
+											size="sm"
+											variant="outline"
+											onClick={() => {
+												const existing = index.plans.find(
+													(plan) => plan.id === conflict.id,
+												);
+												if (existing) {
+													setDraft(draftFromPlan(existing));
+													setSelectedArea(null);
+													setDirty(false);
+													setError(null);
+													setConflict(null);
+												}
+											}}
+										>
+											Atvērt esošo plānu
+										</Button>
+									) : null}
+								</div>
+							) : null}
+							{notice ? (
+								<output className="block text-xs text-emerald-700">
+									{notice}
+								</output>
+							) : null}
+
+							<div className="flex flex-wrap gap-2">
+								{draft.archivedAt ? (
+									<Button
+										type="button"
+										disabled={saving}
+										onClick={() => void restorePlan()}
+									>
+										{saving ? (
+											<Loader2 className="h-4 w-4 animate-spin" />
+										) : (
+											<RotateCcw className="h-4 w-4" />
+										)}
+										Atjaunot plānu
+									</Button>
+								) : (
+									<>
+										<Button
+											type="submit"
+											disabled={saving || areaEditing || !dirty}
 										>
 											{saving ? (
 												<Loader2 className="h-4 w-4 animate-spin" />
-											) : (
-												<RotateCcw className="h-4 w-4" />
-											)}
-											Atjaunot plānu
+											) : null}
+											{draft.id ? "Saglabāt izmaiņas" : "Saglabāt plānu"}
 										</Button>
-									) : (
-										<>
-											<Button type="submit" disabled={saving || !dirty}>
-												{saving ? (
-													<Loader2 className="h-4 w-4 animate-spin" />
-												) : null}
-												{draft.id ? "Saglabāt izmaiņas" : "Saglabāt plānu"}
+										{dirty ? (
+											<Button
+												type="button"
+												variant="outline"
+												disabled={saving}
+												onClick={() => {
+													setDraft(
+														selectedPlan
+															? draftFromPlan(selectedPlan)
+															: emptyDraft(index),
+													);
+													setDirty(false);
+													setSelectedArea(null);
+													setError(null);
+												}}
+											>
+												Atcelt izmaiņas
 											</Button>
-											{dirty ? (
-												<Button
-													type="button"
-													variant="outline"
-													disabled={saving}
-													onClick={() => {
-														setDraft(
-															selectedPlan
-																? draftFromPlan(selectedPlan)
-																: emptyDraft(index, periodStart ?? index.today),
-														);
-														setDirty(false);
-														setSelectedAreaId(null);
-														setError(null);
-													}}
-												>
-													Atcelt izmaiņas
-												</Button>
-											) : null}
-											{draft.id ? (
-												<Button
-													type="button"
-													variant="ghost"
-													className="text-muted-foreground"
-													disabled={saving || dirty}
-													onClick={() => void archivePlan()}
-												>
-													<Archive className="h-4 w-4" />
-													Arhivēt
-												</Button>
-											) : null}
-										</>
-									)}
-								</div>
-							</form>
-						) : null}
-					</div>
-
-					{loading ? (
-						<output className="absolute inset-0 flex items-center justify-center gap-2 bg-background/85 text-sm">
-							<Loader2 className="h-4 w-4 animate-spin" />
-							Ielādē plānus…
-						</output>
+										) : null}
+										{draft.id ? (
+											<Button
+												type="button"
+												variant="ghost"
+												className="text-muted-foreground"
+												disabled={saving || dirty || areaEditing}
+												onClick={() => void archivePlan()}
+											>
+												<Archive className="h-4 w-4" />
+												Arhivēt
+											</Button>
+										) : null}
+									</>
+								)}
+							</div>
+						</form>
 					) : null}
 				</aside>
-			) : null}
-			<AlertDialog open={confirmNewPlan} onOpenChange={setConfirmNewPlan}>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Sākt jaunu plānu?</AlertDialogTitle>
-						<AlertDialogDescription>
-							Pašreizējā plāna nesaglabātās izmaiņas tiks atmestas.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Turpināt pašreizējo</AlertDialogCancel>
-						<AlertDialogAction onClick={() => startNewPlan(true)}>
-							Atmest un sākt jaunu
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+				<AlertDialog
+					open={!!pendingDrawerAction}
+					onOpenChange={(open) => {
+						if (!open) setPendingDrawerAction(null);
+					}}
+				>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogTitle>Atmest nesaglabātās izmaiņas?</AlertDialogTitle>
+							<AlertDialogDescription>
+								Pašreizējā plāna nesaglabātās izmaiņas tiks atmestas.
+							</AlertDialogDescription>
+						</AlertDialogHeader>
+						<AlertDialogFooter>
+							<AlertDialogCancel>Turpināt pašreizējo</AlertDialogCancel>
+							<AlertDialogAction onClick={confirmDrawerAction}>
+								{pendingDrawerAction?.type === "new"
+									? "Atmest un sākt jaunu"
+									: "Atmest un turpināt"}
+							</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
+			</div>
+			<fieldset disabled={dirty || areaEditing || saving} className="min-w-0">
+				<VisualTimeline
+					compact
+					firstDay={planningTimeline.firstDay}
+					lastDay={planningTimeline.lastDay}
+					day={selectedPlanningDay}
+					onChange={setPlanningDay}
+					undatedCount={0}
+					includeUndated={false}
+					onIncludeUndated={() => {}}
+					visibleCount={visiblePdfPlans.length}
+					ariaLabel="Plānotie darbi pa dienām"
+					title="Plānošanas datums"
+					dayPrefix="Plāns līdz"
+					emptyLabel="Nav saglabātu plānu"
+					countLabel={(count) => `${count} darbi`}
+					emptyHint="Pievienojiet plānu, lai izmantotu datumu slīdni"
+					sliderLabel="Plānošanas datums"
+				/>
+			</fieldset>
 		</div>
 	);
 }

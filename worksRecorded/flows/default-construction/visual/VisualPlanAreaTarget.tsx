@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { type MouseEvent, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { translateVisualPlanArea } from "./planning-geometry";
 import type { VisualPlanArea } from "./planning-model";
@@ -9,6 +9,7 @@ export function VisualPlanAreaTarget({
 	area,
 	label,
 	disabled,
+	movable = true,
 	selected,
 	surface,
 	onSelect,
@@ -17,9 +18,10 @@ export function VisualPlanAreaTarget({
 	area: VisualPlanArea;
 	label: string;
 	disabled: boolean;
+	movable?: boolean;
 	selected: boolean;
 	surface: HTMLDivElement | null;
-	onSelect: () => void;
+	onSelect: (event: MouseEvent<HTMLButtonElement>) => void;
 	onMove: (area: VisualPlanArea) => void;
 }) {
 	const drag = useRef<{
@@ -43,7 +45,7 @@ export function VisualPlanAreaTarget({
 			disabled={disabled}
 			aria-pressed={selected}
 			aria-label={label}
-			className={`absolute rounded-none bg-transparent p-0 hover:bg-teal-500/10 focus-visible:bg-teal-500/15 ${selected ? "cursor-move" : "cursor-pointer"}`}
+			className={`absolute rounded-none bg-transparent p-0 hover:bg-teal-500/10 focus-visible:bg-teal-500/15 ${selected && movable ? "cursor-move" : "cursor-pointer"}`}
 			style={{
 				left: `${left * 100}%`,
 				top: `${top * 100}%`,
@@ -54,9 +56,9 @@ export function VisualPlanAreaTarget({
 			onClick={onSelect}
 			onPointerDown={(event) => {
 				if (disabled || event.button !== 0 || !surface) return;
+				if (!movable) return;
 				event.stopPropagation();
 				event.preventDefault();
-				onSelect();
 				event.currentTarget.focus();
 				event.currentTarget.setPointerCapture(event.pointerId);
 				drag.current = {
@@ -94,7 +96,7 @@ export function VisualPlanAreaTarget({
 				drag.current = null;
 			}}
 			onKeyDown={(event) => {
-				if (disabled) return;
+				if (disabled || !movable) return;
 				const directions: Record<string, [number, number]> = {
 					ArrowLeft: [-1, 0],
 					ArrowRight: [1, 0],

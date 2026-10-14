@@ -9,6 +9,7 @@ import {
 	plannerToday,
 } from "@/flows/default-construction/planner/model";
 import { prisma } from "@/lib/utils/db";
+import { serializeVisualPlanningContact } from "./planning-contacts";
 import {
 	compareVisualPlanProgress,
 	findVisualPlanConflict,
@@ -29,6 +30,7 @@ type StoredVisualPlan = {
 	quantity: number;
 	startDate: Date | null;
 	date: Date;
+	visualPlanningContactId: string | null;
 	visualAreas: Prisma.JsonValue | null;
 	geometryReviewRequired: boolean;
 	archivedAt: Date | null;
@@ -56,6 +58,7 @@ export function serializeVisualPlan(row: StoredVisualPlan): VisualPlan {
 		quantity: row.quantity,
 		startDate: dateOnly(row.startDate),
 		endDate: dateOnly(row.date),
+		contactId: row.visualPlanningContactId,
 		geometry: visualPlanAreasSchema.parse(row.visualAreas),
 		geometryReviewRequired: row.geometryReviewRequired,
 		archivedAt: row.archivedAt?.toISOString() ?? null,
@@ -93,6 +96,28 @@ async function canonicalizeInput(
 	organizationId: string,
 ) {
 	const site = await loadPlanningSite(prisma, input.siteId, organizationId);
+	if (input.contactId) {
+		const contact = await prisma.visualPlanningContact.findFirst({
+			where: { id: input.contactId, siteId: input.siteId },
+			select: { archivedAt: true },
+		});
+		if (!contact)
+			throw new Error("Izvēlētais kontakts šajā projektā nav atrasts.");
+		if (contact.archivedAt) {
+			const existingAssignment = input.id
+				? await prisma.constructionPlan.findFirst({
+						where: {
+							id: input.id,
+							siteId: input.siteId,
+							visualPlanningContactId: input.contactId,
+						},
+						select: { id: true },
+					})
+				: null;
+			if (!existingAssignment)
+				throw new Error("Izvēlētais kontakts ir arhivēts.");
+		}
+	}
 	const options = getDefaultConstructionOptionValues(
 		(site.siteDiaryRecordsMap ?? {}) as Record<string, unknown>,
 	);
@@ -161,6 +186,10 @@ export async function listVisualPlans(
 		where: { siteId, planType: VISUAL_PLAN_TYPE },
 		orderBy: [{ archivedAt: "asc" }, { startDate: "asc" }, { date: "asc" }],
 	});
+	const contactRows = await prisma.visualPlanningContact.findMany({
+		where: { siteId },
+		orderBy: [{ archivedAt: "asc" }, { name: "asc" }, { id: "asc" }],
+	});
 	const plans = (rows as unknown as StoredVisualPlan[])
 		.map(serializeVisualPlan)
 		.filter(
@@ -216,6 +245,7 @@ export async function listVisualPlans(
 			unit: option.unit,
 		})),
 		unitOptions: options.units,
+		contacts: contactRows.map(serializeVisualPlanningContact),
 		plans: plans.map((plan) => ({
 			...plan,
 			progress: compareVisualPlanProgress(plan, actuals, today),
@@ -263,6 +293,7 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 				quantity: input.quantity,
 				startDate: input.startDate,
 				endDate: input.endDate,
+				contactId: input.contactId,
 				geometry: input.geometry,
 				geometryReviewRequired: false,
 				archivedAt: null,
@@ -289,6 +320,7 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 				),
 				visualDrawingId: input.drawingId,
 				visualAreas: input.geometry,
+				visualPlanningContactId: input.contactId,
 				geometryReviewRequired: false,
 				updatedBy: userId,
 			};

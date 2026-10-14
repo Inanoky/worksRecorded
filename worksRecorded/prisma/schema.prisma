@@ -141,6 +141,7 @@ model Site {
   timelog           timelog[] // on site can have timelogs
   sitediaryrecords  sitediaryrecords[] // one site can have many site diary records
   constructionPlans ConstructionPlan[]
+  visualPlanningContacts VisualPlanningContact[]
   ztcRecords        ZtcRecords[]
   BISmaterialRecords BISmaterialRecords[] //on site can have many BIS material records. 
   tgemInvoiceCases TgemInvoiceCase[]
@@ -689,6 +690,8 @@ model ConstructionPlan {
   matchKey    String
   visualDrawingId String?
   visualAreas Json?
+  visualPlanningContactId String?
+  visualPlanningContact VisualPlanningContact? @relation(fields: [visualPlanningContactId], references: [id], onDelete: SetNull)
   geometryReviewRequired Boolean @default(false)
   archivedAt  DateTime?
   archivedBy  String?
@@ -702,6 +705,22 @@ model ConstructionPlan {
   @@unique([siteId, date, matchKey, planType])
   @@index([siteId, date])
   @@index([siteId, planType, archivedAt, startDate, date])
+  @@index([visualPlanningContactId])
+}
+
+model VisualPlanningContact {
+  id         String   @id @default(uuid())
+  siteId     String
+  site       Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name       String
+  phone      String
+  archivedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  plans      ConstructionPlan[]
+
+  @@unique([siteId, phone])
+  @@index([siteId, archivedAt, name])
 }
 
 model ConstructionPlanRevision {

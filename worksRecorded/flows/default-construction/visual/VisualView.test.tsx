@@ -12,6 +12,7 @@ import {
 	deleteVisualDrawing,
 	deleteVisualPolygon,
 	getVisualDrawings,
+	getVisualPlanning,
 	getVisualWorkTypes,
 	refreshVisualDrawing,
 	resolveVisualSourceReview,
@@ -35,6 +36,7 @@ jest.mock("@/lib/utils/UploadthingsComponents", () => ({
 }));
 jest.mock("./actions", () => ({
 	getVisualDrawings: jest.fn(),
+	getVisualPlanning: jest.fn(),
 	refreshVisualDrawing: jest.fn(),
 	deleteVisualDrawing: jest.fn(),
 	deleteVisualPolygon: jest.fn(),
@@ -209,6 +211,14 @@ beforeEach(() => {
 	jest.clearAllMocks();
 	sessionStorage.clear();
 	jest.mocked(getVisualWorkTypes).mockResolvedValue(["Smilts", "XPS"]);
+	jest.mocked(getVisualPlanning).mockResolvedValue({
+		today: "2026-10-13",
+		location: "1. stāvs",
+		workOptions: [],
+		unitOptions: [],
+		contacts: [],
+		plans: [],
+	});
 	jest.mocked(refreshVisualDrawing).mockResolvedValue({
 		drawing: complete,
 		addedCount: 0,
@@ -371,10 +381,9 @@ function openSettings() {
 }
 
 async function selectLocation() {
-	await screen.findByRole("option", { name: "1. stāvs" });
-	fireEvent.change(screen.getAllByRole("combobox")[0], {
-		target: { value: "1. stāvs" },
-	});
+	await waitFor(() =>
+		expect(screen.getAllByRole("combobox")[0]).toHaveValue("1. stāvs"),
+	);
 	await screen.findByTestId("pdf");
 }
 
@@ -382,6 +391,18 @@ async function selectDrawing() {
 	render(<VisualView siteId="site" />);
 	await selectLocation();
 }
+
+it("selects the first location when navigating to Izpildshēmas", async () => {
+	const view = render(<VisualView siteId="site" active={false} />);
+	await screen.findByRole("option", { name: "1. stāvs" });
+	expect(screen.getByRole("combobox")).toHaveValue("");
+	expect(screen.queryByTestId("pdf")).not.toBeInTheDocument();
+	view.rerender(<VisualView siteId="site" active />);
+	await waitFor(() =>
+		expect(screen.getByRole("combobox")).toHaveValue("1. stāvs"),
+	);
+	expect(await screen.findByTestId("pdf")).toBeInTheDocument();
+});
 
 it("switches between execution and planning modes from the workspace header", async () => {
 	await selectDrawing();
@@ -409,6 +430,7 @@ it("switches between execution and planning modes from the workspace header", as
 	fireEvent.click(planningMode);
 	fireEvent.click(screen.getByRole("button", { name: "Mainīt plānu" }));
 	expect(actualMode).toBeDisabled();
+	expect(location).toBeDisabled();
 	expect(actualMode).toHaveAttribute(
 		"title",
 		"Saglabājiet vai atceliet plāna izmaiņas",
@@ -1424,10 +1446,9 @@ it("ignores an old drawing response after switching to an unassigned location", 
 it("can retry loading the assigned drawing without a second selector", async () => {
 	mockFetch.mockRejectedValueOnce(new Error("Network"));
 	render(<VisualView siteId="site" />);
-	await screen.findByRole("option", { name: "1. stāvs" });
-	fireEvent.change(screen.getByRole("combobox"), {
-		target: { value: "1. stāvs" },
-	});
+	await waitFor(() =>
+		expect(screen.getByRole("combobox")).toHaveValue("1. stāvs"),
+	);
 	expect(await screen.findByRole("alert")).toHaveTextContent(
 		"Neizdevās ielādēt rasējumu",
 	);

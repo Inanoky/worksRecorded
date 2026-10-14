@@ -26,6 +26,10 @@ jest.mock("@/lib/utils/db", () => ({
 			findUniqueOrThrow: jest.fn(),
 		},
 		constructionPlanRevision: { create: jest.fn() },
+		visualPlanningContact: {
+			findMany: jest.fn(),
+			findFirst: jest.fn(),
+		},
 		sitediaryrecords: { findMany: jest.fn() },
 	},
 }));
@@ -73,6 +77,7 @@ function stored(overrides: Record<string, unknown> = {}) {
 		quantity: 100,
 		startDate: new Date("2026-10-12"),
 		date: new Date("2026-10-18"),
+		visualPlanningContactId: null,
 		matchKey: '["xps","1. stāvs","m2"]',
 		visualAreas: geometry,
 		geometryReviewRequired: false,
@@ -128,6 +133,8 @@ beforeEach(() => {
 		.mocked(prisma.constructionPlanRevision.create)
 		.mockResolvedValue({} as never);
 	jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([]);
+	jest.mocked(prisma.visualPlanningContact.findMany).mockResolvedValue([]);
+	jest.mocked(prisma.visualPlanningContact.findFirst).mockResolvedValue(null);
 });
 
 afterEach(() => jest.useRealTimers());
@@ -153,6 +160,27 @@ it("creates a visual milestone and its audit snapshot in one transaction", async
 			actorId: "user",
 		}),
 	});
+});
+
+it("assigns only a contact that belongs to the same project", async () => {
+	const contactId = "55555555-5555-4555-8555-555555555555";
+	jest.mocked(prisma.visualPlanningContact.findFirst).mockResolvedValue({
+		archivedAt: null,
+	} as never);
+	jest
+		.mocked(prisma.constructionPlan.create)
+		.mockResolvedValue(stored({ visualPlanningContactId: contactId }) as never);
+
+	const result = await persistVisualPlan("user", { ...input, contactId });
+
+	expect(prisma.visualPlanningContact.findFirst).toHaveBeenCalledWith({
+		where: { id: contactId, siteId },
+		select: { archivedAt: true },
+	});
+	expect(prisma.constructionPlan.create).toHaveBeenCalledWith({
+		data: expect.objectContaining({ visualPlanningContactId: contactId }),
+	});
+	expect(result.contactId).toBe(contactId);
 });
 
 it("rejects an overlapping active item and returns the conflicting plan", async () => {
@@ -200,6 +228,17 @@ it("loads live progress from the start date and respects factual quantities", as
 	jest
 		.mocked(prisma.constructionPlan.findMany)
 		.mockResolvedValue([stored()] as never);
+	jest.mocked(prisma.visualPlanningContact.findMany).mockResolvedValue([
+		{
+			id: "55555555-5555-4555-8555-555555555555",
+			siteId,
+			name: "Anna Bērziņa",
+			phone: "37120000000",
+			archivedAt: null,
+			createdAt: new Date("2026-10-11"),
+			updatedAt: new Date("2026-10-11"),
+		},
+	] as never);
 	jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([
 		{
 			id: "actual",
@@ -221,6 +260,12 @@ it("loads live progress from the start date and respects factual quantities", as
 			status: "active",
 		},
 	});
+	expect(result.contacts).toEqual([
+		expect.objectContaining({
+			name: "Anna Bērziņa",
+			phone: "37120000000",
+		}),
+	]);
 	expect(prisma.sitediaryrecords.findMany).toHaveBeenCalledWith(
 		expect.objectContaining({
 			where: expect.objectContaining({

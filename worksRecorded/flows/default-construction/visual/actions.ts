@@ -5,6 +5,11 @@ import { createPerfTrace } from "@/lib/observability/perf";
 import { requireUser } from "@/lib/utils/requireUser";
 import { persistVisualLayers } from "./layer-store";
 import {
+	archiveVisualPlanningContact,
+	persistVisualPlanningContact,
+	restoreVisualPlanningContact,
+} from "./planning-contacts";
+import {
 	archiveVisualPlan,
 	listVisualPlans,
 	persistVisualPlan,
@@ -146,6 +151,53 @@ export async function saveVisualPolygonPatch(
 export async function getVisualPlanning(siteId: string, drawingId: string) {
 	const user = await requireUser();
 	return listVisualPlans(user.id, siteId, drawingId);
+}
+
+function revalidateVisualPlanningContacts(siteId: unknown) {
+	if (typeof siteId !== "string") return;
+	revalidatePath(`/dashboard/sites/${siteId}/settings`);
+	revalidatePath(`/dashboard/sites/${siteId}/izpildshemas`);
+}
+
+function planningContactFailure(error: unknown) {
+	return {
+		ok: false as const,
+		error:
+			error instanceof Error ? error.message : "Neizdevās saglabāt kontaktu.",
+	};
+}
+
+export async function saveVisualPlanningContact(input: unknown) {
+	const user = await requireUser();
+	try {
+		const contact = await persistVisualPlanningContact(user.id, input);
+		revalidateVisualPlanningContacts((input as { siteId?: unknown })?.siteId);
+		return { ok: true as const, contact };
+	} catch (error) {
+		return planningContactFailure(error);
+	}
+}
+
+export async function archiveVisualPlanningContactItem(input: unknown) {
+	const user = await requireUser();
+	try {
+		const contact = await archiveVisualPlanningContact(user.id, input);
+		revalidateVisualPlanningContacts((input as { siteId?: unknown })?.siteId);
+		return { ok: true as const, contact };
+	} catch (error) {
+		return planningContactFailure(error);
+	}
+}
+
+export async function restoreVisualPlanningContactItem(input: unknown) {
+	const user = await requireUser();
+	try {
+		const contact = await restoreVisualPlanningContact(user.id, input);
+		revalidateVisualPlanningContacts((input as { siteId?: unknown })?.siteId);
+		return { ok: true as const, contact };
+	} catch (error) {
+		return planningContactFailure(error);
+	}
 }
 
 function revalidateVisualPlanning(siteId: unknown) {
