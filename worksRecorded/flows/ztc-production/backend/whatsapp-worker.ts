@@ -1,6 +1,8 @@
 import { auditZtcMutation, withZtcRecordAudit, ztcMessageAuditContext } from "@/flows/ztc-production/lib/ztc-record-audit";
 import { drawingLogText, drawingRejectionReasons, summarizeDrawingExtraction } from "@/flows/ztc-production/lib/ztc-drawing-diagnostics";
 import { validateZtcDrawingProjectCode } from "@/flows/ztc-production/lib/ztc-drawing-project-code";
+import { canRepairZtcDrawingContext } from "@/flows/ztc-production/lib/ztc-drawing-context-repair";
+import { parseZtcSessionCommand } from "@/flows/ztc-production/lib/ztc-session-commands";
 import { UTApi } from "uploadthing/server";
 import OpenAI, { toFile } from "openai";
 import { prisma } from "@/lib/utils/db";
@@ -2014,7 +2016,7 @@ async function ensureSessionHasDrawingContext(args: {
   worker: ZtcWorker;
 }) {
   const { session, drawingContext, worker } = args;
-  if (hasZtcDrawingContext(session) || !drawingContext) return session;
+  if (hasZtcDrawingContext(session) || !drawingContext || !canRepairZtcDrawingContext(session)) return session;
 
   const repaired = await auditZtcMutation("ensureSessionHasDrawingContext", (tx) => tx.ztcRecords.update({
     where: { id: session.id },
@@ -2076,11 +2078,11 @@ function normalizeZtcCommand(value: string) {
 }
 
 function isPauseCommand(text: string) {
-  return normalizeZtcCommand(text) === "pauze";
+  return parseZtcSessionCommand(text) === "pause";
 }
 
 function isResumeCommand(text: string) {
-  return normalizeZtcCommand(text) === "turpinu";
+  return parseZtcSessionCommand(text) === "resume";
 }
 
 function isCancelCommand(text: string) {
