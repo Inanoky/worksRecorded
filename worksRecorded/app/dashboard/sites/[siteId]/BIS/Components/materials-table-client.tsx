@@ -70,6 +70,7 @@ import MaterialConfigSelect, {
 } from "./material-config-select"
 import { toast } from "sonner"
 import { getToastMessages, getWarehouseUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
+import { DiaryFeedbackBrain } from "@/flows/default-construction/frontend/DiaryFeedbackBrain"
 import { UploadButton } from "@/lib/utils/UploadthingsComponents"
 import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url"
 import {
@@ -1944,6 +1945,7 @@ export default function MaterialsTableClient({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+            {isDefaultConstructionFlow ? <DiaryFeedbackBrain key={`${siteId}:warehouse`} siteId={siteId} domain="warehouse" organizationLanguage={organizationLanguage} /> : null}
             <Button
               type="button"
               variant="outline"

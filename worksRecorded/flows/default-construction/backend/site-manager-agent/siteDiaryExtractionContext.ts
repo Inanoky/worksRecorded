@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/utils/db";
+import { getDiaryFeedbackContext } from "../diary-feedback";
 import {
 	type ConfigMap,
 	getAiFieldDescription,
@@ -178,6 +179,7 @@ function formatSchemaDigest(config: ConfigMap) {
 
 	lines.push(
 		"Numeric extraction rules:",
+		"- Leave null if the worker count is unknown. Use zero only when the current source explicitly states zero.",
 		"- WorkersInvolved, TimeInvolved, Amounts, and Units must come from the current message unless the current message explicitly supplies or references that numeric value.",
 		"- Never copy workers, hours, amounts, units, locations, or dates from reference items for a standalone daily report.",
 	);
@@ -271,6 +273,7 @@ export async function buildSiteDiaryExtractionContext({
 		},
 	});
 	const schemaDigest = formatSchemaDigest(config);
+	const feedbackContext = await getDiaryFeedbackContext(siteId);
 	const rawText = [
 		"Trusted extraction context:",
 		`Current message preview: ${compact(sourceText, 500) || "(empty)"}`,
@@ -296,7 +299,7 @@ export async function buildSiteDiaryExtractionContext({
 	const bounded = truncateContext(rawText);
 
 	return {
-		text: bounded.text,
+		text: [bounded.text, feedbackContext].filter(Boolean).join("\n"),
 		metadata: {
 			recentRecordCount: recentRecords.length,
 			hasExplicitContextReference: explicitContextReference,

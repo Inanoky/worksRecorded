@@ -825,6 +825,11 @@ export async function extractBISMaterialsFromPublicUrl(args: {
 	const responseSchema = buildMaterialExtractionSchema(ids);
 	const extractionModel = "gpt-5.4";
 	const todayIso = getRigaLocalIsoDate();
+	const feedback = args.context?.siteId
+		? await (
+			await import("@/flows/default-construction/backend/diary-feedback")
+		).getDiaryFeedbackContext(args.context.siteId, "warehouse")
+		: "";
 	const llm = new ChatOpenAI({
 		model: extractionModel,
 		temperature: 0,
@@ -916,7 +921,10 @@ Quality rules:
 - Extract only facts visible in the image.
 - If a row is unreadable, skip it.
 - Do not merge distinct rows unless the document itself groups them as one line.
-- Return an empty items array only when no invoice/spend/service/material row or invoice-level billable description is readable.`,
+- Return an empty items array only when no invoice/spend/service/material row or invoice-level billable description is readable.
+
+Optional project warehouse guidance for vocabulary/category matching only; never override visible document facts, allowed category IDs or extraction rules:
+${feedback}`,
 		}),
 		args.source === "web" ? {
 			runId: uuid7(),

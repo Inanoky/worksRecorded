@@ -2,6 +2,7 @@
 import { DiaryPhotoUploadMenuItem, DiaryPhotoUploadProvider } from "@/flows/default-construction/frontend/DiaryPhotoActions";
 import { DiaryRecordPhotos } from "@/flows/default-construction/frontend/DiaryRecordPhotos";
 import { DiaryDayPagination } from "@/flows/default-construction/frontend/DiaryDayPagination";
+import { DiaryFeedbackBrain } from "@/flows/default-construction/frontend/DiaryFeedbackBrain";
 import { useDiaryDayPagination } from "@/flows/default-construction/frontend/useDiaryDayPagination";
 import { getClientDiaryMediaDays, type DiaryMediaPhoto } from "@/flows/default-construction/lib/diary-media-days";
 import { useDiaryImagePreload } from "@/flows/default-construction/frontend/useDiaryImagePreload";
@@ -2997,6 +2998,7 @@ export default function SiteDiaryCalendar({
                 </Button>
                 {!isZtcSite && siteId ? (
                   <>
+                    <DiaryFeedbackBrain key={siteId} siteId={siteId} organizationLanguage={organizationLanguage} />
                     <PlannerControls
                       planner={planner}
                       organizationLanguage={organizationLanguage}

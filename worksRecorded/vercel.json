@@ -1,6 +1,10 @@
 {
 	"crons": [
 		{
+			"path": "/api/cron/construction-diary-feedback",
+			"schedule": "*/30 * * * *"
+		},
+		{
 			"path": "/api/webhook/news-digest?secret=sgef313534552afawd1524435tsfefwer13t3",
 			"schedule": "0 */12 * * *"
 		},

@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import { automaticallyAssignForma2Sources } from "@/flows/default-construction/backend/forma2-auto-assignment";
+import { getDiaryFeedbackContext } from "@/flows/default-construction/backend/diary-feedback";
 import {
 	buildForma2AnalyticsView,
 	DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY,
@@ -1433,6 +1434,10 @@ export async function runDefaultConstructionForma2AutoAssignment(
 		sources: data.sources,
 		positions,
 		existingAllocations: [...data.state.allocations, ...ruleAllocations],
+		feedback: {
+			work: await getDiaryFeedbackContext(siteId, "diary"),
+			material: await getDiaryFeedbackContext(siteId, "warehouse"),
+		},
 	});
 	const newAllocations = [...ruleAllocations, ...allocations];
 	if (newAllocations.length) {

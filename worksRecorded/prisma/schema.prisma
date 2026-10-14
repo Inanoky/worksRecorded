@@ -152,6 +152,7 @@ model Site {
   
   sitediarysettings sitediarysettings? //One site can have one site diary setting
   analytics analytics?
+  diaryFeedback ConstructionDiaryFeedback[]
   workers           workers[] //on site can have many workers 
   siteWeatherHourly SiteWeatherHourly[]
    organizationId String?
@@ -883,6 +884,41 @@ model ZtcPhoto {
 
   @@index([siteId, Date])
   @@index([siteId, mediaPurpose, Date])
+}
+
+model ConstructionDiaryFeedback {
+  siteId String
+  domain String @default("diary")
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  revision Int @default(0)
+  generatedPrompt String @default("") @db.Text
+  userInstructions String @default("") @db.Text
+  sourceFingerprint String?
+  sourceRecordCount Int @default(0)
+  checkedAt DateTime?
+  updatedAt DateTime @updatedAt
+  generationToken String?
+  leaseUntil DateTime?
+  versions ConstructionDiaryFeedbackVersion[]
+  @@id([siteId, domain])
+}
+
+model ConstructionDiaryFeedbackVersion {
+  id String @id @default(uuid())
+  siteId String
+  domain String @default("diary")
+  feedback ConstructionDiaryFeedback @relation(fields: [siteId, domain], references: [siteId, domain], onDelete: Cascade)
+  revision Int
+  kind String
+  actorId String?
+  model String?
+  generatedPrompt String @db.Text
+  userInstructions String @db.Text
+  sourceFingerprint String?
+  sourceRecordCount Int
+  createdAt DateTime @default(now())
+
+  @@unique([siteId, domain, revision])
 }
 
 model sitediarysettings {

@@ -51,6 +51,50 @@ const materialSource: Forma2ActualSource = {
 };
 
 describe("Forma 2 automatic assignment", () => {
+	it("passes only the matching brain guidance to each source type", async () => {
+		const parse = jest.fn().mockResolvedValue({
+			output_parsed: {
+				assignments: [
+					{
+						sourceIndex: 0,
+						positionId: null,
+						confidence: 0,
+						reason: "unclear",
+					},
+					{
+						sourceIndex: 1,
+						positionId: null,
+						confidence: 0,
+						reason: "unclear",
+					},
+				],
+			},
+		});
+		await automaticallyAssignForma2Sources({
+			sources: [
+				{ ...materialSource, label: "Unknown material" },
+				{
+					...materialSource,
+					id: "work-source",
+					type: "work",
+					label: "Unknown task",
+				},
+			],
+			positions: [workPosition, materialPosition],
+			existingAllocations: [],
+			openai: { responses: { parse } } as never,
+			feedback: { material: "WAREHOUSE ONLY", work: "DIARY ONLY" },
+		});
+		const input = JSON.parse(parse.mock.calls[0][0].input);
+		expect(
+			input.find((item: { type: string }) => item.type === "material")
+				.projectGuidance,
+		).toBe("WAREHOUSE ONLY");
+		expect(
+			input.find((item: { type: string }) => item.type === "work")
+				.projectGuidance,
+		).toBe("DIARY ONLY");
+	});
 	it("never asks AI to overwrite a manual partial split", async () => {
 		const result = await automaticallyAssignForma2Sources({
 			sources: [materialSource],

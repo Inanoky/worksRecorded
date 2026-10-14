@@ -1,0 +1,10 @@
+ALTER TABLE "ConstructionDiaryFeedbackVersion" DROP CONSTRAINT "ConstructionDiaryFeedbackVersion_siteId_fkey";
+ALTER TABLE "ConstructionDiaryFeedback" ADD COLUMN "domain" TEXT NOT NULL DEFAULT 'diary';
+ALTER TABLE "ConstructionDiaryFeedbackVersion" ADD COLUMN "domain" TEXT NOT NULL DEFAULT 'diary';
+ALTER TABLE "ConstructionDiaryFeedback" DROP CONSTRAINT "ConstructionDiaryFeedback_pkey";
+ALTER TABLE "ConstructionDiaryFeedback" ADD CONSTRAINT "ConstructionDiaryFeedback_pkey" PRIMARY KEY ("siteId", "domain");
+DROP INDEX "ConstructionDiaryFeedbackVersion_siteId_revision_key";
+CREATE UNIQUE INDEX "ConstructionDiaryFeedbackVersion_siteId_domain_revision_key" ON "ConstructionDiaryFeedbackVersion"("siteId", "domain", "revision");
+ALTER TABLE "ConstructionDiaryFeedbackVersion" ADD CONSTRAINT "ConstructionDiaryFeedbackVersion_siteId_domain_fkey" FOREIGN KEY ("siteId", "domain") REFERENCES "ConstructionDiaryFeedback"("siteId", "domain") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ConstructionDiaryFeedback" ADD CONSTRAINT "ConstructionDiaryFeedback_domain_check" CHECK ("domain" IN ('diary', 'warehouse'));
+ALTER TABLE "ConstructionDiaryFeedbackVersion" ADD CONSTRAINT "ConstructionDiaryFeedbackVersion_domain_check" CHECK ("domain" IN ('diary', 'warehouse'));

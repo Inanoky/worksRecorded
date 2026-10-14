@@ -3,6 +3,7 @@
 import { MessageCircle } from "lucide-react";
 import React from "react";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
+import { DiaryFeedbackBrain } from "@/flows/default-construction/frontend/DiaryFeedbackBrain";
 import TourRunner from "@/components/joyride/TourRunner";
 import DialogWindow from "@/components/sitediary/DialogWindow";
 import { Button } from "@/components/ui/button";
@@ -165,6 +166,7 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false }) {
           </button>
         </div>
         <div>
+          {!isZtcFlow && siteId ? <DiaryFeedbackBrain key={siteId} siteId={siteId} organizationLanguage="en" /> : null}
           <Button className="ml-2" variant="outline" onClick={exportToExcel}>
             Export to Excel
           </Button>
