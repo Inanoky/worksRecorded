@@ -17,10 +17,15 @@ import {
 	resolveVisualSourceReview,
 	restartVisualDrawing,
 	saveVisualLayers,
+	saveVisualPolygonPatch as saveVisualPolygon,
 } from "./actions";
 import { defaultVisualLayerSettings } from "./layer-settings";
 import type { VisualDrawing, VisualMark } from "./model";
-import type { PolygonDelete } from "./polygon-edit";
+import type {
+	PolygonDelete,
+	PolygonEdit,
+	PolygonSaveResponse,
+} from "./polygon-edit";
 import { visualDiaryDay } from "./timeline";
 import VisualView from "./VisualView";
 
@@ -35,6 +40,7 @@ jest.mock("./actions", () => ({
 	deleteVisualPolygon: jest.fn(),
 	restartVisualDrawing: jest.fn(),
 	saveVisualPolygon: jest.fn(),
+	saveVisualPolygonPatch: jest.fn(),
 	getVisualWorkTypes: jest.fn(),
 	saveVisualWorkType: jest.fn(),
 	resolveVisualSourceReview: jest.fn(),
@@ -45,18 +51,46 @@ jest.mock("./VisualPdf", () => ({
 		marks,
 		onSelect,
 		onDelete,
+		onQueueSave,
+		editable,
+		selected,
 	}: {
 		marks: VisualMark[];
 		onSelect: (id: string | null) => void;
 		onDelete: (deletion: PolygonDelete) => void;
+		onQueueSave: (edit: PolygonEdit) => void;
+		editable: boolean;
+		selected: string | null;
 	}) => (
 		<div
 			data-testid="pdf"
 			data-layers={marks.map((mark) => mark.layer).join(",")}
+			data-polygons={JSON.stringify(marks.map((mark) => mark.polygon))}
 		>
 			{marks.length} zones
 			<button type="button" onClick={() => onSelect(marks[0]?.id ?? null)}>
 				Select drawing zone
+			</button>
+			<button type="button" onClick={() => onSelect(marks[1]?.id ?? null)}>
+				Select second zone
+			</button>
+			<button
+				type="button"
+				disabled={!editable || !selected}
+				onClick={() => {
+					const mark = marks.find((mark) => mark.id === selected);
+					if (mark)
+						onQueueSave({
+							markId: mark.id,
+							expectedPolygon: mark.polygon,
+							polygon: [
+								{ ...mark.polygon[0], x: mark.polygon[0].x + 0.05 },
+								...mark.polygon.slice(1),
+							],
+						});
+				}}
+			>
+				Save drawing zone
 			</button>
 			<button type="button" onClick={() => onSelect(null)}>
 				Empty drawing
@@ -173,6 +207,7 @@ const complete: VisualDrawing = {
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	sessionStorage.clear();
 	jest.mocked(getVisualWorkTypes).mockResolvedValue(["Smilts", "XPS"]);
 	jest.mocked(refreshVisualDrawing).mockResolvedValue({
 		drawing: complete,
@@ -202,6 +237,7 @@ beforeEach(() => {
 });
 afterEach(() => {
 	global.fetch = originalFetch;
+	sessionStorage.clear();
 	jest.useRealTimers();
 });
 
@@ -268,6 +304,7 @@ it("dismisses the review warning without clearing reviews and only reopens it fo
 });
 
 it("renames project layers without reloading the PDF or invoking analysis", async () => {
+	jest.useFakeTimers();
 	jest
 		.mocked(saveVisualLayers)
 		.mockImplementation(
@@ -866,6 +903,176 @@ it("switches back to a loaded location immediately on the client without a secon
 	expect(screen.queryByText("Ielādē…")).not.toBeInTheDocument();
 	expect(mockFetch).toHaveBeenCalledTimes(1);
 	expect(mockUpload).not.toHaveBeenCalled();
+});
+
+it("shows optimistic polygons, allows editing other zones, queues writes, and blocks journal refresh until acknowledged", async () => {
+	jest.useFakeTimers();
+	const twoZones = {
+		...complete,
+		state: {
+			...complete.state,
+			marks: [
+				complete.state.marks[0],
+				{ ...complete.state.marks[0], id: "second-mark", layer: "xps" },
+			],
+		},
+	};
+	mockFetch.mockResolvedValue({ ok: true, json: async () => twoZones });
+	let finishFirst!: (value: PolygonSaveResponse) => void;
+	jest
+		.mocked(saveVisualPolygon)
+		.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					finishFirst = resolve;
+				}),
+		)
+		.mockImplementation(async (_site, drawingId, raw) => {
+			const edit = raw as PolygonEdit;
+			return {
+				ok: true,
+				result: {
+					drawingId,
+					markId: edit.markId,
+					polygon: edit.polygon,
+					mutationId: edit.mutationId ?? null,
+					editedAt: "2026-10-13",
+					editedBy: "user",
+				},
+			};
+		});
+	await selectDrawing();
+	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
+	fireEvent.click(screen.getByRole("button", { name: "Save drawing zone" }));
+	expect(screen.getByText(/Saglabā zonas/)).toBeInTheDocument();
+	expect(screen.queryByText("Zonas saglabātas")).not.toBeInTheDocument();
+	expect(screen.getByTestId("pdf")).toHaveAttribute(
+		"data-polygons",
+		JSON.stringify([
+			[{ x: 0.05, y: 0 }, ...complete.state.marks[0].polygon.slice(1)],
+			complete.state.marks[0].polygon,
+		]),
+	);
+	expect(
+		screen.getByRole("button", { name: "Atjaunot no žurnāla" }),
+	).toBeDisabled();
+	expect(
+		screen.getByRole("button", { name: "Save drawing zone" }),
+	).toBeDisabled();
+	fireEvent.click(screen.getByRole("button", { name: "Select second zone" }));
+	expect(
+		screen.getByRole("button", { name: "Save drawing zone" }),
+	).toBeEnabled();
+	fireEvent.click(screen.getByRole("button", { name: "Save drawing zone" }));
+	expect(saveVisualPolygon).toHaveBeenCalledTimes(1);
+	await act(async () => jest.advanceTimersByTime(31_000));
+	expect(refreshVisualDrawing).not.toHaveBeenCalled();
+	const input = jest.mocked(saveVisualPolygon).mock.calls[0][2] as PolygonEdit;
+	await act(async () =>
+		finishFirst({
+			ok: true,
+			result: {
+				drawingId: "drawing",
+				markId: input.markId,
+				polygon: input.polygon,
+				mutationId: input.mutationId ?? null,
+				editedAt: "2026-10-13",
+				editedBy: "user",
+			},
+		}),
+	);
+	await waitFor(() =>
+		expect(screen.getByText("Zonas saglabātas")).toBeInTheDocument(),
+	);
+	expect(saveVisualPolygon).toHaveBeenCalledTimes(2);
+	expect(
+		screen.getByRole("button", { name: "Atjaunot no žurnāla" }),
+	).toBeEnabled();
+	expect(mockFetch).toHaveBeenCalledTimes(1);
+});
+
+it("retains failed geometry for retry, stores it per user/project, and confirms only after success", async () => {
+	jest.useFakeTimers();
+	const index = await jest.mocked(getVisualDrawings).getMockImplementation()?.(
+		"site",
+	);
+	if (!index) throw new Error("Missing fixture");
+	jest
+		.mocked(getVisualDrawings)
+		.mockResolvedValue({ ...index, userId: "user" });
+	jest
+		.mocked(saveVisualPolygon)
+		.mockRejectedValueOnce(new Error("Network"))
+		.mockImplementation(async (_site, drawingId, raw) => {
+			const edit = raw as PolygonEdit;
+			return {
+				ok: true,
+				result: {
+					drawingId,
+					markId: edit.markId,
+					polygon: edit.polygon,
+					mutationId: edit.mutationId ?? null,
+					editedAt: "2026-10-13",
+					editedBy: "user",
+				},
+			};
+		});
+	await selectDrawing();
+	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
+	fireEvent.click(screen.getByRole("button", { name: "Save drawing zone" }));
+	expect(
+		await screen.findByText("Nesaglabāti zonu labojumi: 1"),
+	).toBeInTheDocument();
+	expect(screen.queryByText("Zonas saglabātas")).not.toBeInTheDocument();
+	const stored = sessionStorage.getItem(
+		"limeni.visual.polygon-saves:v1:user:site",
+	);
+	expect(stored).toContain("mutationId");
+	expect(stored).not.toContain("photoUrl");
+	const originalInput = jest.mocked(saveVisualPolygon).mock.calls[0][2];
+	fireEvent.click(
+		screen.getByRole("button", { name: /Mēģināt vēlreiz: 1. stāvs/ }),
+	);
+	await waitFor(() =>
+		expect(screen.getByText("Zonas saglabātas")).toBeInTheDocument(),
+	);
+	expect(saveVisualPolygon).toHaveBeenLastCalledWith(
+		"site",
+		"drawing",
+		originalInput,
+	);
+	expect(
+		sessionStorage.getItem("limeni.visual.polygon-saves:v1:user:site"),
+	).toBeNull();
+});
+
+it("keeps conflicting edits visible and reloads authoritative geometry only after explicit cancellation", async () => {
+	jest.useFakeTimers();
+	jest.mocked(saveVisualPolygon).mockResolvedValue({
+		ok: false,
+		code: "conflict",
+		error: "Zona jau ir mainīta.",
+	});
+	await selectDrawing();
+	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
+	fireEvent.click(screen.getByRole("button", { name: "Save drawing zone" }));
+	await screen.findByText("Zona jau ir mainīta.");
+	expect(
+		screen.getByRole("button", { name: /Mēģināt vēlreiz: 1. stāvs/ }),
+	).toBeDisabled();
+	expect(screen.queryByText("Zonas saglabātas")).not.toBeInTheDocument();
+	fireEvent.click(
+		screen.getByRole("button", { name: /Atcelt labojumu: 1. stāvs/ }),
+	);
+	await screen.findByTestId("pdf");
+	expect(screen.getByTestId("pdf")).toHaveAttribute(
+		"data-polygons",
+		JSON.stringify([complete.state.marks[0].polygon]),
+	);
+	expect(mockFetch).toHaveBeenCalledTimes(2);
+	expect(
+		screen.getByRole("button", { name: "Atjaunot no žurnāla" }),
+	).toBeEnabled();
 });
 
 it("preloads the next assigned location without changing the selection and switches to it without waiting", async () => {

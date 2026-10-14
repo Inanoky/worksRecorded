@@ -68,6 +68,7 @@ export type VisualMark = z.infer<typeof visualMatchSchema> & {
 	layer: VisualLayer;
 	editedAt?: string;
 	editedBy?: string;
+	geometryMutationId?: string;
 };
 
 export const visualStateSchema = z.object({
@@ -99,6 +100,7 @@ export const visualStateSchema = z.object({
 			layer: z.string().min(1).max(80),
 			editedAt: z.string().optional(),
 			editedBy: z.string().optional(),
+			geometryMutationId: z.string().uuid().optional(),
 		}),
 	),
 	unlocated: visualAnalysisSchema.shape.unlocated,

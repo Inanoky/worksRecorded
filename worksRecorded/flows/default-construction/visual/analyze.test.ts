@@ -188,16 +188,29 @@ it("analyzes appended evidence only and preserves previous manually edited zones
 	expect(result.state.attempts[0].evidenceId).toBe("new-photo");
 });
 
-it("uses GPT-6 Sol with medium reasoning by default", async () => {
+it("uses GPT-6.1 Sol with medium reasoning by default", async () => {
 	const result = await analyzeVisualBatch("user", "site", "drawing");
 	expect(mockParse).toHaveBeenCalledWith(
 		expect.objectContaining({
-			model: "gpt-6-sol",
+			model: "gpt-6.1-sol",
 			reasoning: { effort: "medium" },
 		}),
 		{ timeout: 150_000 },
 	);
-	expect(result.state.attempts[0].model).toBe("gpt-6-sol");
+	expect(result.state.attempts[0].model).toBe("gpt-6.1-sol");
+});
+
+it("uses GPT-6.1 Sol when the visual-only override is blank", async () => {
+	process.env.LIMENI_VISUAL_MODEL = "  ";
+	const result = await analyzeVisualBatch("user", "site", "drawing");
+	expect(mockParse).toHaveBeenCalledWith(
+		expect.objectContaining({
+			model: "gpt-6.1-sol",
+			reasoning: { effort: "medium" },
+		}),
+		expect.anything(),
+	);
+	expect(result.state.attempts[0].model).toBe("gpt-6.1-sol");
 });
 
 it("preserves the visual-only model override with medium reasoning", async () => {

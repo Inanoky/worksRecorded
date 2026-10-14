@@ -105,12 +105,16 @@ export class VisualClientCache {
 	}
 
 	removeDrawing(id: string) {
-		this.drawings.delete(id);
-		this.requests.get(id)?.controller.abort();
-		this.requests.delete(id);
+		this.invalidateDrawing(id);
 		const url = `${this.endpoint(id)}?pdf=1`;
 		const entry = this.pdfs.get(url);
 		if (entry) this.destroyPdf(url, entry);
+	}
+
+	invalidateDrawing(id: string) {
+		this.drawings.delete(id);
+		this.requests.get(id)?.controller.abort();
+		this.requests.delete(id);
 	}
 
 	clear() {

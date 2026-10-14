@@ -740,15 +740,60 @@ it("rejects exceeding the total photo limit without changing the drawing", async
 it("saves only polygon geometry with editor attribution and keeps diary evidence intact", async () => {
 	const { state, edit } = await mockEditableDrawing();
 	const updated = await editVisualPolygon("user", "site", "drawing", edit);
-	expect(updated.state.evidence).toEqual(state.evidence);
-	expect(updated.state.marks[0]).toMatchObject({
+	const saved = JSON.parse(
+		jest.mocked(prisma.documents.updateMany).mock.calls[0][0].data
+			.description as string,
+	) as VisualState;
+	expect(saved.evidence).toEqual(state.evidence);
+	expect(saved.marks[0]).toMatchObject({
 		polygon: edit.polygon,
 		editedBy: "user",
 		editedAt: expect.any(String),
 		evidenceId: "first:0",
 		layer: "xps",
 	});
+	expect(updated).toEqual({
+		drawingId: "drawing",
+		markId: edit.markId,
+		polygon: edit.polygon,
+		editedBy: "user",
+		editedAt: expect.any(String),
+		mutationId: null,
+		geometryMutationId: null,
+	});
+	expect(updated).not.toHaveProperty("state");
+	expect(prisma.sitediaryrecords.groupBy).not.toHaveBeenCalled();
 	expect(prisma.documents.updateMany).toHaveBeenCalledTimes(1);
+});
+
+it("acknowledges a repeated polygon mutation after a lost response without writing twice", async () => {
+	const { row, edit } = await mockEditableDrawing();
+	const input = { ...edit, mutationId: "11111111-1111-4111-8111-111111111111" };
+	const first = await editVisualPolygon("user", "site", "drawing", input);
+	row.description = jest.mocked(prisma.documents.updateMany).mock.calls[0][0]
+		.data.description as string;
+	const repeated = await editVisualPolygon("user", "site", "drawing", input);
+	expect(repeated).toEqual(first);
+	expect(prisma.documents.updateMany).toHaveBeenCalledTimes(1);
+	await expect(
+		editVisualPolygon("user", "site", "drawing", {
+			...input,
+			polygon: edit.expectedPolygon,
+		}),
+	).rejects.toThrow("Zona jau ir mainīta");
+});
+
+it("skips unchanged geometry but still rejects concurrent drawing writes", async () => {
+	const { edit } = await mockEditableDrawing();
+	await editVisualPolygon("user", "site", "drawing", {
+		...edit,
+		polygon: edit.expectedPolygon,
+	});
+	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
+	jest.mocked(prisma.documents.updateMany).mockResolvedValue({ count: 0 });
+	await expect(
+		editVisualPolygon("user", "site", "drawing", edit),
+	).rejects.toThrow("Rasējums jau ir mainīts");
 });
 
 it("deletes just one split polygon, preserves its siblings and evidence, and stores deletion attribution", async () => {

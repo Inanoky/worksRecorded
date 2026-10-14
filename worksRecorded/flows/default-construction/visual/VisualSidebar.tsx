@@ -26,6 +26,7 @@ export function VisualSidebar({
 	locked,
 	layerStyles = visualLayers,
 	onManageLayers,
+	managementLocked = false,
 }: {
 	id: string;
 	open: boolean;
@@ -40,6 +41,7 @@ export function VisualSidebar({
 	locked: boolean;
 	layerStyles?: Record<string, { label: string; color: string }>;
 	onManageLayers?: () => void;
+	managementLocked?: boolean;
 }) {
 	const allLayers = Object.keys(layerStyles);
 	const [tab, setTab] = useState<"layers" | "sources">("layers");
@@ -204,7 +206,7 @@ export function VisualSidebar({
 					variant="ghost"
 					size="sm"
 					className="shrink-0 rounded-none border-t text-xs"
-					disabled={locked}
+					disabled={locked || managementLocked}
 					onClick={onManageLayers}
 				>
 					<Settings2 className="mr-2 h-3.5 w-3.5" />

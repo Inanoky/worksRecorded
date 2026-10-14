@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
+import type { createPerfTrace } from "@/lib/observability/perf";
 import { prisma } from "@/lib/utils/db";
 import { requireWarehouseImportAccess } from "../backend/warehouse-import-upload";
 import {
@@ -27,7 +28,12 @@ import {
 	workLayer,
 } from "./model";
 import { VISUAL_PLAN_TYPE } from "./planning-model";
-import { polygonDeleteSchema, polygonEditSchema } from "./polygon-edit";
+import {
+	PolygonSaveConflictError,
+	type PolygonSaveResult,
+	polygonDeleteSchema,
+	polygonEditSchema,
+} from "./polygon-edit";
 import { syncVisualEvidence } from "./sync-evidence";
 
 const archivedVisualType = `${VISUAL_DOCUMENT_TYPE}-archived`;
@@ -703,21 +709,88 @@ export async function editVisualPolygon(
 	siteId: string,
 	drawingId: string,
 	input: unknown,
+	trace?: ReturnType<typeof createPerfTrace>,
 ) {
 	const edit = polygonEditSchema.parse(input);
-	const { row, drawing } = await loadVisualDrawing(userId, siteId, drawingId);
-	requireIdleDrawing(drawing.state);
-	const mark = drawing.state.marks.find((item) => item.id === edit.markId);
-	if (!mark) throw new Error("Zona nav atrasta.");
-	if (JSON.stringify(mark.polygon) !== JSON.stringify(edit.expectedPolygon))
-		throw new Error(
+	const measure =
+		trace?.measure ??
+		(async <T>(_phase: string, task: () => T | Promise<T>) => task());
+	const access = await measure("access", () =>
+		requireVisualAccess(userId, siteId),
+	);
+	const row = await measure("read", () =>
+		prisma.documents.findFirst({
+			where: {
+				id: drawingId,
+				siteId,
+				organizationId: access.organizationId,
+				documentType: VISUAL_DOCUMENT_TYPE,
+			},
+			select: {
+				id: true,
+				siteId: true,
+				organizationId: true,
+				description: true,
+			},
+		}),
+	);
+	if (!row)
+		throw new PolygonSaveConflictError(
+			"Rasējums nav atrasts vai nav pieejams.",
+		);
+	const state = await measure("validate", () =>
+		visualStateSchema.parse(JSON.parse(row.description)),
+	);
+	requireIdleDrawing(state);
+	const mark = state.marks.find((item) => item.id === edit.markId);
+	if (!mark)
+		throw new PolygonSaveConflictError(
+			"Zona nav atrasta. Atjaunojiet rasējumu.",
+		);
+	const samePolygon =
+		JSON.stringify(mark.polygon) === JSON.stringify(edit.polygon);
+	const repeatedMutation =
+		edit.mutationId && mark.geometryMutationId === edit.mutationId;
+	if (
+		(repeatedMutation && !samePolygon) ||
+		(!repeatedMutation &&
+			JSON.stringify(mark.polygon) !== JSON.stringify(edit.expectedPolygon))
+	)
+		throw new PolygonSaveConflictError(
 			"Zona jau ir mainīta. Pārlādējiet rasējumu pirms rediģēšanas.",
 		);
-	mark.polygon = edit.polygon;
-	mark.editedAt = new Date().toISOString();
-	mark.editedBy = userId;
-	await saveVisualState(row, drawing.state);
-	return drawing;
+	if (!samePolygon) {
+		mark.polygon = edit.polygon;
+		mark.editedAt = new Date().toISOString();
+		mark.editedBy = userId;
+		mark.geometryMutationId = edit.mutationId;
+		const changed = await measure("write", () =>
+			prisma.documents.updateMany({
+				where: {
+					id: row.id,
+					siteId,
+					organizationId: access.organizationId,
+					documentType: VISUAL_DOCUMENT_TYPE,
+					description: row.description,
+				},
+				data: { description: JSON.stringify(state) },
+			}),
+		);
+		if (changed.count !== 1)
+			throw new PolygonSaveConflictError(
+				"Rasējums jau ir mainīts. Atjaunojiet skatu pirms atkārtotas saglabāšanas.",
+			);
+	}
+	const result: PolygonSaveResult = {
+		drawingId,
+		markId: mark.id,
+		polygon: mark.polygon,
+		editedAt: mark.editedAt ?? null,
+		editedBy: mark.editedBy ?? null,
+		mutationId: edit.mutationId ?? null,
+		geometryMutationId: mark.geometryMutationId ?? null,
+	};
+	return result;
 }
 
 export async function removeVisualPolygon(

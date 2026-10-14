@@ -48,7 +48,9 @@ export function VisualPdf({
 	selected,
 	onSelect,
 	editable = false,
+	deletable = true,
 	onSave,
+	onQueueSave,
 	onEditingChange,
 	fillWorkspace = false,
 	onDelete,
@@ -61,7 +63,9 @@ export function VisualPdf({
 	selected: string | null;
 	onSelect: (id: string | null) => void;
 	editable?: boolean;
+	deletable?: boolean;
 	onSave?: (edit: PolygonEdit) => Promise<void>;
+	onQueueSave?: (edit: PolygonEdit) => void;
 	onEditingChange?: (editing: boolean) => void;
 	fillWorkspace?: boolean;
 	onDelete?: (deletion: PolygonDelete) => void;
@@ -134,7 +138,19 @@ export function VisualPdf({
 		planning.onSelectArea(area.id);
 	}
 	async function save() {
-		if (!draft || !onSave || !validDraft || saving) return;
+		if (!draft || (!onSave && !onQueueSave) || !validDraft || saving) return;
+		if (onQueueSave) {
+			try {
+				onQueueSave(draft);
+				endEditing();
+			} catch (error) {
+				setSaveError(
+					error instanceof Error ? error.message : "Neizdevās saglabāt zonu.",
+				);
+			}
+			return;
+		}
+		if (!onSave) return;
 		setSaving(true);
 		setSaveError(null);
 		try {
@@ -312,7 +328,7 @@ export function VisualPdf({
 						<Trash2 className="h-4 w-4" />
 					</Button>
 				) : null}
-				{onSave && !planning && !draft ? (
+				{(onSave || onQueueSave) && !planning && !draft ? (
 					<Button
 						size="sm"
 						variant="outline"
@@ -342,7 +358,7 @@ export function VisualPdf({
 						className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
 						aria-label="Dzēst poligonu"
 						title="Dzēst tikai izvēlēto poligonu"
-						disabled={!editable || !selectedMark || !ready}
+						disabled={!editable || !deletable || !selectedMark || !ready}
 						onClick={() => {
 							if (selectedMark)
 								onDelete({

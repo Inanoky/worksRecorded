@@ -58,7 +58,6 @@ import {
 	resolveVisualSourceReview,
 	restartVisualDrawing,
 	saveVisualLayers,
-	saveVisualPolygon,
 } from "./actions";
 import {
 	defaultVisualLayerSettings,
@@ -77,13 +76,15 @@ import {
 	visualImageProgress,
 	visualLayers,
 } from "./model";
-import type { PolygonDelete } from "./polygon-edit";
+import type { PolygonDelete, PolygonSaveResult } from "./polygon-edit";
+import { applyPolygonSave, projectPolygonSaves } from "./polygon-save-queue";
 import { pruneVisualEvidence } from "./prune-evidence";
 import {
 	buildVisualTimeline,
 	cumulativeVisualMarks,
 	sortVisualMarksChronologically,
 } from "./timeline";
+import { usePolygonSaveQueue } from "./usePolygonSaveQueue";
 import { useVisualAutoSync } from "./useVisualAutoSync";
 import { useVisualWorkspace } from "./useVisualWorkspace";
 import {
@@ -93,6 +94,7 @@ import {
 import { VisualLayerManager } from "./VisualLayerManager";
 import { VisualPdf } from "./VisualPdf";
 import { VisualPlanningPanel } from "./VisualPlanningPanel";
+import { VisualPolygonSaveStatus } from "./VisualPolygonSaveStatus";
 import { VisualSidebar } from "./VisualSidebar";
 import { VisualTimeline } from "./VisualTimeline";
 import { VisualZoneDetails } from "./VisualZoneDetails";
@@ -118,6 +120,28 @@ export default function VisualView({
 	const [index, setIndex] = useState<Index | null>(null);
 	const [location, setLocation] = useState("");
 	const [drawing, setDrawing] = useState<VisualDrawing | null>(null);
+	const currentCache = useRef(resourceCache);
+	currentCache.current = resourceCache;
+	const confirmPolygonSave = useCallback(
+		(result: PolygonSaveResult) => {
+			if (currentCache.current !== resourceCache) return;
+			const cached = resourceCache.peekDrawing(result.drawingId);
+			if (cached)
+				resourceCache.rememberDrawing(applyPolygonSave(cached, result));
+			setDrawing((value) => (value ? applyPolygonSave(value, result) : value));
+		},
+		[resourceCache],
+	);
+	const { queue: polygonSaves, state: polygonSaveState } = usePolygonSaveQueue(
+		siteId,
+		index?.userId,
+		confirmPolygonSave,
+	);
+	const hasUnsavedPolygons = polygonSaveState.items.length > 0;
+	const optimisticDrawing = useMemo(
+		() => projectPolygonSaves(drawing, polygonSaveState.items),
+		[drawing, polygonSaveState.items],
+	);
 	const [file, setFile] = useState<File | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [editing, setEditing] = useState(false);
@@ -147,6 +171,7 @@ export default function VisualView({
 		planningDirty ||
 		managingLayers ||
 		savingLayers;
+	const mutationControlsLocked = controlsLocked || hasUnsavedPolygons;
 	const [confirmation, setConfirmation] = useState<
 		"delete" | "restart" | "replace" | "polygon" | null
 	>(null);
@@ -373,7 +398,14 @@ export default function VisualView({
 		mode: "upload" | "resume" | "refresh" | "restart",
 		auto = false,
 	) {
-		if (busyRef.current || editing || workEditing || remoteActive) return;
+		if (
+			busyRef.current ||
+			editing ||
+			workEditing ||
+			remoteActive ||
+			polygonSaves.hasPending()
+		)
+			return;
 		const run = epoch.current;
 		busyRef.current = true;
 		setBusy(true);
@@ -457,11 +489,12 @@ export default function VisualView({
 	useVisualAutoSync({
 		active: active && mode === "actual",
 		scope: drawing ? `${siteId}:${drawing.id}` : null,
-		blocked: controlsLocked || loading || !!confirmation,
+		blocked: mutationControlsLocked || loading || !!confirmation,
 		sync: () => process("refresh", true),
 	});
 	async function resolveReview(reanalyze: boolean) {
-		if (!drawing || !source || controlsLocked || busyRef.current) return;
+		if (!drawing || !source || mutationControlsLocked || busyRef.current)
+			return;
 		const run = epoch.current;
 		busyRef.current = true;
 		setBusy(true);
@@ -494,7 +527,14 @@ export default function VisualView({
 		}
 	}
 	async function removePolygon(deletion: PolygonDelete) {
-		if (!drawing || busyRef.current || editing || workEditing) return;
+		if (
+			!drawing ||
+			busyRef.current ||
+			editing ||
+			workEditing ||
+			polygonSaves.hasPending()
+		)
+			return;
 		const run = epoch.current;
 		busyRef.current = true;
 		setBusy(true);
@@ -525,7 +565,7 @@ export default function VisualView({
 		}
 	}
 	async function removeDrawing() {
-		if (!drawing || busyRef.current) return;
+		if (!drawing || busyRef.current || polygonSaves.hasPending()) return;
 		const id = drawing.id;
 		const run = epoch.current;
 		busyRef.current = true;
@@ -583,16 +623,16 @@ export default function VisualView({
 			: null;
 	const categorizedMarks = useMemo(
 		() =>
-			drawing
+			optimisticDrawing
 				? projectVisualMarks(
-						drawing.state.marks,
-						drawing.state.evidence,
-						drawing.id,
+						optimisticDrawing.state.marks,
+						optimisticDrawing.state.evidence,
+						optimisticDrawing.id,
 						layerConfiguration.settings,
 						layerConfiguration.positionIds,
 					)
 				: [],
-		[drawing, layerConfiguration],
+		[optimisticDrawing, layerConfiguration],
 	);
 	const datedMarks = cumulativeVisualMarks(
 		categorizedMarks,
@@ -822,6 +862,7 @@ export default function VisualView({
 						className="h-7 px-2 text-xs shadow-none"
 						aria-label="Plānošana"
 						aria-pressed={mode === "planning"}
+						disabled={editing || workEditing || hasUnsavedPolygons}
 						title="Plānot darbus rasējumā"
 						onClick={() => {
 							setSelected(null);
@@ -868,7 +909,7 @@ export default function VisualView({
 								variant="outline"
 								aria-label="Turpināt analīzi"
 								title="Turpināt analīzi"
-								disabled={controlsLocked}
+								disabled={mutationControlsLocked}
 								onClick={() => void process("resume")}
 							>
 								<Play className="h-4 w-4" />
@@ -881,7 +922,7 @@ export default function VisualView({
 							aria-label="Atjaunot no žurnāla"
 							title="Atjaunot no žurnāla"
 							variant="outline"
-							disabled={controlsLocked}
+							disabled={mutationControlsLocked}
 							onClick={() => void process("refresh")}
 						>
 							<RefreshCw className="h-4 w-4" />
@@ -929,14 +970,16 @@ export default function VisualView({
 										id={fileId}
 										type="file"
 										accept="application/pdf,.pdf"
-										disabled={controlsLocked || loading || !location}
+										disabled={mutationControlsLocked || loading || !location}
 										onChange={(event) =>
 											setFile(event.target.files?.[0] ?? null)
 										}
 									/>
 								</div>
 								<Button
-									disabled={controlsLocked || loading || !file || !location}
+									disabled={
+										mutationControlsLocked || loading || !file || !location
+									}
 									onClick={() =>
 										locationDrawings.length
 											? setConfirmation("replace")
@@ -953,14 +996,14 @@ export default function VisualView({
 								<div className="flex flex-wrap gap-2">
 									<Button
 										variant="outline"
-										disabled={controlsLocked || loading}
+										disabled={mutationControlsLocked || loading}
 										onClick={() => setConfirmation("restart")}
 									>
 										Sākt analīzi no jauna
 									</Button>
 									<Button
 										variant="destructive"
-										disabled={controlsLocked || loading}
+										disabled={mutationControlsLocked || loading}
 										onClick={() => setConfirmation("delete")}
 									>
 										Dzēst rasējumu
@@ -1019,6 +1062,30 @@ export default function VisualView({
 				className="relative min-h-0 flex-1 overflow-hidden"
 				data-testid="visual-canvas-workspace"
 			>
+				{mode === "actual" ? (
+					<VisualPolygonSaveStatus
+						state={polygonSaveState}
+						locked={editing || workEditing}
+						label={(item) => {
+							const cached = resourceCache.peekDrawing(item.drawingId);
+							const mark = cached?.state.marks.find(
+								(mark) => mark.id === item.edit.markId,
+							);
+							return `${cached?.state.location ?? "Zona"} · ${cached?.state.evidence.find((source) => source.id === mark?.evidenceId)?.work ?? "Zonas labojums"}`;
+						}}
+						onRetry={(item) =>
+							polygonSaves.retry(item.drawingId, item.edit.markId)
+						}
+						onDiscard={(item) => {
+							polygonSaves.discard(item.drawingId, item.edit.markId);
+							if (!polygonSaves.hasPending(item.drawingId)) {
+								resourceCache.invalidateDrawing(item.drawingId);
+								if (drawing?.id === item.drawingId)
+									void loadDrawing(item.drawingId);
+							}
+						}}
+					/>
+				) : null}
 				{drawing ? (
 					mode === "planning" ? (
 						<VisualPlanningPanel
@@ -1046,20 +1113,26 @@ export default function VisualView({
 									!workEditing &&
 									!managingLayers &&
 									!savingLayers &&
+									!polygonSaveState.items.some(
+										(item) =>
+											item.drawingId === drawing.id &&
+											item.edit.markId === selectedMark?.id,
+									) &&
 									drawing.state.status !== "running"
 								}
 								onEditingChange={setEditing}
+								deletable={!hasUnsavedPolygons}
 								onDelete={(deletion) => {
+									if (polygonSaves.hasPending()) return;
 									setPolygonDeletion(deletion);
 									setConfirmation("polygon");
 								}}
-								onSave={async (edit) => {
-									const updated = await saveVisualPolygon(
-										siteId,
-										drawing.id,
-										edit,
-									);
-									showDrawing(updated);
+								onQueueSave={(edit) => {
+									if (busyRef.current || remoteActive)
+										throw new Error(
+											"Uzgaidiet, līdz rasējuma atjaunināšana ir pabeigta.",
+										);
+									polygonSaves.enqueue(drawing.id, edit);
 								}}
 							/>
 							<VisualZoneDetails
@@ -1081,13 +1154,14 @@ export default function VisualView({
 								}
 								editorLocked={
 									busy ||
+									hasUnsavedPolygons ||
 									editing ||
 									remoteActive ||
 									managingLayers ||
 									savingLayers
 								}
 								closeLocked={editing || workEditing}
-								controlsLocked={controlsLocked}
+								controlsLocked={mutationControlsLocked}
 								onClose={() => selectZone(null)}
 								onEditingChange={setWorkEditing}
 								onResolveReview={resolveReview}
@@ -1116,6 +1190,7 @@ export default function VisualView({
 							<VisualSidebar
 								layerStyles={layerStyles}
 								onManageLayers={() => setManagingLayers(true)}
+								managementLocked={hasUnsavedPolygons}
 								id={`${fileId}-sidebar`}
 								open={sidebarOpen}
 								marks={visibleMarks}

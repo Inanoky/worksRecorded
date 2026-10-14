@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { createPerfTrace } from "@/lib/observability/perf";
 import { requireUser } from "@/lib/utils/requireUser";
 import { persistVisualLayers } from "./layer-store";
 import {
@@ -11,20 +12,29 @@ import {
 	VisualPlanConflictError,
 } from "./planning-store";
 import {
+	PolygonSaveConflictError,
+	type PolygonSaveResponse,
+} from "./polygon-edit";
+import {
 	appendVisualDiaryEvidence,
 	editVisualPolygon,
 	editVisualWorkType,
 	listVisualDrawings,
 	listVisualWorkTypes,
+	loadVisualDrawing,
 	removeVisualDrawing,
 	removeVisualPolygon,
 	resetVisualDrawing,
 	reviewVisualSource,
 } from "./store";
 
-export async function getVisualDrawings(siteId: string) {
+export async function getVisualDrawings(
+	siteId: string,
+): Promise<
+	Awaited<ReturnType<typeof listVisualDrawings>> & { userId?: string }
+> {
 	const user = await requireUser();
-	return listVisualDrawings(user.id, siteId);
+	return { ...(await listVisualDrawings(user.id, siteId)), userId: user.id };
 }
 
 export async function saveVisualLayers(
@@ -85,7 +95,52 @@ export async function saveVisualPolygon(
 	input: unknown,
 ) {
 	const user = await requireUser();
-	return editVisualPolygon(user.id, siteId, drawingId, input);
+	await editVisualPolygon(user.id, siteId, drawingId, input);
+	return (await loadVisualDrawing(user.id, siteId, drawingId)).drawing;
+}
+
+export async function saveVisualPolygonPatch(
+	siteId: string,
+	drawingId: string,
+	input: unknown,
+): Promise<PolygonSaveResponse> {
+	const trace = createPerfTrace({
+		route: "limeni.visual.polygon.save",
+		category: "action",
+		siteId,
+	});
+	const user = await trace.measure("session", requireUser);
+	try {
+		const result = await editVisualPolygon(
+			user.id,
+			siteId,
+			drawingId,
+			input,
+			trace,
+		);
+		const response = await trace.measure("response", () =>
+			JSON.stringify(result),
+		);
+		trace.end({
+			status: 200,
+			extra: {
+				drawingId,
+				markId: result.markId,
+				responseBytes: Buffer.byteLength(response),
+			},
+		});
+		return { ok: true, result };
+	} catch (error) {
+		const conflict = error instanceof PolygonSaveConflictError;
+		trace.fail(error, { status: conflict ? 409 : 500, extra: { drawingId } });
+		return {
+			ok: false,
+			code: conflict ? "conflict" : "error",
+			error: conflict
+				? error.message
+				: "Neizdevās saglabāt zonu. Labojums ir saglabāts šajā logā; mēģiniet vēlreiz.",
+		};
+	}
 }
 
 export async function getVisualPlanning(siteId: string, drawingId: string) {

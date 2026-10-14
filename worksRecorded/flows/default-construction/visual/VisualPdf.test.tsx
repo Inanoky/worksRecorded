@@ -448,6 +448,69 @@ it("edits locally with stable corner focus, supports adding/removing corners and
 	});
 });
 
+it("hands a confirmed edit to the background queue and immediately unlocks zone selection", async () => {
+	const onQueueSave = jest.fn();
+	const onSave = jest.fn();
+	const onEditingChange = jest.fn();
+	render(
+		<VisualPdf
+			url="/drawing"
+			marks={[mark]}
+			selected="mark"
+			onSelect={jest.fn()}
+			editable
+			onSave={onSave}
+			onQueueSave={onQueueSave}
+			onEditingChange={onEditingChange}
+		/>,
+	);
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Pielāgot zonu" })).toBeEnabled(),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	fireEvent.keyDown(screen.getByRole("button", { name: "Stūris 1" }), {
+		key: "ArrowRight",
+		shiftKey: true,
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
+	expect(onQueueSave).toHaveBeenCalledWith({
+		markId: mark.id,
+		expectedPolygon: mark.polygon,
+		polygon: [{ x: 0.11, y: 0.1 }, ...mark.polygon.slice(1)],
+	});
+	expect(onSave).not.toHaveBeenCalled();
+	expect(onEditingChange).toHaveBeenLastCalledWith(false);
+	expect(
+		screen.queryByRole("button", { name: "Stūris 1" }),
+	).not.toBeInTheDocument();
+	expect(screen.getByRole("button", { name: "Tuvināt" })).toBeEnabled();
+});
+
+it("keeps the local draft when the background queue refuses an edit", async () => {
+	const onQueueSave = jest.fn(() => {
+		throw new Error("Zona vēl tiek saglabāta.");
+	});
+	render(
+		<VisualPdf
+			url="/drawing"
+			marks={[mark]}
+			selected="mark"
+			onSelect={jest.fn()}
+			editable
+			onQueueSave={onQueueSave}
+		/>,
+	);
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Pielāgot zonu" })).toBeEnabled(),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
+	expect(screen.getByRole("alert")).toHaveTextContent(
+		"Zona vēl tiek saglabāta",
+	);
+	expect(screen.getByRole("button", { name: "Stūris 1" })).toBeInTheDocument();
+});
+
 it("cancels geometry changes without persisting and retains edits if saving fails", async () => {
 	const onSave = jest.fn().mockRejectedValue(new Error("Conflict"));
 	const { container } = render(
