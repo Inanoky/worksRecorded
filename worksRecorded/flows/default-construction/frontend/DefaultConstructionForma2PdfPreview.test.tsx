@@ -16,12 +16,10 @@ beforeEach(() => {
 	jest
 		.spyOn(HTMLCanvasElement.prototype, "getContext")
 		.mockReturnValue({} as CanvasRenderingContext2D);
-	global.fetch = jest
-		.fn()
-		.mockResolvedValue({
-			ok: true,
-			arrayBuffer: async () => new ArrayBuffer(4),
-		});
+	global.fetch = jest.fn().mockResolvedValue({
+		ok: true,
+		arrayBuffer: async () => new ArrayBuffer(4),
+	});
 	mockGetPage.mockResolvedValue({
 		getViewport: ({ scale }: { scale: number }) => ({
 			width: 100 * scale,
@@ -59,6 +57,27 @@ it("fits the invoice to the panel without an embedded browser viewer", async () 
 	fireEvent.click(screen.getByTitle("Fit to width"));
 	expect(canvas.parentElement).toHaveStyle({ width: "100%" });
 	expect(global.fetch).toHaveBeenCalledTimes(1);
+});
+
+it("zooms with the wheel without downloading or rendering the PDF again", async () => {
+	render(
+		<DefaultConstructionForma2PdfPreview
+			url="/invoice"
+			title="INV-1"
+			isLatvian={false}
+		/>,
+	);
+	await waitFor(() =>
+		expect(screen.queryByRole("status")).not.toBeInTheDocument(),
+	);
+	const viewport = screen.getByRole("region", { name: "Invoice zoom and pan" });
+	fireEvent.wheel(viewport, { deltaY: -100, clientX: 200, clientY: 200 });
+	expect(screen.getByRole("img").parentElement?.style.width).not.toBe("100%");
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+	expect(mockGetPage).toHaveBeenCalledTimes(1);
+	fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+	await waitFor(() => expect(mockGetPage).toHaveBeenLastCalledWith(2));
+	expect(screen.getByRole("img").parentElement).toHaveStyle({ width: "100%" });
 });
 
 it("changes pages and releases PDF resources when closed", async () => {

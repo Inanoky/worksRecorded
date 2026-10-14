@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DefaultConstructionForma2PdfPreview } from "./DefaultConstructionForma2PdfPreview";
+import { InvoicePreviewViewport } from "./InvoicePreviewViewport";
 
 export function DefaultConstructionForma2InvoicePreview({
 	url,
@@ -58,14 +59,6 @@ export function DefaultConstructionForma2InvoicePreview({
 				</div>
 			</div>
 			<div className="relative min-h-[360px] flex-1">
-				{loading && !document ? (
-					<output className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-background/80">
-						<Loader2 className="size-5 animate-spin" />
-						<span className="sr-only">
-							{isLatvian ? "Ielādē rēķinu" : "Loading invoice"}
-						</span>
-					</output>
-				) : null}
 				{document ? (
 					<DefaultConstructionForma2PdfPreview
 						url={url}
@@ -73,16 +66,36 @@ export function DefaultConstructionForma2InvoicePreview({
 						isLatvian={isLatvian}
 					/>
 				) : (
-					<Image
-						src={url}
-						alt={title}
-						fill
-						unoptimized
-						sizes="(min-width: 1280px) 45vw, 100vw"
-						className="object-contain p-3"
-						onLoad={() => setLoading(false)}
-						onError={() => setDocument(true)}
-					/>
+					<div className="absolute inset-0 flex min-h-0 flex-col">
+						<InvoicePreviewViewport
+							key={url}
+							isLatvian={isLatvian}
+							ready={!loading}
+							fit="contain"
+							overlay={
+								loading ? (
+									<output className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-background/80">
+										<Loader2 className="size-5 animate-spin" />
+										<span className="sr-only">
+											{isLatvian ? "Ielādē rēķinu" : "Loading invoice"}
+										</span>
+									</output>
+								) : null
+							}
+						>
+							<Image
+								src={url}
+								alt={title}
+								fill
+								unoptimized
+								sizes="(min-width: 1280px) 45vw, 100vw"
+								className="object-contain select-none"
+								draggable={false}
+								onLoad={() => setLoading(false)}
+								onError={() => setDocument(true)}
+							/>
+						</InvoicePreviewViewport>
+					</div>
 				)}
 			</div>
 		</section>

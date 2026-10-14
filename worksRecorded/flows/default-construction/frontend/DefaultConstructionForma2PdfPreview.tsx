@@ -1,9 +1,10 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Loader2, Minus, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { InvoicePreviewViewport } from "./InvoicePreviewViewport";
 
 export function DefaultConstructionForma2PdfPreview({
 	url,
@@ -16,11 +17,9 @@ export function DefaultConstructionForma2PdfPreview({
 }) {
 	const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
 	const [page, setPage] = useState(1);
-	const [zoom, setZoom] = useState(1);
 	const [ready, setReady] = useState(false);
 	const [failed, setFailed] = useState(false);
 	const canvas = useRef<HTMLCanvasElement>(null);
-	const viewport = useRef<HTMLDivElement>(null);
 	useEffect(() => {
 		let active = true;
 		let task:
@@ -29,7 +28,6 @@ export function DefaultConstructionForma2PdfPreview({
 		const abort = new AbortController();
 		setPdf(null);
 		setPage(1);
-		setZoom(1);
 		setReady(false);
 		setFailed(false);
 		void (async () => {
@@ -62,7 +60,6 @@ export function DefaultConstructionForma2PdfPreview({
 		let rendering: { promise: Promise<void>; cancel: () => void } | undefined;
 		setReady(false);
 		setFailed(false);
-		if (viewport.current) viewport.current.scrollTop = 0;
 		void (async () => {
 			try {
 				const pdfPage = await pdf.getPage(page);
@@ -95,97 +92,64 @@ export function DefaultConstructionForma2PdfPreview({
 			className="absolute inset-0 flex min-h-0 flex-col"
 			aria-label={`${isLatvian ? "Rēķina priekšskatījums" : "Invoice preview"}: ${title}`}
 		>
-			<div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-background px-3 py-2">
-				<div className="flex items-center gap-1">
-					<Button
-						variant="ghost"
-						size="icon"
-						className="size-8"
-						aria-label={isLatvian ? "Iepriekšējā lapa" : "Previous page"}
-						disabled={!pdf || page <= 1}
-						onClick={() => setPage((value) => value - 1)}
-					>
-						<ChevronLeft className="size-4" />
-					</Button>
-					<span
-						className="min-w-12 text-center text-xs tabular-nums"
-						aria-live="polite"
-					>
-						{page} / {pdf?.numPages ?? "—"}
-					</span>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="size-8"
-						aria-label={isLatvian ? "Nākamā lapa" : "Next page"}
-						disabled={!pdf || page >= pdf.numPages}
-						onClick={() => setPage((value) => value + 1)}
-					>
-						<ChevronRight className="size-4" />
-					</Button>
-				</div>
-				<div className="flex items-center gap-1">
-					<Button
-						variant="ghost"
-						size="icon"
-						className="size-8"
-						aria-label={isLatvian ? "Samazināt" : "Zoom out"}
-						disabled={zoom <= 1}
-						onClick={() => setZoom((value) => Math.max(1, value - 0.25))}
-					>
-						<Minus className="size-4" />
-					</Button>
-					<Button
-						variant="ghost"
-						size="sm"
-						className="h-8 text-xs tabular-nums"
-						title={isLatvian ? "Ietilpināt platumā" : "Fit to width"}
-						onClick={() => {
-							setZoom(1);
-							if (viewport.current) viewport.current.scrollLeft = 0;
-						}}
-					>
-						{Math.round(zoom * 100)}%
-					</Button>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="size-8"
-						aria-label={isLatvian ? "Palielināt" : "Zoom in"}
-						disabled={zoom >= 3}
-						onClick={() => setZoom((value) => Math.min(3, value + 0.25))}
-					>
-						<Plus className="size-4" />
-					</Button>
-				</div>
-			</div>
-			<div
-				ref={viewport}
-				className="relative min-h-0 flex-1 overflow-auto overscroll-contain bg-muted/40 p-3"
-			>
-				{failed ? (
-					<p role="alert" className="p-3 text-sm text-muted-foreground">
-						{isLatvian
-							? "PDF neizdevās ielādēt. Atveriet oriģinālu jaunā cilnē."
-							: "Could not load PDF. Open the original in a new tab."}
-					</p>
-				) : !ready ? (
-					<output className="absolute inset-0 flex items-center justify-center">
-						<Loader2 className="size-5 animate-spin" />
-						<span className="sr-only">
-							{isLatvian ? "Ielādē rēķinu" : "Loading invoice"}
+			<InvoicePreviewViewport
+				key={`${url}:${page}`}
+				isLatvian={isLatvian}
+				ready={ready && !failed}
+				pageControls={
+					<div className="flex items-center gap-1">
+						<Button
+							variant="ghost"
+							size="icon"
+							className="size-8"
+							aria-label={isLatvian ? "Iepriekšējā lapa" : "Previous page"}
+							disabled={!pdf || page <= 1}
+							onClick={() => setPage((value) => value - 1)}
+						>
+							<ChevronLeft className="size-4" />
+						</Button>
+						<span
+							className="min-w-12 text-center text-xs tabular-nums"
+							aria-live="polite"
+						>
+							{page} / {pdf?.numPages ?? "—"}
 						</span>
-					</output>
-				) : null}
-				<div className="mx-auto" style={{ width: `${zoom * 100}%` }}>
-					<canvas
-						ref={canvas}
-						role="img"
-						aria-label={title}
-						className={`block h-auto w-full bg-white shadow-sm ${ready && !failed ? "" : "invisible"}`}
-					/>
-				</div>
-			</div>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="size-8"
+							aria-label={isLatvian ? "Nākamā lapa" : "Next page"}
+							disabled={!pdf || page >= pdf.numPages}
+							onClick={() => setPage((value) => value + 1)}
+						>
+							<ChevronRight className="size-4" />
+						</Button>
+					</div>
+				}
+				overlay={
+					failed ? (
+						<p role="alert" className="p-3 text-sm text-muted-foreground">
+							{isLatvian
+								? "PDF neizdevās ielādēt. Atveriet oriģinālu jaunā cilnē."
+								: "Could not load PDF. Open the original in a new tab."}
+						</p>
+					) : !ready ? (
+						<output className="absolute inset-0 flex items-center justify-center">
+							<Loader2 className="size-5 animate-spin" />
+							<span className="sr-only">
+								{isLatvian ? "Ielādē rēķinu" : "Loading invoice"}
+							</span>
+						</output>
+					) : null
+				}
+			>
+				<canvas
+					ref={canvas}
+					role="img"
+					aria-label={title}
+					className={`block h-auto w-full bg-white shadow-sm ${ready && !failed ? "" : "invisible"}`}
+				/>
+			</InvoicePreviewViewport>
 		</section>
 	);
 }

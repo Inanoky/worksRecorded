@@ -25,6 +25,12 @@ it("shows images inside the panel and clears loading", async () => {
 	await waitFor(() =>
 		expect(screen.queryByRole("status")).not.toBeInTheDocument(),
 	);
+	fireEvent.wheel(
+		screen.getByRole("region", { name: "Invoice zoom and pan" }),
+		{ deltaY: -100 },
+	);
+	expect(screen.getByRole("img").parentElement?.style.width).not.toBe("100%");
+	expect(screen.getByRole("img")).toHaveAttribute("draggable", "false");
 });
 
 it("falls back to the document viewer for extensionless PDF uploads", () => {
