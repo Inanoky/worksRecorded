@@ -10,6 +10,7 @@ import { getDiaryPagePhotoUrls } from "@/flows/default-construction/lib/diary-im
 import { formatLimeniDiaryHours } from "@/flows/default-construction/lib/diary-hours-display";
 import { useDiaryRevalidation } from "@/flows/default-construction/frontend/useDiaryRevalidation";
 import { mergeDiaryEditChanges, type DiaryEditChanges } from "@/flows/default-construction/lib/diary-edit";
+import { useDiarySaveQueue } from "@/flows/default-construction/frontend/DiarySaveProvider";
 
 import {
   CalendarIcon,
@@ -737,7 +738,9 @@ export default function SiteDiaryCalendar({
   );
 
   // List view state
-  const [rows, setRows] = React.useState<DiaryRow[]>([]);
+  const [confirmedRows, setRows] = React.useState<DiaryRow[]>([]);
+  const { queue: diarySaveQueue, snapshot: diarySaveSnapshot } = useDiarySaveQueue(siteId, batchEditing && !isZtcFlow);
+  const rows = React.useMemo(() => diarySaveQueue ? diarySaveQueue.project(confirmedRows) : confirmedRows, [confirmedRows, diarySaveQueue, diarySaveSnapshot.items]);
   const planner = useConstructionPlanner(siteId, !isZtcFlow, rows);
   const beginHours = useBeginHours(siteId, rows);
   const [serverMediaOnlyDays, setMediaOnlyDays] = React.useState<
@@ -1290,6 +1293,26 @@ export default function SiteDiaryCalendar({
       siteId,
     ],
   );
+
+  const queueAcknowledgedRevision = React.useRef(0);
+  React.useLayoutEffect(() => {
+    if (!diarySaveSnapshot.revision || diarySaveSnapshot.revision === queueAcknowledgedRevision.current) return;
+    const acknowledged = {
+      ...diarySaveSnapshot.confirmed,
+      rows: diarySaveSnapshot.confirmed.rows.filter(row => diarySaveSnapshot.confirmedRevisions[row.id] > queueAcknowledgedRevision.current),
+    };
+    queueAcknowledgedRevision.current = diarySaveSnapshot.revision;
+    ++diaryRowsRequestRef.current;
+    diaryLastLoaded.current = Date.now();
+    setRows(current => mergeDiaryEditChanges(current, acknowledged));
+    reloadFilledDays();
+    if (!clientDiary) void refreshRowsWithBisSync({ skipSync: true }).catch(() => {});
+  }, [diarySaveSnapshot.revision, diarySaveSnapshot.confirmed, diarySaveSnapshot.confirmedRevisions, clientDiary, reloadFilledDays, refreshRowsWithBisSync]);
+  React.useEffect(() => {
+    const reload = () => { void refreshRowsWithBisSync({ skipSync: true }).catch(() => {}); };
+    window.addEventListener("construction-diary-queue-discarded", reload);
+    return () => window.removeEventListener("construction-diary-queue-discarded", reload);
+  }, [refreshRowsWithBisSync]);
 
   React.useEffect(() => {
     setListPage(1);
@@ -1997,6 +2020,10 @@ export default function SiteDiaryCalendar({
   };
 
   const handleBulkDeleteRecords = async () => {
+    if ([...selectedRecordIds].some(id => diarySaveQueue?.hasPending(id))) {
+      toast.error("Vispirms sagaidiet saglabāšanu vai atceliet gaidošās izmaiņas.");
+      return;
+    }
     if (selectedRecordIds.size === 0) {
       toast.error(toastMessages.noRecordsSelected);
       return;
@@ -2053,6 +2080,10 @@ export default function SiteDiaryCalendar({
   };
 
   const handleCopySelectedRecordsToProject = async () => {
+    if ([...selectedRecordIds].some(id => diarySaveQueue?.hasPending(id))) {
+      toast.error("Vispirms sagaidiet ierakstu saglabāšanu.");
+      return;
+    }
     if (!siteId) {
       toast.error(toastMessages.missingSiteId);
       return;
@@ -2684,6 +2715,10 @@ export default function SiteDiaryCalendar({
   };
 
   const handleCopyRecord = async () => {
+    if (copyTargetRow?.id && diarySaveQueue?.hasPending(copyTargetRow.id)) {
+      toast.error("Vispirms sagaidiet ieraksta saglabāšanu.");
+      return;
+    }
     if (!copyTargetRow?.id || !copyTargetDate) {
       toast.error(toastMessages.selectRecordAndTargetDate);
       return;
@@ -2711,6 +2746,10 @@ export default function SiteDiaryCalendar({
 
   const handleDeleteRecord = async (row: DiaryRow) => {
     if (!row.id) return;
+    if (diarySaveQueue?.hasPending(row.id)) {
+      toast.error("Vispirms sagaidiet saglabāšanu vai atceliet gaidošās izmaiņas.");
+      return;
+    }
     const confirmed = window.confirm(
       "Delete this site diary record? This action cannot be undone.",
     );

@@ -54,7 +54,9 @@ import {
 } from "@/server/actions/site-diary-actions";
 import { useMediaQuery } from "./Use-media-querty";
 import { saveDefaultConstructionDiaryEdits } from "@/flows/default-construction/backend/diary-edit-actions";
-import type { DiaryEditChanges } from "@/flows/default-construction/lib/diary-edit";
+import { mergeDiaryEditChanges, type DiaryEditChanges } from "@/flows/default-construction/lib/diary-edit";
+import { useDiarySaveQueue } from "@/flows/default-construction/frontend/DiarySaveProvider";
+import { sameDiaryValue } from "@/flows/default-construction/lib/diary-edit-input";
 
 type SearchableWorksSelectProps = {
   value: string;
@@ -374,6 +376,7 @@ export function DialogTable({
   initialConfig,
   focusedRecordId,
   batchEditing = false,
+  onQueued,
 }: {
   date: Date | null;
   siteId: string | null;
@@ -383,10 +386,15 @@ export function DialogTable({
   initialConfig?: Record<string, any> | null;
   focusedRecordId?: string | null;
   batchEditing?: boolean;
+  onQueued?: () => void;
 }) {
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSiteDiaryDialogMessages(language);
   const toastMessages = getToastMessages(language);
+  const { queue } = useDiarySaveQueue(siteId, batchEditing);
+  const projectEditableRows = (loaded: Record<string, any>[]) => queue
+    ? queue.project(loaded).filter(row => focusedRecordId ? row.id === focusedRecordId : new Date(row.Date).toDateString() === date?.toDateString())
+    : loaded;
 
   //---------------------------------------State---------------------------------------
   const isMobile = useMediaQuery("(max-width: 640px)");
@@ -443,6 +451,10 @@ export function DialogTable({
   ) => {
     if (savingRef.current) return;
     const row = rows.find((r) => r.id === idOrTemp || r._tempId === tempId);
+    if (row?.id && queue?.hasPending(row.id)) {
+      toast.error("Vispirms sagaidiet ieraksta saglabāšanu vai atceliet gaidošās izmaiņas.");
+      return;
+    }
     const confirmed = window.confirm(
       "Delete this diary row? This action cannot be undone.",
     );
@@ -607,6 +619,7 @@ export function DialogTable({
       if (batchEditing) {
         if (!existingRows.length && !newRows.length) {
           toast.success(toastMessages.diarySaved(0, 0));
+          if (queue) onQueued?.();
           return;
         }
         const payload = (row: any) => {
@@ -614,20 +627,24 @@ export function DialogTable({
           const data = { ...fields, Date_Custom_1: normalizeDate(fields.Date_Custom_1), Date_Custom_2: normalizeDate(fields.Date_Custom_2) };
           const previous = savedRowsRef.current.get(id);
           if (!previous) return data;
-          const comparable = (key: string, value: unknown) => {
-            if (["Date", "Date_Custom_1", "Date_Custom_2"].includes(key)) return value ? new Date(value as string | Date).getTime() : null;
-            if (["Amounts", "WorkersInvolved", "TimeInvolved"].includes(key)) return value === "" || value == null ? null : Number(value);
-            return value ?? "";
-          };
           const editedFields = dirtyFieldsRef.current.get(id);
-          return Object.fromEntries(Object.entries(data).filter(([key, value]) => editedFields?.has(key) && comparable(key, value) !== comparable(key, previous[key])));
+          return Object.fromEntries(Object.entries(data).filter(([key, value]) => editedFields?.has(key) && !sameDiaryValue(key, value, previous[key])));
         };
         if (!siteId) throw new Error(toastMessages.somethingWentWrong);
-        const changes = await saveDefaultConstructionDiaryEdits({
+        const request = {
           siteId,
           updates: existingRows.map((row: any) => ({ id: row.id, fields: payload(row) })),
           creates: newRows.map((row: any) => ({ clientId: row._tempId, fields: payload(row) })),
-        });
+        };
+        if (queue) {
+          queue.enqueue({ ...request, updates: request.updates.filter(row => Object.keys(row.fields).length).map(row => ({
+            ...row,
+            expected: Object.fromEntries(Object.keys(row.fields).map(key => [key, savedRowsRef.current.get(row.id)?.[key] ?? null])),
+          })) });
+          onQueued?.();
+          return;
+        }
+        const changes = await saveDefaultConstructionDiaryEdits(request);
         const saved = new Map(changes.rows.map(row => [row.id, row]));
         for (const row of changes.rows) savedRowsRef.current.set(row.id, row);
         setRows(current => current.map(row => {
@@ -961,10 +978,11 @@ export function DialogTable({
       return;
     }
 
-    const cachedRows = initialRows?.length
+    const projectedInitialRows = projectEditableRows(initialRows ?? []);
+    const cachedRows = projectedInitialRows.length
       ? focusedRecordId
-        ? initialRows.filter((row) => row.id === focusedRecordId)
-        : initialRows
+        ? projectedInitialRows.filter((row) => row.id === focusedRecordId)
+        : projectedInitialRows
       : null;
     const cachedConfig = (initialConfig ?? defaultConfig) as Record<
       string,
@@ -1060,7 +1078,9 @@ export function DialogTable({
       setTableHeads(renderableFields);
 
       //Load rows
-      const loadedRows = await getSiteDiaryRecord({ siteId, date: isoDate });
+      const fetchRevision = queue?.getSnapshot().revision;
+      const serverRows = await getSiteDiaryRecord({ siteId, date: isoDate });
+      const loadedRows = projectEditableRows(queue && queue.getSnapshot().revision !== fetchRevision ? mergeDiaryEditChanges(serverRows, queue.getSnapshot().confirmed) : serverRows);
       console.log("Loaded rows:");
       console.dir(loadedRows);
 

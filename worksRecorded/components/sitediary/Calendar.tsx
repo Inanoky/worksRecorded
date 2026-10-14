@@ -4,6 +4,7 @@ import { MessageCircle } from "lucide-react";
 import React from "react";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import { DiaryFeedbackBrain } from "@/flows/default-construction/frontend/DiaryFeedbackBrain";
+import { useDiarySaveQueue } from "@/flows/default-construction/frontend/DiarySaveProvider";
 import TourRunner from "@/components/joyride/TourRunner";
 import DialogWindow from "@/components/sitediary/DialogWindow";
 import { Button } from "@/components/ui/button";
@@ -72,7 +73,12 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false, batchEdit
   const [currentMonth, setCurrentMonth] = React.useState(today.getMonth());
   const [currentYear, setCurrentYear] = React.useState(today.getFullYear());
   const [date, setDate] = React.useState(null);
-  const [filledDays, setFilledDays] = React.useState<number[]>([]);
+  const [confirmedFilledDays, setFilledDays] = React.useState<number[]>([]);
+  const { snapshot: diarySaveSnapshot } = useDiarySaveQueue(siteId, batchEditing && !isZtcFlow);
+  const filledDays = [...new Set([...confirmedFilledDays, ...diarySaveSnapshot.items.flatMap(item => [...item.request.creates, ...item.request.updates]).flatMap(row => {
+    const date = row.fields.Date ? new Date(row.fields.Date) : null;
+    return date && date.getFullYear() === currentYear && date.getMonth() === currentMonth ? [date.getDate()] : [];
+  })])];
   const [loadedSiteId, setLoadedSiteId] = React.useState<string | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
 
@@ -113,6 +119,10 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false, batchEdit
       flowId: isZtcFlow ? "ztc" : undefined,
     }).then(setFilledDays);
   }, [siteId, currentMonth, currentYear, isZtcFlow]);
+
+  React.useEffect(() => {
+    if (diarySaveSnapshot.revision) reloadFilledDays();
+  }, [diarySaveSnapshot.revision, reloadFilledDays]);
 
   React.useEffect(() => {
     let cancelled = false;

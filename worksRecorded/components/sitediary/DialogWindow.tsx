@@ -185,6 +185,7 @@ export default function DialogWindow({
                   focusedRecordId={focusedRecordId}
                   onSaved={handleSaved}
                   batchEditing={batchEditing}
+                  onQueued={() => setOpen(false)}
                 />
               )}
             </div>

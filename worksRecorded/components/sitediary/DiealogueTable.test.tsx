@@ -15,6 +15,10 @@ import {
 	updateSiteDiaryRecord,
 } from "@/server/actions/site-diary-actions";
 import { DialogTable } from "./DiealogueTable";
+import {
+	DiarySaveProvider,
+	useDiarySaveQueue,
+} from "@/flows/default-construction/frontend/DiarySaveProvider";
 import { useMediaQuery } from "./Use-media-querty";
 
 jest.mock("@/flows/default-construction/backend/diary-edit-actions", () => ({
@@ -77,6 +81,7 @@ const config = {
 const messages = getSiteDiaryDialogMessages("lv");
 
 beforeEach(() => {
+	localStorage.clear();
 	jest.clearAllMocks();
 	jest.mocked(useMediaQuery).mockReturnValue(false);
 	jest.mocked(updateSiteDiaryRecord).mockResolvedValue({ ok: true } as never);
@@ -85,6 +90,116 @@ beforeEach(() => {
 		.mockResolvedValue({ ok: true } as never);
 	jest.spyOn(console, "log").mockImplementation(() => {});
 	jest.spyOn(console, "dir").mockImplementation(() => {});
+});
+
+it("queues edits, closes immediately, projects changes and reports saved only after acknowledgement", async () => {
+	const siteId = "c39cb04c-8ce5-477d-acd0-99586a82d850";
+	let finish!: (value: unknown) => void;
+	jest.mocked(saveDefaultConstructionDiaryEdits).mockImplementation(
+		() =>
+			new Promise((resolve) => {
+				finish = resolve;
+			}) as never,
+	);
+	const original = { id: hashId, Date: date.toISOString(), Location: "" };
+	jest.mocked(getSiteDiaryRecord).mockResolvedValue([original] as never);
+	const onQueued = jest.fn();
+	const onSaved = jest.fn();
+	function Preview() {
+		const { queue, snapshot } = useDiarySaveQueue(siteId, true);
+		return (
+			<span>
+				{queue?.project([original])[0].Location}
+				{snapshot.items.length ? " pending" : ""}
+			</span>
+		);
+	}
+	await act(async () => {
+		render(
+			<DiarySaveProvider
+				userId="user"
+				projects={[{ id: siteId, name: "Project", organizationId: "org" }]}
+				language="lv"
+			>
+				<Preview />
+				<DialogTable
+					date={date}
+					siteId={siteId}
+					organizationLanguage="lv"
+					initialConfig={config}
+					initialRows={[original]}
+					batchEditing
+					onSaved={onSaved}
+					onQueued={onQueued}
+				/>
+			</DiarySaveProvider>,
+		);
+	});
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "1. stāvs" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: messages.saveDiary }));
+	expect(onQueued).toHaveBeenCalledTimes(1);
+	expect(onSaved).not.toHaveBeenCalled();
+	expect(screen.getByRole("status")).toHaveTextContent("Saglabā");
+	expect(screen.getByText("1. stāvs pending")).toBeInTheDocument();
+	expect(localStorage.length).toBe(1);
+	await waitFor(() =>
+		expect(saveDefaultConstructionDiaryEdits).toHaveBeenCalled(),
+	);
+	expect(saveDefaultConstructionDiaryEdits).toHaveBeenCalledWith({
+		siteId,
+		updates: [
+			{
+				id: hashId,
+				fields: { Location: "1. stāvs" },
+				expected: { Location: "" },
+			},
+		],
+		creates: [],
+	});
+	await act(async () =>
+		finish({ rows: [{ ...original, Location: "1. stāvs" }], createdIds: [] }),
+	);
+	expect(screen.getByRole("status")).toHaveTextContent("Saglabāts");
+	expect(localStorage.length).toBe(0);
+});
+
+it("keeps the editor open if queued edits cannot be persisted", async () => {
+	const siteId = "c39cb04c-8ce5-477d-acd0-99586a82d850";
+	const original = { id: hashId, Date: date.toISOString(), Location: "" };
+	jest.mocked(getSiteDiaryRecord).mockResolvedValue([original] as never);
+	const onQueued = jest.fn();
+	await act(async () =>
+		render(
+			<DiarySaveProvider
+				userId="user"
+				projects={[{ id: siteId, name: "Project", organizationId: "org" }]}
+				language="lv"
+			>
+				<DialogTable
+					date={date}
+					siteId={siteId}
+					organizationLanguage="lv"
+					initialConfig={config}
+					initialRows={[original]}
+					batchEditing
+					onQueued={onQueued}
+				/>
+			</DiarySaveProvider>,
+		),
+	);
+	jest.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+		throw new Error("No storage");
+	});
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "1. stāvs" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: messages.saveDiary }));
+	expect(onQueued).not.toHaveBeenCalled();
+	expect(saveDefaultConstructionDiaryEdits).not.toHaveBeenCalled();
+	expect(screen.getByRole("combobox")).toHaveValue("1. stāvs");
+	expect(toast.error).toHaveBeenCalled();
 });
 afterEach(() => jest.restoreAllMocks());
 

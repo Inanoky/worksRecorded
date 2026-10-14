@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { BisRefreshCooldown } from "@/lib/bis/token-refresh-cooldown";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
@@ -70,6 +72,7 @@ function getJsonApiErrorMessage(payload: unknown, fallback: string) {
 
 class BisTokenRefreshError extends Error {
   code: string;
+  retryAt?: number;
 
   constructor(message: string, code = "BIS_REFRESH_FAILED") {
     super(message);
@@ -82,6 +85,7 @@ const BIS_BASE_URL = (process.env.BIS_BASE_URL ?? "https://test.bis.gov.lv/").re
 const BIS_SCOPES = process.env.BIS_SCOPES ?? "bis_case_documents:manage logbooks:manage";
 const BIS_ACCESS_TOKEN_MAX_AGE_MS = 2 * 60 * 60 * 1000 - 60 * 1000;
 const bisTokenRefreshes = new Map<string, Promise<UserBisTokenRow>>();
+const bisRefreshCooldown = new BisRefreshCooldown();
 const WORKS_RECORDED_PRODUCTION_URL = "https://www.worksrecorded.com";
 
 function logBisTokenPair(
@@ -194,6 +198,18 @@ function isBisAccessTokenStale(token: UserBisTokenRow) {
   return !Number.isFinite(updatedAt) || Date.now() - updatedAt >= BIS_ACCESS_TOKEN_MAX_AGE_MS;
 }
 
+function bisConnectionVersion(token: UserBisTokenRow) {
+  return createHash("sha256").update(JSON.stringify([token.id, token.updatedAt, token.accessToken, token.refreshToken])).digest("hex");
+}
+
+function checkBisRefreshCooldown(userId: string, token: UserBisTokenRow) {
+  const retryAt = bisRefreshCooldown.get(userId, bisConnectionVersion(token));
+  if (!retryAt) return;
+  const error = new BisTokenRefreshError("BIS īslaicīgi nav pieejams. Mēģiniet vēlreiz pēc minūtes.", "BIS_REFRESH_COOLDOWN");
+  error.retryAt = retryAt;
+  throw error;
+}
+
 async function exchangeBisRefreshToken(refreshToken: string) {
   const body = new URLSearchParams({
     grant_type: "refresh_token",
@@ -268,7 +284,14 @@ export async function refreshBisAccessToken(userId: string, refreshToken?: strin
         return current;
       }
 
-      const renewed = await exchangeBisRefreshToken(current.refreshToken);
+      checkBisRefreshCooldown(userId, current);
+      let renewed: Awaited<ReturnType<typeof exchangeBisRefreshToken>>;
+      try {
+        renewed = await exchangeBisRefreshToken(current.refreshToken);
+      } catch (error) {
+        bisRefreshCooldown.fail(userId, bisConnectionVersion(current));
+        throw error;
+      }
       await transaction.$executeRaw`
       UPDATE "public"."BisToken"
       SET "accessToken" = ${renewed.accessToken}, "refreshToken" = ${renewed.refreshToken}, "updatedAt" = NOW()
@@ -281,7 +304,9 @@ export async function refreshBisAccessToken(userId: string, refreshToken?: strin
 
   bisTokenRefreshes.set(userId, refresh);
   try {
-    return await refresh;
+    const renewed = await refresh;
+    bisRefreshCooldown.clear(userId);
+    return renewed;
   } finally {
     if (bisTokenRefreshes.get(userId) === refresh) bisTokenRefreshes.delete(userId);
   }
@@ -303,6 +328,7 @@ export async function ensureUserBisAccessToken(userId: string) {
   }
 
   if (!token.accessToken || isBisAccessTokenStale(token)) {
+    checkBisRefreshCooldown(userId, token);
     try {
       return await refreshBisAccessToken(userId, token.refreshToken, token.accessToken);
     } catch (error) {
@@ -325,13 +351,15 @@ export async function upsertUserBisToken(userId: string, accessToken: string, re
     ON CONFLICT ("userId") DO UPDATE
     SET "accessToken" = EXCLUDED."accessToken", "refreshToken" = EXCLUDED."refreshToken", "updatedAt" = NOW()
   `;
+  bisRefreshCooldown.clear(userId);
 }
 
 export async function deleteUserBisTokens(userId: string) {
   await prisma.$executeRaw`DELETE FROM "public"."BisToken" WHERE "userId" = ${userId}`;
+  bisRefreshCooldown.clear(userId);
 }
 
-export async function getSiteBisConfig(siteId: string) {
+export async function getSiteBisConfig(siteId: string): Promise<SiteBisConfigRow | null> {
   const rows = await prisma.$queryRaw<SiteBisConfigRow[]>`
     SELECT
       id,

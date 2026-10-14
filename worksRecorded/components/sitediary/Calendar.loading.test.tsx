@@ -45,3 +45,4 @@ it("releases the loading screen on errors", async () => {
 	);
 	expect(screen.queryByRole("status")).toBeNull();
 });
+jest.mock("@/flows/default-construction/backend/diary-edit-actions", () => ({ saveDefaultConstructionDiaryEdits: jest.fn() }));

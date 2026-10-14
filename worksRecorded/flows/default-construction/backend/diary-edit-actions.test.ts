@@ -118,6 +118,79 @@ it("saves a comment delta without remapping Forma 2 or overwriting hours and pho
 	});
 });
 
+it("rejects an old queued edit instead of overwriting a newer manual change", async () => {
+	await expect(
+		saveDefaultConstructionDiaryEdits({
+			siteId,
+			updates: [
+				{
+					id: hashId,
+					fields: { Comments: "Queued" },
+					expected: { Comments: "Outdated" },
+				},
+			],
+			creates: [],
+		}),
+	).rejects.toThrow("pa šo laiku mainīts");
+	expect(stored.get(hashId)?.Comments).toBe("Old comment");
+	expect(tx.sitediaryrecords.updateMany).not.toHaveBeenCalled();
+});
+
+it("acknowledges a replay after a lost response without writing the same change twice", async () => {
+	const input = {
+		siteId,
+		updates: [
+			{
+				id: hashId,
+				fields: { Comments: "Queued" },
+				expected: { Comments: "Old comment" },
+			},
+		],
+		creates: [],
+	};
+	await saveDefaultConstructionDiaryEdits(input);
+	await saveDefaultConstructionDiaryEdits(input);
+	expect(tx.sitediaryrecords.updateMany).toHaveBeenCalledTimes(1);
+	expect(tx.sitediaryrecords.updateMany.mock.calls[0][0].where.Comments).toBe(
+		"Old comment",
+	);
+});
+
+it("requires expected values for every submitted field in a queued update", async () => {
+	await expect(
+		saveDefaultConstructionDiaryEdits({
+			siteId,
+			updates: [
+				{
+					id: hashId,
+					fields: { Comments: "Queued", Amounts: 2 },
+					expected: { Comments: "Old comment" },
+				},
+			],
+			creates: [],
+		}),
+	).rejects.toThrow("pa šo laiku mainīts");
+	expect(tx.sitediaryrecords.updateMany).not.toHaveBeenCalled();
+});
+
+it("rolls back a day edit if another writer wins the field-level compare-and-set", async () => {
+	tx.sitediaryrecords.updateMany.mockResolvedValueOnce({ count: 0 });
+	await expect(
+		saveDefaultConstructionDiaryEdits({
+			siteId,
+			updates: [
+				{
+					id: hashId,
+					fields: { Comments: "Queued" },
+					expected: { Comments: "Old comment" },
+				},
+			],
+			creates: [],
+		}),
+	).rejects.toThrow("mainīts");
+	expect(stored.get(hashId)?.Comments).toBe("Old comment");
+});
+
 it("saves a whole day in one transaction and synchronizes changed works once", async () => {
 	stored.set(newId, row(newId));
 	await saveDefaultConstructionDiaryEdits({

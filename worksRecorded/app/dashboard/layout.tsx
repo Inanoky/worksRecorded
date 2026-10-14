@@ -13,6 +13,7 @@ import { LanguageFlagSwitcher } from "@/components/dashboard/LanguageFlagSwitche
 import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
 import { clearUserTourAction } from "@/components/joyride/user-tour-action";
 import { ProjectProvider } from "@/components/providers/ProjectProvider";
+import { DiarySaveProvider } from "@/flows/default-construction/frontend/DiarySaveProvider";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -63,7 +64,7 @@ export default async function DashboardLayout({
 	const [allHeaderProjects, flowModuleKey] = await Promise.all([
 		prisma.site.findMany({
 			where: isSuperUser ? {} : { organizationId: organizationId ?? "" },
-			select: { id: true, name: true },
+				select: { id: true, name: true, organizationId: true },
 			orderBy: { createdAt: "desc" },
 		}),
 		isSuperUser
@@ -84,6 +85,7 @@ export default async function DashboardLayout({
 
 	return (
 		<ProjectProvider userId={userId}>
+			<DiarySaveProvider key={userId} userId={userId} projects={headerProjects} language={organizationLanguage}>
 			<section className="min-h-screen w-full flex flex-col">
 				{/* CSS-only modal (hash :target) */}
 				<style>{`
@@ -264,6 +266,7 @@ export default async function DashboardLayout({
 					{children}
 				</main>
 			</section>
+			</DiarySaveProvider>
 		</ProjectProvider>
 	);
 }

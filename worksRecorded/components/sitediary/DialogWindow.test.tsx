@@ -14,12 +14,41 @@ jest.mock("@/flows/ztc-production/frontend/ZtcDialogTable", () => ({
 	ZtcDialogTable: () => null,
 }));
 jest.mock("@/components/sitediary/DiealogueTable", () => ({
-	DialogTable: ({ onSaved }: { onSaved: (changes?: unknown) => void }) => (
-		<button type="button" onClick={() => onSaved(changes)}>
-			Test save
-		</button>
+	DialogTable: ({
+		onSaved,
+		onQueued,
+	}: {
+		onSaved: (changes?: unknown) => void;
+		onQueued: () => void;
+	}) => (
+		<>
+			<button type="button" onClick={() => onSaved(changes)}>
+				Test save
+			</button>
+			<button type="button" onClick={onQueued}>
+				Test queued
+			</button>
+		</>
 	),
 }));
+
+it("closes after durable enqueue without waiting for the server or triggering a reload", () => {
+	const setOpen = jest.fn();
+	const onSaved = jest.fn();
+	render(
+		<DialogWindow
+			open
+			setOpen={setOpen}
+			date={new Date()}
+			siteId="site"
+			onSaved={onSaved}
+			batchEditing
+		/>,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Test queued" }));
+	expect(setOpen).toHaveBeenCalledWith(false);
+	expect(onSaved).not.toHaveBeenCalled();
+});
 
 it("does not remount the Default Construction editor after an acknowledged batch save", async () => {
 	const onSaved = jest.fn();

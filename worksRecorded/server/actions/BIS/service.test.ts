@@ -119,8 +119,10 @@ describe("BIS token renewal", () => {
 		} as Response;
 	}
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		jest.resetAllMocks();
+		await upsertUserBisToken("user-1", "reset-access", "reset-refresh");
+		executeRawMock.mockClear();
 		process.env.BIS_CLIENT_ID = "test-client";
 		process.env.BIS_CLIENT_SECRET = "test-secret";
 		logSpy = jest.spyOn(console, "log").mockImplementation(() => undefined);
@@ -139,6 +141,7 @@ describe("BIS token renewal", () => {
 	});
 
 	afterEach(() => {
+		jest.restoreAllMocks();
 		logSpy.mockRestore();
 		errorSpy.mockRestore();
 	});
@@ -208,13 +211,65 @@ describe("BIS token renewal", () => {
 		},
 	);
 
-	it("retains the connection on network failure and permits another attempt", async () => {
+	it("retains the connection on network failure and retries only after the cooldown", async () => {
 		fetchMock.mockRejectedValueOnce(new Error("timeout"));
 		await expect(getUserBisTokenByUserId("user-1")).rejects.toThrow("timeout");
 		expect(executeRawMock).not.toHaveBeenCalled();
+		await expect(getUserBisTokenByUserId("user-1")).rejects.toMatchObject({
+			code: "BIS_REFRESH_COOLDOWN",
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		jest.spyOn(Date, "now").mockReturnValue(Date.now() + 60_001);
 		await expect(getUserBisTokenByUserId("user-1")).resolves.toMatchObject({
 			accessToken: "renewed-access",
 		});
+	});
+
+	it("does not parse or expose a BIS HTML error page and throttles repeated refreshes", async () => {
+		fetchMock.mockResolvedValue({
+			ok: false,
+			status: 500,
+			text: async () => "<html>Server error</html>",
+		} as Response);
+		await expect(getUserBisTokenByUserId("user-1")).rejects.toMatchObject({
+			code: "BIS_REFRESH_NON_JSON",
+		});
+		await expect(getUserBisTokenByUserId("user-1")).rejects.toMatchObject({
+			code: "BIS_REFRESH_COOLDOWN",
+		});
+		await expect(refreshBisAccessToken("user-1")).rejects.toMatchObject({
+			code: "BIS_REFRESH_COOLDOWN",
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(executeRawMock).not.toHaveBeenCalled();
+	});
+
+	it("a new authorization clears a failed refresh cooldown immediately", async () => {
+		fetchMock.mockRejectedValueOnce(new Error("Offline"));
+		await expect(getUserBisTokenByUserId("user-1")).rejects.toThrow("Offline");
+		await upsertUserBisToken("user-1", "new-access", "new-refresh");
+		await expect(getUserBisTokenByUserId("user-1")).resolves.toMatchObject({
+			accessToken: "renewed-access",
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it("does not reuse an outage for a changed token pair or another account", async () => {
+		fetchMock.mockRejectedValueOnce(new Error("Offline"));
+		await expect(getUserBisTokenByUserId("user-1")).rejects.toThrow("Offline");
+		queryRawMock.mockResolvedValue([
+			{ ...stored, refreshToken: "changed-refresh" },
+		]);
+		await expect(getUserBisTokenByUserId("user-1")).resolves.toMatchObject({
+			accessToken: "renewed-access",
+		});
+		queryRawMock.mockResolvedValue([
+			{ ...stored, id: "token-2", userId: "user-2" },
+		]);
+		await expect(getUserBisTokenByUserId("user-2")).resolves.toMatchObject({
+			accessToken: "renewed-access",
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(3);
 	});
 
 	it("coalesces parallel renewal requests for the same account", async () => {
@@ -229,16 +284,14 @@ describe("BIS token renewal", () => {
 	});
 
 	it("uses a newer connection saved while the request waited for the database lock", async () => {
-		queryRawMock
-			.mockResolvedValueOnce([stored])
-			.mockResolvedValueOnce([
-				{
-					...stored,
-					accessToken: "new-login-access",
-					refreshToken: "new-login-refresh",
-					updatedAt: new Date(),
-				},
-			]);
+		queryRawMock.mockResolvedValueOnce([stored]).mockResolvedValueOnce([
+			{
+				...stored,
+				accessToken: "new-login-access",
+				refreshToken: "new-login-refresh",
+				updatedAt: new Date(),
+			},
+		]);
 		await expect(getUserBisTokenByUserId("user-1")).resolves.toMatchObject({
 			accessToken: "new-login-access",
 		});
@@ -247,15 +300,13 @@ describe("BIS token renewal", () => {
 	});
 
 	it("recognizes renewal by another worker even when the refresh token is unchanged", async () => {
-		queryRawMock
-			.mockResolvedValueOnce([stored])
-			.mockResolvedValueOnce([
-				{
-					...stored,
-					accessToken: "other-worker-access",
-					updatedAt: new Date(),
-				},
-			]);
+		queryRawMock.mockResolvedValueOnce([stored]).mockResolvedValueOnce([
+			{
+				...stored,
+				accessToken: "other-worker-access",
+				updatedAt: new Date(),
+			},
+		]);
 		await expect(getUserBisTokenByUserId("user-1")).resolves.toMatchObject({
 			accessToken: "other-worker-access",
 		});

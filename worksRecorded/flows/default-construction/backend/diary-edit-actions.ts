@@ -2,7 +2,7 @@
 
 import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
+import type { z } from "zod";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { createPerfTrace } from "@/lib/observability/perf";
@@ -15,47 +15,15 @@ import {
 	diaryEditSelect,
 } from "../lib/diary-edit";
 import {
+	type diaryEditFields as fields,
+	diaryEditInputSchema as inputSchema,
+	sameDiaryValue,
+} from "../lib/diary-edit-input";
+import {
 	hasDefaultConstructionQuantityProfile,
 	normalizeActualQuantityForStorage,
 } from "../lib/quantity-plan-actual";
 import { syncDiaryEditAssignments } from "./diary-forma2-sync";
-
-const text = z.string().max(1500).nullable().optional();
-const number = z.preprocess(
-	(value) => (value === "" ? null : value),
-	z.coerce.number().finite().min(-1e9).max(1e9).nullable().optional(),
-);
-const fields = z
-	.object({
-		Date: z.coerce.date().nullable().optional(),
-		Date_Custom_1: z.coerce.date().nullable().optional(),
-		Date_Custom_2: z.coerce.date().nullable().optional(),
-		Location: text,
-		Location_Custom_1: text,
-		Location_Custom_2: text,
-		Works: text,
-		Works_Custom_1: text,
-		Works_Custom_2: text,
-		Comments: text,
-		Comments_Custom_1: text,
-		Comments_Custom_2: text,
-		Units: z.string().max(100).nullable().optional(),
-		Amounts: number,
-		WorkersInvolved: number,
-		TimeInvolved: number,
-	})
-	.strict();
-const inputSchema = z
-	.object({
-		siteId: z.string().uuid(),
-		updates: z
-			.array(z.object({ id: z.string().min(1).max(128), fields }))
-			.max(200),
-		creates: z
-			.array(z.object({ clientId: z.string().uuid(), fields }))
-			.max(200),
-	})
-	.refine((input) => input.updates.length + input.creates.length <= 200);
 
 export async function saveDefaultConstructionDiaryEdits(
 	args: z.input<typeof inputSchema>,
@@ -146,7 +114,15 @@ export async function saveDefaultConstructionDiaryEdits(
 					if (prior) {
 						if (prior.userId !== user.id)
 							throw new Error("Jaunā ieraksta identifikators jau izmantots.");
-						updates.push({ id: row.clientId, fields: row.fields });
+						if (
+							Object.entries(normalize(row.fields)).some(
+								([key, value]) =>
+									!sameDiaryValue(key, prior[key as keyof typeof prior], value),
+							)
+						)
+							throw new Error(
+								"Ieraksts jau saglabāts un vēlāk mainīts. Pārskatiet izmaiņas pirms atkārtotas saglabāšanas.",
+							);
 					} else {
 						const data = normalize(row.fields);
 						if (!(data.Date instanceof Date))
@@ -168,6 +144,27 @@ export async function saveDefaultConstructionDiaryEdits(
 				for (const row of updates) {
 					const prior = byId.get(row.id);
 					if (!prior) throw new Error("Ieraksts nav atrasts.");
+					const expected = row.expected ? normalize(row.expected) : null;
+					if (
+						expected &&
+						Object.entries(normalize(row.fields)).some(
+							([key, value]) =>
+								!Object.hasOwn(expected, key) ||
+								(!sameDiaryValue(
+									key,
+									prior[key as keyof typeof prior],
+									expected[key],
+								) &&
+									!sameDiaryValue(
+										key,
+										prior[key as keyof typeof prior],
+										value,
+									)),
+						)
+					)
+						throw new Error(
+							"Ieraksts pa šo laiku mainīts. Jūsu izmaiņas saglabātas pārlūkā; pārskatiet tās pirms atkārtotas saglabāšanas.",
+						);
 					const data = Object.fromEntries(
 						Object.entries(normalize(row.fields)).filter(([key, value]) => {
 							const previous = prior[key as keyof typeof prior];
@@ -186,11 +183,21 @@ export async function saveDefaultConstructionDiaryEdits(
 								{ organizationId: null },
 							],
 							archivedAt: null,
+							...(expected
+								? Object.fromEntries(
+										Object.keys(data).map((key) => [
+											key,
+											prior[key as keyof typeof prior] ?? null,
+										]),
+									)
+								: {}),
 						},
 						data,
 					});
 					if (changed.count !== 1)
-						throw new Error("Ieraksts vairs nav pieejams.");
+						throw new Error(
+							"Ieraksts vairs nav pieejams vai pa šo laiku mainīts. Pārskatiet izmaiņas.",
+						);
 					if (Object.hasOwn(data, "Works"))
 						assignments.push({ id: row.id, work: row.fields.Works ?? null });
 				}
