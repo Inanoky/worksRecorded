@@ -102,6 +102,7 @@ export function RetainedLimeniDiary({
 							organizationLanguage={settings.organizationLanguage}
 							limeniClientDiary
 							active={active}
+							batchEditing
 						/>
 					</Suspense>
 				) : null}

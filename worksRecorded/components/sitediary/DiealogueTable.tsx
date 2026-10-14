@@ -53,6 +53,8 @@ import {
   updateSiteDiaryRecord,
 } from "@/server/actions/site-diary-actions";
 import { useMediaQuery } from "./Use-media-querty";
+import { saveDefaultConstructionDiaryEdits } from "@/flows/default-construction/backend/diary-edit-actions";
+import type { DiaryEditChanges } from "@/flows/default-construction/lib/diary-edit";
 
 type SearchableWorksSelectProps = {
   value: string;
@@ -371,14 +373,16 @@ export function DialogTable({
   initialRows,
   initialConfig,
   focusedRecordId,
+  batchEditing = false,
 }: {
   date: Date | null;
   siteId: string | null;
-  onSaved?: () => void | Promise<void>;
+  onSaved?: (changes?: DiaryEditChanges) => void | Promise<void>;
   organizationLanguage?: string | null;
   initialRows?: Record<string, any>[] | null;
   initialConfig?: Record<string, any> | null;
   focusedRecordId?: string | null;
+  batchEditing?: boolean;
 }) {
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSiteDiaryDialogMessages(language);
@@ -388,6 +392,9 @@ export function DialogTable({
   const isMobile = useMediaQuery("(max-width: 640px)");
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const savingRef = React.useRef(false);
+  const savedRowsRef = React.useRef(new Map<string, Record<string, any>>());
+  const dirtyFieldsRef = React.useRef(new Map<string, Set<string>>());
   const [dirtyRowIds, setDirtyRowIds] = useState<Set<string>>(new Set());
   const [tableHeads, setTableHeads] = useState<string[]>([]);
   const [defaultMap, setMap] = useState<Record<string, any>>(defaultConfig);
@@ -425,6 +432,7 @@ export function DialogTable({
   const [rows, setRows] = useState<any[]>([newEmptyRow()]);
 
   const handleAddRow = () => {
+    if (savingRef.current) return;
     hasClientEditsRef.current = true;
     setRows((prev) => [...prev, newEmptyRow()]);
   };
@@ -433,6 +441,7 @@ export function DialogTable({
     idOrTemp: string | undefined,
     tempId?: string,
   ) => {
+    if (savingRef.current) return;
     const row = rows.find((r) => r.id === idOrTemp || r._tempId === tempId);
     const confirmed = window.confirm(
       "Delete this diary row? This action cannot be undone.",
@@ -456,13 +465,18 @@ export function DialogTable({
     }
   };
 
-  const markRowDirty = (rowIdOrTemp: string) => {
+  const markRowDirty = (rowIdOrTemp: string, field?: string) => {
     hasClientEditsRef.current = true;
     const existingRowId = rows.find(
       (row) => row.id === rowIdOrTemp || row._tempId === rowIdOrTemp,
     )?.id;
 
     if (existingRowId) {
+      if (field) {
+        const fields = dirtyFieldsRef.current.get(existingRowId) ?? new Set<string>();
+        fields.add(field);
+        dirtyFieldsRef.current.set(existingRowId, fields);
+      }
       setDirtyRowIds((current) => {
         if (current.has(existingRowId)) return current;
         return new Set(current).add(existingRowId);
@@ -471,7 +485,8 @@ export function DialogTable({
   };
 
   const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
-    markRowDirty(rowIdOrTemp);
+    if (savingRef.current) return;
+    markRowDirty(rowIdOrTemp, field);
 
     setRows((prev) =>
       prev.map((r) =>
@@ -537,7 +552,7 @@ export function DialogTable({
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (isSaving) return;
+    if (savingRef.current) return;
 
     const validated = validateRows(
       getRowsWithUncontrolledValues(),
@@ -546,6 +561,7 @@ export function DialogTable({
     );
     if (!validated.ok) return;
 
+    savingRef.current = true;
     setIsSaving(true);
 
     try {
@@ -587,6 +603,43 @@ export function DialogTable({
 
       let updatedCount = 0;
       let createdCount = 0;
+
+      if (batchEditing) {
+        if (!existingRows.length && !newRows.length) {
+          toast.success(toastMessages.diarySaved(0, 0));
+          return;
+        }
+        const payload = (row: any) => {
+          const { id, ...fields } = stripUiFields(row);
+          const data = { ...fields, Date_Custom_1: normalizeDate(fields.Date_Custom_1), Date_Custom_2: normalizeDate(fields.Date_Custom_2) };
+          const previous = savedRowsRef.current.get(id);
+          if (!previous) return data;
+          const comparable = (key: string, value: unknown) => {
+            if (["Date", "Date_Custom_1", "Date_Custom_2"].includes(key)) return value ? new Date(value as string | Date).getTime() : null;
+            if (["Amounts", "WorkersInvolved", "TimeInvolved"].includes(key)) return value === "" || value == null ? null : Number(value);
+            return value ?? "";
+          };
+          const editedFields = dirtyFieldsRef.current.get(id);
+          return Object.fromEntries(Object.entries(data).filter(([key, value]) => editedFields?.has(key) && comparable(key, value) !== comparable(key, previous[key])));
+        };
+        if (!siteId) throw new Error(toastMessages.somethingWentWrong);
+        const changes = await saveDefaultConstructionDiaryEdits({
+          siteId,
+          updates: existingRows.map((row: any) => ({ id: row.id, fields: payload(row) })),
+          creates: newRows.map((row: any) => ({ clientId: row._tempId, fields: payload(row) })),
+        });
+        const saved = new Map(changes.rows.map(row => [row.id, row]));
+        for (const row of changes.rows) savedRowsRef.current.set(row.id, row);
+        setRows(current => current.map(row => {
+          const confirmed = saved.get(row.id ?? row._tempId);
+          return confirmed ? { ...row, ...confirmed } : row;
+        }));
+        setDirtyRowIds(new Set());
+        dirtyFieldsRef.current.clear();
+        toast.success(toastMessages.diarySaved(existingRows.length, newRows.length));
+        await onSaved?.(changes);
+        return;
+      }
 
       // Here we actually update existing rows
       for (const r of existingRows) {
@@ -659,7 +712,10 @@ export function DialogTable({
 
       toast.success(toastMessages.diarySaved(updatedCount, createdCount));
       await onSaved?.();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : toastMessages.somethingWentWrong);
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -774,7 +830,7 @@ export function DialogTable({
             width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap),
           }}
           defaultValue={dateTimeToHHmm(row[field])}
-          onChange={() => markRowDirty(rowKey)}
+          onChange={() => markRowDirty(rowKey, field)}
         />
       );
     }
@@ -792,7 +848,7 @@ export function DialogTable({
             width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap),
           }}
           defaultValue={v.length >= 10 ? ymd : v}
-          onChange={() => markRowDirty(rowKey)}
+          onChange={() => markRowDirty(rowKey, field)}
         />
       );
     }
@@ -807,7 +863,7 @@ export function DialogTable({
           }}
           rows={1}
           defaultValue={String(row[field] ?? "")}
-          onChange={() => markRowDirty(rowKey)}
+          onChange={() => markRowDirty(rowKey, field)}
         />
       );
     }
@@ -822,7 +878,7 @@ export function DialogTable({
             width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap),
           }}
           defaultValue={String(row[field] ?? "")}
-          onChange={() => markRowDirty(rowKey)}
+          onChange={() => markRowDirty(rowKey, field)}
         />
       );
     }
@@ -915,8 +971,10 @@ export function DialogTable({
       any
     >;
     hasClientEditsRef.current = false;
+    dirtyFieldsRef.current.clear();
 
     if (cachedRows) {
+      savedRowsRef.current = new Map(cachedRows.map(row => [String(row.id), row]));
       const renderableFields = Object.entries(cachedConfig)
         .filter(([_, cfg]) => cfg?.Type !== "noRender")
         .sort((a, b) => {
@@ -1059,6 +1117,7 @@ export function DialogTable({
 
       console.dir(formattedRows);
       if (!hasClientEditsRef.current) {
+        savedRowsRef.current = new Map(loadedRows.map(row => [String(row.id), row]));
         if (cachedRows) {
           setRows((currentRows) => {
             const serverRowsById = new Map(
@@ -1119,6 +1178,7 @@ export function DialogTable({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
+      <fieldset disabled={isSaving} className="min-w-0 space-y-3 border-0 p-0">
       <div className="flex flex-col sm:flex-row justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-md border">
         {!focusedRecordId ? (
           <Button
@@ -1272,6 +1332,7 @@ export function DialogTable({
           <ScrollBar orientation="vertical" />
         </ScrollArea>
       )}
+      </fieldset>
     </form>
   );
 }

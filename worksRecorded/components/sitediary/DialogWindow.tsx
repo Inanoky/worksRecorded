@@ -20,6 +20,7 @@ import {
   getSiteDiaryDialogMessages,
   normalizeOrganizationLanguage,
 } from "@/lib/dashboard-i18n";
+import type { DiaryEditChanges } from "@/flows/default-construction/lib/diary-edit";
 
 type DialogWindowProps = {
   open: any;
@@ -29,6 +30,7 @@ type DialogWindowProps = {
   onSaved: any;
   organizationLanguage?: any;
   isZtcFlow?: boolean;
+  batchEditing?: boolean;
   initialRows?: Record<string, any>[] | null;
   initialConfig?: Record<string, any> | null;
   initialRates?: ZtcProjectTaskRates[] | null;
@@ -45,6 +47,7 @@ export default function DialogWindow({
   onSaved,
   organizationLanguage,
   isZtcFlow = false,
+  batchEditing = false,
   initialRows,
   initialConfig,
   initialRates,
@@ -62,9 +65,11 @@ export default function DialogWindow({
     normalizeOrganizationLanguage(organizationLanguage) === "lv"
       ? "lv-LV"
       : "en-GB";
-  const handleSaved = async (options?: { refreshDialog?: boolean }) => {
-    await onSaved?.();
-    if (!isZtcFlow || options?.refreshDialog) {
+  const handleSaved = async (options?: { refreshDialog?: boolean } | DiaryEditChanges) => {
+    const changes = options && "rows" in options ? options : undefined;
+    await onSaved?.(changes);
+    if (batchEditing && changes) return;
+    if (!isZtcFlow || (options && "refreshDialog" in options && options.refreshDialog)) {
       setRefreshKey((key) => key + 1);
     }
   };
@@ -179,6 +184,7 @@ export default function DialogWindow({
                   initialConfig={initialConfig}
                   focusedRecordId={focusedRecordId}
                   onSaved={handleSaved}
+                  batchEditing={batchEditing}
                 />
               )}
             </div>

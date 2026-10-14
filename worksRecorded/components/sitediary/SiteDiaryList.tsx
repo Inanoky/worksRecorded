@@ -9,6 +9,7 @@ import { useDiaryImagePreload } from "@/flows/default-construction/frontend/useD
 import { getDiaryPagePhotoUrls } from "@/flows/default-construction/lib/diary-image-pages";
 import { formatLimeniDiaryHours } from "@/flows/default-construction/lib/diary-hours-display";
 import { useDiaryRevalidation } from "@/flows/default-construction/frontend/useDiaryRevalidation";
+import { mergeDiaryEditChanges, type DiaryEditChanges } from "@/flows/default-construction/lib/diary-edit";
 
 import {
   CalendarIcon,
@@ -664,6 +665,7 @@ export default function SiteDiaryCalendar({
   isZtcFlow = false,
   limeniClientDiary = false,
   active = true,
+  batchEditing = false,
 }: {
   siteId: string | null;
   bisEnabled?: boolean;
@@ -671,6 +673,7 @@ export default function SiteDiaryCalendar({
   isZtcFlow?: boolean;
   limeniClientDiary?: boolean;
   active?: boolean;
+  batchEditing?: boolean;
 }) {
   const today = new Date();
   const language = normalizeOrganizationLanguage(organizationLanguage);
@@ -6019,18 +6022,30 @@ export default function SiteDiaryCalendar({
               siteId={siteId}
               organizationLanguage={organizationLanguage}
               isZtcFlow={isZtcSite}
+              batchEditing={batchEditing && !isZtcSite}
               initialRows={dialogInitialRows}
               initialConfig={defaultMap}
               initialRates={isZtcSite ? ztc.defaultRates : null}
               focusedRecordId={dialogRecordId}
               initialTab={dialogInitialTab}
-              onSaved={async () => {
+              onSaved={async (changes?: DiaryEditChanges) => {
+                if (batchEditing && changes) {
+                  ++diaryRowsRequestRef.current;
+                  diaryLastLoaded.current = Date.now();
+                  setRows(current => mergeDiaryEditChanges(current, changes));
+                  setListTotalCount(count => count + changes.createdIds.length);
+                  if (viewMode === "calendar") reloadFilledDays();
+                  if (!clientDiary) void refreshRowsWithBisSync({ skipSync: true }).catch(() => {
+                    console.warn("[site-diary] post-save refresh unavailable");
+                  });
+                  return;
+                }
                 reloadFilledDays();
 
                 if (!siteId) return;
                 setLoading(true);
                 try {
-                  const refreshedRows = await refreshRowsWithBisSync();
+                  const refreshedRows = await refreshRowsWithBisSync({ skipSync: batchEditing });
                   const activeDialogDate = dialogDate ?? calendarDate;
                   if (activeDialogDate) {
                     const dateKey = toLocalDateKey(activeDialogDate);

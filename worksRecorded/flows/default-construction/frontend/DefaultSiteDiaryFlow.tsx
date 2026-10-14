@@ -3,9 +3,13 @@
 import SiteDiaryCalendar from "@/components/sitediary/Calendar";
 
 type DefaultSiteDiaryFlowProps = {
-  siteId: string;
+	siteId: string;
+	batchEditing?: boolean;
 };
 
-export function DefaultSiteDiaryFlow({ siteId }: DefaultSiteDiaryFlowProps) {
-  return <SiteDiaryCalendar siteId={siteId} />;
+export function DefaultSiteDiaryFlow({
+	siteId,
+	batchEditing = false,
+}: DefaultSiteDiaryFlowProps) {
+	return <SiteDiaryCalendar siteId={siteId} batchEditing={batchEditing} />;
 }

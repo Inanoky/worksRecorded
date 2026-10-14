@@ -6,6 +6,9 @@ jest.mock("@/components/joyride/TourRunner", () => ({
 	__esModule: true,
 	default: () => null,
 }));
+jest.mock("@/flows/default-construction/frontend/DiaryFeedbackBrain", () => ({
+	DiaryFeedbackBrain: () => null,
+}));
 jest.mock("@/components/sitediary/DialogWindow", () => ({
 	__esModule: true,
 	default: () => null,

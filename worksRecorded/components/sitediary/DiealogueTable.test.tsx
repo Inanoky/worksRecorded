@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
+import { saveDefaultConstructionDiaryEdits } from "@/flows/default-construction/backend/diary-edit-actions";
 import { getSiteDiaryDialogMessages } from "@/lib/dashboard-i18n";
 import {
 	getSiteDiaryRecord,
@@ -15,6 +16,10 @@ import {
 } from "@/server/actions/site-diary-actions";
 import { DialogTable } from "./DiealogueTable";
 import { useMediaQuery } from "./Use-media-querty";
+
+jest.mock("@/flows/default-construction/backend/diary-edit-actions", () => ({
+	saveDefaultConstructionDiaryEdits: jest.fn(),
+}));
 
 jest.mock("@/server/actions/site-diary-actions", () => ({
 	deleteSiteDiaryRecord: jest.fn(),
@@ -83,7 +88,11 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-async function openDiary(ids = [uuid, hashId]) {
+async function openDiary(
+	ids = [uuid, hashId],
+	batchEditing = false,
+	onSaved = jest.fn(),
+) {
 	const rows = ids.map((id) => ({ id, Date: date, Location: "" }));
 	jest.mocked(getSiteDiaryRecord).mockResolvedValue(rows as never);
 	await act(async () => {
@@ -94,6 +103,8 @@ async function openDiary(ids = [uuid, hashId]) {
 				initialConfig={config}
 				initialRows={rows}
 				organizationLanguage="lv"
+				batchEditing={batchEditing}
+				onSaved={onSaved}
 			/>,
 		);
 	});
@@ -189,4 +200,154 @@ it("rejects empty saved IDs instead of treating them as new rows", async () => {
 	await waitFor(() => expect(toast.error).toHaveBeenCalled());
 	expect(updateSiteDiaryRecord).not.toHaveBeenCalled();
 	expect(saveSiteDiaryRecordFromWeb).not.toHaveBeenCalled();
+});
+
+it("uses one batch request with only changed fields and patches confirmed rows", async () => {
+	const confirmed = {
+		id: hashId,
+		Date: date.toISOString(),
+		Location: "1. stāvs",
+		Photos: ["photo"],
+		TimeInvolved: "5",
+	};
+	const onSaved = jest.fn();
+	jest
+		.mocked(saveDefaultConstructionDiaryEdits)
+		.mockResolvedValue({ rows: [confirmed], createdIds: [] } as never);
+	await openDiary([uuid, hashId], true, onSaved);
+	const input = screen.getAllByRole("combobox")[1];
+	fireEvent.change(input, { target: { value: "1. stāvs" } });
+	fireEvent.click(screen.getByRole("button", { name: messages.saveDiary }));
+	await waitFor(() => expect(onSaved).toHaveBeenCalled());
+	expect(saveDefaultConstructionDiaryEdits).toHaveBeenCalledWith({
+		siteId: "site",
+		updates: [{ id: hashId, fields: { Location: "1. stāvs" } }],
+		creates: [],
+	});
+	expect(updateSiteDiaryRecord).not.toHaveBeenCalled();
+	expect(onSaved).toHaveBeenCalledWith({ rows: [confirmed], createdIds: [] });
+	expect(screen.getAllByRole("combobox")[1]).toBe(input);
+	fireEvent.click(screen.getByRole("button", { name: messages.saveDiary }));
+	expect(saveDefaultConstructionDiaryEdits).toHaveBeenCalledTimes(1);
+});
+
+it("retains the edited value after a failed batch and can retry", async () => {
+	jest
+		.mocked(saveDefaultConstructionDiaryEdits)
+		.mockRejectedValueOnce(new Error("Save failed"))
+		.mockResolvedValue({ rows: [], createdIds: [] });
+	await openDiary([hashId], true);
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "2. stāvs" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: messages.saveDiary }));
+	await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Save failed"));
+	expect(screen.getByRole("combobox")).toHaveValue("2. stāvs");
+	fireEvent.click(screen.getByRole("button", { name: messages.saveDiary }));
+	await waitFor(() =>
+		expect(saveDefaultConstructionDiaryEdits).toHaveBeenCalledTimes(2),
+	);
+});
+
+it("replaces a new row's temporary identity without creating it again on the next save", async () => {
+	jest.mocked(saveDefaultConstructionDiaryEdits).mockImplementation(
+		async (input) =>
+			({
+				rows: input.creates.map((row) => ({
+					id: row.clientId,
+					Date: date.toISOString(),
+					Location: "2. stāvs",
+				})),
+				createdIds: input.creates.map((row) => row.clientId),
+			}) as never,
+	);
+	await openDiary([hashId], true);
+	fireEvent.click(screen.getByRole("button", { name: messages.addTask }));
+	fireEvent.change(screen.getAllByRole("combobox")[1], {
+		target: { value: "2. stāvs" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: messages.saveDiary }));
+	await waitFor(() => expect(toast.success).toHaveBeenCalled());
+	fireEvent.change(screen.getAllByRole("combobox")[1], {
+		target: { value: "1. stāvs" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: messages.saveDiary }));
+	await waitFor(() =>
+		expect(saveDefaultConstructionDiaryEdits).toHaveBeenCalledTimes(2),
+	);
+	expect(
+		jest.mocked(saveDefaultConstructionDiaryEdits).mock.calls[1][0].creates,
+	).toEqual([]);
+	expect(
+		jest.mocked(saveDefaultConstructionDiaryEdits).mock.calls[1][0].updates,
+	).toHaveLength(1);
+});
+
+it("blocks duplicate submissions and additional edits while a batch is in flight", async () => {
+	let finish!: (
+		value: Awaited<ReturnType<typeof saveDefaultConstructionDiaryEdits>>,
+	) => void;
+	jest.mocked(saveDefaultConstructionDiaryEdits).mockImplementation(
+		() =>
+			new Promise((resolve) => {
+				finish = resolve;
+			}),
+	);
+	await openDiary([hashId], true);
+	const input = screen.getByRole("combobox");
+	fireEvent.change(input, { target: { value: "1. stāvs" } });
+	const form = screen
+		.getByRole("button", { name: messages.saveDiary })
+		.closest("form");
+	if (!form) throw new Error("Diary form is missing");
+	fireEvent.submit(form);
+	fireEvent.submit(form);
+	expect(saveDefaultConstructionDiaryEdits).toHaveBeenCalledTimes(1);
+	expect(input).toBeDisabled();
+	fireEvent.change(input, { target: { value: "2. stāvs" } });
+	expect(input).toHaveValue("1. stāvs");
+	await act(async () => finish({ rows: [], createdIds: [] }));
+	expect(input).toBeEnabled();
+});
+
+it("does not resend unedited timestamps or hours when only the comment changes", async () => {
+	const original = {
+		id: hashId,
+		Date: date,
+		Date_Custom_1: "2026-09-25T07:09:45.123Z",
+		TimeInvolved: "6.3416666667",
+		Comments: "Original",
+	};
+	jest.mocked(getSiteDiaryRecord).mockResolvedValue([original] as never);
+	jest
+		.mocked(saveDefaultConstructionDiaryEdits)
+		.mockResolvedValue({ rows: [], createdIds: [] });
+	await act(async () => {
+		render(
+			<DialogTable
+				date={date}
+				siteId="site"
+				initialRows={[original]}
+				initialConfig={{
+					Comments: { Type: "textInput", DisplayName: "Komentārs" },
+					Date_Custom_1: { Type: "timePicker", DisplayName: "Sākums" },
+					TimeInvolved: { Type: "float", DisplayName: "Stundas" },
+				}}
+				batchEditing
+				organizationLanguage="lv"
+			/>,
+		);
+	});
+	fireEvent.change(screen.getByDisplayValue("Original"), {
+		target: { value: "Edited" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: messages.saveDiary }));
+	await waitFor(() =>
+		expect(saveDefaultConstructionDiaryEdits).toHaveBeenCalled(),
+	);
+	expect(saveDefaultConstructionDiaryEdits).toHaveBeenCalledWith({
+		siteId: "site",
+		updates: [{ id: hashId, fields: { Comments: "Edited" } }],
+		creates: [],
+	});
 });

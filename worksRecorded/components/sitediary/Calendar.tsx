@@ -66,7 +66,7 @@ function getCalendarGrid(year, month) {
   return weeks;
 }
 
-export default function SiteDiaryCalendar({ siteId, isZtcFlow = false }) {
+export default function SiteDiaryCalendar({ siteId, isZtcFlow = false, batchEditing = false }) {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const today = new Date();
   const [currentMonth, setCurrentMonth] = React.useState(today.getMonth());
@@ -276,6 +276,7 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false }) {
         siteId={siteId}
         onSaved={reloadFilledDays}
         isZtcFlow={isZtcFlow}
+        batchEditing={batchEditing && !isZtcFlow}
       >
         <div className="grid gap-3">{/* dialog content */}</div>
       </DialogWindow>

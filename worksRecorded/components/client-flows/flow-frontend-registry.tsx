@@ -13,6 +13,7 @@ export type FlowDashboardProps = {
 
 export type FlowSiteDiaryProps = {
 	siteId: string;
+	batchEditing?: boolean;
 };
 
 export type FlowFrontendModule = {
@@ -103,6 +104,10 @@ function TgemSiteDiary(props: FlowSiteDiaryProps) {
 	return <TgemInvoiceApprovalSiteDiary {...props} />;
 }
 
+function DefaultConstructionDiary(props: FlowSiteDiaryProps) {
+	return <DefaultConstructionSiteDiaryFlow {...props} batchEditing />;
+}
+
 export const FLOW_FRONTEND_MODULES: Record<string, FlowFrontendModule> = {
 	[FLOW_MODULE_KEYS.FIMA]: {
 		Dashboard: FimaDashboard,
@@ -110,7 +115,7 @@ export const FLOW_FRONTEND_MODULES: Record<string, FlowFrontendModule> = {
 	},
 	[FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION]: {
 		Dashboard: DefaultConstructionDashboardFlow,
-		SiteDiary: DefaultConstructionSiteDiaryFlow,
+		SiteDiary: DefaultConstructionDiary,
 	},
 	[FLOW_MODULE_KEYS.DEFAULT_PRODUCTION]: {
 		Dashboard: DefaultProductionFlow,
