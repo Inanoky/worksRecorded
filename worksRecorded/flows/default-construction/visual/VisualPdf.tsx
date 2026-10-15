@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { type VisualMark, visualLayers } from "./model";
 import {
@@ -129,6 +130,7 @@ export function VisualPdf({
 	planning,
 	layerStyles = visualLayers,
 	resourceCache,
+	controlsHost,
 }: {
 	url: string;
 	marks: VisualMark[];
@@ -144,6 +146,7 @@ export function VisualPdf({
 	planning?: VisualPdfPlanning;
 	layerStyles?: Record<string, { label: string; color: string }>;
 	resourceCache?: VisualClientCache;
+	controlsHost?: HTMLElement | null;
 }) {
 	const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
 	const [page, setPage] = useState(1);
@@ -524,258 +527,279 @@ export function VisualPdf({
 	const activePlanGroupSelected =
 		!!planning?.selectedArea &&
 		planning.selectedArea.planId === planning.planId;
+	const controlsDocked = controlsHost !== undefined;
+	const controls = (
+		<div
+			data-drawing-control
+			role="toolbar"
+			aria-label="Rasējuma zīmēšanas rīki"
+			data-area-editing={editingArea ? "true" : undefined}
+			data-area-controls={areaControlsActive ? "true" : undefined}
+			className={`flex flex-wrap items-center gap-1 ${controlsDocked ? "min-w-0 flex-1 basis-80" : `absolute top-3 z-30 max-w-[calc(100%-5rem)] rounded-lg border bg-background p-1 shadow-sm transition-[left,transform] duration-150 motion-reduce:transition-none ${areaControlsActive ? "left-1/2 -translate-x-1/2 justify-center" : "left-3"}`}`}
+		>
+			<Button
+				variant="outline"
+				size="icon"
+				className="h-8 w-8 border-0 shadow-none"
+				aria-label="Iepriekšējā lapa"
+				disabled={!!draft || !!planningAreaDraft || !!penMode || page <= 1}
+				onClick={() => setPage((value) => value - 1)}
+			>
+				<ChevronLeft className="h-4 w-4" />
+			</Button>
+			<span className="px-2 text-xs tabular-nums">
+				Lapa {page} / {document?.numPages ?? "—"}
+			</span>
+			<Button
+				variant="outline"
+				size="icon"
+				className="h-8 w-8 border-0 shadow-none"
+				aria-label="Nākamā lapa"
+				disabled={
+					!!draft ||
+					!!planningAreaDraft ||
+					!!penMode ||
+					!document ||
+					page >= document.numPages
+				}
+				onClick={() => setPage((value) => value + 1)}
+			>
+				<ChevronRight className="h-4 w-4" />
+			</Button>
+			{planning && planningEditable && !planningAreaDraft && !penMode ? (
+				<>
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={!ready || planning.areas.length >= 50}
+						onClick={() => startAreaPen("polygon")}
+					>
+						<Pencil className="h-3.5 w-3.5" /> Zīmēt zonu
+					</Button>
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={!ready || planning.areas.length >= 50}
+						onClick={() => startAreaPen("freehand")}
+					>
+						Brīvrokas zona
+					</Button>
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={!ready || planning.areas.length >= 50}
+						onClick={addPlanArea}
+					>
+						<MousePointer2 className="h-3.5 w-3.5" />
+						Taisnstūris
+					</Button>
+				</>
+			) : null}
+			{planning &&
+			planningEditable &&
+			selectedPlanArea &&
+			!planningAreaDraft &&
+			!penMode ? (
+				<Button
+					size="sm"
+					variant="outline"
+					aria-label="Pielāgot plānoto zonu"
+					onClick={editPlanArea}
+				>
+					<Pencil className="h-3.5 w-3.5 md:mr-1" />
+					<span className="hidden md:inline">Pielāgot zonu</span>
+				</Button>
+			) : null}
+			{planning &&
+			planningEditable &&
+			selectedPlanArea &&
+			!planningAreaDraft &&
+			!penMode ? (
+				<Button
+					size="icon"
+					variant="ghost"
+					className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+					aria-label="Dzēst plānoto zonu"
+					title="Dzēst izvēlēto plānoto zonu"
+					onClick={() => {
+						planning.onChange(
+							planning.areas.filter((area) => area.id !== selectedPlanArea.id),
+						);
+						planning.onSelectArea(null);
+					}}
+				>
+					<Trash2 className="h-4 w-4" />
+				</Button>
+			) : null}
+			{planningAreaDraft ? (
+				<>
+					<Button
+						size="sm"
+						disabled={!selectedPlanAreaValid}
+						onClick={() => finishPlanAreaEditing()}
+					>
+						Saglabāt zonu
+					</Button>
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={
+							!selectedPlanAreaValid ||
+							(planning?.areas.length ?? 50) +
+								(planningAreaDraft.isNew ? 1 : 0) >=
+								50
+						}
+						onClick={() => finishPlanAreaEditing(true)}
+					>
+						<Plus className="h-3.5 w-3.5" />
+						Saglabāt un pievienot nākamo
+					</Button>
+					<Button size="sm" variant="outline" onClick={cancelPlanAreaEditing}>
+						Atcelt
+					</Button>
+				</>
+			) : null}
+			{(onSave || onQueueSave) && !planning && !draft ? (
+				<Button
+					size="sm"
+					variant="outline"
+					className="w-8 px-0 md:w-auto md:px-3"
+					aria-label="Pielāgot zonu"
+					title="Pielāgot zonu"
+					disabled={!editable || !selectedMark || !ready}
+					onClick={() => {
+						if (!selectedMark) return;
+						navigation.freeze();
+						setDraft({
+							markId: selectedMark.id,
+							expectedPolygon: selectedMark.polygon,
+							polygon: selectedMark.polygon.map((point) => ({ ...point })),
+						});
+						onEditingChange?.(true);
+					}}
+				>
+					<Pencil className="h-3.5 w-3.5 md:mr-1" />
+					<span className="hidden md:inline">Pielāgot zonu</span>
+				</Button>
+			) : null}
+			{onDelete && !planning && !draft ? (
+				<Button
+					size="icon"
+					variant="ghost"
+					className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+					aria-label="Dzēst poligonu"
+					title="Dzēst tikai izvēlēto poligonu"
+					disabled={!editable || !deletable || !selectedMark || !ready}
+					onClick={() => {
+						if (selectedMark)
+							onDelete({
+								markId: selectedMark.id,
+								expectedPolygon: selectedMark.polygon.map((point) => ({
+									...point,
+								})),
+							});
+					}}
+				>
+					<Trash2 className="h-4 w-4" />
+				</Button>
+			) : null}
+			{draft ? (
+				<>
+					<Button
+						size="sm"
+						disabled={saving || !validDraft}
+						onClick={() => void save()}
+					>
+						{saving ? "Saglabā…" : "Saglabāt zonu"}
+					</Button>
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={saving}
+						onClick={endEditing}
+					>
+						Atcelt
+					</Button>
+				</>
+			) : null}
+		</div>
+	);
+	const zoomControls = (
+		<div
+			data-drawing-control
+			className={`flex overflow-hidden rounded-lg border bg-background ${controlsDocked ? "shrink-0 items-center" : "absolute right-3 top-3 z-30 flex-col shadow-sm"}`}
+			role="toolbar"
+			aria-label="Rasējuma mērogs un pārvietošana"
+			onKeyDown={(event) => {
+				if (saving || !ready) return;
+				const directions: Record<string, [number, number]> = {
+					ArrowLeft: [60, 0],
+					ArrowRight: [-60, 0],
+					ArrowUp: [0, 60],
+					ArrowDown: [0, -60],
+				};
+				const direction = directions[event.key];
+				if (direction) {
+					event.preventDefault();
+					navigation.panBy(...direction);
+				}
+			}}
+		>
+			<Button
+				variant="ghost"
+				size="icon"
+				aria-label="Tuvināt"
+				title="Tuvināt · bulttaustiņi pārvieto rasējumu"
+				disabled={!ready || saving || navigation.zoom >= MAX_DRAWING_ZOOM}
+				onClick={() => navigation.zoomAt(1.25)}
+				className="h-10 w-10 rounded-none"
+			>
+				<Plus className="h-4 w-4" />
+			</Button>
+			<Button
+				variant="ghost"
+				size="icon"
+				aria-label="Attālināt"
+				title="Attālināt"
+				disabled={!ready || saving || navigation.zoom <= MIN_DRAWING_ZOOM}
+				onClick={() => navigation.zoomAt(1 / 1.25)}
+				className={`h-10 w-10 rounded-none ${controlsDocked ? "border-l" : "border-t"}`}
+			>
+				<Minus className="h-4 w-4" />
+			</Button>
+			<Button
+				variant="ghost"
+				size="icon"
+				aria-label="Ietilpināt"
+				title="Ietilpināt rasējumu"
+				disabled={!ready || saving}
+				onClick={navigation.reset}
+				className={`h-10 w-10 rounded-none ${controlsDocked ? "border-l" : "border-t"}`}
+			>
+				<Expand className="h-4 w-4" />
+			</Button>
+		</div>
+	);
 	return (
 		<div
 			className={`relative min-w-0 overflow-hidden bg-muted/40 ${fillWorkspace ? "h-full" : "rounded-xl border"}`}
 		>
-			<div
-				data-drawing-control
-				data-area-editing={editingArea ? "true" : undefined}
-				data-area-controls={areaControlsActive ? "true" : undefined}
-				className={`absolute top-3 z-30 flex max-w-[calc(100%-5rem)] flex-wrap items-center gap-1 rounded-lg border bg-background p-1 shadow-sm transition-[left,transform] duration-150 motion-reduce:transition-none ${areaControlsActive ? "left-1/2 -translate-x-1/2 justify-center" : "left-3"}`}
-			>
-				<Button
-					variant="outline"
-					size="icon"
-					className="h-8 w-8 border-0 shadow-none"
-					aria-label="Iepriekšējā lapa"
-					disabled={!!draft || !!planningAreaDraft || !!penMode || page <= 1}
-					onClick={() => setPage((value) => value - 1)}
-				>
-					<ChevronLeft className="h-4 w-4" />
-				</Button>
-				<span className="px-2 text-xs tabular-nums">
-					Lapa {page} / {document?.numPages ?? "—"}
-				</span>
-				<Button
-					variant="outline"
-					size="icon"
-					className="h-8 w-8 border-0 shadow-none"
-					aria-label="Nākamā lapa"
-					disabled={
-						!!draft ||
-						!!planningAreaDraft ||
-						!!penMode ||
-						!document ||
-						page >= document.numPages
-					}
-					onClick={() => setPage((value) => value + 1)}
-				>
-					<ChevronRight className="h-4 w-4" />
-				</Button>
-				{planning && planningEditable && !planningAreaDraft && !penMode ? (
-					<>
-						<Button
-							size="sm"
-							variant="outline"
-							disabled={!ready || planning.areas.length >= 50}
-							onClick={() => startAreaPen("polygon")}
-						>
-							<Pencil className="h-3.5 w-3.5" /> Zīmēt zonu
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							disabled={!ready || planning.areas.length >= 50}
-							onClick={() => startAreaPen("freehand")}
-						>
-							Brīvrokas zona
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							disabled={!ready || planning.areas.length >= 50}
-							onClick={addPlanArea}
-						>
-							<MousePointer2 className="h-3.5 w-3.5" />
-							Taisnstūris
-						</Button>
-					</>
-				) : null}
-				{planning &&
-				planningEditable &&
-				selectedPlanArea &&
-				!planningAreaDraft &&
-				!penMode ? (
-					<Button
-						size="sm"
-						variant="outline"
-						aria-label="Pielāgot plānoto zonu"
-						onClick={editPlanArea}
-					>
-						<Pencil className="h-3.5 w-3.5 md:mr-1" />
-						<span className="hidden md:inline">Pielāgot zonu</span>
-					</Button>
-				) : null}
-				{planning &&
-				planningEditable &&
-				selectedPlanArea &&
-				!planningAreaDraft &&
-				!penMode ? (
-					<Button
-						size="icon"
-						variant="ghost"
-						className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-						aria-label="Dzēst plānoto zonu"
-						title="Dzēst izvēlēto plānoto zonu"
-						onClick={() => {
-							planning.onChange(
-								planning.areas.filter(
-									(area) => area.id !== selectedPlanArea.id,
-								),
-							);
-							planning.onSelectArea(null);
-						}}
-					>
-						<Trash2 className="h-4 w-4" />
-					</Button>
-				) : null}
-				{planningAreaDraft ? (
-					<>
-						<Button
-							size="sm"
-							disabled={!selectedPlanAreaValid}
-							onClick={() => finishPlanAreaEditing()}
-						>
-							Saglabāt zonu
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							disabled={
-								!selectedPlanAreaValid ||
-								(planning?.areas.length ?? 50) +
-									(planningAreaDraft.isNew ? 1 : 0) >=
-									50
-							}
-							onClick={() => finishPlanAreaEditing(true)}
-						>
-							<Plus className="h-3.5 w-3.5" />
-							Saglabāt un pievienot nākamo
-						</Button>
-						<Button size="sm" variant="outline" onClick={cancelPlanAreaEditing}>
-							Atcelt
-						</Button>
-					</>
-				) : null}
-				{(onSave || onQueueSave) && !planning && !draft ? (
-					<Button
-						size="sm"
-						variant="outline"
-						className="w-8 px-0 md:w-auto md:px-3"
-						aria-label="Pielāgot zonu"
-						title="Pielāgot zonu"
-						disabled={!editable || !selectedMark || !ready}
-						onClick={() => {
-							if (!selectedMark) return;
-							navigation.freeze();
-							setDraft({
-								markId: selectedMark.id,
-								expectedPolygon: selectedMark.polygon,
-								polygon: selectedMark.polygon.map((point) => ({ ...point })),
-							});
-							onEditingChange?.(true);
-						}}
-					>
-						<Pencil className="h-3.5 w-3.5 md:mr-1" />
-						<span className="hidden md:inline">Pielāgot zonu</span>
-					</Button>
-				) : null}
-				{onDelete && !planning && !draft ? (
-					<Button
-						size="icon"
-						variant="ghost"
-						className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-						aria-label="Dzēst poligonu"
-						title="Dzēst tikai izvēlēto poligonu"
-						disabled={!editable || !deletable || !selectedMark || !ready}
-						onClick={() => {
-							if (selectedMark)
-								onDelete({
-									markId: selectedMark.id,
-									expectedPolygon: selectedMark.polygon.map((point) => ({
-										...point,
-									})),
-								});
-						}}
-					>
-						<Trash2 className="h-4 w-4" />
-					</Button>
-				) : null}
-				{draft ? (
-					<>
-						<Button
-							size="sm"
-							disabled={saving || !validDraft}
-							onClick={() => void save()}
-						>
-							{saving ? "Saglabā…" : "Saglabāt zonu"}
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							disabled={saving}
-							onClick={endEditing}
-						>
-							Atcelt
-						</Button>
-					</>
-				) : null}
-			</div>
-			<div
-				data-drawing-control
-				className="absolute right-3 top-3 z-30 flex flex-col overflow-hidden rounded-lg border bg-background shadow-sm"
-				role="toolbar"
-				aria-label="Rasējuma mērogs un pārvietošana"
-				onKeyDown={(event) => {
-					if (saving || !ready) return;
-					const directions: Record<string, [number, number]> = {
-						ArrowLeft: [60, 0],
-						ArrowRight: [-60, 0],
-						ArrowUp: [0, 60],
-						ArrowDown: [0, -60],
-					};
-					const direction = directions[event.key];
-					if (direction) {
-						event.preventDefault();
-						navigation.panBy(...direction);
-					}
-				}}
-			>
-				<Button
-					variant="ghost"
-					size="icon"
-					aria-label="Tuvināt"
-					title="Tuvināt · bulttaustiņi pārvieto rasējumu"
-					disabled={!ready || saving || navigation.zoom >= MAX_DRAWING_ZOOM}
-					onClick={() => navigation.zoomAt(1.25)}
-					className="h-10 w-10 rounded-none"
-				>
-					<Plus className="h-4 w-4" />
-				</Button>
-				<Button
-					variant="ghost"
-					size="icon"
-					aria-label="Attālināt"
-					title="Attālināt"
-					disabled={!ready || saving || navigation.zoom <= MIN_DRAWING_ZOOM}
-					onClick={() => navigation.zoomAt(1 / 1.25)}
-					className="h-10 w-10 rounded-none border-t"
-				>
-					<Minus className="h-4 w-4" />
-				</Button>
-				<Button
-					variant="ghost"
-					size="icon"
-					aria-label="Ietilpināt"
-					title="Ietilpināt rasējumu"
-					disabled={!ready || saving}
-					onClick={navigation.reset}
-					className="h-10 w-10 rounded-none border-t"
-				>
-					<Expand className="h-4 w-4" />
-				</Button>
-			</div>
+			{controlsDocked ? (
+				controlsHost ? (
+					createPortal(
+						<div className="flex w-full flex-wrap items-center justify-between gap-2">
+							{controls}
+							{zoomControls}
+						</div>,
+						controlsHost,
+					)
+				) : null
+			) : (
+				<>
+					{controls}
+					{zoomControls}
+				</>
+			)}
 			{layerPicker ? (
 				<div
 					data-drawing-control

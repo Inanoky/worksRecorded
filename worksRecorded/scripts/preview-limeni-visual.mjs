@@ -71,12 +71,14 @@ const modules = {
 	actions: `let drawing=${JSON.stringify(fixture)}; export async function getVisualDrawings(){return {locations:['1. stāvs'],drawings:[{id:drawing.id,name:drawing.name,location:drawing.state.location,createdAt:drawing.createdAt,status:'complete'}]}}; export async function saveVisualPolygon(site,id,edit){drawing=structuredClone(drawing);drawing.state.marks.find(x=>x.id===edit.markId).polygon=edit.polygon;window.__visualPreviewDrawing=drawing;return drawing}; export async function deleteVisualDrawing(){};export async function deleteVisualPolygon(site,id,input){drawing=structuredClone(drawing);const mark=drawing.state.marks.find(x=>x.id===input.markId);if(!mark)throw Error('Missing polygon');drawing.state.marks=drawing.state.marks.filter(x=>x.id!==input.markId);drawing.state.deletedPolygons=[...(drawing.state.deletedPolygons??[]),{markId:mark.id,evidenceId:mark.evidenceId,polygon:mark.polygon,deletedAt:new Date().toISOString(),deletedBy:'preview'}];window.__visualPreviewDrawing=drawing;return drawing};export async function refreshVisualDrawing(){return {drawing,addedCount:0,updatedCount:0,removedCount:0,analysisCount:0,reviewCount:0}};export async function restartVisualDrawing(){throw Error('Preview only')};export async function getVisualWorkTypes(){return ['Smilts līdzināšana','XPS izolācija 150 mm','Estrich grīda 70 mm']};export async function saveVisualWorkType(site,id,edit){drawing=structuredClone(drawing);const source=drawing.state.evidence.find(x=>x.id===edit.evidenceId);const layer=edit.work.includes('XPS')?'xps':edit.work.includes('Estrich')?'estrich':'sand';for(const item of drawing.state.evidence.filter(x=>x.recordId===source.recordId)){item.work=edit.work;for(const mark of drawing.state.marks.filter(x=>x.evidenceId===item.id))mark.layer=layer}window.__visualPreviewDrawing=drawing;return drawing};export async function resolveVisualSourceReview(){throw Error('Preview only')}`,
 	upload: `export const useUploadThing=()=>({startUpload:async()=>{throw Error('Preview only')}});`,
 	image: `import React from 'react';export default function Image({fill,unoptimized,sizes,style,...props}){return React.createElement('img',{...props,style:{...(fill?{position:'absolute',inset:0,width:'100%',height:'100%'}:{}),...style}})}`,
+	link: `import React from 'react';export default function Link(props){return React.createElement('a',props)}`,
 	worker: `export const pdfWorkerUrl='/worker.mjs';`,
 };
+modules.actions += `export async function getVisualPlanning(){return {today:'2026-10-15',location:'1. stāvs',workOptions:[{work:'Smilts',unit:'m2'},{work:'XPS',unit:'m2'}],unitOptions:['m2','m3'],contacts:[],plans:[]}};export async function saveVisualPlanningItem(){throw Error('Preview only')};export async function archiveVisualPlanningItem(){throw Error('Preview only')};export async function restoreVisualPlanningItem(){throw Error('Preview only')};`;
 const bundled = await build({
 	stdin: {
 		contents: process.argv.includes("--planning")
-			? `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {VisualPdf} from './flows/default-construction/visual/VisualPdf';function Preview(){const [areas,setAreas]=useState([]);const [selected,setSelected]=useState(null);return <main style={{padding:20}}><h1>Plānošana — synthetic preview</h1><p aria-label="saved areas">Saglabātās zonas: {areas.length} · {areas.map(area=>area.polygon.length).join(', ')} stūri</p><VisualPdf url="/plan.pdf" marks={[]} selected={null} onSelect={()=>{}} planning={{planId:null,areas,selectedArea:selected,onChange:setAreas,onSelectArea:setSelected,color:'#16a34a',label:'Plānotie darbi'}}/></main>}createRoot(document.getElementById('root')).render(<Preview/>);`
+			? `import React from 'react';import {createRoot} from 'react-dom/client';import {VisualPlanningPanel} from './flows/default-construction/visual/VisualPlanningPanel';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('?pdf=1')?original('/plan.pdf'):original(url,options);createRoot(document.getElementById('root')).render(<main style={{padding:20,height:'100dvh'}}><VisualPlanningPanel drawing={${JSON.stringify(fixture)}} siteId="demo" sidebarOpen onDirtyChange={()=>{}}/></main>);`
 			: `import React from 'react';import {createRoot} from 'react-dom/client';import VisualView from './flows/default-construction/visual/VisualView';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('/api/sites/')?(String(url).includes('?pdf=1')?original('/plan.pdf'):Promise.resolve(new Response(JSON.stringify(window.__visualPreviewDrawing??${JSON.stringify(fixture)})))):original(url,options);createRoot(document.getElementById('root')).render(<main style={{maxWidth:1700,margin:'0 auto',padding:20}}><VisualView siteId="demo"/></main>);`,
 		loader: "tsx",
 		resolveDir: root,
@@ -102,6 +104,10 @@ const bundled = await build({
 				}));
 				build.onResolve({ filter: /^next\/image$/ }, () => ({
 					path: "image",
+					namespace: "fixture",
+				}));
+				build.onResolve({ filter: /^next\/link$/ }, () => ({
+					path: "link",
 					namespace: "fixture",
 				}));
 				build.onResolve({ filter: /pdf-worker-url$/ }, () => ({

@@ -1,7 +1,7 @@
 "use client";
 
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { pdfDetailRegion } from "./pdf-detail";
 import type { DrawingCamera } from "./viewport";
 
@@ -22,9 +22,8 @@ export function VisualPdfDetail({
 	view: { camera: DrawingCamera; width: number; height: number } | null;
 	enabled: boolean;
 }) {
-	const canvas = useRef<HTMLCanvasElement>(null);
-	const [region, setRegion] =
-		useState<ReturnType<typeof pdfDetailRegion>>(null);
+	const host = useRef<HTMLDivElement>(null);
+	const displayed = useRef<HTMLCanvasElement | null>(null);
 	useEffect(() => {
 		let active = true;
 		let task:
@@ -68,14 +67,29 @@ export function VisualPdfDetail({
 					],
 				});
 				await task.promise;
-				const output = canvas.current;
-				if (!active || !output) return;
-				const target = output.getContext("2d");
-				if (!target) return;
-				output.width = buffer.width;
-				output.height = buffer.height;
-				target.drawImage(buffer, 0, 0);
-				setRegion(next);
+				const element = host.current;
+				if (!active || !element) return;
+				buffer.setAttribute(
+					"aria-label",
+					"Rasējuma augstas izšķirtspējas detaļas",
+				);
+				buffer.dataset.pdfDetail = "";
+				Object.assign(buffer.style, {
+					position: "absolute",
+					pointerEvents: "none",
+					left: `${(next.left / pageWidth) * 100}%`,
+					top: `${(next.top / pageHeight) * 100}%`,
+					width: `${(next.width / pageWidth) * 100}%`,
+					height: `${(next.height / pageHeight) * 100}%`,
+				});
+				const previous = displayed.current;
+				element.replaceChildren(buffer);
+				displayed.current = buffer;
+				buffer = null;
+				if (previous) {
+					previous.width = 0;
+					previous.height = 0;
+				}
 			} catch {
 			} finally {
 				if (buffer) {
@@ -90,27 +104,19 @@ export function VisualPdfDetail({
 		};
 	}, [document, page, pageWidth, pageHeight, overviewWidth, view, enabled]);
 	useEffect(() => {
-		const element = canvas.current;
 		return () => {
-			if (element) {
-				element.width = 0;
-				element.height = 0;
+			if (displayed.current) {
+				displayed.current.width = 0;
+				displayed.current.height = 0;
+				displayed.current = null;
 			}
 		};
 	}, []);
 	return (
-		<canvas
-			ref={canvas}
-			aria-label="Rasējuma augstas izšķirtspējas detaļas"
-			data-pdf-detail
-			className="pointer-events-none absolute"
-			style={{
-				display: region ? "block" : "none",
-				left: region?.left,
-				top: region?.top,
-				width: region?.width,
-				height: region?.height,
-			}}
+		<div
+			ref={host}
+			data-pdf-detail-layer
+			className="pointer-events-none absolute inset-0"
 		/>
 	);
 }

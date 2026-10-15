@@ -33,8 +33,10 @@ jest.mock("./VisualPdf", () => ({
 	VisualPdf: ({
 		marks,
 		planning,
+		controlsHost,
 	}: {
 		marks: unknown[];
+		controlsHost?: HTMLElement | null;
 		planning?: {
 			planId: string | null;
 			areas: VisualPlanArea[];
@@ -50,7 +52,7 @@ jest.mock("./VisualPdf", () => ({
 			) => void;
 		};
 	}) => (
-		<div data-testid="planning-pdf">
+		<div data-testid="planning-pdf" data-controls-docked={!!controlsHost}>
 			<span>Faktiskās zonas: {marks.length}</span>
 			<span>Plāna zonas: {planning?.areas.length ?? 0}</span>
 			<span>Fona plāni: {planning?.backgroundAreas?.length ?? 0}</span>
@@ -221,6 +223,43 @@ it("builds empty and single-day planning timeline ranges", () => {
 	expect(cumulativeVisualPlanningPlans([single], expectedDay)).toEqual([
 		single,
 	]);
+});
+
+it("docks drawing controls above the map and both planning panels", async () => {
+	const { container } = render(
+		<VisualPlanningPanel
+			siteId="site"
+			drawing={drawing}
+			sidebarOpen
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	await waitFor(() =>
+		expect(screen.getByTestId("planning-pdf")).toHaveAttribute(
+			"data-controls-docked",
+			"true",
+		),
+	);
+	const host = container.querySelector("[data-planning-controls]");
+	const map = screen.getByTestId("planning-pdf").parentElement;
+	expect(host?.nextElementSibling).toBe(map);
+	expect(host).not.toHaveClass("absolute");
+	expect(map).toContainElement(
+		screen.getByRole("complementary", { name: "Darbu plānošana" }),
+	);
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Pievienot jaunu" }),
+		).toBeEnabled(),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Pievienot jaunu" }));
+	expect(map).toContainElement(
+		screen.getByRole("complementary", { name: "Plāna detaļas" }),
+	);
+	expect(screen.getByTestId("planning-pdf")).toHaveAttribute(
+		"data-controls-docked",
+		"true",
+	);
 });
 
 it("disables the planning slider for a single-day range", async () => {

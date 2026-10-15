@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import { useState } from "react";
 import type { VisualMark } from "./model";
 import type { VisualPlanArea } from "./planning-model";
@@ -42,10 +48,13 @@ const plannedArea: VisualPlanArea = {
 function PlanningHarness({
 	initialAreas = [],
 	initialSelected = null,
+	docked = false,
 }: {
 	initialAreas?: VisualPlanArea[];
 	initialSelected?: string | null;
+	docked?: boolean;
 }) {
+	const [controlsHost, setControlsHost] = useState<HTMLDivElement | null>(null);
 	const [areas, setAreas] = useState(initialAreas);
 	const [selectedArea, setSelectedArea] =
 		useState<VisualPlanAreaSelection | null>(
@@ -54,19 +63,25 @@ function PlanningHarness({
 				: null,
 		);
 	return (
-		<VisualPdf
-			url="/drawing"
-			marks={[mark]}
-			selected={null}
-			onSelect={jest.fn()}
-			planning={{
-				planId: "active-plan",
-				areas,
-				selectedArea,
-				onChange: setAreas,
-				onSelectArea: setSelectedArea,
-			}}
-		/>
+		<>
+			{docked ? (
+				<div data-testid="controls-host" ref={setControlsHost} />
+			) : null}
+			<VisualPdf
+				controlsHost={docked ? controlsHost : undefined}
+				url="/drawing"
+				marks={[mark]}
+				selected={null}
+				onSelect={jest.fn()}
+				planning={{
+					planId: "active-plan",
+					areas,
+					selectedArea,
+					onChange: setAreas,
+					onSelectArea: setSelectedArea,
+				}}
+			/>
+		</>
 	);
 }
 
@@ -90,6 +105,35 @@ beforeEach(() => {
 		promise: Promise.resolve({ numPages: 2, getPage: mockGetPage }),
 		destroy: mockDestroy,
 	});
+});
+
+it("keeps adding, saving and zoom controls in the dedicated row outside the sidebar overlays", async () => {
+	render(<PlanningHarness docked />);
+	const host = screen.getByTestId("controls-host");
+	const toolbar = within(host).getByRole("toolbar", {
+		name: "Rasējuma zīmēšanas rīki",
+	});
+	await waitFor(() =>
+		expect(
+			within(toolbar).getByRole("button", { name: "Zīmēt zonu" }),
+		).toBeEnabled(),
+	);
+	expect(toolbar).not.toHaveClass("absolute", "left-3");
+	expect(within(host).getByRole("button", { name: "Tuvināt" })).toBeEnabled();
+	fireEvent.click(within(host).getByRole("button", { name: "Zīmēt zonu" }));
+	expect(
+		screen.getByRole("application", { name: "Zonas daudzstūra pildspalva" }),
+	).toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Atcelt zīmēšanu" }));
+	fireEvent.click(within(host).getByRole("button", { name: "Taisnstūris" }));
+	expect(
+		within(host).getByRole("button", { name: "Saglabāt zonu" }),
+	).toBeEnabled();
+	fireEvent.click(within(host).getByRole("button", { name: "Saglabāt zonu" }));
+	expect(
+		within(host).getByRole("button", { name: "Zīmēt zonu" }),
+	).toBeEnabled();
+	expect(global.fetch).toHaveBeenCalledTimes(1);
 });
 afterEach(() => {
 	jest.restoreAllMocks();

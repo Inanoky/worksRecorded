@@ -219,6 +219,7 @@ export function VisualPlanningPanel({
 	const [selectedArea, setSelectedArea] =
 		useState<VisualPlanAreaSelection | null>(null);
 	const [areaRequest, setAreaRequest] = useState(0);
+	const [controlsHost, setControlsHost] = useState<HTMLDivElement | null>(null);
 	const [planningSession, setPlanningSession] = useState(0);
 	const [dirty, setDirty] = useState(false);
 	const [areaEditing, setAreaEditing] = useState(false);
@@ -616,8 +617,14 @@ export function VisualPlanningPanel({
 
 	return (
 		<div className="flex h-full min-h-0 flex-col overflow-hidden">
+			<div
+				ref={setControlsHost}
+				data-planning-controls
+				className="shrink-0 border-b bg-background px-3 py-2"
+			/>
 			<div className="relative min-h-0 flex-1 overflow-hidden">
 				<VisualPdf
+					controlsHost={controlsHost}
 					resourceCache={resourceCache}
 					fillWorkspace
 					url={`/api/sites/${encodeURIComponent(siteId)}/visual/${encodeURIComponent(drawing.id)}?pdf=1`}
