@@ -1211,7 +1211,12 @@ export function DialogTable({
             {t.addTask}
           </Button>
         ) : null}
-        <Button type="submit" disabled={isSaving} className="w-full sm:w-auto">
+        <Button
+          type="submit"
+          disabled={isSaving}
+          aria-busy={isSaving}
+          className="w-full cursor-pointer shadow-sm transition-[background-color,box-shadow,translate,scale] duration-150 ease-out hover:-translate-y-px hover:shadow-md active:translate-y-px active:scale-[0.98] active:bg-primary/80 active:shadow-none motion-reduce:translate-none motion-reduce:scale-100 motion-reduce:transition-none sm:w-auto"
+        >
           {isSaving ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

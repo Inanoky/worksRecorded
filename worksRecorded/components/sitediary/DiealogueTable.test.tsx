@@ -265,6 +265,22 @@ it("still updates UUID records without creating untouched hash-ID rows", async (
 	expect(saveSiteDiaryRecordFromWeb).not.toHaveBeenCalled();
 });
 
+it("gives Save a pointer cursor, hover and pressed feedback, without removing reduced-motion support", async () => {
+	await openDiary([hashId]);
+	const button = screen.getByRole("button", { name: messages.saveDiary });
+	expect(button).toHaveClass(
+		"cursor-pointer",
+		"hover:shadow-md",
+		"active:translate-y-px",
+		"active:scale-[0.98]",
+		"motion-reduce:translate-none",
+		"motion-reduce:scale-100",
+	);
+	expect(button).toHaveAttribute("type", "submit");
+	expect(button).toHaveAttribute("aria-busy", "false");
+	expect(button).toBeEnabled();
+});
+
 it("does not write unchanged records of either ID format", async () => {
 	await openDiary();
 	fireEvent.click(screen.getByRole("button", { name: messages.saveDiary }));
