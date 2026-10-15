@@ -387,10 +387,10 @@ export function VisualPlanningPanel({
 	}
 
 	function startNewPlan(discardChanges = false) {
-		if (!index || saving) return;
+		if (!index || saving) return false;
 		if ((dirty || areaEditing) && !discardChanges) {
 			setPendingDrawerAction({ type: "new" });
-			return;
+			return false;
 		}
 		setDraft(emptyDraft(index));
 		setPlanningSession((current) => current + 1);
@@ -401,6 +401,24 @@ export function VisualPlanningPanel({
 		setNotice(null);
 		setConflict(null);
 		setPendingDrawerAction(null);
+		return true;
+	}
+
+	const zoneAddingDisabled =
+		!index ||
+		saving ||
+		areaEditing ||
+		!!(draft && !draft.archivedAt && draft.areas.length >= 50);
+	function addZone() {
+		if (zoneAddingDisabled) return;
+		if (!draft || draft.archivedAt) {
+			if (!startNewPlan()) return;
+		} else {
+			setPlanningDay((current) =>
+				Math.max(current ?? utcDay(draft.startDate), utcDay(draft.startDate)),
+			);
+		}
+		setAreaRequest((value) => value + 1);
 	}
 
 	function closeDrawer(discardChanges = false) {
@@ -425,7 +443,7 @@ export function VisualPlanningPanel({
 		const action = pendingDrawerAction;
 		setPendingDrawerAction(null);
 		if (action.type === "new") {
-			startNewPlan(true);
+			if (startNewPlan(true)) setAreaRequest((value) => value + 1);
 			return;
 		}
 		if (action.type === "close") {
@@ -680,11 +698,11 @@ export function VisualPlanningPanel({
 							<Button
 								size="sm"
 								variant="outline"
-								disabled={!index || saving}
-								onClick={() => startNewPlan()}
+								disabled={zoneAddingDisabled}
+								onClick={addZone}
 							>
 								<Plus className="h-4 w-4" />
-								Pievienot jaunu
+								Pievienot zonu
 							</Button>
 						</div>
 
@@ -793,7 +811,7 @@ export function VisualPlanningPanel({
 								) : (
 									<p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
 										Šai lokācijai vēl nav saglabātu plānu. Spiediet “Pievienot
-										jaunu”, lai ieplānotu pirmo darbu.
+										zonu”, lai ieplānotu pirmo darbu.
 									</p>
 								)}
 							</div>
@@ -893,8 +911,8 @@ export function VisualPlanningPanel({
 											size="sm"
 											variant="outline"
 											className="h-7"
-											disabled={saving || draft.areas.length >= 50}
-											onClick={() => setAreaRequest((value) => value + 1)}
+											disabled={zoneAddingDisabled}
+											onClick={addZone}
 										>
 											<Plus className="h-3.5 w-3.5" />
 											Pievienot zonu

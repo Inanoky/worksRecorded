@@ -190,6 +190,11 @@ const planningContact = {
 	phone: "37120000000",
 	archivedAt: null,
 };
+function sidebarAddZone() {
+	return within(
+		screen.getByRole("complementary", { name: "Darbu plānošana" }),
+	).getByRole("button", { name: "Pievienot zonu" });
+}
 beforeEach(() => {
 	jest.clearAllMocks();
 	jest.mocked(getVisualPlanning).mockResolvedValue(emptyIndex);
@@ -247,12 +252,8 @@ it("docks drawing controls above the map and both planning panels", async () => 
 	expect(map).toContainElement(
 		screen.getByRole("complementary", { name: "Darbu plānošana" }),
 	);
-	await waitFor(() =>
-		expect(
-			screen.getByRole("button", { name: "Pievienot jaunu" }),
-		).toBeEnabled(),
-	);
-	fireEvent.click(screen.getByRole("button", { name: "Pievienot jaunu" }));
+	await waitFor(() => expect(sidebarAddZone()).toBeEnabled());
+	fireEvent.click(sidebarAddZone());
 	expect(map).toContainElement(
 		screen.getByRole("complementary", { name: "Plāna detaļas" }),
 	);
@@ -403,6 +404,7 @@ it("guards the planning drawer while a zone geometry edit is active", async () =
 		screen.getByRole("button", { name: "Sākt zonas rediģēšanu" }),
 	);
 	expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+	expect(sidebarAddZone()).toBeDisabled();
 	expect(
 		within(drawer).queryByRole("button", { name: "Pievienot zonu" }),
 	).not.toBeInTheDocument();
@@ -417,6 +419,7 @@ it("guards the planning drawer while a zone geometry edit is active", async () =
 		screen.getByRole("button", { name: "Beigt zonas rediģēšanu" }),
 	);
 	expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+	expect(sidebarAddZone()).toBeEnabled();
 	expect(
 		within(drawer).getByRole("button", { name: "Pievienot zonu" }),
 	).toBeEnabled();
@@ -436,13 +439,15 @@ it("creates a visual plan from project work, dates, quantity, and drawn areas", 
 		exact: false,
 	});
 	expect(screen.queryByRole("slider")).not.toBeInTheDocument();
-	await waitFor(() =>
-		expect(
-			screen.getByRole("button", { name: "Pievienot jaunu" }),
-		).toBeEnabled(),
-	);
-	fireEvent.click(screen.getByRole("button", { name: "Pievienot jaunu" }));
+	await waitFor(() => expect(sidebarAddZone()).toBeEnabled());
+	fireEvent.click(sidebarAddZone());
 	await screen.findByLabelText("Plānotais apjoms");
+	expect(
+		screen.queryByRole("button", { name: "Pievienot jaunu" }),
+	).not.toBeInTheDocument();
+	expect(screen.getByTestId("planning-pdf")).toHaveTextContent(
+		"Zonas pieprasījums: 1",
+	);
 	expect(
 		screen.getByText("Šai lokācijai vēl nav saglabātu plānu.", {
 			exact: false,
@@ -454,19 +459,24 @@ it("creates a visual plan from project work, dates, quantity, and drawn areas", 
 	expect(screen.getByTestId("planning-pdf")).toHaveTextContent(
 		"Plāna krāsa: #16a34a",
 	);
-	fireEvent.click(screen.getByRole("button", { name: "Pievienot zonu" }));
+	fireEvent.click(
+		within(
+			screen.getByRole("complementary", { name: "Plāna detaļas" }),
+		).getByRole("button", { name: "Pievienot zonu" }),
+	);
 	expect(screen.getByTestId("planning-pdf")).toHaveTextContent(
-		"Zonas pieprasījums: 1",
+		"Zonas pieprasījums: 2",
 	);
 	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {
 		target: { value: "25" },
 	});
-	expect(screen.getByRole("button", { name: "Pievienot jaunu" })).toBeEnabled();
-	fireEvent.click(screen.getByRole("button", { name: "Pievienot jaunu" }));
-	expect(screen.getByRole("alertdialog")).toHaveTextContent(
-		"Pašreizējā plāna nesaglabātās izmaiņas tiks atmestas.",
+	expect(sidebarAddZone()).toBeEnabled();
+	fireEvent.click(sidebarAddZone());
+	expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+	expect(screen.getByLabelText("Plānotais apjoms")).toHaveValue(25);
+	expect(screen.getByTestId("planning-pdf")).toHaveTextContent(
+		"Zonas pieprasījums: 3",
 	);
-	fireEvent.click(screen.getByRole("button", { name: "Turpināt pašreizējo" }));
 	fireEvent.change(screen.getByLabelText("Izpildes termiņš"), {
 		target: { value: "2026-10-18" },
 	});
@@ -493,6 +503,91 @@ it("creates a visual plan from project work, dates, quantity, and drawn areas", 
 	expect(onDirtyChange).toHaveBeenLastCalledWith(false);
 });
 
+it("uses the same add-zone action in both panels without replacing a saved plan or dirty fields", async () => {
+	jest
+		.mocked(getVisualPlanning)
+		.mockResolvedValue({ ...emptyIndex, plans: [indexedPlan] });
+	render(
+		<VisualPlanningPanel
+			siteId="22222222-2222-4222-8222-222222222222"
+			drawing={drawing}
+			sidebarOpen
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
+	);
+	const drawer = screen.getByRole("complementary", { name: "Plāna detaļas" });
+	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {
+		target: { value: "99" },
+	});
+	fireEvent.change(screen.getByLabelText("Izpildes termiņš"), {
+		target: { value: "2026-10-18" },
+	});
+	fireEvent.click(sidebarAddZone());
+	expect(screen.getByTestId("planning-pdf")).toHaveTextContent(
+		"Zonas pieprasījums: 1",
+	);
+	fireEvent.click(
+		within(drawer).getByRole("button", { name: "Pievienot zonu" }),
+	);
+	expect(screen.getByTestId("planning-pdf")).toHaveTextContent(
+		"Zonas pieprasījums: 2",
+	);
+	expect(screen.getByTestId("planning-pdf")).toHaveTextContent(
+		"Plāna zonas: 1",
+	);
+	expect(screen.getByLabelText("Plānotais apjoms")).toHaveValue(99);
+	expect(screen.getByLabelText("Izpildes termiņš")).toHaveValue("2026-10-18");
+	expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt izmaiņas" }));
+	await waitFor(() =>
+		expect(saveVisualPlanningItem).toHaveBeenCalledWith(
+			expect.objectContaining({
+				id: plan.id,
+				quantity: 99,
+				geometry: plan.geometry,
+			}),
+		),
+	);
+});
+
+it("disables both add-zone buttons at the polygon limit", async () => {
+	jest.mocked(getVisualPlanning).mockResolvedValue({
+		...emptyIndex,
+		plans: [
+			{
+				...indexedPlan,
+				geometry: {
+					version: 1,
+					areas: Array.from({ length: 50 }, (_, i) => ({
+						...area,
+						id: `area-${i}`,
+					})),
+				},
+			},
+		],
+	});
+	render(
+		<VisualPlanningPanel
+			siteId="site"
+			drawing={drawing}
+			sidebarOpen
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
+	);
+	expect(sidebarAddZone()).toBeDisabled();
+	expect(
+		within(
+			screen.getByRole("complementary", { name: "Plāna detaļas" }),
+		).getByRole("button", { name: "Pievienot zonu" }),
+	).toBeDisabled();
+});
+
 it("assigns a saved project contact to a planned job", async () => {
 	jest.mocked(getVisualPlanning).mockResolvedValue({
 		...emptyIndex,
@@ -507,12 +602,8 @@ it("assigns a saved project contact to a planned job", async () => {
 		/>,
 	);
 
-	await waitFor(() =>
-		expect(
-			screen.getByRole("button", { name: "Pievienot jaunu" }),
-		).toBeEnabled(),
-	);
-	fireEvent.click(screen.getByRole("button", { name: "Pievienot jaunu" }));
+	await waitFor(() => expect(sidebarAddZone()).toBeEnabled());
+	fireEvent.click(sidebarAddZone());
 	const contactOption = await screen.findByRole("option", {
 		name: "Anna Bērziņa · +37120000000",
 	});
@@ -588,8 +679,8 @@ it("shows full history and filters the PDF cumulatively with the bottom slider",
 	);
 	expect(screen.queryByText("Nedēļa")).not.toBeInTheDocument();
 	expect(screen.queryByText("Mēnesis")).not.toBeInTheDocument();
-	fireEvent.click(screen.getByRole("button", { name: "Pievienot jaunu" }));
-	expect(screen.getByLabelText("Sākuma datums")).toHaveValue("2026-10-11");
+	fireEvent.click(sidebarAddZone());
+	expect(screen.getByLabelText("Sākuma datums")).toHaveValue("2026-10-20");
 });
 
 it("shows plans chronologically with duration bars across the selected period", async () => {
