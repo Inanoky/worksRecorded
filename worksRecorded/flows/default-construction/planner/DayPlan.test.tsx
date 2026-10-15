@@ -67,6 +67,79 @@ describe("plan table alignment", () => {
 		);
 		expect(container.querySelectorAll("col")).toHaveLength(17);
 	});
+	it("fits configured KUCE and BIS work columns alongside every diary control", () => {
+		const diaryFields = [
+			"Date",
+			"Works",
+			"Works_Custom_1",
+			"Location",
+			"Works_Custom_2",
+			"WorkersInvolved",
+			"TimeInvolved",
+			"Comments_Custom_1",
+			"Comments_Custom_2",
+			"Comments",
+			"Amounts",
+			"Units",
+		];
+		const { container } = render(
+			<table>
+				<PlanTableColumns
+					fields={diaryFields}
+					bisEnabled
+					showPlan={false}
+					columnWeights={{
+						Works: 200,
+						Works_Custom_1: 300,
+						Location: 130,
+						select: 36,
+						bis: 100,
+						status: 110,
+						action: 60,
+						source: 40,
+						"man-hours": 65,
+						cost: 80,
+					}}
+				/>
+			</table>,
+		);
+		const columns = Array.from(container.querySelectorAll("col"));
+		expect(columns).toHaveLength(diaryFields.length + 7);
+		expect(
+			columns.reduce(
+				(sum, column) => sum + Number.parseFloat(column.style.width),
+				0,
+			),
+		).toBeCloseTo(100);
+		expect(
+			Number.parseFloat(columns[3].style.width) /
+				Number.parseFloat(columns[2].style.width),
+		).toBeCloseTo(1.5);
+		for (const column of columns)
+			expect(Number.parseFloat(column.style.width)).toBeGreaterThan(0);
+	});
+	it("ignores invalid configured widths without hiding a column", () => {
+		const { container } = render(
+			<table>
+				<PlanTableColumns
+					fields={["Works", "Works_Custom_1"]}
+					bisEnabled={false}
+					showPlan={false}
+					columnWeights={{ Works: Infinity, Works_Custom_1: 0, select: -1 }}
+				/>
+			</table>,
+		);
+		const columns = Array.from(container.querySelectorAll("col"));
+		expect(columns).toHaveLength(5);
+		expect(
+			columns.reduce(
+				(sum, column) => sum + Number.parseFloat(column.style.width),
+				0,
+			),
+		).toBeCloseTo(100);
+		for (const column of columns)
+			expect(Number.parseFloat(column.style.width)).toBeGreaterThan(0);
+	});
 
 	it("aligns every placeholder to the same column and top padding as actual rows", () => {
 		render(

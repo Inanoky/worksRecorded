@@ -79,10 +79,12 @@ export function PlanTableColumns({
 	fields,
 	bisEnabled,
 	showPlan = true,
+	columnWeights,
 }: {
 	fields: string[];
 	bisEnabled: boolean;
 	showPlan?: boolean;
+	columnWeights?: Record<string, number>;
 }) {
 	const weights: Record<string, number> = {
 		createdAt: 5,
@@ -105,6 +107,15 @@ export function PlanTableColumns({
 	if (bisEnabled)
 		columns.push({ key: "bis", weight: 7 }, { key: "status", weight: 7 });
 	columns.push({ key: "action", weight: 4 }, { key: "source", weight: 4 });
+	for (const column of columns) {
+		const configured = columnWeights?.[column.key];
+		if (
+			typeof configured === "number" &&
+			Number.isFinite(configured) &&
+			configured > 0
+		)
+			column.weight = configured;
+	}
 	const total = columns.reduce((sum, column) => sum + column.weight, 0);
 	return (
 		<colgroup>

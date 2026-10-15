@@ -1,4 +1,5 @@
 "use client";
+import { getBisWorkDescription } from "@/lib/bis/work-description";
 import { DiaryPhotoUploadMenuItem, DiaryPhotoUploadProvider } from "@/flows/default-construction/frontend/DiaryPhotoActions";
 import { DiaryRecordPhotos } from "@/flows/default-construction/frontend/DiaryRecordPhotos";
 import { DiaryDayPagination } from "@/flows/default-construction/frontend/DiaryDayPagination";
@@ -790,6 +791,7 @@ export default function SiteDiaryCalendar({
     React.useState<Record<string, any>>(defaultConfig);
   const [configSiteId, setConfigSiteId] = React.useState<string | null>(null);
   const clientDiary = !isZtcFlow && (limeniClientDiary || (configSiteId === siteId && defaultMap?.otherSettings?.inlineDiaryPhotos === true));
+  const fitDiaryTable = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.fitDiaryTableToWidth === true;
   const calculateDefaultConstructionRecordCost = React.useMemo(
     () => createDefaultConstructionRecordCostCalculator(defaultMap),
     [defaultMap],
@@ -2467,7 +2469,7 @@ export default function SiteDiaryCalendar({
     setBisSubmitDate(row.Date ? new Date(row.Date) : new Date());
     setBisMultipleDayJob(false);
     setBisSubmitDateTo(null);
-    bisSubmitWorksRef.current = String(row.Comments ?? "");
+    bisSubmitWorksRef.current = getBisWorkDescription(row, defaultMap);
     setBisSubmitAmount(String(row.Amounts ?? 1));
     setBisInputResetKey((value) => value + 1);
     setBisPickerOpen(true);
@@ -4176,7 +4178,7 @@ export default function SiteDiaryCalendar({
                             {/* MOBILE: stacked record cards */}
                             <div
                               className={cn(
-                                showDayPlan || clientDiary ? "space-y-2 xl:hidden" : "space-y-2 lg:hidden",
+                                showDayPlan || clientDiary || fitDiaryTable ? "space-y-2 xl:hidden" : "space-y-2 lg:hidden",
                                 isMediaOnlyGroup && "hidden",
                               )}
                             >
@@ -4767,7 +4769,7 @@ export default function SiteDiaryCalendar({
                             {/* DESKTOP: table view */}
                             <div
                               className={cn(
-                                showDayPlan || clientDiary ? "hidden min-w-0 xl:block" : "hidden overflow-x-auto lg:block",
+                                showDayPlan || clientDiary || fitDiaryTable ? "hidden min-w-0 xl:block" : "hidden overflow-x-auto lg:block",
                                 clientDiary && "max-w-full [&>[data-slot=table-container]]:overflow-visible",
                                 isMediaOnlyGroup && "lg:hidden",
                               )}
@@ -5403,9 +5405,13 @@ export default function SiteDiaryCalendar({
 
                                 return (
                                   <Table
-                                    className={cn("table-fixed text-xs", showDayPlan || clientDiary ? "w-full min-w-0 [&_th]:!w-auto [&_td]:!w-auto [&_th]:!px-1.5 [&_td]:!px-1.5 [&_th]:!whitespace-normal [&_td]:!whitespace-normal [&_th]:[overflow-wrap:anywhere] [&_td]:[overflow-wrap:anywhere] [&_button]:max-w-full" : isZtcSite ? "min-w-[1180px] sm:text-sm" : "min-w-[985px] sm:text-sm")}
+                                    className={cn("table-fixed text-xs", showDayPlan || clientDiary || fitDiaryTable ? "w-full min-w-0 [&_th]:!w-auto [&_td]:!w-auto [&_th]:!px-1.5 [&_td]:!px-1.5 [&_th]:!whitespace-normal [&_td]:!whitespace-normal [&_th]:[overflow-wrap:anywhere] [&_td]:[overflow-wrap:anywhere] [&_button]:max-w-full" : isZtcSite ? "min-w-[1180px] sm:text-sm" : "min-w-[985px] sm:text-sm", fitDiaryTable && "[&_button]:whitespace-normal [&_button]:break-words [&_button]:h-auto [&_button]:min-h-8 [&_button]:px-1")}
                                   >
-                                    {showDayPlan || clientDiary ? <PlanTableColumns fields={dayTableHeads} bisEnabled={bisUiEnabled} showPlan={showDayPlan} /> : null}
+                                    {showDayPlan || clientDiary || fitDiaryTable ? <PlanTableColumns fields={dayTableHeads} bisEnabled={bisUiEnabled} showPlan={showDayPlan} columnWeights={fitDiaryTable ? {
+                                      ...Object.fromEntries(dayTableHeads.map((field) => [field, getCellWidthByKey(field, defaultMap)])),
+                                      select: 52, createdAt: 80, "man-hours": 75, cost: 80, bis: 140, status: 140, action: 80, source: 60,
+                                      "plan-Works": getCellWidthByKey("Works", defaultMap), "plan-Amounts": 125,
+                                    } : undefined} /> : null}
                                     {/* HEADER */}
                                     <TableHeader>
                                       <TableRow>
@@ -5683,7 +5689,7 @@ export default function SiteDiaryCalendar({
                                                       )}
                                                     </button>
                                                   ) : (
-                                                    <div className={cn(clientDiary && field === "Comments" ? "whitespace-pre-wrap [overflow-wrap:anywhere]" : "line-clamp-4", clientDiary && field === "TimeInvolved" && "whitespace-nowrap tabular-nums")}>
+                                                    <div className={cn((clientDiary && field === "Comments") || (fitDiaryTable && field === "Works_Custom_1") ? "whitespace-pre-wrap [overflow-wrap:anywhere]" : "line-clamp-4", clientDiary && field === "TimeInvolved" && "whitespace-nowrap tabular-nums")}>
                                                       {formatSiteDiaryDisplayValue(
                                                         field,
                                                         row[field],
