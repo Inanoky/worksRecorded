@@ -1368,3 +1368,86 @@ model FlowAssignment {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
+model FimaImportBatch {
+  id             String @id @default(uuid())
+  organizationId String
+  siteId         String
+  fileName       String
+  fileHash       String
+  source         Json
+  createdBy      String
+  createdAt      DateTime @default(now())
+  records        FimaWorkRecord[]
+  @@unique([organizationId, siteId, fileHash])
+}
+
+model FimaWorkRecord {
+  id             String @id @default(uuid())
+  organizationId String
+  siteId         String
+  localId        String
+  ordinal        Int
+  batchId        String?
+  batch          FimaImportBatch? @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  proposal       Json
+  sources        Json
+  stage          String @default("draft")
+  version        Int @default(1)
+  bisId          String?
+  bisCaseId      String?
+  bisStatus      String?
+  managed        Boolean @default(false)
+  snapshot       Json?
+  createdBy      String
+  updatedBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  revisions      FimaWorkRevision[]
+  operations     FimaBisOperation[]
+  @@unique([organizationId, localId])
+  @@unique([organizationId, ordinal])
+  @@index([organizationId, siteId, stage])
+  @@index([bisCaseId, bisId])
+}
+
+model FimaWorkRevision {
+  id        String @id @default(uuid())
+  recordId  String
+  record    FimaWorkRecord @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  version   Int
+  actorId   String
+  action    String
+  snapshot  Json
+  createdAt DateTime @default(now())
+  @@index([recordId, createdAt])
+}
+
+model FimaBisOperation {
+  id             String @id @default(uuid())
+  recordId       String
+  record         FimaWorkRecord @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  organizationId String
+  requestKey     String @unique
+  dedupeKey      String? @unique
+  actorId        String
+  kind           String
+  status         String
+  request        Json
+  result         Json?
+  error          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@index([organizationId, status, createdAt])
+}
+
+model FimaWorkTemplate {
+  id             String @id @default(uuid())
+  organizationId String
+  workKey        String
+  sourceWork     String
+  description    String
+  evidence       Json
+  createdBy      String
+  createdAt      DateTime @default(now())
+  @@unique([organizationId, workKey])
+}

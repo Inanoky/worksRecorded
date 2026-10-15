@@ -1,948 +1,1668 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-	ArrowRight,
-	ArrowUpRight,
-	Bell,
-	BookOpen,
-	Boxes,
-	Check,
-	CheckCheck,
-	ChevronDown,
-	ChevronLeft,
-	ChevronRight,
-	CircleHelp,
-	Clock3,
-	Columns3,
-	ExternalLink,
-	FileSpreadsheet,
-	FileText,
-	Flag,
-	FolderOpen,
-	HardHat,
-	LayoutDashboard,
-	ListFilter,
-	MoreHorizontal,
-	Plus,
-	Search,
-	ShieldCheck,
-	SlidersHorizontal,
-	TrainFront,
-	Trash2,
-	Users,
-	X,
-} from "lucide-react";
-import { useId, useState } from "react";
-import styles from "./fima-workspace.module.css";
+	addFimaRecord,
+	copyFimaCommonFields,
+	executeFimaBis,
+	getFimaCaseResources,
+	getFimaHistory,
+	getFimaWorkspace,
+	importFimaRows,
+	inspectFimaBis,
+	linkFimaBis,
+	mergeFimaRows,
+	refreshFimaBis,
+	saveFimaRecord,
+	saveFimaTemplate,
+	searchFimaBisHistory,
+	searchFimaKuceHistory,
+} from "../backend/client";
+import {
+	canWrite,
+	editUrl,
+	type FimaRow,
+	normalizeWork,
+	type Proposal,
+	parseMasts,
+	readiness,
+	spanLength,
+} from "../lib/records";
+import type { ImportRow } from "../lib/workbook";
+import styles from "./fima-live.module.css";
 
-export type FimaRecord = {
-	id: string;
-	row: number;
-	date: string;
-	title: string;
-	description: string;
-	status: "draft" | "fima" | "recorded" | "pending" | "deleted";
-	bisNumber: string | null;
-	bisUrl: string | null;
-	owner: string;
-	quantity: string;
-	unit: string;
-	masts: string;
-	materials: string;
-	shift: string;
-	workers: number | null;
-	note: string;
-	verification: string;
-	action: string;
+const stages: Record<string, string> = {
+	draft: "Sagatavojams",
+	ready: "Pārbaudīts",
+	hold: "Atlikts",
+	recorded: "BIS ieraksts",
+	executing: "Tiek saglabāts",
+	unknown: "Jāpārbauda rezultāts",
+	merged: "Apvienots",
 };
-
-const statuses = {
-	draft: { label: "Sagatave", color: "draft", icon: FileText },
-	fima: { label: "FIMA ieraksts", color: "fima", icon: CheckCheck },
-	recorded: { label: "Buvconsult ieraksts", color: "recorded", icon: Check },
-	pending: { label: "Jāizveido no jauna", color: "pending", icon: Clock3 },
-	deleted: { label: "Dzēsts", color: "deleted", icon: Trash2 },
-} as const;
-
-function Status({ record }: { record: FimaRecord }) {
-	const status = statuses[record.status];
-	return (
-		<span className={`${styles.badge} ${styles[status.color]}`}>
-			<status.icon size={12} />
-			{status.label}
-		</span>
+const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const label = (x: any) =>
+	String(
+		x.attributes?.material_kind ??
+			x.attributes?.construction_name ??
+			x.attributes?.name ??
+			x.attributes?.title ??
+			x.attributes?.person_full_name ??
+			x.attributes?.name_with_role ??
+			x.id,
 	);
-}
-
-function FimaLogo({ className }: { className?: string }) {
-	return (
-		<img
-			src="/logos/fima-official.png"
-			alt="FIMA"
-			width={117}
-			height={36}
-			className={className}
-		/>
+type Workspace = Awaited<ReturnType<typeof getFimaWorkspace>>;
+export function FimaWorkspace({ siteId }: { siteId?: string }) {
+	const [data, setData] = useState<Workspace | null>(null),
+		[error, setError] = useState(""),
+		[busy, setBusy] = useState(false);
+	const [project, setProject] = useState(siteId ?? ""),
+		[month, setMonth] = useState(""),
+		[query, setQuery] = useState(""),
+		[stage, setStage] = useState("");
+	const [selection, setSelection] = useState<string[]>([]),
+		[active, setActive] = useState<string | null>(null),
+		[draft, setDraft] = useState<Proposal | null>(null);
+	const [resources, setResources] = useState<any>(null),
+		[resourceSite, setResourceSite] = useState(""),
+		[history, setHistory] = useState<any[]>([]),
+		[historyQuery, setHistoryQuery] = useState("");
+	const [importRows, setImportRows] = useState<ImportRow[]>([]),
+		[fileName, setFileName] = useState(""),
+		[mode, setMode] = useState<"register" | "kuce">("register");
+	const [results, setResults] = useState<string[]>([]),
+		[batchKind, setBatchKind] = useState<"create" | "update" | "zero" | null>(
+			null,
+		),
+		[acceptCreator, setAcceptCreator] = useState(false);
+	const [bisLink, setBisLink] = useState(""),
+		[templateText, setTemplateText] = useState(""),
+		[audit, setAudit] = useState<any[]>([]),
+		[importSite, setImportSite] = useState("");
+	const [updateImport, setUpdateImport] = useState(false),
+		[historySite, setHistorySite] = useState(""),
+		[kuceHistory, setKuceHistory] = useState<FimaRow[]>([]);
+	const [commonOpen, setCommonOpen] = useState(false),
+		[useTemplates, setUseTemplates] = useState(true);
+	const [reference, setReference] = useState<any>(null);
+	const [importCase, setImportCase] = useState("");
+	const pendingRows = importRows.filter(
+		(r) => (r.caseName ?? "") === importCase,
 	);
-}
-
-function WorksRecordedLogo({ className }: { className?: string }) {
-	return (
-		<span className={`${styles.worksLogo} ${className ?? ""}`}>
-			<span className={styles.worksLogoMark}>
-				<img
-					src="/logos/worksrecorded-letter.png"
-					alt="WorksRecorded"
-					width={226}
-					height={187}
-				/>
-			</span>
-			<span className={styles.worksWordmark} aria-hidden="true">
-				Works<span>Recorded</span>
-			</span>
-		</span>
+	const importCases = [...new Set(importRows.map((r) => r.caseName ?? ""))];
+	const cancel = useRef(false);
+	const mounted = useRef(true);
+	const reload = useCallback(async () => {
+		const value = await getFimaWorkspace(siteId);
+		if (mounted.current) setData(value);
+		return value;
+	}, [siteId]);
+	useEffect(() => {
+		mounted.current = true;
+		reload().catch((e) => setError(message(e)));
+		return () => {
+			mounted.current = false;
+			cancel.current = true;
+		};
+	}, [reload]);
+	const current = data?.records.find((r) => r.id === active);
+	const visible = useMemo(
+		() =>
+			data?.records.filter(
+				(r) =>
+					(!project || r.siteId === project) &&
+					(!month || r.proposal.date.startsWith(month)) &&
+					(!stage || r.stage === stage) &&
+					`${r.localId} ${r.proposal.sourceWork} ${r.proposal.description} ${r.proposal.rawMasts}`
+						.toLocaleLowerCase()
+						.includes(query.toLocaleLowerCase()),
+			) ?? [],
+		[data, project, month, stage, query],
 	);
-}
-
-function RailIllustration() {
-	return (
-		<svg
-			className={styles.railIllustration}
-			viewBox="0 0 400 130"
-			fill="none"
-			aria-hidden="true"
-		>
-			<path d="M0 127 400 56M0 113 400 42" stroke="#B8C8BB" strokeWidth="2" />
-			<path
-				d="m32 107 0-70 180-28v83M92 96V25L280 5v73M232 70V20l117-9v45"
-				stroke="#879F8D"
-				strokeWidth="2"
-			/>
-			<path
-				d="m20 43 204-24m-143 11 210-20m-244 2 95 9 74-15 113 4"
-				stroke="#A2B5A8"
-			/>
-			<path
-				d="m38 37 12 27 163-27m-122-11 15 28 174-28m-48-6 10 18 107-15"
-				stroke="#A2B5A8"
-			/>
-			<path
-				d="m62 110 18 13m40-23 18 13m40-23 18 13m40-23 18 13m40-23 18 13m40-23 18 13"
-				stroke="#B8C8BB"
-				strokeWidth="2"
-			/>
-			<circle cx="212" cy="36" r="3" fill="#E9A06A" />
-			<circle cx="281" cy="26" r="3" fill="#E9A06A" />
-		</svg>
-	);
-}
-
-export function FimaWorkspace({
-	records,
-	embedded = false,
-	siteId,
-}: {
-	records: FimaRecord[];
-	embedded?: boolean;
-	siteId?: string;
-}) {
-	const overviewId = useId();
-	const Content = embedded ? "section" : "main";
-	const [query, setQuery] = useState("");
-	const [tab, setTab] = useState("all");
-	const [owner, setOwner] = useState("all");
-	const [selectedId, setSelectedId] = useState("FIMA-029");
-	const [detailTab, setDetailTab] = useState("record");
-	const [page, setPage] = useState(0);
-	const [board, setBoard] = useState(false);
-	const [notice, setNotice] = useState("");
-	const [detailOpen, setDetailOpen] = useState(true);
-	const [followed, setFollowed] = useState<string[]>([]);
-	const selected =
-		records.find((record) => record.id === selectedId) ?? records[0];
-	const drafts = records.filter((record) => record.status === "draft");
-	const pending = records.filter((record) => record.status === "pending");
-	const deleted = records.filter(
-		(record) => record.status === "deleted" || record.status === "pending",
-	);
-	const normalizedQuery = query.toLocaleLowerCase("lv");
-	const priority = [
-		"FIMA-029",
-		"FIMA-031",
-		"FIMA-032",
-		"FIMA-039",
-		"FIMA-024",
-		"FIMA-010",
-		"FIMA-036",
-		"FIMA-025",
-	];
-	const sorted = [...records].sort((a, b) => {
-		const ai = priority.indexOf(a.id),
-			bi = priority.indexOf(b.id);
-		return (ai < 0 ? 100 + a.row : ai) - (bi < 0 ? 100 + b.row : bi);
-	});
-	const filtered = sorted.filter(
-		(record) =>
-			(tab === "all" ||
-				(tab === "pending" && record.status === "pending") ||
-				(tab === "draft" && record.status === "draft") ||
-				(tab === "deleted" &&
-					["deleted", "pending"].includes(record.status))) &&
-			(owner === "all" || record.owner === owner) &&
-			`${record.id} ${record.title} ${record.masts} ${record.bisNumber ?? ""}`
-				.toLocaleLowerCase("lv")
-				.includes(normalizedQuery),
-	);
-	const pageSize = 8;
-	const visible = filtered.slice(page * pageSize, (page + 1) * pageSize);
-	const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
-	const select = (record: FimaRecord) => {
-		setSelectedId(record.id);
-		setDetailOpen(true);
-		setDetailTab("record");
+	const selected = data?.records.filter((r) => selection.includes(r.id)) ?? [];
+	const act = async (fn: () => Promise<unknown>) => {
+		setBusy(true);
+		setError("");
+		try {
+			await fn();
+		} catch (e) {
+			setError(message(e));
+		} finally {
+			setBusy(false);
+		}
 	};
-	const changeTab = (next: string) => {
-		setTab(next);
-		setPage(0);
+	const select = (r: FimaRow) => {
+		if (
+			active !== r.id &&
+			current &&
+			draft &&
+			JSON.stringify(draft) !== JSON.stringify(current.proposal) &&
+			!window.confirm("Nesaglabātās izmaiņas tiks atmestas. Turpināt?")
+		)
+			return;
+		setActive(r.id);
+		setDraft(structuredClone(r.proposal));
+		setAudit([]);
+		setHistory([]);
+		setKuceHistory([]);
+		setHistorySite(r.siteId);
+		setBisLink("");
+		setTemplateText("");
+		setReference(null);
 	};
-	const formatDate = (date: string) =>
-		`${date.slice(8, 10)}.${date.slice(5, 7)}.`;
-	const toggleFollow = () =>
-		setFollowed((ids) =>
-			ids.includes(selected.id)
-				? ids.filter((id) => id !== selected.id)
-				: [...ids, selected.id],
+	const change = (key: keyof Proposal, value: any) =>
+		setDraft((p) =>
+			p
+				? {
+						...p,
+						[key]: value,
+						...(key !== "reviewed" ? { reviewed: false } : {}),
+					}
+				: p,
 		);
-
+	const loadResources = async () => {
+		if (!current) return;
+		const value = await getFimaCaseResources(current.siteId);
+		setResources(value);
+		setResourceSite(current.siteId);
+	};
+	const save = async (status: "draft" | "ready" | "hold") => {
+		if (!current || !draft) return;
+		await saveFimaRecord(current.id, current.version, draft, status);
+		const next = await reload();
+		const r = next.records.find((r) => r.id === active);
+		if (r) select(r);
+	};
+	const importFile = async (file: File) => {
+		if (file.size > 10 * 1024 * 1024)
+			throw new Error("Faila izmēra ierobežojums ir 10 MB");
+		const { parseWorkbook } = await import("../lib/workbook");
+		const rows = parseWorkbook(
+			await file.arrayBuffer(),
+			file.name,
+			month,
+			mode,
+		);
+		setImportRows(rows);
+		setImportCase(rows[0]?.caseName ?? "");
+		setFileName(file.name);
+		setImportSite(project);
+	};
+	const runBatch = async (kind: "create" | "update" | "zero") => {
+		const targets = [...selected];
+		setBatchKind(null);
+		setResults([]);
+		cancel.current = false;
+		for (const r of targets) {
+			if (cancel.current) break;
+			try {
+				await executeFimaBis(r.id, r.version, kind, acceptCreator);
+				setResults((x) => [...x, `${r.localId}: saglabāts un pārbaudīts`]);
+			} catch (e) {
+				setResults((x) => [...x, `${r.localId}: ${message(e)}`]);
+			}
+		}
+		setSelection([]);
+		await reload();
+	};
+	const syncSelected = async () => {
+		setResults([]);
+		for (const r of selected) {
+			try {
+				await refreshFimaBis(r.id);
+				setResults((x) => [...x, `${r.localId}: statuss atjaunots`]);
+			} catch (e) {
+				setResults((x) => [...x, `${r.localId}: ${message(e)}`]);
+			}
+		}
+		await reload();
+	};
+	const eligible = (r: FimaRow, kind: string) =>
+		kind === "create"
+			? !r.bisId && r.stage === "ready" && r.proposal.authorMode === "api"
+			: Boolean(
+					r.bisId &&
+						r.managed &&
+						r.bisStatus === "draft" &&
+						!["unknown", "executing"].includes(r.stage) &&
+						(kind !== "update" || r.stage === "ready"),
+				);
+	if (!data)
+		return (
+			<section className={styles.app}>
+				<h1>FIMA · BIS darbu uzskaite</h1>
+				<output>{error || "Ielādē reģistru…"}</output>
+				{error && (
+					<button type="button" onClick={() => act(reload)}>
+						Mēģināt vēlreiz
+					</button>
+				)}
+			</section>
+		);
+	const caseSite = data.sites.find((s) => s.id === current?.siteId);
+	const catalog =
+		resources && resourceSite === current?.siteId ? resources : null;
+	const protectedRow = Boolean(
+		current &&
+			(!canWrite(current) ||
+				["executing", "unknown", "merged"].includes(current.stage)),
+	);
 	return (
-		<div
-			className={`${styles.workspace} ${embedded ? styles.embedded : ""}`}
-			data-flow="fima"
-			data-site-id={siteId}
-		>
-			<aside className={styles.sidebar}>
-				<a
-					href={`#${overviewId}`}
-					className={styles.brand}
-					aria-label="WorksRecorded"
-				>
-					<WorksRecordedLogo />
-				</a>
-				<div className={styles.orgCard}>
-					<FimaLogo className={styles.orgLogo} />
-					<div>
-						<strong>FIMA</strong>
-						<span>Organizācijas vide</span>
-					</div>
-					<ChevronDown size={15} />
+		<section className={styles.app}>
+			<header className={styles.header}>
+				<div>
+					<img
+						src="/logos/fima-official.png"
+						alt="FIMA"
+						width={100}
+						height={31}
+					/>
+					<h1>BIS darbu uzskaite</h1>
+					<p>
+						KUCE atskaite, pārbaudīts priekšlikums un BIS rezultāts vienā
+						reģistrā.
+					</p>
 				</div>
-				<span className={styles.navLabel}>DARBA VIETA</span>
-				<nav aria-label="Galvenā navigācija">
+				<div className={styles.actions}>
+					<button type="button" disabled={busy} onClick={() => act(reload)}>
+						Atjaunot pārskatu
+					</button>
+					<a href="/dashboard/sites/new">Pievienot projektu</a>
+					{project && (
+						<a href={`/dashboard/sites/${project}/settings`}>
+							BIS savienojums un projekta iestatījumi
+						</a>
+					)}
 					<button
 						type="button"
-						onClick={() => {
-							changeTab("all");
-							setNotice("Atvērts projekta pārskats.");
+						disabled={!visible.length}
+						onClick={() =>
+							act(async () => {
+								const [XLSX, { exportWorkbook }] = await Promise.all([
+									import("xlsx"),
+									import("../lib/workbook"),
+								]);
+								XLSX.writeFile(
+									exportWorkbook(
+										visible,
+										Object.fromEntries(data.sites.map((s) => [s.id, s.name])),
+										data.bisBase,
+									),
+									`FIMA-${month || "registrs"}.xlsx`,
+								);
+							})
+						}
+					>
+						Eksportēt Excel
+					</button>
+					<button
+						type="button"
+						className={styles.primary}
+						disabled={busy || !project}
+						onClick={() =>
+							act(async () => {
+								const id = await addFimaRecord(project);
+								const next = await reload();
+								select(next.records.find((r) => r.id === id)!);
+							})
+						}
+					>
+						Jauns priekšlikums
+					</button>
+				</div>
+			</header>
+			{error && (
+				<div role="alert" className={styles.error}>
+					{error}
+				</div>
+			)}
+			{data.truncated && (
+				<p role="alert">
+					Parādīti pirmie 5000 ieraksti. Atveriet konkrēta projekta pārskatu.
+				</p>
+			)}
+			<div className={styles.stats}>
+				<span>
+					<strong>
+						{data.records.filter((r) => r.stage === "draft").length}
+					</strong>{" "}
+					Sagatavojami
+				</span>
+				<span>
+					<strong>
+						{data.records.filter((r) => r.stage === "ready").length}
+					</strong>{" "}
+					Pārbaudīti
+				</span>
+				<span>
+					<strong>{data.records.filter((r) => r.bisId).length}</strong> Ar BIS
+					saiti
+				</span>
+				<span>
+					<strong>
+						{data.records.filter((r) => r.stage === "unknown").length}
+					</strong>{" "}
+					Jāpārbauda rezultāts
+				</span>
+			</div>
+			<div className={styles.filters}>
+				<label>
+					Projekts
+					<select
+						value={project}
+						onChange={(e) => {
+							setProject(e.target.value);
+							setSelection([]);
+						}}
+						disabled={Boolean(siteId)}
+					>
+						<option value="">Visi projekti</option>
+						{data.sites.map((s) => (
+							<option value={s.id} key={s.id}>
+								{s.name}
+							</option>
+						))}
+					</select>
+				</label>
+				<label>
+					Mēnesis
+					<input
+						type="month"
+						value={month}
+						onChange={(e) => {
+							setMonth(e.target.value);
+							setSelection([]);
+						}}
+					/>
+				</label>
+				<label>
+					Statuss
+					<select
+						value={stage}
+						onChange={(e) => {
+							setStage(e.target.value);
+							setSelection([]);
 						}}
 					>
-						<LayoutDashboard size={18} />
-						Pārskats
-					</button>
-					<button
-						type="button"
-						className={styles.navActive}
-						onClick={() => changeTab("all")}
-					>
-						<ShieldCheck size={18} />
-						BIS ieraksti<span>{records.length}</span>
-					</button>
-					<button
-						type="button"
-						onClick={() => {
-							changeTab("all");
-							setNotice("Darbu žurnāla skats ir daļa no šī dizaina prototipa.");
+						<option value="">Visi statusi</option>
+						{Object.entries(stages).map(([v, l]) => (
+							<option key={v} value={v}>
+								{l}
+							</option>
+						))}
+					</select>
+				</label>
+				<label>
+					Meklēt
+					<input
+						value={query}
+						placeholder="ID, darbs vai balsts"
+						onChange={(e) => {
+							setQuery(e.target.value);
+							setSelection([]);
 						}}
+					/>
+				</label>
+			</div>
+			<details className={styles.import}>
+				<summary>Importēt KUCE atskaiti vai sagatavoto Excel reģistru</summary>
+				<p>
+					Oriģinālās rindas tiek saglabātas ar faila, lapas un šūnas norādi.
+					Importēti BIS ieraksti ir tikai lasāmi līdz atsevišķai pārbaudei.
+				</p>
+				<div className={styles.actions}>
+					<select
+						aria-label="Importa veids"
+						value={mode}
+						onChange={(e) => setMode(e.target.value as typeof mode)}
 					>
-						<BookOpen size={18} />
-						Darbu žurnāls
-					</button>
-					<button
-						type="button"
-						onClick={() =>
-							setNotice("Materiālu pievienošana šajā posmā ir atlikta.")
-						}
-					>
-						<Boxes size={18} />
-						Materiāli
-					</button>
-					<button
-						type="button"
-						onClick={() =>
-							setNotice(
-								"Komandas pārvaldības skats paredzēts nākamajam posmam.",
-							)
-						}
-					>
-						<Users size={18} />
-						Komanda
-					</button>
-				</nav>
-				<div className={styles.projectNav}>
-					<span className={styles.navLabel}>AKTĪVAIS PROJEKTS</span>
-					<div>
-						<span className={styles.projectDot} />
-						<span>
-							Torņakalns–Olaine<small>Kontakttīkla modernizācija</small>
-						</span>
-					</div>
+						<option value="register">FIMA Excel reģistrs</option>
+						<option value="kuce">KUCE brigāžu atskaite (C/J/Q/X)</option>
+					</select>
+					<input
+						aria-label="Excel fails"
+						type="file"
+						accept=".xlsx,.xls"
+						disabled={busy}
+						onChange={(e) => {
+							const f = e.target.files?.[0];
+							if (f) void act(() => importFile(f));
+							e.target.value = "";
+						}}
+					/>
 				</div>
-				<div className={styles.sidebarBottom}>
-					<div className={styles.connectionCard}>
-						<span className={styles.bisSymbol}>BIS</span>
-						<div>
-							<strong>Excel momentuzņēmums</strong>
-							<span>08.10.2026 · dizaina priekšskatījums</span>
-						</div>
-					</div>
-					<button
-						type="button"
-						onClick={() =>
-							setNotice(
-								"Šis ir interaktīvs dizaina prototips. BIS dati netiek automātiski atjaunoti.",
-							)
-						}
-					>
-						<CircleHelp size={17} />
-						Palīdzība un atbalsts
-						<ArrowUpRight size={14} />
-					</button>
-					<div className={styles.profile}>
-						<span>VG</span>
-						<div>
-							<strong>Vjačeslavs Gromatovičs</strong>
-							<small>Buvconsult · projekta komanda</small>
-						</div>
-						<MoreHorizontal size={17} />
-					</div>
-				</div>
-			</aside>
-
-			<div className={styles.mainShell}>
-				<header className={styles.topbar}>
+				{importRows.length > 0 && (
 					<div>
-						<span>FIMA</span>
-						<ChevronRight size={14} />
-						<span>Projekti</span>
-						<ChevronRight size={14} />
-						<strong>Torņakalns–Olaine</strong>
-					</div>
-					<div className={styles.topbarRight}>
-						<span className={styles.previewLabel}>Dizaina prototips</span>
-						<button
-							type="button"
-							aria-label="Paziņojumi"
-							onClick={() => {
-								changeTab("pending");
-								setNotice("Diviem ierakstiem vēl jāizveido aizvietojums.");
-							}}
-						>
-							<Bell size={18} />
-							<i />
-						</button>
-						<span className={styles.topAvatar}>VG</span>
-					</div>
-				</header>
-				<Content className={styles.main} id={overviewId}>
-					<div className={styles.pageHeading}>
-						<div>
-							<div className={styles.eyebrow}>
-								<FimaLogo className={styles.headerLogo} />
-								<span className={styles.divider} />
-								<TrainFront size={13} /> DZELZCEĻA INFRASTRUKTŪRA
-							</div>
-							<h1>
-								BIS darbu pārskats<span>.</span>
-							</h1>
-							<p>No darbu uzskaites līdz BIS ierakstam — viss vienuviet.</p>
-						</div>
-						<div className={styles.headingActions}>
-							<button
-								type="button"
-								className={styles.secondaryButton}
-								onClick={() =>
-									setNotice(
-										"Dati ņemti no “09-2026 - FIMA bis Buvconsult.xlsx”. Šis priekšskatījums nemaina Excel failu.",
-									)
-								}
-							>
-								<FileSpreadsheet size={16} />
-								Excel avots
-								<ArrowUpRight size={14} />
-							</button>
-							<button
-								type="button"
-								className={styles.primaryButton}
-								onClick={() => {
-									changeTab("pending");
-									setNotice("Atvērti ieraksti, kuriem jāizveido aizvietojums.");
+						<h3>
+							{fileName} · {importRows.length} rindas
+						</h3>
+						<label>
+							Avota BIS lieta ({pendingRows.length} rindas)
+							<select
+								value={importCase}
+								onChange={(e) => {
+									setImportCase(e.target.value);
+									setImportSite("");
 								}}
 							>
-								<Plus size={16} />
-								Jauns ieraksts
+								{importCases.map((c) => (
+									<option key={c} value={c}>
+										{c || "Avotā lieta nav norādīta"}
+									</option>
+								))}
+							</select>
+						</label>
+						<label>
+							Piesaistīt projektam
+							<select
+								value={importSite}
+								onChange={(e) => setImportSite(e.target.value)}
+							>
+								<option value="">Izvēlieties projektu</option>
+								{data.sites.map((s) => (
+									<option key={s.id} value={s.id}>
+										{s.name}
+									</option>
+								))}
+							</select>
+						</label>
+						<div className={styles.preview}>
+							<table>
+								<thead>
+									<tr>
+										<th>Avots</th>
+										<th>Datums</th>
+										<th>KUCE darbs</th>
+										<th>Balsti</th>
+										<th>Maiņa / cilvēki</th>
+										<th>Pārbaude</th>
+									</tr>
+								</thead>
+								<tbody>
+									{pendingRows.slice(0, 50).map((r) => (
+										<tr key={`${r.sources[0].sheet}:${r.sources[0].cell}`}>
+											<td>
+												{r.sources[0].sheet}!{r.sources[0].cell}
+											</td>
+											<td>{r.proposal.date}</td>
+											<td>{r.proposal.sourceWork}</td>
+											<td>{r.proposal.rawMasts}</td>
+											<td>
+												{r.proposal.start}–{r.proposal.end} /{" "}
+												{r.proposal.workers ?? "?"}
+											</td>
+											<td>{r.warning}</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+						<p>
+							Priekšskatījumā pirmās 50 rindas. Pirms BIS izveides katrs
+							priekšlikums jāpārbauda.
+						</p>
+						<label>
+							<input
+								type="checkbox"
+								checked={updateImport}
+								onChange={(e) => setUpdateImport(e.target.checked)}
+							/>{" "}
+							Importēt esošo priekšlikumu labojumus, ja ID un eksportētā versija
+							sakrīt. Oriģinālie avoti, materiālu piesaistes un BIS saites
+							saglabājas.
+						</label>
+						<button
+							type="button"
+							className={styles.primary}
+							disabled={busy || !importSite}
+							onClick={() =>
+								act(async () => {
+									if (
+										new TextEncoder().encode(JSON.stringify(pendingRows))
+											.length > 900000
+									)
+										throw new Error(
+											"Vienā importā pārāk daudz datu. Sadaliet atskaiti pa projektiem vai dienām.",
+										);
+									const result = await importFimaRows(
+										importSite,
+										fileName,
+										pendingRows,
+										updateImport,
+									);
+									setResults([
+										result.duplicate
+											? "Šis imports jau saglabāts."
+											: `Importētas ${result.count} rindas.`,
+									]);
+									setImportRows(
+										importRows.filter((r) => !pendingRows.includes(r)),
+									);
+									setImportCase(
+										importRows.find((r) => !pendingRows.includes(r))
+											?.caseName ?? "",
+									);
+									setImportSite("");
+									await reload();
+								})
+							}
+						>
+							Saglabāt importu
+						</button>
+					</div>
+				)}
+			</details>
+			{selection.length > 0 && (
+				<div className={styles.bulk}>
+					<strong>Izvēlēts: {selection.length}</strong>
+					<button
+						type="button"
+						disabled={busy}
+						onClick={() => act(syncSelected)}
+					>
+						Pārbaudīt BIS
+					</button>
+					{(
+						[
+							["create", "Izveidot API sagataves"],
+							["update", "Atjaunot API sagataves"],
+							["zero", "Materiālus uz 0"],
+						] as const
+					).map(([kind, title]) => (
+						<button
+							type="button"
+							key={kind}
+							disabled={busy || selected.some((r) => !eligible(r, kind))}
+							onClick={() => {
+								setBatchKind(kind);
+								setAcceptCreator(false);
+							}}
+						>
+							{title}
+						</button>
+					))}
+					<button
+						type="button"
+						disabled={
+							busy || selected.length < 2 || selected.some((r) => r.bisId)
+						}
+						onClick={() =>
+							act(async () => {
+								const id = await mergeFimaRows(selection, null);
+								setSelection([]);
+								const n = await reload();
+								select(n.records.find((r) => r.id === id)!);
+							})
+						}
+					>
+						Apvienot brigādes
+					</button>
+					<button type="button" onClick={() => setSelection([])}>
+						Noņemt atlasi
+					</button>
+				</div>
+			)}
+			{selection.length > 0 && current && (
+				<button
+					type="button"
+					disabled={
+						busy ||
+						selected.some((r) => r.siteId !== current.siteId || !canWrite(r))
+					}
+					onClick={() => setCommonOpen(true)}
+				>
+					Kopēt kopīgos BIS laukus no {current.localId}
+				</button>
+			)}
+			{commonOpen && current && (
+				<dialog
+					open
+					aria-label="Kopīgo BIS lauku pārskats"
+					className={styles.confirm}
+				>
+					<h2>Kopīgie BIS lauki no {current.localId}</h2>
+					<p>
+						Izvēlētajās {selected.length} rindās aizstās atbildīgo personu,
+						būvniecības objektus un rasējumu saites ar šīs rindas saglabātajām
+						vērtībām. Pēc tam pārbaudiet katra balsta rasējumu un atzīmējiet
+						rindu pārbaudītu.
+					</p>
+					<label>
+						<input
+							type="checkbox"
+							checked={useTemplates}
+							onChange={(e) => setUseTemplates(e.target.checked)}
+						/>{" "}
+						Aizpildīt tukšos darbu aprakstus ar saglabāto tāda paša KUCE darba
+						veidni
+					</label>
+					<button
+						type="button"
+						disabled={busy}
+						onClick={() =>
+							act(async () => {
+								const count = await copyFimaCommonFields(
+									current.id,
+									selected.map((r) => ({ id: r.id, version: r.version })),
+									useTemplates,
+								);
+								setCommonOpen(false);
+								setSelection([]);
+								const next = await reload();
+								const r = next.records.find((r) => r.id === active);
+								if (r) select(r);
+								setResults([
+									`Kopīgie lauki sagatavoti ${count} rindās. Pārbaudiet rasējumu atbilstību balstiem.`,
+								]);
+							})
+						}
+					>
+						Piemērot izvēlētajām rindām
+					</button>
+					<button type="button" onClick={() => setCommonOpen(false)}>
+						Atcelt
+					</button>
+				</dialog>
+			)}
+			{batchKind && (
+				<dialog
+					open
+					aria-label="BIS darbības pārskats"
+					className={styles.confirm}
+				>
+					<h2>
+						{batchKind === "zero"
+							? "Materiālu daudzumi → 0"
+							: "Pārbaudiet izvēlētās BIS sagataves"}
+					</h2>
+					<p>
+						{batchKind === "zero"
+							? "Darbu apjoms, maiņa un darbinieku skaits paliks nemainīgi."
+							: "Tiks saglabāts tieši pārbaudītais apraksts. Ieraksti netiks nosūtīti apstiprināšanai."}
+					</p>
+					<ul>
+						{selected.map((r) => (
+							<li key={r.id}>
+								{r.localId} · {r.proposal.date} · {r.proposal.rawMasts} ·{" "}
+								{r.proposal.quantity} {r.proposal.unit}
+							</li>
+						))}
+					</ul>
+					{batchKind === "create" && (
+						<label>
+							<input
+								type="checkbox"
+								checked={acceptCreator}
+								onChange={(e) => setAcceptCreator(e.target.checked)}
+							/>{" "}
+							Piekrītu API izveidei: BIS autora laukā var parādīties “Publisko
+							saskarņu lietotājs”, nevis mans vārds.
+						</label>
+					)}
+					<div className={styles.actions}>
+						<button
+							type="button"
+							disabled={busy || (batchKind === "create" && !acceptCreator)}
+							className={styles.primary}
+							onClick={() => act(() => runBatch(batchKind))}
+						>
+							Izpildīt {selected.length} ierakstiem
+						</button>
+						<button type="button" onClick={() => setBatchKind(null)}>
+							Atcelt
+						</button>
+					</div>
+				</dialog>
+			)}
+			{busy && (
+				<output>
+					Notiek apstrāde…{" "}
+					<button
+						type="button"
+						onClick={() => {
+							cancel.current = true;
+						}}
+					>
+						Apturēt pēc pašreizējā ieraksta
+					</button>
+				</output>
+			)}
+			{results.length > 0 && (
+				<details open className={styles.results}>
+					<summary>Darbību rezultāti</summary>
+					{results.map((r) => (
+						<p key={r}>{r}</p>
+					))}
+				</details>
+			)}
+			<div className={styles.workspace}>
+				<div className={styles.tableWrap}>
+					<table className={styles.table}>
+						<thead>
+							<tr>
+								<th>
+									<input
+										aria-label="Atlasīt redzamās rindas"
+										type="checkbox"
+										checked={
+											visible.length > 0 &&
+											visible.every((r) => selection.includes(r.id))
+										}
+										onChange={(e) =>
+											setSelection(
+												e.target.checked ? visible.map((r) => r.id) : [],
+											)
+										}
+									/>
+								</th>
+								<th>ID / datums</th>
+								<th>Statuss / BIS</th>
+								<th>KUCE oriģināls</th>
+								<th>BIS priekšlikums</th>
+								<th>Balsti / apjoms</th>
+							</tr>
+						</thead>
+						<tbody>
+							{visible.map((r) => (
+								<tr
+									key={r.id}
+									data-selected={active === r.id}
+									onClick={() => select(r)}
+								>
+									<td>
+										<input
+											aria-label={`Atlasīt ${r.localId}`}
+											type="checkbox"
+											checked={selection.includes(r.id)}
+											onClick={(e) => e.stopPropagation()}
+											onChange={(e) =>
+												setSelection((x) =>
+													e.target.checked
+														? [...x, r.id]
+														: x.filter((id) => id !== r.id),
+												)
+											}
+										/>
+									</td>
+									<td>
+										<button
+											type="button"
+											className={styles.rowButton}
+											onClick={() => select(r)}
+										>
+											{r.localId}
+										</button>
+										<small>{r.proposal.date}</small>
+									</td>
+									<td>
+										<span className={styles.badge} data-stage={r.stage}>
+											{stages[r.stage] ?? r.stage}
+										</span>
+										{r.bisId && (
+											<a
+												href={editUrl(r.bisId, data.bisBase)}
+												target="_blank"
+												rel="noreferrer"
+												onClick={(e) => e.stopPropagation()}
+											>
+												BIS {r.snapshot?.reference?.doc_number ?? r.bisId} ↗
+											</a>
+										)}
+										<small>{r.bisStatus}</small>
+									</td>
+									<td>{r.proposal.sourceWork}</td>
+									<td>
+										{r.proposal.description || (
+											<em>Priekšlikums vēl nav sagatavots</em>
+										)}
+									</td>
+									<td>
+										{r.proposal.rawMasts}
+										<small>
+											{r.proposal.quantity ?? "?"} {r.proposal.unit}
+										</small>
+									</td>
+								</tr>
+							))}
+							{!visible.length && (
+								<tr>
+									<td colSpan={6}>
+										<p>
+											Nav ierakstu. Izvēlieties projektu un importējiet KUCE
+											atskaiti vai pievienojiet priekšlikumu.
+										</p>
+									</td>
+								</tr>
+							)}
+						</tbody>
+					</table>
+				</div>
+				{current && draft && (
+					<aside className={styles.editor}>
+						<div className={styles.editorHeading}>
+							<h2>{current.localId}</h2>
+							<button
+								type="button"
+								aria-label="Aizvērt detaļas"
+								onClick={() => setActive(null)}
+							>
+								×
 							</button>
 						</div>
-					</div>
-
-					<section
-						className={styles.projectBanner}
-						aria-label="Projekta informācija"
-					>
-						<div>
-							<span className={styles.projectIcon}>
-								<TrainFront size={23} />
-							</span>
-							<div>
-								<h2>Torņakalns–Olaine</h2>
-								<p>
-									Kontakttīkla modernizācija <span>·</span> Olaine un posms
-									Torņakalns–Olaine
-								</p>
-								<div className={styles.projectMeta}>
-									<span>
-										<FolderOpen size={13} />2 BIS būvniecības lietas
-									</span>
-									<span>
-										<HardHat size={13} />
-										FIMA / Buvconsult
-									</span>
-									<span>
-										<Clock3 size={13} />
-										01.–05. septembris, 2026
-									</span>
-								</div>
-							</div>
-						</div>
-						<RailIllustration />
-						<span className={styles.scopeBadge}>
-							<span />
-							Pārskatā līdz 05.09.
-						</span>
-					</section>
-
-					<section className={styles.attentionStrip}>
-						<span className={styles.attentionIcon}>
-							<Flag size={16} />
-						</span>
-						<div>
-							<strong>Divi darbi gaida jaunu ierakstu</strong>
-							<span>
-								FIMA-032 un FIMA-039 · materiālu pievienošana pagaidām atlikta.
-							</span>
-						</div>
-						<button type="button" onClick={() => changeTab("pending")}>
-							Skatīt darbus
-							<ArrowRight size={15} />
-						</button>
-					</section>
-
-					<div
-						className={`${styles.recordsLayout} ${!detailOpen ? styles.detailClosed : ""}`}
-					>
-						<section className={styles.recordsCard} aria-label="Darbu ieraksti">
-							<div className={styles.recordsHeader}>
-								<div>
-									<h2>
-										Darbu ieraksti <span>{records.length}</span>
-									</h2>
-									<p>Excel uzskaite un pārbaudītie BIS rezultāti.</p>
-								</div>
-								<div className={styles.viewSwitcher}>
-									<button
-										type="button"
-										aria-label="Tabulas skats"
-										aria-pressed={!board}
-										className={!board ? styles.viewActive : ""}
-										onClick={() => setBoard(false)}
-									>
-										<FileText size={16} />
-									</button>
-									<button
-										type="button"
-										aria-label="Kolonnu skats"
-										aria-pressed={board}
-										className={board ? styles.viewActive : ""}
-										onClick={() => setBoard(true)}
-									>
-										<Columns3 size={16} />
-									</button>
-								</div>
-							</div>
-							<div
-								className={styles.tabs}
-								role="tablist"
-								aria-label="Ierakstu statuss"
-							>
-								{[
-									{ key: "all", label: "Visi ieraksti", count: records.length },
-									{
-										key: "pending",
-										label: "Jāpārskata",
-										count: pending.length,
-									},
-									{ key: "draft", label: "Sagataves", count: drafts.length },
-									{ key: "deleted", label: "Dzēstie", count: deleted.length },
-								].map((item) => (
-									<button
-										type="button"
-										role="tab"
-										aria-selected={tab === item.key}
-										key={item.key}
-										className={tab === item.key ? styles.tabActive : ""}
-										onClick={() => changeTab(item.key)}
-									>
-										{item.label}
-										<span>{item.count}</span>
-									</button>
-								))}
-							</div>
-							<div className={styles.tableToolbar}>
-								<label className={styles.searchBox}>
-									<Search size={16} />
-									<input
-										aria-label="Meklēt darbus"
-										placeholder="Meklēt darbu, balstu vai BIS numuru..."
-										value={query}
-										onChange={(event) => {
-											setQuery(event.target.value);
-											setPage(0);
-										}}
-									/>
-									<kbd>⌘ K</kbd>
-								</label>
-								<label className={styles.ownerFilter}>
-									<ListFilter size={14} />
-									<select
-										aria-label="Filtrēt pēc atbildīgās komandas"
-										value={owner}
-										onChange={(event) => {
-											setOwner(event.target.value);
-											setPage(0);
-										}}
-									>
-										<option value="all">Visas komandas</option>
-										<option value="FIMA">FIMA</option>
-										<option value="Buvconsult">Buvconsult</option>
-									</select>
-								</label>
-								<button
-									type="button"
-									className={styles.iconButton}
-									aria-label="Notīrīt filtrus"
-									onClick={() => {
-										setQuery("");
-										setOwner("all");
-										changeTab("all");
+						<p>
+							{caseSite?.name} ·{" "}
+							{caseSite?.bisCaseName ?? "BIS lieta nav piesaistīta"}
+						</p>
+						<a href={`/dashboard/sites/${current.siteId}/settings`}>
+							Projekta un BIS iestatījumi ↗
+						</a>
+						{protectedRow && (
+							<p className={styles.notice}>
+								Šī rinda ir aizsargāta. Esošus ārējos un apstiprināšanai nodotos
+								BIS ierakstus šeit nemaina.
+							</p>
+						)}
+						<fieldset disabled={busy || protectedRow}>
+							<legend>Darba priekšlikums</legend>
+							<label>
+								KUCE oriģinālais darbs
+								<textarea
+									value={draft.sourceWork}
+									readOnly={current.sources.length > 0}
+									onChange={(e) => change("sourceWork", e.target.value)}
+								/>
+							</label>
+							<label>
+								BIS darbu apraksts
+								<textarea
+									rows={5}
+									value={draft.description}
+									onChange={(e) => change("description", e.target.value)}
+								/>
+							</label>
+							<label>
+								Apstiprināta darba veidne
+								<select
+									defaultValue=""
+									onChange={(e) => {
+										const t = data.templates.find(
+											(t: any) => t.id === e.target.value,
+										);
+										if (t)
+											setDraft({
+												...draft,
+												description: t.description
+													.replaceAll("{masts}", draft.masts.join(", "))
+													.replaceAll("{date}", draft.date),
+												evidence: [...draft.evidence, ...t.evidence],
+												reviewed: false,
+											});
 									}}
 								>
-									<SlidersHorizontal size={16} />
-								</button>
+									<option value="">
+										Izvēlieties atbilstošu vēsturisko darbu
+									</option>
+									{data.templates
+										.filter(
+											(t: any) =>
+												normalizeWork(t.sourceWork) ===
+												normalizeWork(draft.sourceWork),
+										)
+										.map((t: any) => (
+											<option key={t.id} value={t.id}>
+												{t.sourceWork}
+											</option>
+										))}
+								</select>
+							</label>
+							<div className={styles.two}>
+								<label>
+									Darbu datums
+									<input
+										type="date"
+										value={draft.date}
+										onChange={(e) => change("date", e.target.value)}
+									/>
+								</label>
+								<label>
+									Darbinieki
+									<input
+										type="number"
+										min="0"
+										step="1"
+										value={draft.workers ?? ""}
+										onChange={(e) =>
+											change(
+												"workers",
+												e.target.value === "" ? null : Number(e.target.value),
+											)
+										}
+									/>
+								</label>
+								<label>
+									Maiņas sākums
+									<input
+										type="time"
+										value={draft.start}
+										onChange={(e) => change("start", e.target.value)}
+									/>
+								</label>
+								<label>
+									Maiņas beigas
+									<input
+										type="time"
+										value={draft.end}
+										onChange={(e) => change("end", e.target.value)}
+									/>
+								</label>
 							</div>
-							{board ? (
-								<div className={styles.board}>
-									{(
-										["draft", "pending", "fima", "deleted", "recorded"] as const
-									).map((status) => (
-										<div className={styles.boardColumn} key={status}>
-											<h3>
-												{statuses[status].label}
-												<span>
-													{filtered.filter((r) => r.status === status).length}
-												</span>
-											</h3>
-											{filtered
-												.filter((r) => r.status === status)
-												.map((record) => (
-													<button
-														type="button"
-														key={record.id}
-														onClick={() => select(record)}
-													>
-														<small>
-															{record.id} · {formatDate(record.date)}
-														</small>
-														<strong>{record.title}</strong>
-														<Status record={record} />
-													</button>
-												))}
-										</div>
+							<label>
+								Balsti / posms
+								<input
+									value={draft.rawMasts}
+									onChange={(e) =>
+										setDraft({
+											...draft,
+											rawMasts: e.target.value,
+											masts: parseMasts(e.target.value),
+											reviewed: false,
+										})
+									}
+								/>
+							</label>
+							<small>
+								{"//"} un balstu numuru atšķirības pārbaudiet avotā; tās netiek
+								automātiski labotas.
+							</small>
+							<div className={styles.two}>
+								<label>
+									Darbu apjoms
+									<input
+										type="number"
+										step="any"
+										min="0"
+										value={draft.quantity ?? ""}
+										onChange={(e) =>
+											change(
+												"quantity",
+												e.target.value === "" ? null : Number(e.target.value),
+											)
+										}
+									/>
+								</label>
+								<label>
+									Mērvienība
+									<select
+										value={draft.measurement}
+										onChange={(e) => {
+											const x = catalog?.measures.find(
+												(x: any) =>
+													String(x.attributes.code ?? x.id) === e.target.value,
+											);
+											setDraft({
+												...draft,
+												measurement: e.target.value,
+												unit: x?.attributes?.name ?? draft.unit,
+												reviewed: false,
+											});
+										}}
+									>
+										<option value="">Izvēlieties</option>
+										{!catalog && draft.measurement && (
+											<option value={draft.measurement}>{draft.unit}</option>
+										)}
+										{catalog?.measures.map((x: any) => (
+											<option key={x.id} value={x.attributes.code ?? x.id}>
+												{x.attributes.name}
+											</option>
+										))}
+									</select>
+								</label>
+							</div>
+							<button type="button" onClick={() => act(loadResources)}>
+								Ielādēt BIS personas, objektus, materiālus un rasējumus
+							</button>
+							{catalog?.errors?.map((e: string) => (
+								<p className={styles.notice} key={e}>
+									{e}
+								</p>
+							))}
+							<label>
+								Atbildīgā persona
+								<select
+									value={`${draft.responsibleId}:${draft.responsibleType}`}
+									onChange={(e) => {
+										const [responsibleId, responsibleType] =
+											e.target.value.split(":");
+										setDraft({
+											...draft,
+											responsibleId,
+											responsibleType,
+											reviewed: false,
+										});
+									}}
+								>
+									<option value=":">Izvēlieties</option>
+									{catalog?.available_responsible_persons.map((x: any) => (
+										<option
+											key={`${x.attributes.responsible_person_id}:${x.attributes.responsible_person_type}`}
+											value={`${x.attributes.responsible_person_id}:${x.attributes.responsible_person_type}`}
+										>
+											{label(x)}
+										</option>
 									))}
-								</div>
-							) : (
-								<div className={styles.tableScroll}>
-									<table>
-										<thead>
-											<tr>
-												<th>Darbs / KUCE</th>
-												<th>Datums</th>
-												<th>BIS statuss</th>
-												<th>Atbildīgais</th>
-												<th aria-label="Detaļas" />
-											</tr>
-										</thead>
-										<tbody>
-											{visible.map((record) => (
-												<tr
-													key={record.id}
-													className={
-														selected.id === record.id && detailOpen
-															? styles.selectedRow
-															: ""
-													}
-												>
-													<td>
-														<button
-															type="button"
-															className={styles.recordButton}
-															onClick={() => select(record)}
-														>
-															<span
-																className={`${styles.recordIcon} ${styles[record.status]}`}
-															>
-																<FileText size={16} />
-															</span>
-															<span>
-																<strong>{record.title}</strong>
-																<small>
-																	{record.id}
-																	<span>·</span>
-																	{record.masts.replaceAll("//", " → ")}
-																</small>
-															</span>
-														</button>
-													</td>
-													<td>
-														{formatDate(record.date)}
-														<small>2026</small>
-													</td>
-													<td>
-														<Status record={record} />
-														<small>
-															{record.status === "deleted" ||
-															record.status === "pending"
-																? `Bijušais Nr.${record.bisNumber}`
-																: record.bisNumber
-																	? `BIS Nr.${record.bisNumber}`
-																	: "Excel ieraksts"}
-														</small>
-													</td>
-													<td>
-														<span
-															className={`${styles.teamAvatar} ${record.owner === "FIMA" ? styles.fimaAvatar : ""}`}
-														>
-															{record.owner === "FIMA" ? (
-																<FimaLogo className={styles.teamLogo} />
-															) : (
-																"B"
-															)}
-														</span>
-														<span className={styles.ownerName}>
-															{record.owner}
-														</span>
-													</td>
-													<td>
-														<button
-															type="button"
-															aria-label={`Skatīt ${record.id}`}
-															className={styles.rowArrow}
-															onClick={() => select(record)}
-														>
-															<ChevronRight size={16} />
-														</button>
-													</td>
-												</tr>
-											))}
-										</tbody>
-									</table>
-									{filtered.length === 0 ? (
-										<div className={styles.emptyState}>
-											<Search size={24} />
-											<h3>Nav atrasts neviens ieraksts</h3>
-											<p>Izmēģiniet citu darba, balsta vai BIS numuru.</p>
-										</div>
-									) : null}
-								</div>
-							)}
-							<div className={styles.tableFooter}>
-								<span>
-									{board
-										? `${filtered.length} ieraksti`
-										: filtered.length === 0
-											? "0 ieraksti"
-											: `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, filtered.length)} no ${filtered.length} ierakstiem`}
-									<span className={styles.footerSeparator}>·</span>Excel avots
-								</span>
-								{!board ? (
-									<div>
+								</select>
+							</label>
+							<label>
+								Būvniecības objekti
+								<select
+									multiple
+									value={draft.buildingIds}
+									onChange={(e) =>
+										change(
+											"buildingIds",
+											Array.from(e.target.selectedOptions, (o) => o.value),
+										)
+									}
+								>
+									{catalog?.case_buildings.map((x: any) => (
+										<option key={x.id} value={x.id}>
+											{label(x)}
+										</option>
+									))}
+								</select>
+							</label>
+							<details>
+								<summary>Rasējumi ({draft.drawings.length})</summary>
+								<select
+									aria-label="Pievienot rasējumu"
+									value=""
+									onChange={(e) => {
+										const x = catalog.project.find(
+											(x: any) => String(x.id) === e.target.value,
+										);
+										if (x && !draft.drawings.some((d) => d.id === String(x.id)))
+											change("drawings", [
+												...draft.drawings,
+												{
+													id: String(x.id),
+													title: label(x),
+													sheet: String(x.attributes.original_number ?? ""),
+													revision: String(x.attributes.revision ?? ""),
+												},
+											]);
+									}}
+								>
+									<option value="">Pievienot rasējumu</option>
+									{catalog?.project.map((x: any) => (
+										<option key={x.id} value={x.id}>
+											{x.attributes.original_number} · {label(x)} ·{" "}
+											{x.attributes.revision}
+										</option>
+									))}
+								</select>
+								{draft.drawings.map((d, i) => (
+									<div key={d.id}>
+										<p>
+											{d.title} · {d.sheet} · rev. {d.revision}
+										</p>
 										<button
 											type="button"
-											aria-label="Iepriekšējā lapa"
-											disabled={page === 0}
-											onClick={() => setPage((p) => p - 1)}
+											onClick={() =>
+												change(
+													"drawings",
+													draft.drawings.filter((_, j) => j !== i),
+												)
+											}
 										>
-											<ChevronLeft size={15} />
-										</button>
-										<span>
-											{page + 1} / {pageCount}
-										</span>
-										<button
-											type="button"
-											aria-label="Nākamā lapa"
-											disabled={page + 1 >= pageCount}
-											onClick={() => setPage((p) => p + 1)}
-										>
-											<ChevronRight size={15} />
+											Noņemt saiti
 										</button>
 									</div>
-								) : null}
-							</div>
-						</section>
-
-						{detailOpen ? (
-							<aside
-								className={styles.detailPanel}
-								aria-label={`Ieraksta ${selected.id} detaļas`}
-							>
-								<div className={styles.detailTop}>
-									<span>
-										<span className={styles.smallOrangeDot} />
-										IERAKSTA DETAĻAS
-									</span>
+								))}
+							</details>
+							<details>
+								<summary>Materiāli ({draft.materials.length})</summary>
+								{draft.materialSource && (
+									<p>Excel avots: {draft.materialSource}</p>
+								)}
+								<p>Šeit maina materiālu daudzumu, nevis darbu apjomu.</p>
+								<select
+									aria-label="Pievienot materiālu"
+									value=""
+									onChange={(e) => {
+										const x = catalog.available_used_materials.find(
+											(x: any) => String(x.id) === e.target.value,
+										);
+										const id = String(
+											x?.attributes?.construction_material_id ?? x?.id ?? "",
+										);
+										if (x && !draft.materials.some((m) => m.id === id))
+											change("materials", [
+												...draft.materials,
+												{
+													id,
+													name: label(x),
+													unit: String(
+														catalog.measures.find(
+															(m: any) =>
+																String(m.attributes.code) ===
+																String(x.attributes.measurement),
+														)?.attributes.name ??
+															x.attributes.measurement_name ??
+															x.attributes.measurement ??
+															"",
+													),
+													quantity: 0,
+													plannedQuantity: null,
+												},
+											]);
+									}}
+								>
+									<option value="">Pievienot no šīs BIS lietas</option>
+									{catalog?.available_used_materials.map((x: any) => (
+										<option key={x.id} value={x.id}>
+											{label(x)}
+										</option>
+									))}
+								</select>
+								{draft.materials.map((m, i) => (
+									<label key={m.id}>
+										{m.name} ({m.unit})
+										<input
+											aria-label={`${m.name} daudzums`}
+											type="number"
+											step="any"
+											min="0"
+											value={m.quantity}
+											onChange={(e) =>
+												change(
+													"materials",
+													draft.materials.map((m, j) =>
+														i === j
+															? { ...m, quantity: Number(e.target.value) }
+															: m,
+													),
+												)
+											}
+										/>
+										<button
+											type="button"
+											onClick={() =>
+												change(
+													"materials",
+													draft.materials.filter((_, j) => i !== j),
+												)
+											}
+										>
+											Noņemt no priekšlikuma
+										</button>
+									</label>
+								))}
+							</details>
+							<details>
+								<summary>Garuma aprēķins pēc laidumiem</summary>
+								{draft.spans.map((s, i) => (
+									<div
+										className={styles.span}
+										key={s.id ?? `${s.from}:${s.to}:${s.drawing}`}
+									>
+										{(
+											[
+												["from", "No balsta"],
+												["to", "Līdz balstam"],
+												["metres", "Metri"],
+												["drawing", "Rasējums / lapa / rev."],
+											] as const
+										).map(([k, l]) => (
+											<label key={k}>
+												{l}
+												<input
+													value={s[k]}
+													type={k === "metres" ? "number" : "text"}
+													step="any"
+													onChange={(e) =>
+														change(
+															"spans",
+															draft.spans.map((s, j) =>
+																i === j
+																	? {
+																			...s,
+																			[k]:
+																				k === "metres"
+																					? Number(e.target.value)
+																					: e.target.value,
+																		}
+																	: s,
+															),
+														)
+													}
+												/>
+											</label>
+										))}
+										<button
+											type="button"
+											onClick={() =>
+												change(
+													"spans",
+													draft.spans.filter((_, j) => j !== i),
+												)
+											}
+										>
+											Noņemt laidumu
+										</button>
+									</div>
+								))}
+								<div className={styles.actions}>
 									<button
 										type="button"
-										aria-label="Aizvērt detaļas"
-										onClick={() => setDetailOpen(false)}
+										onClick={() =>
+											change("spans", [
+												...draft.spans,
+												{
+													from: draft.spans.at(-1)?.to ?? "",
+													to: "",
+													metres: 0,
+													id: crypto.randomUUID(),
+													drawing: "",
+												},
+											])
+										}
 									>
-										<X size={16} />
+										Pievienot laidumu
+									</button>
+									<button
+										type="button"
+										onClick={() =>
+											act(async () =>
+												setDraft({
+													...draft,
+													quantity: spanLength(draft.spans),
+													measurement: "29",
+													unit: "m",
+													reviewed: false,
+												}),
+											)
+										}
+									>
+										Aprēķināt metrus
 									</button>
 								</div>
-								<div className={styles.detailHeading}>
-									<div>
-										<span className={styles.detailId}>{selected.id}</span>
-										<span className={styles.detailNumber}>
-											{selected.bisNumber ? `Nr.${selected.bisNumber}` : "KUCE"}
-										</span>
-									</div>
-									<h2>{selected.title}</h2>
-									<Status record={selected} />
-								</div>
-								<div className={styles.detailTabs}>
-									{[
-										{ key: "record", label: "Ieraksts" },
-										{ key: "notes", label: "FIMA piezīmes" },
-										{ key: "history", label: "Vēsture" },
-									].map((item) => (
-										<button
-											type="button"
-											key={item.key}
-											className={
-												detailTab === item.key ? styles.detailTabActive : ""
-											}
-											onClick={() => setDetailTab(item.key)}
-										>
-											{item.label}
-										</button>
+							</details>
+							<label>
+								Iekšējās piezīmes (netiek sūtītas BIS)
+								<textarea
+									value={draft.notes}
+									onChange={(e) => change("notes", e.target.value)}
+								/>
+							</label>
+							<label>
+								Izveides veids
+								<select
+									value={draft.authorMode}
+									onChange={(e) => change("authorMode", e.target.value)}
+								>
+									<option value="browser">No mana profila BIS pārlūkā</option>
+									<option value="api">API — BIS sistēmas lietotājs</option>
+								</select>
+							</label>
+							<label className={styles.check}>
+								<input
+									type="checkbox"
+									checked={draft.reviewed}
+									onChange={(e) => change("reviewed", e.target.checked)}
+								/>{" "}
+								Pārbaudīts apraksts, balsti, daudzumi, maiņa un avoti
+							</label>
+							<div className={styles.actions}>
+								<button type="button" onClick={() => act(() => save("draft"))}>
+									Saglabāt priekšlikumu
+								</button>
+								<button
+									type="button"
+									className={styles.primary}
+									onClick={() => act(() => save("ready"))}
+								>
+									Atzīmēt pārbaudītu
+								</button>
+								<button type="button" onClick={() => act(() => save("hold"))}>
+									Atlikt
+								</button>
+							</div>
+							{readiness(draft).length > 0 && (
+								<ul className={styles.validation}>
+									{readiness(draft).map((e) => (
+										<li key={e}>{e}</li>
 									))}
-								</div>
-								{detailTab === "record" ? (
-									<div className={styles.detailBody}>
-										<div className={styles.quantityBlock}>
-											<span>DARBU APJOMS</span>
-											<strong>
-												{Number.isFinite(
-													Number(selected.quantity.replaceAll(",", "")),
-												)
-													? new Intl.NumberFormat("lv-LV", {
-															maximumFractionDigits: 2,
-														}).format(
-															Number(selected.quantity.replaceAll(",", "")),
-														)
-													: selected.quantity}
-												<small>{selected.unit}</small>
-											</strong>
-											<span>Atbilstoši precizētajai Excel uzskaitei</span>
-										</div>
-										<dl className={styles.detailFields}>
-											<div>
-												<dt>
-													<Clock3 size={14} />
-													Darbu datums
-												</dt>
-												<dd>{formatDate(selected.date)}2026</dd>
-											</div>
-											<div>
-												<dt>
-													<HardHat size={14} />
-													Komanda
-												</dt>
-												<dd>{selected.owner}</dd>
-											</div>
-											<div>
-												<dt>
-													<Users size={14} />
-													Darbinieki
-												</dt>
-												<dd>{selected.workers ?? "—"}</dd>
-											</div>
-											<div>
-												<dt>
-													<Clock3 size={14} />
-													Maiņa
-												</dt>
-												<dd>{selected.shift}</dd>
-											</div>
-										</dl>
-										<div className={styles.locationBlock}>
-											<span>BALSTI / DARBA POSMS</span>
-											<strong>{selected.masts.replaceAll("//", " → ")}</strong>
-											<div className={styles.routeLine}>
-												<i />
-												<span />
-												<i />
-											</div>
-											<small>Stacija Olaine / Torņakalns–Olaine</small>
-										</div>
-										<div className={styles.detailNote}>
-											<ShieldCheck size={17} />
-											<div>
-												<strong>
-													{selected.status === "draft"
-														? "Sagatave izveidota"
-														: selected.status === "pending"
-															? "Aizvietojums vēl jāizveido"
-															: selected.status === "deleted"
-																? "Dzēšana pārbaudīta"
-																: "Ieraksts norādīts Excel"}
-												</strong>
-												<p>
-													{selected.status === "draft"
-														? "Vjačeslava Gromatoviča profilā. Vēl nav iesniegta apstiprināšanai."
-														: selected.status === "pending"
-															? "Vecais BIS ieraksts dzēsts. Materiālu pievienošana pagaidām atlikta."
-															: selected.status === "deleted"
-																? "Vecais BIS ieraksts dzēsts, un Excel saite notīrīta."
-																: "BIS apstiprināšanas statuss šajā prototipā netiek pārbaudīts tiešsaistē."}
-												</p>
-											</div>
-										</div>
-										<div className={styles.attachment}>
-											<span>
-												<FileSpreadsheet size={18} />
-											</span>
-											<div>
-												<strong>09-2026 · FIMA bis Buvconsult</strong>
-												<small>Excel avots · {selected.row}. rinda</small>
-											</div>
-											<ArrowUpRight size={15} />
-										</div>
-									</div>
-								) : detailTab === "notes" ? (
-									<div className={styles.notesBody}>
-										<span className={styles.detailId}>FIMA / BUVCONSULT</span>
-										<h3>Piezīmes un pārbaudes</h3>
-										<p>
-											{selected.note || "Šim ierakstam nav papildu piezīmju."}
-										</p>
-										<h3>Excel rīcības norāde</h3>
-										<p>{selected.action || "Nav papildu norāžu."}</p>
-									</div>
-								) : (
-									<div className={styles.timeline}>
-										<div>
-											<i />
-											<span>08.10.2026</span>
-											<strong>Excel momentuzņēmums</strong>
-											<p>{selected.verification}</p>
-										</div>
-										<div>
-											<i />
-											<span>{formatDate(selected.date)}2026</span>
-											<strong>Darbi reģistrēti uzskaitē</strong>
-											<p>{selected.description}</p>
-										</div>
-									</div>
-								)}
-								<div className={styles.detailActions}>
-									{selected.bisUrl ? (
+								</ul>
+							)}
+						</fieldset>
+						<details>
+							<summary>Salīdzinošie KUCE / BIS ieraksti</summary>
+							<div className={styles.actions}>
+								<input
+									aria-label="Vēsturiskā darba meklēšana"
+									value={historyQuery}
+									onChange={(e) => setHistoryQuery(e.target.value)}
+									placeholder="Darba nosaukums vai balsts"
+								/>
+								<button
+									type="button"
+									disabled={busy}
+									onClick={() =>
+										act(async () =>
+											setKuceHistory(await searchFimaKuceHistory(historyQuery)),
+										)
+									}
+								>
+									Meklēt KUCE arhīvā
+								</button>
+								<select
+									aria-label="Vēsturiskā BIS projekta izvēle"
+									value={historySite}
+									onChange={(e) => setHistorySite(e.target.value)}
+								>
+									{data.sites.map((s) => (
+										<option key={s.id} value={s.id}>
+											{s.name}
+										</option>
+									))}
+								</select>
+								<button
+									type="button"
+									disabled={busy || !historySite}
+									onClick={() =>
+										act(async () =>
+											setHistory(
+												await searchFimaBisHistory(historySite, historyQuery),
+											),
+										)
+									}
+								>
+									Meklēt BIS
+								</button>
+							</div>
+							{kuceHistory.map((r) => (
+								<div className={styles.reference} key={r.id}>
+									<strong>
+										{r.localId} · {r.proposal.date} · {r.proposal.sourceWork}
+									</strong>
+									<p>
+										{r.proposal.rawMasts} · {r.proposal.description}
+									</p>
+									<small>
+										{r.sources
+											.map((s) => `${s.file} ${s.sheet}!${s.cell}`)
+											.join("; ")}
+									</small>
+									{r.bisId && (
 										<a
-											href={selected.bisUrl}
+											href={editUrl(r.bisId, data.bisBase)}
 											target="_blank"
 											rel="noreferrer"
-											className={styles.primaryButton}
 										>
-											Atvērt BIS ierakstu
-											<ExternalLink size={14} />
+											BIS ieraksts ↗
 										</a>
-									) : (
-										<button
-											type="button"
-											className={styles.secondaryButton}
-											onClick={() =>
-												setNotice(
-													"Vecais ieraksts ir dzēsts. Šajā prototipā jauni BIS ieraksti netiek izveidoti.",
-												)
-											}
-										>
-											Skatīt dzēšanas rezultātu
-											<ShieldCheck size={14} />
-										</button>
 									)}
 									<button
 										type="button"
-										className={styles.followButton}
-										aria-pressed={followed.includes(selected.id)}
-										onClick={toggleFollow}
+										disabled={protectedRow}
+										onClick={() =>
+											change("evidence", [
+												...draft.evidence,
+												{
+													title: `KUCE ${r.localId}: ${r.proposal.sourceWork}`,
+													url: r.bisId ? editUrl(r.bisId, data.bisBase) : "",
+													detail: `${r.proposal.rawMasts}; ${r.sources.map((s) => `${s.file} ${s.sheet}!${s.cell}`).join("; ")}`,
+												},
+											])
+										}
 									>
-										{followed.includes(selected.id) ? (
-											<Check size={14} />
-										) : (
-											<Bell size={14} />
-										)}
-										{followed.includes(selected.id)
-											? "Pievienots sekošanai"
-											: "Sekot ierakstam"}
+										Pievienot avotu
 									</button>
 								</div>
-							</aside>
-						) : null}
-					</div>
-					<footer className={styles.pageFooter}>
-						<span>
-							<ShieldCheck size={13} />
-							Excel momentuzņēmums · 08.10.2026. · BIS statusi netiek atjaunoti
-							tiešsaistē.
-						</span>
-						<span>
-							<FimaLogo className={styles.footerLogo} /> <span>×</span>
-							<WorksRecordedLogo className={styles.footerWorksLogo} />
-						</span>
-					</footer>
-				</Content>
+							))}
+							{history.map((h) => (
+								<div className={styles.reference} key={h.id}>
+									<a
+										target="_blank"
+										rel="noreferrer"
+										href={editUrl(h.id, data.bisBase)}
+									>
+										Nr.{h.doc_number} · {h.event_date}
+									</a>
+									<p>{h.description}</p>
+									<button
+										type="button"
+										disabled={busy}
+										onClick={() =>
+											act(async () =>
+												setReference(await inspectFimaBis(historySite, h.id)),
+											)
+										}
+									>
+										Apskatīt materiālus un apjomu
+									</button>
+									<button
+										type="button"
+										disabled={protectedRow}
+										onClick={() =>
+											change("evidence", [
+												...draft.evidence,
+												{
+													title: `BIS Nr.${h.doc_number}`,
+													url: editUrl(h.id, data.bisBase),
+													detail: h.description,
+												},
+											])
+										}
+									>
+										Pievienot kā salīdzinājumu
+									</button>
+								</div>
+							))}
+							{reference && (
+								<div className={styles.reference}>
+									<h3>BIS Nr. {reference.reference.doc_number}</h3>
+									<p>{reference.reference.description}</p>
+									<p>
+										{reference.reference.detail?.quantity?.combined} ·{" "}
+										{reference.reference.detail?.employees} darbinieki
+									</p>
+									<p>Izveidoja: {reference.reference.created_by?.full_name}</p>
+									<h4>Materiāli</h4>
+									{reference.reference.used_construction_materials?.map(
+										(m: any) => (
+											<p key={typeof m === "string" ? m : m.id}>
+												{typeof m === "string" ? m : m.name}
+											</p>
+										),
+									)}
+									{!reference.materials.length && (
+										<p>Materiāli nav norādīti.</p>
+									)}
+									<h4>Rasējumi</h4>
+									{reference.reference.project_documents?.map((d: any) => (
+										<p key={d.id}>{d.title}</p>
+									))}
+								</div>
+							)}
+							{draft.evidence.map((e) => (
+								<p key={`${e.title}:${e.url}`}>
+									{e.url ? (
+										<a href={e.url} target="_blank" rel="noreferrer">
+											{e.title}
+										</a>
+									) : (
+										e.title
+									)}
+									<small>{e.detail}</small>
+								</p>
+							))}
+							<label>
+								Veidnes BIS apraksts ({"{masts}"} = balsti, {"{date}"} = datums)
+								<textarea
+									value={templateText}
+									onChange={(e) => setTemplateText(e.target.value)}
+								/>
+							</label>
+							<button
+								type="button"
+								disabled={busy || !templateText || protectedRow}
+								onClick={() =>
+									act(async () => {
+										await save("draft");
+										await saveFimaTemplate(current.id, templateText);
+										await reload();
+										setResults(["Pārbaudītā veidne saglabāta."]);
+									})
+								}
+							>
+								Saglabāt darba veidni
+							</button>
+						</details>
+						<details>
+							<summary>Oriģinālie avoti</summary>
+							{current.sources.map((s) => (
+								<p key={`${s.file}:${s.sheet}:${s.cell}`}>
+									<strong>
+										{s.file} · {s.sheet}!{s.cell}
+									</strong>
+									<small>{s.raw}</small>
+								</p>
+							))}
+						</details>
+						<details>
+							<summary>Izmaiņu vēsture</summary>
+							<button
+								type="button"
+								onClick={() =>
+									act(async () => setAudit(await getFimaHistory(current.id)))
+								}
+							>
+								Ielādēt vēsturi
+							</button>
+							{audit.map((a) => (
+								<p key={a.id}>
+									{a.createdAt} · {a.action} · v{a.version}
+									<small>{a.actorId}</small>
+								</p>
+							))}
+						</details>
+						{draft.authorMode === "browser" && !current.bisId && (
+							<div className={styles.notice}>
+								<h3>Izveide no sava BIS profila</h3>
+								<p>
+									Saglabājiet pārbaudīto priekšlikumu, atveriet BIS un
+									izveidojiet sagatavi. Pēc tam piesaistiet ierakstu pārbaudei.
+								</p>
+								<button
+									type="button"
+									disabled={current.stage !== "ready"}
+									onClick={() =>
+										act(async () => {
+											await navigator.clipboard.writeText(
+												[
+													`Darbu apraksts: ${current.proposal.description}`,
+													`Datums: ${current.proposal.date}`,
+													`Maiņa: ${current.proposal.start}–${current.proposal.end}`,
+													`Darbu apjoms: ${current.proposal.quantity} ${current.proposal.unit}`,
+													`Darbinieki: ${current.proposal.workers}`,
+													`Materiāli:\n${current.proposal.materials.map((m) => `${m.name}: ${m.quantity} ${m.unit}`).join("\n")}`,
+													`Rasējumi:\n${current.proposal.drawings.map((d) => `${d.title} / ${d.sheet} / ${d.revision}`).join("\n")}`,
+												].join("\n\n"),
+											);
+											setResults(["Pārbaudītie lauki nokopēti."]);
+										})
+									}
+								>
+									Kopēt pārbaudītos laukus
+								</button>
+								{caseSite?.bisCaseId && (
+									<a
+										href={`${data.bisBase}/bisp/lv/portal/logbooks/performed_works/new?bis_case_id=${caseSite.bisCaseId}`}
+										target="_blank"
+										rel="noreferrer"
+									>
+										Atvērt jaunu BIS sagatavi ↗
+									</a>
+								)}
+							</div>
+						)}
+						{!current.bisId && (
+							<label>
+								BIS ieraksta saite vai ID
+								<input
+									value={bisLink}
+									onChange={(e) => setBisLink(e.target.value)}
+								/>
+								<button
+									type="button"
+									disabled={busy || !bisLink}
+									onClick={() =>
+										act(async () => {
+											const id =
+												bisLink.match(/performed_works\/(\d+)/)?.[1] ?? bisLink;
+											await linkFimaBis(current.id, current.version, id);
+											await reload();
+										})
+									}
+								>
+									Pārbaudīt un piesaistīt
+								</button>
+							</label>
+						)}
+						{!current.bisId &&
+							["executing", "unknown"].includes(current.stage) && (
+								<button
+									type="button"
+									disabled={busy}
+									onClick={() =>
+										act(async () => {
+											await refreshFimaBis(current.id);
+											await reload();
+											setResults([
+												"Pārbaudiet vēsturiskos BIS ierakstus un piesaistiet atrasto ierakstu. Pieprasījums netika atkārtots.",
+											]);
+										})
+									}
+								>
+									Pārbaudīt pārtrauktu operāciju
+								</button>
+							)}
+						{current.bisId && (
+							<div className={styles.notice}>
+								<p>
+									BIS izveidoja:{" "}
+									{current.snapshot?.reference?.created_by?.full_name ??
+										"Vēl nav pārbaudīts"}
+								</p>
+								<button
+									type="button"
+									disabled={busy}
+									onClick={() =>
+										act(async () => {
+											await refreshFimaBis(current.id);
+											await reload();
+										})
+									}
+								>
+									Pārbaudīt dzīvo BIS ierakstu
+								</button>
+							</div>
+						)}
+					</aside>
+				)}
 			</div>
-			{notice ? (
-				<output className={styles.toast}>
-					<span>
-						<Check size={16} />
-					</span>
-					<p>{notice}</p>
-					<button
-						type="button"
-						aria-label="Aizvērt paziņojumu"
-						onClick={() => setNotice("")}
-					>
-						<X size={16} />
-					</button>
-				</output>
-			) : null}
-		</div>
+			<details className={styles.results}>
+				<summary>BIS operāciju žurnāls ({data.operations.length})</summary>
+				{data.operations.map((o) => (
+					<p key={o.id}>
+						{data.records.find((r) => r.id === o.recordId)?.localId} · {o.kind}{" "}
+						· {o.status} · {o.createdAt}
+						<small>{o.error}</small>
+					</p>
+				))}
+			</details>
+		</section>
 	);
 }

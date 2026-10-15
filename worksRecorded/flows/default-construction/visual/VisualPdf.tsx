@@ -131,6 +131,7 @@ export function VisualPdf({
 	layerStyles = visualLayers,
 	resourceCache,
 	controlsHost,
+	onDocumentChange,
 }: {
 	url: string;
 	marks: VisualMark[];
@@ -147,8 +148,13 @@ export function VisualPdf({
 	layerStyles?: Record<string, { label: string; color: string }>;
 	resourceCache?: VisualClientCache;
 	controlsHost?: HTMLElement | null;
+	onDocumentChange?: (document: PDFDocumentProxy | null) => void;
 }) {
 	const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
+	useEffect(() => {
+		onDocumentChange?.(document);
+		return () => onDocumentChange?.(null);
+	}, [document, onDocumentChange]);
 	const [page, setPage] = useState(1);
 	const [aspect, setAspect] = useState(1);
 	const [error, setError] = useState(false);

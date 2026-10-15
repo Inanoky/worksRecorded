@@ -6,7 +6,8 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/react";
-import type { ReactNode } from "react";
+import type { PDFDocumentProxy } from "pdfjs-dist";
+import { type ReactNode, useEffect } from "react";
 import {
 	archiveVisualPlanningItem,
 	getVisualPlanning,
@@ -14,6 +15,7 @@ import {
 	saveVisualPlanningItem,
 } from "./actions";
 import type { VisualDrawing } from "./model";
+import { renderPlanningImages } from "./planning-image";
 import type { VisualPlan, VisualPlanArea } from "./planning-model";
 import {
 	cumulativeVisualPlanningPlans,
@@ -34,9 +36,11 @@ jest.mock("./VisualPdf", () => ({
 		marks,
 		planning,
 		controlsHost,
+		onDocumentChange,
 	}: {
 		marks: unknown[];
 		controlsHost?: HTMLElement | null;
+		onDocumentChange?: (document: PDFDocumentProxy | null) => void;
 		planning?: {
 			planId: string | null;
 			areas: VisualPlanArea[];
@@ -51,59 +55,69 @@ jest.mock("./VisualPdf", () => ({
 				selection: { planId: string | null; areaId: string } | null,
 			) => void;
 		};
-	}) => (
-		<div data-testid="planning-pdf" data-controls-docked={!!controlsHost}>
-			<span>Faktiskās zonas: {marks.length}</span>
-			<span>Plāna zonas: {planning?.areas.length ?? 0}</span>
-			<span>Fona plāni: {planning?.backgroundAreas?.length ?? 0}</span>
-			<span>
-				Fona krāsas:{" "}
-				{planning?.backgroundAreas?.map((area) => area.color).join(",")}
-			</span>
-			<span>Plāna krāsa: {planning?.color ?? "nav"}</span>
-			<span>Zonas pieprasījums: {planning?.areaRequest ?? 0}</span>
-			<button
-				type="button"
-				onClick={() =>
-					planning?.onChange([
-						...planning.areas,
-						{
-							id: `area-${planning.areas.length + 1}`,
-							page: 1,
-							polygon: [
-								{ x: 0.1, y: 0.1 },
-								{ x: 0.4, y: 0.1 },
-								{ x: 0.4, y: 0.4 },
-							],
-						},
-					])
-				}
-			>
-				Uzzīmēt testu zonu
-			</button>
-			<button type="button" onClick={() => planning?.onEditingChange?.(true)}>
-				Sākt zonas rediģēšanu
-			</button>
-			<button type="button" onClick={() => planning?.onEditingChange?.(false)}>
-				Beigt zonas rediģēšanu
-			</button>
-			<button
-				type="button"
-				disabled={!planning?.backgroundAreas?.length}
-				onClick={() => {
-					const background = planning?.backgroundAreas?.[0];
-					if (background)
-						planning.onSelectArea({
-							planId: background.planId,
-							areaId: background.id,
-						});
-				}}
-			>
-				Izvēlēties fona zonu
-			</button>
-		</div>
-	),
+	}) => {
+		useEffect(() => {
+			onDocumentChange?.({} as PDFDocumentProxy);
+			return () => onDocumentChange?.(null);
+		}, [onDocumentChange]);
+		return (
+			<div data-testid="planning-pdf" data-controls-docked={!!controlsHost}>
+				<span>Faktiskās zonas: {marks.length}</span>
+				<span>Plāna zonas: {planning?.areas.length ?? 0}</span>
+				<span>Fona plāni: {planning?.backgroundAreas?.length ?? 0}</span>
+				<span>
+					Fona krāsas:{" "}
+					{planning?.backgroundAreas?.map((area) => area.color).join(",")}
+				</span>
+				<span>Plāna krāsa: {planning?.color ?? "nav"}</span>
+				<span>Zonas pieprasījums: {planning?.areaRequest ?? 0}</span>
+				<button
+					type="button"
+					onClick={() =>
+						planning?.onChange([
+							...planning.areas,
+							{
+								id: `area-${planning.areas.length + 1}`,
+								page: 1,
+								polygon: [
+									{ x: 0.1, y: 0.1 },
+									{ x: 0.4, y: 0.1 },
+									{ x: 0.4, y: 0.4 },
+								],
+							},
+						])
+					}
+				>
+					Uzzīmēt testu zonu
+				</button>
+				<button type="button" onClick={() => planning?.onEditingChange?.(true)}>
+					Sākt zonas rediģēšanu
+				</button>
+				<button
+					type="button"
+					onClick={() => planning?.onEditingChange?.(false)}
+				>
+					Beigt zonas rediģēšanu
+				</button>
+				<button
+					type="button"
+					disabled={!planning?.backgroundAreas?.length}
+					onClick={() => {
+						const background = planning?.backgroundAreas?.[0];
+						if (background)
+							planning.onSelectArea({
+								planId: background.planId,
+								areaId: background.id,
+							});
+					}}
+				>
+					Izvēlēties fona zonu
+				</button>
+			</div>
+		);
+	},
 }));
+jest.mock("./planning-image", () => ({ renderPlanningImages: jest.fn() }));
 jest.mock("@/components/ui/select", () => ({
 	Select: ({
 		children,
@@ -197,6 +211,19 @@ function sidebarAddZone() {
 }
 beforeEach(() => {
 	jest.clearAllMocks();
+	Object.defineProperty(URL, "createObjectURL", {
+		configurable: true,
+		value: jest.fn(() => "blob:zone-preview"),
+	});
+	Object.defineProperty(URL, "revokeObjectURL", {
+		configurable: true,
+		value: jest.fn(),
+	});
+	jest
+		.mocked(renderPlanningImages)
+		.mockResolvedValue([
+			{ page: 1, blob: new Blob(["zone"], { type: "image/png" }) },
+		]);
 	jest.mocked(getVisualPlanning).mockResolvedValue(emptyIndex);
 	jest.mocked(saveVisualPlanningItem).mockResolvedValue({ ok: true, plan });
 	jest.mocked(archiveVisualPlanningItem).mockResolvedValue({
@@ -623,6 +650,141 @@ it("assigns a saved project contact to a planned job", async () => {
 			expect.objectContaining({ contactId: planningContact.id }),
 		),
 	);
+});
+
+it("prepares the saved task for its contact and allows editing the WhatsApp draft", async () => {
+	jest.mocked(getVisualPlanning).mockResolvedValue({
+		...emptyIndex,
+		contacts: [planningContact],
+		plans: [
+			{ ...indexedPlan, quantity: 10.123456, contactId: planningContact.id },
+		],
+	});
+	render(
+		<VisualPlanningPanel
+			siteId="site"
+			drawing={drawing}
+			sidebarOpen
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Sagatavot WhatsApp" }));
+	const dialog = screen.getByRole("dialog", {
+		name: "Sagatavot uzdevumu WhatsApp",
+	});
+	const phone = within(dialog).getByLabelText("Saņēmēja numurs ar valsts kodu");
+	const message = within(dialog).getByLabelText("Uzdevuma ziņa");
+	expect(phone).toHaveValue(planningContact.phone);
+	const link = within(dialog).getByRole("link", {
+		name: "Atvērt WhatsApp Web",
+	});
+	const url = new URL(link.getAttribute("href") ?? "");
+	expect(url.origin).toBe("https://web.whatsapp.com");
+	expect(url.searchParams.get("phone")).toBe(planningContact.phone);
+	expect(url.searchParams.get("text")).toContain(
+		"Darbs: Smilts\nLokācija: 1. stāvs",
+	);
+	expect(url.searchParams.get("text")).toContain(
+		"Plānotais apjoms: 10,123456 m2",
+	);
+	expect(url.searchParams.get("text")).toContain("12.10.2026.");
+	expect(url.searchParams.get("text")).toContain("16.10.2026.");
+	expect(url.searchParams.get("text")).not.toMatch(/https?:|izpildshemas/i);
+	expect(
+		await within(dialog).findByRole("img", {
+			name: "Uzdevuma zona · PDF lapa 1",
+		}),
+	).toHaveAttribute("src", "blob:zone-preview");
+	expect(
+		within(dialog).getByRole("link", { name: "Lejupielādēt" }),
+	).toHaveAttribute("download", `uzdevums-${plan.id}-lapa-1.png`);
+	expect(renderPlanningImages).toHaveBeenCalledWith(
+		expect.anything(),
+		expect.objectContaining({ id: plan.id, quantity: 10.123456 }),
+		expect.any(String),
+		expect.any(AbortSignal),
+	);
+	fireEvent.click(within(dialog).getByRole("button", { name: "Kopēt attēlu" }));
+	expect(
+		await within(dialog).findByText(
+			"Attēlu neizdevās nokopēt. Lejupielādējiet to un pievienojiet WhatsApp sarunā.",
+		),
+	).toBeInTheDocument();
+	expect(link).toHaveAttribute("target", "_blank");
+	expect(link).toHaveAttribute("rel", "noopener noreferrer");
+	fireEvent.change(phone, { target: { value: "00371 (2111) 1111" } });
+	fireEvent.change(message, {
+		target: { value: "Lūdzu, pārbaudīt XPS & grīdu #1" },
+	});
+	const edited = new URL(link.getAttribute("href") ?? "");
+	expect(edited.searchParams.get("phone")).toBe("37121111111");
+	expect(edited.searchParams.get("text")).toBe(
+		"Lūdzu, pārbaudīt XPS & grīdu #1",
+	);
+	fireEvent.change(phone, { target: { value: "not-a-number" } });
+	expect(
+		within(dialog).queryByRole("link", { name: "Atvērt WhatsApp Web" }),
+	).not.toBeInTheDocument();
+	expect(
+		within(dialog).getByRole("button", { name: "Atvērt WhatsApp Web" }),
+	).toBeDisabled();
+	fireEvent.click(within(dialog).getByRole("button", { name: "Atcelt" }));
+	expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:zone-preview");
+	fireEvent.click(screen.getByRole("button", { name: "Sagatavot WhatsApp" }));
+	expect(screen.getByLabelText("Saņēmēja numurs ar valsts kodu")).toHaveValue(
+		planningContact.phone,
+	);
+	await screen.findByRole("img", { name: "Uzdevuma zona · PDF lapa 1" });
+	expect(saveVisualPlanningItem).not.toHaveBeenCalled();
+});
+
+it("requires a recipient for an unassigned task and blocks sharing unsaved changes", async () => {
+	jest
+		.mocked(getVisualPlanning)
+		.mockResolvedValue({ ...emptyIndex, plans: [indexedPlan] });
+	render(
+		<VisualPlanningPanel
+			siteId="site"
+			drawing={drawing}
+			sidebarOpen
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Sagatavot WhatsApp" }));
+	await screen.findByRole("img", { name: "Uzdevuma zona · PDF lapa 1" });
+	expect(
+		screen.getByRole("button", { name: "Atvērt WhatsApp Web" }),
+	).toBeDisabled();
+	fireEvent.change(screen.getByLabelText("Saņēmēja numurs ar valsts kodu"), {
+		target: { value: "+371 2000 0000" },
+	});
+	expect(
+		screen.getByRole("link", { name: "Atvērt WhatsApp Web" }),
+	).toBeInTheDocument();
+	fireEvent.change(screen.getByLabelText("Uzdevuma ziņa"), {
+		target: { value: "   " },
+	});
+	expect(
+		screen.getByRole("button", { name: "Atvērt WhatsApp Web" }),
+	).toBeDisabled();
+	fireEvent.click(screen.getByRole("button", { name: "Atcelt" }));
+	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {
+		target: { value: "25" },
+	});
+	expect(
+		screen.getByRole("button", { name: "Sagatavot WhatsApp" }),
+	).toBeDisabled();
+	expect(
+		screen.getByText(
+			"Pirms uzdevuma sagatavošanas WhatsApp saglabājiet plānu.",
+		),
+	).toBeInTheDocument();
 });
 
 it("shows full history and filters the PDF cumulatively with the bottom slider", async () => {

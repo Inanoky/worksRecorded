@@ -4,7 +4,7 @@ export const fimaFlowModule = {
 	key: FLOW_MODULE_KEYS.FIMA,
 	name: "FIMA · BIS darbu uzskaite",
 	description:
-		"FIMA darbu uzskaites un BIS ierakstu pārskata dizaina prototips.",
+		"KUCE atskaišu imports, darbu priekšlikumi, pārbaude un BIS sagatavju pārvaldība.",
 	category: "construction",
 	clientFlowId: "default",
 	configurableAreas: [
@@ -27,6 +27,6 @@ export const fimaFlowModule = {
 	},
 	entryPoints: {
 		frontend: ["flows/fima/frontend.ts", "flows/fima/frontend"],
-		backend: [],
+		backend: ["flows/fima/backend"],
 	},
 } satisfies FlowModuleDefinition;

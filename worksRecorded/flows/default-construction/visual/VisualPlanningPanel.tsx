@@ -10,6 +10,7 @@ import {
 	X,
 } from "lucide-react";
 import Link from "next/link";
+import type { PDFDocumentProxy } from "pdfjs-dist";
 import {
 	useCallback,
 	useEffect,
@@ -52,8 +53,10 @@ import {
 	visualLayerStyles,
 } from "./layer-settings";
 import { type VisualDrawing, visualLayers } from "./model";
+import { renderPlanningImages } from "./planning-image";
 import type { VisualPlan, VisualPlanArea } from "./planning-model";
 import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
+import { VisualPlanningWhatsApp } from "./VisualPlanningWhatsApp";
 import { VisualTimeline } from "./VisualTimeline";
 import {
 	VISUAL_PLANNING_CACHE_INVALIDATED,
@@ -233,6 +236,13 @@ export function VisualPlanningPanel({
 	const [notice, setNotice] = useState<string | null>(null);
 	const [conflict, setConflict] = useState<VisualPlan | null>(null);
 	const request = useRef(0);
+	const pdfDocument = useRef<PDFDocumentProxy | null>(null);
+	const onPdfDocumentChange = useCallback(
+		(document: PDFDocumentProxy | null) => {
+			pdfDocument.current = document;
+		},
+		[],
+	);
 	const drawerCloseButton = useRef<HTMLButtonElement>(null);
 	const fieldId = useId();
 	const archiveId = `${fieldId}-archive`;
@@ -642,6 +652,7 @@ export function VisualPlanningPanel({
 			/>
 			<div className="relative min-h-0 flex-1 overflow-hidden">
 				<VisualPdf
+					onDocumentChange={onPdfDocumentChange}
 					controlsHost={controlsHost}
 					resourceCache={resourceCache}
 					fillWorkspace
@@ -1123,6 +1134,30 @@ export function VisualPlanningPanel({
 											) : null}
 											{draft.id ? "Saglabāt izmaiņas" : "Saglabāt plānu"}
 										</Button>
+										{selectedPlan ? (
+											<VisualPlanningWhatsApp
+												key={selectedPlan.id}
+												plan={selectedPlan}
+												createImages={(signal) => {
+													if (!pdfDocument.current)
+														return Promise.reject(
+															new Error(
+																"Rasējums vēl nav ielādēts. Mēģiniet vēlreiz.",
+															),
+														);
+													return renderPlanningImages(
+														pdfDocument.current,
+														selectedPlan,
+														workColor(selectedPlan.work),
+														signal,
+													);
+												}}
+												contact={index.contacts.find(
+													(contact) => contact.id === selectedPlan.contactId,
+												)}
+												disabled={saving || dirty || areaEditing}
+											/>
+										) : null}
 										{dirty ? (
 											<Button
 												type="button"
@@ -1157,6 +1192,11 @@ export function VisualPlanningPanel({
 									</>
 								)}
 							</div>
+							{!draft.archivedAt && (!selectedPlan || dirty) ? (
+								<p className="text-xs text-muted-foreground">
+									Pirms uzdevuma sagatavošanas WhatsApp saglabājiet plānu.
+								</p>
+							) : null}
 						</form>
 					) : null}
 				</aside>

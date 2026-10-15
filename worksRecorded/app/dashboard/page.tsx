@@ -57,7 +57,14 @@ export default async function DashboardIndexPage() {
 
 	const isSuperUser = isSuperUserId(user.id);
 
-	const org = isSuperUser ? null : await getOrganizationIdByUserId(user.id);
+	const selectedOrganizationId = await getOrganizationIdByUserId(user.id);
+	const selectedFlow = selectedOrganizationId
+		? await resolveFlowModuleKeyForRuntime({
+				organizationId: selectedOrganizationId,
+			})
+		: null;
+	if (selectedFlow === FLOW_MODULE_KEYS.FIMA) redirect("/dashboard/fima");
+	const org = isSuperUser ? null : selectedOrganizationId;
 	const organizationLanguage = isSuperUser
 		? "en"
 		: await getOrganizationLanguageByUserId(user.id);

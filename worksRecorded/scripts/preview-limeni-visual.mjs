@@ -74,7 +74,62 @@ const modules = {
 	link: `import React from 'react';export default function Link(props){return React.createElement('a',props)}`,
 	worker: `export const pdfWorkerUrl='/worker.mjs';`,
 };
-modules.actions += `export async function getVisualPlanning(){return {today:'2026-10-15',location:'1. stāvs',workOptions:[{work:'Smilts',unit:'m2'},{work:'XPS',unit:'m2'}],unitOptions:['m2','m3'],contacts:[],plans:[]}};export async function saveVisualPlanningItem(){throw Error('Preview only')};export async function archiveVisualPlanningItem(){throw Error('Preview only')};export async function restoreVisualPlanningItem(){throw Error('Preview only')};`;
+const planningFixture = {
+	today: "2026-10-15",
+	location: "1. stāvs",
+	workOptions: [
+		{ work: "Smilts", unit: "m2" },
+		{ work: "XPS", unit: "m2" },
+	],
+	unitOptions: ["m2", "m3"],
+	contacts: process.argv.includes("--whatsapp")
+		? [
+				{
+					id: "demo-contact",
+					name: "Demonstrācijas kontakts",
+					phone: "37120000000",
+					archivedAt: null,
+				},
+			]
+		: [],
+	plans: process.argv.includes("--whatsapp")
+		? [
+				{
+					id: "demo-task",
+					version: 1,
+					drawingId: fixture.id,
+					work: "XPS",
+					location: "1. stāvs",
+					unit: "m2",
+					quantity: 85,
+					startDate: "2026-10-15",
+					endDate: "2026-10-19",
+					contactId: "demo-contact",
+					geometry: {
+						version: 1,
+						areas: [
+							{
+								id: "demo-area",
+								page: 1,
+								polygon: fixture.state.marks[1].polygon,
+							},
+						],
+					},
+					geometryReviewRequired: false,
+					archivedAt: null,
+					progress: {
+						actualIds: [],
+						actualQuantity: 0,
+						progressPercent: 0,
+						variance: -85,
+						dataIncomplete: false,
+						status: "active",
+					},
+				},
+			]
+		: [],
+};
+modules.actions += `export async function getVisualPlanning(){return ${JSON.stringify(planningFixture)}};export async function saveVisualPlanningItem(){throw Error('Preview only')};export async function archiveVisualPlanningItem(){throw Error('Preview only')};export async function restoreVisualPlanningItem(){throw Error('Preview only')};`;
 const bundled = await build({
 	stdin: {
 		contents: process.argv.includes("--planning")
