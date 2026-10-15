@@ -14,6 +14,7 @@ export function useDrawingViewport(
 	aspect: number,
 	pageKey: string,
 	enabled: boolean,
+	drawing = false,
 ) {
 	const viewport = useRef<HTMLElement>(null);
 	const surface = useRef<HTMLDivElement>(null);
@@ -26,6 +27,12 @@ export function useDrawingViewport(
 	const [size, setSize] = useState({ width: 1, height: 1 });
 	const [zoom, setZoom] = useState(1);
 	const [panning, setPanning] = useState(false);
+	const [settledView, setSettledView] = useState<{
+		camera: DrawingCamera;
+		width: number;
+		height: number;
+	} | null>(null);
+	const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const stop = useCallback(() => {
 		if (frame.current !== null) cancelAnimationFrame(frame.current);
 		frame.current = null;
@@ -41,7 +48,23 @@ export function useDrawingViewport(
 		}
 		if (scaleLabel.current)
 			scaleLabel.current.textContent = `${Math.round(value.scale * 100)}%`;
+		if (settleTimer.current) clearTimeout(settleTimer.current);
+		settleTimer.current = setTimeout(() => {
+			const element = viewport.current;
+			if (element)
+				setSettledView({
+					camera: { ...camera.current },
+					width: element.clientWidth,
+					height: element.clientHeight,
+				});
+		}, 300);
 	}, []);
+	useEffect(
+		() => () => {
+			if (settleTimer.current) clearTimeout(settleTimer.current);
+		},
+		[],
+	);
 	const animate = useCallback(
 		(next: DrawingCamera) => {
 			stop();
@@ -163,11 +186,13 @@ export function useDrawingViewport(
 		};
 		const down = (event: PointerEvent) => {
 			if (
-				event.button !== 0 ||
+				(event.button !== 0 && event.button !== 1) ||
+				(drawing && event.button === 0 && !event.shiftKey) ||
 				!(event.target instanceof Element) ||
 				event.target.closest("[data-drawing-control]")
 			)
 				return;
+			if (event.button === 1) event.preventDefault();
 			freeze();
 			suppressClick.current = false;
 			drag = {
@@ -211,7 +236,7 @@ export function useDrawingViewport(
 			window.removeEventListener("pointerup", up);
 			window.removeEventListener("pointercancel", up);
 		};
-	}, [enabled, freeze, paint, zoomAt]);
+	}, [enabled, drawing, freeze, paint, zoomAt]);
 	return {
 		viewport,
 		surface,
@@ -223,6 +248,7 @@ export function useDrawingViewport(
 		panBy,
 		freeze,
 		panning,
+		settledView,
 		suppressClick,
 	};
 }

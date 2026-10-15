@@ -1,8 +1,14 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useDrawingViewport } from "./useDrawingViewport";
 
-function Harness({ enabled = true }: { enabled?: boolean }) {
-	const view = useDrawingViewport(2, "drawing:1", enabled);
+function Harness({
+	enabled = true,
+	drawing = false,
+}: {
+	enabled?: boolean;
+	drawing?: boolean;
+}) {
+	const view = useDrawingViewport(2, "drawing:1", enabled, drawing);
 	return (
 		<>
 			<section data-testid="viewport" ref={view.viewport}>
@@ -10,6 +16,9 @@ function Harness({ enabled = true }: { enabled?: boolean }) {
 			</section>
 			<output ref={view.scaleLabel} aria-label="scale">
 				100%
+			</output>
+			<output aria-label="settled view">
+				{JSON.stringify(view.settledView)}
 			</output>
 			<button type="button" onClick={() => view.zoomAt(1.25)}>
 				Zoom
@@ -177,5 +186,75 @@ it("honors reduced-motion preferences", () => {
 		expect(frames.size).toBe(0);
 	} finally {
 		window.matchMedia = previous;
+	}
+});
+
+it("reserves left drags for the pen while allowing Shift and middle-button panning", () => {
+	const original = window.PointerEvent;
+	window.PointerEvent = MouseEvent as typeof PointerEvent;
+	try {
+		render(<Harness drawing />);
+		const viewport = screen.getByTestId("viewport");
+		viewport.setPointerCapture = jest.fn();
+		const before = camera();
+		fireEvent.pointerDown(viewport, { button: 0, clientX: 300, clientY: 250 });
+		fireEvent.pointerMove(viewport, { clientX: 400, clientY: 300 });
+		expect(camera()).toEqual(before);
+		fireEvent.pointerUp(window);
+		fireEvent.pointerDown(viewport, {
+			button: 0,
+			shiftKey: true,
+			clientX: 300,
+			clientY: 250,
+		});
+		fireEvent.pointerMove(viewport, { clientX: 400, clientY: 300 });
+		expect(camera()).toEqual({
+			...before,
+			x: before.x + 100,
+			y: before.y + 50,
+		});
+		fireEvent.pointerUp(window);
+		fireEvent.pointerDown(viewport, { button: 1, clientX: 400, clientY: 300 });
+		fireEvent.pointerMove(viewport, { clientX: 300, clientY: 250 });
+		expect(camera()).toEqual(before);
+	} finally {
+		window.PointerEvent = original;
+	}
+});
+
+it("publishes only settled views for PDF redraws and cancels its timer on unmount", () => {
+	jest.useFakeTimers({
+		doNotFake: ["performance", "requestAnimationFrame", "cancelAnimationFrame"],
+	});
+	try {
+		const { unmount } = render(<Harness />);
+		expect(screen.getByLabelText("settled view")).toHaveTextContent("null");
+		act(() => jest.advanceTimersByTime(300));
+		expect(
+			JSON.parse(screen.getByLabelText("settled view").textContent ?? "null"),
+		).toEqual({
+			camera: camera(),
+			width: 1000,
+			height: 600,
+		});
+		const previous = screen.getByLabelText("settled view").textContent;
+		fireEvent.click(screen.getByRole("button", { name: "Zoom" }));
+		advance(60);
+		act(() => jest.advanceTimersByTime(200));
+		expect(screen.getByLabelText("settled view").textContent).toBe(previous);
+		advance(120);
+		act(() => jest.advanceTimersByTime(299));
+		expect(screen.getByLabelText("settled view").textContent).toBe(previous);
+		act(() => jest.advanceTimersByTime(1));
+		expect(
+			JSON.parse(screen.getByLabelText("settled view").textContent ?? "null")
+				.camera,
+		).toEqual(camera());
+		fireEvent.click(screen.getByRole("button", { name: "Zoom" }));
+		advance(180);
+		unmount();
+		expect(jest.getTimerCount()).toBe(0);
+	} finally {
+		jest.useRealTimers();
 	}
 });

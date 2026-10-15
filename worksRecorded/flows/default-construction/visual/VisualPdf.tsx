@@ -26,6 +26,8 @@ import {
 	polygonEditSchema,
 } from "./polygon-edit";
 import { useDrawingViewport } from "./useDrawingViewport";
+import { type AreaPenMode, VisualAreaPen } from "./VisualAreaPen";
+import { VisualPdfDetail } from "./VisualPdfDetail";
 import { VisualPlanAreaTarget } from "./VisualPlanAreaTarget";
 import { VisualPolygonEditor } from "./VisualPolygonEditor";
 import { VisualZoneTarget } from "./VisualZoneTarget";
@@ -153,6 +155,8 @@ export function VisualPdf({
 	const [draft, setDraft] = useState<PolygonEdit | null>(null);
 	const [planningAreaDraft, setPlanningAreaDraft] =
 		useState<PlanningAreaDraft | null>(null);
+	const [penMode, setPenMode] = useState<AreaPenMode | null>(null);
+	const newAreaMethod = useRef<AreaPenMode | "rectangle">("rectangle");
 	const [layerPicker, setLayerPicker] = useState<LayerPicker | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
@@ -164,6 +168,7 @@ export function VisualPdf({
 		aspect,
 		`${url}:${page}`,
 		ready && !saving,
+		penMode !== null,
 	);
 	const { surface } = navigation;
 	const interactionLocked = !!draft || planningEnabled || navigation.panning;
@@ -172,6 +177,7 @@ export function VisualPdf({
 			return;
 		previousPlanningInteractionKey.current = planningInteractionKey;
 		setPlanningAreaDraft(null);
+		setPenMode(null);
 		setLayerPicker(null);
 	}, [planningInteractionKey]);
 	useEffect(() => {
@@ -200,7 +206,7 @@ export function VisualPdf({
 	const selectedPlanAreaValid = selectedPlanArea
 		? visualPlanAreaSchema.safeParse(selectedPlanArea).success
 		: true;
-	const editingArea = !!draft || !!planningAreaDraft;
+	const editingArea = !!draft || !!planningAreaDraft || !!penMode;
 	const areaControlsActive =
 		editingArea ||
 		(planning
@@ -227,14 +233,35 @@ export function VisualPdf({
 			planning.areas.length >= 50
 		)
 			return;
+		newAreaMethod.current = "rectangle";
 		const area = createVisualPlanArea(planning.areas, page);
 		setPlanningAreaDraft({ area, isNew: true });
 		planning.onSelectArea({ planId: planning.planId, areaId: area.id });
 		planning.onEditingChange?.(true);
 		setLayerPicker(null);
 	}
+	function startAreaPen(mode: AreaPenMode) {
+		if (
+			!planning ||
+			!planningEditable ||
+			planningAreaDraft ||
+			planning.areas.length >= 50
+		)
+			return;
+		navigation.freeze();
+		newAreaMethod.current = mode;
+		setPenMode(mode);
+		planning.onSelectArea(null);
+		planning.onEditingChange?.(true);
+		setLayerPicker(null);
+	}
+	function cancelAreaPen() {
+		setPenMode(null);
+		planning?.onEditingChange?.(false);
+	}
 	function editPlanArea() {
 		if (!planning || !selectedPlanArea || planningAreaDraft) return;
+		newAreaMethod.current = "polygon";
 		setPlanningAreaDraft({
 			area: {
 				...selectedPlanArea,
@@ -252,6 +279,12 @@ export function VisualPdf({
 			: replaceVisualPlanArea(planning.areas, planningAreaDraft.area);
 		planning.onChange(areas);
 		if (addAnother && areas.length < 50) {
+			if (newAreaMethod.current !== "rectangle") {
+				setPlanningAreaDraft(null);
+				setPenMode(newAreaMethod.current);
+				planning.onSelectArea(null);
+				return;
+			}
 			const area = createVisualPlanArea(areas, page);
 			setPlanningAreaDraft({ area, isNew: true });
 			planning.onSelectArea({ planId: planning.planId, areaId: area.id });
@@ -358,17 +391,19 @@ export function VisualPdf({
 		if (
 			!planningEditable ||
 			planningAreaDraft ||
+			penMode ||
+			planning.areas.length >= 50 ||
 			!ready ||
 			request <= handledAreaRequest.current
 		)
 			return;
 		handledAreaRequest.current = request;
-		const area = createVisualPlanArea(planning.areas, page);
-		setPlanningAreaDraft({ area, isNew: true });
-		planning.onSelectArea({ planId: planning.planId, areaId: area.id });
+		newAreaMethod.current = "polygon";
+		setPenMode("polygon");
+		planning.onSelectArea(null);
 		planning.onEditingChange?.(true);
 		setLayerPicker(null);
-	}, [planning, planningAreaDraft, planningEditable, ready, page]);
+	}, [planning, planningAreaDraft, penMode, planningEditable, ready]);
 	useEffect(() => {
 		let active = true;
 		let task:
@@ -423,7 +458,14 @@ export function VisualPdf({
 				if (!active || !canvas.current) return;
 				const base = pdfPage.getViewport({ scale: 1 });
 				setAspect(base.width / base.height);
-				const viewport = pdfPage.getViewport({ scale: 1800 / base.width });
+				const overviewWidth = Math.min(
+					1800,
+					Math.sqrt((4_000_000 * base.width) / base.height),
+					(4096 * base.width) / base.height,
+				);
+				const viewport = pdfPage.getViewport({
+					scale: overviewWidth / base.width,
+				});
 				const element = canvas.current;
 				const context = element.getContext("2d");
 				if (!context) throw new Error("Canvas unavailable");
@@ -497,7 +539,7 @@ export function VisualPdf({
 					size="icon"
 					className="h-8 w-8 border-0 shadow-none"
 					aria-label="Iepriekšējā lapa"
-					disabled={!!draft || !!planningAreaDraft || page <= 1}
+					disabled={!!draft || !!planningAreaDraft || !!penMode || page <= 1}
 					onClick={() => setPage((value) => value - 1)}
 				>
 					<ChevronLeft className="h-4 w-4" />
@@ -513,6 +555,7 @@ export function VisualPdf({
 					disabled={
 						!!draft ||
 						!!planningAreaDraft ||
+						!!penMode ||
 						!document ||
 						page >= document.numPages
 					}
@@ -520,21 +563,40 @@ export function VisualPdf({
 				>
 					<ChevronRight className="h-4 w-4" />
 				</Button>
-				{planning && planningEditable && !planningAreaDraft ? (
-					<Button
-						size="sm"
-						variant="outline"
-						disabled={!ready || planning.areas.length >= 50}
-						onClick={addPlanArea}
-					>
-						<MousePointer2 className="h-3.5 w-3.5" />
-						Jauna zona
-					</Button>
+				{planning && planningEditable && !planningAreaDraft && !penMode ? (
+					<>
+						<Button
+							size="sm"
+							variant="outline"
+							disabled={!ready || planning.areas.length >= 50}
+							onClick={() => startAreaPen("polygon")}
+						>
+							<Pencil className="h-3.5 w-3.5" /> Zīmēt zonu
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							disabled={!ready || planning.areas.length >= 50}
+							onClick={() => startAreaPen("freehand")}
+						>
+							Brīvrokas zona
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							disabled={!ready || planning.areas.length >= 50}
+							onClick={addPlanArea}
+						>
+							<MousePointer2 className="h-3.5 w-3.5" />
+							Taisnstūris
+						</Button>
+					</>
 				) : null}
 				{planning &&
 				planningEditable &&
 				selectedPlanArea &&
-				!planningAreaDraft ? (
+				!planningAreaDraft &&
+				!penMode ? (
 					<Button
 						size="sm"
 						variant="outline"
@@ -548,7 +610,8 @@ export function VisualPdf({
 				{planning &&
 				planningEditable &&
 				selectedPlanArea &&
-				!planningAreaDraft ? (
+				!planningAreaDraft &&
+				!penMode ? (
 					<Button
 						size="icon"
 						variant="ghost"
@@ -761,11 +824,15 @@ export function VisualPdf({
 			) : null}
 			<div className="pointer-events-none absolute bottom-3 left-3 right-3 z-30 flex items-end justify-between gap-3">
 				<p className="rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
-					{planningAreaDraft && selectedPlanArea
-						? "Velciet zonu vai tās stūrus · + pievieno · Delete noņem stūri"
-						: draft
+					{penMode
+						? penMode === "polygon"
+							? "Klikšķiniet stūrus · Dubultklikšķis vai pirmais punkts aizver · Shift + velciet pārvieto · Esc atceļ"
+							: "Velciet ar peli vai irbuli · Atlaižot kontūra aizveras · Shift + velciet pārvieto · Esc atceļ"
+						: planningAreaDraft && selectedPlanArea
 							? "Velciet zonu vai tās stūrus · + pievieno · Delete noņem stūri"
-							: "Velciet, lai pārvietotu · Ritenītis tuvina pie kursora"}
+							: draft
+								? "Velciet zonu vai tās stūrus · + pievieno · Delete noņem stūri"
+								: "Velciet, lai pārvietotu · Ritenītis tuvina pie kursora"}
 				</p>
 				<output
 					ref={navigation.scaleLabel}
@@ -841,6 +908,7 @@ export function VisualPdf({
 						navigation.suppressClick.current = false;
 						return;
 					}
+					if (penMode) return;
 					if (
 						event.target === event.currentTarget ||
 						event.target === surface.current ||
@@ -884,6 +952,18 @@ export function VisualPdf({
 						className="block h-auto w-full"
 						aria-label={`Rasējuma ${page}. lapa`}
 					/>
+					{document && ready ? (
+						<VisualPdfDetail
+							key={`${url}:${page}`}
+							document={document}
+							page={page}
+							pageWidth={navigation.size.width}
+							pageHeight={navigation.size.height}
+							overviewWidth={canvas.current?.width ?? 0}
+							view={navigation.settledView}
+							enabled={!navigation.panning}
+						/>
+					) : null}
 					{ready ? (
 						<svg
 							className="pointer-events-none absolute inset-0 h-full w-full"
@@ -1038,7 +1118,7 @@ export function VisualPdf({
 									/>
 								))
 						: null}
-					{ready && planning
+					{ready && planning && !penMode
 						? planningLayerCandidates.map(({ area, planId }, index) => {
 								const key = `${planId ?? "draft"}:${area.id}`;
 								const fallback = planningHitCandidates.find(
@@ -1108,6 +1188,29 @@ export function VisualPdf({
 							surface={surface}
 							planned
 							onChange={updatePlanArea}
+						/>
+					) : null}
+					{ready && planning && penMode ? (
+						<VisualAreaPen
+							key={`${planningInteractionKey}:${page}:${penMode}`}
+							mode={penMode}
+							surface={surface}
+							viewport={navigation.viewport}
+							color={planningColor}
+							onCancel={cancelAreaPen}
+							onComplete={(polygon) => {
+								const area = {
+									id: nextVisualPlanAreaId(planning.areas),
+									page,
+									polygon,
+								};
+								setPlanningAreaDraft({ area, isNew: true });
+								setPenMode(null);
+								planning.onSelectArea({
+									planId: planning.planId,
+									areaId: area.id,
+								});
+							}}
 						/>
 					) : null}
 				</div>

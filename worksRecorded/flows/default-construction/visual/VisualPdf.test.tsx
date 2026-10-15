@@ -761,14 +761,14 @@ it("drags corners using the zoomed surface bounds without losing pointer capture
 it("adds multiple editable planned areas using the execution-zone interaction", async () => {
 	const { container } = render(<PlanningHarness />);
 	await waitFor(() =>
-		expect(screen.getByRole("button", { name: "Jauna zona" })).toBeEnabled(),
+		expect(screen.getByRole("button", { name: "Taisnstūris" })).toBeEnabled(),
 	);
 	expect(
 		screen
-			.getByRole("button", { name: "Jauna zona" })
+			.getByRole("button", { name: "Taisnstūris" })
 			.closest("[data-drawing-control]"),
 	).toHaveClass("left-3");
-	fireEvent.click(screen.getByRole("button", { name: "Jauna zona" }));
+	fireEvent.click(screen.getByRole("button", { name: "Taisnstūris" }));
 	expect(
 		screen
 			.getByRole("button", { name: "Saglabāt zonu" })
@@ -831,7 +831,44 @@ it("adds multiple editable planned areas using the execution-zone interaction", 
 	).toHaveLength(3);
 });
 
-it("adds and selects an editable area when requested from the planning form", async () => {
+it("draws a new polygon, edits its corners and starts the pen again when adding the next area", async () => {
+	const { container } = render(<PlanningHarness />);
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Zīmēt zonu" })).toBeEnabled(),
+	);
+	const surface = container.querySelector("canvas")?.parentElement;
+	if (!surface) throw new Error("Missing drawing surface");
+	jest.spyOn(surface, "getBoundingClientRect").mockReturnValue({
+		left: 100,
+		top: 50,
+		width: 2000,
+		height: 1000,
+	} as DOMRect);
+	fireEvent.click(screen.getByRole("button", { name: "Zīmēt zonu" }));
+	const pen = screen.getByRole("application");
+	fireEvent.click(pen, { clientX: 300, clientY: 150, detail: 1 });
+	fireEvent.click(pen, { clientX: 1700, clientY: 150, detail: 1 });
+	fireEvent.click(pen, { clientX: 1700, clientY: 850, detail: 1 });
+	fireEvent.click(screen.getByRole("button", { name: "Aizvērt zonu" }));
+	expect(
+		container.querySelector('[data-plan-area="plan-area-1"]'),
+	).toHaveAttribute("points", "0.1,0.1 0.8,0.1 0.8,0.8");
+	fireEvent.keyDown(
+		screen.getByRole("button", { name: "Plānotās zonas stūris 1" }),
+		{ key: "ArrowRight", shiftKey: true },
+	);
+	fireEvent.click(
+		screen.getByRole("button", { name: "Saglabāt un pievienot nākamo" }),
+	);
+	expect(container.querySelectorAll("[data-plan-area]")).toHaveLength(1);
+	expect(screen.getByRole("application")).toBeInTheDocument();
+	fireEvent.keyDown(window, { key: "Escape" });
+	expect(
+		container.querySelector('[data-plan-area="plan-area-1"]'),
+	).toHaveAttribute("points", "0.11,0.1 0.8,0.1 0.8,0.8");
+});
+
+it("starts the polygon pen without creating an arbitrary rectangle when requested from the planning form", async () => {
 	const onChange = jest.fn();
 	const onSelectArea = jest.fn();
 	const view = render(
@@ -851,7 +888,7 @@ it("adds and selects an editable area when requested from the planning form", as
 		/>,
 	);
 	await waitFor(() =>
-		expect(screen.getByRole("button", { name: "Jauna zona" })).toBeEnabled(),
+		expect(screen.getByRole("button", { name: "Zīmēt zonu" })).toBeEnabled(),
 	);
 	view.rerender(
 		<VisualPdf
@@ -870,23 +907,13 @@ it("adds and selects an editable area when requested from the planning form", as
 		/>,
 	);
 	expect(onChange).not.toHaveBeenCalled();
-	expect(onSelectArea).toHaveBeenCalledWith({
-		planId: null,
-		areaId: "plan-area-1",
-	});
-	fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
-	expect(onChange).toHaveBeenCalledWith([
-		expect.objectContaining({
-			id: "plan-area-1",
-			page: 1,
-			polygon: [
-				{ x: 0.35, y: 0.35 },
-				{ x: 0.65, y: 0.35 },
-				{ x: 0.65, y: 0.65 },
-				{ x: 0.35, y: 0.65 },
-			],
-		}),
-	]);
+	expect(onSelectArea).toHaveBeenCalledWith(null);
+	expect(
+		screen.getByRole("application", { name: "Zonas daudzstūra pildspalva" }),
+	).toBeInTheDocument();
+	fireEvent.keyDown(window, { key: "Escape" });
+	expect(screen.queryByRole("application")).not.toBeInTheDocument();
+	expect(onChange).not.toHaveBeenCalled();
 });
 
 it("reshapes a planned area, adds and removes vertices, and deletes only that area", async () => {

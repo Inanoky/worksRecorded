@@ -75,7 +75,9 @@ const modules = {
 };
 const bundled = await build({
 	stdin: {
-		contents: `import React from 'react';import {createRoot} from 'react-dom/client';import VisualView from './flows/default-construction/visual/VisualView';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('/api/sites/')?(String(url).includes('?pdf=1')?original('/plan.pdf'):Promise.resolve(new Response(JSON.stringify(window.__visualPreviewDrawing??${JSON.stringify(fixture)})))):original(url,options);createRoot(document.getElementById('root')).render(<main style={{maxWidth:1700,margin:'0 auto',padding:20}}><VisualView siteId="demo"/></main>);`,
+		contents: process.argv.includes("--planning")
+			? `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {VisualPdf} from './flows/default-construction/visual/VisualPdf';function Preview(){const [areas,setAreas]=useState([]);const [selected,setSelected]=useState(null);return <main style={{padding:20}}><h1>Plānošana — synthetic preview</h1><p aria-label="saved areas">Saglabātās zonas: {areas.length} · {areas.map(area=>area.polygon.length).join(', ')} stūri</p><VisualPdf url="/plan.pdf" marks={[]} selected={null} onSelect={()=>{}} planning={{planId:null,areas,selectedArea:selected,onChange:setAreas,onSelectArea:setSelected,color:'#16a34a',label:'Plānotie darbi'}}/></main>}createRoot(document.getElementById('root')).render(<Preview/>);`
+			: `import React from 'react';import {createRoot} from 'react-dom/client';import VisualView from './flows/default-construction/visual/VisualView';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('/api/sites/')?(String(url).includes('?pdf=1')?original('/plan.pdf'):Promise.resolve(new Response(JSON.stringify(window.__visualPreviewDrawing??${JSON.stringify(fixture)})))):original(url,options);createRoot(document.getElementById('root')).render(<main style={{maxWidth:1700,margin:'0 auto',padding:20}}><VisualView siteId="demo"/></main>);`,
 		loader: "tsx",
 		resolveDir: root,
 	},

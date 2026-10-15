@@ -16,6 +16,8 @@ Limeni-only default-construction diary tab. The backend checks active user membe
 
 ## Visual planning
 
+- Planning has a click-to-place polygon pen, a mouse/stylus freehand pen and the existing rectangle tool. Close a clicked outline using its first point, double-click, Enter or the finish button. Freehand outlines close on release and simplify to at most 40 editable corners. Delete/Backspace undoes the latest point, Escape cancels, and Shift-drag or middle-button drag pans without adding points. Completed outlines enter the existing corner editor; saving the zone updates the local plan draft, and saving the plan persists it. Invalid or self-crossing outlines cannot be saved.
+- PDF zoom keeps the bounded overview visible and redraws only the visible page region after 300 ms without movement. The detail bitmap uses the already parsed PDF, includes device pixel ratio up to 2, and is capped at four million pixels and 4096 pixels per side. Pending renders are cancelled on navigation; stale results cannot overwrite the current crop. PDF source raster images cannot gain detail beyond their original resolution.
 - The header switches between “Izpilde” and “Plānošana”. Planned areas use dashed envelopes with the same work-derived colours as recorded work, while planning keeps actual overlays off the PDF.
 - A visual milestone selects an existing configured project work and its unit, planned quantity, inclusive start/deadline dates, and one or more disconnected page-specific polygons. Active milestones for the same normalized work, location and unit cannot have overlapping date ranges.
 - Progress compares cumulative non-archived diary quantities for the same work, location and unit from the milestone start through today. Work before the start is excluded; late work after the deadline continues to count. Missing factual quantities are reported as incomplete rather than treated as zero.
@@ -60,7 +62,7 @@ Confidence is a model estimate, not a guarantee. All overlays are explicitly lab
 
 ## Verification
 
-`node scripts/preview-limeni-visual.mjs` serves the actual Visual components at `http://127.0.0.1:4318` using synthetic diary records and a generated PDF. Server actions and upload hooks are replaced in-memory; the preview never connects to the production database or AI. This supports browser checks for zoom, panning, editing and responsive layout without authentication or production writes.
+`node scripts/preview-limeni-visual.mjs` serves the actual Visual components at `http://127.0.0.1:4318` using synthetic diary records and a generated PDF. Server actions and upload hooks are replaced in-memory; the preview never connects to the production database or AI. Add `--planning` for a self-contained polygon-pen and PDF-detail preview with local-only area drafts. This supports browser checks for zoom, panning, editing and responsive layout without authentication or production writes.
 
 Mocked tests cover organization/project scope, selected-location snapshots, concurrent writes, retry/resume, model-output validation, unsafe PDF URLs, PDF size/page limits, rendering, layer toggles and uploads. No real model or production database is called by these tests.
 
