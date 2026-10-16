@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
+import { isFimaDiary, readFimaCollaboration } from "@/lib/fima/diary-collaboration";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import { getDiaryImagePageRange } from "../lib/diary-image-pages";
 import {
@@ -42,9 +43,11 @@ const allProjectsDiaryRecordSelect = {
   Comments_Custom_2: true,
   Works_Custom_1: true,
   Works_Custom_2: true,
+  BISId: true,
+  evalMetadata: true,
   originalUserComment: true,
   originalAudioUrl: true,
-  Site: { select: { name: true, siteDiaryRecordsMap: true } },
+  Site: { select: { name: true, siteDiaryRecordsMap: true, bisCaseId: true, bisCaseNumber: true } },
 } satisfies Prisma.sitediaryrecordsSelect;
 
 type AllProjectsDiaryDatabaseRecord = Prisma.sitediaryrecordsGetPayload<{
@@ -66,6 +69,7 @@ function addActualCosts(
       Works_Custom_1,
       Works_Custom_2,
       Comments_Custom_2,
+      evalMetadata,
       ...record
     }) => {
       const calculatorKey = record.siteId ?? "__default__";
@@ -87,8 +91,18 @@ function addActualCosts(
         Site?.siteDiaryRecordsMap as Record<string, any> | null,
       );
 
+      const bisLinks = (evalMetadata as { kuceImport?: { bisLinks?: unknown } } | null)?.kuceImport?.bisLinks;
+
       return {
         ...record,
+        ...(isFimaDiary(Site?.siteDiaryRecordsMap) ? {
+          Works_Custom_1,
+          Works_Custom_2,
+          hasFimaBisReferences: Array.isArray(bisLinks) && bisLinks.length > 0,
+          fimaCollaboration: readFimaCollaboration(evalMetadata),
+          bisCaseId: Site?.bisCaseId ?? null,
+          bisCaseNumber: Site?.bisCaseNumber ?? null,
+        } : {}),
         sbPlan:
           organizationId === SB_STOMME_ORGANIZATION_ID
             ? readSbPlan({ Works_Custom_1, Works_Custom_2, Comments_Custom_2 })
@@ -220,6 +234,7 @@ export async function loadAllProjectsDiary(
   ]);
 
   return {
+    fimaCollaborationEnabled: projects.some((project) => isFimaDiary(project.siteDiaryRecordsMap)),
     projects: projects.map(({ siteDiaryRecordsMap: _, ...project }) => project),
     records: addActualCosts(records, organizationId),
     photoUrls: normalizeDiaryPhotoUrls(

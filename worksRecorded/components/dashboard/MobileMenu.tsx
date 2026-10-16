@@ -22,12 +22,14 @@ import {
 import { useDashboardNavigation } from "./useDashboardNavigation";
 
 export function MobileMenu({
+	fimaCollaborationEnabled = false,
 	organizationLanguage,
 	canAccessAiEvals = false,
 	canAccessFlowConfigAdmin = false,
 	flowModuleKey = null,
 	availableProjects = [],
 }: {
+	fimaCollaborationEnabled?: boolean;
 	organizationLanguage?: string | null;
 	canAccessAiEvals?: boolean;
 	canAccessFlowConfigAdmin?: boolean;
@@ -87,6 +89,28 @@ export function MobileMenu({
 				className="max-h-[80vh] w-72 overflow-y-auto"
 			>
 				<DropdownMenuLabel>{labels.workspace}</DropdownMenuLabel>
+				{fimaCollaborationEnabled ? (
+					<>
+						<DropdownMenuItem asChild>
+							<Link
+								href="/dashboard/all-projects"
+								aria-current={
+									pathname === "/dashboard/all-projects" ? "page" : undefined
+								}
+							>
+								Visi projekti
+							</Link>
+						</DropdownMenuItem>
+						{availableProjects.map((project) => (
+							<DropdownMenuItem key={project.id} asChild>
+								<Link href={`/dashboard/sites/${project.id}/dashboard`}>
+									{project.name}
+								</Link>
+							</DropdownMenuItem>
+						))}
+						<DropdownMenuSeparator />
+					</>
+				) : null}
 				{isTgem ? (
 					<>
 						<DropdownMenuSeparator />

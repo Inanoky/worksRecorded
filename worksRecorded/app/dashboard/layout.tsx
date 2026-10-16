@@ -22,6 +22,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { isAiEvalUiEnabled } from "@/lib/ai-evals/local-gate";
+import { isFimaDiary } from "@/lib/fima/diary-collaboration";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
@@ -64,14 +65,15 @@ export default async function DashboardLayout({
 	const [allHeaderProjects, flowModuleKey] = await Promise.all([
 		prisma.site.findMany({
 			where: isSuperUser ? {} : { organizationId: organizationId ?? "" },
-				select: { id: true, name: true, organizationId: true },
+				select: { id: true, name: true, organizationId: true, siteDiaryRecordsMap: true },
 			orderBy: { createdAt: "desc" },
 		}),
 		isSuperUser
 			? Promise.resolve(null)
 			: resolveFlowModuleKeyForRuntime({ organizationId }),
 	]);
-	let headerProjects = allHeaderProjects;
+	const fimaCollaborationEnabled = !isSuperUser && allHeaderProjects.some((project) => isFimaDiary(project.siteDiaryRecordsMap));
+	let headerProjects = allHeaderProjects.map(({ siteDiaryRecordsMap: _, ...project }) => project);
 	if (
 		flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL &&
 		organizationId
@@ -80,7 +82,7 @@ export default async function DashboardLayout({
 			userId,
 			organizationId,
 		});
-		headerProjects = access ? visibleTgemSites(access, allHeaderProjects) : [];
+		headerProjects = access ? visibleTgemSites(access, headerProjects) : [];
 	}
 
 	return (
@@ -112,6 +114,7 @@ export default async function DashboardLayout({
 									canAccessFlowConfigAdmin={canAccessFlowConfigs}
 									flowModuleKey={flowModuleKey}
 									availableProjects={headerProjects}
+									fimaCollaborationEnabled={fimaCollaborationEnabled}
 								/>
 							</div>
 
@@ -191,6 +194,7 @@ export default async function DashboardLayout({
 
 					<DashboardProjectNavigation
 						availableProjects={headerProjects}
+						fimaCollaborationEnabled={fimaCollaborationEnabled}
 						organizationLanguage={organizationLanguage}
 						canAccessAiEvals={canAccessAiEvals}
 						canAccessFlowConfigAdmin={canAccessFlowConfigs}

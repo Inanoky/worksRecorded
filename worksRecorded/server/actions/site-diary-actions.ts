@@ -2527,6 +2527,7 @@ function mapSiteDiaryListRecord(rec: any) {
 
   return {
     id: rec.id,
+    hasFimaBisReferences: Array.isArray(rec.evalMetadata?.kuceImport?.bisLinks) && rec.evalMetadata.kuceImport.bisLinks.length > 0,
     fimaCollaboration: rec.evalMetadata?.fimaCollaboration ? readFimaCollaboration(rec.evalMetadata) : undefined,
     createdAt: rec.createdAt,
     Date: rec.Date,

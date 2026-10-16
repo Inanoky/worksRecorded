@@ -138,3 +138,79 @@ it.each([false, true])(
 		).toBeCloseTo(100);
 	},
 );
+
+it.each([undefined, { fetchedAt: "2026-10-16T10:00:00Z", entries: [] }])(
+	"leaves materials empty when no materials are associated",
+	(snapshot) => {
+		const { container } = render(
+			<FimaDiaryCell
+				field="FimaMaterials"
+				siteId={siteId}
+				row={{
+					id: "record",
+					fimaCollaboration: { ...initial, bisMaterials: snapshot },
+				}}
+				onChange={jest.fn()}
+			/>,
+		);
+		expect(container).toBeEmptyDOMElement();
+		expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
+	},
+);
+it("keeps material management accessible in the record panel even with no materials", () => {
+	render(
+		<FimaDiaryCell
+			materialEditor
+			field="FimaMaterials"
+			siteId={siteId}
+			row={{ id: "record" }}
+			onChange={jest.fn()}
+		/>,
+	);
+	expect(
+		screen.getByRole("button", { name: "Pārvaldīt materiālus" }),
+	).toBeInTheDocument();
+});
+
+it("shows associated BIS materials alongside prepared materials without duplicating the same material", () => {
+	const shared = {
+		id: "one",
+		label: "Prepared insulator",
+		quantity: 2,
+		unit: "gab.",
+	};
+	render(
+		<FimaDiaryCell
+			field="FimaMaterials"
+			siteId={siteId}
+			row={{
+				id: "record",
+				fimaCollaboration: {
+					...initial,
+					materials: [shared],
+					bisMaterials: {
+						fetchedAt: "2026-10-16T10:00:00Z",
+						entries: [
+							{
+								caseId: "456",
+								bisId: "123",
+								materials: [
+									shared,
+									{
+										id: "two",
+										label: "BIS bracket",
+										quantity: 1,
+										unit: "gab.",
+									},
+								],
+							},
+						],
+					},
+				},
+			}}
+			onChange={jest.fn()}
+		/>,
+	);
+	expect(screen.getAllByText(/Prepared insulator/)).toHaveLength(1);
+	expect(screen.getByText(/BIS bracket/)).toBeInTheDocument();
+});

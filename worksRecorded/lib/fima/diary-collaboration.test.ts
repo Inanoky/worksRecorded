@@ -114,3 +114,25 @@ it("rejects invalid draft quantities but preserves actual BIS zero quantities", 
 		),
 	).toThrow();
 });
+
+it("hides source and import columns only in FIMA without deleting source configuration", () => {
+	const source = {
+		DisplayName: "Source",
+		customSettings: { displayinSiteList: "yes" },
+	};
+	const config = {
+		otherSettings: { fimaCollaboration: true },
+		Comments: source,
+		Comments_Custom_1: source,
+		Comments_Custom_2: source,
+	};
+	const result = withFimaDiaryColumns(config, null);
+	for (const field of [
+		"Comments",
+		"Comments_Custom_1",
+		"Comments_Custom_2",
+	] as const) {
+		expect(result[field].customSettings?.displayinSiteList).toBe("no");
+		expect(config[field].customSettings.displayinSiteList).toBe("yes");
+	}
+});

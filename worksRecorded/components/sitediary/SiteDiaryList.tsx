@@ -1,5 +1,6 @@
 "use client";
 import { getFimaDiaryCollaboration, refreshFimaBisMaterials } from "@/server/actions/fima-diary-collaboration";
+import { FimaMaterialRefresh } from "./FimaMaterialRefresh";
 import { FimaRecordPanel } from "@/components/sitediary/FimaRecordPanel";
 import { shouldOpenFimaRecordPanel } from "@/lib/fima/record-panel";
 import { FimaDiaryCell } from "@/components/sitediary/FimaDiaryCell";
@@ -3021,6 +3022,7 @@ export default function SiteDiaryCalendar({
         className={cn("w-full mx-auto px-2 sm:px-4 py-4", fimaDiary && fimaPanelRow && "xl:pr-[30rem]")}
         style={{ maxWidth: fimaDiary ? "none" : `${screenWidth}rem`, minWidth: 0 }}
       >
+        {fimaDiary && siteId ? <FimaMaterialRefresh key={siteId} siteId={siteId} records={rows} onChange={updateFimaCollaboration} /> : null}
         <Tabs
           value={viewMode}
           onValueChange={(v) =>
@@ -4280,7 +4282,7 @@ export default function SiteDiaryCalendar({
                                         type="button"
                                         className="font-medium underline-offset-2 hover:text-blue-700 hover:underline"
                                         onClick={() =>
-                                          defaultConstructionSummary.openLocationSummary(
+                                          fimaDiary ? openFimaRecord(r) : defaultConstructionSummary.openLocationSummary(
                                             r.Location,
                                           )
                                         }
@@ -4323,6 +4325,7 @@ export default function SiteDiaryCalendar({
                                       })()}
                                     </span>
                                   </div>
+                                  {fimaDiary ? <dl className="mt-3 grid grid-cols-2 gap-3 text-xs"><div className="min-w-0"><dt className="text-muted-foreground">BIS darbs</dt><dd className="whitespace-pre-wrap break-words">{r.Works_Custom_1}</dd></div><div><dt className="text-muted-foreground">Maiņa</dt><dd>{r.Works_Custom_2}</dd></div></dl> : null}
                                   {fimaDiary ? <div className="mt-2 grid grid-cols-2 gap-3 border-t pt-2">{fimaVirtualFields.map((field) => <div className="min-w-0" key={field}><p className="text-muted-foreground">{defaultMap[field]?.DisplayName}</p><FimaDiaryCell field={field} siteId={siteId!} row={r} caseNumber={defaultMap.otherSettings?.bisCaseNumber} caseId={defaultMap.otherSettings?.bisCaseId} onOpenRecord={() => openFimaRecord(r)} onChange={updateFimaCollaboration} /></div>)}</div> : null}
                                   {showDayPlan ? <MobilePlan row={planByRecordId.get(r.id ?? "")} actualWork={r.Works} actualQuantity={getDefaultConstructionQuantityComparison(r, defaultMap).enabled ? getDefaultConstructionQuantityComparison(r, defaultMap).actualAmount : r.Amounts} unit={r.Units} /> : null}
                                   {!isZtcSite && !showDayPlan
@@ -4573,7 +4576,7 @@ export default function SiteDiaryCalendar({
                                     </div>
                                   ) : null}
 
-                                  <div className="mt-1">
+                                  {!fimaDiary ? <div className="mt-1">
                                     {r.Comments || r.originalAudioUrl ? (
                                       <Popover>
                                         <PopoverTrigger asChild>
@@ -4595,7 +4598,7 @@ export default function SiteDiaryCalendar({
                                         {t.noComments}
                                       </p>
                                     )}
-                                  </div>
+                                  </div> : null}
 
                                   {!isZtcSite && defaultMap?.otherSettings?.inlineDiaryPhotos ? (
                                     <div className="mt-2"><DiaryRecordPhotos photos={r.Photos} language={language} /></div>
@@ -5445,7 +5448,7 @@ export default function SiteDiaryCalendar({
 
                                 return (
                                   <Table
-                                    className={cn("table-fixed text-xs", showDayPlan || clientDiary || fitDiaryTable ? "w-full min-w-0 [&_th]:!w-auto [&_td]:!w-auto [&_th]:!px-1.5 [&_td]:!px-1.5 [&_th]:!whitespace-normal [&_td]:!whitespace-normal [&_th]:[overflow-wrap:anywhere] [&_td]:[overflow-wrap:anywhere] [&_button]:max-w-full" : isZtcSite ? "min-w-[1180px] sm:text-sm" : "min-w-[985px] sm:text-sm", fitDiaryTable && "[&_button]:whitespace-normal [&_button]:break-words [&_button]:h-auto [&_button]:min-h-8 [&_button]:px-1")}
+                                    className={cn("table-fixed text-xs", showDayPlan || clientDiary || fitDiaryTable ? "w-full min-w-0 [&_th]:!w-auto [&_td]:!w-auto [&_th]:!px-1.5 [&_td]:!px-1.5 [&_th]:!whitespace-normal [&_td]:!whitespace-normal [&_th]:[overflow-wrap:anywhere] [&_td]:[overflow-wrap:anywhere] [&_button]:max-w-full" : isZtcSite ? "min-w-[1180px] sm:text-sm" : "min-w-[985px] sm:text-sm", fimaDiary && "rounded-lg border border-slate-200/80 [&_thead]:bg-slate-50/80 [&_th]:!py-3 [&_th]:font-semibold [&_td]:!py-3 [&_td]:leading-relaxed [&_tbody_tr:nth-child(even)]:bg-muted/20 dark:border-slate-700 dark:[&_thead]:bg-slate-900", fitDiaryTable && "[&_button]:whitespace-normal [&_button]:break-words [&_button]:h-auto [&_button]:min-h-8 [&_button]:px-1")}
                                   >
                                     {showDayPlan || clientDiary || fitDiaryTable ? <PlanTableColumns trailingFields={fimaDiary ? ["FimaReviewStatus"] : undefined} fields={dayTableHeads} bisEnabled={bisUiEnabled} showPlan={showDayPlan} columnWeights={fitDiaryTable ? {
                                       ...Object.fromEntries(dayTableHeads.map((field) => [field, getCellWidthByKey(field, defaultMap)])),

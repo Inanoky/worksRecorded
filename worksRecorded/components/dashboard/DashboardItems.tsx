@@ -93,12 +93,14 @@ export function DashboardItems({
 }
 
 export function DashboardProjectNavigation({
+	fimaCollaborationEnabled = false,
 	availableProjects = [],
 	organizationLanguage,
 	canAccessAiEvals = false,
 	canAccessFlowConfigAdmin = false,
 	flowModuleKey = null,
 }: {
+	fimaCollaborationEnabled?: boolean;
 	availableProjects?: ProjectSwitcherOption[];
 	organizationLanguage?: string | null;
 	canAccessAiEvals?: boolean;
@@ -173,11 +175,28 @@ export function DashboardProjectNavigation({
 		);
 	}
 
+	if (fimaCollaborationEnabled && pathname === "/dashboard/all-projects")
+		return (
+			<div className="hidden min-h-[54px] w-full items-center gap-2 border-t bg-muted/25 px-4 py-1.5 lg:flex lg:px-8">
+				<ProjectSwitcher
+					activeProjectId="__all__"
+					activeProjectName="Visi projekti"
+					availableProjects={availableProjects}
+					isActive
+					labels={labels}
+					onPrefetch={(href) => router.prefetch(href)}
+					onSelectProject={setProject}
+					pathname={pathname}
+					showAllProjects
+				/>
+			</div>
+		);
 	if (!projectName || !projectId || !isProjectRoute) return null;
 
 	return (
 		<div className="hidden min-h-[54px] w-full items-center gap-2 border-t bg-muted/25 px-4 py-1.5 lg:flex lg:px-8">
 			<ProjectSwitcher
+				showAllProjects={fimaCollaborationEnabled}
 				activeProjectId={projectId}
 				activeProjectName={projectName}
 				availableProjects={availableProjects}
@@ -349,6 +368,7 @@ const projectNavIconClasses = "size-4 shrink-0";
 const projectNavLabelClasses = "min-w-0 overflow-hidden text-ellipsis";
 
 function ProjectSwitcher({
+	showAllProjects = false,
 	activeProjectId,
 	activeProjectName,
 	availableProjects,
@@ -358,6 +378,7 @@ function ProjectSwitcher({
 	onSelectProject,
 	pathname,
 }: {
+	showAllProjects?: boolean;
 	activeProjectId: string;
 	activeProjectName: string;
 	availableProjects: ProjectSwitcherOption[];
@@ -369,7 +390,9 @@ function ProjectSwitcher({
 }) {
 	const [open, setOpen] = useState(false);
 	const projects = normalizeProjectSwitcherOptions(
-		availableProjects,
+		showAllProjects
+			? [{ id: "__all__", name: "Visi projekti" }, ...availableProjects]
+			: availableProjects,
 		activeProjectId,
 		activeProjectName,
 	);
@@ -417,7 +440,10 @@ function ProjectSwitcher({
 				<DropdownMenuLabel>{labels.switchProject}</DropdownMenuLabel>
 				<DropdownMenuSeparator />
 				{projects.map((project) => {
-					const href = getProjectSwitchHref(project.id, pathname);
+					const href =
+						project.id === "__all__"
+							? "/dashboard/all-projects"
+							: getProjectSwitchHref(project.id, pathname);
 					return (
 						<DropdownMenuItem key={project.id} asChild>
 							<Link
@@ -426,7 +452,10 @@ function ProjectSwitcher({
 								aria-current={
 									project.id === activeProjectId ? "page" : undefined
 								}
-								onClick={() => onSelectProject(project.id, project.name)}
+								onClick={() => {
+									if (project.id !== "__all__")
+										onSelectProject(project.id, project.name);
+								}}
 								onMouseEnter={() => onPrefetch(href)}
 								className={cn(
 									"flex w-full min-w-0 items-center gap-2",

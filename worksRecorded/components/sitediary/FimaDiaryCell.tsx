@@ -43,6 +43,7 @@ type Props = {
 	caseNumber?: string | null;
 	caseId?: string | null;
 	onOpenRecord?: () => void;
+	materialEditor?: boolean;
 	onChange: (id: string, state: FimaCollaboration) => void;
 };
 const empty: FimaCollaboration = {
@@ -60,6 +61,7 @@ export function FimaDiaryCell({
 	caseNumber,
 	caseId,
 	onOpenRecord,
+	materialEditor = false,
 	onChange,
 }: Props) {
 	const [open, setOpen] = useState(false);
@@ -145,61 +147,59 @@ export function FimaDiaryCell({
 		);
 
 	const snapshot = state.bisMaterials;
-	const actualCount = snapshot?.entries.reduce(
-		(n, entry) => n + entry.materials.length,
-		0,
-	);
+	const preparedIds = new Set(state.materials.map((material) => material.id));
+	const displayedMaterials = [
+		...state.materials,
+		...(snapshot?.entries.flatMap((entry) => entry.materials) ?? []).filter(
+			(material) => !preparedIds.has(material.id),
+		),
+	];
 	const commentCount = state.history.filter(
 		(item) => item.kind === "comment",
 	).length;
 	const lastComment = state.history.findLast((item) => item.kind === "comment");
 	return (
 		<>
-			<Button
-				variant="ghost"
-				size="sm"
-				className="h-auto w-full flex-col items-start gap-1 whitespace-normal px-0 text-left"
-				onClick={() => {
-					if (!isMaterials && onOpenRecord) onOpenRecord();
-					else setOpen(true);
-				}}
-			>
-				{isMaterials ? (
-					<>
-						<span>
-							{state.materials.length
-								? `Sagatavoti: ${state.materials.length}`
-								: "Sagatavot materiālus"}
-						</span>
-						<span className="text-xs text-muted-foreground">
-							{snapshot ? `BIS: ${actualCount}` : "BIS dati nav pārbaudīti"}
-						</span>
-						{(state.materials.length
-							? state.materials
-							: (snapshot?.entries.flatMap((entry) => entry.materials) ?? [])
-						)
-							.slice(0, 2)
-							.map((m, index) => (
-								<span key={`${m.id}-${index}`} className="line-clamp-2 text-xs">
+			{!isMaterials || materialEditor || displayedMaterials.length > 0 ? (
+				<Button
+					variant="ghost"
+					size="sm"
+					className="h-auto w-full flex-col items-start gap-1 whitespace-normal px-0 text-left"
+					onClick={() => {
+						if (!isMaterials && onOpenRecord) onOpenRecord();
+						else setOpen(true);
+					}}
+				>
+					{isMaterials ? (
+						materialEditor ? (
+							<span>Pārvaldīt materiālus</span>
+						) : (
+							displayedMaterials.map((m, index) => (
+								<span
+									key={`${m.id}-${index}`}
+									title={`${m.label} · ${m.quantity} ${m.unit}`}
+									className="line-clamp-2 text-xs leading-relaxed break-words"
+								>
 									{m.label} · {m.quantity} {m.unit}
 								</span>
-							))}
-					</>
-				) : (
-					<>
-						<span>Komentāri ({commentCount})</span>
-						{lastComment ? (
-							<span className="line-clamp-3 text-xs text-muted-foreground">
-								{lastComment.actorName}: {lastComment.text}
-							</span>
-						) : (
-							<span className="text-xs text-muted-foreground">
-								Pievienot komentāru
-							</span>
-						)}
-					</>
-				)}
-			</Button>
+							))
+						)
+					) : (
+						<>
+							<span>Komentāri ({commentCount})</span>
+							{lastComment ? (
+								<span className="line-clamp-3 text-xs text-muted-foreground">
+									{lastComment.actorName}: {lastComment.text}
+								</span>
+							) : (
+								<span className="text-xs text-muted-foreground">
+									Pievienot komentāru
+								</span>
+							)}
+						</>
+					)}
+				</Button>
+			) : null}
 			<Dialog
 				open={open}
 				onOpenChange={(value) => {

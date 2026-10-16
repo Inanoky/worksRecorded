@@ -545,3 +545,23 @@ function seedProject(userId: string, id: string, name: string) {
 		JSON.stringify({ id, name }),
 	);
 }
+
+
+it("adds Visi projekti to FIMA's project switcher and preserves the real project selection", async () => {
+  mockPathname = "/dashboard/sites/fima-site/dashboard";
+  seedProject("fima-nav", "fima-site", "Olaine");
+  render(<ProjectProvider userId="fima-nav"><DashboardProjectNavigation fimaCollaborationEnabled availableProjects={[{ id: "fima-site", name: "Olaine" }]} organizationLanguage="lv" /></ProjectProvider>);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Mainīt projektu" }));
+  const link = screen.getByRole("menuitem", { name: "Visi projekti" });
+  expect(link).toHaveAttribute("href", "/dashboard/all-projects");
+  await user.click(link);
+  expect(window.sessionStorage.getItem("project:fima-nav")).toBe(JSON.stringify({ id: "fima-site", name: "Olaine" }));
+});
+it("shows the FIMA project switcher while viewing the virtual project", async () => {
+  mockPathname = "/dashboard/all-projects";
+  render(<ProjectProvider userId="fima-virtual"><DashboardProjectNavigation fimaCollaborationEnabled availableProjects={[{ id: "fima-site", name: "Olaine" }]} organizationLanguage="lv" /></ProjectProvider>);
+  expect(screen.getByText("Visi projekti")).toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole("button", { name: "Mainīt projektu" }));
+  expect(screen.getByRole("menuitem", { name: "Olaine" })).toHaveAttribute("href", "/dashboard/sites/fima-site/dashboard");
+});

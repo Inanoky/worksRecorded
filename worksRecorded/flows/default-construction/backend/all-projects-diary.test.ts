@@ -242,3 +242,15 @@ describe("all projects diary", () => {
     expect(query).not.toHaveProperty("take");
   });
 });
+
+
+it("preserves FIMA collaboration and each record's real project and BIS scope without exposing import metadata", async () => {
+  const siteDiaryRecordsMap = { otherSettings: { fimaCollaboration: true } };
+  siteFindManyMock.mockResolvedValue([{ id: "site-fima", name: "Olaine", siteDiaryRecordsMap }]);
+  recordsFindManyMock.mockResolvedValue([{ id: "record", siteId: "site-fima", Works_Custom_1: "BIS work", Works_Custom_2: "19:00–05:00", BISId: "123", evalMetadata: { kuceImport: { privateSource: "source" }, fimaCollaboration: { version: 2, status: "needs_changes", materials: [], history: [] } }, Site: { name: "Olaine", siteDiaryRecordsMap, bisCaseId: "668714", bisCaseNumber: "BIS-BL-123" } }]);
+  const data = await loadAllProjectsDiary("fima");
+  expect(data.fimaCollaborationEnabled).toBe(true);
+  expect(data.records[0]).toMatchObject({ siteId: "site-fima", BISId: "123", bisCaseId: "668714", bisCaseNumber: "BIS-BL-123", Works_Custom_1: "BIS work", Works_Custom_2: "19:00–05:00", fimaCollaboration: { version: 2, status: "needs_changes" } });
+  expect(data.records[0]).not.toHaveProperty("evalMetadata");
+  expect(data.records[0].Site).not.toHaveProperty("siteDiaryRecordsMap");
+});

@@ -70,7 +70,13 @@ export function withFimaDiaryColumns(
 		bisCaseId: caseId,
 		preferConfigDisplayNames: true,
 	};
-	for (const field of ["WorkersInvolved", "TimeInvolved"]) {
+	for (const field of [
+		"WorkersInvolved",
+		"TimeInvolved",
+		"Comments_Custom_1",
+		"Comments_Custom_2",
+		"Comments",
+	]) {
 		if (result[field])
 			result[field] = {
 				...result[field],

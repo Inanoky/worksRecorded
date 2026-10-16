@@ -8,6 +8,7 @@ import {
 	fimaStatuses,
 } from "@/lib/fima/diary-collaboration";
 import { getFimaBisCaseUrl } from "@/lib/fima/record-panel";
+import { FimaDiaryCell } from "./FimaDiaryCell";
 import { FimaRecordHistory } from "./FimaRecordHistory";
 
 type Row = {
@@ -123,6 +124,17 @@ export function FimaRecordPanel({
 										</a>
 									) : null}
 								</div>
+							</section>
+							<section className="space-y-2 rounded-lg border p-3">
+								<h2 className="text-sm font-semibold">Materiāli</h2>
+								<FimaDiaryCell
+									key={`${siteId}-${row.id}-materials`}
+									field="FimaMaterials"
+									siteId={siteId}
+									row={row}
+									materialEditor
+									onChange={onChange}
+								/>
 							</section>
 							<FimaRecordHistory
 								key={`${siteId}-${row.id}`}

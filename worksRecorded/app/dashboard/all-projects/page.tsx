@@ -1,3 +1,4 @@
+import { FimaAllProjectsDiary } from "@/components/sitediary/FimaAllProjectsDiary";
 import { DiaryPhotoActions } from "@/flows/default-construction/frontend/DiaryPhotoActions";
 import Link from "next/link";
 import Image from "next/image";
@@ -330,6 +331,7 @@ export default async function AllProjectsPage({
               </div>
             </div>
           ) : null}
+          {data.fimaCollaborationEnabled ? <FimaAllProjectsDiary key={JSON.stringify(filters)} records={data.records} /> : <>
           <div className={cn("space-y-3", showPhotos ? "xl:hidden" : "lg:hidden")}>
             {data.records.length ? (
               data.records.map((record) => (
@@ -840,6 +842,7 @@ export default async function AllProjectsPage({
             </Table>
           </div>
 
+          </>}
           {data.totalPages > 1 ? (
             <div className="mt-4 flex items-center justify-between gap-4">
               {data.page > 1 ? (

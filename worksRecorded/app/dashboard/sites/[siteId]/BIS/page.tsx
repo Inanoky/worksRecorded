@@ -1,3 +1,5 @@
+import { FimaWarehouse } from "@/components/sitediary/FimaWarehouse";
+import { isFimaDiary } from "@/lib/fima/diary-collaboration";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { revalidatePath } from "next/cache";
@@ -2136,7 +2138,7 @@ export default async function MaterialsPage({
       }),
       prisma.site.findUnique({
         where: { id: siteId },
-        select: { organizationId: true },
+        select: { organizationId: true, siteDiaryRecordsMap: true },
       }),
     ]),
   );
@@ -2192,17 +2194,7 @@ export default async function MaterialsPage({
     },
   });
 
-  return (
-    <div className="space-y-6 p-4 md:p-6">
-      <TourRunner steps={getJoyRideSteps(organizationLanguage).steps_siteid_warehouse} stepName="steps_siteid_warehouse" />
-      <div data-tour="warehouse-header">
-        <h1 className="text-2xl font-semibold tracking-tight">{t.title}</h1>
-        <p className="text-sm text-muted-foreground">
-          {t.description}
-        </p>
-      </div>
-
-
+  const warehouseContent = <>
       {flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION ? (
         <WarehouseInvoiceImport key={siteId} siteId={siteId} organizationLanguage={organizationLanguage} />
       ) : null}
@@ -2246,6 +2238,20 @@ export default async function MaterialsPage({
         copyMaterialRecord={copyWarehouseRecord}
         deleteRecords={deleteWarehouseRecords}
       /></div>
+  </>;
+
+  return (
+    <div className="space-y-6 p-4 md:p-6">
+      <TourRunner steps={getJoyRideSteps(organizationLanguage).steps_siteid_warehouse} stepName="steps_siteid_warehouse" />
+      <div data-tour="warehouse-header">
+        <h1 className="text-2xl font-semibold tracking-tight">{t.title}</h1>
+        <p className="text-sm text-muted-foreground">
+          {t.description}
+        </p>
+      </div>
+
+
+      {isFimaDiary(siteOrg?.siteDiaryRecordsMap) ? <FimaWarehouse key={siteId} siteId={siteId} connected={bisEnabled}>{warehouseContent}</FimaWarehouse> : warehouseContent}
       <AiWidgetRag siteId={siteId} />
     </div>
   );
