@@ -3,6 +3,8 @@ import { FimaBisState } from "./FimaBisState";
 import { fimaDiaryColumnWeights, fimaDiaryTableClassName } from "@/lib/fima/diary-table";
 import { getFimaDiaryCollaboration, refreshFimaBisMaterials } from "@/server/actions/fima-diary-collaboration";
 import { FimaMaterialRefresh } from "./FimaMaterialRefresh";
+import { createFimaPageCache, fetchFimaPage } from "@/lib/fima/page-cache";
+import { mergeFimaCollaboration } from "@/lib/fima/diary-list-summary";
 import { FimaInlineCell } from "./FimaInlineCell";
 import { isFimaInlineField, type FimaInlineField } from "@/lib/fima/inline-fields";
 import { FimaRecordPanel } from "@/components/sitediary/FimaRecordPanel";
@@ -710,13 +712,15 @@ export default function SiteDiaryCalendar({
 
   // Shared dialog for editing a day
   const [fimaRecordId, setFimaRecordId] = React.useState<string | null>(null);
+  const [fimaSelectedRow, setFimaSelectedRow] = React.useState<DiaryRow | null>(null);
   const fimaPanelTriggerRef = React.useRef<HTMLElement | null>(null);
   const openFimaRecord = React.useCallback((row: DiaryRow, trigger?: HTMLElement) => {
     if (!row.id) return;
     fimaPanelTriggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setFimaRecordId(row.id);
+    setFimaSelectedRow(row);
   }, []);
-  React.useEffect(() => { setFimaRecordId(null); }, [siteId]);
+  React.useEffect(() => { setFimaRecordId(null); setFimaSelectedRow(null); }, [siteId]);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogDate, setDialogDate] = React.useState<Date | null>(null);
   const [dialogInitialRows, setDialogInitialRows] = React.useState<
@@ -760,8 +764,6 @@ export default function SiteDiaryCalendar({
   const [confirmedRows, setRows] = React.useState<DiaryRow[]>([]);
   const { queue: diarySaveQueue, snapshot: diarySaveSnapshot } = useDiarySaveQueue(siteId, batchEditing && !isZtcFlow);
   const rows = React.useMemo(() => diarySaveQueue ? diarySaveQueue.project(confirmedRows) : confirmedRows, [confirmedRows, diarySaveQueue, diarySaveSnapshot.items]);
-  const planner = useConstructionPlanner(siteId, !isZtcFlow, rows);
-  const beginHours = useBeginHours(siteId, rows);
   const [serverMediaOnlyDays, setMediaOnlyDays] = React.useState<
     MediaOnlyDaySummary[]
   >([]);
@@ -794,6 +796,14 @@ export default function SiteDiaryCalendar({
   const mediaOnlyRequestRef = React.useRef(0);
   const diaryRowsRequestRef = React.useRef(0);
   const diaryLastLoaded = React.useRef(0);
+  const [fimaPages] = React.useState(() => createFimaPageCache<Awaited<ReturnType<typeof getSiteDiaryRecordsPage>>>());
+  const fimaPageScope = React.useRef<string | null>(null);
+  const fimaPrefetchTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fimaConfig = React.useRef<{ key: string; promise: ReturnType<typeof getConfig>; enabled: boolean } | null>(null);
+  React.useEffect(() => () => {
+    fimaPages.clear();
+    if (fimaPrefetchTimer.current) clearTimeout(fimaPrefetchTimer.current);
+  }, [fimaPages]);
   const [diarySnapshotSiteId, setDiarySnapshotSiteId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -809,22 +819,28 @@ export default function SiteDiaryCalendar({
     React.useState<Record<string, any>>(defaultConfig);
   const [configSiteId, setConfigSiteId] = React.useState<string | null>(null);
   const clientDiary = !isZtcFlow && (limeniClientDiary || (configSiteId === siteId && defaultMap?.otherSettings?.inlineDiaryPhotos === true));
-  React.useEffect(() => {
-    if (fimaRecordId && !loading && !rows.some((row) => row.id === fimaRecordId)) setFimaRecordId(null);
-  }, [fimaRecordId, rows, loading]);
-  const fimaPanelRow = rows.find((row) => row.id === fimaRecordId) ?? null;
+  const fimaPanelRow = rows.find((row) => row.id === fimaRecordId) ?? (fimaRecordId ? fimaSelectedRow : null);
   const fimaDiary = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.fimaCollaboration === true;
+  const planner = useConstructionPlanner(siteId, !isZtcFlow && !fimaDiary, rows);
+  const beginHours = useBeginHours(fimaDiary ? null : siteId, rows);
+  const fimaCurrentRows = React.useRef(rows);
+  fimaCurrentRows.current = rows;
+  const fimaCurrentSelection = React.useRef(fimaSelectedRow);
+  fimaCurrentSelection.current = fimaSelectedRow;
   const updateFimaCollaboration = React.useCallback((id: string, state: FimaCollaboration) => {
+    const previous = fimaCurrentRows.current.find(row => row.id === id)?.fimaCollaboration ?? (fimaCurrentSelection.current?.id === id ? fimaCurrentSelection.current.fimaCollaboration : undefined);
+    if (state.version > (previous?.version ?? 0) || (state.bisMaterials?.fetchedAt ?? "") > (previous?.bisMaterials?.fetchedAt ?? "")) fimaPages.clear();
+    setFimaSelectedRow(row => row?.id === id ? { ...row, fimaCollaboration: mergeFimaCollaboration(row.fimaCollaboration, state) } : row);
     setRows((previous) => previous.map((row) => {
       if (row.id !== id || (row.fimaCollaboration?.version ?? 0) > state.version) return row;
-      const existingSnapshot = row.fimaCollaboration?.bisMaterials;
-      const bisMaterials = existingSnapshot && (!state.bisMaterials || existingSnapshot.fetchedAt > state.bisMaterials.fetchedAt) ? existingSnapshot : state.bisMaterials;
-      return { ...row, fimaCollaboration: { ...state, bisMaterials } };
+      return { ...row, fimaCollaboration: mergeFimaCollaboration(row.fimaCollaboration, state) };
     }));
-  }, []);
+  }, [fimaPages]);
   const updateFimaField = React.useCallback((id: string, field: FimaInlineField, value: string | number | null) => {
+    fimaPages.clear();
+    setFimaSelectedRow(row => row?.id === id ? { ...row, [field]: value } : row);
     setRows(previous => previous.map(row => row.id === id ? { ...row, [field]: value } : row));
-  }, []);
+  }, [fimaPages]);
   const fitDiaryTable = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.fitDiaryTableToWidth === true;
   const calculateDefaultConstructionRecordCost = React.useMemo(
     () => createDefaultConstructionRecordCostCalculator(defaultMap),
@@ -981,7 +997,7 @@ export default function SiteDiaryCalendar({
     return defaultMap[key]?.Type ?? null;
   }
 
-  function getDisplayNameByKey(key) {
+  function getDisplayNameByKey(key: string) {
     if (
       defaultMap[key]?.customSettings?.forceDisplayName === true &&
       defaultMap[key]?.DisplayName
@@ -1099,6 +1115,7 @@ export default function SiteDiaryCalendar({
   const [selectedRecordIds, setSelectedRecordIds] = React.useState<Set<string>>(
     new Set(),
   );
+  React.useEffect(() => { if (siteId) setSelectedRecordIds(new Set()); }, [siteId]);
   const [bulkDeleteLoading, setBulkDeleteLoading] = React.useState(false);
   const [projectCopyTargets, setProjectCopyTargets] = React.useState<
     SiteDiaryProjectCopyTarget[]
@@ -1185,7 +1202,7 @@ export default function SiteDiaryCalendar({
     setWorkerFilter,
   });
   const defaultConstructionSummary = useDefaultConstructionSiteDiarySummary({
-    enabled: !isZtcSite,
+    enabled: !isZtcSite && !fimaDiary,
     siteId,
     organizationLanguage,
     refreshKey: rows,
@@ -1253,14 +1270,15 @@ export default function SiteDiaryCalendar({
     keyword: keywordFilter, page: listPage,
   });
   const refreshRowsWithBisSync = React.useCallback(
-    async (options?: { skipSync?: boolean }) => {
+    async (options?: { skipSync?: boolean; useCache?: boolean }) => {
       const requestId = ++diaryRowsRequestRef.current;
       ++mediaOnlyRequestRef.current;
       if (!siteId) {
         setMediaOnlyDays([]);
         return [];
       }
-      if (bisUiEnabled && !options?.skipSync) {
+      const isFima = !isZtcSite && fimaConfig.current?.key === `${siteId}:${siteDiaryFlowId}:${optionsRevision}` && fimaConfig.current.enabled;
+      if (bisUiEnabled && !options?.skipSync && !isFima) {
         await syncDeletedSiteDiaryBisRecords(siteId);
       }
       if (clientDiary) {
@@ -1283,13 +1301,44 @@ export default function SiteDiaryCalendar({
         (!isZtcSite || remoteFilters.elementFilter === "__ALL__") &&
         (!isZtcSite || remoteFilters.workerFilter === "__ALL__") &&
         (!isZtcSite || remoteFilters.floorFilter === "__ALL__");
-      const result = await getSiteDiaryRecordsPage(siteId, {
+      const pageKey = `${siteId}:${remoteQueryKey}`;
+      const pageScope = `${siteId}:${siteDiaryFlowId}:${optionsRevision}`;
+      if (fimaPageScope.current !== pageScope) {
+        fimaPages.clear();
+        if (fimaPrefetchTimer.current) clearTimeout(fimaPrefetchTimer.current);
+        fimaPageScope.current = pageScope;
+      }
+      if (!options?.useCache) {
+        fimaPages.clear();
+        if (fimaPrefetchTimer.current) clearTimeout(fimaPrefetchTimer.current);
+      }
+      const fimaParams = (page: number) => {
+        const params = new URLSearchParams({ project: siteId, view: "project", page: String(page) });
+        for (const [key, value] of Object.entries({ q: remoteFilters.keyword, from: remoteFilters.dateFrom, to: remoteFilters.dateTo, work: remoteFilters.workFilter, floor: remoteFilters.floorFilter })) {
+          if (typeof value === "string" && value && value !== "__ALL__") params.set(key, value);
+        }
+        return params;
+      };
+      const result = isFima ? await fimaPages.load(pageKey, signal => fetchFimaPage<Awaited<ReturnType<typeof getSiteDiaryRecordsPage>>>(fimaParams(remoteFilters.page), signal)) : await getSiteDiaryRecordsPage(siteId, {
         ...commonOptions,
         page: remoteFilters.page,
         pageSize: SITE_DIARY_LIST_PAGE_SIZE,
       });
+      const fimaLoaded = !isZtcSite && (isFima || (fimaConfig.current?.key === pageScope && fimaConfig.current.enabled));
+      if (fimaLoaded) {
+        if (!isFima) fimaPages.seed(pageKey, result);
+        if (fimaPrefetchTimer.current) clearTimeout(fimaPrefetchTimer.current);
+        if (result.page < result.totalPages) {
+          fimaPrefetchTimer.current = setTimeout(() => {
+            if (document.visibilityState === "hidden") return;
+            const nextFilters = { ...remoteFilters, page: result.page + 1 };
+            void fimaPages.load(`${siteId}:${JSON.stringify(nextFilters)}`, signal => fetchFimaPage<Awaited<ReturnType<typeof getSiteDiaryRecordsPage>>>(fimaParams(result.page + 1), signal)).catch(() => {});
+          }, 400);
+        }
+      }
       const data: DiaryRow[] = result.rows || [];
       if (diaryRowsRequestRef.current !== requestId) return data;
+      if (fimaLoaded && result.page !== remoteFilters.page) setListPage(result.page);
       setRows(data || []);
       setListTotalCount(result.totalCount ?? 0);
       setListTotalPages(result.totalPages ?? 1);
@@ -1302,7 +1351,7 @@ export default function SiteDiaryCalendar({
       );
 
       const mediaRequestId = ++mediaOnlyRequestRef.current;
-      if (!canShowMediaOnlyDays) {
+      if (!canShowMediaOnlyDays || fimaLoaded) {
         setMediaOnlyDays([]);
       } else {
         void getSiteDiaryMediaOnlyDays(siteId, commonOptions)
@@ -1327,6 +1376,8 @@ export default function SiteDiaryCalendar({
       isZtcSite,
       siteDiaryFlowId,
       siteId,
+      optionsRevision,
+      fimaPages,
     ],
   );
 
@@ -1450,10 +1501,20 @@ export default function SiteDiaryCalendar({
 
         // Load the display configuration and the first page together. BIS cleanup
         // is intentionally not on the critical path for the initial screen.
+        const configKey = `${siteId}:${siteDiaryFlowId}:${optionsRevision}`;
+        if (fimaConfig.current?.key !== configKey) {
+          const entry = { key: configKey, enabled: false, promise: getConfig(siteId, { flowId: siteDiaryFlowId }) };
+          fimaConfig.current = entry;
+          void entry.promise.then(value => { entry.enabled = !isZtcSite && value?.otherSettings?.fimaCollaboration === true; }).catch(() => {
+            if (fimaConfig.current === entry) fimaConfig.current = null;
+          });
+        }
+        const configEntry = fimaConfig.current;
         const [loadedConfig, data] = await Promise.all([
-          getConfig(siteId, { flowId: siteDiaryFlowId }),
-          refreshRowsWithBisSync({ skipSync: true }),
+          configEntry.promise,
+          refreshRowsWithBisSync({ skipSync: true, useCache: true }),
         ]);
+        if (!configEntry.enabled && fimaConfig.current === configEntry) fimaConfig.current = null;
         const cfg = (loadedConfig ?? defaultConfig) as ConfigMap;
         if (cancelled) return;
 
@@ -1498,7 +1559,7 @@ export default function SiteDiaryCalendar({
 
         if (cancelled) return;
 
-        if (bisUiEnabled && initialBisSyncSiteRef.current !== siteId) {
+        if (bisUiEnabled && !cfg.otherSettings?.fimaCollaboration && initialBisSyncSiteRef.current !== siteId) {
           initialBisSyncSiteRef.current = siteId;
           void syncDeletedSiteDiaryBisRecords(siteId)
             .then(async () => {
@@ -1513,9 +1574,10 @@ export default function SiteDiaryCalendar({
             });
         }
       } catch (e: any) {
+        if (e?.name === "AbortError") return;
         if (!cancelled) {
           setError(e?.message ?? "Failed to load site diary");
-          setRows([]);
+          if (!fimaConfig.current?.enabled) setRows([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -1525,7 +1587,7 @@ export default function SiteDiaryCalendar({
     return () => {
       cancelled = true;
     };
-  }, [bisUiEnabled, optionsRevision, refreshRowsWithBisSync, siteId]);
+  }, [bisUiEnabled, optionsRevision, refreshRowsWithBisSync, siteId, siteDiaryFlowId, isZtcSite]);
 
   const backgroundRefresh = React.useCallback(() => refreshRowsWithBisSync({ skipSync: true }), [refreshRowsWithBisSync]);
   const revalidationFailed = useDiaryRevalidation({
@@ -1985,6 +2047,7 @@ export default function SiteDiaryCalendar({
     selectedVisibleCount === visibleRecordIds.length;
 
   React.useEffect(() => {
+    if (fimaDiary) return;
     const knownIds = new Set(
       rows.map((row) => row.id).filter((id): id is string => Boolean(id)),
     );
@@ -2000,7 +2063,7 @@ export default function SiteDiaryCalendar({
       });
       return changed ? next : prev;
     });
-  }, [rows]);
+  }, [rows, fimaDiary]);
 
   const sourcePopoverClassName =
     "w-[calc(100vw-1.5rem)] max-w-lg max-h-[70vh] overflow-y-auto break-words text-xs leading-relaxed sm:text-sm";
@@ -2084,6 +2147,10 @@ export default function SiteDiaryCalendar({
       const failedCount = results.length - deletedIds.length;
 
       if (deletedIds.length > 0) {
+        if (fimaRecordId && deletedIds.includes(fimaRecordId)) {
+          setFimaRecordId(null);
+          setFimaSelectedRow(null);
+        }
         setSelectedRecordIds((prev) => {
           const next = new Set(prev);
           deletedIds.forEach((id) => next.delete(id));
@@ -2798,6 +2865,15 @@ export default function SiteDiaryCalendar({
         siteId,
         flowId: siteDiaryFlowId,
       });
+      if (fimaRecordId === row.id) {
+        setFimaRecordId(null);
+        setFimaSelectedRow(null);
+      }
+      setSelectedRecordIds(previous => {
+        const next = new Set(previous);
+        next.delete(row.id as string);
+        return next;
+      });
       await refreshRowsWithBisSync({ skipSync: true });
       reloadFilledDays();
       toast.success(toastMessages.recordDeleted);
@@ -3029,7 +3105,7 @@ export default function SiteDiaryCalendar({
         className={cn("w-full mx-auto px-2 sm:px-4 py-4", fimaDiary && fimaPanelRow && "xl:pr-[30rem]")}
         style={{ maxWidth: fimaDiary ? "none" : `${screenWidth}rem`, minWidth: 0 }}
       >
-        {fimaDiary && siteId ? <FimaMaterialRefresh key={siteId} siteId={siteId} records={rows} onChange={updateFimaCollaboration} /> : null}
+        {fimaDiary && siteId ? <FimaMaterialRefresh key={siteId} siteId={siteId} records={rows} onChange={updateFimaCollaboration} autoRefresh={false} /> : null}
         <Tabs
           value={viewMode}
           onValueChange={(v) =>
@@ -3529,6 +3605,7 @@ export default function SiteDiaryCalendar({
                   </div>
                   {selectedRecordIds.size > 0 ? (
                     <div className="mt-3 flex flex-col gap-2 border-t pt-3 lg:flex-row lg:items-center lg:justify-between">
+                      {fimaDiary ? <Button size="sm" variant="outline" onClick={() => setSelectedRecordIds(new Set())}>Notīrīt atlasi ({selectedRecordIds.size})</Button> : null}
                       {!isZtcSite ? (
                         <div className="flex justify-start">
                           <Button

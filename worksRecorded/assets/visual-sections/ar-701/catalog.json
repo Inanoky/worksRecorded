@@ -1,0 +1,115 @@
+{
+	"id": "ar-701",
+	"projectName": "Šmerļa iela 3",
+	"source": "AR_701-2026-04-24-2026-09-01.pdf",
+	"sections": [
+		{
+			"code": "PA1.1",
+			"title": "Vinila grīdas segums",
+			"bounds": [0.018, 0.35, 0.177, 0.6],
+			"file": "PA1.1.png"
+		},
+		{
+			"code": "PA1.2",
+			"title": "Flīžu grīdas segums vannas istabā",
+			"bounds": [0.19, 0.35, 0.339, 0.588],
+			"file": "PA1.2.png"
+		},
+		{
+			"code": "PA1.3",
+			"title": "Vinila grīdas segums",
+			"bounds": [0.359, 0.35, 0.51, 0.602],
+			"file": "PA1.3.png"
+		},
+		{
+			"code": "PA1.4",
+			"title": "Flīžu grīdas segums",
+			"bounds": [0.532, 0.35, 0.681, 0.603],
+			"file": "PA1.4.png"
+		},
+		{
+			"code": "PA1.5",
+			"title": "Flīžu grīdas kāpņu telpā",
+			"bounds": [0.7, 0.35, 0.84, 0.558],
+			"file": "PA1.5.png"
+		},
+		{
+			"code": "PA1.6",
+			"title": "Vinila grīdas segums uz grunts",
+			"bounds": [0.018, 0.066, 0.174, 0.327],
+			"file": "PA1.6.png"
+		},
+		{
+			"code": "PA1.7",
+			"title": "Flīžu grīdas segums mitrā telpā",
+			"bounds": [0.188, 0.066, 0.335, 0.328],
+			"file": "PA1.7.png"
+		},
+		{
+			"code": "PA1.8",
+			"title": "Betona grīdas segums tehniskā telpā",
+			"bounds": [0.358, 0.066, 0.504, 0.313],
+			"file": "PA1.8.png"
+		},
+		{
+			"code": "PA1.9",
+			"title": "Kājslauķa segums",
+			"bounds": [0.848, 0.35, 0.987, 0.603],
+			"file": "PA1.9.png"
+		},
+		{
+			"code": "Ge1",
+			"title": "Vannas istabas griesti",
+			"bounds": [0.018, 0.615, 0.175, 0.805],
+			"file": "Ge1.png"
+		},
+		{
+			"code": "Ge2",
+			"title": "Ģipša plāksnes griesti",
+			"bounds": [0.192, 0.615, 0.339, 0.805],
+			"file": "Ge2.png"
+		},
+		{
+			"code": "Ge3",
+			"title": "Mitrumizturīgas ģipša plāksnes griesti",
+			"bounds": [0.361, 0.615, 0.509, 0.805],
+			"file": "Ge3.png"
+		},
+		{
+			"code": "Ge4",
+			"title": "Ecophon SOLO griesti",
+			"bounds": [0.532, 0.615, 0.681, 0.805],
+			"file": "Ge4.png"
+		},
+		{
+			"code": "Ge5",
+			"title": "Ecophon MASTER griesti",
+			"bounds": [0.699, 0.615, 0.839, 0.805],
+			"file": "Ge5.png"
+		},
+		{
+			"code": "Ge6",
+			"title": "Kingspan Kooltherm griesti",
+			"bounds": [0.302, 0.82, 0.417, 0.98],
+			"file": "Ge6.png"
+		},
+		{
+			"code": "J1",
+			"title": "Jumta segums",
+			"bounds": [0.532, 0.066, 0.673, 0.333],
+			"file": "J1.png"
+		},
+		{
+			"code": "J3",
+			"title": "Nojume",
+			"bounds": [0.848, 0.615, 0.987, 0.817],
+			"file": "J3.png"
+		},
+		{
+			"code": "Minerālvates variants",
+			"title": "Vinila grīdas segums bez ThermoWhite",
+			"bounds": [0.018, 0.82, 0.301, 0.98],
+			"file": "mineral-wool-variant.png"
+		}
+	]
+}

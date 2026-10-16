@@ -12,6 +12,14 @@ import { withWorkflow } from "workflow/next";
 // //------------------------------
 
 const nextConfig: NextConfig = {
+	outputFileTracingIncludes: {
+		"/api/sites/*/visual/section-drawing": [
+			"./assets/visual-sections/ar-701/*.png",
+		],
+		"/api/sites/*/visual/planning-share": [
+			"./assets/visual-sections/ar-701/*.png",
+		],
+	},
 	turbopack: {
 		root: process.cwd(),
 	},

@@ -19,13 +19,14 @@ export async function appendVisualSection(
 	return prisma.$transaction(async (tx) => {
 		const site = await tx.site.findFirst({
 			where: { id: siteId, organizationId: access.organizationId },
-			select: { siteDiaryRecordsMap: true },
+			select: { siteDiaryRecordsMap: true, name: true },
 		});
 		if (!site) throw new Error("Projekts nav atrasts.");
 		const config = (site.siteDiaryRecordsMap ?? {}) as Prisma.InputJsonObject;
 		const current = readVisualSections(config);
-		if (current.some((item) => sectionKey(item) === sectionKey(label)))
-			return current;
+		const available = readVisualSections(config, site.name);
+		if (available.some((item) => sectionKey(item) === sectionKey(label)))
+			return available;
 		const next = visualSectionsSchema.parse([...current, label]);
 		const other =
 			config.otherSettings &&
@@ -55,6 +56,9 @@ export async function appendVisualSection(
 			throw new Error(
 				"Projekta opcijas ir mainītas citā logā. Atjaunojiet skatu un mēģiniet vēlreiz.",
 			);
-		return next;
+		return readVisualSections(
+			{ otherSettings: { [VISUAL_SECTIONS_KEY]: next } },
+			site.name,
+		);
 	});
 }

@@ -55,6 +55,8 @@ import {
 import { type VisualDrawing, visualLayers } from "./model";
 import { renderPlanningImages } from "./planning-image";
 import type { VisualPlan, VisualPlanArea } from "./planning-model";
+import { fetchSectionDrawing } from "./section-drawing-client";
+import { sectionKey } from "./sections";
 import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
 import { VisualPlanningWhatsApp } from "./VisualPlanningWhatsApp";
 import { VisualSectionSelect } from "./VisualSectionSelect";
@@ -196,6 +198,7 @@ function progressText(plan: PlanningItem) {
 }
 
 export function VisualPlanningPanel({
+	active = true,
 	siteId,
 	drawing,
 	sidebarOpen,
@@ -203,6 +206,7 @@ export function VisualPlanningPanel({
 	layerConfiguration = defaultLayerConfiguration,
 	resourceCache,
 }: {
+	active?: boolean;
 	siteId: string;
 	drawing: VisualDrawing;
 	sidebarOpen: boolean;
@@ -240,6 +244,7 @@ export function VisualPlanningPanel({
 	const [notice, setNotice] = useState<string | null>(null);
 	const [conflict, setConflict] = useState<VisualPlan | null>(null);
 	const request = useRef(0);
+	const wasActive = useRef(active);
 	const pdfDocument = useRef<PDFDocumentProxy | null>(null);
 	const onPdfDocumentChange = useCallback(
 		(document: PDFDocumentProxy | null) => {
@@ -306,13 +311,14 @@ export function VisualPlanningPanel({
 	}, [drawing.id, resourceCache, siteId]);
 
 	const refreshPlanning = useCallback(async () => {
-		if (dirty || areaEditing || saving) return;
+		if (!active || dirty || areaEditing || saving) return;
 		try {
 			const load = () => getVisualPlanning(siteId, drawing.id);
 			const value = resourceCache
 				? await resourceCache.loadPlanning(drawing.id, load)
 				: await load();
 			setIndex(value);
+			setError(null);
 			setDraft((current) => {
 				if (!current) return null;
 				if (!current.id) return current;
@@ -320,12 +326,17 @@ export function VisualPlanningPanel({
 				return selected ? draftFromPlan(selected) : null;
 			});
 		} catch {}
-	}, [areaEditing, dirty, drawing.id, resourceCache, saving, siteId]);
+	}, [active, areaEditing, dirty, drawing.id, resourceCache, saving, siteId]);
+	useEffect(() => {
+		if (active && !wasActive.current) void refreshPlanning();
+		wasActive.current = active;
+	}, [active, refreshPlanning]);
 
 	useEffect(() => {
 		const refreshIfVisible = () => {
 			if (document.visibilityState === "visible") void refreshPlanning();
 		};
+		if (!active) return;
 		const timer = window.setInterval(refreshIfVisible, 60_000);
 		window.addEventListener("focus", refreshIfVisible);
 		document.addEventListener("visibilitychange", refreshIfVisible);
@@ -334,7 +345,7 @@ export function VisualPlanningPanel({
 			window.removeEventListener("focus", refreshIfVisible);
 			document.removeEventListener("visibilitychange", refreshIfVisible);
 		};
-	}, [refreshPlanning]);
+	}, [refreshPlanning, active]);
 
 	useEffect(() => {
 		const invalidate = (event: Event) => {
@@ -1057,12 +1068,13 @@ export function VisualPlanningPanel({
 										</SelectContent>
 									</Select>
 									<p className="text-xs text-muted-foreground">
-										Kontaktus var pārvaldīt sadaļā{" "}
+										Organizācijas kontaktus un WhatsApp numurus var pārvaldīt
+										sadaļā{" "}
 										<Link
-											href={`/dashboard/sites/${siteId}/settings`}
+											href="/dashboard/settings"
 											className="font-medium text-teal-800 underline-offset-4 hover:underline"
 										>
-											Projekta iestatījumi
+											Organizācijas iestatījumi
 										</Link>
 										.
 									</p>
@@ -1160,19 +1172,36 @@ export function VisualPlanningPanel({
 												siteId={siteId}
 												key={selectedPlan.id}
 												plan={selectedPlan}
-												createImages={(signal) => {
+												createImages={async (signal) => {
 													if (!pdfDocument.current)
 														return Promise.reject(
 															new Error(
 																"Rasējums vēl nav ielādēts. Mēģiniet vēlreiz.",
 															),
 														);
-													return renderPlanningImages(
+													const images = await renderPlanningImages(
 														pdfDocument.current,
 														selectedPlan,
 														workColor(selectedPlan.work),
 														signal,
 													);
+													const section = selectedPlan.geometry.section;
+													const prepared = [...images];
+													if (
+														section &&
+														index.sectionDrawingCodes?.some(
+															(code) =>
+																sectionKey(code) === sectionKey(section),
+														)
+													)
+														prepared.push(
+															await fetchSectionDrawing(
+																siteId,
+																section,
+																signal,
+															),
+														);
+													return prepared;
 												}}
 												contact={index.contacts.find(
 													(contact) => contact.id === selectedPlan.contactId,

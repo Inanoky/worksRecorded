@@ -1,7 +1,7 @@
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { VisualPlan, VisualPlanArea } from "./planning-model";
 
-export type PlanningImage = { page: number; blob: Blob };
+export type PlanningImage = { page: number; blob: Blob; section?: string };
 
 export function planningImageRegion(areas: VisualPlanArea[]) {
 	const points = areas.flatMap((area) => area.polygon);

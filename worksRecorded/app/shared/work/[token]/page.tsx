@@ -41,11 +41,19 @@ export default async function PublicVisualWorkPage({
 				const src = `/api/public/visual-work/${token}/image/${image.page}`;
 				return (
 					<section key={image.page} className="space-y-2">
-						<h2 className="text-sm font-medium">Lapa {image.page}</h2>
+						<h2 className="text-sm font-medium">
+							{image.section
+								? `Sekcijas ${image.section} rasējums`
+								: `Lapa ${image.page}`}
+						</h2>
 						<a href={src} target="_blank" rel="noopener noreferrer">
 							<Image
 								src={src}
-								alt={`${share.work} · ${share.location} · lapa ${image.page}`}
+								alt={
+									image.section
+										? `Sekcijas ${image.section} rasējums`
+										: `${share.work} · ${share.location} · lapa ${image.page}`
+								}
 								width={1600}
 								height={1800}
 								unoptimized

@@ -1,5 +1,6 @@
 import { getDefaultConstructionQuantityComparison } from "@/flows/default-construction/lib/quantity-plan-actual";
 import { prisma } from "@/lib/utils/db";
+import { organizationPlanningContacts } from "./organization-contacts";
 import {
 	archiveVisualPlan,
 	listVisualPlans,
@@ -12,6 +13,9 @@ import { loadVisualDrawing, requireVisualAccess } from "./store";
 jest.mock("./store", () => ({
 	loadVisualDrawing: jest.fn(),
 	requireVisualAccess: jest.fn(),
+}));
+jest.mock("./organization-contacts", () => ({
+	organizationPlanningContacts: jest.fn(),
 }));
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
@@ -93,6 +97,7 @@ function stored(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	jest.mocked(organizationPlanningContacts).mockResolvedValue([]);
 	jest.useFakeTimers().setSystemTime(new Date("2026-10-15T10:00:00Z"));
 	jest.mocked(loadVisualDrawing).mockResolvedValue({
 		row: { organizationId },
@@ -139,20 +144,65 @@ beforeEach(() => {
 
 afterEach(() => jest.useRealTimers());
 
+it("stores organization contact references without creating duplicate project contacts", async () => {
+	jest
+		.mocked(organizationPlanningContacts)
+		.mockResolvedValue([
+			{
+				id: "member:user-1",
+				name: "Anna Bērziņa",
+				phone: "37120000000",
+				archivedAt: null,
+			},
+		]);
+	jest
+		.mocked(prisma.constructionPlan.create)
+		.mockImplementation((async (args: { data: Record<string, unknown> }) =>
+			stored(args.data)) as never);
+	const result = await persistVisualPlan("user", {
+		...input,
+		contactId: "member:user-1",
+	});
+	expect(result.contactId).toBe("member:user-1");
+	expect(prisma.constructionPlan.create).toHaveBeenCalledWith(
+		expect.objectContaining({
+			data: expect.objectContaining({
+				visualPlanningContactId: null,
+				visualAreas: expect.objectContaining({
+					organizationContact: "member:user-1",
+				}),
+			}),
+		}),
+	);
+	expect(organizationPlanningContacts).toHaveBeenCalledWith(organizationId);
+});
+
+it("rejects contacts not returned by the authorized organization's settings and clears obsolete JSON references", async () => {
+	await expect(
+		persistVisualPlan("user", { ...input, contactId: "member:foreign" }),
+	).rejects.toThrow("organizācijas kontakts");
+	expect(prisma.$transaction).not.toHaveBeenCalled();
+	await persistVisualPlan("user", {
+		...input,
+		contactId: null,
+		geometry: { ...geometry, organizationContact: "member:old" },
+	});
+	const create = jest.mocked(prisma.constructionPlan.create).mock.calls[0][0];
+	expect(create.data.visualAreas).not.toHaveProperty("organizationContact");
+});
+
 it("preserves project section assignments in stored geometry and audit revisions", async () => {
 	const site = await prisma.site.findFirst({ where: { id: siteId } });
 	const config = site?.siteDiaryRecordsMap as Record<string, unknown>;
-	jest
-		.mocked(prisma.site.findFirst)
-		.mockResolvedValue({
-			siteDiaryRecordsMap: {
-				...config,
-				otherSettings: {
-					...(config.otherSettings as object),
-					limeniVisualSections: ["A"],
-				},
+	jest.mocked(prisma.site.findFirst).mockResolvedValue({
+		siteDiaryRecordsMap: {
+			...config,
+			otherSettings: {
+				...(config.otherSettings as object),
+				limeniVisualSections: ["A"],
 			},
-		} as never);
+		},
+	} as never);
 	const selected = { ...geometry, section: "A" };
 	jest
 		.mocked(prisma.constructionPlan.create)
@@ -303,12 +353,7 @@ it("loads live progress from the start date and respects factual quantities", as
 			status: "active",
 		},
 	});
-	expect(result.contacts).toEqual([
-		expect.objectContaining({
-			name: "Anna Bērziņa",
-			phone: "37120000000",
-		}),
-	]);
+	expect(result.contacts).toEqual([]);
 	expect(prisma.sitediaryrecords.findMany).toHaveBeenCalledWith(
 		expect.objectContaining({
 			where: expect.objectContaining({

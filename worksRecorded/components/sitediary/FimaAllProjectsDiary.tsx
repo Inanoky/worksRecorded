@@ -2,7 +2,7 @@
 
 import { Ellipsis, ExternalLink } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { getFimaBisRecordUrl } from "@/lib/fima/bis-record-links";
 import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
+import { mergeFimaCollaboration } from "@/lib/fima/diary-list-summary";
 import {
 	fimaDiaryColumns,
 	fimaDiaryColumnWeights,
@@ -43,7 +44,7 @@ import { FimaMaterialRefresh } from "./FimaMaterialRefresh";
 import { FimaRecordPanel } from "./FimaRecordPanel";
 import { OriginalSourceContent } from "./OriginalSourceContent";
 
-type RecordRow = {
+export type FimaAllProjectsRecordRow = {
 	id: string;
 	siteId: string | null;
 	Date: Date | string | null;
@@ -64,55 +65,86 @@ type RecordRow = {
 	fimaBisRecords?: { id: string; number: string | null }[];
 	Site: { name: string } | null;
 };
+type RecordRow = FimaAllProjectsRecordRow;
 
 const dataColumns = fimaDiaryColumns.filter(
 	({ field }) => field !== "FimaReviewStatus",
 );
-export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
+export function FimaAllProjectsDiary({
+	records,
+	onRecordsChanged,
+}: {
+	records: RecordRow[];
+	onRecordsChanged?: () => void;
+}) {
 	const [fieldUpdates, setFieldUpdates] = useState<
 		Record<string, Partial<RecordRow>>
 	>({});
+	useEffect(() => {
+		setFieldUpdates((current) =>
+			Object.fromEntries(
+				Object.entries(current).filter(
+					([id]) => !records.some((row) => row.id === id),
+				),
+			),
+		);
+	}, [records]);
 	const onFieldSaved = useCallback(
-		(id: string, field: FimaInlineField, value: string | number | null) =>
+		(id: string, field: FimaInlineField, value: string | number | null) => {
+			onRecordsChanged?.();
 			setFieldUpdates((current) => ({
 				...current,
 				[id]: { ...current[id], [field]: value },
-			})),
-		[],
+			}));
+		},
+		[onRecordsChanged],
 	);
 	const [updates, setUpdates] = useState<Record<string, FimaCollaboration>>({});
 	const [checkedIds, setCheckedIds] = useState(new Set<string>());
-	const [selected, setSelected] = useState<string | null>(null);
+	const [selected, setSelected] = useState<RecordRow | null>(null);
 	const trigger = useRef<HTMLElement | null>(null);
-	const onChange = useCallback((id: string, state: FimaCollaboration) => {
-		setUpdates((previous) => {
-			const current = previous[id];
-			if (current && current.version > state.version) return previous;
-			const snapshot = current?.bisMaterials;
-			return {
-				...previous,
-				[id]: {
-					...state,
-					bisMaterials:
-						snapshot &&
-						(!state.bisMaterials ||
-							snapshot.fetchedAt > state.bisMaterials.fetchedAt)
-							? snapshot
-							: state.bisMaterials,
-				},
-			};
-		});
-	}, []);
+	const latestRecords = useRef(records);
+	latestRecords.current = records;
+	const latestUpdates = useRef(updates);
+	latestUpdates.current = updates;
+	const onChange = useCallback(
+		(id: string, state: FimaCollaboration) => {
+			const previous =
+				latestUpdates.current[id] ??
+				latestRecords.current.find((row) => row.id === id)?.fimaCollaboration;
+			if (
+				state.version > (previous?.version ?? 0) ||
+				(state.bisMaterials?.fetchedAt ?? "") >
+					(previous?.bisMaterials?.fetchedAt ?? "")
+			)
+				onRecordsChanged?.();
+			setUpdates((previous) => {
+				const current = previous[id];
+				if (current && current.version > state.version) return previous;
+				return {
+					...previous,
+					[id]: mergeFimaCollaboration(current, state),
+				};
+			});
+		},
+		[onRecordsChanged],
+	);
 	const rows = records.map((row) => ({
 		...row,
 		...fieldUpdates[row.id],
-		fimaCollaboration:
-			updates[row.id] &&
-			updates[row.id].version >= (row.fimaCollaboration?.version ?? 0)
-				? updates[row.id]
-				: row.fimaCollaboration,
+		fimaCollaboration: row.fimaCollaboration
+			? mergeFimaCollaboration(updates[row.id], row.fimaCollaboration)
+			: updates[row.id],
 	}));
-	const activeRow = rows.find((row) => row.id === selected) ?? null;
+	const activeRow =
+		rows.find((row) => row.id === selected?.id) ??
+		(selected
+			? {
+					...selected,
+					...fieldUpdates[selected.id],
+					fimaCollaboration: updates[selected.id] ?? selected.fimaCollaboration,
+				}
+			: null);
 	const openRecord = (row: RecordRow, target?: HTMLElement) => {
 		if (!row.siteId) return;
 		trigger.current =
@@ -120,7 +152,7 @@ export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
 			(document.activeElement instanceof HTMLElement
 				? document.activeElement
 				: null);
-		setSelected(row.id);
+		setSelected(row);
 	};
 	const cell = (field: string, row: RecordRow) =>
 		row.siteId ? (
@@ -239,7 +271,11 @@ export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
 				activeRow && "xl:pr-[30rem]",
 			)}
 		>
-			<FimaMaterialRefresh records={rows} onChange={onChange} />
+			<FimaMaterialRefresh
+				records={rows}
+				onChange={onChange}
+				autoRefresh={false}
+			/>
 			{checkedIds.size ? (
 				<div className="mb-3 flex items-center gap-3 text-sm">
 					<span>Atlasīti: {checkedIds.size}</span>
@@ -329,7 +365,7 @@ export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
 													key={row.id}
 													tabIndex={0}
 													data-fima-active={
-														selected === row.id ? "true" : undefined
+														selected?.id === row.id ? "true" : undefined
 													}
 													className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[fima-active=true]:bg-red-50/60 dark:data-[fima-active=true]:bg-red-950/30"
 													onClick={(event) => {

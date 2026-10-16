@@ -4,6 +4,10 @@ import {
 	planMatchKey,
 } from "@/flows/default-construction/planner/model";
 import { isSimplePolygon, polygonArea } from "./model";
+import {
+	organizationContactReferenceSchema,
+	planningContactReferenceSchema,
+} from "./planning-contact-reference";
 import { visualSectionSchema } from "./sections";
 
 export const VISUAL_PLAN_TYPE = "visual_milestone";
@@ -31,6 +35,7 @@ export const visualPlanAreasSchema = z
 		version: z.literal(1),
 		areas: z.array(visualPlanAreaSchema).min(1).max(50),
 		section: visualSectionSchema.nullable().optional(),
+		organizationContact: organizationContactReferenceSchema.optional(),
 	})
 	.strict();
 
@@ -46,7 +51,7 @@ export const visualPlanInputSchema = z
 		quantity: z.number().finite().positive().max(1e9),
 		startDate: dateSchema,
 		endDate: dateSchema,
-		contactId: z.string().uuid().nullable().default(null),
+		contactId: planningContactReferenceSchema.nullable().default(null),
 		geometry: visualPlanAreasSchema,
 	})
 	.strict()

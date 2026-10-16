@@ -265,6 +265,14 @@ export default function VisualView({
 	}, [loadIndex, resourceCache, showIndex]);
 	const pollDrawingId = drawing?.id;
 	useEffect(() => {
+		if (!active || !pollDrawingId) return;
+		void resourceCache
+			.loadPlanning(pollDrawingId, () =>
+				getVisualPlanning(siteId, pollDrawingId),
+			)
+			.catch(() => {});
+	}, [active, pollDrawingId, resourceCache, siteId]);
+	useEffect(() => {
 		if (!active || !pollDrawingId || !index?.drawings.length) return;
 		const position = index.drawings.findIndex(
 			(item) => item.id === pollDrawingId,
@@ -1149,18 +1157,28 @@ export default function VisualView({
 					/>
 				) : null}
 				{drawing ? (
-					mode === "planning" ? (
-						<VisualPlanningPanel
-							resourceCache={resourceCache}
-							layerConfiguration={layerConfiguration}
-							key={drawing.id}
-							siteId={siteId}
-							drawing={drawing}
-							sidebarOpen={sidebarOpen}
-							onDirtyChange={setPlanningDirty}
-						/>
-					) : (
-						<>
+					<>
+						<div
+							hidden={mode !== "planning"}
+							inert={mode !== "planning"}
+							className="absolute inset-0"
+						>
+							<VisualPlanningPanel
+								active={active && mode === "planning"}
+								resourceCache={resourceCache}
+								layerConfiguration={layerConfiguration}
+								key={drawing.id}
+								siteId={siteId}
+								drawing={drawing}
+								sidebarOpen={sidebarOpen}
+								onDirtyChange={setPlanningDirty}
+							/>
+						</div>
+						<div
+							hidden={mode !== "actual"}
+							inert={mode !== "actual"}
+							className="relative h-full overflow-hidden"
+						>
 							<VisualPdf
 								resourceCache={resourceCache}
 								layerStyles={layerStyles}
@@ -1265,8 +1283,8 @@ export default function VisualView({
 								onSelect={selectZone}
 								locked={controlsLocked}
 							/>
-						</>
-					)
+						</div>
+					</>
 				) : (
 					<div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
 						<h3 className="text-lg font-medium">

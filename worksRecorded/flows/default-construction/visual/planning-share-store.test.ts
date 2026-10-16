@@ -77,6 +77,37 @@ const files = () => [
 		type: "image/jpeg",
 	}) as unknown as File,
 ];
+
+it("publishes only the saved selected section alongside the task zones", async () => {
+	jest
+		.mocked(prisma.site.findFirst)
+		.mockResolvedValue({ id: siteId, name: "Šmerļa iela 3" } as never);
+	jest
+		.mocked(prisma.constructionPlan.findFirst)
+		.mockResolvedValue({
+			...row,
+			visualAreas: { ...row.visualAreas, section: "PA1.6" },
+		} as never);
+	mockUpload.mockResolvedValue([
+		{ data: { key: "zone", ufsUrl: "https://files.ufs.sh/f/zone.jpg" } },
+		{ data: { key: "section", ufsUrl: "https://files.ufs.sh/f/section.jpg" } },
+	]);
+	await publishVisualPlanningShare("user", siteId, input, files());
+	const uploads = mockUpload.mock.calls[0][0] as File[];
+	expect(uploads).toHaveLength(2);
+	expect(uploads[1].name).toBe("section-PA1.6.jpg");
+	const snapshot = JSON.parse(
+		String(
+			jest.mocked(prisma.documents.create).mock.calls[0][0].data.description,
+		),
+	);
+	expect(
+		snapshot.images.map((image: { page: number; section?: string }) => ({
+			page: image.page,
+			section: image.section,
+		})),
+	).toEqual([{ page: 1 }, { page: 11, section: "PA1.6" }]);
+});
 let saved: { id: string; description: string; siteId: string } | null;
 beforeEach(() => {
 	jest.clearAllMocks();

@@ -416,17 +416,23 @@ it("switches between execution and planning modes from the workspace header", as
 	expect(actualMode).toHaveAttribute("aria-pressed", "true");
 	expect(planningMode).toHaveAttribute("aria-pressed", "false");
 	expect(screen.getByTestId("pdf")).toBeInTheDocument();
+	const preparedPlanning = screen.getByTestId("planning-panel");
+	expect(preparedPlanning).not.toBeVisible();
+	await waitFor(() =>
+		expect(getVisualPlanning).toHaveBeenCalledWith("site", "drawing"),
+	);
 
 	fireEvent.click(planningMode);
 	expect(planningMode).toHaveAttribute("aria-pressed", "true");
 	expect(screen.getByTestId("planning-panel")).toBeInTheDocument();
-	expect(screen.queryByTestId("pdf")).not.toBeInTheDocument();
+	expect(screen.getByTestId("pdf")).not.toBeVisible();
 	expect(
 		screen.getByRole("button", { name: "Paslēpt darbu plānu" }),
 	).toBeInTheDocument();
 
 	fireEvent.click(actualMode);
 	expect(screen.getByTestId("pdf")).toBeInTheDocument();
+	expect(screen.getByTestId("planning-panel")).toBe(preparedPlanning);
 	fireEvent.click(planningMode);
 	fireEvent.click(screen.getByRole("button", { name: "Mainīt plānu" }));
 	expect(actualMode).toBeDisabled();

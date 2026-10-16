@@ -13,6 +13,38 @@ jest.mock("@/server/actions/fima-diary-collaboration", () => ({
 	refreshFimaBisMaterials: jest.fn(),
 }));
 beforeEach(() => jest.resetAllMocks());
+it("does not call BIS when navigating pages in manual refresh mode", async () => {
+	jest
+		.mocked(refreshFimaBisMaterials)
+		.mockResolvedValue(readFimaCollaboration(null));
+	const onChange = jest.fn();
+	const { rerender } = render(
+		<FimaMaterialRefresh
+			autoRefresh={false}
+			records={[{ id: "one", siteId: "site", BISId: "111" }]}
+			onChange={onChange}
+		/>,
+	);
+	expect(refreshFimaBisMaterials).not.toHaveBeenCalled();
+	rerender(
+		<FimaMaterialRefresh
+			autoRefresh={false}
+			records={[{ id: "two", siteId: "site", BISId: "222" }]}
+			onChange={onChange}
+		/>,
+	);
+	expect(refreshFimaBisMaterials).not.toHaveBeenCalled();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Atjaunot ierakstu materiālus no BIS" }),
+	);
+	await waitFor(() =>
+		expect(refreshFimaBisMaterials).toHaveBeenCalledWith({
+			siteId: "site",
+			recordId: "two",
+		}),
+	);
+	await waitFor(() => expect(onChange).toHaveBeenCalled());
+});
 it("refreshes linked records in their real projects with at most two requests in flight", async () => {
 	const complete: Array<() => void> = [];
 	jest

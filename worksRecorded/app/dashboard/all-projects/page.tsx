@@ -1,4 +1,5 @@
-import { FimaAllProjectsDiary } from "@/components/sitediary/FimaAllProjectsDiary";
+import { FimaPaginatedDiary } from "@/components/sitediary/FimaPaginatedDiary";
+import { summarizeFimaCollaboration } from "@/lib/fima/diary-list-summary";
 import { DiaryPhotoActions } from "@/flows/default-construction/frontend/DiaryPhotoActions";
 import Link from "next/link";
 import Image from "next/image";
@@ -202,6 +203,30 @@ export default async function AllProjectsPage({
   };
   const data = await loadAllProjectsDiary(organizationId, filters);
   const messages = getMessages(organizationLanguage);
+  if (data.fimaCollaborationEnabled) {
+    return (
+      <div className="mx-auto w-full min-w-0 space-y-6 px-2 py-4 sm:px-4">
+        <div className="space-y-2">
+          <Button asChild variant="ghost" className="px-0"><Link href="/dashboard">{messages.back}</Link></Button>
+          <h1 className="text-3xl font-semibold tracking-tight">{messages.title}</h1>
+          <p className="text-muted-foreground">{messages.description}</p>
+        </div>
+        <FimaPaginatedDiary
+          key={`${user.id}:${organizationId}`}
+          projects={data.projects}
+          initialQuery={pageHref(rawSearchParams, data.page).split("?")[1] ?? ""}
+          initialPage={{
+            rows: data.records.map(row => ({ ...row, fimaCollaboration: row.fimaCollaboration ? summarizeFimaCollaboration(row.fimaCollaboration) : undefined })),
+            page: data.page,
+            pageSize: data.pageSize,
+            totalCount: data.totalCount,
+            totalPages: data.totalPages,
+          }}
+          messages={messages}
+        />
+      </div>
+    );
+  }
   const isSbStomme = organizationId === SB_STOMME_ORGANIZATION_ID;
   const showPhotos = hasInlineDiaryPhotos(organizationId);
   const showPlannedAmount = isSbStomme || data.quantityPlanFactEnabled;
@@ -336,7 +361,7 @@ export default async function AllProjectsPage({
               </div>
             </div>
           ) : null}
-          {data.fimaCollaborationEnabled ? <FimaAllProjectsDiary key={JSON.stringify(filters)} records={data.records} /> : <>
+          <>
           <div className={cn("space-y-3", showPhotos ? "xl:hidden" : "lg:hidden")}>
             {data.records.length ? (
               data.records.map((record) => (
@@ -847,7 +872,7 @@ export default async function AllProjectsPage({
             </Table>
           </div>
 
-          </>}
+          </>
           {data.totalPages > 1 ? (
             <div className="mt-4 flex items-center justify-between gap-4">
               {data.page > 1 ? (

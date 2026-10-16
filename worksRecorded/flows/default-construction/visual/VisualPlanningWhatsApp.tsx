@@ -111,7 +111,7 @@ export function VisualPlanningWhatsApp({
 			]);
 			if (!request?.signal.aborted)
 				setCopyNotice(
-					`Lapas ${image.page} attēls nokopēts. WhatsApp sarunā ielīmējiet to ar Ctrl+V vai Cmd+V.`,
+					`${image.section ? `Sekcijas ${image.section} rasējums` : `Lapas ${image.page} attēls`} nokopēts. WhatsApp sarunā ielīmējiet to ar Ctrl+V vai Cmd+V.`,
 				);
 		} catch {
 			if (!request?.signal.aborted)
@@ -183,7 +183,11 @@ export function VisualPlanningWhatsApp({
 								<div className="relative h-64 w-full">
 									<Image
 										src={image.url}
-										alt={`Uzdevuma zona · PDF lapa ${image.page}`}
+										alt={
+											image.section
+												? `Sekcijas rasējums · ${image.section}`
+												: `Uzdevuma zona · PDF lapa ${image.page}`
+										}
 										fill
 										unoptimized
 										className="object-contain"
@@ -192,7 +196,9 @@ export function VisualPlanningWhatsApp({
 								</div>
 								<div className="flex flex-wrap items-center gap-2">
 									<span className="mr-auto text-xs text-muted-foreground">
-										PDF lapa {image.page}
+										{image.section
+											? `Sekcija ${image.section}`
+											: `PDF lapa ${image.page}`}
 									</span>
 									<Button
 										type="button"
@@ -211,7 +217,11 @@ export function VisualPlanningWhatsApp({
 									<Button asChild variant="outline" size="sm">
 										<a
 											href={image.url}
-											download={`uzdevums-${plan.id}-lapa-${image.page}.png`}
+											download={
+												image.section
+													? `sekcija-${image.section}.png`
+													: `uzdevums-${plan.id}-lapa-${image.page}.png`
+											}
 										>
 											<Download className="h-4 w-4" />
 											Lejupielādēt

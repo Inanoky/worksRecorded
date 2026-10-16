@@ -7,6 +7,12 @@ import { PDFDocument, rgb } from "pdf-lib";
 import postcss from "postcss";
 
 const root = process.cwd();
+const sectionCatalog = JSON.parse(
+	await readFile(
+		path.join(root, "assets/visual-sections/ar-701/catalog.json"),
+		"utf8",
+	),
+);
 const fixture = {
 	id: "demo-drawing",
 	name: "Pirmā stāva darbu plāns.pdf",
@@ -75,7 +81,12 @@ const modules = {
 	worker: `export const pdfWorkerUrl='/worker.mjs';`,
 };
 const planningFixture = {
-	sections: ["A korpuss", "B korpuss"],
+	sections: process.argv.includes("--sections")
+		? sectionCatalog.sections.map((section) => section.code)
+		: ["A korpuss", "B korpuss"],
+	sectionDrawingCodes: process.argv.includes("--sections")
+		? sectionCatalog.sections.map((section) => section.code)
+		: [],
 	today: "2026-10-15",
 	location: "1. stāvs",
 	workOptions: [
@@ -86,8 +97,8 @@ const planningFixture = {
 	contacts: process.argv.includes("--whatsapp")
 		? [
 				{
-					id: "demo-contact",
-					name: "Demonstrācijas kontakts",
+					id: "member:demo-contact",
+					name: "Organizācijas kontakts (demo)",
 					phone: "37120000000",
 					archivedAt: null,
 				},
@@ -105,9 +116,12 @@ const planningFixture = {
 					quantity: 85,
 					startDate: "2026-10-15",
 					endDate: "2026-10-19",
-					contactId: "demo-contact",
+					contactId: "member:demo-contact",
 					geometry: {
 						version: 1,
+						...(process.argv.includes("--sections")
+							? { section: "PA1.6" }
+							: {}),
 						areas: [
 							{
 								id: "demo-area",
@@ -133,11 +147,12 @@ const planningFixture = {
 modules.actions += `export async function getVisualPlanning(){return ${JSON.stringify(planningFixture)}};export async function saveVisualPlanningItem(){throw Error('Preview only')};export async function archiveVisualPlanningItem(){throw Error('Preview only')};export async function restoreVisualPlanningItem(){throw Error('Preview only')};`;
 modules.actions += `let sections=${JSON.stringify(planningFixture.sections)};export async function addVisualSection(site,label){sections=[...sections,label.trim()];return sections};export async function revokeVisualWorkShare(){};`;
 modules.share = `export async function publishPlanningShare(site,plan){return {token:'synthetic-preview',url:'https://www.worksrecorded.com/shared/work/synthetic-preview',version:plan.version}};`;
+modules.actions += `export async function saveVisualPolygonPatch(){throw Error('Preview only')};export async function saveVisualLayers(){throw Error('Preview only')};`;
 const bundled = await build({
 	stdin: {
 		contents: process.argv.includes("--planning")
 			? `import React from 'react';import {createRoot} from 'react-dom/client';import {VisualPlanningPanel} from './flows/default-construction/visual/VisualPlanningPanel';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('?pdf=1')?original('/plan.pdf'):original(url,options);createRoot(document.getElementById('root')).render(<main style={{padding:20,height:'100dvh'}}><VisualPlanningPanel drawing={${JSON.stringify(fixture)}} siteId="demo" sidebarOpen onDirtyChange={()=>{}}/></main>);`
-			: `import React from 'react';import {createRoot} from 'react-dom/client';import VisualView from './flows/default-construction/visual/VisualView';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('/api/sites/')?(String(url).includes('?pdf=1')?original('/plan.pdf'):Promise.resolve(new Response(JSON.stringify(window.__visualPreviewDrawing??${JSON.stringify(fixture)})))):original(url,options);createRoot(document.getElementById('root')).render(<main style={{maxWidth:1700,margin:'0 auto',padding:20}}><VisualView siteId="demo"/></main>);`,
+			: `import React from 'react';import {createRoot} from 'react-dom/client';import VisualView from './flows/default-construction/visual/VisualView';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('/api/sites/')&&!String(url).includes('/section-drawing?')?(String(url).includes('?pdf=1')?original('/plan.pdf'):Promise.resolve(new Response(JSON.stringify(window.__visualPreviewDrawing??${JSON.stringify(fixture)})))):original(url,options);createRoot(document.getElementById('root')).render(<main style={{maxWidth:1700,margin:'0 auto',padding:20}}><VisualView siteId="demo"/></main>);`,
 		loader: "tsx",
 		resolveDir: root,
 	},
@@ -245,6 +260,19 @@ for (let i = 0; i < 3; i++) {
 		"image/svg+xml",
 		`<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="700" viewBox="0 0 1000 700"><rect width="1000" height="700" fill="white"/><text x="60" y="60" font-family="Arial" font-size="22">Original message image · ${i + 1}</text><rect x="75" y="120" width="850" height="410" fill="none" stroke="#333" stroke-width="3"/>${[0, 1, 2].map((j) => `<rect x="${100 + j * 280}" y="140" width="240" height="315" fill="none" stroke="#333" stroke-width="2"/><text x="${140 + j * 280}" y="270" font-size="20" font-family="Arial">ROOM ${101 + j}</text>`).join("")}<path d="M${110 + i * 280} 160 l205 265 m-205 -225 l205 225 m-205 -185 l205 185" stroke="${["#16a34a", "#eab308", "#ef4444"][i]}" fill="none" stroke-width="12"/></svg>`,
 	]);
+}
+if (process.argv.includes("--sections")) {
+	for (const section of sectionCatalog.sections) {
+		assets.set(
+			`/api/sites/demo/visual/section-drawing?${new URLSearchParams({ section: section.code })}`,
+			[
+				"image/png",
+				await readFile(
+					path.join(root, "assets/visual-sections/ar-701", section.file),
+				),
+			],
+		);
+	}
 }
 createServer((request, response) => {
 	const asset = assets.get(request.url);

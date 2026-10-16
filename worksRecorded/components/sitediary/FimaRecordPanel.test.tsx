@@ -14,6 +14,9 @@ jest.mock("@/server/actions/fima-diary-collaboration", () => ({
 	getFimaAvailableMaterials: jest.fn(),
 	refreshFimaBisMaterials: jest.fn(),
 }));
+jest.mock("@/server/actions/fima-warehouse", () => ({
+	getFimaWarehouseAvailability: jest.fn().mockResolvedValue([]),
+}));
 const initial: FimaCollaboration = {
 	version: 0,
 	status: null,

@@ -47,8 +47,9 @@ export async function publishPlanningShare(
 	const form = new FormData();
 	form.set("planId", plan.id);
 	form.set("version", String(plan.version));
-	form.set("pages", JSON.stringify(images.map((image) => image.page)));
-	for (const image of images) {
+	const zones = images.filter((image) => !image.section);
+	form.set("pages", JSON.stringify(zones.map((image) => image.page)));
+	for (const image of zones) {
 		const blob = await shareJpeg(image.blob, signal);
 		form.append("images", blob, `page-${image.page}.jpg`);
 	}

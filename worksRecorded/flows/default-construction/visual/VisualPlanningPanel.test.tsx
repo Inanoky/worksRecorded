@@ -20,6 +20,7 @@ import type { VisualDrawing } from "./model";
 import { renderPlanningImages } from "./planning-image";
 import type { VisualPlan, VisualPlanArea } from "./planning-model";
 import { publishPlanningShare } from "./planning-share-client";
+import { fetchSectionDrawing } from "./section-drawing-client";
 import {
 	cumulativeVisualPlanningPlans,
 	VisualPlanningPanel,
@@ -127,6 +128,9 @@ jest.mock("./VisualPdf", () => ({
 	},
 }));
 jest.mock("./planning-image", () => ({ renderPlanningImages: jest.fn() }));
+jest.mock("./section-drawing-client", () => ({
+	fetchSectionDrawing: jest.fn(),
+}));
 jest.mock("@/components/ui/select", () => ({
 	Select: ({
 		children,
@@ -221,12 +225,17 @@ function sidebarAddZone() {
 beforeEach(() => {
 	jest.clearAllMocks();
 	jest
-		.mocked(publishPlanningShare)
+		.mocked(fetchSectionDrawing)
 		.mockResolvedValue({
-			token: "share-token",
-			url: "https://www.worksrecorded.com/shared/work/share-token",
-			version: plan.version,
+			page: 11,
+			section: "PA1.6",
+			blob: new Blob(["section"], { type: "image/png" }),
 		});
+	jest.mocked(publishPlanningShare).mockResolvedValue({
+		token: "share-token",
+		url: "https://www.worksrecorded.com/shared/work/share-token",
+		version: plan.version,
+	});
 	Object.defineProperty(URL, "createObjectURL", {
 		configurable: true,
 		value: jest.fn(() => "blob:zone-preview"),
@@ -257,13 +266,11 @@ afterEach(() => {
 });
 
 it("adds project sections from the dropdown and saves the selected section without changing geometry", async () => {
-	jest
-		.mocked(getVisualPlanning)
-		.mockResolvedValue({
-			...emptyIndex,
-			sections: ["A"],
-			plans: [indexedPlan],
-		});
+	jest.mocked(getVisualPlanning).mockResolvedValue({
+		...emptyIndex,
+		sections: ["A"],
+		plans: [indexedPlan],
+	});
 	jest.mocked(addVisualSection).mockResolvedValue(["A", "Kāpņu telpa"]);
 	render(
 		<VisualPlanningPanel
@@ -844,6 +851,52 @@ it("prepares the saved task for its contact and allows editing the WhatsApp draf
 	);
 	await screen.findByRole("img", { name: "Uzdevuma zona · PDF lapa 1" });
 	expect(saveVisualPlanningItem).not.toHaveBeenCalled();
+});
+
+it("prepares only the selected project section drawing with the saved task's zones", async () => {
+	jest.mocked(getVisualPlanning).mockResolvedValue({
+		...emptyIndex,
+		sections: ["PA1.6", "PA1.7"],
+		sectionDrawingCodes: ["PA1.6", "PA1.7"],
+		plans: [
+			{
+				...indexedPlan,
+				geometry: { ...indexedPlan.geometry, section: "PA1.6" },
+			},
+		],
+	});
+	render(
+		<VisualPlanningPanel
+			siteId="site"
+			drawing={drawing}
+			sidebarOpen
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Sagatavot WhatsApp" }));
+	expect(
+		await screen.findByRole("img", { name: "Sekcijas rasējums · PA1.6" }),
+	).toBeInTheDocument();
+	expect(screen.queryByRole("img", { name: /PA1.7/ })).not.toBeInTheDocument();
+	expect(fetchSectionDrawing).toHaveBeenCalledTimes(1);
+	expect(fetchSectionDrawing).toHaveBeenCalledWith(
+		"site",
+		"PA1.6",
+		expect.any(AbortSignal),
+	);
+	await waitFor(() =>
+		expect(publishPlanningShare).toHaveBeenCalledWith(
+			"site",
+			expect.anything(),
+			expect.arrayContaining([
+				expect.objectContaining({ page: 11, section: "PA1.6" }),
+			]),
+			expect.any(AbortSignal),
+		),
+	);
 });
 
 it("requires a recipient for an unassigned task and blocks sharing unsaved changes", async () => {

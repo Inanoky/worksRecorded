@@ -20,6 +20,7 @@ import {
 	VISUAL_SHARE_TYPE,
 } from "./planning-share-model";
 import { serializeVisualPlan } from "./planning-store";
+import { readSectionDrawing } from "./section-drawing-store";
 import { loadVisualDrawing, requireVisualAccess } from "./store";
 
 const hash = (value: string) => createHash("sha256").update(value).digest();
@@ -84,19 +85,42 @@ export async function publishVisualPlanningShare(
 			),
 		);
 	}
+	const imageMetadata: Array<{ page: number; section?: string }> =
+		expectedPages.map((page) => ({ page }));
+	if (plan.geometry.section) {
+		const site = await prisma.site.findFirst({
+			where: { id: siteId, organizationId: access.organizationId },
+			select: { name: true },
+		});
+		const drawing = await readSectionDrawing(site?.name, plan.geometry.section);
+		if (drawing) {
+			const bytes = await sharp(drawing.bytes)
+				.rotate()
+				.jpeg({ quality: 85 })
+				.toBuffer();
+			if (bytes.length > 600_000)
+				throw new Error("Sekcijas rasējums ir pārāk liels.");
+			uploads.push(
+				new File([new Uint8Array(bytes)], `section-${drawing.code}.jpg`, {
+					type: "image/jpeg",
+				}),
+			);
+			imageMetadata.push({ page: 11, section: drawing.code });
+		}
+	}
 	const storage = new UTApi();
 	const uploaded = await storage.uploadFiles(uploads, { concurrency: 2 });
 	const keys = uploaded.flatMap((item) =>
 		item.data?.key ? [item.data.key] : [],
 	);
 	try {
-		if (uploaded.length !== expectedPages.length)
+		if (uploaded.length !== imageMetadata.length)
 			throw new Error("Trūkst kopīgoto attēlu.");
 		const images = uploaded.map((item, index) => {
 			const url = getUploadThingFileUrl(item.data);
 			if (item.error || !item.data || !url || !isShareImageUrl(url))
 				throw new Error("Neizdevās saglabāt zonas attēlu.");
-			return { page: expectedPages[index], url, key: item.data.key };
+			return { ...imageMetadata[index], url, key: item.data.key };
 		});
 		const id = randomUUID();
 		const secret = randomBytes(32).toString("hex");

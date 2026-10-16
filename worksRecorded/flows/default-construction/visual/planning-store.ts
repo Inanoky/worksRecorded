@@ -9,6 +9,8 @@ import {
 	plannerToday,
 } from "@/flows/default-construction/planner/model";
 import { prisma } from "@/lib/utils/db";
+import { organizationPlanningContacts } from "./organization-contacts";
+import { organizationContactReferenceSchema } from "./planning-contact-reference";
 import { serializeVisualPlanningContact } from "./planning-contacts";
 import {
 	compareVisualPlanProgress,
@@ -18,6 +20,7 @@ import {
 	visualPlanAreasSchema,
 	visualPlanInputSchema,
 } from "./planning-model";
+import { sectionCatalogForProject } from "./section-catalog";
 import { readVisualSections, sectionKey } from "./sections";
 import { loadVisualDrawing, requireVisualAccess } from "./store";
 
@@ -49,6 +52,7 @@ function dateOnly(date: Date) {
 
 export function serializeVisualPlan(row: StoredVisualPlan): VisualPlan {
 	if (!row.startDate) throw new Error("Vizuālajam plānam nav sākuma datuma.");
+	const geometry = visualPlanAreasSchema.parse(row.visualAreas);
 	return {
 		id: row.id,
 		version: row.version,
@@ -59,8 +63,8 @@ export function serializeVisualPlan(row: StoredVisualPlan): VisualPlan {
 		quantity: row.quantity,
 		startDate: dateOnly(row.startDate),
 		endDate: dateOnly(row.date),
-		contactId: row.visualPlanningContactId,
-		geometry: visualPlanAreasSchema.parse(row.visualAreas),
+		contactId: geometry.organizationContact ?? row.visualPlanningContactId,
+		geometry,
 		geometryReviewRequired: row.geometryReviewRequired,
 		archivedAt: row.archivedAt?.toISOString() ?? null,
 	};
@@ -80,7 +84,7 @@ async function loadPlanningSite(
 ) {
 	const site = await db.site.findFirst({
 		where: { id: siteId, organizationId },
-		select: { siteDiaryRecordsMap: true },
+		select: { siteDiaryRecordsMap: true, name: true },
 	});
 	if (!site) throw new Error("Projekts nav atrasts.");
 	return site;
@@ -97,7 +101,16 @@ async function canonicalizeInput(
 	organizationId: string,
 ) {
 	const site = await loadPlanningSite(prisma, input.siteId, organizationId);
-	if (input.contactId) {
+	const organizationContact = organizationContactReferenceSchema.safeParse(
+		input.contactId,
+	);
+	if (organizationContact.success) {
+		const contacts = await organizationPlanningContacts(organizationId);
+		if (!contacts.some((contact) => contact.id === organizationContact.data))
+			throw new Error(
+				"Izvēlētais organizācijas kontakts nav pieejams vai tam nav derīga WhatsApp numura.",
+			);
+	} else if (input.contactId) {
 		const contact = await prisma.visualPlanningContact.findFirst({
 			where: { id: input.contactId, siteId: input.siteId },
 			select: { archivedAt: true },
@@ -126,6 +139,7 @@ async function canonicalizeInput(
 		input.geometry.section &&
 		!readVisualSections(
 			(site.siteDiaryRecordsMap ?? {}) as Record<string, unknown>,
+			site.name,
 		).some(
 			(item) => sectionKey(item) === sectionKey(input.geometry.section ?? ""),
 		)
@@ -143,8 +157,13 @@ async function canonicalizeInput(
 		: canonicalOption(input.unit, options.units);
 	if (!unit)
 		throw new Error("Izvēlieties darbam projektā pieejamu mērvienību.");
+	const geometry = { ...input.geometry };
+	delete geometry.organizationContact;
+	if (organizationContact.success)
+		geometry.organizationContact = organizationContact.data;
 	return {
 		...input,
+		geometry,
 		work: workSetting.work,
 		unit: workSetting.unit || unit,
 		workOptions: options.productivity.works.map((option) => ({
@@ -192,14 +211,17 @@ export async function listVisualPlans(
 	const options = getDefaultConstructionOptionValues(
 		(site.siteDiaryRecordsMap ?? {}) as Record<string, unknown>,
 	);
-	const rows = await prisma.constructionPlan.findMany({
-		where: { siteId, planType: VISUAL_PLAN_TYPE },
-		orderBy: [{ archivedAt: "asc" }, { startDate: "asc" }, { date: "asc" }],
-	});
-	const contactRows = await prisma.visualPlanningContact.findMany({
-		where: { siteId },
-		orderBy: [{ archivedAt: "asc" }, { name: "asc" }, { id: "asc" }],
-	});
+	const [rows, contactRows, organizationContacts] = await Promise.all([
+		prisma.constructionPlan.findMany({
+			where: { siteId, planType: VISUAL_PLAN_TYPE },
+			orderBy: [{ archivedAt: "asc" }, { startDate: "asc" }, { date: "asc" }],
+		}),
+		prisma.visualPlanningContact.findMany({
+			where: { siteId },
+			orderBy: [{ archivedAt: "asc" }, { name: "asc" }, { id: "asc" }],
+		}),
+		organizationPlanningContacts(drawingRow.organizationId),
+	]);
 	const plans = (rows as unknown as StoredVisualPlan[])
 		.map(serializeVisualPlan)
 		.filter(
@@ -249,13 +271,27 @@ export async function listVisualPlans(
 	const today = plannerToday();
 	const result = {
 		today,
+		...(sectionCatalogForProject(site.name).length
+			? {
+					sectionDrawingCodes: sectionCatalogForProject(site.name).map(
+						(item) => item.code,
+					),
+				}
+			: {}),
 		location: drawing.state.location,
 		workOptions: options.productivity.works.map((option) => ({
 			work: option.work,
 			unit: option.unit,
 		})),
 		unitOptions: options.units,
-		contacts: contactRows.map(serializeVisualPlanningContact),
+		contacts: [
+			...organizationContacts,
+			...contactRows
+				.filter((contact) =>
+					plans.some((plan) => plan.contactId === contact.id),
+				)
+				.map(serializeVisualPlanningContact),
+		],
 		plans: plans.map((plan) => ({
 			...plan,
 			progress: compareVisualPlanProgress(plan, actuals, today),
@@ -263,7 +299,7 @@ export async function listVisualPlans(
 	};
 	return {
 		...result,
-		sections: readVisualSections(config),
+		sections: readVisualSections(config, site.name),
 	} as typeof result & { sections?: string[] };
 }
 
@@ -308,7 +344,7 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 				startDate: input.startDate,
 				endDate: input.endDate,
 				contactId: input.contactId,
-				geometry: input.geometry,
+				geometry: canonical.geometry,
 				geometryReviewRequired: false,
 				archivedAt: null,
 			};
@@ -333,8 +369,12 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 					canonical.unit,
 				),
 				visualDrawingId: input.drawingId,
-				visualAreas: input.geometry,
-				visualPlanningContactId: input.contactId,
+				visualAreas: canonical.geometry,
+				visualPlanningContactId: organizationContactReferenceSchema.safeParse(
+					input.contactId,
+				).success
+					? null
+					: input.contactId,
 				geometryReviewRequired: false,
 				updatedBy: userId,
 			};

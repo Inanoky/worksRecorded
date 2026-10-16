@@ -22,13 +22,14 @@ export const planningShareSchema = z.object({
 	images: z
 		.array(
 			z.object({
-				page: z.number().int().min(1).max(10),
+				page: z.number().int().min(1).max(11),
+				section: z.string().max(120).optional(),
 				url: z.string().url(),
 				key: z.string().min(1),
 			}),
 		)
 		.min(1)
-		.max(10),
+		.max(11),
 });
 export const publicWorkPath = (token: string) => `/shared/work/${token}`;
 export function isShareImageUrl(value: string) {

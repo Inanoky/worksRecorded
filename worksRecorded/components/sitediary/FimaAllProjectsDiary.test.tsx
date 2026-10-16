@@ -209,3 +209,20 @@ it("shows a clear empty state", () => {
 	).toBeInTheDocument();
 	expect(screen.queryByRole("table")).not.toBeInTheDocument();
 });
+
+it("preserves the selected record panel and checkboxes across page changes", () => {
+	const { rerender } = render(<FimaAllProjectsDiary records={[records[0]]} />);
+	fireEvent.click(within(tableFor("KUCE one")).getAllByRole("checkbox")[1]);
+	fireEvent.keyDown(within(tableFor("KUCE one")).getAllByRole("row")[1], {
+		key: "Enter",
+	});
+	rerender(<FimaAllProjectsDiary records={[records[1]]} />);
+	expect(screen.getByLabelText("Record panel")).toHaveTextContent(
+		"site-1 row-1",
+	);
+	expect(screen.getByText("Atlasīti: 1")).toBeInTheDocument();
+	rerender(<FimaAllProjectsDiary records={[records[0]]} />);
+	expect(
+		within(tableFor("KUCE one")).getAllByRole("checkbox")[1],
+	).toBeChecked();
+});

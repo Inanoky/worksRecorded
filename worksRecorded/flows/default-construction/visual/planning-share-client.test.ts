@@ -60,6 +60,25 @@ it("reduces quality before uploading and never publishes an oversized image", as
 	expect(fetch).not.toHaveBeenCalled();
 	expect(bitmap.close).toHaveBeenCalled();
 });
+
+it("uploads only zone images because the server appends the authoritative selected section", async () => {
+	await publishPlanningShare(
+		"site",
+		plan,
+		[
+			...images,
+			{
+				page: 11,
+				section: "PA1.6",
+				blob: new Blob(["private drawing"], { type: "image/png" }),
+			},
+		],
+		new AbortController().signal,
+	);
+	const form = jest.mocked(fetch).mock.calls[0][1]?.body as FormData;
+	expect(form.get("pages")).toBe("[1]");
+	expect(form.getAll("images")).toHaveLength(1);
+});
 it("does not upload cancelled preparation and rejects malformed share responses", async () => {
 	const controller = new AbortController();
 	controller.abort();

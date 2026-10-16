@@ -17,10 +17,16 @@ type Props = {
 	records: Row[];
 	siteId?: string;
 	onChange: (id: string, state: FimaCollaboration) => void;
+	autoRefresh?: boolean;
 };
 const freshFor = 10 * 60 * 1000;
 
-export function FimaMaterialRefresh({ records, siteId, onChange }: Props) {
+export function FimaMaterialRefresh({
+	records,
+	siteId,
+	onChange,
+	autoRefresh = true,
+}: Props) {
 	const latest = useRef(records);
 	const change = useRef(onChange);
 	const retryAt = useRef(0);
@@ -47,6 +53,7 @@ export function FimaMaterialRefresh({ records, siteId, onChange }: Props) {
 		setLoading(false);
 		const forced = revision !== lastRevision.current;
 		lastRevision.current = revision;
+		if (!autoRefresh && !forced) return;
 		if (!scopeKey || (!forced && retryAt.current > Date.now())) return;
 		setError("");
 		let active = true;
@@ -125,7 +132,7 @@ export function FimaMaterialRefresh({ records, siteId, onChange }: Props) {
 		return () => {
 			active = false;
 		};
-	}, [scopeKey, revision, siteId]);
+	}, [scopeKey, revision, siteId, autoRefresh]);
 	if (!linked.length) return null;
 	return (
 		<div className="mb-3 flex flex-wrap items-center gap-3">
