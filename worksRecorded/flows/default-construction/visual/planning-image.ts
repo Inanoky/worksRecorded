@@ -12,8 +12,8 @@ export function planningImageRegion(areas: VisualPlanArea[]) {
 	const maxX = Math.max(...xs);
 	const minY = Math.min(...ys);
 	const maxY = Math.max(...ys);
-	const width = Math.min(1, Math.max(0.35, maxX - minX + 0.16));
-	const height = Math.min(1, Math.max(0.35, maxY - minY + 0.16));
+	const width = Math.min(1, Math.max(0.004, (maxX - minX) * 1.24));
+	const height = Math.min(1, Math.max(0.004, (maxY - minY) * 1.24));
 	return {
 		x: Math.max(0, Math.min(1 - width, (minX + maxX - width) / 2)),
 		y: Math.max(0, Math.min(1 - height, (minY + maxY - height) / 2)),

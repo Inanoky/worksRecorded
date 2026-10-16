@@ -25,8 +25,45 @@ it("keeps edge zones and surrounding context inside the exported page", () => {
 	expect(crop.y).toBeLessThan(0.8);
 	expect(crop.x + crop.width).toBeCloseTo(1);
 	expect(crop.y + crop.height).toBeCloseTo(1);
-	expect(crop.width).toBeGreaterThanOrEqual(0.35);
-	expect(crop.height).toBeGreaterThanOrEqual(0.35);
+	expect(crop.width).toBeLessThan(0.26);
+	expect(crop.height).toBeLessThan(0.26);
+});
+
+it("zooms small polygons to fill the image while retaining nearby drawing context", () => {
+	const smallArea = {
+		...area,
+		polygon: [
+			{ x: 0.5, y: 0.5 },
+			{ x: 0.52, y: 0.5 },
+			{ x: 0.52, y: 0.53 },
+		],
+	};
+	const crop = planningImageRegion([smallArea]);
+	expect(0.02 / crop.width).toBeGreaterThan(0.8);
+	expect(0.03 / crop.height).toBeGreaterThan(0.8);
+	expect(crop.x).toBeLessThan(0.5);
+	expect(crop.y).toBeLessThan(0.5);
+	expect(crop.x + crop.width).toBeGreaterThan(0.52);
+	expect(crop.y + crop.height).toBeGreaterThan(0.53);
+});
+
+it("keeps every selected task zone inside the crop", () => {
+	const crop = planningImageRegion([
+		area,
+		{
+			...area,
+			id: "other-zone",
+			polygon: [
+				{ x: 0.1, y: 0.2 },
+				{ x: 0.2, y: 0.2 },
+				{ x: 0.2, y: 0.3 },
+			],
+		},
+	]);
+	expect(crop.x).toBeLessThanOrEqual(0.1);
+	expect(crop.y).toBeLessThanOrEqual(0.2);
+	expect(crop.x + crop.width).toBeCloseTo(1);
+	expect(crop.y + crop.height).toBeCloseTo(1);
 });
 
 function setupCanvas() {
