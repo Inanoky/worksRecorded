@@ -86,10 +86,26 @@ export function withFimaDiaryColumns(
 				},
 			};
 	}
+	for (const [key, label, width] of [
+		["Works", "Darba apraksts", 200],
+		["Works_Custom_1", "BIS apraksts", 220],
+	] as const) {
+		if (result[key])
+			result[key] = {
+				...result[key],
+				DisplayName: label,
+				customSettings: {
+					...result[key].customSettings,
+					forceDisplayName: true,
+					cellWidth: width,
+					displayinSiteListWidth: width,
+				},
+			};
+	}
 	const specs: [string, string, number, number][] = [
-		["FimaReviewStatus", "Rīcība", 1000, 135],
+		["FimaReviewStatus", "Rīcība", 1000, 220],
 		["FimaBisCase", "BIS lietas Nr.", 1.5, 100],
-		["FimaMaterials", "Materiāli", 7.5, 155],
+		["FimaMaterials", "Materiāli", 7.5, 500],
 		["FimaComments", "Komentāri", 9.5, 145],
 	];
 	for (const [key, label, order, width] of specs)

@@ -42,13 +42,14 @@ export function FimaReviewBadge(props: Props) {
 			>
 				<SelectTrigger
 					aria-label="Ieraksta rīcība"
-					className="h-auto min-h-0 w-fit max-w-full gap-1 border-0 bg-transparent p-0 shadow-none"
+					data-fima-badge
+					className="h-auto min-h-0 w-fit max-w-full gap-1 border-0 bg-transparent p-0 shadow-none [&>svg]:size-3"
 					title="Organizācijas iekšējā rīcība. Izmaiņas saglabājas fonā; atzīme pati par sevi nesūta ierakstu uz BIS."
 				>
-					<SelectValue>
+					<SelectValue className="min-w-0 max-w-full overflow-hidden">
 						<Badge
 							variant="outline"
-							className={`max-w-full min-w-0 whitespace-normal text-left [overflow-wrap:anywhere] ${badgeTones[status ?? "unset"]}`}
+							className={`max-w-full min-w-0 shrink whitespace-nowrap overflow-hidden text-ellipsis px-1.5 text-[11px] text-left ${badgeTones[status ?? "unset"]}`}
 						>
 							{status ? fimaStatuses[status] : "Nav atzīmes"}
 						</Badge>

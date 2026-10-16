@@ -11,9 +11,11 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
+import type { FimaInlineField } from "@/lib/fima/inline-fields";
 import { shouldOpenFimaRecordPanel } from "@/lib/fima/record-panel";
 import { cn } from "@/lib/utils/utils";
 import { FimaDiaryCell } from "./FimaDiaryCell";
+import { FimaInlineCell } from "./FimaInlineCell";
 import { FimaMaterialRefresh } from "./FimaMaterialRefresh";
 import { FimaRecordPanel } from "./FimaRecordPanel";
 
@@ -38,23 +40,31 @@ type RecordRow = {
 const columns = [
 	["Projekts", 10],
 	["Datums", 7],
-	["KUCE darbs", 14],
-	["BIS darbs", 15],
+	["Darba apraksts", 14],
+	["BIS apraksts", 15],
 	["Balsti", 8],
 	["Maiņa", 7],
 	["Apjoms", 5],
-	["Materiāli", 11],
+	["Materiāli", 34],
 	["BIS lietas Nr.", 8],
 	["BIS ieraksts", 6],
 	["Komentāri", 8],
-	["Rīcība", 11],
+	["Rīcība", 18],
 ] as const;
 const totalWidth = columns.reduce((sum, [, width]) => sum + width, 0);
-const dateFormatter = new Intl.DateTimeFormat("lv-LV", {
-	timeZone: "Europe/Riga",
-});
 
 export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
+	const [fieldUpdates, setFieldUpdates] = useState<
+		Record<string, Partial<RecordRow>>
+	>({});
+	const onFieldSaved = useCallback(
+		(id: string, field: FimaInlineField, value: string | number | null) =>
+			setFieldUpdates((current) => ({
+				...current,
+				[id]: { ...current[id], [field]: value },
+			})),
+		[],
+	);
 	const [updates, setUpdates] = useState<Record<string, FimaCollaboration>>({});
 	const [selected, setSelected] = useState<string | null>(null);
 	const trigger = useRef<HTMLElement | null>(null);
@@ -79,6 +89,7 @@ export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
 	}, []);
 	const rows = records.map((row) => ({
 		...row,
+		...fieldUpdates[row.id],
 		fimaCollaboration:
 			updates[row.id] &&
 			updates[row.id].version >= (row.fimaCollaboration?.version ?? 0)
@@ -107,10 +118,17 @@ export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
 				onOpenRecord={() => openRecord(row)}
 			/>
 		) : null;
-	const date = (value: RecordRow["Date"]) =>
-		value && Number.isFinite(new Date(value).getTime())
-			? dateFormatter.format(new Date(value))
-			: "—";
+	const inline = (field: FimaInlineField, row: RecordRow) =>
+		row.siteId ? (
+			<FimaInlineCell
+				siteId={row.siteId}
+				recordId={row.id}
+				field={field}
+				value={row[field]}
+				onSaved={onFieldSaved}
+			/>
+		) : null;
+
 	return (
 		<div
 			className={cn(
@@ -163,35 +181,36 @@ export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
 									className={cn(
 										"cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
 										index % 2 === 1 && "bg-muted/20",
-										selected === row.id && "bg-blue-50/60 dark:bg-blue-950/30",
+										selected === row.id && "bg-red-50/60 dark:bg-red-950/30",
 									)}
 								>
 									<TableCell>
 										<Link
-											className="text-blue-700 underline"
+											className="text-primary underline"
 											href={`/dashboard/sites/${row.siteId}/dashboard`}
 										>
 											{row.Site?.name ?? "—"}
 										</Link>
 									</TableCell>
 									<TableCell className="tabular-nums">
-										{date(row.Date)}
+										{inline("Date", row)}
 									</TableCell>
-									<TableCell className="font-medium">{row.Works}</TableCell>
-									<TableCell>{row.Works_Custom_1}</TableCell>
-									<TableCell>{row.Location}</TableCell>
-									<TableCell>{row.Works_Custom_2}</TableCell>
+									<TableCell className="font-medium">
+										{inline("Works", row)}
+									</TableCell>
+									<TableCell>{inline("Works_Custom_1", row)}</TableCell>
+									<TableCell>{inline("Location", row)}</TableCell>
+									<TableCell>{inline("Works_Custom_2", row)}</TableCell>
 									<TableCell>
-										{row.Amounts == null
-											? "—"
-											: `${row.Amounts.toLocaleString("lv-LV")} ${row.Units ?? ""}`}
+										{inline("Amounts", row)}
+										{inline("Units", row)}
 									</TableCell>
 									<TableCell>{cell("FimaMaterials", row)}</TableCell>
 									<TableCell>{cell("FimaBisCase", row)}</TableCell>
 									<TableCell>
 										{row.BISId && /^\d+$/.test(row.BISId) ? (
 											<a
-												className="text-blue-700 underline"
+												className="text-primary underline"
 												href={`https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/${row.BISId}/edit?entry_ids%5B%5D=${row.BISId}`}
 												target="_blank"
 												rel="noopener noreferrer"
@@ -238,38 +257,30 @@ export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
 					>
 						<div className="flex flex-wrap justify-between gap-2">
 							<Link
-								className="text-sm text-blue-700 underline"
+								className="text-sm text-primary underline"
 								href={`/dashboard/sites/${row.siteId}/dashboard`}
 							>
 								{row.Site?.name}
 							</Link>
 							<span className="text-xs text-muted-foreground">
-								{date(row.Date)}
+								{inline("Date", row)}
 							</span>
 						</div>
-						<h3 className="mt-2 font-medium">
-							<button
-								type="button"
-								className="text-left"
-								onClick={() => openRecord(row)}
-							>
-								{row.Works}
-							</button>
-						</h3>
-						<p className="mt-1 text-sm">{row.Works_Custom_1}</p>
+						<h3 className="mt-2 font-medium">{inline("Works", row)}</h3>
+						<p className="mt-1 text-sm">{inline("Works_Custom_1", row)}</p>
 						<dl className="mt-3 grid grid-cols-2 gap-3 text-xs">
 							<div>
 								<dt className="text-muted-foreground">Balsti</dt>
-								<dd>{row.Location}</dd>
+								<dd>{inline("Location", row)}</dd>
 							</div>
 							<div>
 								<dt className="text-muted-foreground">Maiņa</dt>
-								<dd>{row.Works_Custom_2}</dd>
+								<dd>{inline("Works_Custom_2", row)}</dd>
 							</div>
 							<div>
 								<dt className="text-muted-foreground">Apjoms</dt>
 								<dd>
-									{row.Amounts} {row.Units}
+									{inline("Amounts", row)} {inline("Units", row)}
 								</dd>
 							</div>
 							<div>
@@ -277,7 +288,7 @@ export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
 								<dd>
 									{row.BISId && /^\d+$/.test(row.BISId) ? (
 										<a
-											className="text-blue-700 underline"
+											className="text-primary underline"
 											href={`https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/${row.BISId}/edit?entry_ids%5B%5D=${row.BISId}`}
 											target="_blank"
 											rel="noopener noreferrer"

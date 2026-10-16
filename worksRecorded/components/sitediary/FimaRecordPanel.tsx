@@ -105,7 +105,7 @@ export function FimaRecordPanel({
 								<div className="flex flex-wrap gap-3 text-sm">
 									{caseUrl ? (
 										<a
-											className="break-words text-blue-700 underline"
+											className="break-words text-primary underline"
 											href={caseUrl}
 											target="_blank"
 											rel="noopener noreferrer"
@@ -115,7 +115,7 @@ export function FimaRecordPanel({
 									) : null}
 									{row.BISId && /^\d+$/.test(row.BISId) ? (
 										<a
-											className="text-blue-700 underline"
+											className="text-primary underline"
 											href={`https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/${row.BISId}/edit?entry_ids%5B%5D=${row.BISId}`}
 											target="_blank"
 											rel="noopener noreferrer"

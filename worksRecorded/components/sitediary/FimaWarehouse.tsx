@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,11 +11,8 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { getFimaWarehouseAvailability } from "@/server/actions/fima-warehouse";
+import { useFimaWarehouseAvailability } from "./FimaWarehouseProvider";
 
-type Material = Awaited<
-	ReturnType<typeof getFimaWarehouseAvailability>
->[number];
 const quantity = new Intl.NumberFormat("lv-LV", { maximumFractionDigits: 3 });
 
 export function FimaWarehouse({
@@ -28,42 +25,9 @@ export function FimaWarehouse({
 	children: ReactNode;
 }) {
 	const [tab, setTab] = useState<"bis" | "received">("bis");
-	const [rows, setRows] = useState<Material[]>([]);
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState("");
-	const [loadedAt, setLoadedAt] = useState<string | null>(null);
+	const { rows, loading, error, loadedAt, refresh } =
+		useFimaWarehouseAvailability(siteId, connected);
 	const [search, setSearch] = useState("");
-	const load = useCallback(
-		async (isActive: () => boolean = () => true) => {
-			setLoading(true);
-			setError("");
-			try {
-				const data = await getFimaWarehouseAvailability(siteId);
-				if (isActive()) {
-					setRows(data);
-					setLoadedAt(new Date().toLocaleString("lv-LV"));
-				}
-			} catch (cause) {
-				if (isActive())
-					setError(
-						cause instanceof Error
-							? cause.message
-							: "Neizdevās ielādēt BIS materiālus.",
-					);
-			} finally {
-				if (isActive()) setLoading(false);
-			}
-		},
-		[siteId],
-	);
-	useEffect(() => {
-		if (!connected) return;
-		let active = true;
-		void load(() => active);
-		return () => {
-			active = false;
-		};
-	}, [connected, load]);
 	const visible = rows.filter((row) =>
 		row.label
 			.toLocaleLowerCase("lv")
@@ -98,14 +62,14 @@ export function FimaWarehouse({
 							</p>
 							{loadedAt ? (
 								<p className="mt-1 text-xs text-muted-foreground">
-									Atjaunots: {loadedAt}
+									Atjaunots: {new Date(loadedAt).toLocaleString("lv-LV")}
 								</p>
 							) : null}
 						</div>
 						<Button
 							variant="outline"
 							disabled={!connected || loading}
-							onClick={() => void load()}
+							onClick={() => void refresh()}
 						>
 							{loading ? "Ielādē..." : "Atjaunot no BIS"}
 						</Button>

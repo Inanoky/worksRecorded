@@ -136,3 +136,30 @@ it("hides source and import columns only in FIMA without deleting source configu
 		expect(config[field].customSettings.displayinSiteList).toBe("yes");
 	}
 });
+
+it("uses the requested description headers and gives materials the widest data column", () => {
+	const config = {
+		otherSettings: { fimaCollaboration: true },
+		Works: {
+			DisplayName: "KUCE work",
+			customSettings: { displayinSiteListWidth: 200 },
+		},
+		Works_Custom_1: {
+			DisplayName: "Translation",
+			customSettings: { displayinSiteListWidth: 200 },
+		},
+	};
+	const result = withFimaDiaryColumns(config, null);
+	expect(result.Works.DisplayName).toBe("Darba apraksts");
+	expect(result.Works_Custom_1.DisplayName).toBe("BIS apraksts");
+	for (const field of [
+		"Works",
+		"Works_Custom_1",
+		"FimaReviewStatus",
+		"FimaComments",
+		"FimaBisCase",
+	])
+		expect(result.FimaMaterials.customSettings?.cellWidth).toBeGreaterThan(
+			result[field].customSettings?.cellWidth as number,
+		);
+});

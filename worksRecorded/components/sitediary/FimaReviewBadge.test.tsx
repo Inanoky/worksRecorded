@@ -42,3 +42,20 @@ it.each([
 		expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
 	},
 );
+
+it("keeps the unset action badge on one line", () => {
+	const { container } = render(
+		<FimaReviewBadge
+			siteId="site"
+			recordId="record"
+			state={{ version: 0, status: null, materials: [], history: [] }}
+			onChange={jest.fn()}
+		/>,
+	);
+	expect(container.querySelector('[data-slot="badge"]')).toHaveClass(
+		"whitespace-nowrap",
+	);
+	expect(
+		screen.getByRole("combobox", { name: "Ieraksta rīcība" }),
+	).toHaveAttribute("data-fima-badge");
+});

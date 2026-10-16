@@ -22,6 +22,12 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { isAiEvalUiEnabled } from "@/lib/ai-evals/local-gate";
+import { FimaSuiteLogo } from "@/components/sitediary/FimaSuiteLogo";
+import { FimaSuiteTheme } from "@/components/sitediary/FimaSuiteTheme";
+import {
+	FimaProjectWarehousePreload,
+	FimaWarehouseProvider,
+} from "@/components/sitediary/FimaWarehouseProvider";
 import { isFimaDiary } from "@/lib/fima/diary-collaboration";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
@@ -65,7 +71,7 @@ export default async function DashboardLayout({
 	const [allHeaderProjects, flowModuleKey] = await Promise.all([
 		prisma.site.findMany({
 			where: isSuperUser ? {} : { organizationId: organizationId ?? "" },
-				select: { id: true, name: true, organizationId: true, siteDiaryRecordsMap: true },
+				select: { id: true, name: true, organizationId: true, siteDiaryRecordsMap: true, bisCaseId: true },
 			orderBy: { createdAt: "desc" },
 		}),
 		isSuperUser
@@ -73,7 +79,7 @@ export default async function DashboardLayout({
 			: resolveFlowModuleKeyForRuntime({ organizationId }),
 	]);
 	const fimaCollaborationEnabled = !isSuperUser && allHeaderProjects.some((project) => isFimaDiary(project.siteDiaryRecordsMap));
-	let headerProjects = allHeaderProjects.map(({ siteDiaryRecordsMap: _, ...project }) => project);
+	let headerProjects = allHeaderProjects.map(({ siteDiaryRecordsMap: _, bisCaseId: _bis, ...project }) => project);
 	if (
 		flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL &&
 		organizationId
@@ -87,8 +93,15 @@ export default async function DashboardLayout({
 
 	return (
 		<ProjectProvider userId={userId}>
+			<FimaWarehouseProvider key={`${userId}-${organizationId ?? ""}`}>
+				<FimaSuiteTheme enabled={fimaCollaborationEnabled} />
+				{fimaCollaborationEnabled ? (
+					<FimaProjectWarehousePreload
+						siteIds={allHeaderProjects.filter(project => project.bisCaseId && isFimaDiary(project.siteDiaryRecordsMap)).map(project => project.id)}
+					/>
+				) : null}
 			<DiarySaveProvider key={userId} userId={userId} projects={headerProjects} language={organizationLanguage}>
-			<section className="min-h-screen w-full flex flex-col">
+			<section className={fimaCollaborationEnabled ? "fima-suite min-h-screen w-full flex flex-col" : "min-h-screen w-full flex flex-col"}>
 				{/* CSS-only modal (hash :target) */}
 				<style>{`
           #contact-modal {
@@ -122,9 +135,7 @@ export default async function DashboardLayout({
 								href="/"
 								className="flex items-center gap-2 font-semibold shrink-0"
 							>
-								<h3 className="text-xl lg:text-2xl tracking-tight">
-									Works<span className="text-green-700">Recorded</span>
-								</h3>
+								<FimaSuiteLogo enabled={fimaCollaborationEnabled} />
 							</Link>
 
 							<nav className="ml-2 hidden min-w-0 flex-1 items-center lg:flex">
@@ -271,6 +282,7 @@ export default async function DashboardLayout({
 				</main>
 			</section>
 			</DiarySaveProvider>
+			</FimaWarehouseProvider>
 		</ProjectProvider>
 	);
 }

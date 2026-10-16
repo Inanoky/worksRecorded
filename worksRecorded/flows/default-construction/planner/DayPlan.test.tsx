@@ -236,3 +236,31 @@ it.each([false, true])(
 		).toBeCloseTo(100);
 	},
 );
+
+it("removes the separate BIS status column in FIMA while keeping table and plan placeholders aligned", () => {
+	const { container } = render(
+		<table>
+			<PlanTableColumns
+				fields={fields}
+				bisEnabled
+				hideBisStatus
+				trailingFields={["FimaReviewStatus"]}
+			/>
+			<tbody>
+				<PlanOnlyRow
+					row={row}
+					fields={fields}
+					bisEnabled
+					hideBisStatus
+					trailingFields={["FimaReviewStatus"]}
+				/>
+			</tbody>
+		</table>,
+	);
+	const cols = [...container.querySelectorAll("col")];
+	expect(cols.length).toBe(container.querySelectorAll("td").length);
+	expect(
+		cols.reduce((sum, col) => sum + Number.parseFloat(col.style.width), 0),
+	).toBeCloseTo(100);
+	expect(cols).toHaveLength(17);
+});

@@ -81,12 +81,14 @@ export function PlanTableColumns({
 	showPlan = true,
 	columnWeights,
 	trailingFields = [],
+	hideBisStatus = false,
 }: {
 	fields: string[];
 	bisEnabled: boolean;
 	showPlan?: boolean;
 	columnWeights?: Record<string, number>;
 	trailingFields?: string[];
+	hideBisStatus?: boolean;
 }) {
 	const weights: Record<string, number> = {
 		createdAt: 5,
@@ -106,8 +108,10 @@ export function PlanTableColumns({
 		if (field === "TimeInvolved")
 			columns.push({ key: "man-hours", weight: 6 }, { key: "cost", weight: 7 });
 	}
-	if (bisEnabled)
-		columns.push({ key: "bis", weight: 7 }, { key: "status", weight: 7 });
+	if (bisEnabled) {
+		columns.push({ key: "bis", weight: 7 });
+		if (!hideBisStatus) columns.push({ key: "status", weight: 7 });
+	}
 	columns.push({ key: "action", weight: 4 }, { key: "source", weight: 4 });
 	for (const field of trailingFields)
 		columns.push({ key: field, weight: weights[field] ?? 7 });
@@ -215,12 +219,14 @@ export function PlanOnlyRow({
 	bisEnabled,
 	getAlignment = defaultAlignment,
 	trailingFields = [],
+	hideBisStatus = false,
 }: {
 	row: Comparison;
 	fields: string[];
 	bisEnabled: boolean;
 	getAlignment?: (field: string) => Alignment;
 	trailingFields?: string[];
+	hideBisStatus?: boolean;
 }) {
 	return (
 		<TableRow
@@ -239,7 +245,9 @@ export function PlanOnlyRow({
 			{bisEnabled ? (
 				<>
 					<TableCell className={`${planCellClass} text-center`}>—</TableCell>
-					<TableCell className={`${planCellClass} text-center`}>—</TableCell>
+					{!hideBisStatus ? (
+						<TableCell className={`${planCellClass} text-center`}>—</TableCell>
+					) : null}
 				</>
 			) : null}
 			<TableCell className={`${planCellClass} text-center`}>—</TableCell>

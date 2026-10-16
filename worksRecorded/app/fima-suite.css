@@ -1,0 +1,48 @@
+html[data-fima-suite="true"], .fima-suite {
+  --primary: #d71920;
+  --primary-foreground: #fff;
+  --ring: #d71920;
+  --accent: #fff1f2;
+  --accent-foreground: #9d0800;
+  --sidebar-primary: #d71920;
+  --sidebar-primary-foreground: #fff;
+  --sidebar-accent: #fff1f2;
+  --sidebar-accent-foreground: #9d0800;
+}
+.dark[data-fima-suite="true"], .dark .fima-suite {
+  --primary: #ef424a;
+  --primary-foreground: #fff;
+  --ring: #ef424a;
+  --accent: #3b151a;
+  --accent-foreground: #fecdd3;
+}
+.fima-suite :is(a,button)[class~="text-green-700"],
+.fima-suite :is(a,button)[class~="text-green-600"] { color: #b5151c; }
+.fima-suite :is(a,button)[class~="bg-green-50"] { background-color: #fff1f2; border-color: #fecdd3; }
+.fima-suite button[class~="bg-green-600"] { background-color: #d71920; color: #fff; }
+.fima-suite button[class~="bg-green-600"]:hover { background-color: #b5151c; }
+.fima-suite :is(a,button)[class~="border-green-300"],
+.fima-suite :is(a,button)[class~="border-green-100"] { border-color: #fecdd3; }
+.fima-suite [role="checkbox"] {
+  width: 1rem !important;
+  height: 1rem !important;
+  min-width: 1rem !important;
+  min-height: 1rem !important;
+  max-width: 1rem !important;
+  max-height: 1rem !important;
+  padding: 0 !important;
+  flex: 0 0 1rem !important;
+  aspect-ratio: 1;
+}
+.fima-suite [data-fima-badge], .fima-suite [data-fima-badge] * {
+  white-space: nowrap !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  min-height: 0 !important;
+}
+
+.fima-suite :is(a,button):focus-visible {
+  --tw-ring-color: color-mix(in srgb, #d71920 25%, transparent);
+  border-color: #d71920;
+}
+.dark .fima-suite :is(a,button)[class~="bg-green-50"] { background-color: #3b151a; color: #fecdd3; border-color: #7f1d1d; }

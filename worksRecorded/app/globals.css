@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./fima-suite.css";
 @import "tw-animate-css";
 @import "uploadthing/tw/v4";
 

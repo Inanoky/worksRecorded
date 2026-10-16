@@ -2,6 +2,11 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { FimaAllProjectsDiary } from "./FimaAllProjectsDiary";
 
 jest.mock("./FimaMaterialRefresh", () => ({ FimaMaterialRefresh: () => null }));
+jest.mock("./FimaInlineCell", () => ({
+	FimaInlineCell: ({ value }: { value: unknown }) => (
+		<span>{String(value ?? "")}</span>
+	),
+}));
 jest.mock("./FimaDiaryCell", () => ({
 	FimaDiaryCell: ({
 		field,
@@ -74,7 +79,7 @@ it("uses each record's actual project for collaboration and opens its right pane
 	expect(
 		within(rows[2]).getByRole("button", { name: "FimaReviewStatus" }),
 	).toHaveAttribute("data-site", "site-2");
-	fireEvent.click(within(rows[2]).getByText("KUCE two"));
+	fireEvent.click(rows[2]);
 	expect(screen.getByLabelText("Record panel")).toHaveTextContent(
 		"site-2 row-2",
 	);

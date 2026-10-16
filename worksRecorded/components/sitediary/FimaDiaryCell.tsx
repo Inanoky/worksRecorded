@@ -22,6 +22,7 @@ import {
 	refreshFimaBisMaterials,
 	saveFimaDiaryCollaboration,
 } from "@/server/actions/fima-diary-collaboration";
+import { FimaCommentCell } from "./FimaCommentCell";
 import { FimaRecordHistory } from "./FimaRecordHistory";
 import { FimaReviewBadge } from "./FimaReviewBadge";
 
@@ -111,7 +112,7 @@ export function FimaDiaryCell({
 				href={url}
 				target="_blank"
 				rel="noopener noreferrer"
-				className="break-words text-blue-700 underline underline-offset-2"
+				className="break-words text-primary underline underline-offset-2"
 				onClick={(event) => event.stopPropagation()}
 			>
 				{caseNumber || `BIS lieta ${caseId}`}
@@ -154,52 +155,42 @@ export function FimaDiaryCell({
 			(material) => !preparedIds.has(material.id),
 		),
 	];
-	const commentCount = state.history.filter(
-		(item) => item.kind === "comment",
-	).length;
-	const lastComment = state.history.findLast((item) => item.kind === "comment");
+
 	return (
 		<>
-			{!isMaterials || materialEditor || displayedMaterials.length > 0 ? (
-				<Button
-					variant="ghost"
-					size="sm"
-					className="h-auto w-full flex-col items-start gap-1 whitespace-normal px-0 text-left"
-					onClick={() => {
-						if (!isMaterials && onOpenRecord) onOpenRecord();
-						else setOpen(true);
-					}}
-				>
-					{isMaterials ? (
-						materialEditor ? (
-							<span>Pārvaldīt materiālus</span>
-						) : (
-							displayedMaterials.map((m, index) => (
-								<span
-									key={`${m.id}-${index}`}
-									title={`${m.label} · ${m.quantity} ${m.unit}`}
-									className="line-clamp-2 text-xs leading-relaxed break-words"
+			{isMaterials ? (
+				materialEditor ? (
+					<Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+						Pārvaldīt materiālus
+					</Button>
+				) : displayedMaterials.length ? (
+					<ul className="list-disc space-y-2 pl-4 text-xs marker:text-primary">
+						{displayedMaterials.map((m, index) => (
+							<li key={`${m.id}-${index}`}>
+								<button
+									type="button"
+									className="w-full whitespace-normal text-left leading-relaxed hover:text-primary"
+									onClick={() => setOpen(true)}
 								>
 									{m.label} · {m.quantity} {m.unit}
-								</span>
-							))
-						)
-					) : (
-						<>
-							<span>Komentāri ({commentCount})</span>
-							{lastComment ? (
-								<span className="line-clamp-3 text-xs text-muted-foreground">
-									{lastComment.actorName}: {lastComment.text}
-								</span>
-							) : (
-								<span className="text-xs text-muted-foreground">
-									Pievienot komentāru
-								</span>
-							)}
-						</>
-					)}
-				</Button>
-			) : null}
+								</button>
+							</li>
+						))}
+					</ul>
+				) : null
+			) : (
+				<FimaCommentCell
+					siteId={siteId}
+					recordId={row.id}
+					state={state}
+					onChange={onChange}
+					onOpenRecord={() => {
+						if (onOpenRecord) onOpenRecord();
+						else setOpen(true);
+					}}
+				/>
+			)}
+
 			<Dialog
 				open={open}
 				onOpenChange={(value) => {
