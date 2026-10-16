@@ -11,6 +11,7 @@ it.each([
 	["do_not_create", "Netaisīt", "border-red-200", "bg-red-50"],
 	["needs_changes", "Labot", "border-amber-200", "bg-amber-50"],
 	["ai_prepared", "AI sagatavots", "border-yellow-200", "bg-yellow-50"],
+	["approved", "Apstiprināts", "border-emerald-200", "bg-emerald-100"],
 	[
 		"ready_for_approval",
 		"Sūtīt uz apstiprināšanu",

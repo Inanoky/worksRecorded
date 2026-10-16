@@ -244,20 +244,26 @@ it.each([null, "653"])(
 	},
 );
 
-it("saves the AI prepared status with its Latvian history label", async () => {
-	const state = await saveFimaDiaryCollaboration({
-		...scope,
-		requestId,
-		kind: "status",
-		status: "ai_prepared",
-		expectedVersion: 0,
-	});
-	expect(state.status).toBe("ai_prepared");
-	expect(state.version).toBe(1);
-	expect(state.history.at(-1)).toMatchObject({
-		kind: "status",
-		actorName: "Anna Bērziņa",
-		text: "Rīcība: AI sagatavots",
-	});
-	expect(metadata.kuceImport).toEqual({ key: "preserve-original-source" });
-});
+it.each([
+	["ai_prepared", "AI sagatavots"],
+	["approved", "Apstiprināts"],
+] as const)(
+	"saves %s with its Latvian history label",
+	async (status, label) => {
+		const state = await saveFimaDiaryCollaboration({
+			...scope,
+			requestId,
+			kind: "status",
+			status,
+			expectedVersion: 0,
+		});
+		expect(state.status).toBe(status);
+		expect(state.version).toBe(1);
+		expect(state.history.at(-1)).toMatchObject({
+			kind: "status",
+			actorName: "Anna Bērziņa",
+			text: `Rīcība: ${label}`,
+		});
+		expect(metadata.kuceImport).toEqual({ key: "preserve-original-source" });
+	},
+);
