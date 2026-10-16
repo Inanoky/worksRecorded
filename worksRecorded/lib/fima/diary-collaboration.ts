@@ -4,11 +4,13 @@ import { fimaDiaryColumns } from "./diary-table";
 export const fimaStatuses = {
 	do_not_create: "Netaisīt",
 	needs_changes: "Labot",
+	ai_prepared: "AI sagatavots",
 	ready_for_approval: "Sūtīt uz apstiprināšanu",
 } as const;
 export const fimaStatusSchema = z.enum([
 	"do_not_create",
 	"needs_changes",
+	"ai_prepared",
 	"ready_for_approval",
 ]);
 export const fimaMaterialSchema = z.object({

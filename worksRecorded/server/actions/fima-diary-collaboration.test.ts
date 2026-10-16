@@ -243,3 +243,21 @@ it.each([null, "653"])(
 		expect(revalidatePath).not.toHaveBeenCalled();
 	},
 );
+
+it("saves the AI prepared status with its Latvian history label", async () => {
+	const state = await saveFimaDiaryCollaboration({
+		...scope,
+		requestId,
+		kind: "status",
+		status: "ai_prepared",
+		expectedVersion: 0,
+	});
+	expect(state.status).toBe("ai_prepared");
+	expect(state.version).toBe(1);
+	expect(state.history.at(-1)).toMatchObject({
+		kind: "status",
+		actorName: "Anna Bērziņa",
+		text: "Rīcība: AI sagatavots",
+	});
+	expect(metadata.kuceImport).toEqual({ key: "preserve-original-source" });
+});

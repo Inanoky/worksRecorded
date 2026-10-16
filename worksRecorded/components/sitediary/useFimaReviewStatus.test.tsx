@@ -37,25 +37,26 @@ beforeEach(() => {
 	jest.resetAllMocks();
 	jest.mocked(getFimaDiaryCollaboration).mockResolvedValue(initial);
 });
-it("changes immediately before the background save completes, without a preliminary read", async () => {
-	const save = deferred();
-	jest.mocked(saveFimaDiaryCollaboration).mockReturnValue(save.promise);
-	const { result } = renderHook(() => useFimaReviewStatus(props));
-	act(() => result.current.selectStatus("needs_changes"));
-	expect(result.current.status).toBe("needs_changes");
-	expect(result.current.saving).toBe(true);
-	expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
-	expect(props.onChange).not.toHaveBeenCalled();
-	await act(async () =>
-		save.resolve({ ...initial, version: 1, status: "needs_changes" }),
-	);
-	expect(result.current.saving).toBe(false);
-	expect(result.current.status).toBe("needs_changes");
-	expect(props.onChange).toHaveBeenCalledWith(
-		"record",
-		expect.objectContaining({ version: 1, status: "needs_changes" }),
-	);
-});
+it.each(["needs_changes", "ai_prepared"] as const)(
+	"changes %s immediately before the background save completes, without a preliminary read",
+	async (status) => {
+		const save = deferred();
+		jest.mocked(saveFimaDiaryCollaboration).mockReturnValue(save.promise);
+		const { result } = renderHook(() => useFimaReviewStatus(props));
+		act(() => result.current.selectStatus(status));
+		expect(result.current.status).toBe(status);
+		expect(result.current.saving).toBe(true);
+		expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
+		expect(props.onChange).not.toHaveBeenCalled();
+		await act(async () => save.resolve({ ...initial, version: 1, status }));
+		expect(result.current.saving).toBe(false);
+		expect(result.current.status).toBe(status);
+		expect(props.onChange).toHaveBeenCalledWith(
+			"record",
+			expect.objectContaining({ version: 1, status }),
+		);
+	},
+);
 it("keeps the latest selection visible while rapid changes save sequentially with the correct versions", async () => {
 	const first = deferred(),
 		second = deferred();
