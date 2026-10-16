@@ -1,0 +1,71 @@
+"use client";
+
+import { Badge } from "@/components/ui/badge";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import {
+	type FimaCollaboration,
+	fimaStatuses,
+} from "@/lib/fima/diary-collaboration";
+import { useFimaReviewStatus } from "./useFimaReviewStatus";
+
+const badgeTones = {
+	do_not_create: "border-red-200 bg-red-50 text-red-700",
+	needs_changes: "border-amber-200 bg-amber-50 text-amber-700",
+	ready_for_approval: "border-[#B8E0C6] bg-[#ECF8F0] text-[#159447]",
+	unset: "border-[#E1E6ED] bg-slate-50 text-slate-600",
+};
+type Props = {
+	siteId: string;
+	recordId: string;
+	state: FimaCollaboration;
+	onChange: (id: string, state: FimaCollaboration) => void;
+};
+export function FimaReviewBadge(props: Props) {
+	const { status, selectStatus, saving, recovering } =
+		useFimaReviewStatus(props);
+	return (
+		<div aria-busy={saving} className="min-w-0">
+			<Select
+				value={status ?? "unset"}
+				disabled={recovering}
+				onValueChange={(value) =>
+					selectStatus(
+						value === "unset" ? null : (value as keyof typeof fimaStatuses),
+					)
+				}
+			>
+				<SelectTrigger
+					aria-label="Ieraksta rīcība"
+					className="h-auto min-h-0 w-fit max-w-full gap-1 border-0 bg-transparent p-0 shadow-none"
+					title="Organizācijas iekšējā rīcība. Izmaiņas saglabājas fonā; atzīme pati par sevi nesūta ierakstu uz BIS."
+				>
+					<SelectValue>
+						<Badge
+							variant="outline"
+							className={`max-w-full min-w-0 whitespace-normal text-left [overflow-wrap:anywhere] ${badgeTones[status ?? "unset"]}`}
+						>
+							{status ? fimaStatuses[status] : "Nav atzīmes"}
+						</Badge>
+					</SelectValue>
+				</SelectTrigger>
+				<SelectContent>
+					<SelectItem value="unset">Nav atzīmes</SelectItem>
+					{Object.entries(fimaStatuses).map(([key, label]) => (
+						<SelectItem key={key} value={key}>
+							{label}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
+			<span className="sr-only" aria-live="polite">
+				{saving ? "Rīcība tiek saglabāta fonā" : ""}
+			</span>
+		</div>
+	);
+}

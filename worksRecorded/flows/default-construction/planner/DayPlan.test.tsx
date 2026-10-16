@@ -205,3 +205,34 @@ describe("plan table alignment", () => {
 		);
 	});
 });
+
+it.each([false, true])(
+	"keeps the FIMA review badge in the final column with BIS enabled=%s",
+	(bisEnabled) => {
+		const trailingFields = ["FimaReviewStatus"];
+		const { container } = render(
+			<table>
+				<PlanTableColumns
+					fields={fields}
+					bisEnabled={bisEnabled}
+					trailingFields={trailingFields}
+				/>
+				<tbody>
+					<PlanOnlyRow
+						row={row}
+						fields={fields}
+						bisEnabled={bisEnabled}
+						trailingFields={trailingFields}
+					/>
+				</tbody>
+			</table>,
+		);
+		const columns = [...container.querySelectorAll("col")];
+		const cells = [...container.querySelectorAll("tbody tr td")];
+		expect(columns.length).toBe(cells.length);
+		expect(cells.at(-1)).toHaveTextContent("—");
+		expect(
+			columns.reduce((sum, col) => sum + Number.parseFloat(col.style.width), 0),
+		).toBeCloseTo(100);
+	},
+);

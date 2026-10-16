@@ -1,4 +1,5 @@
 "use server";
+import { readFimaCollaboration, withFimaDiaryColumns } from "@/lib/fima/diary-collaboration";
 import { revalidatePath } from "next/cache";
 import { deleteDiaryPhoto } from "@/lib/photos/delete-diary-photo";
 import { getSitePhotoStore, getUserPhotoStore, photoStoreForFlow } from "@/lib/photos/flow-photo-store";
@@ -308,6 +309,8 @@ export async function getConfig(
     select: {
       siteDiaryRecordsMap: true,
       organizationId: true,
+      bisCaseNumber: true,
+      bisCaseId: true,
     },
   });
 
@@ -364,7 +367,7 @@ export async function getConfig(
     inlineDiaryPhotos: hasInlineDiaryPhotos("organizationId" in clientConfig ? clientConfig.organizationId as string : null),
     visualConstruction: hasInlineDiaryPhotos("organizationId" in clientConfig ? clientConfig.organizationId as string : null),
   };
-  return result;
+  return withFimaDiaryColumns(result, "bisCaseNumber" in clientConfig ? clientConfig.bisCaseNumber : null, "bisCaseId" in clientConfig ? clientConfig.bisCaseId : null);
 }
 
 export async function updateSiteDiaryDropdownOptions(args: {
@@ -2464,6 +2467,7 @@ function buildSiteDiaryListWhere(
 
 const siteDiaryListSelect = {
   id: true,
+  evalMetadata: true,
   createdAt: true,
   Date: true,
   Date_Custom_1: true,
@@ -2523,6 +2527,7 @@ function mapSiteDiaryListRecord(rec: any) {
 
   return {
     id: rec.id,
+    fimaCollaboration: rec.evalMetadata?.fimaCollaboration ? readFimaCollaboration(rec.evalMetadata) : undefined,
     createdAt: rec.createdAt,
     Date: rec.Date,
     Date_Custom_1: rec.Date_Custom_1,

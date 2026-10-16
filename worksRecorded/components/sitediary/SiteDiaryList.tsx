@@ -1,4 +1,9 @@
 "use client";
+import { getFimaDiaryCollaboration, refreshFimaBisMaterials } from "@/server/actions/fima-diary-collaboration";
+import { FimaRecordPanel } from "@/components/sitediary/FimaRecordPanel";
+import { shouldOpenFimaRecordPanel } from "@/lib/fima/record-panel";
+import { FimaDiaryCell } from "@/components/sitediary/FimaDiaryCell";
+import { fimaVirtualFields, type FimaCollaboration } from "@/lib/fima/diary-collaboration";
 import { getBisWorkDescription } from "@/lib/bis/work-description";
 import { DiaryPhotoUploadMenuItem, DiaryPhotoUploadProvider } from "@/flows/default-construction/frontend/DiaryPhotoActions";
 import { DiaryRecordPhotos } from "@/flows/default-construction/frontend/DiaryRecordPhotos";
@@ -699,6 +704,14 @@ export default function SiteDiaryCalendar({
   >("list");
 
   // Shared dialog for editing a day
+  const [fimaRecordId, setFimaRecordId] = React.useState<string | null>(null);
+  const fimaPanelTriggerRef = React.useRef<HTMLElement | null>(null);
+  const openFimaRecord = React.useCallback((row: DiaryRow, trigger?: HTMLElement) => {
+    if (!row.id) return;
+    fimaPanelTriggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    setFimaRecordId(row.id);
+  }, []);
+  React.useEffect(() => { setFimaRecordId(null); }, [siteId]);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogDate, setDialogDate] = React.useState<Date | null>(null);
   const [dialogInitialRows, setDialogInitialRows] = React.useState<
@@ -791,6 +804,19 @@ export default function SiteDiaryCalendar({
     React.useState<Record<string, any>>(defaultConfig);
   const [configSiteId, setConfigSiteId] = React.useState<string | null>(null);
   const clientDiary = !isZtcFlow && (limeniClientDiary || (configSiteId === siteId && defaultMap?.otherSettings?.inlineDiaryPhotos === true));
+  React.useEffect(() => {
+    if (fimaRecordId && !loading && !rows.some((row) => row.id === fimaRecordId)) setFimaRecordId(null);
+  }, [fimaRecordId, rows, loading]);
+  const fimaPanelRow = rows.find((row) => row.id === fimaRecordId) ?? null;
+  const fimaDiary = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.fimaCollaboration === true;
+  const updateFimaCollaboration = React.useCallback((id: string, state: FimaCollaboration) => {
+    setRows((previous) => previous.map((row) => {
+      if (row.id !== id || (row.fimaCollaboration?.version ?? 0) > state.version) return row;
+      const existingSnapshot = row.fimaCollaboration?.bisMaterials;
+      const bisMaterials = existingSnapshot && (!state.bisMaterials || existingSnapshot.fetchedAt > state.bisMaterials.fetchedAt) ? existingSnapshot : state.bisMaterials;
+      return { ...row, fimaCollaboration: { ...state, bisMaterials } };
+    }));
+  }, []);
   const fitDiaryTable = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.fitDiaryTableToWidth === true;
   const calculateDefaultConstructionRecordCost = React.useMemo(
     () => createDefaultConstructionRecordCostCalculator(defaultMap),
@@ -2476,12 +2502,13 @@ export default function SiteDiaryCalendar({
     setBisPickerLoading(true);
 
     try {
-      const [materials, attachments, measurements, responsiblePeople] =
+      const [materials, attachments, measurements, responsiblePeople, preparedState] =
         await Promise.all([
           getBisCaseAvailableMaterials(siteId),
           getSiteGalleryAttachments(siteId),
           getBisCharacterMeasures(siteId),
           getBisAvailableResponsiblePersons(siteId),
+          fimaDiary ? getFimaDiaryCollaboration({ siteId, recordId: row.id }) : Promise.resolve(null),
         ]);
 
       const materialOptions = materials.filter(
@@ -2493,7 +2520,7 @@ export default function SiteDiaryCalendar({
       setGalleryAttachmentPage(1);
       setSelectedAttachmentUrls([]);
       materialQuantitiesRef.current = Object.fromEntries(
-        materialOptions.map((material) => [material.id, ""]),
+        materialOptions.map((material) => [material.id, fimaDiary ? String(preparedState?.materials.find((m) => m.id === material.id)?.quantity ?? "") : ""]),
       );
       setBisMeasurementOptions(measurements);
       setBisResponsiblePersonOptions(responsiblePeople);
@@ -2907,6 +2934,14 @@ export default function SiteDiaryCalendar({
       setBisSentRowIds((prev) =>
         new Set(prev).add(selectedRowForBis.id as string),
       );
+      if (fimaDiary && siteId) {
+        try {
+          const state = await refreshFimaBisMaterials({ siteId, recordId: selectedRowForBis.id });
+          updateFimaCollaboration(selectedRowForBis.id, state);
+        } catch {
+          toast.info("Ieraksts izveidots BIS. Materiālu sarakstu var atjaunot kolonnā ‘Materiāli’.");
+        }
+      }
       await refreshRowsWithBisSync();
       setBisPickerOpen(false);
       toast.success(toastMessages.siteDiarySentToBis);
@@ -2983,8 +3018,8 @@ export default function SiteDiaryCalendar({
         <ProjectOpeningOverlay label={language === "lv" ? "Ielādē būvdarbu žurnālu…" : "Loading construction diary…"} />
       ) : null}
       <div
-        className="w-full mx-auto px-2 sm:px-4 py-4"
-        style={{ maxWidth: `${screenWidth}rem` }}
+        className={cn("w-full mx-auto px-2 sm:px-4 py-4", fimaDiary && fimaPanelRow && "xl:pr-[30rem]")}
+        style={{ maxWidth: fimaDiary ? "none" : `${screenWidth}rem`, minWidth: 0 }}
       >
         <Tabs
           value={viewMode}
@@ -3993,7 +4028,7 @@ export default function SiteDiaryCalendar({
                   <div className="space-y-3 p-2 sm:p-3">
                     {keywordMatchedDayGroups.map((group) => {
                       const showDayPlan = !isZtcSite && planner.showDay(group.key);
-                      const dayTableHeads = showDayPlan ? tableHeads.filter((head) => !isDefaultConstructionActualQuantityField(defaultMap, head)) : tableHeads;
+                      const dayTableHeads = tableHeads.filter((head) => !(fimaDiary && head === "FimaReviewStatus") && !(showDayPlan && isDefaultConstructionActualQuantityField(defaultMap, head)));
                       const unmatchedPlans = showDayPlan ? visiblePlanRows.filter((row) => row.date === group.key && row.actualIds.length === 0) : [];
                       const totalTasks = group.rows.length;
                       const isMediaOnlyGroup = group.mediaOnly === true && unmatchedPlans.length === 0;
@@ -4185,6 +4220,9 @@ export default function SiteDiaryCalendar({
                               {group.rows.map((r, idx) => (
                                 <div
                                   key={r.id ?? `${group.key}-${idx}`}
+                                  tabIndex={fimaDiary && r.id ? 0 : undefined}
+                                  onClick={(event) => { if (fimaDiary && shouldOpenFimaRecordPanel(event.target, event.currentTarget)) openFimaRecord(r, event.currentTarget); }}
+                                  onKeyDown={(event) => { if (fimaDiary && event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openFimaRecord(r, event.currentTarget); } }}
                                   className={cn(
                                     "rounded-md border bg-muted/40 p-2 text-[11px]",
                                     isZtcSite
@@ -4285,6 +4323,7 @@ export default function SiteDiaryCalendar({
                                       })()}
                                     </span>
                                   </div>
+                                  {fimaDiary ? <div className="mt-2 grid grid-cols-2 gap-3 border-t pt-2">{fimaVirtualFields.map((field) => <div className="min-w-0" key={field}><p className="text-muted-foreground">{defaultMap[field]?.DisplayName}</p><FimaDiaryCell field={field} siteId={siteId!} row={r} caseNumber={defaultMap.otherSettings?.bisCaseNumber} caseId={defaultMap.otherSettings?.bisCaseId} onOpenRecord={() => openFimaRecord(r)} onChange={updateFimaCollaboration} /></div>)}</div> : null}
                                   {showDayPlan ? <MobilePlan row={planByRecordId.get(r.id ?? "")} actualWork={r.Works} actualQuantity={getDefaultConstructionQuantityComparison(r, defaultMap).enabled ? getDefaultConstructionQuantityComparison(r, defaultMap).actualAmount : r.Amounts} unit={r.Units} /> : null}
                                   {!isZtcSite && !showDayPlan
                                     ? (() => {
@@ -4352,7 +4391,7 @@ export default function SiteDiaryCalendar({
                                         type="button"
                                         className="block text-left font-semibold underline-offset-2 hover:text-blue-700 hover:underline"
                                         onClick={() =>
-                                          defaultConstructionSummary.openWorkSummary(
+                                          fimaDiary ? openFimaRecord(r) : defaultConstructionSummary.openWorkSummary(
                                             r.Works,
                                           )
                                         }
@@ -4380,7 +4419,7 @@ export default function SiteDiaryCalendar({
                                           {r.createdBy}
                                         </button>
                                       </span>
-                                    ) : !isZtcSite ? (
+                                    ) : !isZtcSite && !fimaDiary ? (
                                       <span>
                                         {t.workers}:{" "}
                                         <span className="font-medium text-foreground">
@@ -4391,7 +4430,7 @@ export default function SiteDiaryCalendar({
                                         </span>
                                       </span>
                                     ) : null}
-                                    <span>
+                                    {!fimaDiary ? <span>
                                       {t.hours}:{" "}
                                       <span className="font-medium text-foreground">
                                         {isZtcSite ? (
@@ -4410,8 +4449,8 @@ export default function SiteDiaryCalendar({
                                           )
                                         )}
                                       </span>
-                                    </span>
-                                    {!isZtcSite ? (
+                                    </span> : null}
+                                    {!isZtcSite && !fimaDiary ? (
                                       <span>
                                         {t.manHours}:{" "}
                                         <span className="font-medium text-foreground">
@@ -5388,8 +5427,9 @@ export default function SiteDiaryCalendar({
                                   );
                                 }
 
-                                const formattedGroupRows = group.rows.map(
+                                const formattedGroupRows: DiaryRow[] = group.rows.map(
                                   (r) => ({
+                                    ...r,
                                     id: r.id ?? undefined,
                                     originalUserComment:
                                       r.originalUserComment ?? "",
@@ -5407,9 +5447,9 @@ export default function SiteDiaryCalendar({
                                   <Table
                                     className={cn("table-fixed text-xs", showDayPlan || clientDiary || fitDiaryTable ? "w-full min-w-0 [&_th]:!w-auto [&_td]:!w-auto [&_th]:!px-1.5 [&_td]:!px-1.5 [&_th]:!whitespace-normal [&_td]:!whitespace-normal [&_th]:[overflow-wrap:anywhere] [&_td]:[overflow-wrap:anywhere] [&_button]:max-w-full" : isZtcSite ? "min-w-[1180px] sm:text-sm" : "min-w-[985px] sm:text-sm", fitDiaryTable && "[&_button]:whitespace-normal [&_button]:break-words [&_button]:h-auto [&_button]:min-h-8 [&_button]:px-1")}
                                   >
-                                    {showDayPlan || clientDiary || fitDiaryTable ? <PlanTableColumns fields={dayTableHeads} bisEnabled={bisUiEnabled} showPlan={showDayPlan} columnWeights={fitDiaryTable ? {
+                                    {showDayPlan || clientDiary || fitDiaryTable ? <PlanTableColumns trailingFields={fimaDiary ? ["FimaReviewStatus"] : undefined} fields={dayTableHeads} bisEnabled={bisUiEnabled} showPlan={showDayPlan} columnWeights={fitDiaryTable ? {
                                       ...Object.fromEntries(dayTableHeads.map((field) => [field, getCellWidthByKey(field, defaultMap)])),
-                                      select: 52, createdAt: 80, "man-hours": 75, cost: 80, bis: 140, status: 140, action: 80, source: 60,
+                                      FimaReviewStatus: 135, select: 52, createdAt: 80, "man-hours": 75, cost: 80, bis: 140, status: 140, action: 80, source: 60,
                                       "plan-Works": getCellWidthByKey("Works", defaultMap), "plan-Amounts": 125,
                                     } : undefined} /> : null}
                                     {/* HEADER */}
@@ -5546,6 +5586,7 @@ export default function SiteDiaryCalendar({
                                         >
                                           {t.source}
                                         </TableHead>
+                                        {fimaDiary ? <TableHead className="text-left">Rīcība</TableHead> : null}
                                       </TableRow>
                                     </TableHeader>
 
@@ -5553,13 +5594,17 @@ export default function SiteDiaryCalendar({
                                     <TableBody>
                                       {formattedGroupRows.map((row, i) => (
                                         <TableRow
+                                          tabIndex={fimaDiary && row.id ? 0 : undefined}
+                                          data-fima-active={fimaDiary && row.id === fimaRecordId ? "true" : undefined}
+                                          onClick={(event) => { if (fimaDiary && shouldOpenFimaRecordPanel(event.target, event.currentTarget)) openFimaRecord(group.rows[i] ?? row, event.currentTarget); }}
+                                          onKeyDown={(event) => { if (fimaDiary && event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openFimaRecord(group.rows[i] ?? row, event.currentTarget); } }}
                                           key={row.id ?? `${group.key}-${i}`}
-                                          className={showDayPlan ? planTone(planByRecordId.get(row.id ?? "")) : getDefaultConstructionQuantityToneClass(
+                                          className={cn(fimaDiary && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[fima-active=true]:bg-blue-50/60", showDayPlan ? planTone(planByRecordId.get(row.id ?? "")) : getDefaultConstructionQuantityToneClass(
                                             getDefaultConstructionQuantityComparison(
                                               group.rows[i] ?? row,
                                               defaultMap,
                                             ).status,
-                                          )}
+                                          ))}
                                           aria-label={
                                             showDayPlan ? planStatusLabels[planByRecordId.get(row.id ?? "")?.status ?? "unplanned"] : getDefaultConstructionQuantityStatusLabel(
                                               getDefaultConstructionQuantityComparison(
@@ -5639,7 +5684,9 @@ export default function SiteDiaryCalendar({
                                                     ),
                                                   }}
                                                 >
-                                                  {field === "Photos" && defaultMap?.otherSettings?.inlineDiaryPhotos ? (
+                                                  {fimaDiary && fimaVirtualFields.includes(field) ? (
+                                                    <FimaDiaryCell field={field} siteId={siteId!} row={originalRow} caseNumber={defaultMap.otherSettings?.bisCaseNumber} caseId={defaultMap.otherSettings?.bisCaseId} onOpenRecord={() => openFimaRecord(originalRow)} onChange={updateFimaCollaboration} />
+                                                  ) : field === "Photos" && defaultMap?.otherSettings?.inlineDiaryPhotos ? (
                                                     <DiaryRecordPhotos photos={originalRow.Photos} language={language} />
                                                   ) : showDayPlan && field === "Amounts" ? (
                                                     formatSiteDiaryCompactMetric("Amounts", getDefaultConstructionQuantityComparison(originalRow, defaultMap).enabled
@@ -5669,7 +5716,7 @@ export default function SiteDiaryCalendar({
                                                       type="button"
                                                       className="line-clamp-4 text-left underline-offset-2 hover:text-blue-700 hover:underline"
                                                       onClick={() =>
-                                                        field === "Location"
+                                                        fimaDiary ? openFimaRecord(originalRow) : field === "Location"
                                                           ? defaultConstructionSummary.openLocationSummary(
                                                               String(
                                                                 row[field],
@@ -6028,9 +6075,10 @@ export default function SiteDiaryCalendar({
                                               "—"
                                             )}
                                           </TableCell>
+                                          {fimaDiary ? <TableCell className="align-top px-3 py-3"><FimaDiaryCell field="FimaReviewStatus" siteId={siteId!} row={group.rows[i] ?? row} onChange={updateFimaCollaboration} /></TableCell> : null}
                                         </TableRow>
                                       ))}
-                                      {unmatchedPlans.map((row) => <PlanOnlyRow key={row.key} row={row} fields={dayTableHeads} bisEnabled={bisUiEnabled} getAlignment={(field) => getSiteListTextAlignmentByKey(field, defaultMap)} />)}
+                                      {unmatchedPlans.map((row) => <PlanOnlyRow trailingFields={fimaDiary ? ["FimaReviewStatus"] : undefined} key={row.key} row={row} fields={dayTableHeads} bisEnabled={bisUiEnabled} getAlignment={(field) => getSiteListTextAlignmentByKey(field, defaultMap)} />)}
                                     </TableBody>
                                   </Table>
                                 );
@@ -6056,6 +6104,7 @@ export default function SiteDiaryCalendar({
           </TabsContent>
         </Tabs>
 
+        {fimaDiary && siteId ? <FimaRecordPanel key={siteId} siteId={siteId} row={fimaPanelRow} caseId={defaultMap.otherSettings?.bisCaseId} caseNumber={defaultMap.otherSettings?.bisCaseNumber} onClose={() => setFimaRecordId(null)} onRestoreFocus={() => fimaPanelTriggerRef.current?.focus({ preventScroll: true })} onChange={updateFimaCollaboration} /> : null}
         {/* Dialog for editing / adding records (shared for both views) */}
         {dialogOpen ? (
           <React.Suspense fallback={null}>

@@ -88,7 +88,7 @@ export async function CreateSiteAction(
       return submission.reply();
     }
 
-    const [orgData, quantityProfileSite] = org
+    const [orgData, quantityProfileSite, fimaProfileSite] = org
       ? await Promise.all([
           prisma.organization.findUnique({
             where: { id: org },
@@ -108,8 +108,9 @@ export async function CreateSiteAction(
             },
             select: { id: true },
           }),
+          prisma.site.findFirst({ where: { organizationId: org, siteDiaryRecordsMap: { path: ["otherSettings", "fimaCollaboration"], equals: true } }, select: { id: true } }),
         ])
-      : [null, null];
+      : [null, null, null];
 
     const baseSiteDiaryRecordsMap =
       orgData?.orgLanguage === "lv"
@@ -118,6 +119,11 @@ export async function CreateSiteAction(
     const siteDiaryRecordsMap = quantityProfileSite
       ? enableDefaultConstructionQuantityProfile(baseSiteDiaryRecordsMap)
       : baseSiteDiaryRecordsMap;
+
+    if (fimaProfileSite) {
+      const config = siteDiaryRecordsMap as Record<string, any>;
+      config.otherSettings = { ...config.otherSettings, fimaCollaboration: true, fitDiaryTableToWidth: true };
+    }
 
     await prisma.site.create({
       data: {

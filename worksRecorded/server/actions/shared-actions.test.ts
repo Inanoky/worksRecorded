@@ -45,9 +45,7 @@ jest.mock("@/lib/utils/stripe", () => ({
 }));
 
 import defaultConfigLV from "@/components/sitediary/configs/defaultConfigLV_27042026.json";
-import {
-	FLOW_CONFIG_ADMIN_USER_ID,
-} from "@/lib/production-flow/config";
+import { FLOW_CONFIG_ADMIN_USER_ID } from "@/lib/production-flow/config";
 import { defaultProgram } from "@/lib/utils/DefaultProgram";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
@@ -133,6 +131,38 @@ describe("CreateSiteAction", () => {
 		expect(redirectMock).not.toHaveBeenCalled();
 	});
 
+	it("inherits FIMA collaboration only from a configured project in the same organization", async () => {
+		jest
+			.mocked(prisma.site.findFirst)
+			.mockResolvedValueOnce(null)
+			.mockResolvedValueOnce({ id: "fima-project" } as never);
+		await expect(
+			CreateSiteAction(undefined, createSiteFormData()),
+		).rejects.toMatchObject({
+			digest: "NEXT_REDIRECT;replace;/dashboard/sites",
+		});
+		expect(prisma.site.findFirst).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: {
+					organizationId: "org-1",
+					siteDiaryRecordsMap: {
+						path: ["otherSettings", "fimaCollaboration"],
+						equals: true,
+					},
+				},
+			}),
+		);
+		expect(prisma.site.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				siteDiaryRecordsMap: expect.objectContaining({
+					otherSettings: expect.objectContaining({
+						fimaCollaboration: true,
+						fitDiaryTableToWidth: true,
+					}),
+				}),
+			}),
+		});
+	});
 	it("inherits the quantity profile from another organization project", async () => {
 		jest
 			.mocked(prisma.site.findFirst)
