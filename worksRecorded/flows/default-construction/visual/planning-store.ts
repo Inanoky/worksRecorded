@@ -18,6 +18,7 @@ import {
 	visualPlanAreasSchema,
 	visualPlanInputSchema,
 } from "./planning-model";
+import { readVisualSections, sectionKey } from "./sections";
 import { loadVisualDrawing, requireVisualAccess } from "./store";
 
 type StoredVisualPlan = {
@@ -121,6 +122,15 @@ async function canonicalizeInput(
 	const options = getDefaultConstructionOptionValues(
 		(site.siteDiaryRecordsMap ?? {}) as Record<string, unknown>,
 	);
+	if (
+		input.geometry.section &&
+		!readVisualSections(
+			(site.siteDiaryRecordsMap ?? {}) as Record<string, unknown>,
+		).some(
+			(item) => sectionKey(item) === sectionKey(input.geometry.section ?? ""),
+		)
+	)
+		throw new Error("Izvēlieties projektā pieejamu sekciju.");
 	const workSetting = options.productivity.works.find(
 		(option) =>
 			normalizePlanText(option.work) === normalizePlanText(input.work),
@@ -237,7 +247,7 @@ export async function listVisualPlans(
 		];
 	});
 	const today = plannerToday();
-	return {
+	const result = {
 		today,
 		location: drawing.state.location,
 		workOptions: options.productivity.works.map((option) => ({
@@ -251,6 +261,10 @@ export async function listVisualPlans(
 			progress: compareVisualPlanProgress(plan, actuals, today),
 		})),
 	};
+	return {
+		...result,
+		sections: readVisualSections(config),
+	} as typeof result & { sections?: string[] };
 }
 
 export async function persistVisualPlan(userId: string, rawInput: unknown) {

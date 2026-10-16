@@ -9,6 +9,7 @@ import {
 	persistVisualPlanningContact,
 	restoreVisualPlanningContact,
 } from "./planning-contacts";
+import { revokeVisualPlanningShare } from "./planning-share-store";
 import {
 	archiveVisualPlan,
 	listVisualPlans,
@@ -20,6 +21,7 @@ import {
 	PolygonSaveConflictError,
 	type PolygonSaveResponse,
 } from "./polygon-edit";
+import { appendVisualSection } from "./section-store";
 import {
 	appendVisualDiaryEvidence,
 	editVisualPolygon,
@@ -56,6 +58,16 @@ export async function saveVisualLayers(
 export async function getVisualWorkTypes(siteId: string) {
 	const user = await requireUser();
 	return listVisualWorkTypes(user.id, siteId);
+}
+
+export async function addVisualSection(siteId: string, label: string) {
+	const user = await requireUser();
+	return appendVisualSection(user.id, siteId, label);
+}
+
+export async function revokeVisualWorkShare(siteId: string, token: string) {
+	const user = await requireUser();
+	await revokeVisualPlanningShare(user.id, siteId, token);
 }
 
 export async function saveVisualWorkType(

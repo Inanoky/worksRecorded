@@ -11,6 +11,7 @@ type MarketingTagManagerProps = {
 
 export function MarketingTagManager({ gaId, gtmId }: MarketingTagManagerProps) {
 	const pathname = usePathname();
+	if (pathname?.startsWith("/shared/work/")) return null;
 
 	if (!isMarketingAnalyticsPath(pathname)) {
 		return <GoogleAnalytics gaId={gaId} />;

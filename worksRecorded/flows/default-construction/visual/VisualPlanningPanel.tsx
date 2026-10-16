@@ -57,6 +57,7 @@ import { renderPlanningImages } from "./planning-image";
 import type { VisualPlan, VisualPlanArea } from "./planning-model";
 import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
 import { VisualPlanningWhatsApp } from "./VisualPlanningWhatsApp";
+import { VisualSectionSelect } from "./VisualSectionSelect";
 import { VisualTimeline } from "./VisualTimeline";
 import {
 	VISUAL_PLANNING_CACHE_INVALIDATED,
@@ -76,6 +77,7 @@ type PlanningDraft = {
 	work: string;
 	unit: string;
 	quantity: string;
+	section: string | null;
 	startDate: string;
 	endDate: string;
 	contactId: string | null;
@@ -153,6 +155,7 @@ function emptyDraft(
 		work: firstWork?.work ?? "",
 		unit: firstWork?.unit || index.unitOptions[0] || "",
 		quantity: "",
+		section: null,
 		startDate,
 		endDate: startDate,
 		contactId: null,
@@ -168,6 +171,7 @@ function draftFromPlan(plan: VisualPlan): PlanningDraft {
 		work: plan.work,
 		unit: plan.unit,
 		quantity: String(plan.quantity),
+		section: plan.geometry.section ?? null,
 		startDate: plan.startDate,
 		endDate: plan.endDate,
 		contactId: plan.contactId,
@@ -515,7 +519,11 @@ export function VisualPlanningPanel({
 				startDate: draft.startDate,
 				endDate: draft.endDate,
 				contactId: draft.contactId,
-				geometry: { version: 1, areas: draft.areas },
+				geometry: {
+					version: 1,
+					areas: draft.areas,
+					...(draft.section ? { section: draft.section } : {}),
+				},
 			});
 			if (!result.ok) {
 				setError(result.error);
@@ -1010,6 +1018,19 @@ export function VisualPlanningPanel({
 								</div>
 							</div>
 
+							<VisualSectionSelect
+								siteId={siteId}
+								value={draft.section}
+								options={index.sections ?? []}
+								disabled={saving || !!draft.archivedAt || areaEditing}
+								onChange={(section) => changeDraft({ section })}
+								onOptionsChange={(sections) => {
+									const next = { ...index, sections };
+									setIndex(next);
+									resourceCache?.invalidatePlanning();
+									resourceCache?.rememberPlanning(drawing.id, next);
+								}}
+							/>
 							<div className="grid grid-cols-2 gap-3">
 								<div className="col-span-2 space-y-2">
 									<Label htmlFor={contactId}>Atbildīgais kontakts</Label>
@@ -1136,6 +1157,7 @@ export function VisualPlanningPanel({
 										</Button>
 										{selectedPlan ? (
 											<VisualPlanningWhatsApp
+												siteId={siteId}
 												key={selectedPlan.id}
 												plan={selectedPlan}
 												createImages={(signal) => {

@@ -16,20 +16,25 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { revokeVisualWorkShare } from "./actions";
 import type { PlanningImage } from "./planning-image";
 import type { VisualPlan } from "./planning-model";
+import { publishPlanningShare } from "./planning-share-client";
 import {
 	normalizePlanningWhatsAppPhone,
+	planningMessageWithShare,
 	planningWhatsAppMessage,
 	planningWhatsAppUrl,
 } from "./planning-whatsapp";
 
 export function VisualPlanningWhatsApp({
+	siteId,
 	plan,
 	createImages,
 	contact,
 	disabled,
 }: {
+	siteId: string;
 	plan: VisualPlan;
 	createImages: (signal: AbortSignal) => Promise<PlanningImage[]>;
 	contact?: { name: string; phone: string };
@@ -42,6 +47,10 @@ export function VisualPlanningWhatsApp({
 		[],
 	);
 	const [preparing, setPreparing] = useState(false);
+	const [share, setShare] = useState<Awaited<
+		ReturnType<typeof publishPlanningShare>
+	> | null>(null);
+	const [revoking, setRevoking] = useState(false);
 	const [imageError, setImageError] = useState<string | null>(null);
 	const [copying, setCopying] = useState<number | null>(null);
 	const [copyNotice, setCopyNotice] = useState<string | null>(null);
@@ -71,9 +80,20 @@ export function VisualPlanningWhatsApp({
 			}));
 			imageUrls.current = prepared.map((image) => image.url);
 			setImages(prepared);
+			if (!share || share.version !== plan.version) {
+				const publication = await publishPlanningShare(
+					siteId,
+					plan,
+					result,
+					controller.signal,
+				);
+				if (!controller.signal.aborted) setShare(publication);
+			}
 		} catch {
 			if (!controller.signal.aborted)
-				setImageError("Neizdevās sagatavot zonas attēlu. Mēģiniet vēlreiz.");
+				setImageError(
+					"Neizdevās sagatavot attēlu vai publisko saiti. Mēģiniet vēlreiz.",
+				);
 		} finally {
 			if (!controller.signal.aborted) setPreparing(false);
 		}
@@ -103,13 +123,21 @@ export function VisualPlanningWhatsApp({
 		}
 	}
 	const id = useId();
-	const url = planningWhatsAppUrl(phone, message);
+	const currentShare = share?.version === plan.version ? share : null;
+	const url =
+		currentShare && !preparing && !revoking && message.trim()
+			? planningWhatsAppUrl(
+					phone,
+					planningMessageWithShare(message, currentShare.url),
+				)
+			: null;
 	const invalidPhone = !!phone.trim() && !normalizePlanningWhatsAppPhone(phone);
 
 	return (
 		<Dialog
 			open={open}
 			onOpenChange={(nextOpen) => {
+				if (revoking) return;
 				if (nextOpen) {
 					setPhone(contact?.phone ?? "");
 					setMessage(planningWhatsAppMessage(plan));
@@ -212,6 +240,68 @@ export function VisualPlanningWhatsApp({
 						) : null}
 					</div>
 					<div className="space-y-4">
+						<div className="space-y-2 rounded-lg border p-3">
+							<p className="text-sm font-medium">Publiska zonas attēla saite</p>
+							<p className="text-xs text-muted-foreground">
+								Ikviens ar saiti varēs apskatīt tikai kopīgotos uzdevuma attēlus
+								bez pierakstīšanās. Saite tiks pievienota WhatsApp ziņai.
+							</p>
+							{currentShare ? (
+								<>
+									<a
+										href={currentShare.url}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="block break-all text-xs text-emerald-700 underline"
+									>
+										{currentShare.url}
+									</a>
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										disabled={preparing || revoking}
+										onClick={async () => {
+											if (
+												!window.confirm(
+													"Atspējot šo publisko saiti? Iepriekš nosūtītā saite vairs nedarbosies.",
+												)
+											)
+												return;
+											setRevoking(true);
+											try {
+												await revokeVisualWorkShare(siteId, currentShare.token);
+												setShare(null);
+											} catch {
+												setImageError(
+													"Neizdevās atspējot saiti. Mēģiniet vēlreiz.",
+												);
+											} finally {
+												setRevoking(false);
+											}
+										}}
+									>
+										Atspējot saiti
+									</Button>
+								</>
+							) : (
+								<div className="space-y-2 text-xs text-muted-foreground">
+									{preparing
+										? "Sagatavo publisko saiti…"
+										: "Saite nav izveidota."}
+									{!preparing && !imageError ? (
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											onClick={() => void prepareImages()}
+										>
+											Izveidot saiti
+										</Button>
+									) : null}
+								</div>
+							)}
+						</div>
 						<div className="space-y-2">
 							<Label htmlFor={`${id}-phone`}>
 								Saņēmēja numurs ar valsts kodu
@@ -251,6 +341,7 @@ export function VisualPlanningWhatsApp({
 					<Button
 						type="button"
 						variant="outline"
+						disabled={revoking}
 						onClick={() => {
 							clearImages();
 							setImages([]);

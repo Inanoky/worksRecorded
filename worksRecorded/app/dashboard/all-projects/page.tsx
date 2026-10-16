@@ -223,7 +223,12 @@ export default async function AllProjectsPage({
   });
 
   const content = (
-    <div className="mx-auto w-full min-w-0 max-w-[1900px] space-y-6 px-2 py-4 sm:px-4">
+    <div
+      className={cn(
+        "mx-auto w-full min-w-0 space-y-6 px-2 py-4 sm:px-4",
+        !data.fimaCollaborationEnabled && "max-w-[1900px]",
+      )}
+    >
       <div className="space-y-2">
         <Button asChild variant="ghost" className="px-0">
           <Link href="/dashboard">← {messages.back}</Link>

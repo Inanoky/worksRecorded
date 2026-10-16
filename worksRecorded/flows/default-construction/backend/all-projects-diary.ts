@@ -45,6 +45,7 @@ const allProjectsDiaryRecordSelect = {
   Works_Custom_1: true,
   Works_Custom_2: true,
   BISId: true,
+  bisStatus: true,
   evalMetadata: true,
   originalUserComment: true,
   originalAudioUrl: true,
@@ -71,6 +72,7 @@ function addActualCosts(
       Works_Custom_2,
       Comments_Custom_2,
       evalMetadata,
+      bisStatus,
       ...record
     }) => {
       const calculatorKey = record.siteId ?? "__default__";
@@ -97,6 +99,7 @@ function addActualCosts(
       return {
         ...record,
         ...(isFimaDiary(Site?.siteDiaryRecordsMap) ? {
+          bisStatus,
           Works_Custom_1,
           Works_Custom_2,
           hasFimaBisReferences: Array.isArray(bisLinks) && bisLinks.length > 0,

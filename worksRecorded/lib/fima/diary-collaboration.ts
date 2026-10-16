@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { fimaDiaryColumns } from "./diary-table";
 
 export const fimaStatuses = {
 	do_not_create: "Netaisīt",
@@ -91,33 +92,14 @@ export function withFimaDiaryColumns(
 				},
 			};
 	}
-	for (const [key, label, width] of [
-		["Works", "Darba apraksts", 200],
-		["Works_Custom_1", "BIS apraksts", 220],
-	] as const) {
-		if (result[key])
-			result[key] = {
-				...result[key],
-				DisplayName: label,
-				customSettings: {
-					...result[key].customSettings,
-					forceDisplayName: true,
-					cellWidth: width,
-					displayinSiteListWidth: width,
-				},
-			};
-	}
-	const specs: [string, string, number, number][] = [
-		["FimaReviewStatus", "Rīcība", 1000, 220],
-		["FimaBisCase", "BIS ieraksta Nr.", 1.5, 100],
-		["FimaMaterials", "Materiāli", 7.5, 500],
-		["FimaComments", "Komentāri", 9.5, 145],
-	];
-	for (const [key, label, order, width] of specs)
-		result[key] = {
-			Type: "noRender",
+	for (const { field, label, order, width } of fimaDiaryColumns) {
+		const existing = result[field];
+		result[field] = {
+			...existing,
+			Type: existing?.Type ?? (field === "Date" ? "fixed" : "noRender"),
 			DisplayName: label,
 			customSettings: {
+				...existing?.customSettings,
 				displayinSiteList: "yes",
 				displayinSiteListOrder: order,
 				displayinSiteListWidth: width,
@@ -125,6 +107,7 @@ export function withFimaDiaryColumns(
 				forceDisplayName: true,
 			},
 		};
+	}
 	return result;
 }
 export function appendFimaEvent(

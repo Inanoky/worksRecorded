@@ -4,6 +4,7 @@ import {
 	planMatchKey,
 } from "@/flows/default-construction/planner/model";
 import { isSimplePolygon, polygonArea } from "./model";
+import { visualSectionSchema } from "./sections";
 
 export const VISUAL_PLAN_TYPE = "visual_milestone";
 
@@ -29,6 +30,7 @@ export const visualPlanAreasSchema = z
 	.object({
 		version: z.literal(1),
 		areas: z.array(visualPlanAreaSchema).min(1).max(50),
+		section: visualSectionSchema.nullable().optional(),
 	})
 	.strict();
 

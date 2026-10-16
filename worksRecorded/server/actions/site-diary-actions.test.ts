@@ -11,6 +11,8 @@ const flowAssignmentFindUniqueMock = jest.fn();
 const photosFindManyMock = jest.fn();
 const ztcPhotosFindManyMock = jest.fn();
 const ztcRecordsFindManyMock = jest.fn();
+const ztcRecordsCountMock = jest.fn();
+const siteDiaryCountMock = jest.fn();
 const photosFindUniqueMock = jest.fn();
 const photosUpdateMock = jest.fn();
 const photosUpdateManyMock = jest.fn();
@@ -55,7 +57,7 @@ jest.mock("@/lib/utils/db", () => ({
       delete: photosDeleteMock,
     },
     ztcPhoto: { findMany: ztcPhotosFindManyMock },
-    ztcRecords: { findMany: ztcRecordsFindManyMock },
+    ztcRecords: { findMany: ztcRecordsFindManyMock, count: ztcRecordsCountMock },
     bISmaterialRecords: {
       findMany: bisMaterialFindManyMock,
     },
@@ -66,6 +68,7 @@ jest.mock("@/lib/utils/db", () => ({
       update: updateMock,
       updateMany: updateManyMock,
       findMany: siteDiaryFindManyMock,
+      count: siteDiaryCountMock,
       findUnique: siteDiaryFindUniqueMock,
       findFirst: siteDiaryFindFirstMock,
     },
@@ -128,6 +131,7 @@ import {
   getPendingSiteDiaryCorrection,
   getPhotosByDate,
   getSiteDiaryMediaOnlyDays,
+  getSiteDiaryRecordsPage,
   getSiteDiaryProjectCopyTargets,
   movePhotoToDate,
   movePhotosToDate,
@@ -173,6 +177,30 @@ function expectSuccessfulSave(result: unknown, count: number) {
 }
 
 describe("saveSiteDiaryRecord originalAudioUrl", () => {
+	it.each([undefined, "CNC"])("loads ZTC diary pages without construction/FIMA fields (work filter: %s)", async (workFilter) => {
+		ztcRecordsCountMock.mockResolvedValue(1);
+		ztcRecordsFindManyMock.mockImplementation(async ({ select }) => {
+			expect(select).not.toHaveProperty("evalMetadata");
+			expect(select).toMatchObject({ pausedAt: true, pauseIntervals: true });
+			return [{ id: "ztc-record", Date: new Date("2026-10-16"), Works: "CNC", Works_Custom_1: "Papilddarbi", Location: "H13", Units: "st", Amounts: 2, TimeInvolved: 2, pausedAt: new Date("2026-10-16T09:00:00Z"), pauseIntervals: [{ start: "2026-10-16T08:00:00Z", end: "2026-10-16T08:15:00Z" }], originalUserComment: "Worker Name : CNC", evalMetadata: { fimaCollaboration: { version: 99 } } }];
+		});
+		const result = await getSiteDiaryRecordsPage("site-1", { flowId: "ztc", workFilter });
+		expect(result.rows).toHaveLength(1);
+		expect(result.rows[0]).toMatchObject({ id: "ztc-record", Works: "CNC", Amounts: "2", TimeInvolved: "2", createdBy: "Worker Name", pauseIntervals: expect.any(Array) });
+		expect(result.rows[0]).not.toHaveProperty("fimaCollaboration");
+		expect(result.rows[0]).not.toHaveProperty("fimaBisRecords");
+		expect(result.rows[0]).not.toHaveProperty("hasFimaBisReferences");
+		expect(siteDiaryFindManyMock).not.toHaveBeenCalled();
+	});
+
+	it("preserves FIMA metadata exclusively in construction diary reads", async () => {
+		siteDiaryCountMock.mockResolvedValue(1);
+		siteDiaryFindManyMock.mockResolvedValue([{ id: "fima-record", Works: "Work", evalMetadata: { kuceImport: { bisLinks: [{ id: "123", number: "456" }] }, fimaCollaboration: { version: 3, status: "needs_changes", materials: [], history: [] } } }]);
+		const result = await getSiteDiaryRecordsPage("site-1", { flowId: "default" });
+		expect(siteDiaryFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ select: expect.objectContaining({ evalMetadata: true }) }));
+		expect(result.rows[0]).toMatchObject({ fimaBisRecords: [{ id: "123", number: "456" }], hasFimaBisReferences: true, fimaCollaboration: { version: 3, status: "needs_changes" } });
+		expect(ztcRecordsFindManyMock).not.toHaveBeenCalled();
+	});
 	it("does not insert another note when the source message batch already exists", async () => {
 		batchCreateMock.mockRejectedValueOnce(Object.assign(new Error("Unique constraint failed: sourceMessageId"), { code: "P2002" }));
 		const result = await saveSiteDiaryRecord({

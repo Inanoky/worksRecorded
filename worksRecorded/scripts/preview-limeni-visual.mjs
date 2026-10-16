@@ -75,6 +75,7 @@ const modules = {
 	worker: `export const pdfWorkerUrl='/worker.mjs';`,
 };
 const planningFixture = {
+	sections: ["A korpuss", "B korpuss"],
 	today: "2026-10-15",
 	location: "1. stāvs",
 	workOptions: [
@@ -130,6 +131,8 @@ const planningFixture = {
 		: [],
 };
 modules.actions += `export async function getVisualPlanning(){return ${JSON.stringify(planningFixture)}};export async function saveVisualPlanningItem(){throw Error('Preview only')};export async function archiveVisualPlanningItem(){throw Error('Preview only')};export async function restoreVisualPlanningItem(){throw Error('Preview only')};`;
+modules.actions += `let sections=${JSON.stringify(planningFixture.sections)};export async function addVisualSection(site,label){sections=[...sections,label.trim()];return sections};export async function revokeVisualWorkShare(){};`;
+modules.share = `export async function publishPlanningShare(site,plan){return {token:'synthetic-preview',url:'https://www.worksrecorded.com/shared/work/synthetic-preview',version:plan.version}};`;
 const bundled = await build({
 	stdin: {
 		contents: process.argv.includes("--planning")
@@ -148,6 +151,10 @@ const bundled = await build({
 		{
 			name: "isolated-visual-preview",
 			setup(build) {
+				build.onResolve({ filter: /^\.\/planning-share-client$/ }, () => ({
+					path: "share",
+					namespace: "fixture",
+				}));
 				build.onResolve({ filter: /^\.\/actions$/ }, (args) =>
 					args.importer.includes("visual")
 						? { path: "actions", namespace: "fixture" }

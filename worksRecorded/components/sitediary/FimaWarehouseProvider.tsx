@@ -79,15 +79,20 @@ export function FimaWarehouseProvider({ children }: { children: ReactNode }) {
 	const [store] = useState(createStore);
 	return <Context.Provider value={store}>{children}</Context.Provider>;
 }
-export function useFimaWarehouseAvailability(siteId: string, enabled = true) {
+export function useFimaWarehouseAvailability(
+	siteId: string,
+	enabled = true,
+	{ refreshStale = true }: { refreshStale?: boolean } = {},
+) {
 	const provided = useContext(Context);
 	const [fallback] = useState(createStore);
 	const store = provided ?? fallback;
 	const getSnapshot = useCallback(() => store.get(siteId), [store, siteId]);
 	const state = useSyncExternalStore(store.subscribe, getSnapshot, () => empty);
 	useEffect(() => {
-		if (enabled && siteId) void store.load(siteId);
-	}, [store, siteId, enabled]);
+		if (enabled && siteId && (refreshStale || !store.get(siteId).loadedAt))
+			void store.load(siteId);
+	}, [store, siteId, enabled, refreshStale]);
 	const refresh = useCallback(() => store.load(siteId, true), [store, siteId]);
 	return { ...state, refresh };
 }

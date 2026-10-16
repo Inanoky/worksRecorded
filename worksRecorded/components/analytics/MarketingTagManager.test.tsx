@@ -17,6 +17,13 @@ jest.mock("@next/third-parties/google", () => ({
 }));
 
 describe("MarketingTagManager", () => {
+	it("never sends public work-link tokens to analytics", () => {
+		usePathnameMock.mockReturnValue("/shared/work/secret-token");
+		const { container } = render(
+			<MarketingTagManager gaId="G-TEST" gtmId="GTM-TEST" />,
+		);
+		expect(container).toBeEmptyDOMElement();
+	});
 	it("loads the marketing container on landing pages", () => {
 		usePathnameMock.mockReturnValue("/lv/Landing");
 

@@ -9,27 +9,36 @@ import {
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { type ReactNode, useEffect } from "react";
 import {
+	addVisualSection,
 	archiveVisualPlanningItem,
 	getVisualPlanning,
 	restoreVisualPlanningItem,
+	revokeVisualWorkShare,
 	saveVisualPlanningItem,
 } from "./actions";
 import type { VisualDrawing } from "./model";
 import { renderPlanningImages } from "./planning-image";
 import type { VisualPlan, VisualPlanArea } from "./planning-model";
+import { publishPlanningShare } from "./planning-share-client";
 import {
 	cumulativeVisualPlanningPlans,
 	VisualPlanningPanel,
 	visualPlanningTimelineBar,
 	visualPlanningTimelineRange,
 } from "./VisualPlanningPanel";
+import { VisualPlanningWhatsApp } from "./VisualPlanningWhatsApp";
 import { VisualClientCache } from "./visual-client-cache";
 
 jest.mock("./actions", () => ({
+	addVisualSection: jest.fn(),
+	revokeVisualWorkShare: jest.fn(),
 	getVisualPlanning: jest.fn(),
 	saveVisualPlanningItem: jest.fn(),
 	archiveVisualPlanningItem: jest.fn(),
 	restoreVisualPlanningItem: jest.fn(),
+}));
+jest.mock("./planning-share-client", () => ({
+	publishPlanningShare: jest.fn(),
 }));
 jest.mock("./VisualPdf", () => ({
 	VisualPdf: ({
@@ -211,6 +220,13 @@ function sidebarAddZone() {
 }
 beforeEach(() => {
 	jest.clearAllMocks();
+	jest
+		.mocked(publishPlanningShare)
+		.mockResolvedValue({
+			token: "share-token",
+			url: "https://www.worksrecorded.com/shared/work/share-token",
+			version: plan.version,
+		});
 	Object.defineProperty(URL, "createObjectURL", {
 		configurable: true,
 		value: jest.fn(() => "blob:zone-preview"),
@@ -238,6 +254,92 @@ beforeEach(() => {
 
 afterEach(() => {
 	jest.useRealTimers();
+});
+
+it("adds project sections from the dropdown and saves the selected section without changing geometry", async () => {
+	jest
+		.mocked(getVisualPlanning)
+		.mockResolvedValue({
+			...emptyIndex,
+			sections: ["A"],
+			plans: [indexedPlan],
+		});
+	jest.mocked(addVisualSection).mockResolvedValue(["A", "Kāpņu telpa"]);
+	render(
+		<VisualPlanningPanel
+			siteId="site"
+			drawing={drawing}
+			sidebarOpen
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
+	);
+	const select = screen
+		.getByRole("option", { name: "Pārvaldīt opcijas" })
+		.closest("select");
+	if (!select) throw new Error("Section select missing");
+	fireEvent.change(select, { target: { value: "manage" } });
+	const dialog = screen.getByRole("dialog", { name: "Pārvaldīt sekcijas" });
+	fireEvent.change(within(dialog).getByLabelText("Jauna sekcija"), {
+		target: { value: "Kāpņu telpa" },
+	});
+	fireEvent.click(
+		within(dialog).getByRole("button", { name: "Pievienot sekciju" }),
+	);
+	await waitFor(() =>
+		expect(addVisualSection).toHaveBeenCalledWith("site", "Kāpņu telpa"),
+	);
+	await within(dialog).findByText("Kāpņu telpa");
+	fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+	fireEvent.change(select, { target: { value: "section:Kāpņu telpa" } });
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt izmaiņas" }));
+	await waitFor(() =>
+		expect(saveVisualPlanningItem).toHaveBeenCalledWith(
+			expect.objectContaining({
+				id: plan.id,
+				work: plan.work,
+				quantity: plan.quantity,
+				geometry: { ...plan.geometry, section: "Kāpņu telpa" },
+			}),
+		),
+	);
+});
+
+it("blocks WhatsApp on publication failure and allows retry, revocation and a replacement link", async () => {
+	jest
+		.mocked(publishPlanningShare)
+		.mockRejectedValueOnce(new Error("Upload failed"));
+	const confirm = jest.spyOn(window, "confirm").mockReturnValue(true);
+	render(
+		<VisualPlanningWhatsApp
+			siteId="site"
+			plan={plan}
+			contact={{ name: "Anna", phone: "37120000000" }}
+			disabled={false}
+			createImages={async () => [
+				{ page: 1, blob: new Blob(["zone"], { type: "image/png" }) },
+			]}
+		/>,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Sagatavot WhatsApp" }));
+	await screen.findByRole("alert");
+	expect(
+		screen.getByRole("button", { name: "Atvērt WhatsApp Web" }),
+	).toBeDisabled();
+	fireEvent.click(screen.getByRole("button", { name: "Mēģināt vēlreiz" }));
+	await screen.findByRole("link", { name: "Atvērt WhatsApp Web" });
+	fireEvent.click(screen.getByRole("button", { name: "Atspējot saiti" }));
+	await screen.findByRole("button", { name: "Izveidot saiti" });
+	expect(revokeVisualWorkShare).toHaveBeenCalledWith("site", "share-token");
+	expect(
+		screen.getByRole("button", { name: "Atvērt WhatsApp Web" }),
+	).toBeDisabled();
+	fireEvent.click(screen.getByRole("button", { name: "Izveidot saiti" }));
+	await screen.findByRole("link", { name: "Atvērt WhatsApp Web" });
+	expect(publishPlanningShare).toHaveBeenCalledTimes(3);
+	confirm.mockRestore();
 });
 
 it("builds empty and single-day planning timeline ranges", () => {
@@ -678,7 +780,7 @@ it("prepares the saved task for its contact and allows editing the WhatsApp draf
 	const phone = within(dialog).getByLabelText("Saņēmēja numurs ar valsts kodu");
 	const message = within(dialog).getByLabelText("Uzdevuma ziņa");
 	expect(phone).toHaveValue(planningContact.phone);
-	const link = within(dialog).getByRole("link", {
+	const link = await within(dialog).findByRole("link", {
 		name: "Atvērt WhatsApp Web",
 	});
 	const url = new URL(link.getAttribute("href") ?? "");
@@ -692,7 +794,10 @@ it("prepares the saved task for its contact and allows editing the WhatsApp draf
 	);
 	expect(url.searchParams.get("text")).toContain("12.10.2026.");
 	expect(url.searchParams.get("text")).toContain("16.10.2026.");
-	expect(url.searchParams.get("text")).not.toMatch(/https?:|izpildshemas/i);
+	expect(url.searchParams.get("text")).toContain(
+		"https://www.worksrecorded.com/shared/work/share-token",
+	);
+	expect(url.searchParams.get("text")).not.toContain("/dashboard/");
 	expect(
 		await within(dialog).findByRole("img", {
 			name: "Uzdevuma zona · PDF lapa 1",
@@ -722,7 +827,7 @@ it("prepares the saved task for its contact and allows editing the WhatsApp draf
 	const edited = new URL(link.getAttribute("href") ?? "");
 	expect(edited.searchParams.get("phone")).toBe("37121111111");
 	expect(edited.searchParams.get("text")).toBe(
-		"Lūdzu, pārbaudīt XPS & grīdu #1",
+		"Lūdzu, pārbaudīt XPS & grīdu #1\n\nZonas attēls: https://www.worksrecorded.com/shared/work/share-token",
 	);
 	fireEvent.change(phone, { target: { value: "not-a-number" } });
 	expect(

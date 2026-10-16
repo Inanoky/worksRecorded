@@ -65,6 +65,16 @@ Confidence is a model estimate, not a guarantee. All overlays are explicitly lab
 
 ## Verification
 
+### Sections and public work images
+
+The planning details panel offers project-wide plain-text sections under the planned quantity. “Pārvaldīt opcijas” adds options to `Site.siteDiaryRecordsMap.otherSettings.limeniVisualSections`, preserving unrelated project settings with compare-and-swap protection. A plan stores its selected section in `visualAreas.section`; existing plans need no backfill, and normal plan revisions retain section history. Section labels do not alter quantity matching or polygon geometry. No database migration is needed.
+
+Preparing a WhatsApp task creates cropped, marked-up JPEG snapshots of its saved plan. The authenticated same-origin multipart route checks project membership, plan version and drawing access, bounds the streamed request to 3.5 MB, and normalizes images before uploading. The message includes a `https://www.worksrecorded.com/shared/work/...` link. Sending remains manual in WhatsApp Web.
+
+Public links use a random document UUID plus a 256-bit secret, with only its SHA-256 hash stored in a `limeni-visual-work-share-v1` Documents row. The phone-friendly page exposes only work details and task images, not the source PDF, diary records or contacts. Public image requests revalidate the capability and current project/plan/drawing state, disallow storage redirects, and return bounded JPEGs without caching. The routes bypass dashboard authentication but do not change dashboard protection. Shared pages disable indexing, referrers and analytics.
+
+“Atspējot saiti” revokes the current link; a replacement can then be created. Archiving/deleting the plan or removing its active drawing also disables links. A published image is a fixed snapshot, not a live plan; editing and sharing a newer version produces a new link. Revocation removes only its share metadata; uploaded snapshot files are retained. As with any public link, recipients can save a copy of an image they can access.
+
 `node scripts/preview-limeni-visual.mjs` serves the actual Visual components at `http://127.0.0.1:4318` using synthetic diary records and a generated PDF. Server actions and upload hooks are replaced in-memory; the preview never connects to the production database or AI. Add `--planning` for a self-contained polygon-pen and PDF-detail preview with local-only area drafts. This supports browser checks for zoom, panning, editing and responsive layout without authentication or production writes.
 
 Mocked tests cover organization/project scope, selected-location snapshots, concurrent writes, retry/resume, model-output validation, unsafe PDF URLs, PDF size/page limits, rendering, layer toggles and uploads. No real model or production database is called by these tests.

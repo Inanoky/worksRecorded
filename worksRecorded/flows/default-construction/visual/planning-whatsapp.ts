@@ -18,9 +18,16 @@ export function planningWhatsAppMessage(plan: VisualPlan) {
 		`Darbs: ${plan.work}`,
 		`Lokācija: ${plan.location}`,
 		`Plānotais apjoms: ${new Intl.NumberFormat("lv-LV", { maximumFractionDigits: 20 }).format(plan.quantity)} ${plan.unit}`,
+		...(plan.geometry.section ? [`Sekcija: ${plan.geometry.section}`] : []),
 		`Sākums: ${formatDate(plan.startDate)}`,
 		`Izpildes termiņš: ${formatDate(plan.endDate)}`,
 	].join("\n");
+}
+
+export function planningMessageWithShare(message: string, url: string) {
+	return message.includes(url)
+		? message
+		: `${message.trim()}\n\nZonas attēls: ${url}`;
 }
 
 export function planningWhatsAppUrl(phone: string, message: string) {

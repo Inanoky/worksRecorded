@@ -139,6 +139,49 @@ beforeEach(() => {
 
 afterEach(() => jest.useRealTimers());
 
+it("preserves project section assignments in stored geometry and audit revisions", async () => {
+	const site = await prisma.site.findFirst({ where: { id: siteId } });
+	const config = site?.siteDiaryRecordsMap as Record<string, unknown>;
+	jest
+		.mocked(prisma.site.findFirst)
+		.mockResolvedValue({
+			siteDiaryRecordsMap: {
+				...config,
+				otherSettings: {
+					...(config.otherSettings as object),
+					limeniVisualSections: ["A"],
+				},
+			},
+		} as never);
+	const selected = { ...geometry, section: "A" };
+	jest
+		.mocked(prisma.constructionPlan.create)
+		.mockResolvedValue(stored({ visualAreas: selected }) as never);
+	expect(
+		await persistVisualPlan("user", { ...input, geometry: selected }),
+	).toMatchObject({ geometry: selected });
+	expect(prisma.constructionPlan.create).toHaveBeenCalledWith({
+		data: expect.objectContaining({ visualAreas: selected }),
+	});
+	expect(prisma.constructionPlanRevision.create).toHaveBeenCalledWith(
+		expect.objectContaining({
+			data: expect.objectContaining({
+				snapshot: expect.objectContaining({ geometry: selected }),
+			}),
+		}),
+	);
+});
+
+it("rejects sections that do not belong to the project before any plan write", async () => {
+	await expect(
+		persistVisualPlan("user", {
+			...input,
+			geometry: { ...geometry, section: "Unknown" },
+		}),
+	).rejects.toThrow("sekciju");
+	expect(prisma.constructionPlan.create).not.toHaveBeenCalled();
+});
+
 it("creates a visual milestone and its audit snapshot in one transaction", async () => {
 	const result = await persistVisualPlan("user", input);
 	expect(result).toMatchObject({ id: planId, work: "XPS", quantity: 100 });

@@ -1,4 +1,6 @@
 "use client";
+import { FimaBisState } from "./FimaBisState";
+import { fimaDiaryColumnWeights, fimaDiaryTableClassName } from "@/lib/fima/diary-table";
 import { getFimaDiaryCollaboration, refreshFimaBisMaterials } from "@/server/actions/fima-diary-collaboration";
 import { FimaMaterialRefresh } from "./FimaMaterialRefresh";
 import { FimaInlineCell } from "./FimaInlineCell";
@@ -5453,12 +5455,13 @@ export default function SiteDiaryCalendar({
 
                                 return (
                                   <Table
-                                    className={cn("table-fixed text-xs", showDayPlan || clientDiary || fitDiaryTable ? "w-full min-w-0 [&_th]:!w-auto [&_td]:!w-auto [&_th]:!px-1.5 [&_td]:!px-1.5 [&_th]:!whitespace-normal [&_td]:!whitespace-normal [&_th]:[overflow-wrap:anywhere] [&_td]:[overflow-wrap:anywhere] [&_button]:max-w-full" : isZtcSite ? "min-w-[1180px] sm:text-sm" : "min-w-[985px] sm:text-sm", fimaDiary && "rounded-lg border border-slate-200/80 [&_thead]:bg-slate-50/80 [&_th]:!py-3 [&_th]:font-semibold [&_td]:!py-3 [&_td]:leading-relaxed [&_tbody_tr:nth-child(even)]:bg-muted/20 dark:border-slate-700 dark:[&_thead]:bg-slate-900", fitDiaryTable && !fimaDiary && "[&_button]:whitespace-normal [&_button]:break-words [&_button]:h-auto [&_button]:min-h-8 [&_button]:px-1")}
+                                    className={cn("table-fixed text-xs", showDayPlan || clientDiary || fitDiaryTable ? "w-full min-w-0 [&_th]:!w-auto [&_td]:!w-auto [&_th]:!px-1.5 [&_td]:!px-1.5 [&_th]:!whitespace-normal [&_td]:!whitespace-normal [&_th]:[overflow-wrap:anywhere] [&_td]:[overflow-wrap:anywhere] [&_button]:max-w-full" : isZtcSite ? "min-w-[1180px] sm:text-sm" : "min-w-[985px] sm:text-sm", fimaDiary && fimaDiaryTableClassName, fitDiaryTable && !fimaDiary && "[&_button]:whitespace-normal [&_button]:break-words [&_button]:h-auto [&_button]:min-h-8 [&_button]:px-1")}
                                   >
                                     {showDayPlan || clientDiary || fitDiaryTable ? <PlanTableColumns hideBisStatus={fimaDiary} trailingFields={fimaDiary ? ["FimaReviewStatus"] : undefined} fields={dayTableHeads} bisEnabled={bisUiEnabled} showPlan={showDayPlan} columnWeights={fitDiaryTable ? {
                                       ...Object.fromEntries(dayTableHeads.map((field) => [field, getCellWidthByKey(field, defaultMap)])),
                                       FimaReviewStatus: 220, FimaMaterials: 500, select: 52, createdAt: 80, "man-hours": 75, cost: 80, bis: 140, status: 140, action: 80, source: 60,
                                       "plan-Works": getCellWidthByKey("Works", defaultMap), "plan-Amounts": 125,
+                                      ...(fimaDiary ? fimaDiaryColumnWeights : {}),
                                     } : undefined} /> : null}
                                     {/* HEADER */}
                                     <TableHeader>
@@ -5569,7 +5572,7 @@ export default function SiteDiaryCalendar({
                                             className="text-center"
                                             style={{ width: 140 }}
                                           >
-                                            BIS
+                                            {fimaDiary ? "Statuss" : "BIS"}
                                           </TableHead>
                                         ) : null}
                                         {bisUiEnabled && !fimaDiary ? (
@@ -5945,6 +5948,12 @@ export default function SiteDiaryCalendar({
                                               className="align-middle px-3 py-3 text-center"
                                               style={{ width: 140 }}
                                             >
+                                              {fimaDiary ? (
+                                                <FimaBisState
+                                                  language={language}
+                                                  status={row.id ? (bisApprovalStatusByRowId[row.id] ?? group.rows[i]?.bisStatus) : group.rows[i]?.bisStatus}
+                                                />
+                                              ) : (
                                               <Badge
                                                 className={cn(
                                                   "inline-flex items-center justify-center rounded-full px-3 py-1 font-medium capitalize",
@@ -5970,6 +5979,7 @@ export default function SiteDiaryCalendar({
                                                     : group.rows[i]?.bisStatus,
                                                 )}
                                               </Badge>
+                                              )}
                                             </TableCell>
                                           ) : null}
 

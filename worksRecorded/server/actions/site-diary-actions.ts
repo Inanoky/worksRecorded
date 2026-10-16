@@ -1,6 +1,15 @@
 "use server";
 import { BisDiarySyncCache, syncLinkedBisRecords } from "@/lib/bis/diary-record-sync";
-import { readFimaCollaboration, withFimaDiaryColumns } from "@/lib/fima/diary-collaboration";
+import { withFimaDiaryColumns } from "@/lib/fima/diary-collaboration";
+import {
+  constructionDiaryListSelect,
+  mapConstructionDiaryListRecord,
+  type ConstructionDiaryListRow,
+} from "@/flows/default-construction/backend/diary-list-record";
+import {
+  ztcDiaryListSelect,
+  mapZtcDiaryListRecord,
+} from "@/flows/ztc-production/backend/diary-list-record";
 import { revalidatePath } from "next/cache";
 import { deleteDiaryPhoto } from "@/lib/photos/delete-diary-photo";
 import { getSitePhotoStore, getUserPhotoStore, photoStoreForFlow } from "@/lib/photos/flow-photo-store";
@@ -37,7 +46,6 @@ import {
   siteDiaryPhotoPurposeWhere,
 } from "@/lib/photos/media-purpose";
 import { isZtcProductionFlowRuntime } from "@/lib/production-flow/runtime-server";
-import { readFimaBisRecordLinks } from "@/lib/fima/bis-record-links";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { resolvePersistableAudioUrl } from "@/lib/utils/uploadthing-file-url";
@@ -2467,99 +2475,6 @@ function buildSiteDiaryListWhere(
       };
 }
 
-const siteDiaryListSelect = {
-  id: true,
-  evalMetadata: true,
-  createdAt: true,
-  Date: true,
-  Date_Custom_1: true,
-  Date_Custom_2: true,
-  Location: true,
-  Location_Custom_1: true,
-  Location_Custom_2: true,
-  Works: true,
-  Works_Custom_1: true,
-  Works_Custom_2: true,
-  Comments: true,
-  Comments_Custom_1: true,
-  Comments_Custom_2: true,
-  Units: true,
-  Amounts: true,
-  WorkersInvolved: true,
-  TimeInvolved: true,
-  Photos: true,
-  BISId: true,
-  bisStatus: true,
-  originalUserComment: true,
-  originalAudioUrl: true,
-  User: {
-    select: {
-      firstName: true,
-      lastName: true,
-    },
-  },
-  Worker: {
-    select: {
-      name: true,
-      surname: true,
-    },
-  },
-};
-
-function formatCreatorName(
-  firstName: string | null | undefined,
-  lastName: string | null | undefined,
-) {
-  const parts: string[] = [];
-  if (firstName) parts.push(firstName);
-  if (lastName) parts.push(lastName);
-  return parts.join(" ");
-}
-
-function mapSiteDiaryListRecord(rec: any) {
-  let createdBy = "";
-  if (rec.User) {
-    createdBy = formatCreatorName(rec.User.firstName, rec.User.lastName);
-  } else if (rec.Worker) {
-    createdBy = formatCreatorName(rec.Worker.name, rec.Worker.surname);
-  }
-  if (!createdBy) {
-    createdBy = getCreatorNameFromOriginalComment(rec.originalUserComment);
-  }
-
-  return {
-    id: rec.id,
-    fimaBisRecords: readFimaBisRecordLinks(rec.evalMetadata, rec.BISId),
-    hasFimaBisReferences: Array.isArray(rec.evalMetadata?.kuceImport?.bisLinks) && rec.evalMetadata.kuceImport.bisLinks.length > 0,
-    fimaCollaboration: rec.evalMetadata?.fimaCollaboration ? readFimaCollaboration(rec.evalMetadata) : undefined,
-    createdAt: rec.createdAt,
-    Date: rec.Date,
-    Date_Custom_1: rec.Date_Custom_1,
-    Date_Custom_2: rec.Date_Custom_2,
-    Location: rec.Location || "",
-    Location_Custom_1: rec.Location_Custom_1 || "",
-    Location_Custom_2: rec.Location_Custom_2 || "",
-    Works: rec.Works || "",
-    Works_Custom_1: rec.Works_Custom_1 || "",
-    Works_Custom_2: rec.Works_Custom_2 || "",
-    Comments: rec.Comments || "",
-    Comments_Custom_1: rec.Comments_Custom_1 || "",
-    Comments_Custom_2: rec.Comments_Custom_2 || "",
-    Units: rec.Units || "",
-    Amounts: rec.Amounts?.toString() || "",
-    WorkersInvolved: rec.WorkersInvolved?.toString() || "",
-    TimeInvolved: rec.TimeInvolved?.toString() || "",
-    pausedAt: "pausedAt" in rec ? rec.pausedAt || null : null,
-    pauseIntervals: "pauseIntervals" in rec ? (rec.pauseIntervals ?? []) : [],
-    Photos: rec.Photos ?? [],
-    BISId: rec.BISId || null,
-    bisStatus: rec.bisStatus || null,
-    originalUserComment: rec.originalUserComment || "",
-    originalAudioUrl: rec.originalAudioUrl || "",
-    createdBy: createdBy || "N/A",
-  };
-}
-
 export async function getLimeniDiarySnapshot(siteId: string) {
   const user = await requireUser();
   const site = await orgCheck(user.id, siteId);
@@ -2568,7 +2483,7 @@ export async function getLimeniDiarySnapshot(siteId: string) {
     prisma.sitediaryrecords.findMany({
       where: { siteId, organizationId: site.organizationId, archivedAt: null },
       orderBy: [{ Date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
-      select: siteDiaryListSelect,
+      select: constructionDiaryListSelect,
     }),
     prisma.photos.findMany({
       where: {
@@ -2579,13 +2494,19 @@ export async function getLimeniDiarySnapshot(siteId: string) {
       select: { Date: true, Comment: true, Location: true, URL: true, fileUrl: true },
     }),
   ]);
-  return { rows: records.map(mapSiteDiaryListRecord), mediaPhotos };
+  return { rows: records.map(mapConstructionDiaryListRecord), mediaPhotos };
 }
 
 export async function getSiteDiaryRecordsPage(
   siteId: string,
   options: SiteDiaryRecordsPageOptions = {},
-) {
+): Promise<{
+  rows: ConstructionDiaryListRow[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
   if (!siteId) throw new Error("Missing siteId");
 
   const page = normalizeSiteDiaryPage(options.page);
@@ -2627,11 +2548,7 @@ export async function getSiteDiaryRecordsPage(
             prisma.ztcRecords.findMany({
               where,
               orderBy,
-              select: {
-                ...siteDiaryListSelect,
-                pausedAt: true,
-                pauseIntervals: true,
-              },
+              select: ztcDiaryListSelect,
             }),
             loadZtcFilterRates(siteId),
           ]),
@@ -2642,7 +2559,7 @@ export async function getSiteDiaryRecordsPage(
       const totalCount = matchingRecords.length;
       const rows = matchingRecords
         .slice(skip, skip + pageSize)
-        .map(mapSiteDiaryListRecord);
+        .map(mapZtcDiaryListRecord);
       const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
       trace.end({
@@ -2660,11 +2577,7 @@ export async function getSiteDiaryRecordsPage(
               orderBy,
               skip,
               take: pageSize,
-              select: {
-                ...siteDiaryListSelect,
-                pausedAt: true,
-                pauseIntervals: true,
-              },
+              select: ztcDiaryListSelect,
             }),
             prisma.ztcRecords.count({ where }),
           ])
@@ -2674,12 +2587,14 @@ export async function getSiteDiaryRecordsPage(
               orderBy,
               skip,
               take: pageSize,
-              select: siteDiaryListSelect,
+              select: constructionDiaryListSelect,
             }),
             prisma.sitediaryrecords.count({ where }),
           ]),
     );
-    const rows = records.map(mapSiteDiaryListRecord);
+    const rows = useZtcRecords
+      ? records.map(mapZtcDiaryListRecord)
+      : records.map(mapConstructionDiaryListRecord);
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
     trace.end({

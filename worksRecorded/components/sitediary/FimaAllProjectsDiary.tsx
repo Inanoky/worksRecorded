@@ -1,7 +1,21 @@
 "use client";
 
+import { Ellipsis, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import {
 	Table,
 	TableBody,
@@ -10,14 +24,24 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { getFimaBisRecordUrl } from "@/lib/fima/bis-record-links";
 import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
+import {
+	fimaDiaryColumns,
+	fimaDiaryColumnWeights,
+	fimaDiaryTableClassName,
+	groupFimaDiaryRows,
+} from "@/lib/fima/diary-table";
 import type { FimaInlineField } from "@/lib/fima/inline-fields";
+import { isFimaInlineField } from "@/lib/fima/inline-fields";
 import { shouldOpenFimaRecordPanel } from "@/lib/fima/record-panel";
 import { cn } from "@/lib/utils/utils";
+import { FimaBisState } from "./FimaBisState";
 import { FimaDiaryCell } from "./FimaDiaryCell";
 import { FimaInlineCell } from "./FimaInlineCell";
 import { FimaMaterialRefresh } from "./FimaMaterialRefresh";
 import { FimaRecordPanel } from "./FimaRecordPanel";
+import { OriginalSourceContent } from "./OriginalSourceContent";
 
 type RecordRow = {
 	id: string;
@@ -30,6 +54,9 @@ type RecordRow = {
 	Amounts: number | null;
 	Units: string | null;
 	BISId?: string | null;
+	bisStatus?: string | null;
+	originalUserComment?: string | null;
+	originalAudioUrl?: string | null;
 	bisCaseId?: string | null;
 	bisCaseNumber?: string | null;
 	hasFimaBisReferences?: boolean;
@@ -38,21 +65,9 @@ type RecordRow = {
 	Site: { name: string } | null;
 };
 
-const columns = [
-	["Projekts", 10],
-	["Datums", 7],
-	["Darba apraksts", 14],
-	["BIS apraksts", 15],
-	["Balsti", 8],
-	["Maiņa", 7],
-	["Apjoms", 5],
-	["Materiāli", 34],
-	["BIS ieraksta Nr.", 8],
-	["Komentāri", 8],
-	["Rīcība", 18],
-] as const;
-const totalWidth = columns.reduce((sum, [, width]) => sum + width, 0);
-
+const dataColumns = fimaDiaryColumns.filter(
+	({ field }) => field !== "FimaReviewStatus",
+);
 export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
 	const [fieldUpdates, setFieldUpdates] = useState<
 		Record<string, Partial<RecordRow>>
@@ -66,6 +81,7 @@ export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
 		[],
 	);
 	const [updates, setUpdates] = useState<Record<string, FimaCollaboration>>({});
+	const [checkedIds, setCheckedIds] = useState(new Set<string>());
 	const [selected, setSelected] = useState<string | null>(null);
 	const trigger = useRef<HTMLElement | null>(null);
 	const onChange = useCallback((id: string, state: FimaCollaboration) => {
@@ -129,6 +145,93 @@ export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
 			/>
 		) : null;
 
+	const groups = groupFimaDiaryRows(rows);
+	const bisEnabled = rows.some(
+		(row) => row.bisCaseId || row.BISId || row.hasFimaBisReferences,
+	);
+	const columns = [
+		{ field: "select", label: "" },
+		{ field: "project", label: "Projekts" },
+		...dataColumns,
+		...(bisEnabled ? [{ field: "bis", label: "Statuss" }] : []),
+		{ field: "action", label: "Darbība" },
+		{ field: "source", label: "Avots" },
+		{ field: "FimaReviewStatus", label: "Rīcība" },
+	];
+	const totalWidth = columns.reduce(
+		(sum, column) => sum + fimaDiaryColumnWeights[column.field],
+		0,
+	);
+	const toggleRows = (ids: string[], checked: boolean) =>
+		setCheckedIds((previous) => {
+			const next = new Set(previous);
+			for (const id of ids) {
+				if (checked) next.add(id);
+				else next.delete(id);
+			}
+			return next;
+		});
+	const renderSource = (row: RecordRow) =>
+		row.originalUserComment || row.originalAudioUrl ? (
+			<Popover>
+				<PopoverTrigger asChild>
+					<button
+						type="button"
+						aria-label="Rādīt ieraksta avotu"
+						className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-blue-600 text-sm font-bold text-blue-600 hover:bg-blue-50"
+					>
+						?
+					</button>
+				</PopoverTrigger>
+				<PopoverContent className="max-h-80 w-80 overflow-auto text-xs">
+					<OriginalSourceContent
+						originalUserComment={row.originalUserComment}
+						originalAudioUrl={row.originalAudioUrl}
+					/>
+				</PopoverContent>
+			</Popover>
+		) : (
+			"—"
+		);
+	const renderActions = (row: RecordRow) => (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button
+					aria-label="Ieraksta darbības"
+					size="icon"
+					variant="ghost"
+					className="h-8 w-8"
+					disabled={!row.siteId}
+				>
+					<Ellipsis className="h-4 w-4" />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end">
+				<DropdownMenuItem onClick={() => openRecord(row)}>
+					Atvērt ierakstu
+				</DropdownMenuItem>
+				<DropdownMenuItem asChild>
+					<Link href={`/dashboard/sites/${row.siteId}/dashboard`}>
+						Atvērt projekta žurnālu
+					</Link>
+				</DropdownMenuItem>
+				{row.BISId ? (
+					<DropdownMenuItem asChild>
+						<a
+							href={getFimaBisRecordUrl(row.BISId) ?? undefined}
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							<ExternalLink className="mr-2 h-3.5 w-3.5" />
+							Atvērt BIS
+						</a>
+					</DropdownMenuItem>
+				) : null}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+	const renderField = (field: string, row: RecordRow) =>
+		isFimaInlineField(field) ? inline(field, row) : cell(field, row);
 	return (
 		<div
 			className={cn(
@@ -137,156 +240,257 @@ export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
 			)}
 		>
 			<FimaMaterialRefresh records={rows} onChange={onChange} />
-			<div className="hidden rounded-lg border xl:block">
-				<Table className="w-full table-fixed text-xs [&_th]:whitespace-normal [&_th]:px-2 [&_th]:py-3 [&_td]:whitespace-normal [&_td]:break-words [&_td]:px-2 [&_td]:py-3 [&_td]:align-top [&_td]:leading-relaxed [&_button]:max-w-full">
-					<colgroup>
-						{columns.map(([title, width]) => (
-							<col
-								key={title}
-								style={{ width: `${(width / totalWidth) * 100}%` }}
-							/>
-						))}
-					</colgroup>
-					<TableHeader className="bg-muted/40">
-						<TableRow>
-							{columns.map(([title]) => (
-								<TableHead key={title}>{title}</TableHead>
-							))}
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{rows.length ? (
-							rows.map((row, index) => (
-								<TableRow
-									key={row.id}
-									tabIndex={0}
-									onClick={(event) => {
-										if (
-											shouldOpenFimaRecordPanel(
-												event.target,
-												event.currentTarget,
-											)
-										)
-											openRecord(row, event.currentTarget);
-									}}
-									onKeyDown={(event) => {
-										if (
-											event.target === event.currentTarget &&
-											(event.key === "Enter" || event.key === " ")
-										) {
-											event.preventDefault();
-											openRecord(row, event.currentTarget);
-										}
-									}}
-									className={cn(
-										"cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-										index % 2 === 1 && "bg-muted/20",
-										selected === row.id && "bg-red-50/60 dark:bg-red-950/30",
-									)}
-								>
-									<TableCell>
-										<Link
-											className="text-primary underline"
-											href={`/dashboard/sites/${row.siteId}/dashboard`}
-										>
-											{row.Site?.name ?? "—"}
-										</Link>
-									</TableCell>
-									<TableCell className="tabular-nums">
-										{inline("Date", row)}
-									</TableCell>
-									<TableCell className="font-medium">
-										{inline("Works", row)}
-									</TableCell>
-									<TableCell>{inline("Works_Custom_1", row)}</TableCell>
-									<TableCell>{inline("Location", row)}</TableCell>
-									<TableCell>{inline("Works_Custom_2", row)}</TableCell>
-									<TableCell>
-										{inline("Amounts", row)}
-										{inline("Units", row)}
-									</TableCell>
-									<TableCell>{cell("FimaMaterials", row)}</TableCell>
-									<TableCell>{cell("FimaBisCase", row)}</TableCell>
-									<TableCell>{cell("FimaComments", row)}</TableCell>
-									<TableCell>{cell("FimaReviewStatus", row)}</TableCell>
-								</TableRow>
-							))
-						) : (
-							<TableRow>
-								<TableCell
-									colSpan={columns.length}
-									className="text-center text-muted-foreground"
-								>
-									Atbilstoši ieraksti nav atrasti.
-								</TableCell>
-							</TableRow>
-						)}
-					</TableBody>
-				</Table>
-			</div>
-			<div className="space-y-3 xl:hidden">
-				{rows.map((row) => (
-					<article
-						key={row.id}
-						className="rounded-lg border p-4"
-						onClick={(event) => {
-							if (shouldOpenFimaRecordPanel(event.target, event.currentTarget))
-								openRecord(row, event.currentTarget);
-						}}
-						onKeyDown={(event) => {
-							if (
-								event.target === event.currentTarget &&
-								(event.key === "Enter" || event.key === " ")
-							) {
-								event.preventDefault();
-								openRecord(row, event.currentTarget);
-							}
-						}}
+			{checkedIds.size ? (
+				<div className="mb-3 flex items-center gap-3 text-sm">
+					<span>Atlasīti: {checkedIds.size}</span>
+					<Button
+						size="sm"
+						variant="outline"
+						onClick={() => setCheckedIds(new Set())}
 					>
-						<div className="flex flex-wrap justify-between gap-2">
-							<Link
-								className="text-sm text-primary underline"
-								href={`/dashboard/sites/${row.siteId}/dashboard`}
+						Notīrīt atlasi
+					</Button>
+				</div>
+			) : null}
+			<div className="rounded-md border bg-background">
+				<div className="space-y-3 p-2 sm:p-3">
+					{groups.map((group) => {
+						const allChecked = group.rows.every((row) =>
+							checkedIds.has(row.id),
+						);
+						const someChecked = group.rows.some((row) =>
+							checkedIds.has(row.id),
+						);
+						return (
+							<section
+								key={group.key}
+								aria-label={group.label}
+								className="rounded-xl border bg-card p-3 sm:p-4"
 							>
-								{row.Site?.name}
-							</Link>
-							<span className="text-xs text-muted-foreground">
-								{inline("Date", row)}
-							</span>
-						</div>
-						<h3 className="mt-2 font-medium">{inline("Works", row)}</h3>
-						<p className="mt-1 text-sm">{inline("Works_Custom_1", row)}</p>
-						<dl className="mt-3 grid grid-cols-2 gap-3 text-xs">
-							<div>
-								<dt className="text-muted-foreground">Balsti</dt>
-								<dd>{inline("Location", row)}</dd>
-							</div>
-							<div>
-								<dt className="text-muted-foreground">Maiņa</dt>
-								<dd>{inline("Works_Custom_2", row)}</dd>
-							</div>
-							<div>
-								<dt className="text-muted-foreground">Apjoms</dt>
-								<dd>
-									{inline("Amounts", row)} {inline("Units", row)}
-								</dd>
-							</div>
-
-							{[
-								["FimaBisCase", "BIS ieraksta Nr."],
-								["FimaMaterials", "Materiāli"],
-								["FimaComments", "Komentāri"],
-								["FimaReviewStatus", "Rīcība"],
-							].map(([field, label]) => (
-								<div key={field} className="min-w-0">
-									<dt className="text-muted-foreground">{label}</dt>
-									<dd>{cell(field, row)}</dd>
+								<header className="mb-4 space-y-1">
+									<h2 className="text-sm font-semibold">{group.label}</h2>
+									<p className="text-xs text-muted-foreground">
+										{group.rows.length}{" "}
+										{group.rows.length === 1 ? "uzdevums" : "uzdevumi"}
+									</p>
+								</header>
+								<div className="hidden min-w-0 xl:block">
+									<Table className={fimaDiaryTableClassName}>
+										<colgroup>
+											{columns.map(({ field }) => (
+												<col
+													key={field}
+													style={{
+														width: `${(fimaDiaryColumnWeights[field] / totalWidth) * 100}%`,
+													}}
+												/>
+											))}
+										</colgroup>
+										<TableHeader>
+											<TableRow>
+												{columns.map(({ field, label }) => (
+													<TableHead
+														key={field}
+														className={cn(
+															["select", "bis", "action", "source"].includes(
+																field,
+															)
+																? "text-center"
+																: "text-left",
+														)}
+													>
+														{field === "select" ? (
+															<Checkbox
+																checked={
+																	allChecked
+																		? true
+																		: someChecked
+																			? "indeterminate"
+																			: false
+																}
+																onCheckedChange={(value) =>
+																	toggleRows(
+																		group.rows.map((row) => row.id),
+																		value === true,
+																	)
+																}
+																aria-label={`Atlasīt visus ierakstus: ${group.label}`}
+															/>
+														) : (
+															label
+														)}
+													</TableHead>
+												))}
+											</TableRow>
+										</TableHeader>
+										<TableBody>
+											{group.rows.map((row) => (
+												<TableRow
+													key={row.id}
+													tabIndex={0}
+													data-fima-active={
+														selected === row.id ? "true" : undefined
+													}
+													className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[fima-active=true]:bg-red-50/60 dark:data-[fima-active=true]:bg-red-950/30"
+													onClick={(event) => {
+														if (
+															shouldOpenFimaRecordPanel(
+																event.target,
+																event.currentTarget,
+															)
+														)
+															openRecord(row, event.currentTarget);
+													}}
+													onKeyDown={(event) => {
+														if (
+															event.target === event.currentTarget &&
+															(event.key === "Enter" || event.key === " ")
+														) {
+															event.preventDefault();
+															openRecord(row, event.currentTarget);
+														}
+													}}
+												>
+													<TableCell className="text-center">
+														<Checkbox
+															checked={checkedIds.has(row.id)}
+															onCheckedChange={(value) =>
+																toggleRows([row.id], value === true)
+															}
+															aria-label={`Atlasīt ierakstu ${row.id}`}
+														/>
+													</TableCell>
+													<TableCell>
+														{row.siteId ? (
+															<Link
+																className="text-primary underline underline-offset-2"
+																href={`/dashboard/sites/${row.siteId}/dashboard`}
+															>
+																{row.Site?.name ?? "—"}
+															</Link>
+														) : (
+															(row.Site?.name ?? "—")
+														)}
+													</TableCell>
+													{dataColumns.map(({ field }) => (
+														<TableCell
+															key={field}
+															className={cn(
+																field === "Date" && "tabular-nums",
+																field === "Works" && "font-medium",
+															)}
+														>
+															{renderField(field, row)}
+														</TableCell>
+													))}
+													{bisEnabled ? (
+														<TableCell className="text-center">
+															<FimaBisState status={row.bisStatus} />
+														</TableCell>
+													) : null}
+													<TableCell className="text-center">
+														{renderActions(row)}
+													</TableCell>
+													<TableCell className="text-center">
+														{renderSource(row)}
+													</TableCell>
+													<TableCell>{cell("FimaReviewStatus", row)}</TableCell>
+												</TableRow>
+											))}
+										</TableBody>
+									</Table>
 								</div>
-							))}
-						</dl>
-					</article>
-				))}
-				{!rows.length ? <p>Atbilstoši ieraksti nav atrasti.</p> : null}
+								<div className="space-y-2 xl:hidden">
+									{group.rows.map((row) => (
+										<article
+											key={row.id}
+											className="rounded-lg border p-4"
+											onClick={(event) => {
+												if (
+													shouldOpenFimaRecordPanel(
+														event.target,
+														event.currentTarget,
+													)
+												)
+													openRecord(row, event.currentTarget);
+											}}
+											onKeyDown={(event) => {
+												if (
+													event.target === event.currentTarget &&
+													(event.key === "Enter" || event.key === " ")
+												) {
+													event.preventDefault();
+													openRecord(row, event.currentTarget);
+												}
+											}}
+										>
+											<div className="mb-3 flex items-center justify-between gap-2">
+												<div className="flex min-w-0 items-center gap-2">
+													<Checkbox
+														checked={checkedIds.has(row.id)}
+														onCheckedChange={(value) =>
+															toggleRows([row.id], value === true)
+														}
+														aria-label={`Atlasīt ierakstu ${row.id}`}
+													/>
+													{row.siteId ? (
+														<Link
+															className="text-sm text-primary underline"
+															href={`/dashboard/sites/${row.siteId}/dashboard`}
+														>
+															{row.Site?.name}
+														</Link>
+													) : (
+														row.Site?.name
+													)}
+												</div>
+												{renderActions(row)}
+											</div>
+											<dl className="grid grid-cols-2 gap-3 text-xs">
+												{[
+													...dataColumns,
+													fimaDiaryColumns[fimaDiaryColumns.length - 1],
+												].map(({ field, label }) => (
+													<div
+														key={field}
+														className={cn(
+															"min-w-0",
+															[
+																"Works",
+																"Works_Custom_1",
+																"FimaMaterials",
+																"FimaComments",
+																"FimaReviewStatus",
+															].includes(field) && "col-span-2",
+														)}
+													>
+														<dt className="mb-1 text-muted-foreground">
+															{label}
+														</dt>
+														<dd>{renderField(field, row)}</dd>
+													</div>
+												))}
+											</dl>
+											<div className="mt-3 flex items-center justify-between gap-2 border-t pt-3">
+												{bisEnabled ? (
+													<FimaBisState status={row.bisStatus} />
+												) : (
+													<span />
+												)}
+												{renderSource(row)}
+											</div>
+										</article>
+									))}
+								</div>
+							</section>
+						);
+					})}
+					{!groups.length ? (
+						<p className="py-8 text-center text-sm text-muted-foreground">
+							Atbilstoši ieraksti nav atrasti.
+						</p>
+					) : null}
+				</div>
 			</div>
 			<FimaRecordPanel
 				siteId={activeRow?.siteId ?? ""}

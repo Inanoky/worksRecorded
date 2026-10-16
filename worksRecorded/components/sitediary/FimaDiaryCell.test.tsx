@@ -17,6 +17,9 @@ jest.mock("@/server/actions/fima-diary-collaboration", () => ({
 	saveFimaDiaryCollaboration: jest.fn(),
 	refreshFimaBisMaterials: jest.fn(),
 }));
+jest.mock("@/server/actions/fima-warehouse", () => ({
+	getFimaWarehouseAvailability: jest.fn(),
+}));
 const initial: FimaCollaboration = {
 	version: 0,
 	status: null,
@@ -153,7 +156,11 @@ it.each([undefined, { fetchedAt: "2026-10-16T10:00:00Z", entries: [] }])(
 				onChange={jest.fn()}
 			/>,
 		);
-		expect(container).toBeEmptyDOMElement();
+		expect(container.textContent).toBe("");
+		expect(screen.queryByRole("list")).not.toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Pievienot materiālus" }),
+		).toBeEnabled();
 		expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
 	},
 );
