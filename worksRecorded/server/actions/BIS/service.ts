@@ -93,6 +93,7 @@ function logBisTokenPair(
   token: { accessToken?: string | null; refreshToken?: string | null },
   context: Record<string, unknown> = {},
 ) {
+  if (process.env.BIS_VERBOSE_LOGS !== "true") return;
   console.log(label, {
     ...context,
     hasAccessToken: Boolean(token.accessToken),

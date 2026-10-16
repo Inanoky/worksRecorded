@@ -140,3 +140,70 @@ it("refreshes a missing record number even when the material cache is fresh", as
 		}),
 	);
 });
+
+it("keeps an active batch running when the parent replaces its callback", async () => {
+	const complete: Array<() => void> = [];
+	jest
+		.mocked(refreshFimaBisMaterials)
+		.mockImplementation(
+			() =>
+				new Promise((resolve) =>
+					complete.push(() => resolve(readFimaCollaboration(null))),
+				),
+		);
+	const records = [1, 2, 3].map((id) => ({
+		id: String(id),
+		BISId: String(id),
+	}));
+	const first = jest.fn();
+	const latest = jest.fn();
+	const view = render(
+		<FimaMaterialRefresh siteId="project" records={records} onChange={first} />,
+	);
+	view.rerender(
+		<FimaMaterialRefresh
+			siteId="project"
+			records={records}
+			onChange={latest}
+		/>,
+	);
+	await act(async () => complete[0]());
+	expect(refreshFimaBisMaterials).toHaveBeenCalledTimes(3);
+	await act(async () => {
+		complete[1]();
+		complete[2]();
+	});
+	expect(first).not.toHaveBeenCalled();
+	expect(latest).toHaveBeenCalledTimes(3);
+});
+
+it("does not restart failed checks on a scope change but allows explicit retry", async () => {
+	jest
+		.mocked(refreshFimaBisMaterials)
+		.mockRejectedValue(new Error("BIS unavailable"));
+	const change = jest.fn();
+	const view = render(
+		<FimaMaterialRefresh
+			siteId="project"
+			records={[{ id: "1", BISId: "1" }]}
+			onChange={change}
+		/>,
+	);
+	await screen.findByRole("alert");
+	view.rerender(
+		<FimaMaterialRefresh
+			siteId="project"
+			records={[{ id: "2", BISId: "2" }]}
+			onChange={change}
+		/>,
+	);
+	expect(refreshFimaBisMaterials).toHaveBeenCalledTimes(1);
+	jest
+		.mocked(refreshFimaBisMaterials)
+		.mockResolvedValue(readFimaCollaboration(null));
+	fireEvent.click(
+		screen.getByRole("button", { name: "Atjaunot ierakstu materiālus no BIS" }),
+	);
+	await waitFor(() => expect(change).toHaveBeenCalledTimes(1));
+	expect(refreshFimaBisMaterials).toHaveBeenCalledTimes(2);
+});

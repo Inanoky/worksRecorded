@@ -230,6 +230,5 @@ export async function refreshFimaBisMaterials(
 	}
 	const snapshot = { fetchedAt: new Date().toISOString(), entries };
 	await prisma.$executeRaw`UPDATE "sitediaryrecords" SET "evalMetadata"=jsonb_set(COALESCE("evalMetadata",'{}'::jsonb),'{fimaCollaboration}',COALESCE("evalMetadata"->'fimaCollaboration','{}'::jsonb)||jsonb_build_object('bisMaterials',${JSON.stringify(snapshot)}::jsonb),true) WHERE id=${input.recordId} AND "siteId"=${input.siteId} AND "organizationId"=${scope.site.organizationId} AND "archivedAt" IS NULL`;
-	revalidatePath(`/dashboard/sites/${input.siteId}/dashboard`);
 	return getFimaDiaryCollaboration(input);
 }

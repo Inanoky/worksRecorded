@@ -2812,7 +2812,7 @@ export default function SiteDiaryCalendar({
 
     try {
       setBisSyncLoading(true);
-      const result = await syncDeletedSiteDiaryBisRecords(siteId);
+      const result = await syncDeletedSiteDiaryBisRecords(siteId, true);
       await refreshRowsWithBisSync({ skipSync: true });
 
       if (result.cleared > 0) {

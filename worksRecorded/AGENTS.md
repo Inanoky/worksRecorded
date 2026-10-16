@@ -94,7 +94,7 @@ flows/                    Flow modules (see flows/README.md)
 
 | Goal       | Command                                    |
 | ---------- | ------------------------------------------ |
-| Dev server | `npm run dev` (Next + turbo, inspector on) |
+| Dev server | `npm run dev` (Next + turbo); `npm run dev:debug` adds the inspector |
 | Build      | `npm run build`                            |
 | Start prod | `npm run start`                            |
 | Lint       | `npm run lint`                             |

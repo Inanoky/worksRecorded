@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
@@ -239,5 +240,6 @@ it.each([null, "653"])(
 			number: "653",
 		});
 		expect(bisFetch).toHaveBeenCalledTimes(number ? 2 : 3);
+		expect(revalidatePath).not.toHaveBeenCalled();
 	},
 );

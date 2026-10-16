@@ -1,4 +1,5 @@
 "use server";
+import { BisDiarySyncCache, syncLinkedBisRecords } from "@/lib/bis/diary-record-sync";
 import { readFimaCollaboration, withFimaDiaryColumns } from "@/lib/fima/diary-collaboration";
 import { revalidatePath } from "next/cache";
 import { deleteDiaryPhoto } from "@/lib/photos/delete-diary-photo";
@@ -4361,92 +4362,37 @@ export async function copySiteDiaryRecordsToProject({
   });
 }
 
-export async function syncDeletedSiteDiaryBisRecords(siteId: string) {
+const bisDiarySyncCache = new BisDiarySyncCache();
+
+export async function syncDeletedSiteDiaryBisRecords(siteId: string, force = false) {
   if (!siteId) throw new Error("Missing site id");
-
   const user = await requireUser();
-  await orgCheck(user.id, siteId);
-
-  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+  const site = await orgCheck(user.id, siteId);
+  if (!site) throw new Error("Nav piekļuves projektam.");
   const baseUrl = getBisBaseUrl();
-
-  const records = await prisma.sitediaryrecords.findMany({
-    where: {
-      siteId,
-      archivedAt: null,
-      BISId: { not: null },
-    },
-    select: { id: true, BISId: true, bisStatus: true },
-  });
-
-  const clearedRecordIds: string[] = [];
-
-  for (const record of records) {
-    const bisId = String(record.BISId ?? "");
-    if (!bisId) continue;
-    const performedWorkUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${bisId}`;
-    logBisGetRequest("sync performed_work existence", performedWorkUrl);
-
-    const res = await bisFetch(baseUrl, performedWorkUrl, {
-      headers: {
-        Accept: "application/vnd.api+json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
+  return bisDiarySyncCache.run(`${baseUrl}:${user.id}:${siteId}`, async () => {
+    const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+    const records = await prisma.sitediaryrecords.findMany({
+      where: { siteId, archivedAt: null, BISId: { not: null } },
+      select: { id: true, BISId: true, bisStatus: true },
     });
-
-    if (res.ok) {
-      const text = await res.text();
-      let json: any = null;
-      try {
-        json = text ? JSON.parse(text) : null;
-      } catch {
-        json = null;
-      }
-
-      const currentStatus =
-        json?.data?.attributes?.status == null
-          ? null
-          : String(json.data.attributes.status);
-      if ((record.bisStatus ?? null) !== currentStatus) {
-        await prisma.sitediaryrecords.update({
-          where: { id: record.id },
-          data: { bisStatus: currentStatus },
+    return syncLinkedBisRecords({
+      records,
+      fetchRecord: (bisId) => {
+        const url = `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${bisId}`;
+        logBisGetRequest("sync performed_work existence", url);
+        return bisFetch(baseUrl, url, {
+          headers: { Accept: "application/vnd.api+json", Authorization: `Bearer ${accessToken}` },
+          cache: "no-store",
+          signal: AbortSignal.timeout(15_000),
         });
-      }
-      continue;
-    }
-
-    const text = await res.text();
-    let json: any = null;
-    try {
-      json = text ? JSON.parse(text) : null;
-    } catch {
-      json = null;
-    }
-
-    const message = String(
-      json?.errors?.[0]?.detail || json?.error || "",
-    ).toLowerCase();
-    const shouldClear =
-      res.status === 404 ||
-      message.includes("not found") ||
-      message.includes("deleted");
-
-    if (shouldClear) {
-      await prisma.sitediaryrecords.update({
-        where: { id: record.id },
-        data: { BISId: null, bisStatus: null },
-      });
-      clearedRecordIds.push(record.id);
-    }
-  }
-
-  return {
-    checked: records.length,
-    cleared: clearedRecordIds.length,
-    clearedRecordIds,
-  };
+      },
+      updateRecord: (record, data) => prisma.sitediaryrecords.updateMany({
+        where: { id: record.id, siteId, BISId: record.BISId, archivedAt: null },
+        data,
+      }),
+    });
+  }, force);
 }
 
 export async function getSiteDiaryRecordBisUrl(recordId: string) {

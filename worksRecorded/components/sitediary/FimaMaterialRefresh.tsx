@@ -22,6 +22,10 @@ const freshFor = 10 * 60 * 1000;
 
 export function FimaMaterialRefresh({ records, siteId, onChange }: Props) {
 	const latest = useRef(records);
+	const change = useRef(onChange);
+	const retryAt = useRef(0);
+	const lastRevision = useRef(0);
+	const attempted = useRef(new Map<string, number>());
 	const pending = useRef(new Map<string, Promise<FimaCollaboration>>());
 	const [revision, setRevision] = useState(0);
 	const [loading, setLoading] = useState(false);
@@ -37,11 +41,14 @@ export function FimaMaterialRefresh({ records, siteId, onChange }: Props) {
 		.join("|");
 	useEffect(() => {
 		latest.current = records;
-	}, [records]);
+		change.current = onChange;
+	}, [records, onChange]);
 	useEffect(() => {
 		setLoading(false);
+		const forced = revision !== lastRevision.current;
+		lastRevision.current = revision;
+		if (!scopeKey || (!forced && retryAt.current > Date.now())) return;
 		setError("");
-		if (!scopeKey) return;
 		let active = true;
 		let stopped = false;
 		const candidates = latest.current.filter((row) => {
@@ -51,9 +58,12 @@ export function FimaMaterialRefresh({ records, siteId, onChange }: Props) {
 				!(row.BISId || row.hasFimaBisReferences)
 			)
 				return false;
+			const key = `${row.siteId || siteId}:${row.id}:${row.BISId ?? ""}`;
+			if (!forced && (attempted.current.get(key) ?? 0) > Date.now())
+				return false;
 			const snapshot = row.fimaCollaboration?.bisMaterials;
 			return (
-				revision > 0 ||
+				forced ||
 				Boolean(
 					row.fimaBisRecords?.some(
 						(record) =>
@@ -92,9 +102,14 @@ export function FimaMaterialRefresh({ records, siteId, onChange }: Props) {
 				}
 				try {
 					const result = await request;
-					if (active) onChange(row.id, result);
+					attempted.current.set(
+						`${projectId}:${row.id}:${row.BISId ?? ""}`,
+						Date.now() + freshFor,
+					);
+					if (active) change.current(row.id, result);
 				} catch (cause) {
 					stopped = true;
+					retryAt.current = Date.now() + 60_000;
 					if (active)
 						setError(
 							cause instanceof Error
@@ -110,7 +125,7 @@ export function FimaMaterialRefresh({ records, siteId, onChange }: Props) {
 		return () => {
 			active = false;
 		};
-	}, [scopeKey, revision, siteId, onChange]);
+	}, [scopeKey, revision, siteId]);
 	if (!linked.length) return null;
 	return (
 		<div className="mb-3 flex flex-wrap items-center gap-3">
