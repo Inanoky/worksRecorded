@@ -10,6 +10,7 @@ type Row = {
 	siteId?: string | null;
 	BISId?: string | null;
 	hasFimaBisReferences?: boolean;
+	fimaBisRecords?: { id: string; number: string | null }[];
 	fimaCollaboration?: FimaCollaboration;
 };
 type Props = {
@@ -53,6 +54,15 @@ export function FimaMaterialRefresh({ records, siteId, onChange }: Props) {
 			const snapshot = row.fimaCollaboration?.bisMaterials;
 			return (
 				revision > 0 ||
+				Boolean(
+					row.fimaBisRecords?.some(
+						(record) =>
+							!record.number &&
+							!snapshot?.entries.some(
+								(entry) => entry.bisId === record.id && entry.number,
+							),
+					),
+				) ||
 				!snapshot ||
 				Date.now() - Date.parse(snapshot.fetchedAt) > freshFor ||
 				!Number.isFinite(Date.parse(snapshot.fetchedAt)) ||

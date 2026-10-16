@@ -88,3 +88,23 @@ it("does not block records with no linked photos", () => {
 	);
 	expect(screen.getByText("Records")).toBeInTheDocument();
 });
+
+it("reports measured photo progress while loading and removes the bar when ready", async () => {
+	render(
+		<AllProjectsPhotoPreloader
+			urls={["https://utfs.io/f/a", "https://utfs.io/f/b"]}
+			language="lv"
+		>
+			<p>Loaded records</p>
+		</AllProjectsPhotoPreloader>,
+	);
+	expect(screen.getByRole("progressbar")).not.toHaveAttribute("value");
+	const options = preload.mock.calls[0][1];
+	await act(async () =>
+		options.onProgress?.({ total: 2, completed: 1, failed: 0 }),
+	);
+	expect(screen.getByRole("progressbar")).toHaveAttribute("value", "50");
+	await act(async () => finish({ total: 2, completed: 2, failed: 0 }));
+	expect(screen.getByText("Loaded records")).toBeInTheDocument();
+	expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+});

@@ -108,3 +108,35 @@ it("reports BIS failure and stops scheduling additional requests", async () => {
 	);
 	expect(refreshFimaBisMaterials).toHaveBeenCalledTimes(2);
 });
+
+it("refreshes a missing record number even when the material cache is fresh", async () => {
+	jest
+		.mocked(refreshFimaBisMaterials)
+		.mockResolvedValue(readFimaCollaboration(null));
+	render(
+		<FimaMaterialRefresh
+			siteId="project"
+			records={[
+				{
+					id: "record",
+					BISId: "123",
+					fimaBisRecords: [{ id: "123", number: null }],
+					fimaCollaboration: {
+						...readFimaCollaboration(null),
+						bisMaterials: {
+							fetchedAt: new Date().toISOString(),
+							entries: [{ bisId: "123", caseId: "456", materials: [] }],
+						},
+					},
+				},
+			]}
+			onChange={jest.fn()}
+		/>,
+	);
+	await waitFor(() =>
+		expect(refreshFimaBisMaterials).toHaveBeenCalledWith({
+			siteId: "project",
+			recordId: "record",
+		}),
+	);
+});

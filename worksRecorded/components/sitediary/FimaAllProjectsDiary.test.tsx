@@ -111,9 +111,13 @@ it("keeps action badges last, fits columns and omits removed source/labour colum
 		),
 	).toBeCloseTo(100);
 	expect(
-		within(screen.getByRole("table")).getByRole("link", { name: "123" }),
-	).toHaveAttribute(
-		"href",
-		"https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/123/edit?entry_ids%5B%5D=123",
-	);
+		screen.getByRole("columnheader", { name: "BIS ieraksta Nr." }),
+	).toBeInTheDocument();
+	expect(
+		screen.queryByRole("columnheader", { name: "BIS lietas Nr." }),
+	).not.toBeInTheDocument();
+	expect(
+		screen.queryByRole("columnheader", { name: "BIS ieraksts" }),
+	).not.toBeInTheDocument();
+	expect(screen.queryByText("123")).not.toBeInTheDocument();
 });

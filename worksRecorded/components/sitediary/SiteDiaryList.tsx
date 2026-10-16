@@ -3021,7 +3021,7 @@ export default function SiteDiaryCalendar({
     <TooltipProvider>
       <DiaryPhotoUploadProvider>
       {active && siteId && !error && (!hasLoadedRowsOnce || imagesPreloading) ? (
-        <ProjectOpeningOverlay label={language === "lv" ? "Ielādē būvdarbu žurnālu…" : "Loading construction diary…"} />
+        <ProjectOpeningOverlay label={language === "lv" ? "Ielādē būvdarbu žurnālu…" : "Loading construction diary…"} progress={imagesPreloading && pageImagesLoading ? diaryImageProgress : null} />
       ) : null}
       <div
         className={cn("w-full mx-auto px-2 sm:px-4 py-4", fimaDiary && fimaPanelRow && "xl:pr-[30rem]")}

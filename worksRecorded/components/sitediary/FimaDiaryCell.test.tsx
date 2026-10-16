@@ -214,3 +214,42 @@ it("shows associated BIS materials alongside prepared materials without duplicat
 	expect(screen.getAllByText(/Prepared insulator/)).toHaveLength(1);
 	expect(screen.getByText(/BIS bracket/)).toBeInTheDocument();
 });
+
+it("shows only the BIS record number and links to that record instead of the case", () => {
+	render(
+		<FimaDiaryCell
+			field="FimaBisCase"
+			siteId={siteId}
+			caseId="668714"
+			caseNumber="BIS-BL-668714"
+			row={{
+				id: "record",
+				BISId: "7787127",
+				fimaBisRecords: [{ id: "7787127", number: "653" }],
+			}}
+			onChange={jest.fn()}
+		/>,
+	);
+	const link = screen.getByRole("link", { name: "653" });
+	expect(link).toHaveAttribute(
+		"href",
+		"https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/7787127/edit?entry_ids%5B%5D=7787127",
+	);
+	expect(link).toHaveAttribute("target", "_blank");
+	expect(screen.queryByText("BIS-BL-668714")).not.toBeInTheDocument();
+	expect(screen.queryByText("7787127")).not.toBeInTheDocument();
+});
+it("leaves an unlinked BIS record cell blank instead of showing the project case", () => {
+	render(
+		<FimaDiaryCell
+			field="FimaBisCase"
+			siteId={siteId}
+			caseId="668714"
+			caseNumber="BIS-BL-668714"
+			row={{ id: "record" }}
+			onChange={jest.fn()}
+		/>,
+	);
+	expect(screen.queryByRole("link")).not.toBeInTheDocument();
+	expect(screen.queryByText("BIS-BL-668714")).not.toBeInTheDocument();
+});

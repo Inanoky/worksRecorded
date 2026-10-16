@@ -1,3 +1,4 @@
+import { readFimaBisRecordLinks } from "@/lib/fima/bis-record-links";
 import type { Prisma } from "@prisma/client";
 
 import { isFimaDiary, readFimaCollaboration } from "@/lib/fima/diary-collaboration";
@@ -99,6 +100,7 @@ function addActualCosts(
           Works_Custom_1,
           Works_Custom_2,
           hasFimaBisReferences: Array.isArray(bisLinks) && bisLinks.length > 0,
+          fimaBisRecords: readFimaBisRecordLinks(evalMetadata, record.BISId),
           fimaCollaboration: readFimaCollaboration(evalMetadata),
           bisCaseId: Site?.bisCaseId ?? null,
           bisCaseNumber: Site?.bisCaseNumber ?? null,

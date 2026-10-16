@@ -120,20 +120,24 @@ it("allows switching records from the list and retains each unsent comment draft
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
 	);
 });
-it("makes the table case number a new-tab BIS link without opening the record panel", () => {
+it("makes the table record number a new-tab BIS link without opening the record panel", () => {
 	const onOpen = jest.fn();
 	render(
 		<FimaDiaryCell
 			field="FimaBisCase"
 			siteId="site"
-			row={{ id: "record" }}
+			row={{
+				id: "record",
+				BISId: "7787127",
+				fimaBisRecords: [{ id: "7787127", number: "653" }],
+			}}
 			caseId="668714"
 			caseNumber="BIS-BL-668714-524"
 			onOpenRecord={onOpen}
 			onChange={jest.fn()}
 		/>,
 	);
-	const link = screen.getByRole("link", { name: "BIS-BL-668714-524" });
+	const link = screen.getByRole("link", { name: "653" });
 	expect(link).toHaveAttribute("target", "_blank");
 	fireEvent.click(link);
 	expect(onOpen).not.toHaveBeenCalled();

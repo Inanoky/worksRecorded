@@ -36,6 +36,7 @@ import {
   siteDiaryPhotoPurposeWhere,
 } from "@/lib/photos/media-purpose";
 import { isZtcProductionFlowRuntime } from "@/lib/production-flow/runtime-server";
+import { readFimaBisRecordLinks } from "@/lib/fima/bis-record-links";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { resolvePersistableAudioUrl } from "@/lib/utils/uploadthing-file-url";
@@ -2527,6 +2528,7 @@ function mapSiteDiaryListRecord(rec: any) {
 
   return {
     id: rec.id,
+    fimaBisRecords: readFimaBisRecordLinks(rec.evalMetadata, rec.BISId),
     hasFimaBisReferences: Array.isArray(rec.evalMetadata?.kuceImport?.bisLinks) && rec.evalMetadata.kuceImport.bisLinks.length > 0,
     fimaCollaboration: rec.evalMetadata?.fimaCollaboration ? readFimaCollaboration(rec.evalMetadata) : undefined,
     createdAt: rec.createdAt,

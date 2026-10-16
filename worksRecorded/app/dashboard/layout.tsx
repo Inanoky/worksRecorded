@@ -12,6 +12,7 @@ import {
 import { LanguageFlagSwitcher } from "@/components/dashboard/LanguageFlagSwitcher";
 import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
 import { clearUserTourAction } from "@/components/joyride/user-tour-action";
+import { ProjectLoadingProgressProvider } from "@/components/providers/ProjectLoadingProgressProvider";
 import { ProjectProvider } from "@/components/providers/ProjectProvider";
 import { DiarySaveProvider } from "@/flows/default-construction/frontend/DiarySaveProvider";
 import { Button } from "@/components/ui/button";
@@ -93,6 +94,7 @@ export default async function DashboardLayout({
 
 	return (
 		<ProjectProvider userId={userId}>
+			<ProjectLoadingProgressProvider enabled={flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}>
 			<FimaWarehouseProvider key={`${userId}-${organizationId ?? ""}`}>
 				<FimaSuiteTheme enabled={fimaCollaborationEnabled} />
 				{fimaCollaborationEnabled ? (
@@ -283,6 +285,7 @@ export default async function DashboardLayout({
 			</section>
 			</DiarySaveProvider>
 			</FimaWarehouseProvider>
+		</ProjectLoadingProgressProvider>
 		</ProjectProvider>
 	);
 }

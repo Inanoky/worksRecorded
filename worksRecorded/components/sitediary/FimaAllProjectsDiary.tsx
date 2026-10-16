@@ -34,6 +34,7 @@ type RecordRow = {
 	bisCaseNumber?: string | null;
 	hasFimaBisReferences?: boolean;
 	fimaCollaboration?: FimaCollaboration;
+	fimaBisRecords?: { id: string; number: string | null }[];
 	Site: { name: string } | null;
 };
 
@@ -46,8 +47,7 @@ const columns = [
 	["Maiņa", 7],
 	["Apjoms", 5],
 	["Materiāli", 34],
-	["BIS lietas Nr.", 8],
-	["BIS ieraksts", 6],
+	["BIS ieraksta Nr.", 8],
 	["Komentāri", 8],
 	["Rīcība", 18],
 ] as const;
@@ -207,18 +207,6 @@ export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
 									</TableCell>
 									<TableCell>{cell("FimaMaterials", row)}</TableCell>
 									<TableCell>{cell("FimaBisCase", row)}</TableCell>
-									<TableCell>
-										{row.BISId && /^\d+$/.test(row.BISId) ? (
-											<a
-												className="text-primary underline"
-												href={`https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/${row.BISId}/edit?entry_ids%5B%5D=${row.BISId}`}
-												target="_blank"
-												rel="noopener noreferrer"
-											>
-												{row.BISId}
-											</a>
-										) : null}
-									</TableCell>
 									<TableCell>{cell("FimaComments", row)}</TableCell>
 									<TableCell>{cell("FimaReviewStatus", row)}</TableCell>
 								</TableRow>
@@ -283,23 +271,9 @@ export function FimaAllProjectsDiary({ records }: { records: RecordRow[] }) {
 									{inline("Amounts", row)} {inline("Units", row)}
 								</dd>
 							</div>
-							<div>
-								<dt className="text-muted-foreground">BIS ieraksts</dt>
-								<dd>
-									{row.BISId && /^\d+$/.test(row.BISId) ? (
-										<a
-											className="text-primary underline"
-											href={`https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/${row.BISId}/edit?entry_ids%5B%5D=${row.BISId}`}
-											target="_blank"
-											rel="noopener noreferrer"
-										>
-											{row.BISId}
-										</a>
-									) : null}
-								</dd>
-							</div>
+
 							{[
-								["FimaBisCase", "BIS lietas Nr."],
+								["FimaBisCase", "BIS ieraksta Nr."],
 								["FimaMaterials", "Materiāli"],
 								["FimaComments", "Komentāri"],
 								["FimaReviewStatus", "Rīcība"],

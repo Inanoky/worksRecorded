@@ -2,6 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
+import { ProjectLoadingProgressBar } from "@/components/providers/ProjectLoadingProgressBar";
 import { useDiaryImagePreload } from "./useDiaryImagePreload";
 
 export function AllProjectsPhotoPreloader({
@@ -20,15 +21,24 @@ export function AllProjectsPhotoPreloader({
 		return (
 			<output
 				aria-live="polite"
-				className="flex min-h-64 items-center justify-center gap-3 text-sm text-muted-foreground"
+				className="flex min-h-64 flex-col items-center justify-center gap-3 px-6 text-sm text-muted-foreground"
 			>
-				<Loader2 aria-hidden="true" className="size-5 animate-spin" />
+				<Loader2
+					aria-hidden="true"
+					className="size-5 motion-safe:animate-spin"
+				/>
 				{lv ? "Ielādē projektu foto…" : "Loading project photos…"}
 				{progress ? (
 					<span className="tabular-nums">
 						{progress.completed} / {progress.total}
 					</span>
 				) : null}
+				<div className="w-full max-w-sm">
+					<ProjectLoadingProgressBar
+						label={lv ? "Ielādē projektu foto…" : "Loading project photos…"}
+						progress={progress}
+					/>
+				</div>
 			</output>
 		);
 	}

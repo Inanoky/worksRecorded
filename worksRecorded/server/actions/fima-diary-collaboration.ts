@@ -3,6 +3,7 @@
 import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { fimaBisRecordNumber } from "@/lib/fima/bis-record-links";
 import {
 	appendFimaEvent,
 	fimaMaterialSchema,
@@ -169,7 +170,9 @@ export async function refreshFimaBisMaterials(
 	const input = scopeSchema.parse(args);
 	const scope = await requireScope(input);
 	const metadata = scope.record.evalMetadata as {
-		kuceImport?: { bisLinks?: { id: string; caseId: string }[] };
+		kuceImport?: {
+			bisLinks?: { id: string; caseId: string; number?: string | null }[];
+		};
 	} | null;
 	const references = [...(metadata?.kuceImport?.bisLinks ?? [])];
 	if (
@@ -209,15 +212,19 @@ export async function refreshFimaBisMaterials(
 				);
 			return res.json();
 		};
-		const [list, reference] = await Promise.all([
+		const [list, reference, recordData] = await Promise.all([
 			get(`${path}/logbook_used_construction_materials`),
 			get(`${path}/reference_data`),
+			fimaBisRecordNumber(ref.number) ? Promise.resolve(null) : get(path),
 		]);
 		if (!Array.isArray(list.data) || list.links?.next)
 			throw new Error("BIS atgrieza nepilnīgu materiālu sarakstu.");
 		entries.push({
 			bisId: ref.id,
 			caseId: ref.caseId,
+			number:
+				fimaBisRecordNumber(recordData?.data?.attributes?.doc_number) ??
+				fimaBisRecordNumber(ref.number),
 			materials: parseBisRecordMaterials(list.data, reference),
 		});
 	}

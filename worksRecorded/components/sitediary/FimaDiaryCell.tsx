@@ -11,11 +11,14 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+	getFimaBisRecordUrl,
+	readFimaBisRecordLinks,
+} from "@/lib/fima/bis-record-links";
 import type {
 	FimaCollaboration,
 	FimaMaterial,
 } from "@/lib/fima/diary-collaboration";
-import { getFimaBisCaseUrl } from "@/lib/fima/record-panel";
 import {
 	getFimaAvailableMaterials,
 	getFimaDiaryCollaboration,
@@ -59,8 +62,6 @@ export function FimaDiaryCell({
 	field,
 	siteId,
 	row,
-	caseNumber,
-	caseId,
 	onOpenRecord,
 	materialEditor = false,
 	onChange,
@@ -106,19 +107,30 @@ export function FimaDiaryCell({
 		};
 	}, [open, row.id, siteId, onChange, isMaterials]);
 	if (field === "FimaBisCase") {
-		const url = getFimaBisCaseUrl(caseId);
-		return url ? (
-			<a
-				href={url}
-				target="_blank"
-				rel="noopener noreferrer"
-				className="break-words text-primary underline underline-offset-2"
-				onClick={(event) => event.stopPropagation()}
-			>
-				{caseNumber || `BIS lieta ${caseId}`}
-			</a>
-		) : (
-			<span className="break-words">{caseNumber || "Nav piesaistīta"}</span>
+		const links = readFimaBisRecordLinks(
+			{
+				kuceImport: { bisLinks: row.fimaBisRecords },
+				fimaCollaboration: state,
+			},
+			row.BISId,
+		);
+		return (
+			<span className="flex flex-wrap gap-x-2 gap-y-1">
+				{links
+					.filter((link) => link.number)
+					.map((link) => (
+						<a
+							key={link.id}
+							href={getFimaBisRecordUrl(link.id) ?? undefined}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-primary underline underline-offset-2 tabular-nums"
+							onClick={(event) => event.stopPropagation()}
+						>
+							{link.number}
+						</a>
+					))}
+			</span>
 		);
 	}
 	if (!row.id) return <span>—</span>;

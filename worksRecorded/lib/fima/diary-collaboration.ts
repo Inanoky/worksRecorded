@@ -32,7 +32,12 @@ export type FimaCollaboration = {
 	history: FimaEvent[];
 	bisMaterials?: {
 		fetchedAt: string;
-		entries: { bisId: string; caseId: string; materials: FimaMaterial[] }[];
+		entries: {
+			bisId: string;
+			caseId: string;
+			number?: string | null;
+			materials: FimaMaterial[];
+		}[];
 	};
 };
 export const fimaVirtualFields = [
@@ -104,7 +109,7 @@ export function withFimaDiaryColumns(
 	}
 	const specs: [string, string, number, number][] = [
 		["FimaReviewStatus", "Rīcība", 1000, 220],
-		["FimaBisCase", "BIS lietas Nr.", 1.5, 100],
+		["FimaBisCase", "BIS ieraksta Nr.", 1.5, 100],
 		["FimaMaterials", "Materiāli", 7.5, 500],
 		["FimaComments", "Komentāri", 9.5, 145],
 	];

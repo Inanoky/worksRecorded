@@ -149,3 +149,17 @@
     transform: none;
   }
 }
+
+@keyframes project-loading-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+
+.project-loading-bar-indeterminate {
+  width: 35%;
+  animation: project-loading-slide 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-loading-bar-indeterminate { animation: none; }
+}

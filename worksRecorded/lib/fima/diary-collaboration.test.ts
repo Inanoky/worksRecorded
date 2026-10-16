@@ -163,3 +163,12 @@ it("uses the requested description headers and gives materials the widest data c
 			result[field].customSettings?.cellWidth as number,
 		);
 });
+
+it("labels the FIMA link column as a BIS record number", () => {
+	expect(
+		withFimaDiaryColumns(
+			{ otherSettings: { fimaCollaboration: true } },
+			"BIS-BL-123",
+		).FimaBisCase.DisplayName,
+	).toBe("BIS ieraksta Nr.");
+});

@@ -192,3 +192,52 @@ it("keeps the previous BIS material snapshot if BIS is unavailable", async () =>
 	expect(prisma.$executeRaw).not.toHaveBeenCalled();
 	expect(JSON.stringify(metadata)).toBe(before);
 });
+
+it.each([null, "653"])(
+	"caches the BIS document number, fetching details only when missing: %s",
+	async (number) => {
+		metadata.kuceImport = { bisLinks: [{ id: "123", caseId: "456", number }] };
+		jest.mocked(prisma.site.findUnique).mockResolvedValue({
+			organizationId: "fima",
+			bisCaseId: "456",
+			siteDiaryRecordsMap: { otherSettings: { fimaCollaboration: true } },
+		} as never);
+		jest.mocked(prisma.sitediaryrecords.findFirst).mockResolvedValue({
+			id: "record",
+			BISId: "123",
+			evalMetadata: metadata,
+		} as never);
+		jest
+			.mocked(prisma.site.findMany)
+			.mockResolvedValue([{ id: scope.siteId, bisCaseId: "456" }] as never);
+		jest
+			.mocked(requireBisAccessTokenForSite)
+			.mockResolvedValue({ accessToken: "test-token" } as never);
+		jest.mocked(bisFetch).mockImplementation(
+			async (_base, path) =>
+				({
+					ok: true,
+					json: async () =>
+						String(path).endsWith("/reference_data")
+							? { used_construction_materials: [] }
+							: String(path).endsWith("/logbook_used_construction_materials")
+								? { data: [] }
+								: { data: { attributes: { doc_number: "653" } } },
+				}) as never,
+		);
+		await refreshFimaBisMaterials(scope);
+		const snapshot = jest
+			.mocked(prisma.$executeRaw)
+			.mock.calls[0].find(
+				(value) =>
+					typeof value === "string" &&
+					value.startsWith("{") &&
+					value.includes('"entries"'),
+			);
+		expect(JSON.parse(String(snapshot)).entries[0]).toMatchObject({
+			bisId: "123",
+			number: "653",
+		});
+		expect(bisFetch).toHaveBeenCalledTimes(number ? 2 : 3);
+	},
+);
