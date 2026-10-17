@@ -3,13 +3,14 @@
 import { Prisma } from "@prisma/client";
 import { Resend } from "resend";
 import { z } from "zod";
+import { InvitationEmail } from "@/components/email/InvitationEmail";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import {
   enableDefaultConstructionQuantityProfile,
   hasDefaultConstructionQuantityProfile,
 } from "@/flows/default-construction/lib/quantity-plan-actual";
-import { prisma } from "@/lib/utils/db";
 import { isZtcProductionFlowRuntime } from "@/lib/production-flow/runtime-server";
+import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { sendManualWhatsappReminder } from "@/lib/whatsapp-reminders/engine";
 import { orgCheck } from "@/server/actions/shared-actions";
@@ -58,22 +59,18 @@ export async function inviteUserByEmail(formData: FormData) {
     )}`;
 
     console.log("[inviteUserByEmail] prepared link:", link);
-    console.log("[inviteUserByEmail] from domain:", "no-reply@buvconsult.com");
+    console.log("[inviteUserByEmail] from domain:", "noreply@updates.worksrecorded.com");
     console.log("[inviteUserByEmail] has RESEND_API_KEY:", hasKey);
 
     // TIP: Resend requires a verified sending domain (DNS DKIM set up).
     // If domain isn't verified, you'll typically get 403 or a descriptive error.
 
     const result = await resend.emails.send({
-      from: "BUVCONSULT <invite@no-reply.buvconsult.com>",
+      from: "WorksRecorded <noreply@updates.worksrecorded.com>",
       to: email,
       subject: "WorksRecorded – Invitation to join",
-      html: `
-        <p>You have been invited to join <b>WorksRecorded</b>.</p>
-        <p><a href="${link}">Click here to create your account</a></p>
-        <p>If the button does not work, copy and paste this link:</p>
-        <p>${link}</p>
-      `,
+      react: InvitationEmail({ invitationUrl: link }),
+      text: `You have been invited to join WorksRecorded. Create your account: ${link}`,
     });
 
     // Resend returns `{ id?: string, error?: any }`
