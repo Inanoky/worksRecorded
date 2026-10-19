@@ -4,6 +4,7 @@ import {
 	type FimaCollaboration,
 	readFimaCollaboration,
 } from "@/lib/fima/diary-collaboration";
+import type { FimaExampleSources } from "@/lib/fima/example-sources";
 import {
 	commonDiaryListSelect,
 	mapCommonDiaryListRecord,
@@ -19,6 +20,7 @@ export type ConstructionDiaryListRow = ReturnType<
 	typeof mapCommonDiaryListRecord
 > & {
 	fimaNumber?: number | null;
+	fimaExampleSources?: FimaExampleSources;
 	fimaBisRecords?: ReturnType<typeof readFimaBisRecordLinks>;
 	hasFimaBisReferences?: boolean;
 	fimaCollaboration?: FimaCollaboration;

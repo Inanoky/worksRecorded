@@ -8,6 +8,7 @@ import {
 	fimaStatuses,
 } from "@/lib/fima/diary-collaboration";
 import { formatFimaDiaryNumber } from "@/lib/fima/diary-number";
+import type { FimaExampleSources } from "@/lib/fima/example-sources";
 import { getFimaBisCaseUrl } from "@/lib/fima/record-panel";
 import { FimaDiaryCell } from "./FimaDiaryCell";
 import { FimaRecordHistory } from "./FimaRecordHistory";
@@ -21,6 +22,7 @@ type Row = {
 	Date?: string | Date | null;
 	BISId?: string | null;
 	fimaCollaboration?: FimaCollaboration;
+	fimaExampleSources?: FimaExampleSources;
 };
 type Props = {
 	siteId: string;

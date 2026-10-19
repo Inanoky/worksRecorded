@@ -11,6 +11,9 @@ import {
 } from "@/components/dashboard/DashboardItems";
 import { LanguageFlagSwitcher } from "@/components/dashboard/LanguageFlagSwitcher";
 import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
+import { ProdevSuiteLogo } from "@/components/dashboard/ProdevSuiteLogo";
+import { ProdevSuiteTheme } from "@/components/dashboard/ProdevSuiteTheme";
+import { isProdevOrganization } from "@/lib/branding/prodev";
 import { clearUserTourAction } from "@/components/joyride/user-tour-action";
 import { ProjectLoadingProgressProvider } from "@/components/providers/ProjectLoadingProgressProvider";
 import { ProjectProvider } from "@/components/providers/ProjectProvider";
@@ -69,7 +72,7 @@ export default async function DashboardLayout({
 		userId,
 		requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host"),
 	);
-	const [allHeaderProjects, flowModuleKey] = await Promise.all([
+	const [allHeaderProjects, flowModuleKey, organization] = await Promise.all([
 		prisma.site.findMany({
 			where: isSuperUser ? {} : { organizationId: organizationId ?? "" },
 				select: { id: true, name: true, organizationId: true, siteDiaryRecordsMap: true, bisCaseId: true },
@@ -78,8 +81,12 @@ export default async function DashboardLayout({
 		isSuperUser
 			? Promise.resolve(null)
 			: resolveFlowModuleKeyForRuntime({ organizationId }),
+		!isSuperUser && organizationId
+			? prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } })
+			: Promise.resolve(null),
 	]);
 	const fimaCollaborationEnabled = !isSuperUser && allHeaderProjects.some((project) => isFimaDiary(project.siteDiaryRecordsMap));
+	const prodevSuiteEnabled = !isSuperUser && !fimaCollaborationEnabled && isProdevOrganization(organization?.name);
 	let headerProjects = allHeaderProjects.map(({ siteDiaryRecordsMap: _, bisCaseId: _bis, ...project }) => project);
 	if (
 		flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL &&
@@ -97,13 +104,14 @@ export default async function DashboardLayout({
 			<ProjectLoadingProgressProvider enabled={flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}>
 			<FimaWarehouseProvider key={`${userId}-${organizationId ?? ""}`}>
 				<FimaSuiteTheme enabled={fimaCollaborationEnabled} />
+				<ProdevSuiteTheme enabled={prodevSuiteEnabled} />
 				{fimaCollaborationEnabled ? (
 					<FimaProjectWarehousePreload
 						siteIds={allHeaderProjects.filter(project => project.bisCaseId && isFimaDiary(project.siteDiaryRecordsMap)).map(project => project.id)}
 					/>
 				) : null}
 			<DiarySaveProvider key={userId} userId={userId} projects={headerProjects} language={organizationLanguage}>
-			<section className={fimaCollaborationEnabled ? "fima-suite min-h-screen w-full flex flex-col" : "min-h-screen w-full flex flex-col"}>
+			<section className={`${fimaCollaborationEnabled ? "fima-suite " : prodevSuiteEnabled ? "prodev-suite " : ""}min-h-screen w-full flex flex-col`}>
 				{/* CSS-only modal (hash :target) */}
 				<style>{`
           #contact-modal {
@@ -135,9 +143,10 @@ export default async function DashboardLayout({
 
 							<Link
 								href="/"
+								aria-label={prodevSuiteEnabled ? "WorksRecorded — ProDev business suite" : undefined}
 								className="flex items-center gap-2 font-semibold shrink-0"
 							>
-								<FimaSuiteLogo enabled={fimaCollaborationEnabled} />
+								{prodevSuiteEnabled ? <ProdevSuiteLogo /> : <FimaSuiteLogo enabled={fimaCollaborationEnabled} />}
 							</Link>
 
 							<nav className="ml-2 hidden min-w-0 flex-1 items-center lg:flex">

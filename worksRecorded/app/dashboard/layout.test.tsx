@@ -6,6 +6,7 @@ const mockResolveFlowModuleKeyForRuntime = jest.fn();
 const mockLoadTgemAccessScope = jest.fn();
 const mockVisibleTgemSites = jest.fn();
 const mockSiteFindMany = jest.fn();
+const mockOrganizationFindUnique = jest.fn();
 
 jest.mock("@kinde-oss/kinde-auth-nextjs/components", () => ({
 	LogoutLink: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -47,6 +48,24 @@ jest.mock("@/components/providers/ProjectProvider", () => ({
 		<>{children}</>
 	),
 }));
+jest.mock("@/components/providers/ProjectLoadingProgressProvider", () => ({
+	ProjectLoadingProgressProvider: ({
+		children,
+	}: {
+		children: React.ReactNode;
+	}) => <>{children}</>,
+}));
+jest.mock("@/components/sitediary/FimaWarehouseProvider", () => ({
+	FimaWarehouseProvider: ({ children }: { children: React.ReactNode }) => (
+		<>{children}</>
+	),
+	FimaProjectWarehousePreload: () => null,
+}));
+jest.mock("@/flows/default-construction/frontend/DiarySaveProvider", () => ({
+	DiarySaveProvider: ({ children }: { children: React.ReactNode }) => (
+		<>{children}</>
+	),
+}));
 jest.mock("@/components/joyride/user-tour-action", () => ({
 	clearUserTourAction: jest.fn(),
 }));
@@ -73,6 +92,9 @@ jest.mock("@/lib/utils/ai-context-access", () => ({
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
 		site: { findMany: (...args: unknown[]) => mockSiteFindMany(...args) },
+		organization: {
+			findUnique: (...args: unknown[]) => mockOrganizationFindUnique(...args),
+		},
 	},
 }));
 jest.mock("@/lib/utils/super-user", () => ({
@@ -100,6 +122,7 @@ describe("DashboardLayout project visibility", () => {
 		mockRequireUser.mockResolvedValue({ id: "user-1" });
 		mockIsSuperUserId.mockReturnValue(false);
 		mockSiteFindMany.mockResolvedValue(projects);
+		mockOrganizationFindUnique.mockResolvedValue({ name: "Other company" });
 		mockLoadTgemAccessScope.mockResolvedValue({ organizationId: "org-1" });
 		mockVisibleTgemSites.mockReturnValue([projects[0]]);
 	});
@@ -145,5 +168,42 @@ describe("DashboardLayout project visibility", () => {
 			"Visible project,Hidden project",
 		);
 		expect(mockResolveFlowModuleKeyForRuntime).not.toHaveBeenCalled();
+		expect(mockOrganizationFindUnique).not.toHaveBeenCalled();
+	});
+
+	it("shows ProDev business suite branding only for the signed-in organization", async () => {
+		mockOrganizationFindUnique.mockResolvedValue({ name: "ProDev" });
+		mockResolveFlowModuleKeyForRuntime.mockResolvedValue(
+			"default-construction",
+		);
+		const { container } = render(
+			await DashboardLayout({ children: <div>Page</div> }),
+		);
+		expect(mockOrganizationFindUnique).toHaveBeenCalledWith({
+			where: { id: "org-1" },
+			select: { name: true },
+		});
+		expect(screen.getByAltText("PRO DEV")).toBeInTheDocument();
+		expect(screen.getByText("business suite")).toBeInTheDocument();
+		expect(container.querySelector(".prodev-suite")).not.toBeNull();
+		expect(document.documentElement.dataset.prodevSuite).toBe("true");
+		expect(screen.queryByAltText("FIMA")).not.toBeInTheDocument();
+	});
+
+	it("keeps FIMA branding separate from ProDev", async () => {
+		mockOrganizationFindUnique.mockResolvedValue({ name: "FIMA" });
+		mockSiteFindMany.mockResolvedValue([
+			{
+				...projects[0],
+				siteDiaryRecordsMap: { otherSettings: { fimaCollaboration: true } },
+			},
+		]);
+		mockResolveFlowModuleKeyForRuntime.mockResolvedValue(
+			"default-construction",
+		);
+		render(await DashboardLayout({ children: <div>Page</div> }));
+		expect(screen.getByAltText("FIMA")).toBeInTheDocument();
+		expect(screen.queryByAltText("PRO DEV")).not.toBeInTheDocument();
+		expect(document.documentElement.dataset.prodevSuite).toBeUndefined();
 	});
 });

@@ -3,6 +3,7 @@
 import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { buildFimaExampleSourceWhere } from "@/flows/default-construction/backend/fima-example-sources";
 import { fimaBisRecordNumber } from "@/lib/fima/bis-record-links";
 import {
 	appendFimaEvent,
@@ -90,6 +91,40 @@ export async function getFimaDiaryCollaboration(
 ) {
 	const input = scopeSchema.parse(args);
 	return readFimaCollaboration((await requireScope(input)).record.evalMetadata);
+}
+export async function getFimaExampleSource(
+	args: z.input<typeof scopeSchema> & { bisId: string; sourceRecordId: string },
+) {
+	const input = scopeSchema
+		.extend({
+			bisId: z.string().regex(/^\d+$/).max(32),
+			sourceRecordId: z.string().min(1).max(128),
+		})
+		.parse(args);
+	const scope = await requireScope(input);
+	const examples = readFimaCollaboration(scope.record.evalMetadata).examples;
+	if (!examples?.entries.some((entry) => entry.id === input.bisId))
+		throw new Error("BIS paraugs šim ierakstam nav pieejams.");
+	if (!scope.site.organizationId) throw new Error("Nav piekļuves projektam.");
+	const source = await prisma.sitediaryrecords.findFirst({
+		where: {
+			...buildFimaExampleSourceWhere(scope.site.organizationId, [input.bisId]),
+			id: input.sourceRecordId,
+		},
+		select: {
+			id: true,
+			siteId: true,
+			fimaNumber: true,
+			Works: true,
+			Works_Custom_1: true,
+			Date: true,
+			Location: true,
+			originalUserComment: true,
+			Site: { select: { name: true } },
+		},
+	});
+	if (!source) throw new Error("KUCE avots vairs nav pieejams.");
+	return source;
 }
 export async function getFimaAvailableMaterials(
 	args: z.input<typeof scopeSchema>,

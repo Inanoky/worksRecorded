@@ -7,6 +7,7 @@ import { orgCheck } from "@/server/actions/shared-actions";
 import { getBisCaseAvailableMaterials } from "@/server/actions/site-diary-actions";
 import {
 	getFimaDiaryCollaboration,
+	getFimaExampleSource,
 	refreshFimaBisMaterials,
 	saveFimaDiaryCollaboration,
 } from "./fima-diary-collaboration";
@@ -99,6 +100,74 @@ it("requires the record to belong to the requested site and organization", async
 			}),
 		}),
 	);
+});
+it("opens only a source linked to an example on the authorized record and within the same organization", async () => {
+	metadata.fimaCollaboration = {
+		examples: {
+			entries: [
+				{
+					id: "123",
+					label: "BIS 123",
+					url: "https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/123",
+				},
+			],
+		},
+	};
+	const source = { id: "source", Works: "Console assembly", fimaNumber: 42 };
+	jest
+		.mocked(prisma.sitediaryrecords.findFirst)
+		.mockResolvedValueOnce({ id: "record", evalMetadata: metadata } as never)
+		.mockResolvedValueOnce(source as never);
+	await expect(
+		getFimaExampleSource({ ...scope, bisId: "123", sourceRecordId: "source" }),
+	).resolves.toEqual(source);
+	expect(prisma.sitediaryrecords.findFirst).toHaveBeenLastCalledWith(
+		expect.objectContaining({
+			where: expect.objectContaining({
+				id: "source",
+				archivedAt: null,
+				Site: expect.objectContaining({ organizationId: "fima" }),
+			}),
+		}),
+	);
+});
+it("rejects a BIS reference that is not an example on the requesting record", async () => {
+	await expect(
+		getFimaExampleSource({ ...scope, bisId: "999", sourceRecordId: "source" }),
+	).rejects.toThrow("BIS paraugs");
+	expect(prisma.sitediaryrecords.findFirst).toHaveBeenCalledTimes(1);
+});
+it("denies another organization's member before loading a KUCE source", async () => {
+	jest.mocked(orgCheck).mockResolvedValue(false);
+	await expect(
+		getFimaExampleSource({ ...scope, bisId: "123", sourceRecordId: "source" }),
+	).rejects.toThrow("Nav piekļuves");
+	expect(prisma.sitediaryrecords.findFirst).not.toHaveBeenCalled();
+});
+
+it("rejects a source record that does not satisfy the authorized BIS association", async () => {
+	metadata.fimaCollaboration = {
+		examples: {
+			entries: [
+				{
+					id: "123",
+					label: "BIS 123",
+					url: "https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/123",
+				},
+			],
+		},
+	};
+	jest
+		.mocked(prisma.sitediaryrecords.findFirst)
+		.mockResolvedValueOnce({ id: "record", evalMetadata: metadata } as never)
+		.mockResolvedValueOnce(null);
+	await expect(
+		getFimaExampleSource({
+			...scope,
+			bisId: "123",
+			sourceRecordId: "unrelated-record",
+		}),
+	).rejects.toThrow("KUCE avots vairs nav pieejams");
 });
 it("appends authenticated comments without replacing KUCE provenance and retries safely", async () => {
 	const args = {

@@ -1,6 +1,7 @@
 import { readFimaBisRecordLinks } from "@/lib/fima/bis-record-links";
 import type { FimaDiaryFilters } from "@/lib/fima/diary-filters";
 import { buildFimaDiaryFilterWhere } from "./fima-diary-filters";
+import { withFimaExampleSources } from "./fima-example-sources";
 import type { Prisma } from "@prisma/client";
 
 import { isFimaDiary, readFimaCollaboration } from "@/lib/fima/diary-collaboration";
@@ -246,7 +247,7 @@ export async function loadAllProjectsDiary(
   return {
     fimaCollaborationEnabled: projects.some((project) => isFimaDiary(project.siteDiaryRecordsMap)),
     projects: projects.map(({ siteDiaryRecordsMap: _, ...project }) => project),
-    records: addActualCosts(records, organizationId),
+    records: await withFimaExampleSources(organizationId, addActualCosts(records, organizationId)),
     photoUrls: normalizeDiaryPhotoUrls(
       photoRecords.flatMap((record) => record.Photos ?? []),
     ).sort(),

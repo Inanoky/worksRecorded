@@ -1,6 +1,7 @@
 "use server";
 import { BisDiarySyncCache, syncLinkedBisRecords } from "@/lib/bis/diary-record-sync";
 import { withFimaDiaryColumns } from "@/lib/fima/diary-collaboration";
+import { withFimaExampleSources } from "@/flows/default-construction/backend/fima-example-sources";
 import type { FimaDiaryFilters } from "@/lib/fima/diary-filters";
 import { buildFimaDiaryFilterWhere } from "@/flows/default-construction/backend/fima-diary-filters";
 import {
@@ -2594,9 +2595,15 @@ export async function getSiteDiaryRecordsPage(
             prisma.sitediaryrecords.count({ where }),
           ]),
     );
-    const rows = useZtcRecords
+    let rows: ConstructionDiaryListRow[] = useZtcRecords
       ? records.map(mapZtcDiaryListRecord)
       : records.map(mapConstructionDiaryListRecord);
+    if (!useZtcRecords && rows.some(row => row.fimaCollaboration?.examples?.entries.length)) {
+      const user = await requireUser();
+      const site = await orgCheck(user.id, siteId);
+      if (!site || !site.organizationId) throw new Error("Nav piekļuves projektam.");
+      rows = await withFimaExampleSources(site.organizationId, rows);
+    }
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
     trace.end({

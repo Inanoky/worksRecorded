@@ -11,6 +11,7 @@ import {
 	type AllProjectsDiaryFilters,
 	buildAllProjectsDiaryWhere,
 } from "./all-projects-diary";
+import { withFimaExampleSources } from "./fima-example-sources";
 
 export type FimaPageFilters = AllProjectsDiaryFilters & {
 	projectView?: boolean;
@@ -126,5 +127,11 @@ export async function loadFimaDiaryPage(
 			};
 		},
 	);
-	return { rows, page, pageSize, totalCount, totalPages };
+	return {
+		rows: await withFimaExampleSources(organizationId, rows),
+		page,
+		pageSize,
+		totalCount,
+		totalPages,
+	};
 }

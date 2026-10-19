@@ -16,7 +16,9 @@ import {
 } from "@/lib/fima/bis-record-links";
 import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
 import { formatFimaDiaryNumber } from "@/lib/fima/diary-number";
+import type { FimaExampleSources } from "@/lib/fima/example-sources";
 import { FimaCommentCell } from "./FimaCommentCell";
+import { FimaExamplesCell } from "./FimaExamplesCell";
 import { FimaMaterialPicker } from "./FimaMaterialPicker";
 import { FimaRecordHistory } from "./FimaRecordHistory";
 import { FimaReviewBadge } from "./FimaReviewBadge";
@@ -28,6 +30,7 @@ type Props = {
 		id?: string;
 		BISId?: string | null;
 		fimaCollaboration?: FimaCollaboration;
+		fimaExampleSources?: FimaExampleSources;
 		[key: string]: unknown;
 	};
 	caseNumber?: string | null;
@@ -65,30 +68,12 @@ export function FimaDiaryCell({
 		const examples = readFimaBisExamples(state.examples, state.history);
 		if (!examples) return null;
 		return (
-			<div className="space-y-2 text-xs" data-fima-interactive>
-				{examples.note ? (
-					<p className="whitespace-pre-wrap text-muted-foreground">
-						{examples.note}
-					</p>
-				) : null}
-				{examples.entries.length ? (
-					<ul className="list-disc space-y-2 pl-4 marker:text-primary">
-						{examples.entries.map((entry) => (
-							<li key={entry.url}>
-								<a
-									href={entry.url}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="whitespace-normal leading-relaxed text-primary underline underline-offset-2"
-									onClick={(event) => event.stopPropagation()}
-								>
-									{entry.label}
-								</a>
-							</li>
-						))}
-					</ul>
-				) : null}
-			</div>
+			<FimaExamplesCell
+				siteId={siteId}
+				recordId={row.id}
+				examples={examples}
+				sources={row.fimaExampleSources}
+			/>
 		);
 	}
 	if (field === "FimaBisCase") {

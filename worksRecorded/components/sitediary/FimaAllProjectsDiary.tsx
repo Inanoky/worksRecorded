@@ -33,6 +33,7 @@ import {
 	fimaDiaryTableClassName,
 	groupFimaDiaryRows,
 } from "@/lib/fima/diary-table";
+import type { FimaExampleSources } from "@/lib/fima/example-sources";
 import type { FimaInlineField } from "@/lib/fima/inline-fields";
 import { isFimaInlineField } from "@/lib/fima/inline-fields";
 import { shouldOpenFimaRecordPanel } from "@/lib/fima/record-panel";
@@ -63,6 +64,7 @@ export type FimaAllProjectsRecordRow = {
 	bisCaseNumber?: string | null;
 	hasFimaBisReferences?: boolean;
 	fimaCollaboration?: FimaCollaboration;
+	fimaExampleSources?: FimaExampleSources;
 	fimaBisRecords?: { id: string; number: string | null }[];
 	Site: { name: string } | null;
 };

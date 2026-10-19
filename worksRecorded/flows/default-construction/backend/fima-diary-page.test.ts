@@ -145,3 +145,52 @@ it("maps project numeric fields to the existing diary format", async () => {
 		fimaCollaboration: { history: [], version: 0 },
 	});
 });
+
+it("includes the source KUCE descriptions beside examples in a paginated response", async () => {
+	findMany
+		.mockResolvedValueOnce([
+			{
+				id: "target",
+				siteId: "project",
+				Site: null,
+				evalMetadata: {
+					fimaCollaboration: {
+						examples: {
+							entries: [
+								{
+									id: "123",
+									label: "BIS 123",
+									url: "https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/123",
+								},
+							],
+						},
+					},
+				},
+			},
+		])
+		.mockResolvedValueOnce([
+			{
+				id: "source",
+				siteId: "another-project",
+				fimaNumber: 42,
+				Works: "Source KUCE work",
+				BISId: "123",
+				evalMetadata: null,
+			},
+		]);
+	const result = await loadFimaDiaryPage("org", { projectView: true });
+	expect(result.rows[0]).toMatchObject({
+		id: "target",
+		fimaExampleSources: {
+			"123": [
+				{
+					id: "source",
+					siteId: "another-project",
+					fimaNumber: 42,
+					work: "Source KUCE work",
+				},
+			],
+		},
+	});
+	expect(result.rows[0]).not.toHaveProperty("evalMetadata");
+});
