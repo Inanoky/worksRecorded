@@ -12,6 +12,7 @@ import { mergeFimaCollaboration } from "@/lib/fima/diary-list-summary";
 import { FimaInlineCell } from "./FimaInlineCell";
 import { isFimaInlineField, type FimaInlineField } from "@/lib/fima/inline-fields";
 import { FimaRecordPanel } from "@/components/sitediary/FimaRecordPanel";
+import { shouldOpenFimaRecordPanel } from "@/lib/fima/record-panel";
 import { FimaDiaryCell } from "@/components/sitediary/FimaDiaryCell";
 import { fimaVirtualFields, type FimaCollaboration } from "@/lib/fima/diary-collaboration";
 import { getBisWorkDescription } from "@/lib/bis/work-description";
@@ -4327,6 +4328,9 @@ export default function SiteDiaryCalendar({
                               {group.rows.map((r, idx) => (
                                 <div
                                   key={r.id ?? `${group.key}-${idx}`}
+                                  tabIndex={fimaDiary && r.id ? 0 : undefined}
+                                  onClick={(event) => { if (fimaDiary && shouldOpenFimaRecordPanel(event.target, event.currentTarget)) openFimaRecord(r, event.currentTarget); }}
+                                  onKeyDown={(event) => { if (fimaDiary && event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openFimaRecord(r, event.currentTarget); } }}
                                   className={cn(
                                     "rounded-md border bg-muted/40 p-2 text-[11px]",
                                     isZtcSite
@@ -5700,9 +5704,12 @@ export default function SiteDiaryCalendar({
                                     <TableBody>
                                       {formattedGroupRows.map((row, i) => (
                                         <TableRow
+                                          tabIndex={fimaDiary && row.id ? 0 : undefined}
                                           data-fima-active={fimaDiary && row.id === fimaRecordId ? "true" : undefined}
+                                          onClick={(event) => { if (fimaDiary && shouldOpenFimaRecordPanel(event.target, event.currentTarget)) openFimaRecord(group.rows[i] ?? row, event.currentTarget); }}
+                                          onKeyDown={(event) => { if (fimaDiary && event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openFimaRecord(group.rows[i] ?? row, event.currentTarget); } }}
                                           key={row.id ?? `${group.key}-${i}`}
-                                          className={cn(fimaDiary && "select-text data-[fima-active=true]:bg-red-50/60", showDayPlan ? planTone(planByRecordId.get(row.id ?? "")) : getDefaultConstructionQuantityToneClass(
+                                          className={cn(fimaDiary && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[fima-active=true]:bg-red-50/60", showDayPlan ? planTone(planByRecordId.get(row.id ?? "")) : getDefaultConstructionQuantityToneClass(
                                             getDefaultConstructionQuantityComparison(
                                               group.rows[i] ?? row,
                                               defaultMap,

@@ -1,6 +1,5 @@
 "use client";
 
-import { PanelRightOpen, Pencil } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,35 +55,10 @@ export function FimaDiaryCell({
 	const [busy, setBusy] = useState(false);
 	const state = row.fimaCollaboration ?? empty;
 	if (field === "FimaNumber") {
-		const number = formatFimaDiaryNumber(row.fimaNumber);
 		return (
-			<div className="flex flex-wrap items-center gap-1">
-				<span className="cursor-text select-text break-normal tabular-nums">
-					{number.startsWith("FIMA-") ? (
-						<>
-							FIMA-
-							<wbr />
-							{number.slice(5)}
-						</>
-					) : (
-						number
-					)}
-				</span>
-				{row.id && onOpenRecord ? (
-					<button
-						type="button"
-						aria-label={`Atvērt ierakstu ${number}`}
-						title="Atvērt ierakstu"
-						className="inline-flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						onClick={(event) => {
-							event.stopPropagation();
-							onOpenRecord();
-						}}
-					>
-						<PanelRightOpen aria-hidden="true" className="size-3.5" />
-					</button>
-				) : null}
-			</div>
+			<span className="tabular-nums whitespace-nowrap">
+				{formatFimaDiaryNumber(row.fimaNumber)}
+			</span>
 		);
 	}
 	if (field === "FimaExamples") {
@@ -171,26 +145,19 @@ export function FimaDiaryCell({
 						Pārvaldīt materiālus
 					</Button>
 				) : materials.length ? (
-					<div className="flex min-w-0 items-start gap-1">
-						<ul className="min-w-0 flex-1 list-disc space-y-2 pl-4 text-xs marker:text-primary">
-							{materials.map((material, index) => (
-								<li key={`${material.id}-${index}`}>
-									<span className="cursor-text select-text whitespace-normal text-left leading-relaxed">
-										{material.label} · {material.quantity} {material.unit}
-									</span>
-								</li>
-							))}
-						</ul>
-						<button
-							type="button"
-							aria-label="Pārvaldīt materiālus"
-							title="Pārvaldīt materiālus"
-							className="inline-flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-							onClick={() => setOpen(true)}
-						>
-							<Pencil aria-hidden="true" className="size-3" />
-						</button>
-					</div>
+					<ul className="list-disc space-y-2 pl-4 text-xs marker:text-primary">
+						{materials.map((material, index) => (
+							<li key={`${material.id}-${index}`}>
+								<button
+									type="button"
+									className="w-full whitespace-normal text-left leading-relaxed hover:text-primary"
+									onClick={() => setOpen(true)}
+								>
+									{material.label} · {material.quantity} {material.unit}
+								</button>
+							</li>
+						))}
+					</ul>
 				) : (
 					<button
 						type="button"

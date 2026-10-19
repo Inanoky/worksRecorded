@@ -44,27 +44,6 @@ it("displays the saved FIMA number as a read-only value without a network reques
 	expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
 	expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
 });
-it("keeps the FIMA number selectable and opens details only from its separate button", () => {
-	const open = jest.fn();
-	render(
-		<FimaDiaryCell
-			field="FimaNumber"
-			siteId={siteId}
-			row={{ id: "record", fimaNumber: 42 }}
-			onOpenRecord={open}
-			onChange={jest.fn()}
-		/>,
-	);
-	const number = screen.getByText("FIMA-000042");
-	fireEvent.click(number);
-	fireEvent.doubleClick(number);
-	expect(number.closest("button")).toBeNull();
-	expect(open).not.toHaveBeenCalled();
-	fireEvent.click(
-		screen.getByRole("button", { name: "Atvērt ierakstu FIMA-000042" }),
-	);
-	expect(open).toHaveBeenCalledTimes(1);
-});
 function Harness() {
 	const [state, setState] = useState(initial);
 	const change = useCallback(
@@ -96,7 +75,7 @@ it("opens shared history, saves a comment and displays its authenticated author"
 		],
 	});
 	render(<Harness />);
-	fireEvent.click(screen.getByRole("button", { name: "Atvērt komentārus" }));
+	fireEvent.click(screen.getByRole("button", { name: /Komentāri/ }));
 	const input = await screen.findByLabelText("Jauns komentārs");
 	fireEvent.change(input, { target: { value: "Pārbaudīt stiprinājumu" } });
 	fireEvent.click(screen.getByRole("button", { name: "Pievienot komentāru" }));
@@ -254,14 +233,6 @@ it("shows associated BIS materials alongside prepared materials without duplicat
 	);
 	expect(screen.getAllByText(/Prepared insulator/)).toHaveLength(1);
 	expect(screen.getByText(/BIS bracket/)).toBeInTheDocument();
-	const label = screen.getByText(/Prepared insulator/);
-	fireEvent.click(label);
-	fireEvent.doubleClick(label);
-	expect(label.closest("button")).toBeNull();
-	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-	expect(
-		screen.getByRole("button", { name: "Pārvaldīt materiālus" }),
-	).toBeEnabled();
 });
 
 it("shows only the BIS record number and links to that record instead of the case", () => {

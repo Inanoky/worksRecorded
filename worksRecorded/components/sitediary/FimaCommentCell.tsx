@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquare, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -85,30 +85,23 @@ export function FimaCommentCell({
 					</div>
 				</div>
 			) : (
-				<div className="min-w-0">
-					<p
-						className="min-h-8 min-w-0 cursor-text select-text whitespace-pre-wrap break-words px-1 py-1 text-left text-xs"
-						title={latest ? `${latest.actorName} · ${latest.at}` : undefined}
-					>
-						{latest?.text}
-					</p>
+				<div className="flex items-start gap-1">
 					<button
 						type="button"
-						aria-label="Atvērt komentārus"
-						title="Atvērt komentārus"
-						className="inline-flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						aria-label="Komentāri"
+						className="min-h-8 min-w-0 flex-1 rounded px-1 py-1 text-left text-xs hover:bg-primary/5"
+						title={latest ? `${latest.actorName} · ${latest.at}` : undefined}
 						onClick={onOpenRecord}
 					>
-						<MessageSquare aria-hidden="true" className="size-3" />
+						{latest?.text}
 					</button>
 					<button
 						type="button"
 						aria-label="Pievienot komentāru rindā"
-						title="Pievienot komentāru rindā"
-						className="inline-flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						className="mt-1 shrink-0 rounded p-1 text-muted-foreground opacity-0 hover:bg-primary/5 group-hover:opacity-100 group-focus-within:opacity-100"
 						onClick={() => setEditing(true)}
 					>
-						<Pencil aria-hidden="true" className="size-3" />
+						<Pencil className="size-3" />
 					</button>
 				</div>
 			)}
