@@ -15,6 +15,7 @@ import {
 	readFimaBisRecordLinks,
 } from "@/lib/fima/bis-record-links";
 import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
+import { formatFimaDiaryNumber } from "@/lib/fima/diary-number";
 import { FimaCommentCell } from "./FimaCommentCell";
 import { FimaMaterialPicker } from "./FimaMaterialPicker";
 import { FimaRecordHistory } from "./FimaRecordHistory";
@@ -53,6 +54,13 @@ export function FimaDiaryCell({
 	const [open, setOpen] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const state = row.fimaCollaboration ?? empty;
+	if (field === "FimaNumber") {
+		return (
+			<span className="tabular-nums whitespace-nowrap">
+				{formatFimaDiaryNumber(row.fimaNumber)}
+			</span>
+		);
+	}
 	if (field === "FimaExamples") {
 		const examples = readFimaBisExamples(state.examples, state.history);
 		if (!examples) return null;

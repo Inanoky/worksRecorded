@@ -136,10 +136,11 @@ it("applies combined workflow filters to both records and total count before pag
 
 it("maps project numeric fields to the existing diary format", async () => {
 	findMany.mockResolvedValue([
-		{ id: "row", Amounts: 2, Site: null, evalMetadata: null },
+		{ id: "row", fimaNumber: 42, Amounts: 2, Site: null, evalMetadata: null },
 	]);
 	const result = await loadFimaDiaryPage("org", { projectView: true });
 	expect(result.rows[0]).toMatchObject({
+		fimaNumber: 42,
 		Amounts: "2",
 		fimaCollaboration: { history: [], version: 0 },
 	});

@@ -58,6 +58,7 @@ export function formatFimaEventText(event: FimaEvent) {
 	return `${event.previousStatus !== undefined ? `${label(event.previousStatus)} → ` : ""}${label(event.status)}`;
 }
 export const fimaVirtualFields = [
+	"FimaNumber",
 	"FimaComments",
 	"FimaBisCase",
 	"FimaMaterials",

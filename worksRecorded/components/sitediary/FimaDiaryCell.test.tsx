@@ -31,6 +31,19 @@ beforeEach(() => {
 	jest.clearAllMocks();
 	jest.mocked(getFimaDiaryCollaboration).mockResolvedValue(initial);
 });
+it("displays the saved FIMA number as a read-only value without a network request", () => {
+	render(
+		<FimaDiaryCell
+			field="FimaNumber"
+			siteId={siteId}
+			row={{ id: "record", fimaNumber: 42 }}
+			onChange={jest.fn()}
+		/>,
+	);
+	expect(screen.getByText("FIMA-000042")).toBeInTheDocument();
+	expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+	expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
+});
 function Harness() {
 	const [state, setState] = useState(initial);
 	const change = useCallback(

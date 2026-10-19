@@ -11,12 +11,14 @@ import {
 
 export const constructionDiaryListSelect = {
 	...commonDiaryListSelect,
+	fimaNumber: true,
 	evalMetadata: true,
 } as const satisfies Prisma.sitediaryrecordsSelect;
 
 export type ConstructionDiaryListRow = ReturnType<
 	typeof mapCommonDiaryListRecord
 > & {
+	fimaNumber?: number | null;
 	fimaBisRecords?: ReturnType<typeof readFimaBisRecordLinks>;
 	hasFimaBisReferences?: boolean;
 	fimaCollaboration?: FimaCollaboration;
@@ -27,6 +29,7 @@ export function mapConstructionDiaryListRecord(
 ): ConstructionDiaryListRow {
 	return {
 		...mapCommonDiaryListRecord(rec),
+		fimaNumber: rec.fimaNumber ?? null,
 		fimaBisRecords: readFimaBisRecordLinks(rec.evalMetadata, rec.BISId),
 		hasFimaBisReferences:
 			Array.isArray(rec.evalMetadata?.kuceImport?.bisLinks) &&

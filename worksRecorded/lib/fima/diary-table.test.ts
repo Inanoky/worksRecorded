@@ -1,4 +1,14 @@
-import { groupFimaDiaryRows } from "./diary-table";
+import { fimaDiaryColumns, groupFimaDiaryRows } from "./diary-table";
+
+it("places the local FIMA number between the date and BIS record number", () => {
+	expect(fimaDiaryColumns.slice(0, 3).map((column) => column.label)).toEqual([
+		"Datums",
+		"FIMA Nr.",
+		"BIS ieraksta Nr.",
+	]);
+	expect(fimaDiaryColumns[1].order).toBeGreaterThan(fimaDiaryColumns[0].order);
+	expect(fimaDiaryColumns[1].order).toBeLessThan(fimaDiaryColumns[2].order);
+});
 
 it("groups timestamps by Latvian work day and sorts days, preserving each day's input order", () => {
 	const rows = [

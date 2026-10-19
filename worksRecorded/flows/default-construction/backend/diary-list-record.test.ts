@@ -28,6 +28,7 @@ it("retains FIMA BIS links, review status and materials on construction records"
 	};
 	const result = mapConstructionDiaryListRecord({
 		id: "fima",
+		fimaNumber: 42,
 		BISId: "123",
 		evalMetadata: {
 			kuceImport: { bisLinks: [{ id: "123", number: "456" }] },
@@ -35,6 +36,7 @@ it("retains FIMA BIS links, review status and materials on construction records"
 		},
 	});
 	expect(result).toMatchObject({
+		fimaNumber: 42,
 		fimaBisRecords: [{ id: "123", number: "456" }],
 		hasFimaBisReferences: true,
 		fimaCollaboration: state,

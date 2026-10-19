@@ -31,6 +31,7 @@ const allProjectsDiaryOrderBy = [
 
 const allProjectsDiaryRecordSelect = {
   id: true,
+  fimaNumber: true,
   siteId: true,
   Date: true,
   createdAt: true,

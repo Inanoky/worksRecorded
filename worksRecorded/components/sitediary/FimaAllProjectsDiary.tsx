@@ -46,6 +46,7 @@ import { OriginalSourceContent } from "./OriginalSourceContent";
 
 export type FimaAllProjectsRecordRow = {
 	id: string;
+	fimaNumber?: number | null;
 	siteId: string | null;
 	Date: Date | string | null;
 	Works: string | null;

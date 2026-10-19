@@ -7,12 +7,14 @@ import {
 	type FimaCollaboration,
 	fimaStatuses,
 } from "@/lib/fima/diary-collaboration";
+import { formatFimaDiaryNumber } from "@/lib/fima/diary-number";
 import { getFimaBisCaseUrl } from "@/lib/fima/record-panel";
 import { FimaDiaryCell } from "./FimaDiaryCell";
 import { FimaRecordHistory } from "./FimaRecordHistory";
 
 type Row = {
 	id?: string;
+	fimaNumber?: number | null;
 	Works?: string | null;
 	Works_Custom_1?: string | null;
 	Location?: string | null;
@@ -89,6 +91,8 @@ export function FimaRecordPanel({
 									{row.Works || "KUCE ieraksts"}
 								</h2>
 								<dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
+									<dt className="text-muted-foreground">FIMA Nr.</dt>
+									<dd>{formatFimaDiaryNumber(row.fimaNumber)}</dd>
 									<dt className="text-muted-foreground">Datums</dt>
 									<dd>
 										{date && Number.isFinite(date.getTime())
