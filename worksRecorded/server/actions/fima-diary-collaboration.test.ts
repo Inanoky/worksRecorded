@@ -247,6 +247,7 @@ it.each([null, "653"])(
 it.each([
 	["ai_prepared", "AI sagatavots"],
 	["approved", "Apstiprināts"],
+	["updated", "Updated"],
 ] as const)(
 	"saves %s with its Latvian history label",
 	async (status, label) => {

@@ -10,6 +10,7 @@ jest.mock("@/server/actions/fima-diary-collaboration", () => ({
 it.each([
 	["do_not_create", "Netaisīt", "border-red-200", "bg-red-50"],
 	["needs_changes", "Labot", "border-amber-200", "bg-amber-50"],
+	["updated", "Updated", "border-sky-200", "bg-sky-50"],
 	[
 		"coordinate_with_fima",
 		"Saskaņot ar Fima",

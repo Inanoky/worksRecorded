@@ -40,6 +40,7 @@ beforeEach(() => {
 it.each([
 	"needs_changes",
 	"coordinate_with_fima",
+	"updated",
 	"ai_prepared",
 	"approved",
 ] as const)(
