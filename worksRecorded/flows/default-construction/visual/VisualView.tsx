@@ -1211,14 +1211,22 @@ export default function VisualView({
 								layerStyles={layerStyles}
 								key={drawing.id}
 								fillWorkspace
-								onCreateRecord={
-									!mutationControlsLocked
-										? () => {
-												setSelected(null);
-												setRecordArea(null);
-												setRecordDraft({ id: crypto.randomUUID(), areas: [] });
-											}
-										: undefined
+								onCreateRecord={() => {
+									if (
+										mutationControlsLocked ||
+										drawing.state.status === "running"
+									)
+										return;
+									setSelected(null);
+									setRecordArea(null);
+									setRecordDraft({ id: crypto.randomUUID(), areas: [] });
+								}}
+								createRecordBlockedReason={
+									busy || remoteActive || drawing.state.status === "running"
+										? "Pieejams pēc zonu atjaunošanas."
+										: mutationControlsLocked
+											? "Pabeidziet vai atceliet pašreizējās izmaiņas."
+											: undefined
 								}
 								planning={
 									recordDraft

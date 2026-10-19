@@ -12,7 +12,7 @@ import {
 	X,
 } from "lucide-react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { type VisualMark, visualLayers } from "./model";
@@ -134,6 +134,7 @@ export function VisualPdf({
 	controlsHost,
 	onDocumentChange,
 	onCreateRecord,
+	createRecordBlockedReason,
 }: {
 	url: string;
 	marks: VisualMark[];
@@ -152,7 +153,9 @@ export function VisualPdf({
 	controlsHost?: HTMLElement | null;
 	onDocumentChange?: (document: PDFDocumentProxy | null) => void;
 	onCreateRecord?: () => void;
+	createRecordBlockedReason?: string;
 }) {
+	const recordHintId = useId();
 	const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
 	useEffect(() => {
 		onDocumentChange?.(document);
@@ -577,14 +580,27 @@ export function VisualPdf({
 				<ChevronRight className="h-4 w-4" />
 			</Button>
 			{onCreateRecord && !planning && !draft ? (
-				<Button
-					size="sm"
-					variant="outline"
-					disabled={!ready || !editable}
-					onClick={onCreateRecord}
-				>
-					<Plus className="h-3.5 w-3.5" /> Pievienot ierakstu
-				</Button>
+				<>
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={!ready || !editable || !!createRecordBlockedReason}
+						aria-describedby={
+							createRecordBlockedReason ? recordHintId : undefined
+						}
+						onClick={onCreateRecord}
+					>
+						<Plus className="h-3.5 w-3.5" /> Pievienot ierakstu
+					</Button>
+					{createRecordBlockedReason ? (
+						<span
+							id={recordHintId}
+							className="px-1 text-xs text-muted-foreground"
+						>
+							{createRecordBlockedReason}
+						</span>
+					) : null}
+				</>
 			) : null}
 			{planning && planningEditable && !planningAreaDraft && !penMode ? (
 				<>

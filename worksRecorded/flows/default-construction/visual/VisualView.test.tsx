@@ -61,6 +61,7 @@ jest.mock("./VisualPdf", () => ({
 		editable,
 		selected,
 		onCreateRecord,
+		createRecordBlockedReason,
 		planning,
 	}: {
 		marks: VisualMark[];
@@ -70,6 +71,7 @@ jest.mock("./VisualPdf", () => ({
 		editable: boolean;
 		selected: string | null;
 		onCreateRecord?: () => void;
+		createRecordBlockedReason?: string;
 		planning?: VisualPdfPlanning;
 	}) => (
 		<div
@@ -79,7 +81,12 @@ jest.mock("./VisualPdf", () => ({
 		>
 			{marks.length} zones
 			{onCreateRecord ? (
-				<button type="button" onClick={onCreateRecord}>
+				<button
+					type="button"
+					onClick={onCreateRecord}
+					disabled={!editable || !!createRecordBlockedReason}
+					title={createRecordBlockedReason}
+				>
 					Pievienot ierakstu
 				</button>
 			) : null}
@@ -1697,6 +1704,12 @@ it("reopens running analysis with polling but does not start another AI request"
 	const view = render(<VisualView siteId="site" />);
 	await selectLocation();
 	expect(
+		screen.getByRole("button", { name: "Pievienot ierakstu" }),
+	).toBeDisabled();
+	expect(
+		screen.getByRole("button", { name: "Pievienot ierakstu" }),
+	).toHaveAttribute("title", "Pieejams pēc zonu atjaunošanas.");
+	expect(
 		screen.getByRole("button", { name: "Turpināt analīzi" }),
 	).toBeDisabled();
 	saved = complete;
@@ -1704,6 +1717,9 @@ it("reopens running analysis with polling but does not start another AI request"
 		await jest.advanceTimersByTimeAsync(1000);
 	});
 	expect(screen.getByTestId("pdf")).toHaveTextContent("1 zones");
+	expect(
+		screen.getByRole("button", { name: "Pievienot ierakstu" }),
+	).toBeEnabled();
 	expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
 	const count = mockFetch.mock.calls.length;
 	view.unmount();
