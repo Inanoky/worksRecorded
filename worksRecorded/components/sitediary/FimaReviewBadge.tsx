@@ -17,6 +17,7 @@ import { useFimaReviewStatus } from "./useFimaReviewStatus";
 const badgeTones = {
 	do_not_create: "border-red-200 bg-red-50 text-red-700",
 	needs_changes: "border-amber-200 bg-amber-50 text-amber-700",
+	coordinate_with_fima: "border-violet-200 bg-violet-50 text-violet-700",
 	ai_prepared: "border-yellow-200 bg-yellow-50 text-yellow-800",
 	approved: "border-emerald-200 bg-emerald-100 text-emerald-800",
 	ready_for_approval: "border-[#B8E0C6] bg-[#ECF8F0] text-[#159447]",

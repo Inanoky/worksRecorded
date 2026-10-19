@@ -37,7 +37,12 @@ beforeEach(() => {
 	jest.resetAllMocks();
 	jest.mocked(getFimaDiaryCollaboration).mockResolvedValue(initial);
 });
-it.each(["needs_changes", "ai_prepared", "approved"] as const)(
+it.each([
+	"needs_changes",
+	"coordinate_with_fima",
+	"ai_prepared",
+	"approved",
+] as const)(
 	"changes %s immediately before the background save completes, without a preliminary read",
 	async (status) => {
 		const save = deferred();

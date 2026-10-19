@@ -5,6 +5,7 @@ import { fimaDiaryColumns } from "./diary-table";
 export const fimaStatuses = {
 	do_not_create: "Netaisīt",
 	needs_changes: "Labot",
+	coordinate_with_fima: "Saskaņot ar Fima",
 	ai_prepared: "AI sagatavots",
 	ready_for_approval: "Sūtīt uz apstiprināšanu",
 	approved: "Apstiprināts",
@@ -12,6 +13,7 @@ export const fimaStatuses = {
 export const fimaStatusSchema = z.enum([
 	"do_not_create",
 	"needs_changes",
+	"coordinate_with_fima",
 	"ai_prepared",
 	"ready_for_approval",
 	"approved",

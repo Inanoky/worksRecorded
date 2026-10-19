@@ -74,20 +74,23 @@ it("takes the organization from the session, never the request, and prevents HTT
 	expect(result.headers).toEqual({ "Cache-Control": "private, no-store" });
 });
 
-it("forwards combined FIMA filters to the paginated query", async () => {
-	await GET(
-		request(
-			"review=needs_changes&bis=missing&materials=missing&examples=present&page=3",
-		),
-	);
-	expect(loadPage).toHaveBeenCalledWith(
-		"signed-in-organization",
-		expect.objectContaining({
-			review: "needs_changes",
-			bis: "missing",
-			materials: "missing",
-			examples: "present",
-			page: 3,
-		}),
-	);
-});
+it.each(["needs_changes", "coordinate_with_fima"])(
+	"forwards the %s action with combined FIMA filters",
+	async (review) => {
+		await GET(
+			request(
+				`review=${review}&bis=missing&materials=missing&examples=present&page=3`,
+			),
+		);
+		expect(loadPage).toHaveBeenCalledWith(
+			"signed-in-organization",
+			expect.objectContaining({
+				review,
+				bis: "missing",
+				materials: "missing",
+				examples: "present",
+				page: 3,
+			}),
+		);
+	},
+);
