@@ -4,11 +4,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+	fimaDiaryFilterKeys,
+	readFimaDiaryFilters,
+} from "@/lib/fima/diary-filters";
 import { createFimaPageCache, fetchFimaPage } from "@/lib/fima/page-cache";
+import { DiaryFilterCard } from "./DiaryFilterCard";
 import {
 	FimaAllProjectsDiary,
 	type FimaAllProjectsRecordRow,
 } from "./FimaAllProjectsDiary";
+import { FimaDiaryFilters } from "./FimaDiaryFilters";
 
 type Page = {
 	rows: FimaAllProjectsRecordRow[];
@@ -42,7 +48,7 @@ type Props = {
 function normalizedQuery(query: string) {
 	const input = new URLSearchParams(query);
 	const params = new URLSearchParams();
-	for (const key of ["project", "q", "from", "to"]) {
+	for (const key of ["project", "q", "from", "to", ...fimaDiaryFilterKeys]) {
 		const value = input.get(key)?.trim();
 		if (value) params.set(key, value);
 	}
@@ -212,14 +218,20 @@ export function FimaPaginatedDiary({
 	);
 	return (
 		<div className="space-y-6">
-			<Card>
+			<DiaryFilterCard sticky>
 				<CardContent className="pt-6">
 					<form
 						className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_220px_170px_170px_auto]"
 						onSubmit={(event) => {
 							event.preventDefault();
 							const params = new URLSearchParams();
-							for (const key of ["q", "project", "from", "to"])
+							for (const key of [
+								"q",
+								"project",
+								"from",
+								"to",
+								...fimaDiaryFilterKeys,
+							])
 								if (draft[key]) params.set(key, draft[key]);
 							void load(params.toString());
 						}}
@@ -280,9 +292,25 @@ export function FimaPaginatedDiary({
 								{messages.clear}
 							</Button>
 						</div>
+						<div className="col-span-full border-t pt-3">
+							<FimaDiaryFilters
+								value={readFimaDiaryFilters(draft)}
+								onChange={(filters) =>
+									setDraft((current) => ({
+										...current,
+										...Object.fromEntries(
+											fimaDiaryFilterKeys.map((key) => [
+												key,
+												filters[key] ?? "",
+											]),
+										),
+									}))
+								}
+							/>
+						</div>
 					</form>
 				</CardContent>
-			</Card>
+			</DiaryFilterCard>
 			<Card>
 				<CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<CardTitle>{messages.title}</CardTitle>

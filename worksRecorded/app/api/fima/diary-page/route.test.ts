@@ -56,6 +56,10 @@ it.each([
 	"view=project",
 	"page=99999999",
 	"from=not-a-date",
+	"review=unknown",
+	"materials=all",
+	"examples=unknown",
+	"bis=approved",
 ])("rejects malformed queries: %s", async (query) => {
 	expect((await GET(request(query))).status).toBe(400);
 	expect(loadPage).not.toHaveBeenCalled();
@@ -68,4 +72,22 @@ it("takes the organization from the session, never the request, and prevents HTT
 		expect.objectContaining({ page: 2, keyword: "walls" }),
 	);
 	expect(result.headers).toEqual({ "Cache-Control": "private, no-store" });
+});
+
+it("forwards combined FIMA filters to the paginated query", async () => {
+	await GET(
+		request(
+			"review=needs_changes&bis=missing&materials=missing&examples=present&page=3",
+		),
+	);
+	expect(loadPage).toHaveBeenCalledWith(
+		"signed-in-organization",
+		expect.objectContaining({
+			review: "needs_changes",
+			bis: "missing",
+			materials: "missing",
+			examples: "present",
+			page: 3,
+		}),
+	);
 });

@@ -2,6 +2,10 @@ import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { loadFimaDiaryPage } from "@/flows/default-construction/backend/fima-diary-page";
+import {
+	fimaDiaryFilterSchema,
+	readFimaDiaryFilters,
+} from "@/lib/fima/diary-filters";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
@@ -9,6 +13,7 @@ import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
 export const dynamic = "force-dynamic";
 
 const querySchema = z.object({
+	...fimaDiaryFilterSchema.shape,
 	project: z.string().uuid().optional(),
 	page: z.coerce.number().int().min(1).max(1_000_000).default(1),
 	q: z.string().max(500).optional(),
@@ -60,6 +65,7 @@ export async function GET(request: Request) {
 		}
 		const query = parsed.data;
 		const data = await loadFimaDiaryPage(organizationId, {
+			...readFimaDiaryFilters(query),
 			page: query.page,
 			projectId: query.project,
 			keyword: query.q,

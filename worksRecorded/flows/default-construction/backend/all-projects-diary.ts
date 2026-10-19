@@ -1,4 +1,6 @@
 import { readFimaBisRecordLinks } from "@/lib/fima/bis-record-links";
+import type { FimaDiaryFilters } from "@/lib/fima/diary-filters";
+import { buildFimaDiaryFilterWhere } from "./fima-diary-filters";
 import type { Prisma } from "@prisma/client";
 
 import { isFimaDiary, readFimaCollaboration } from "@/lib/fima/diary-collaboration";
@@ -123,7 +125,7 @@ function addActualCosts(
   );
 }
 
-export type AllProjectsDiaryFilters = {
+export type AllProjectsDiaryFilters = FimaDiaryFilters & {
   page?: number;
   projectId?: string;
   keyword?: string;
@@ -161,6 +163,7 @@ export function buildAllProjectsDiaryWhere(
   const dateFrom = parseDateOnly(filters.dateFrom);
   const dateTo = parseDateOnly(filters.dateTo);
   const dateFilter: Prisma.DateTimeNullableFilter = {};
+  const fimaFilters = buildFimaDiaryFilterWhere(filters);
 
   if (dateFrom) dateFilter.gte = dateFrom;
   if (dateTo) dateFilter.lt = nextUtcDay(dateTo);
@@ -168,6 +171,7 @@ export function buildAllProjectsDiaryWhere(
   return {
     archivedAt: null,
     Site: { organizationId },
+    ...(fimaFilters.length ? { AND: fimaFilters } : {}),
     ...(projectId ? { siteId: projectId } : {}),
     ...(Object.keys(dateFilter).length ? { Date: dateFilter } : {}),
     ...(keyword

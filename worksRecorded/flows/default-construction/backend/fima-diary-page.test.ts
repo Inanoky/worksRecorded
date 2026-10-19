@@ -4,6 +4,7 @@ jest.mock("@/lib/utils/db", () => ({
 	prisma: { sitediaryrecords: { findMany, count } },
 }));
 
+import { buildFimaDiaryFilterWhere } from "./fima-diary-filters";
 import { buildFimaDiaryPageWhere, loadFimaDiaryPage } from "./fima-diary-page";
 
 beforeEach(() => {
@@ -108,6 +109,23 @@ it("clamps a deleted last page and never requests unlimited history", async () =
 	expect(findMany).toHaveBeenLastCalledWith(
 		expect.objectContaining({ skip: 50, take: 50 }),
 	);
+});
+
+it("applies combined workflow filters to both records and total count before pagination", async () => {
+	const filters = {
+		projectId: "project",
+		page: 2,
+		review: "needs_changes",
+		bis: "missing",
+		materials: "missing",
+		examples: "present",
+	} as const;
+	await loadFimaDiaryPage("fima-org", filters);
+	const where = findMany.mock.calls[0][0].where;
+	expect(where.AND).toEqual(buildFimaDiaryFilterWhere(filters));
+	expect(where.AND).toHaveLength(4);
+	expect(count).toHaveBeenCalledWith({ where });
+	expect(where.Site.organizationId).toBe("fima-org");
 });
 
 it("maps project numeric fields to the existing diary format", async () => {

@@ -119,7 +119,7 @@ export default async function DashboardLayout({
           }
         `}</style>
 
-				<header className="sticky top-0 z-40 flex flex-col border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+				<header data-dashboard-header className="sticky top-0 z-40 flex flex-col border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
 					<div className="flex h-14 w-full items-center justify-between gap-3 px-4 lg:px-8">
 						<div className="flex min-w-0 flex-1 items-center gap-3">
 							<div className="lg:hidden">

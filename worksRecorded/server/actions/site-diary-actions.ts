@@ -1,6 +1,8 @@
 "use server";
 import { BisDiarySyncCache, syncLinkedBisRecords } from "@/lib/bis/diary-record-sync";
 import { withFimaDiaryColumns } from "@/lib/fima/diary-collaboration";
+import type { FimaDiaryFilters } from "@/lib/fima/diary-filters";
+import { buildFimaDiaryFilterWhere } from "@/flows/default-construction/backend/fima-diary-filters";
 import {
   constructionDiaryListSelect,
   mapConstructionDiaryListRecord,
@@ -2276,7 +2278,7 @@ export async function getSiteDiaryRecord({ siteId, date }) {
   }
 }
 
-type SiteDiaryRecordsPageOptions = SiteDiaryFlowHint & {
+type SiteDiaryRecordsPageOptions = SiteDiaryFlowHint & FimaDiaryFilters & {
   page?: number;
   pageSize?: number;
   workFilter?: string;
@@ -2379,7 +2381,7 @@ function buildSiteDiaryListWhere(
   options: SiteDiaryRecordsPageOptions,
   useZtcRecords: boolean,
 ) {
-  const andFilters: any[] = [];
+  const andFilters: any[] = useZtcRecords ? [] : buildFimaDiaryFilterWhere(options);
   const dateFilter = buildSiteDiaryListDateFilter(options);
   if (Object.keys(dateFilter).length > 0) andFilters.push({ Date: dateFilter });
 

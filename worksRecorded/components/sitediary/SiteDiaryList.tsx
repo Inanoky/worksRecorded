@@ -1,4 +1,7 @@
 "use client";
+import { DiaryFilterCard } from "./DiaryFilterCard";
+import { FimaDiaryFilters } from "./FimaDiaryFilters";
+import type { FimaDiaryFilters as FimaFilters } from "@/lib/fima/diary-filters";
 import { FimaBisState } from "./FimaBisState";
 import { fimaDiaryColumnWeights, fimaDiaryTableClassName } from "@/lib/fima/diary-table";
 import { getFimaDiaryCollaboration, refreshFimaBisMaterials } from "@/server/actions/fima-diary-collaboration";
@@ -780,6 +783,7 @@ export default function SiteDiaryCalendar({
   const [elementFilter, setElementFilter] = React.useState<string>("__ALL__");
   const [workerFilter, setWorkerFilter] = React.useState<string>("__ALL__");
   const [keywordFilter, setKeywordFilter] = React.useState<string>("");
+  const [fimaFilters, setFimaFilters] = React.useState<FimaFilters>({});
   const [ztcFilterOptions, setZtcFilterOptions] =
     React.useState<ZtcFilterOptions>({
       projects: [],
@@ -808,6 +812,7 @@ export default function SiteDiaryCalendar({
 
   React.useEffect(() => {
     setDiarySnapshotSiteId(null);
+    setFimaFilters({});
     return () => {
       ++diaryRowsRequestRef.current;
     };
@@ -1268,6 +1273,7 @@ export default function SiteDiaryCalendar({
     elementFilter: isZtcSite ? elementFilter : undefined,
     workerFilter: isZtcSite ? workerFilter : undefined,
     keyword: keywordFilter, page: listPage,
+    ...(fimaDiary ? fimaFilters : {}),
   });
   const refreshRowsWithBisSync = React.useCallback(
     async (options?: { skipSync?: boolean; useCache?: boolean }) => {
@@ -1314,7 +1320,7 @@ export default function SiteDiaryCalendar({
       }
       const fimaParams = (page: number) => {
         const params = new URLSearchParams({ project: siteId, view: "project", page: String(page) });
-        for (const [key, value] of Object.entries({ q: remoteFilters.keyword, from: remoteFilters.dateFrom, to: remoteFilters.dateTo, work: remoteFilters.workFilter, floor: remoteFilters.floorFilter })) {
+        for (const [key, value] of Object.entries({ q: remoteFilters.keyword, from: remoteFilters.dateFrom, to: remoteFilters.dateTo, work: remoteFilters.workFilter, floor: remoteFilters.floorFilter, review: remoteFilters.review, bis: remoteFilters.bis, materials: remoteFilters.materials, examples: remoteFilters.examples })) {
           if (typeof value === "string" && value && value !== "__ALL__") params.set(key, value);
         }
         return params;
@@ -1411,6 +1417,7 @@ export default function SiteDiaryCalendar({
     elementFilter,
     workerFilter,
     keywordFilter,
+    fimaFilters,
   ]);
 
   React.useEffect(() => {
@@ -2235,6 +2242,7 @@ export default function SiteDiaryCalendar({
   };
 
   const clearFilters = () => {
+    setFimaFilters({});
     setDateFrom(null);
     setDateTo(null);
     setWorkFilter("__ALL__");
@@ -2254,6 +2262,7 @@ export default function SiteDiaryCalendar({
   const loadAllFilteredRowsForExport = React.useCallback(async () => {
     if (!siteId) return [];
     const allRows = (await getSitediaryRecordsBySiteIdForExcel(siteId, {
+      ...(fimaDiary ? fimaFilters : {}),
       flowId: siteDiaryFlowId,
       dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
       dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
@@ -2299,6 +2308,8 @@ export default function SiteDiaryCalendar({
     ztc.defaultRates,
     workFilter,
     workerFilter,
+    fimaDiary,
+    fimaFilters,
   ]);
 
   const runExcelExport = React.useCallback(
@@ -3346,7 +3357,7 @@ export default function SiteDiaryCalendar({
           {/* LIST VIEW */}
           <TabsContent value="list" className="mt-0">
             {/* {t.filters} */}
-            <Card className="mb-4 border-muted bg-muted/30">
+            <DiaryFilterCard sticky={fimaDiary} className="mb-4 border-muted bg-muted/30">
               <CardContent className="px-3 py-3 sm:px-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
                   <div className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -3547,6 +3558,7 @@ export default function SiteDiaryCalendar({
                         className="h-9 pl-8"
                       />
                     </div>
+                    {fimaDiary ? <FimaDiaryFilters value={fimaFilters} onChange={(value) => { setListPage(1); setFimaFilters(value); }} /> : null}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
@@ -3656,7 +3668,7 @@ export default function SiteDiaryCalendar({
                   ) : null}
                 </div>
               </CardContent>
-            </Card>
+            </DiaryFilterCard>
 
             {/* Error / empty */}
             {error && (
