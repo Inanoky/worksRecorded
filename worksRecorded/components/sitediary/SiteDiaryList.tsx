@@ -1,6 +1,7 @@
 "use client";
 import { DiaryFilterCard } from "./DiaryFilterCard";
 import { FimaDiaryFilters } from "./FimaDiaryFilters";
+import { useFimaDiaryFilterOptions } from "./useFimaDiaryFilterOptions";
 import type { FimaDiaryFilters as FimaFilters } from "@/lib/fima/diary-filters";
 import { FimaBisState } from "./FimaBisState";
 import { fimaDiaryColumnWeights, fimaDiaryTableClassName } from "@/lib/fima/diary-table";
@@ -792,6 +793,7 @@ export default function SiteDiaryCalendar({
       workers: [],
     });
   const [listPage, setListPage] = React.useState(1);
+  const pageAfterClearingFilters = React.useRef<number | null>(null);
   const [listTotalCount, setListTotalCount] = React.useState(0);
   const [listTotalPages, setListTotalPages] = React.useState(1);
   const keywordInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -826,6 +828,7 @@ export default function SiteDiaryCalendar({
   const clientDiary = !isZtcFlow && (limeniClientDiary || (configSiteId === siteId && defaultMap?.otherSettings?.inlineDiaryPhotos === true));
   const fimaPanelRow = rows.find((row) => row.id === fimaRecordId) ?? (fimaRecordId ? fimaSelectedRow : null);
   const fimaDiary = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.fimaCollaboration === true;
+  const fimaFilterOptions = useFimaDiaryFilterOptions(siteId, fimaDiary, optionsRevision);
   const planner = useConstructionPlanner(siteId, !isZtcFlow && !fimaDiary, rows);
   const beginHours = useBeginHours(fimaDiary ? null : siteId, rows);
   const fimaCurrentRows = React.useRef(rows);
@@ -1408,7 +1411,8 @@ export default function SiteDiaryCalendar({
   }, [refreshRowsWithBisSync]);
 
   React.useEffect(() => {
-    setListPage(1);
+    setListPage(pageAfterClearingFilters.current ?? 1);
+    pageAfterClearingFilters.current = null;
   }, [
     dateFrom,
     dateTo,
@@ -1684,8 +1688,12 @@ export default function SiteDiaryCalendar({
   }, [rows, isZtcSite, floorFilter, elementFilter, planner.showAny, planner.diaryRows]);
 
   const worksOptions = React.useMemo(
-    () => (isZtcSite ? ztcFilterOptions.works : pageWorksOptions),
-    [isZtcSite, pageWorksOptions, ztcFilterOptions.works],
+    () => {
+      if (isZtcSite) return ztcFilterOptions.works;
+      if (fimaDiary) return withSelectedOption(fimaFilterOptions?.works ?? pageWorksOptions, workFilter);
+      return pageWorksOptions;
+    },
+    [isZtcSite, fimaDiary, fimaFilterOptions, pageWorksOptions, workFilter, ztcFilterOptions.works],
   );
   const groupedWorksOptions = React.useMemo(
     () => groupDefaultConstructionSiteDiaryWorks(worksOptions, (work) => work),
@@ -1714,11 +1722,12 @@ export default function SiteDiaryCalendar({
   }, [rows, isZtcSite, planner.showAny, planner.diaryRows]);
 
   const floorOptions = React.useMemo(
-    () =>
-      isZtcSite
-        ? withSelectedOption(ztcFilterOptions.projects, floorFilter)
-        : pageFloorOptions,
-    [floorFilter, isZtcSite, pageFloorOptions, ztcFilterOptions.projects],
+    () => {
+      if (isZtcSite) return withSelectedOption(ztcFilterOptions.projects, floorFilter);
+      if (fimaDiary) return withSelectedOption(fimaFilterOptions?.locations ?? pageFloorOptions, floorFilter);
+      return pageFloorOptions;
+    },
+    [floorFilter, isZtcSite, fimaDiary, fimaFilterOptions, pageFloorOptions, ztcFilterOptions.projects],
   );
 
   const pageElementOptions = React.useMemo(() => {
@@ -2242,6 +2251,7 @@ export default function SiteDiaryCalendar({
   };
 
   const clearFilters = () => {
+    if (fimaDiary) pageAfterClearingFilters.current = listPage;
     setFimaFilters({});
     setDateFrom(null);
     setDateTo(null);

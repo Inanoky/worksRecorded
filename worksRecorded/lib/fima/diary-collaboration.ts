@@ -32,6 +32,8 @@ export type FimaEvent = {
 	actorName: string;
 	at: string;
 	text: string;
+	previousStatus?: keyof typeof fimaStatuses | null;
+	status?: keyof typeof fimaStatuses | null;
 };
 export type FimaCollaboration = {
 	version: number;
@@ -49,6 +51,12 @@ export type FimaCollaboration = {
 		}[];
 	};
 };
+export function formatFimaEventText(event: FimaEvent) {
+	if (event.kind !== "status" || event.status === undefined) return event.text;
+	const label = (status: keyof typeof fimaStatuses | null) =>
+		status ? fimaStatuses[status] : "Nav atzīmes";
+	return `${event.previousStatus !== undefined ? `${label(event.previousStatus)} → ` : ""}${label(event.status)}`;
+}
 export const fimaVirtualFields = [
 	"FimaComments",
 	"FimaBisCase",

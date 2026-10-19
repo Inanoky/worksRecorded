@@ -287,7 +287,9 @@ export function FimaPaginatedDiary({
 								variant="outline"
 								type="button"
 								disabled={loading}
-								onClick={() => void load("")}
+								onClick={() =>
+									void load(page.page > 1 ? `page=${page.page}` : "")
+								}
 							>
 								{messages.clear}
 							</Button>

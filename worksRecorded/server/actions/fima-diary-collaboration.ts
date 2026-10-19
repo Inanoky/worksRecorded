@@ -142,6 +142,9 @@ export async function saveFimaDiaryCollaboration(
 				actorName: scope.actorName,
 				at: new Date().toISOString(),
 				text,
+				...(input.kind === "status"
+					? { previousStatus: current.status, status: input.status }
+					: {}),
 			},
 			input.kind === "status"
 				? { status: input.status }

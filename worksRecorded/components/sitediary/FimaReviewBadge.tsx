@@ -12,6 +12,7 @@ import {
 	type FimaCollaboration,
 	fimaStatuses,
 } from "@/lib/fima/diary-collaboration";
+import { FimaBadgeHistory } from "./FimaBadgeHistory";
 import { useFimaReviewStatus } from "./useFimaReviewStatus";
 
 const badgeTones = {
@@ -32,41 +33,58 @@ type Props = {
 export function FimaReviewBadge(props: Props) {
 	const { status, selectStatus, saving, recovering } =
 		useFimaReviewStatus(props);
+	const latestStatus = props.state.history.findLast(
+		(event) => event.kind === "status",
+	);
 	return (
-		<div aria-busy={saving} className="min-w-0">
-			<Select
-				value={status ?? "unset"}
-				disabled={recovering}
-				onValueChange={(value) =>
-					selectStatus(
-						value === "unset" ? null : (value as keyof typeof fimaStatuses),
-					)
-				}
-			>
-				<SelectTrigger
-					aria-label="Ieraksta rīcība"
-					data-fima-badge
-					className="h-auto min-h-0 w-fit max-w-full gap-1 border-0 bg-transparent p-0 shadow-none [&>svg]:size-3"
-					title="Organizācijas iekšējā rīcība. Izmaiņas saglabājas fonā; atzīme pati par sevi nesūta ierakstu uz BIS."
+		<div aria-busy={saving} className="min-w-0" data-fima-interactive>
+			<div className="flex min-w-0 items-start gap-1">
+				<Select
+					value={status ?? "unset"}
+					disabled={recovering}
+					onValueChange={(value) =>
+						selectStatus(
+							value === "unset" ? null : (value as keyof typeof fimaStatuses),
+						)
+					}
 				>
-					<SelectValue className="min-w-0 max-w-full overflow-hidden">
-						<Badge
-							variant="outline"
-							className={`max-w-full min-w-0 shrink whitespace-nowrap overflow-hidden text-ellipsis px-1.5 text-[11px] text-left ${badgeTones[status ?? "unset"]}`}
-						>
-							{status ? fimaStatuses[status] : "Nav atzīmes"}
-						</Badge>
-					</SelectValue>
-				</SelectTrigger>
-				<SelectContent>
-					<SelectItem value="unset">Nav atzīmes</SelectItem>
-					{Object.entries(fimaStatuses).map(([key, label]) => (
-						<SelectItem key={key} value={key}>
-							{label}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
+					<SelectTrigger
+						aria-label="Ieraksta rīcība"
+						data-fima-badge
+						className="h-auto min-h-0 w-fit max-w-full gap-1 border-0 bg-transparent p-0 shadow-none [&>svg]:size-3"
+						title="Organizācijas iekšējā rīcība. Izmaiņas saglabājas fonā; atzīme pati par sevi nesūta ierakstu uz BIS."
+					>
+						<SelectValue className="min-w-0 max-w-full overflow-hidden">
+							<Badge
+								variant="outline"
+								className={`max-w-full min-w-0 shrink whitespace-nowrap overflow-hidden text-ellipsis px-1.5 text-[11px] text-left ${badgeTones[status ?? "unset"]}`}
+							>
+								{status ? fimaStatuses[status] : "Nav atzīmes"}
+							</Badge>
+						</SelectValue>
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="unset">Nav atzīmes</SelectItem>
+						{Object.entries(fimaStatuses).map(([key, label]) => (
+							<SelectItem key={key} value={key}>
+								{label}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+				<FimaBadgeHistory
+					key={`${props.siteId}:${props.recordId}`}
+					{...props}
+				/>
+			</div>
+			{latestStatus ? (
+				<p
+					className="truncate text-[10px] text-muted-foreground"
+					title={`${latestStatus.actorName} · ${new Date(latestStatus.at).toLocaleString("lv-LV", { timeZone: "Europe/Riga" })}`}
+				>
+					{latestStatus.actorName}
+				</p>
+			) : null}
 			<span className="sr-only" aria-live="polite">
 				{saving ? "Rīcība tiek saglabāta fonā" : ""}
 			</span>

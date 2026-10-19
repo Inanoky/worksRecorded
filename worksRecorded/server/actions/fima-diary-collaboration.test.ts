@@ -261,9 +261,51 @@ it.each([
 		expect(state.version).toBe(1);
 		expect(state.history.at(-1)).toMatchObject({
 			kind: "status",
+			previousStatus: null,
+			status,
 			actorName: "Anna Bērziņa",
 			text: `Rīcība: ${label}`,
 		});
 		expect(metadata.kuceImport).toEqual({ key: "preserve-original-source" });
 	},
 );
+
+it("retains each authenticated badge change and removal, deduplicating retries", async () => {
+	await saveFimaDiaryCollaboration({
+		...scope,
+		requestId,
+		kind: "status",
+		status: "needs_changes",
+		expectedVersion: 0,
+	});
+	jest.mocked(requireUser).mockResolvedValue({ id: "second-member" } as never);
+	jest
+		.mocked(prisma.user.findUnique)
+		.mockResolvedValue({ firstName: "Jānis", lastName: "Ozols" } as never);
+	const args = {
+		...scope,
+		requestId: "0bcc12cf-619b-47a5-a0ec-5a365a4ecc0c",
+		kind: "status" as const,
+		status: null,
+		expectedVersion: 1,
+	};
+	await saveFimaDiaryCollaboration(args);
+	const state = await saveFimaDiaryCollaboration(args);
+	expect(state.history).toHaveLength(2);
+	expect(state.history[0]).toMatchObject({
+		actorId: "member",
+		actorName: "Anna Bērziņa",
+		previousStatus: null,
+		status: "needs_changes",
+		at: expect.any(String),
+	});
+	expect(state.history[1]).toMatchObject({
+		actorId: "second-member",
+		actorName: "Jānis Ozols",
+		previousStatus: "needs_changes",
+		status: null,
+		at: expect.any(String),
+	});
+	expect(state.status).toBeNull();
+	expect(state.version).toBe(2);
+});

@@ -71,7 +71,7 @@ export function FimaRecordPanel({
 								Ieraksta pārskats
 							</Dialog.Title>
 							<Dialog.Description className="text-sm text-muted-foreground">
-								KUCE darbs, BIS atsauces un organizācijas komentāru vēsture.
+								KUCE darbs, BIS atsauces, komentāru un atzīmju vēsture.
 							</Dialog.Description>
 							<Dialog.Close asChild>
 								<button

@@ -69,10 +69,16 @@ it("preserves project filters, keyword fields, dates and the 75-row page size", 
 it("returns only the latest comment and current materials, not extraction metadata or full history", async () => {
 	const first = { id: "old", kind: "comment", text: "Old" };
 	const latest = { id: "new", kind: "comment", text: "New" };
+	const latestStatus = {
+		id: "badge",
+		kind: "status",
+		actorName: "Anna",
+		text: "Rīcība: Labot",
+	};
 	const state = {
 		version: 3,
 		materials: [{ id: "material" }],
-		history: [first, { kind: "status" }, latest],
+		history: [first, latestStatus, latest],
 		bisMaterials: { fetchedAt: "today", entries: [] },
 	};
 	findMany.mockResolvedValue([
@@ -93,7 +99,7 @@ it("returns only the latest comment and current materials, not extraction metada
 		Amounts: 2,
 		fimaCollaboration: {
 			version: 3,
-			history: [latest],
+			history: [latestStatus, latest],
 			materials: state.materials,
 			bisMaterials: state.bisMaterials,
 		},

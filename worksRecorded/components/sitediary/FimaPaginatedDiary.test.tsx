@@ -189,8 +189,28 @@ it("combines FIMA filters, preserves them across pages and export, then clears t
 		"/api/all-projects/export?review=needs_changes&bis=missing&materials=missing&examples=present&page=2",
 	);
 	fireEvent.click(screen.getByRole("button", { name: "Notīrīt" }));
-	await waitFor(() => expect(window.location.search).toBe(""));
+	await waitFor(() => expect(window.location.search).toBe("?page=2"));
+	expect(screen.getByText("row-2")).toBeInTheDocument();
 	expect(screen.getByRole("combobox", { name: "Paraugas" })).toHaveValue("");
+	expect(screen.getByRole("link", { name: "Eksportēt" })).toHaveAttribute(
+		"href",
+		"/api/all-projects/export?page=2",
+	);
+});
+
+it("keeps the current page when clearing unapplied filter changes", async () => {
+	mount();
+	next();
+	await screen.findByText("row-2");
+	fireEvent.change(screen.getByRole("textbox", { name: "Meklēt" }), {
+		target: { value: "cable" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Notīrīt" }));
+	await waitFor(() =>
+		expect(screen.getByRole("textbox", { name: "Meklēt" })).toHaveValue(""),
+	);
+	expect(window.location.search).toBe("?page=2");
+	expect(screen.getByText("row-2")).toBeInTheDocument();
 });
 
 it("does not let a late response replace a newer browser-history navigation", async () => {

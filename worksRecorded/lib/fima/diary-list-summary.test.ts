@@ -56,3 +56,33 @@ it("does not replace full history with a same-version list summary or lose newer
 			.status,
 	).toBe("approved");
 });
+
+it("keeps only the latest badge change and comment in the list while preserving full stored history", () => {
+	const event = {
+		id: "first-badge",
+		kind: "status" as const,
+		actorId: "a",
+		actorName: "Anna",
+		at: "2026-10-19T08:00:00Z",
+		text: "Rīcība: Labot",
+	};
+	const comment = {
+		...event,
+		id: "comment",
+		kind: "comment" as const,
+		text: "Comment",
+	};
+	const latest = {
+		...event,
+		id: "last-badge",
+		actorName: "Jānis",
+		status: null,
+		previousStatus: "needs_changes" as const,
+	};
+	const full = {
+		...readFimaCollaboration(null),
+		history: [event, comment, latest],
+	};
+	expect(summarizeFimaCollaboration(full).history).toEqual([comment, latest]);
+	expect(full.history).toHaveLength(3);
+});
