@@ -125,6 +125,17 @@ export function FimaRecordPanel({
 									) : null}
 								</div>
 							</section>
+							{state.examples ? (
+								<section className="space-y-2 rounded-lg border p-3">
+									<h2 className="text-sm font-semibold">Paraugas</h2>
+									<FimaDiaryCell
+										field="FimaExamples"
+										siteId={siteId}
+										row={row}
+										onChange={onChange}
+									/>
+								</section>
+							) : null}
 							<section className="space-y-2 rounded-lg border p-3">
 								<h2 className="text-sm font-semibold">Materiāli</h2>
 								<FimaDiaryCell

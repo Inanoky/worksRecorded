@@ -495,6 +495,7 @@ export function FimaAllProjectsDiary({
 																"Works",
 																"Works_Custom_1",
 																"FimaMaterials",
+																"FimaExamples",
 																"FimaComments",
 																"FimaReviewStatus",
 															].includes(field) && "col-span-2",

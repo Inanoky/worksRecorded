@@ -9,6 +9,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { readFimaBisExamples } from "@/lib/fima/bis-examples";
 import {
 	getFimaBisRecordUrl,
 	readFimaBisRecordLinks,
@@ -52,6 +53,36 @@ export function FimaDiaryCell({
 	const [open, setOpen] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const state = row.fimaCollaboration ?? empty;
+	if (field === "FimaExamples") {
+		const examples = readFimaBisExamples(state.examples, state.history);
+		if (!examples) return null;
+		return (
+			<div className="space-y-2 text-xs" data-fima-interactive>
+				{examples.note ? (
+					<p className="whitespace-pre-wrap text-muted-foreground">
+						{examples.note}
+					</p>
+				) : null}
+				{examples.entries.length ? (
+					<ul className="list-disc space-y-2 pl-4 marker:text-primary">
+						{examples.entries.map((entry) => (
+							<li key={entry.url}>
+								<a
+									href={entry.url}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="whitespace-normal leading-relaxed text-primary underline underline-offset-2"
+									onClick={(event) => event.stopPropagation()}
+								>
+									{entry.label}
+								</a>
+							</li>
+						))}
+					</ul>
+				) : null}
+			</div>
+		);
+	}
 	if (field === "FimaBisCase") {
 		const links = readFimaBisRecordLinks(
 			{

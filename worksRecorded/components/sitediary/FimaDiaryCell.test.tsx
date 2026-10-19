@@ -260,3 +260,53 @@ it("leaves an unlinked BIS record cell blank instead of showing the project case
 	expect(screen.queryByRole("link")).not.toBeInTheDocument();
 	expect(screen.queryByText("BIS-BL-668714")).not.toBeInTheDocument();
 });
+
+it("renders each BIS example as its own clickable bullet without opening the row", () => {
+	const openRow = jest.fn();
+	const examples = {
+		entries: [
+			{
+				id: "7540711",
+				label: "BIS ieraksts Nr.360 (Olaine stacija, lieta BIS-BL-668714-524)",
+				url: "https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/7540711",
+			},
+			{
+				id: "7209025",
+				label:
+					"BIS ieraksts Nr.1806 (Torņakalns–Olaine, lieta BIS-BL-668708-558)",
+				url: "https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/7209025",
+			},
+		],
+		note: "Nav tieša parauga. Salīdzināšanai izmantots:",
+	};
+	render(
+		<table>
+			<tbody>
+				<tr tabIndex={0} onClick={openRow} onKeyDown={openRow}>
+					<td>
+						<FimaDiaryCell
+							field="FimaExamples"
+							siteId={siteId}
+							row={{
+								id: "record",
+								fimaCollaboration: { ...initial, examples },
+							}}
+							onChange={jest.fn()}
+						/>
+					</td>
+				</tr>
+			</tbody>
+		</table>,
+	);
+	expect(screen.getAllByRole("listitem")).toHaveLength(2);
+	const links = screen.getAllByRole("link");
+	for (const [index, link] of links.entries()) {
+		expect(link).toHaveAttribute("href", examples.entries[index].url);
+		expect(link).toHaveAttribute("target", "_blank");
+		expect(link).toHaveAttribute("rel", "noopener noreferrer");
+	}
+	fireEvent.click(links[0]);
+	expect(openRow).not.toHaveBeenCalled();
+	expect(screen.getByText(examples.note)).toBeInTheDocument();
+	expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
+});

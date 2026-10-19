@@ -5536,7 +5536,7 @@ export default function SiteDiaryCalendar({
                                   >
                                     {showDayPlan || clientDiary || fitDiaryTable ? <PlanTableColumns hideBisStatus={fimaDiary} trailingFields={fimaDiary ? ["FimaReviewStatus"] : undefined} fields={dayTableHeads} bisEnabled={bisUiEnabled} showPlan={showDayPlan} columnWeights={fitDiaryTable ? {
                                       ...Object.fromEntries(dayTableHeads.map((field) => [field, getCellWidthByKey(field, defaultMap)])),
-                                      FimaReviewStatus: 220, FimaMaterials: 500, select: 52, createdAt: 80, "man-hours": 75, cost: 80, bis: 140, status: 140, action: 80, source: 60,
+                                      FimaReviewStatus: 220, FimaMaterials: 500, FimaExamples: 260, select: 52, createdAt: 80, "man-hours": 75, cost: 80, bis: 140, status: 140, action: 80, source: 60,
                                       "plan-Works": getCellWidthByKey("Works", defaultMap), "plan-Amounts": 125,
                                       ...(fimaDiary ? fimaDiaryColumnWeights : {}),
                                     } : undefined} /> : null}

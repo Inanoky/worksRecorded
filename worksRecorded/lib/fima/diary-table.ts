@@ -6,6 +6,7 @@ export const fimaDiaryColumns = [
 	{ field: "Works_Custom_1", label: "BIS apraksts", order: 4, width: 220 },
 	{ field: "Works_Custom_2", label: "Maiņa", order: 5, width: 110 },
 	{ field: "FimaMaterials", label: "Materiāli", order: 7.5, width: 500 },
+	{ field: "FimaExamples", label: "Paraugas", order: 9, width: 260 },
 	{ field: "FimaComments", label: "Komentāri", order: 9.5, width: 145 },
 	{ field: "Amounts", label: "Daudzums", order: 11, width: 90 },
 	{ field: "Units", label: "Mērv.", order: 12, width: 70 },
