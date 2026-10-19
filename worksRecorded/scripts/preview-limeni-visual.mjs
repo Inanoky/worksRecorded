@@ -77,6 +77,17 @@ if (process.argv.includes("--updating")) {
 	fixture.state.status = "running";
 	fixture.state.lockedAt = Date.now();
 }
+if (process.argv.includes("--failed-analysis")) {
+	fixture.state.status = "failed";
+	fixture.state.processed = 2;
+	fixture.state.error =
+		"Neizdevās analizēt 1 attēlu. Pārējie rezultāti ir saglabāti.";
+	fixture.state.imageProgress = fixture.state.evidence.map((source, index) => ({
+		evidenceId: source.id,
+		status: index < 2 ? "complete" : "failed",
+		error: index < 2 ? null : "Analīze pārsniedza laika limitu.",
+	}));
+}
 const modules = {
 	actions: `let drawing=${JSON.stringify(fixture)}; export async function getVisualDrawings(){return {locations:['1. stāvs'],drawings:[{id:drawing.id,name:drawing.name,location:drawing.state.location,createdAt:drawing.createdAt,status:'complete'}]}}; export async function saveVisualPolygon(site,id,edit){drawing=structuredClone(drawing);drawing.state.marks.find(x=>x.id===edit.markId).polygon=edit.polygon;window.__visualPreviewDrawing=drawing;return drawing}; export async function deleteVisualDrawing(){};export async function deleteVisualPolygon(site,id,input){drawing=structuredClone(drawing);const mark=drawing.state.marks.find(x=>x.id===input.markId);if(!mark)throw Error('Missing polygon');drawing.state.marks=drawing.state.marks.filter(x=>x.id!==input.markId);drawing.state.deletedPolygons=[...(drawing.state.deletedPolygons??[]),{markId:mark.id,evidenceId:mark.evidenceId,polygon:mark.polygon,deletedAt:new Date().toISOString(),deletedBy:'preview'}];window.__visualPreviewDrawing=drawing;return drawing};export async function refreshVisualDrawing(){return {drawing,addedCount:0,updatedCount:0,removedCount:0,analysisCount:0,reviewCount:0}};export async function restartVisualDrawing(){throw Error('Preview only')};export async function getVisualWorkTypes(){return ['Smilts līdzināšana','XPS izolācija 150 mm','Estrich grīda 70 mm']};export async function saveVisualWorkType(site,id,edit){drawing=structuredClone(drawing);const source=drawing.state.evidence.find(x=>x.id===edit.evidenceId);const layer=edit.work.includes('XPS')?'xps':edit.work.includes('Estrich')?'estrich':'sand';for(const item of drawing.state.evidence.filter(x=>x.recordId===source.recordId)){item.work=edit.work;for(const mark of drawing.state.marks.filter(x=>x.evidenceId===item.id))mark.layer=layer}window.__visualPreviewDrawing=drawing;return drawing};export async function resolveVisualSourceReview(){throw Error('Preview only')}`,
 	upload: `export const useUploadThing=()=>({startUpload:async()=>{throw Error('Preview only')}});`,

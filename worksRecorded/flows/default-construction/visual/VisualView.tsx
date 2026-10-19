@@ -93,6 +93,7 @@ import {
 	type VisualAnalysisPhase,
 	VisualAnalysisProgress,
 } from "./VisualAnalysisProgress";
+import { VisualFeedbackPanel } from "./VisualFeedbackPanel";
 import { VisualLayerManager } from "./VisualLayerManager";
 import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
 import { VisualPlanningPanel } from "./VisualPlanningPanel";
@@ -204,6 +205,7 @@ export default function VisualView({
 	const [progress, setProgress] = useState(0);
 	const [phase, setPhase] = useState<VisualAnalysisPhase>("idle");
 	const [progressUnavailable, setProgressUnavailable] = useState(false);
+	const [feedbackRequest, setFeedbackRequest] = useState(0);
 	const [throughDay, setThroughDay] = useState<number | null>(null);
 	const [includeUndated, setIncludeUndated] = useState(false);
 	const [layers, setLayers] = useState<VisualLayer[]>(allLayers);
@@ -491,6 +493,7 @@ export default function VisualView({
 		busyRef.current = true;
 		setBusy(true);
 		setAutomatic(auto);
+		if (!auto) setFeedbackRequest((value) => value + 1);
 		setError(null);
 		setNotice(null);
 		setProgress(0);
@@ -1421,69 +1424,82 @@ export default function VisualView({
 						{deleting ? "Dzēš rasējumu…" : "Ielādē…"}
 					</output>
 				) : null}
-				{mode === "actual" &&
-				((!automatic &&
-					(busy ||
-						(drawing &&
-							!["complete", "unlocated"].includes(drawing.state.status)))) ||
-					error ||
-					drawing?.state.error ||
-					showReviewWarning) ? (
-					<div className="absolute bottom-14 left-3 right-16 z-40 max-h-[calc(100%-8rem)] max-w-xl space-y-2 overflow-y-auto rounded-lg border bg-background/95 p-3 shadow-lg">
-						{deletingPolygon ? (
-							<output className="flex items-center gap-2 text-xs">
-								<Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-								Dzēš poligonu…
-							</output>
-						) : !automatic ? (
-							<VisualAnalysisProgress
-								phase={phase}
-								drawing={drawing}
-								uploadProgress={progress}
-								interrupted={!!error}
-								progressUnavailable={progressUnavailable}
-							/>
-						) : null}
-						{error || drawing?.state.error ? (
-							<p role="alert" className="text-xs text-destructive">
-								{error || drawing?.state.error}
+				<VisualFeedbackPanel
+					key={JSON.stringify([
+						siteId,
+						drawing?.id ?? location,
+						drawing?.state.attempts.at(-1)?.id,
+						feedbackRequest,
+						reviewWarningKey,
+					])}
+					visible={
+						mode === "actual" &&
+						Boolean(
+							(!automatic &&
+								(busy ||
+									(drawing &&
+										!["complete", "unlocated"].includes(
+											drawing.state.status,
+										)))) ||
+								error ||
+								drawing?.state.error ||
+								showReviewWarning,
+						)
+					}
+				>
+					{deletingPolygon ? (
+						<output className="flex items-center gap-2 text-xs">
+							<Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+							Dzēš poligonu…
+						</output>
+					) : !automatic ? (
+						<VisualAnalysisProgress
+							phase={phase}
+							drawing={drawing}
+							uploadProgress={progress}
+							interrupted={!!error}
+							progressUnavailable={progressUnavailable}
+						/>
+					) : null}
+					{error || drawing?.state.error ? (
+						<p role="alert" className="text-xs text-destructive">
+							{error || drawing?.state.error}
+						</p>
+					) : null}
+					{error && !drawing && locationDrawings[0] ? (
+						<Button
+							size="sm"
+							variant="outline"
+							disabled={loading || controlsLocked}
+							onClick={() => void loadDrawing(locationDrawings[0].id)}
+						>
+							Mēģināt vēlreiz
+						</Button>
+					) : null}
+					{showReviewWarning ? (
+						<div className="flex items-start gap-2">
+							<p className="min-w-0 flex-1 text-xs">
+								Žurnālā mainīti {reviewedSources.length} manuāli pielāgotu zonu
+								avoti. Zonas saglabātas; izvēlieties avotu un pārskatiet
+								izmaiņas.
 							</p>
-						) : null}
-						{error && !drawing && locationDrawings[0] ? (
 							<Button
-								size="sm"
-								variant="outline"
-								disabled={loading || controlsLocked}
-								onClick={() => void loadDrawing(locationDrawings[0].id)}
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="h-7 w-7 shrink-0"
+								aria-label="Aizvērt brīdinājumu par zonu avotiem"
+								onClick={() =>
+									setDismissedReviewWarnings(
+										(previous) => new Set([...previous, reviewWarningKey]),
+									)
+								}
 							>
-								Mēģināt vēlreiz
+								<X className="h-4 w-4" aria-hidden="true" />
 							</Button>
-						) : null}
-						{showReviewWarning ? (
-							<div className="flex items-start gap-2">
-								<p className="min-w-0 flex-1 text-xs">
-									Žurnālā mainīti {reviewedSources.length} manuāli pielāgotu
-									zonu avoti. Zonas saglabātas; izvēlieties avotu un pārskatiet
-									izmaiņas.
-								</p>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon"
-									className="h-7 w-7 shrink-0"
-									aria-label="Aizvērt brīdinājumu par zonu avotiem"
-									onClick={() =>
-										setDismissedReviewWarnings(
-											(previous) => new Set([...previous, reviewWarningKey]),
-										)
-									}
-								>
-									<X className="h-4 w-4" aria-hidden="true" />
-								</Button>
-							</div>
-						) : null}
-					</div>
-				) : null}
+						</div>
+					) : null}
+				</VisualFeedbackPanel>
 				{mode === "actual" && notice ? (
 					<output className="pointer-events-none absolute bottom-3 left-1/2 z-40 max-w-[90%] -translate-x-1/2 rounded-md border bg-background/95 px-3 py-2 text-xs shadow-sm">
 						{notice}

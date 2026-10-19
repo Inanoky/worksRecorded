@@ -1686,6 +1686,57 @@ it("polls live progress during POST and never overwrites completion with a stale
 	).toHaveLength(1);
 });
 
+it("dismisses failed-analysis progress and errors without losing zones, and reopens status on retry", async () => {
+	const failed: VisualDrawing = {
+		...complete,
+		state: {
+			...complete.state,
+			status: "failed",
+			error: "Neizdevās analizēt attēlu.",
+			processed: 0,
+			imageProgress: [
+				{ evidenceId: "photo", status: "failed", error: "Laika limits" },
+			],
+		},
+	};
+	mockFetch.mockResolvedValue({ ok: true, json: async () => failed });
+	jest.mocked(refreshVisualDrawing).mockResolvedValue({
+		drawing: failed,
+		addedCount: 0,
+		updatedCount: 0,
+		removedCount: 0,
+		analysisCount: 0,
+		reviewCount: 0,
+	});
+	render(<VisualView siteId="site" />);
+	await screen.findByRole("region", { name: "Analīzes paziņojumi" });
+	const geometry = screen.getByTestId("pdf").getAttribute("data-polygons");
+	fireEvent.click(
+		screen.getByRole("button", { name: "Aizvērt analīzes paziņojumus" }),
+	);
+	expect(
+		screen.queryByRole("region", { name: "Analīzes paziņojumi" }),
+	).not.toBeInTheDocument();
+	expect(
+		screen.queryByText("Neizdevās analizēt attēlu."),
+	).not.toBeInTheDocument();
+	expect(screen.getByTestId("pdf")).toHaveAttribute("data-polygons", geometry);
+	expect(
+		screen.getByRole("button", { name: "Turpināt analīzi" }),
+	).toBeEnabled();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Rādīt analīzes paziņojumus" }),
+	);
+	expect(
+		screen.getByRole("region", { name: "Analīzes paziņojumi" }),
+	).toHaveTextContent("Neizdevās analizēt attēlu.");
+	fireEvent.click(
+		screen.getByRole("button", { name: "Aizvērt analīzes paziņojumus" }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Turpināt analīzi" }));
+	await screen.findByRole("region", { name: "Analīzes paziņojumi" });
+});
+
 it("reopens running analysis with polling but does not start another AI request", async () => {
 	jest.useFakeTimers();
 	let saved: VisualDrawing = {
