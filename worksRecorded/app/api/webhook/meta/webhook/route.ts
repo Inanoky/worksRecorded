@@ -21,16 +21,20 @@ import {
 	ZTC_ORGANIZATION_ID,
 } from "@/flows/ztc-production/backend";
 import {
-	assertZtcMessageActive,
-	getZtcMessageRecoveryContext,
-	markZtcRecoveryAwaitingBatch,
-	setZtcRecoveryBatch,
-} from "@/flows/ztc-production/backend/message-recovery-context";
+	buildZtcImageBatchDeleteQuery,
+	buildZtcImageBatchStageQuery,
+} from "@/flows/ztc-production/backend/image-batch-queries";
 import {
 	retainZtcMessageFormData,
 	runWithZtcMessageRecovery,
 	ZtcMessageRetentionError,
 } from "@/flows/ztc-production/backend/message-recovery";
+import {
+	assertZtcMessageActive,
+	getZtcMessageRecoveryContext,
+	markZtcRecoveryAwaitingBatch,
+	setZtcRecoveryBatch,
+} from "@/flows/ztc-production/backend/message-recovery-context";
 import { routeRegisteredWhatsappUserByFlow } from "@/lib/flows/registered-user-whatsapp-runtime-server";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
@@ -437,7 +441,9 @@ async function toWhatsAppFormData(
 			formData.set("MediaUrl0", mediaInfo.url);
 			formData.set(
 				"MediaContentType0",
-				mediaInfo.mimeType || message.document.mime_type || "application/octet-stream",
+				mediaInfo.mimeType ||
+					message.document.mime_type ||
+					"application/octet-stream",
 			);
 			formData.set("MediaProvider0", "meta");
 			if (typeof message.document.filename === "string") {
@@ -600,54 +606,19 @@ async function stageZtcImageBatch(args: {
 	const stageStartedAt = Date.now();
 	const stagedRows = await prisma.$queryRaw<
 		Array<{ itemCount: number | bigint }>
-	>`
-    INSERT INTO "ZtcInboundMediaBatch" (
-      "id",
-      "batchKey",
-      "workerId",
-      "organizationId",
-      "mode",
-      "status",
-      "items",
-      "firstReceivedAt",
-      "lastReceivedAt",
-      "lastMessageId",
-      "processAfter",
-      "createdAt",
-      "updatedAt"
-    )
-    VALUES (
-      ${randomUUID()},
-      ${batchKey},
-      ${args.worker.id},
-      ${args.worker.organizationId ?? null},
-      ${args.mode},
-      'collecting',
-      ${JSON.stringify([item])}::jsonb,
-      NOW(),
-      NOW(),
-      ${messageId || null},
-      NOW() + (${ZTC_IMAGE_BATCH_QUIET_MS}::int * INTERVAL '1 millisecond'),
-      NOW(),
-      NOW()
-    )
-    ON CONFLICT ("batchKey") DO UPDATE SET
-      "workerId" = EXCLUDED."workerId",
-      "organizationId" = EXCLUDED."organizationId",
-      "mode" = EXCLUDED."mode",
-      "status" = 'collecting',
-      "items" = CASE
-        WHEN "ZtcInboundMediaBatch"."status" = 'collecting'
-          AND "ZtcInboundMediaBatch"."updatedAt" > NOW() - (${ZTC_IMAGE_BATCH_STALE_MS}::int * INTERVAL '1 millisecond')
-        THEN "ZtcInboundMediaBatch"."items" || EXCLUDED."items"
-        ELSE EXCLUDED."items"
-      END,
-      "lastReceivedAt" = NOW(),
-      "lastMessageId" = EXCLUDED."lastMessageId",
-      "processAfter" = EXCLUDED."processAfter",
-      "updatedAt" = NOW()
-    RETURNING jsonb_array_length("items") AS "itemCount"
-  `;
+	>(
+		buildZtcImageBatchStageQuery({
+			id: randomUUID(),
+			batchKey,
+			workerId: args.worker.id,
+			organizationId: args.worker.organizationId ?? null,
+			mode: args.mode,
+			item,
+			messageId,
+			quietMs: ZTC_IMAGE_BATCH_QUIET_MS,
+			staleMs: ZTC_IMAGE_BATCH_STALE_MS,
+		}),
+	);
 	const stagedItemCount = Number(stagedRows[0]?.itemCount ?? 0);
 	logMetaWebhookTiming("ztc_image_batch_stage", stageStartedAt, {
 		batchKey,
@@ -766,10 +737,7 @@ async function stageZtcImageBatch(args: {
 
 async function deleteZtcImageBatch(batchId: string | null | undefined) {
 	if (!batchId) return;
-	await prisma.$executeRaw`
-    DELETE FROM "ZtcInboundMediaBatch"
-    WHERE "id" = ${batchId}
-  `;
+	await prisma.$executeRaw(buildZtcImageBatchDeleteQuery(batchId));
 }
 
 async function stageDefaultConstructionImageBatch(args: {
@@ -1007,10 +975,11 @@ async function runWhatsappRoutingForMeta(args: {
 	let flowResolutionError: unknown;
 	if (resolved.worker) {
 		try {
-			ztcFlow = (await resolveFlowModuleKeyForRuntime({
-				organizationId: resolved.worker.organizationId,
-				siteId: resolved.worker.siteId,
-			})) === FLOW_MODULE_KEYS.ZTC_PRODUCTION;
+			ztcFlow =
+				(await resolveFlowModuleKeyForRuntime({
+					organizationId: resolved.worker.organizationId,
+					siteId: resolved.worker.siteId,
+				})) === FLOW_MODULE_KEYS.ZTC_PRODUCTION;
 		} catch (error) {
 			if (resolved.worker.organizationId !== ZTC_ORGANIZATION_ID) throw error;
 			ztcFlow = true;
@@ -1022,13 +991,16 @@ async function runWhatsappRoutingForMeta(args: {
 		return runResolvedWhatsappRoutingForMeta({ ...args, resolved });
 	};
 	if (ztcFlow && resolved.worker) {
-		return runWithZtcMessageRecovery({
-			worker: resolved.worker,
-			message,
-			metadata: value?.metadata ?? {},
-			businessPhoneNumberId,
-			recipient: resolved.replyTarget,
-		}, run);
+		return runWithZtcMessageRecovery(
+			{
+				worker: resolved.worker,
+				message,
+				metadata: value?.metadata ?? {},
+				businessPhoneNumberId,
+				recipient: resolved.replyTarget,
+			},
+			run,
+		);
 	}
 	return run();
 }
@@ -1681,14 +1653,16 @@ export async function POST(req: Request): Promise<Response> {
 				});
 			} finally {
 				if (retryUnretainedZtcMessage) {
-					await prisma.metaInboundMessage.deleteMany({
-						where: { messageId: message.id, status: "processing" },
-					}).catch((error) => {
-						console.error("Could not release unretained ZTC message claim", {
-							messageId: message.id,
-							error,
+					await prisma.metaInboundMessage
+						.deleteMany({
+							where: { messageId: message.id, status: "processing" },
+						})
+						.catch((error) => {
+							console.error("Could not release unretained ZTC message claim", {
+								messageId: message.id,
+								error,
+							});
 						});
-					});
 				} else {
 					await finishMetaInboundMessage(message.id, processingError).catch(
 						(error) => {
