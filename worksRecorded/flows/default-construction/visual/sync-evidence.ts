@@ -74,9 +74,12 @@ export function syncVisualEvidence(
 			const changed = changedKeys.has(evidenceKey(item));
 			const manual =
 				changed &&
+				!item.manual &&
 				(state.marks.some((mark) => mark.evidenceId === id && mark.editedAt) ||
 					state.deletedPolygons?.some((item) => item.evidenceId === id));
-			if (!old || (changed && !manual)) {
+			if (item.manual) {
+				progress.set(id, { evidenceId: id, status: "complete", error: null });
+			} else if (!old || (changed && !manual)) {
 				progress.set(id, { evidenceId: id, status: "pending", error: null });
 				analysisCount++;
 			}
@@ -94,7 +97,9 @@ export function syncVisualEvidence(
 				const source = byId.get(mark.evidenceId)!;
 				return { ...mark, layer: workLayer(source.work) };
 			}),
-			...(state.imageProgress || analysisCount
+			...(state.imageProgress ||
+			analysisCount ||
+			evidence.some((item) => item.manual)
 				? { imageProgress: evidence.map((item) => progress.get(item.id)!) }
 				: {}),
 			processed: [...progress.values()].filter(

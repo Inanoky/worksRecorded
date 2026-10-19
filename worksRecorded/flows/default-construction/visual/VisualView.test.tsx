@@ -9,6 +9,7 @@ import {
 import type { ReactNode } from "react";
 import { DIARY_PHOTO_DELETED } from "@/lib/photos/photo-deleted-event";
 import {
+	addVisualRecord,
 	deleteVisualDrawing,
 	deleteVisualPolygon,
 	getVisualDrawings,
@@ -27,7 +28,9 @@ import type {
 	PolygonEdit,
 	PolygonSaveResponse,
 } from "./polygon-edit";
+import type { VisualRecordInput } from "./record-model";
 import { visualDiaryDay } from "./timeline";
+import type { VisualPdfPlanning } from "./VisualPdf";
 import VisualView from "./VisualView";
 
 const mockUpload = jest.fn();
@@ -35,6 +38,7 @@ jest.mock("@/lib/utils/UploadthingsComponents", () => ({
 	useUploadThing: () => ({ startUpload: mockUpload }),
 }));
 jest.mock("./actions", () => ({
+	addVisualRecord: jest.fn(),
 	getVisualDrawings: jest.fn(),
 	getVisualPlanning: jest.fn(),
 	refreshVisualDrawing: jest.fn(),
@@ -56,6 +60,8 @@ jest.mock("./VisualPdf", () => ({
 		onQueueSave,
 		editable,
 		selected,
+		onCreateRecord,
+		planning,
 	}: {
 		marks: VisualMark[];
 		onSelect: (id: string | null) => void;
@@ -63,6 +69,8 @@ jest.mock("./VisualPdf", () => ({
 		onQueueSave: (edit: PolygonEdit) => void;
 		editable: boolean;
 		selected: string | null;
+		onCreateRecord?: () => void;
+		planning?: VisualPdfPlanning;
 	}) => (
 		<div
 			data-testid="pdf"
@@ -70,6 +78,24 @@ jest.mock("./VisualPdf", () => ({
 			data-polygons={JSON.stringify(marks.map((mark) => mark.polygon))}
 		>
 			{marks.length} zones
+			{onCreateRecord ? (
+				<button type="button" onClick={onCreateRecord}>
+					Pievienot ierakstu
+				</button>
+			) : null}
+			{planning ? (
+				<button
+					type="button"
+					onClick={() => {
+						planning.onChange([
+							{ id: "new-area", page: 1, polygon: marks[0].polygon },
+						]);
+						planning.onEditingChange?.(false);
+					}}
+				>
+					Save new record polygon
+				</button>
+			) : null}
 			<button type="button" onClick={() => onSelect(marks[0]?.id ?? null)}>
 				Select drawing zone
 			</button>
@@ -249,6 +275,101 @@ afterEach(() => {
 	global.fetch = originalFetch;
 	sessionStorage.clear();
 	jest.useRealTimers();
+});
+
+it("adds a diary record from a new polygon and selects its saved execution zone", async () => {
+	jest
+		.mocked(addVisualRecord)
+		.mockImplementation(async (_siteId, _drawingId, input) => {
+			const record = input as VisualRecordInput;
+			return {
+				ok: true,
+				markId: "created-mark",
+				assignmentWarning: undefined,
+				drawing: {
+					...complete,
+					state: {
+						...complete.state,
+						evidence: [
+							...complete.state.evidence,
+							{
+								...complete.state.evidence[0],
+								id: "created-source",
+								recordId: record.id,
+								manual: true,
+								photoUrl: "",
+								work: record.work,
+								date: `${record.date}T00:00:00.000Z`,
+								amount: record.quantity,
+								unit: record.unit,
+							},
+						],
+						marks: [
+							...complete.state.marks,
+							{
+								...complete.state.marks[0],
+								id: "created-mark",
+								evidenceId: "created-source",
+								polygon: record.areas[0].polygon,
+							},
+						],
+					},
+				},
+			};
+		});
+	render(<VisualView siteId="site" />);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Pievienot ierakstu" }),
+	);
+	expect(screen.getByRole("button", { name: "Plānošana" })).toBeDisabled();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Save new record polygon" }),
+	);
+	fireEvent.change(screen.getByLabelText("Darbs"), {
+		target: { value: "XPS" },
+	});
+	fireEvent.change(screen.getByLabelText("Daudzums"), {
+		target: { value: "85" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt ierakstu" }));
+	await waitFor(() =>
+		expect(
+			screen.queryByRole("complementary", { name: "Jauns izpildes ieraksts" }),
+		).not.toBeInTheDocument(),
+	);
+	expect(addVisualRecord).toHaveBeenCalledWith(
+		"site",
+		"drawing",
+		expect.objectContaining({
+			quantity: 85,
+			work: "XPS",
+			areas: [
+				{ id: "new-area", page: 1, polygon: complete.state.marks[0].polygon },
+			],
+		}),
+	);
+	expect(
+		screen.queryByRole("complementary", { name: "Jauns izpildes ieraksts" }),
+	).not.toBeInTheDocument();
+	expect(
+		screen.getByRole("complementary", { name: "Izvēlētās zonas informācija" }),
+	).toHaveTextContent("Zona norādīta manuāli");
+	expect(screen.getByRole("button", { name: "Plānošana" })).toBeEnabled();
+});
+
+it("cancels a new record polygon without writing to the diary", async () => {
+	render(<VisualView siteId="site" />);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Pievienot ierakstu" }),
+	);
+	fireEvent.click(
+		screen.getByRole("button", { name: "Atcelt jauno ierakstu" }),
+	);
+	expect(
+		screen.queryByRole("button", { name: "Save new record polygon" }),
+	).not.toBeInTheDocument();
+	expect(screen.getByRole("button", { name: "Plānošana" })).toBeEnabled();
+	expect(addVisualRecord).not.toHaveBeenCalled();
 });
 
 it("dismisses the review warning without clearing reviews and only reopens it for changed sources", async () => {

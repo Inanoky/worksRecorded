@@ -116,7 +116,10 @@ export function VisualZoneDetails({
 			</div>
 			{source && mark ? (
 				<>
-					<div className="min-h-0 flex-1 p-2" data-testid="zone-source-image">
+					<div
+						className={source.manual ? "shrink-0 p-3" : "min-h-0 flex-1 p-2"}
+						data-testid="zone-source-image"
+					>
 						{source.photoUrl ? (
 							<DiaryRecordPhotos
 								key={source.photoUrl}
@@ -126,13 +129,15 @@ export function VisualZoneDetails({
 							/>
 						) : (
 							<p className="flex h-full items-center justify-center text-sm text-muted-foreground">
-								Avota attēls nav pieejams.
+								{source.manual
+									? "Zona norādīta manuāli un piesaistīta būvdarbu žurnāla ierakstam."
+									: "Avota attēls nav pieejams."}
 							</p>
 						)}
 					</div>
 					<div
 						ref={content}
-						className="max-h-[35%] shrink-0 space-y-3 overflow-y-auto overscroll-contain border-t px-3 py-2 text-sm"
+						className={`${source.manual ? "min-h-0 flex-1" : "max-h-[35%] shrink-0"} space-y-3 overflow-y-auto overscroll-contain border-t px-3 py-2 text-sm`}
 					>
 						<details>
 							<summary className="cursor-pointer text-xs font-medium text-muted-foreground">

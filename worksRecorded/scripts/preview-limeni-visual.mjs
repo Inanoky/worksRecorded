@@ -148,6 +148,16 @@ modules.actions += `export async function getVisualPlanning(){return ${JSON.stri
 modules.actions += `let sections=${JSON.stringify(planningFixture.sections)};export async function addVisualSection(site,label){sections=[...sections,label.trim()];return sections};export async function revokeVisualWorkShare(){};`;
 modules.share = `export async function publishPlanningShare(site,plan){return {token:'synthetic-preview',url:'https://www.worksrecorded.com/shared/work/synthetic-preview',version:plan.version}};`;
 modules.actions += `export async function saveVisualPolygonPatch(){throw Error('Preview only')};export async function saveVisualLayers(){throw Error('Preview only')};`;
+modules.actions += `export async function addVisualRecord(site,id,record){
+ drawing=structuredClone(drawing);
+ const sourceId=record.id+':manual';
+ drawing.state.evidence.push({id:sourceId,recordId:record.id,manual:true,photoUrl:'',work:record.work,location:drawing.state.location,description:record.comments,date:record.date+'T00:00:00.000Z',amount:record.quantity,unit:record.unit});
+ const layer=record.work.includes('XPS')?'xps':record.work.includes('Estrich')?'estrich':'sand';
+ const marks=record.areas.map((area,i)=>({id:sourceId+':'+i,evidenceId:sourceId,layer,page:area.page,polygon:area.polygon,confidence:1,anchors:['Manual',drawing.state.location],explanation:'Manuāli pievienota zona',editedAt:new Date().toISOString(),editedBy:'preview'}));
+ drawing.state.marks.push(...marks);
+ window.__visualPreviewDrawing=drawing;
+ return {ok:true,drawing,markId:marks[0].id};
+};`;
 const bundled = await build({
 	stdin: {
 		contents: process.argv.includes("--planning")

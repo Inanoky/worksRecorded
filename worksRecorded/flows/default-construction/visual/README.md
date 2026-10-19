@@ -4,6 +4,8 @@ Limeni-only default-construction diary tab. The backend checks active user membe
 
 ## Workflow
 
+In **Izpilde**, “Pievienot ierakstu” starts a new polygon on the current PDF page. Confirm the contour, save the zone, and enter the work, execution date, quantity, unit and optional comments. Additional zones/pages can belong to the same new record. Saving creates the diary record and its linked manual zones in one scoped, serializable transaction with compare-and-swap protection. Retrying the same client-generated record ID is idempotent; cancelling leaves the diary unchanged. No photo upload or AI call is needed. Manual sources remain linked to their active diary record during refresh, including metadata/work-type changes, and their geometry survives a full photo-analysis restart. Archived records and records moved to another location lose their zones on refresh. Manual zones use the ordinary layer, timeline, selection, edit and polygon-deletion controls after saving.
+
 1. Choose a configured project location and upload its base PDF through UploadThing. A PDF can be added before that location has diary photos, so visual planning can start before execution evidence exists. Zero-evidence uploads do not call the analysis model; later “Atjaunot no žurnāla” imports and analyzes new evidence.
 2. Snapshot the non-archived diary records and their linked photos for that location. Other locations and unlinked gallery photos are not included.
 3. Fetch the PDF once, then analyze all unfinished evidence images concurrently with `Promise.all`, one image per model request. Persist each outcome as it finishes. Reopening the view polls ongoing progress; resuming retries only unfinished/failed images, including after out-of-order completion.

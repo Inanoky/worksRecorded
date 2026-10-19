@@ -77,6 +77,7 @@ import {
 	visualImageProgress,
 	visualLayers,
 } from "./model";
+import type { VisualPlanArea } from "./planning-model";
 import type { PolygonDelete, PolygonSaveResult } from "./polygon-edit";
 import { applyPolygonSave, projectPolygonSaves } from "./polygon-save-queue";
 import { pruneVisualEvidence } from "./prune-evidence";
@@ -93,9 +94,10 @@ import {
 	VisualAnalysisProgress,
 } from "./VisualAnalysisProgress";
 import { VisualLayerManager } from "./VisualLayerManager";
-import { VisualPdf } from "./VisualPdf";
+import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
 import { VisualPlanningPanel } from "./VisualPlanningPanel";
 import { VisualPolygonSaveStatus } from "./VisualPolygonSaveStatus";
+import { VisualRecordForm } from "./VisualRecordForm";
 import { VisualSidebar } from "./VisualSidebar";
 import { VisualTimeline } from "./VisualTimeline";
 import { VisualZoneDetails } from "./VisualZoneDetails";
@@ -150,6 +152,14 @@ export default function VisualView({
 	const [busy, setBusy] = useState(false);
 	const [editing, setEditing] = useState(false);
 	const [workEditing, setWorkEditing] = useState(false);
+	const [recordDraft, setRecordDraft] = useState<{
+		id: string;
+		areas: VisualPlanArea[];
+	} | null>(null);
+	const [recordArea, setRecordArea] = useState<VisualPlanAreaSelection | null>(
+		null,
+	);
+	const [recordSaving, setRecordSaving] = useState(false);
 	const [automatic, setAutomatic] = useState(false);
 	const [syncedAt, setSyncedAt] = useState<number | null>(null);
 	const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -171,6 +181,7 @@ export default function VisualView({
 		busy ||
 		editing ||
 		workEditing ||
+		recordDraft !== null ||
 		remoteActive ||
 		planningDirty ||
 		managingLayers ||
@@ -247,6 +258,10 @@ export default function VisualView({
 		setDrawing(null);
 		setSelected(null);
 		setFile(null);
+		setRecordDraft(null);
+		setRecordArea(null);
+		setEditing(false);
+		setRecordSaving(false);
 		setSyncedAt(null);
 		if (cached) showIndex(cached, true);
 		void loadIndex().then(
@@ -722,8 +737,15 @@ export default function VisualView({
 		(item) => item.id === selectedMark?.evidenceId,
 	);
 	function selectZone(id: string | null) {
-		if (editing || workEditing || savingLayers || managingLayers) return;
+		if (editing || workEditing || savingLayers || managingLayers || recordDraft)
+			return;
 		setSelected(id);
+	}
+	function cancelRecord() {
+		if (recordSaving) return;
+		setRecordDraft(null);
+		setRecordArea(null);
+		setEditing(false);
 	}
 	async function persistLayers(settings: VisualLayerSettings) {
 		const run = epoch.current;
@@ -932,7 +954,12 @@ export default function VisualView({
 						className="h-7 px-2 text-xs shadow-none"
 						aria-label="Plānošana"
 						aria-pressed={mode === "planning"}
-						disabled={editing || workEditing || hasUnsavedPolygons}
+						disabled={
+							editing ||
+							workEditing ||
+							hasUnsavedPolygons ||
+							recordDraft !== null
+						}
 						title="Plānot darbus rasējumā"
 						onClick={() => {
 							setSelected(null);
@@ -1184,6 +1211,35 @@ export default function VisualView({
 								layerStyles={layerStyles}
 								key={drawing.id}
 								fillWorkspace
+								onCreateRecord={
+									!mutationControlsLocked
+										? () => {
+												setSelected(null);
+												setRecordArea(null);
+												setRecordDraft({ id: crypto.randomUUID(), areas: [] });
+											}
+										: undefined
+								}
+								planning={
+									recordDraft
+										? {
+												planId: null,
+												purpose: "record",
+												areas: recordDraft.areas,
+												selectedArea: recordArea,
+												areaRequest: 1,
+												interactionKey: recordDraft.id,
+												editable: !recordSaving,
+												label: "Jaunais izpildes ieraksts",
+												onChange: (areas) =>
+													setRecordDraft((current) =>
+														current ? { ...current, areas } : null,
+													),
+												onSelectArea: setRecordArea,
+												onEditingChange: setEditing,
+											}
+										: undefined
+								}
 								url={`${endpoint(drawing.id)}?pdf=1`}
 								marks={visibleMarks}
 								selected={selectedMark?.id ?? null}
@@ -1215,6 +1271,60 @@ export default function VisualView({
 									polygonSaves.enqueue(drawing.id, edit);
 								}}
 							/>
+							{recordDraft ? (
+								<>
+									<Button
+										className="absolute bottom-16 left-3 z-40"
+										variant="outline"
+										size="sm"
+										disabled={recordSaving}
+										onClick={cancelRecord}
+									>
+										Atcelt jauno ierakstu
+									</Button>
+									<VisualRecordForm
+										key={recordDraft.id}
+										siteId={siteId}
+										drawingId={drawing.id}
+										recordId={recordDraft.id}
+										location={drawing.state.location}
+										areas={recordDraft.areas}
+										workOptions={layerConfiguration.workOptions}
+										hidden={editing || !recordDraft.areas.length}
+										onSavingChange={setRecordSaving}
+										onCancel={cancelRecord}
+										onSaved={(result) => {
+											if (currentCache.current !== resourceCache) return;
+											showDrawing({
+												...result.drawing,
+												latestDiaryDate: drawing.latestDiaryDate,
+											});
+											setRecordDraft(null);
+											setRecordArea(null);
+											setEditing(false);
+											setThroughDay(null);
+											setLayers((current) => [
+												...new Set([
+													...current,
+													resolveVisualWorkLayer(
+														result.drawing.state.evidence.find(
+															(item) => item.recordId === recordDraft.id,
+														)?.work ?? "",
+														layerConfiguration.settings,
+														layerConfiguration.positionIds,
+													),
+												]),
+											]);
+											setSelected(result.markId);
+											resourceCache.invalidatePlanning();
+											setNotice(
+												result.assignmentWarning ??
+													"Ieraksts un tā zona pievienoti būvdarbu žurnālam.",
+											);
+										}}
+									/>
+								</>
+							) : null}
 							<VisualZoneDetails
 								layerStyles={layerStyles}
 								layerOverride={
