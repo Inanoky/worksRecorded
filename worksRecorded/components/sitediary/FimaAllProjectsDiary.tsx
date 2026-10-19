@@ -35,7 +35,6 @@ import {
 } from "@/lib/fima/diary-table";
 import type { FimaInlineField } from "@/lib/fima/inline-fields";
 import { isFimaInlineField } from "@/lib/fima/inline-fields";
-import { shouldOpenFimaRecordPanel } from "@/lib/fima/record-panel";
 import { cn } from "@/lib/utils/utils";
 import { FimaBisState } from "./FimaBisState";
 import { FimaDiaryCell } from "./FimaDiaryCell";
@@ -364,29 +363,10 @@ export function FimaAllProjectsDiary({
 											{group.rows.map((row) => (
 												<TableRow
 													key={row.id}
-													tabIndex={0}
 													data-fima-active={
 														selected?.id === row.id ? "true" : undefined
 													}
-													className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[fima-active=true]:bg-red-50/60 dark:data-[fima-active=true]:bg-red-950/30"
-													onClick={(event) => {
-														if (
-															shouldOpenFimaRecordPanel(
-																event.target,
-																event.currentTarget,
-															)
-														)
-															openRecord(row, event.currentTarget);
-													}}
-													onKeyDown={(event) => {
-														if (
-															event.target === event.currentTarget &&
-															(event.key === "Enter" || event.key === " ")
-														) {
-															event.preventDefault();
-															openRecord(row, event.currentTarget);
-														}
-													}}
+													className="select-text data-[fima-active=true]:bg-red-50/60 dark:data-[fima-active=true]:bg-red-950/30"
 												>
 													<TableCell className="text-center">
 														<Checkbox
@@ -439,28 +419,7 @@ export function FimaAllProjectsDiary({
 								</div>
 								<div className="space-y-2 xl:hidden">
 									{group.rows.map((row) => (
-										<article
-											key={row.id}
-											className="rounded-lg border p-4"
-											onClick={(event) => {
-												if (
-													shouldOpenFimaRecordPanel(
-														event.target,
-														event.currentTarget,
-													)
-												)
-													openRecord(row, event.currentTarget);
-											}}
-											onKeyDown={(event) => {
-												if (
-													event.target === event.currentTarget &&
-													(event.key === "Enter" || event.key === " ")
-												) {
-													event.preventDefault();
-													openRecord(row, event.currentTarget);
-												}
-											}}
-										>
+										<article key={row.id} className="rounded-lg border p-4">
 											<div className="mb-3 flex items-center justify-between gap-2">
 												<div className="flex min-w-0 items-center gap-2">
 													<Checkbox

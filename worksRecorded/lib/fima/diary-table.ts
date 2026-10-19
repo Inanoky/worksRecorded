@@ -1,6 +1,6 @@
 export const fimaDiaryColumns = [
 	{ field: "Date", label: "Datums", order: 1, width: 120 },
-	{ field: "FimaNumber", label: "FIMA Nr.", order: 1.25, width: 110 },
+	{ field: "FimaNumber", label: "FIMA Nr.", order: 1.25, width: 140 },
 	{ field: "FimaBisCase", label: "BIS ieraksta Nr.", order: 1.5, width: 100 },
 	{ field: "Works", label: "Darba apraksts", order: 2, width: 200 },
 	{ field: "Location", label: "Balsti / posms", order: 3, width: 150 },

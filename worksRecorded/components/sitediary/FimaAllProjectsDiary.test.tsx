@@ -92,6 +92,8 @@ it("uses each record's actual project for collaboration and opens its right pane
 		within(second).getByRole("button", { name: "FimaReviewStatus" }),
 	).toHaveAttribute("data-site", "site-2");
 	fireEvent.click(second);
+	expect(screen.queryByLabelText("Record panel")).not.toBeInTheDocument();
+	fireEvent.click(within(second).getByRole("button", { name: "FimaNumber" }));
 	expect(screen.getByLabelText("Record panel")).toHaveTextContent(
 		"site-2 row-2",
 	);
@@ -175,7 +177,7 @@ it("groups records by work date in newest-first order and keeps project links", 
 	).toHaveAttribute("href", "/dashboard/sites/site-1/dashboard");
 });
 
-it("selects a day without opening a record, and keyboard activation opens the panel", () => {
+it("keeps row text and selection separate from opening a record", () => {
 	render(<FimaAllProjectsDiary records={records} />);
 	const table = tableFor("KUCE one");
 	const boxes = within(table).getAllByRole("checkbox");
@@ -186,6 +188,11 @@ it("selects a day without opening a record, and keyboard activation opens the pa
 	fireEvent.click(screen.getByRole("button", { name: "Notīrīt atlasi" }));
 	expect(boxes[1]).not.toBeChecked();
 	fireEvent.keyDown(within(table).getAllByRole("row")[1], { key: "Enter" });
+	fireEvent.click(within(table).getByText("KUCE one"));
+	fireEvent.doubleClick(within(table).getByText("BIS one"));
+	expect(screen.queryByLabelText("Record panel")).not.toBeInTheDocument();
+	expect(within(table).getAllByRole("row")[1]).not.toHaveAttribute("tabindex");
+	fireEvent.click(within(table).getByRole("button", { name: "FimaNumber" }));
 	expect(screen.getByLabelText("Record panel")).toHaveTextContent(
 		"site-1 row-1",
 	);
@@ -209,13 +216,27 @@ it("shows a clear empty state", () => {
 	).toBeInTheDocument();
 	expect(screen.queryByRole("table")).not.toBeInTheDocument();
 });
+it("keeps mobile card text selectable and uses the explicit details control", () => {
+	const { container } = render(<FimaAllProjectsDiary records={records} />);
+	const card = [...container.querySelectorAll("article")].find((item) =>
+		within(item).queryByText("KUCE two"),
+	);
+	if (!card) throw new Error("Missing mobile card");
+	fireEvent.click(within(card).getByText("KUCE two"));
+	fireEvent.doubleClick(within(card).getByText("21-5"));
+	expect(screen.queryByLabelText("Record panel")).not.toBeInTheDocument();
+	fireEvent.click(within(card).getByRole("button", { name: "FimaNumber" }));
+	expect(screen.getByLabelText("Record panel")).toHaveTextContent(
+		"site-2 row-2",
+	);
+});
 
 it("preserves the selected record panel and checkboxes across page changes", () => {
 	const { rerender } = render(<FimaAllProjectsDiary records={[records[0]]} />);
 	fireEvent.click(within(tableFor("KUCE one")).getAllByRole("checkbox")[1]);
-	fireEvent.keyDown(within(tableFor("KUCE one")).getAllByRole("row")[1], {
-		key: "Enter",
-	});
+	fireEvent.click(
+		within(tableFor("KUCE one")).getByRole("button", { name: "FimaNumber" }),
+	);
 	rerender(<FimaAllProjectsDiary records={[records[1]]} />);
 	expect(screen.getByLabelText("Record panel")).toHaveTextContent(
 		"site-1 row-1",

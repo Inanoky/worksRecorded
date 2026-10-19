@@ -115,26 +115,29 @@ export function FimaInlineCell({
 					/>
 				)
 			) : (
-				<button
-					type="button"
-					aria-label={`Rediģēt: ${label}`}
-					className="group flex w-full min-w-0 items-start gap-1 rounded px-1 py-1 text-left hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-primary/30"
-					onClick={() => {
-						cancelled.current = false;
-						expected.current = fimaInlineValue(value);
-						setDraft(
-							field === "Date"
-								? expected.current.slice(0, 10)
-								: expected.current,
-						);
-						setEditing(true);
-					}}
-				>
-					<span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
+				<div className="w-full min-w-0 px-1 py-1">
+					<span className="block min-w-0 cursor-text select-text whitespace-pre-wrap break-words">
 						{display || "—"}
 					</span>
-					<Pencil className="mt-0.5 size-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
-				</button>
+					<button
+						type="button"
+						aria-label={`Rediģēt: ${label}`}
+						title={`Rediģēt: ${label}`}
+						className="mt-1 inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+						onClick={() => {
+							cancelled.current = false;
+							expected.current = fimaInlineValue(value);
+							setDraft(
+								field === "Date"
+									? expected.current.slice(0, 10)
+									: expected.current,
+							);
+							setEditing(true);
+						}}
+					>
+						<Pencil aria-hidden="true" className="size-3" />
+					</button>
+				</div>
 			)}
 		</div>
 	);
