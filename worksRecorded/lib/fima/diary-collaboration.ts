@@ -41,6 +41,7 @@ export type FimaCollaboration = {
 	version: number;
 	status: keyof typeof fimaStatuses | null;
 	materials: FimaMaterial[];
+	materialsNote?: string | null;
 	history: FimaEvent[];
 	examples?: FimaBisExamples;
 	bisMaterials?: {
@@ -141,7 +142,9 @@ export function withFimaDiaryColumns(
 export function appendFimaEvent(
 	state: FimaCollaboration,
 	event: FimaEvent,
-	patch: Partial<Pick<FimaCollaboration, "status" | "materials">>,
+	patch: Partial<
+		Pick<FimaCollaboration, "status" | "materials" | "materialsNote">
+	>,
 	expectedVersion?: number,
 ) {
 	if (state.history.some((item) => item.id === event.id)) return state;

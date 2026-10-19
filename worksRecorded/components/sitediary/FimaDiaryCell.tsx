@@ -149,7 +149,13 @@ export function FimaDiaryCell({
 						aria-label="Pievienot materiālus"
 						className="min-h-8 w-full rounded text-left hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 						onClick={() => setOpen(true)}
-					></button>
+					>
+						{state.materialsNote ? (
+							<span className="text-xs text-muted-foreground">
+								{state.materialsNote}
+							</span>
+						) : null}
+					</button>
 				)}
 				<Dialog
 					open={open}

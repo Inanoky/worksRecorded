@@ -184,7 +184,7 @@ export async function saveFimaDiaryCollaboration(
 			input.kind === "status"
 				? { status: input.status }
 				: input.kind === "materials"
-					? { materials: input.materials }
+					? { materials: input.materials, materialsNote: null }
 					: {},
 			input.kind === "comment" ? undefined : input.expectedVersion,
 		);

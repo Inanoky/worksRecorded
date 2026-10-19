@@ -192,6 +192,53 @@ it("keeps material management accessible in the record panel even with no materi
 	).toBeInTheDocument();
 });
 
+it("shows an unresolved review note in the empty materials cell without creating a material", () => {
+	render(
+		<FimaDiaryCell
+			field="FimaMaterials"
+			siteId={siteId}
+			row={{
+				id: "record",
+				fimaCollaboration: {
+					...initial,
+					materialsNote: "nevaram saprast materiālus",
+				},
+			}}
+			onChange={jest.fn()}
+		/>,
+	);
+	expect(screen.getByText("nevaram saprast materiālus")).toBeInTheDocument();
+	expect(screen.queryByRole("list")).not.toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: "Pievienot materiālus" }),
+	).toBeEnabled();
+	expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
+});
+
+it("does not show an old unresolved note when actual materials are present", () => {
+	render(
+		<FimaDiaryCell
+			field="FimaMaterials"
+			siteId={siteId}
+			row={{
+				id: "record",
+				fimaCollaboration: {
+					...initial,
+					materialsNote: "nevaram saprast materiālus",
+					materials: [
+						{ id: "material", label: "Izolators", quantity: 1, unit: "gab." },
+					],
+				},
+			}}
+			onChange={jest.fn()}
+		/>,
+	);
+	expect(
+		screen.queryByText("nevaram saprast materiālus"),
+	).not.toBeInTheDocument();
+	expect(screen.getByText(/Izolators/)).toBeInTheDocument();
+});
+
 it("shows associated BIS materials alongside prepared materials without duplicating the same material", () => {
 	const shared = {
 		id: "one",

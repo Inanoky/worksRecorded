@@ -204,6 +204,13 @@ it("prevents stale review edits", async () => {
 	).rejects.toThrow("Ieraksts ir mainīts");
 });
 it("validates quantities and stores material names from BIS rather than client labels", async () => {
+	metadata.fimaCollaboration = {
+		version: 0,
+		status: null,
+		materials: [],
+		history: [],
+		materialsNote: "nevaram saprast materiālus",
+	};
 	jest.mocked(getBisCaseAvailableMaterials).mockResolvedValue([
 		{
 			id: "m1",
@@ -220,6 +227,7 @@ it("validates quantities and stores material names from BIS rather than client l
 		materials: [{ id: "m1", label: "Client text", unit: "m", quantity: 2 }],
 	};
 	const state = await saveFimaDiaryCollaboration(args);
+	expect(state.materialsNote).toBeNull();
 	expect(state.materials[0]).toMatchObject({
 		label: "BIS oriģinālais nosaukums",
 		unit: "gab.",
