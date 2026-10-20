@@ -2463,23 +2463,31 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			error:
 				"The personal approval flow was found, but an approver needs project access.",
 			errorCode: "approval_flow_approver_permission",
+			approverNames: [
+				"Vitālijs Medaļkins",
+				"Dmitrijs Anisko",
+				"Aleksandrs Trokss",
+			],
+			flowType: "personal",
 		});
 
 		render(
 			<TgemInvoiceApprovalDashboard
 				siteId="site-1"
 				initialView="approval"
-				organizationLanguage="en"
+				organizationLanguage="lv"
 			/>,
 		);
 
 		fireEvent.click(
-			await screen.findByRole("button", { name: "Start approval path" }),
+			await screen.findByRole("button", {
+				name: "Sākt apstiprināšanas ceļu",
+			}),
 		);
 
 		expect(
 			await screen.findByText(
-				"The personal approval flow was found, but an approver needs project access.",
+				"Personīgā apstiprināšanas plūsma ir atrasta, bet šiem apstiprinātājiem nav apstiprināšanas piekļuves šim projektam: Vitālijs Medaļkins, Dmitrijs Anisko, Aleksandrs Trokss. Tikai administrators var mainīt šo piekļuvi. Atveriet Projekta iestatījumi → Projekta piekļuve, piešķiriet viņiem grupu “Apstiprinātājs” un mēģiniet vēlreiz.",
 			),
 		).toBeInTheDocument();
 		expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(1);

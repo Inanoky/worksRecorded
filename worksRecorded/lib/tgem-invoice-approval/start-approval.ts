@@ -27,11 +27,22 @@ export type TgemApprovalStartErrorCode =
 
 export class TgemApprovalStartError extends Error {
 	readonly code: TgemApprovalStartErrorCode;
+	readonly approverNames: string[] | null;
+	readonly flowType: "personal" | "project" | null;
 
-	constructor(code: TgemApprovalStartErrorCode, message: string) {
+	constructor(
+		code: TgemApprovalStartErrorCode,
+		message: string,
+		details?: {
+			approverNames?: string[];
+			flowType?: "personal" | "project";
+		},
+	) {
 		super(message);
 		this.name = "TgemApprovalStartError";
 		this.code = code;
+		this.approverNames = details?.approverNames ?? null;
+		this.flowType = details?.flowType ?? null;
 	}
 }
 
@@ -235,12 +246,12 @@ async function validateSnapshotUsers(
 			.filter((step) =>
 				approverIdsWithoutPermission.includes(step.approverUserId),
 			)
-			.map((step) => step.approverName)
-			.join(", ");
+			.map((step) => step.approverName);
 		const flowType = snapshot.source === "submitter" ? "personal" : "project";
 		throw new TgemApprovalStartError(
 			"approval_flow_approver_permission",
-			`The ${flowType} approval flow was found, but these approvers do not have approval access for this project: ${approverNames}. Assign them an Approver group and try again.`,
+			`The ${flowType} approval flow was found, but these approvers do not have approval access for this project: ${approverNames.join(", ")}. Assign them an Approver group and try again.`,
+			{ approverNames, flowType },
 		);
 	}
 }

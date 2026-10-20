@@ -1140,6 +1140,13 @@ describe("TGEM invoice approval actions", () => {
 			error:
 				"The project approval flow was found, but these approvers do not have approval access for this project: Anna Bērziņa, Jānis Ozols, Māra Liepa, Ilze Kalniņa. Assign them an Approver group and try again.",
 			errorCode: "approval_flow_approver_permission",
+			approverNames: [
+				"Anna Bērziņa",
+				"Jānis Ozols",
+				"Māra Liepa",
+				"Ilze Kalniņa",
+			],
+			flowType: "project",
 		});
 		expect(
 			mockPrisma.tgemInvoiceApprovalStep.createMany,
@@ -1167,7 +1174,14 @@ describe("TGEM invoice approval actions", () => {
 			submitTgemInvoiceForApproval({ invoiceCaseId: "case-1" }),
 		).resolves.toEqual(
 			expect.objectContaining({
+				approverNames: [
+					"Anna Bērziņa",
+					"Jānis Ozols",
+					"Māra Liepa",
+					"Ilze Kalniņa",
+				],
 				errorCode: "approval_flow_approver_permission",
+				flowType: "personal",
 			}),
 		);
 		expect(

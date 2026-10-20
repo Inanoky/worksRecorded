@@ -587,7 +587,12 @@ export async function submitTgemInvoiceForApproval(input: {
 		};
 	} catch (error) {
 		if (isTgemApprovalStartError(error)) {
-			return { error: error.message, errorCode: error.code };
+			return {
+				error: error.message,
+				errorCode: error.code,
+				...(error.approverNames ? { approverNames: error.approverNames } : {}),
+				...(error.flowType ? { flowType: error.flowType } : {}),
+			};
 		}
 		if (
 			typeof error === "object" &&
