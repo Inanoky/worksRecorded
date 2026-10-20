@@ -454,8 +454,12 @@
 		opacity 180ms ease-out;
 }
 
-.clientLogos a:last-child {
+.clientLogos a:nth-child(3n) {
 	border-right: 0;
+}
+
+.clientLogos a:nth-child(-n + 3) {
+	border-bottom: 1px solid #e0e9e3;
 }
 
 .clientLogos a:hover {
@@ -952,6 +956,26 @@
 	.clientLogos a {
 		min-height: 86px;
 		padding: 18px;
+	}
+
+	.clientLogos {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.clientLogos a {
+		border-bottom: 1px solid #e0e9e3;
+	}
+
+	.clientLogos a:nth-child(odd) {
+		border-right: 1px solid #e0e9e3;
+	}
+
+	.clientLogos a:nth-child(even) {
+		border-right: 0;
+	}
+
+	.clientLogos a:nth-last-child(-n + 2) {
+		border-bottom: 0;
 	}
 
 	.workflowEvidence,

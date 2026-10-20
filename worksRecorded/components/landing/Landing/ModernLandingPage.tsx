@@ -6,13 +6,16 @@ import {
 } from "@kinde-oss/kinde-auth-nextjs/components";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Instrument_Serif, Inter, Inter_Tight } from "next/font/google";
+import type { StaticImageData } from "next/image";
 import Image from "next/image";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
+import TgemLogo from "@/lib/images/tgem-logo.png";
 import ScreenshotSiteDiary from "@/public/frontend/pages/Home/ScreenshotSiteDiary.png";
 import BisLogo from "@/public/logos/bislogo.png";
 import DepromLogo from "@/public/logos/deprom.webp";
+import FimaLogo from "@/public/logos/fima-official.png";
 import LecLogo from "@/public/logos/lec.png";
 import WhatsappLogo from "@/public/logos/WhatsApp_logo.png";
 import ZtcLogo from "@/public/logos/ztc.jpg";
@@ -33,10 +36,23 @@ type TextItem = {
 	desc?: string;
 };
 
-const clientLogos = [
+const clientLogos: {
+	name: string;
+	logo: StaticImageData | string;
+	logoWidth?: number;
+	logoHeight?: number;
+}[] = [
 	{ name: "Deprom", logo: DepromLogo },
 	{ name: "LEC", logo: LecLogo },
 	{ name: "ZTC", logo: ZtcLogo },
+	{
+		name: "Līmenī",
+		logo: "/logos/limeni.svg",
+		logoWidth: 1012,
+		logoHeight: 330,
+	},
+	{ name: "FIMA", logo: FimaLogo },
+	{ name: "TGEM", logo: TgemLogo },
 ];
 
 export default function ModernLandingPage({
@@ -204,7 +220,7 @@ export default function ModernLandingPage({
 					<p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#66736b]">
 						{landing("clientsHeading")}
 					</p>
-					<div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-3">
+					<div className="mt-7 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
 						{clientLogos.map((client) => (
 							<div
 								key={client.name}
@@ -213,7 +229,13 @@ export default function ModernLandingPage({
 								<Image
 									src={client.logo}
 									alt={client.name}
-									className="max-h-11 w-auto object-contain"
+									width={client.logoWidth}
+									height={client.logoHeight}
+									className={
+										client.name === "TGEM"
+											? "h-10 w-36 max-w-full object-cover object-[center_45%]"
+											: "max-h-11 max-w-full w-auto object-contain"
+									}
 								/>
 							</div>
 						))}
