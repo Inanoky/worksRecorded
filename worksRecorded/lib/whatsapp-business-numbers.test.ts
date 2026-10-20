@@ -1,11 +1,14 @@
 const findUnique = jest.fn();
 const update = jest.fn();
+const findMany = jest.fn();
+const sendUpdate = jest.fn();
 const findFirst = jest.fn();
 
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
 		whatsAppBusinessNumber: { findFirst },
-		whatsAppTaskSendItem: { findUnique, update },
+		whatsAppTaskSendItem: { findUnique, findMany, update },
+		whatsAppTaskSend: { update: sendUpdate },
 	},
 }));
 
@@ -68,9 +71,11 @@ it("advances delivery status without downgrading", async () => {
 it("records a terminal delivery failure and ignores unknown IDs", async () => {
 	findUnique.mockResolvedValueOnce({
 		id: "item",
+		sendId: "send-1",
 		status: "sent",
 		sentAt: new Date(),
 	});
+	findMany.mockResolvedValue([{ status: "failed" }]);
 	expect(
 		await persistWhatsAppTaskStatus({
 			id: "wamid.1",
@@ -84,6 +89,13 @@ it("records a terminal delivery failure and ignores unknown IDs", async () => {
 			status: "failed",
 			failedAt: expect.any(Date),
 			providerError: '[{"code":131000}]',
+		}),
+	});
+	expect(sendUpdate).toHaveBeenCalledWith({
+		where: { id: "send-1" },
+		data: expect.objectContaining({
+			status: "failed",
+			completedAt: expect.any(Date),
 		}),
 	});
 

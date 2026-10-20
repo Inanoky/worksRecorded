@@ -183,6 +183,7 @@ const plan: VisualPlan = {
 };
 const indexedPlan = {
 	...plan,
+	whatsAppSends: [],
 	progress: {
 		actualIds: ["actual"],
 		actualQuantity: 4,
@@ -341,7 +342,11 @@ it("reports a dedicated-number send failure and allows an explicit retry", async
 	fireEvent.click(send);
 	expect(await screen.findByRole("alert")).toHaveTextContent("Meta failed");
 	fireEvent.click(send);
-	expect(await screen.findByText("Nosūtīti 1 attēli.")).toBeInTheDocument();
+	expect(
+		await screen.findByText(
+			"Meta pieņēma 1 attēlu nosūtīšanai. Piegādes statusu skatiet uzdevuma vēsturē.",
+		),
+	).toBeInTheDocument();
 	expect(sendPlanningWhatsAppTask).toHaveBeenCalledTimes(2);
 });
 
@@ -821,7 +826,7 @@ it("prepares the saved task for its contact and allows editing the WhatsApp draf
 		name: "Nosūtīt no Limeni WhatsApp",
 	});
 	expect((message as HTMLTextAreaElement).value).toContain(
-		"Darbs: Smilts\nLokācija: 1. stāvs",
+		"Darbs: Smilts Lokācija: 1. stāvs",
 	);
 	expect((message as HTMLTextAreaElement).value).toContain(
 		"Plānotais apjoms: 10,123456 m2",
@@ -850,7 +855,7 @@ it("prepares the saved task for its contact and allows editing the WhatsApp draf
 	).toBeInTheDocument();
 	fireEvent.change(phone, { target: { value: "00371 (2111) 1111" } });
 	fireEvent.change(message, {
-		target: { value: "Lūdzu, pārbaudīt XPS & grīdu #1" },
+		target: { value: "Lūdzu,\n\tpārbaudīt     XPS & grīdu #1" },
 	});
 	fireEvent.click(
 		within(dialog).getByRole("button", {
@@ -870,7 +875,9 @@ it("prepares the saved task for its contact and allows editing the WhatsApp draf
 		),
 	);
 	expect(
-		await within(dialog).findByText("Nosūtīti 1 attēli."),
+		await within(dialog).findByText(
+			"Meta pieņēma 1 attēlu nosūtīšanai. Piegādes statusu skatiet uzdevuma vēsturē.",
+		),
 	).toBeInTheDocument();
 	fireEvent.click(within(dialog).getByRole("button", { name: "Atcelt" }));
 	await waitFor(() =>
@@ -895,6 +902,66 @@ it("prepares the saved task for its contact and allows editing the WhatsApp draf
 	);
 	await screen.findByRole("img", { name: "Uzdevuma zona · PDF lapa 1" });
 	expect(saveVisualPlanningItem).not.toHaveBeenCalled();
+});
+
+it("shows WhatsApp delivery history on the connected planning task", async () => {
+	jest.mocked(getVisualPlanning).mockResolvedValue({
+		...emptyIndex,
+		plans: [
+			{
+				...indexedPlan,
+				whatsAppSends: [
+					{
+						id: "send-1",
+						planVersion: 2,
+						recipient: "37120000000",
+						message: "Pārbaudīt darbu",
+						status: "sent",
+						createdAt: "2026-10-20T09:00:00.000Z",
+						completedAt: "2026-10-20T09:00:02.000Z",
+						items: [
+							{
+								ordinal: 0,
+								page: 1,
+								section: null,
+								status: "read",
+								metaMessageId: "wamid.1",
+								sentAt: "2026-10-20T09:00:02.000Z",
+								deliveredAt: "2026-10-20T09:00:04.000Z",
+								readAt: "2026-10-20T09:01:00.000Z",
+								failedAt: null,
+								failureReason: null,
+							},
+						],
+					},
+				],
+			},
+		],
+	});
+	render(
+		<VisualPlanningPanel
+			siteId="site"
+			drawing={drawing}
+			sidebarOpen
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
+	);
+	const summary = screen.getByText("WhatsApp sūtījumi").closest("summary");
+	expect(summary).not.toBeNull();
+	expect(summary?.parentElement).not.toHaveAttribute("open");
+	fireEvent.click(summary as HTMLElement);
+	expect(summary?.parentElement).toHaveAttribute("open");
+	const history = screen.getByRole("region", {
+		name: "WhatsApp sūtījumu vēsture",
+	});
+	expect(history).toHaveTextContent("+37120000000");
+	expect(history).toHaveTextContent("Izlasīts");
+	expect(history).toHaveTextContent("1/1 izlasīti · versija 2");
+	expect(history).toHaveTextContent("Pārbaudīt darbu");
+	expect(history).toHaveTextContent("PDF lapa 1 · Izlasīts");
 });
 
 it("prepares only the selected project section drawing with the saved task's zones", async () => {

@@ -9,6 +9,7 @@ import {
 	VISUAL_WORK_TASK_PURPOSE,
 } from "@/lib/whatsapp-business-numbers";
 import { VISUAL_PLAN_TYPE, visualPlanAreasSchema } from "./planning-model";
+import { normalizePlanningWhatsAppTemplateText } from "./planning-whatsapp";
 import { requireVisualAccess } from "./store";
 
 export const WHATSAPP_TASK_MAX_BODY = 16_000_000;
@@ -19,7 +20,10 @@ const sendInputSchema = z
 		planId: z.string().uuid(),
 		planVersion: z.number().int().positive(),
 		recipient: z.string().transform((value) => normalizeMetaPhone(value)),
-		message: z.string().trim().min(1).max(900),
+		message: z
+			.string()
+			.transform(normalizePlanningWhatsAppTemplateText)
+			.pipe(z.string().min(1).max(900)),
 		clientRequestId: z.string().uuid(),
 		images: z
 			.array(
@@ -108,8 +112,8 @@ async function sendTemplate(args: {
 	templateName: string;
 	templateLanguage: string;
 	recipient: string;
+	objectName: string;
 	message: string;
-	label: string;
 	total: number;
 	mediaId: string;
 }) {
@@ -135,9 +139,21 @@ async function sendTemplate(args: {
 						{
 							type: "body",
 							parameters: [
-								{ type: "text", text: args.message },
-								{ type: "text", text: args.label },
-								{ type: "text", text: String(args.total) },
+								{
+									type: "text",
+									parameter_name: "objekts",
+									text: args.objectName,
+								},
+								{
+									type: "text",
+									parameter_name: "uzdevuma_apraksts",
+									text: args.message,
+								},
+								{
+									type: "text",
+									parameter_name: "attelu_skaits",
+									text: String(args.total),
+								},
 							],
 						},
 					],
@@ -208,6 +224,7 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 			archivedAt: null,
 			geometryReviewRequired: false,
 		},
+		include: { site: { select: { name: true } } },
 	});
 	if (!plan) throw new Error("Plāns ir mainīts vai nav pieejams.");
 	const geometry = visualPlanAreasSchema.parse(plan.visualAreas);
@@ -242,7 +259,7 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 			send.planId !== input.planId ||
 			send.planVersion !== input.planVersion ||
 			send.recipient !== input.recipient ||
-			send.message !== input.message ||
+			normalizePlanningWhatsAppTemplateText(send.message) !== input.message ||
 			existingItems.length !== input.images.length ||
 			existingItems.some(
 				(item, ordinal) =>
@@ -301,8 +318,8 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 				templateName: businessNumber.templateName,
 				templateLanguage: businessNumber.templateLanguage,
 				recipient: input.recipient,
+				objectName: `${plan.site.name} — ${label}`,
 				message: input.message,
-				label,
 				total: items.length,
 				mediaId,
 			});

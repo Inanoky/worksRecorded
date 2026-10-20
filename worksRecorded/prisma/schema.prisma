@@ -705,6 +705,7 @@ model ConstructionPlan {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   revisions   ConstructionPlanRevision[]
+  whatsAppTaskSends WhatsAppTaskSend[]
 
   @@unique([siteId, date, matchKey, planType])
   @@index([siteId, date])
@@ -1127,6 +1128,7 @@ model WhatsAppTaskSend {
   organizationId String
   siteId         String
   planId         String
+  plan           ConstructionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
   planVersion    Int
   senderUserId   String
   recipient      String
@@ -1139,6 +1141,7 @@ model WhatsAppTaskSend {
 
   @@index([organizationId, createdAt], map: "WhatsAppTaskSend_org_created_idx")
   @@index([siteId, planId, createdAt], map: "WhatsAppTaskSend_plan_created_idx")
+  @@index([planId], map: "WhatsAppTaskSend_plan_fkey_idx")
 }
 
 model WhatsAppTaskSendItem {

@@ -85,5 +85,21 @@ export async function persistWhatsAppTaskStatus(status: unknown) {
 				: {}),
 		},
 	});
+	if (nextStatus === "failed") {
+		const sendItems = await prisma.whatsAppTaskSendItem.findMany({
+			where: { sendId: item.sendId },
+			select: { status: true },
+		});
+		const failedCount = sendItems.filter(
+			(sendItem) => sendItem.status === "failed",
+		).length;
+		await prisma.whatsAppTaskSend.update({
+			where: { id: item.sendId },
+			data: {
+				status: failedCount === sendItems.length ? "failed" : "partial",
+				completedAt: now,
+			},
+		});
+	}
 	return true;
 }

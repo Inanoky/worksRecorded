@@ -20,7 +20,8 @@ import type { PlanningImage } from "./planning-image";
 import type { VisualPlan } from "./planning-model";
 import {
 	normalizePlanningWhatsAppPhone,
-	planningWhatsAppMessage,
+	normalizePlanningWhatsAppTemplateText,
+	planningWhatsAppTemplateMessage,
 } from "./planning-whatsapp";
 import {
 	type PlanningWhatsAppSendResult,
@@ -33,12 +34,14 @@ export function VisualPlanningWhatsApp({
 	createImages,
 	contact,
 	disabled,
+	onSendResult,
 }: {
 	siteId: string;
 	plan: VisualPlan;
 	createImages: (signal: AbortSignal) => Promise<PlanningImage[]>;
 	contact?: { name: string; phone: string };
 	disabled: boolean;
+	onSendResult?: () => void;
 }) {
 	const [open, setOpen] = useState(false);
 	const [phone, setPhone] = useState("");
@@ -114,9 +117,11 @@ export function VisualPlanningWhatsApp({
 	}
 	async function sendTask() {
 		const recipient = normalizePlanningWhatsAppPhone(phone);
-		if (!recipient || !message.trim() || !images.length || !clientRequestId)
+		const normalizedMessage = normalizePlanningWhatsAppTemplateText(message);
+		if (!recipient || !normalizedMessage || !images.length || !clientRequestId)
 			return;
 		const controller = new AbortController();
+		setMessage(normalizedMessage);
 		setSending(true);
 		setSendError(null);
 		try {
@@ -125,12 +130,13 @@ export function VisualPlanningWhatsApp({
 				planId: plan.id,
 				planVersion: plan.version,
 				recipient,
-				message: message.trim(),
+				message: normalizedMessage,
 				clientRequestId,
 				images,
 				signal: controller.signal,
 			});
 			setSendResult(result);
+			onSendResult?.();
 		} catch (error) {
 			setSendError(
 				error instanceof Error
@@ -143,14 +149,15 @@ export function VisualPlanningWhatsApp({
 	}
 	const id = useId();
 	const invalidPhone = !!phone.trim() && !normalizePlanningWhatsAppPhone(phone);
-	const messageTooLong = message.length > 900;
+	const normalizedMessage = normalizePlanningWhatsAppTemplateText(message);
+	const messageTooLong = normalizedMessage.length > 900;
 	const sendDisabled =
 		preparing ||
 		sending ||
 		!images.length ||
 		invalidPhone ||
 		!phone.trim() ||
-		!message.trim() ||
+		!normalizedMessage ||
 		messageTooLong ||
 		sendResult?.status === "sent";
 
@@ -161,7 +168,7 @@ export function VisualPlanningWhatsApp({
 				if (sending) return;
 				if (nextOpen) {
 					setPhone(contact?.phone ?? "");
-					setMessage(planningWhatsAppMessage(plan));
+					setMessage(planningWhatsAppTemplateMessage(plan));
 					setCopying(null);
 					setSendError(null);
 					setSendResult(null);
@@ -308,11 +315,12 @@ export function VisualPlanningWhatsApp({
 								disabled={Boolean(sendResult)}
 								aria-invalid={messageTooLong}
 								onChange={(event) => setMessage(event.target.value)}
+								onBlur={() => setMessage(normalizedMessage)}
 							/>
 							<p
 								className={`text-xs ${messageTooLong ? "text-destructive" : "text-muted-foreground"}`}
 							>
-								{message.length}/900 rakstzīmes
+								{normalizedMessage.length}/900 rakstzīmes
 							</p>
 						</div>
 						<p className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
@@ -324,7 +332,7 @@ export function VisualPlanningWhatsApp({
 								className={`block rounded-lg border p-3 text-sm ${sendResult.status === "sent" ? "text-emerald-700" : "text-amber-700"}`}
 							>
 								{sendResult.status === "sent"
-									? `Nosūtīti ${sendResult.items.length} attēli.`
+									? `Meta pieņēma ${sendResult.items.length} ${sendResult.items.length === 1 ? "attēlu" : "attēlus"} nosūtīšanai. Piegādes statusu skatiet uzdevuma vēsturē.`
 									: `Nosūtīti ${sendResult.items.filter((item) => item.status !== "failed").length} no ${sendResult.items.length} attēliem. Varat atkārtot tikai nenosūtītos.`}
 							</output>
 						) : null}

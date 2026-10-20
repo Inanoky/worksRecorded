@@ -63,6 +63,7 @@ beforeEach(() => {
 	requireVisualAccess.mockResolvedValue({ organizationId: "limeni-org" });
 	constructionPlanFindFirst.mockResolvedValue({
 		id: "11111111-1111-4111-8111-111111111111",
+		site: { name: "Testa objekts" },
 		visualAreas: {
 			version: 1,
 			areas: [
@@ -141,7 +142,7 @@ it("uploads and sends one dedicated template message per ordered image", async (
 			planId: "11111111-1111-4111-8111-111111111111",
 			planVersion: 2,
 			recipient: "+371 20000000",
-			message: "Pārbaudīt darbu",
+			message: "Pārbaudīt\n\tdarbu     šeit",
 			clientRequestId: "22222222-2222-4222-8222-222222222222",
 			images: [{ page: 1 }, { page: 11, section: "PA1.6" }],
 		},
@@ -168,9 +169,32 @@ it("uploads and sends one dedicated template message per ordered image", async (
 		type: "image",
 		image: { id: "media-1" },
 	});
-	expect(messageBodies[1].template.components[1].parameters[1]).toEqual({
+	expect(messageBodies[0].template.components[1].parameters).toEqual([
+		{
+			type: "text",
+			parameter_name: "objekts",
+			text: "Testa objekts — PDF lapa 1",
+		},
+		{
+			type: "text",
+			parameter_name: "uzdevuma_apraksts",
+			text: "Pārbaudīt darbu šeit",
+		},
+		{
+			type: "text",
+			parameter_name: "attelu_skaits",
+			text: "2",
+		},
+	]);
+	expect(sendCreate).toHaveBeenCalledWith(
+		expect.objectContaining({
+			data: expect.objectContaining({ message: "Pārbaudīt darbu šeit" }),
+		}),
+	);
+	expect(messageBodies[1].template.components[1].parameters[0]).toEqual({
 		type: "text",
-		text: "Sekcija PA1.6",
+		parameter_name: "objekts",
+		text: "Testa objekts — Sekcija PA1.6",
 	});
 });
 

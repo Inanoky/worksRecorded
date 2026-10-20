@@ -2,8 +2,10 @@
 
 import {
 	Archive,
+	ChevronDown,
 	ContactRound,
 	Loader2,
+	MessageCircle,
 	Plus,
 	RotateCcw,
 	TriangleAlert,
@@ -104,6 +106,47 @@ const statusClasses = {
 	completed: "border-emerald-500 text-emerald-800",
 	overdue: "border-amber-500 text-amber-900",
 } as const;
+
+const whatsAppStatusLabels: Record<string, string> = {
+	processing: "Apstrādā",
+	pending: "Gaida",
+	sent: "Nosūtīts",
+	delivered: "Piegādāts",
+	read: "Izlasīts",
+	partial: "Daļēji nosūtīts",
+	failed: "Neizdevās",
+};
+
+function whatsAppSendStatus(
+	items: Array<{ status: string }>,
+	fallback: string,
+) {
+	if (!items.length) return fallback;
+	if (items.every((item) => item.status === "read")) return "read";
+	if (
+		items.every((item) => item.status === "delivered" || item.status === "read")
+	)
+		return "delivered";
+	const successful = items.filter((item) =>
+		["sent", "delivered", "read"].includes(item.status),
+	).length;
+	const failed = items.filter((item) => item.status === "failed").length;
+	if (successful && failed) return "partial";
+	if (failed === items.length) return "failed";
+	if (successful === items.length) return "sent";
+	return fallback;
+}
+
+function formatWhatsAppDateTime(value: string) {
+	return new Intl.DateTimeFormat("lv-LV", {
+		day: "2-digit",
+		month: "2-digit",
+		year: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+		timeZone: "Europe/Riga",
+	}).format(new Date(value));
+}
 
 function utcDay(date: string) {
 	return Date.parse(`${date}T00:00:00Z`) / 86_400_000;
@@ -655,6 +698,7 @@ export function VisualPlanningPanel({
 	const selectableContacts = (index?.contacts ?? []).filter(
 		(contact) => !contact.archivedAt || contact.id === draft?.contactId,
 	);
+	const selectedWhatsAppSends = selectedPlan?.whatsAppSends ?? [];
 
 	return (
 		<div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -1111,6 +1155,94 @@ export function VisualPlanningPanel({
 								</div>
 							</div>
 
+							<details className="group rounded-lg border bg-muted/20">
+								<summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-xs font-medium marker:hidden">
+									<MessageCircle className="h-4 w-4 text-teal-700" />
+									<span className="flex-1">WhatsApp sūtījumi</span>
+									<span className="rounded-full border bg-background px-2 py-0.5 tabular-nums text-muted-foreground">
+										{selectedWhatsAppSends.length}
+									</span>
+									<ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+								</summary>
+								<section
+									aria-label="WhatsApp sūtījumu vēsture"
+									className="border-t p-3"
+								>
+									{selectedWhatsAppSends.length ? (
+										<ul className="space-y-2">
+											{selectedWhatsAppSends.map((send, sendIndex) => {
+												const status = whatsAppSendStatus(
+													send.items,
+													send.status,
+												);
+												return (
+													<li
+														key={send.id}
+														className="rounded-md border bg-background px-3 py-2 text-xs"
+													>
+														<div className="flex items-start justify-between gap-3">
+															<span className="tabular-nums text-muted-foreground">
+																+{send.recipient} ·{" "}
+																{formatWhatsAppDateTime(send.createdAt)}
+															</span>
+															<span className="shrink-0 font-medium">
+																{whatsAppStatusLabels[status] ?? status}
+															</span>
+														</div>
+														<p className="mt-1 text-muted-foreground">
+															{
+																send.items.filter(
+																	(item) => item.status === "read",
+																).length
+															}
+															/{send.items.length} izlasīti · versija{" "}
+															{send.planVersion}
+														</p>
+														{sendIndex === 0 ? (
+															<>
+																<p className="mt-2 line-clamp-3 whitespace-normal text-foreground">
+																	{send.message}
+																</p>
+																<ul className="mt-2 flex flex-wrap gap-1.5">
+																	{send.items.map((item) => (
+																		<li
+																			key={`${send.id}:${item.ordinal}`}
+																			className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
+																		>
+																			{item.section
+																				? `Sekcija ${item.section}`
+																				: `PDF lapa ${item.page}`}{" "}
+																			·{" "}
+																			{whatsAppStatusLabels[item.status] ??
+																				item.status}
+																		</li>
+																	))}
+																</ul>
+																{send.items.find(
+																	(item) => item.failureReason,
+																) ? (
+																	<p className="mt-2 text-destructive">
+																		{
+																			send.items.find(
+																				(item) => item.failureReason,
+																			)?.failureReason
+																		}
+																	</p>
+																) : null}
+															</>
+														) : null}
+													</li>
+												);
+											})}
+										</ul>
+									) : (
+										<p className="text-xs text-muted-foreground">
+											Šim uzdevumam vēl nav WhatsApp sūtījumu.
+										</p>
+									)}
+								</section>
+							</details>
+
 							{error ? (
 								<div
 									role="alert"
@@ -1211,6 +1343,10 @@ export function VisualPlanningPanel({
 													(contact) => contact.id === selectedPlan.contactId,
 												)}
 												disabled={saving || dirty || areaEditing}
+												onSendResult={() => {
+													resourceCache?.invalidatePlanning(drawing.id);
+													void refreshPlanning();
+												}}
 											/>
 										) : null}
 										{dirty ? (

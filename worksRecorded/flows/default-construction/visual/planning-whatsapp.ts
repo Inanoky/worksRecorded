@@ -13,15 +13,25 @@ export function planningWhatsAppMessage(plan: VisualPlan) {
 		new Intl.DateTimeFormat("lv-LV", { timeZone: "UTC" }).format(
 			new Date(`${date}T00:00:00Z`),
 		);
-	return [
-		"Darba uzdevums",
+	const details = [
 		`Darbs: ${plan.work}`,
 		`Lokācija: ${plan.location}`,
 		`Plānotais apjoms: ${new Intl.NumberFormat("lv-LV", { maximumFractionDigits: 20 }).format(plan.quantity)} ${plan.unit}`,
 		...(plan.geometry.section ? [`Sekcija: ${plan.geometry.section}`] : []),
 		`Sākums: ${formatDate(plan.startDate)}`,
 		`Izpildes termiņš: ${formatDate(plan.endDate)}`,
-	].join("\n");
+	];
+	return ["Darba uzdevums", ...details].join("\n");
+}
+
+export function normalizePlanningWhatsAppTemplateText(value: string) {
+	return value.replace(/\s+/gu, " ").trim();
+}
+
+export function planningWhatsAppTemplateMessage(plan: VisualPlan) {
+	return normalizePlanningWhatsAppTemplateText(
+		planningWhatsAppMessage(plan).replace(/^Darba uzdevums\s*/u, ""),
+	);
 }
 
 export function planningMessageWithShare(message: string, url: string) {
