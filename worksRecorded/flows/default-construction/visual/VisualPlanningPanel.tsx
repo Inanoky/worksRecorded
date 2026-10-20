@@ -275,6 +275,9 @@ export function VisualPlanningPanel({
 	const [saving, setSaving] = useState(false);
 	const [showArchived, setShowArchived] = useState(false);
 	const [planningDay, setPlanningDay] = useState<number | null>(null);
+	const [whatsAppHistoryPlanId, setWhatsAppHistoryPlanId] = useState<
+		string | null
+	>(null);
 	const [pendingDrawerAction, setPendingDrawerAction] =
 		useState<PendingDrawerAction | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -1155,7 +1158,15 @@ export function VisualPlanningPanel({
 								</div>
 							</div>
 
-							<details className="group rounded-lg border bg-muted/20">
+							<details
+								open={Boolean(draft?.id && whatsAppHistoryPlanId === draft.id)}
+								onToggle={(event) =>
+									setWhatsAppHistoryPlanId(
+										event.currentTarget.open ? (draft?.id ?? null) : null,
+									)
+								}
+								className="group rounded-lg border bg-muted/20"
+							>
 								<summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-xs font-medium marker:hidden">
 									<MessageCircle className="h-4 w-4 text-teal-700" />
 									<span className="flex-1">WhatsApp sūtījumi</span>
@@ -1343,7 +1354,9 @@ export function VisualPlanningPanel({
 													(contact) => contact.id === selectedPlan.contactId,
 												)}
 												disabled={saving || dirty || areaEditing}
-												onSendResult={() => {
+												onSendResult={(result) => {
+													if (result.status === "sent")
+														setWhatsAppHistoryPlanId(selectedPlan.id);
 													resourceCache?.invalidatePlanning(drawing.id);
 													void refreshPlanning();
 												}}

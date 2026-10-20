@@ -41,7 +41,7 @@ export function VisualPlanningWhatsApp({
 	createImages: (signal: AbortSignal) => Promise<PlanningImage[]>;
 	contact?: { name: string; phone: string };
 	disabled: boolean;
-	onSendResult?: () => void;
+	onSendResult?: (result: PlanningWhatsAppSendResult) => void;
 }) {
 	const [open, setOpen] = useState(false);
 	const [phone, setPhone] = useState("");
@@ -136,7 +136,12 @@ export function VisualPlanningWhatsApp({
 				signal: controller.signal,
 			});
 			setSendResult(result);
-			onSendResult?.();
+			onSendResult?.(result);
+			if (result.status === "sent") {
+				clearImages();
+				setImages([]);
+				setOpen(false);
+			}
 		} catch (error) {
 			setSendError(
 				error instanceof Error

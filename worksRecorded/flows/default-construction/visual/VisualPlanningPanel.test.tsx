@@ -342,11 +342,9 @@ it("reports a dedicated-number send failure and allows an explicit retry", async
 	fireEvent.click(send);
 	expect(await screen.findByRole("alert")).toHaveTextContent("Meta failed");
 	fireEvent.click(send);
-	expect(
-		await screen.findByText(
-			"Meta pieņēma 1 attēlu nosūtīšanai. Piegādes statusu skatiet uzdevuma vēsturē.",
-		),
-	).toBeInTheDocument();
+	await waitFor(() =>
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+	);
 	expect(sendPlanningWhatsAppTask).toHaveBeenCalledTimes(2);
 });
 
@@ -874,15 +872,13 @@ it("prepares the saved task for its contact and allows editing the WhatsApp draf
 			}),
 		),
 	);
-	expect(
-		await within(dialog).findByText(
-			"Meta pieņēma 1 attēlu nosūtīšanai. Piegādes statusu skatiet uzdevuma vēsturē.",
-		),
-	).toBeInTheDocument();
-	fireEvent.click(within(dialog).getByRole("button", { name: "Atcelt" }));
 	await waitFor(() =>
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
 	);
+	const historySummary = screen
+		.getByText("WhatsApp sūtījumi")
+		.closest("summary");
+	expect(historySummary?.parentElement).toHaveAttribute("open");
 	fireEvent.click(screen.getByRole("button", { name: "Sagatavot WhatsApp" }));
 	const reopened = screen.getByRole("dialog");
 	const reopenedPhone = within(reopened).getByLabelText(
