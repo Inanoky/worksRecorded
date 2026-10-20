@@ -191,12 +191,6 @@ function formatPlanDate(date: string) {
 	}).format(new Date(`${date}T00:00:00Z`));
 }
 
-function progressText(plan: PlanningItem) {
-	if (plan.progress.dataIncomplete)
-		return `Fakts nav pilnīgs · plāns ${plan.quantity} ${plan.unit}`;
-	return `${plan.progress.actualQuantity ?? 0} / ${plan.quantity} ${plan.unit} · ${Math.round(plan.progress.progressPercent ?? 0)}%`;
-}
-
 export function VisualPlanningPanel({
 	active = true,
 	siteId,
@@ -800,7 +794,10 @@ export function VisualPlanningPanel({
 																			className="h-2.5 w-2.5 shrink-0 rounded-sm"
 																			style={{ backgroundColor: color }}
 																		/>
-																		<span className="truncate">
+																		<span
+																			data-plan-work-name="saved"
+																			className="min-w-0 flex-1 truncate"
+																		>
 																			{plan.work}
 																		</span>
 																	</span>
@@ -820,9 +817,6 @@ export function VisualPlanningPanel({
 																		? "Arhivēts"
 																		: statusLabels[plan.progress.status]}
 																</span>
-															</span>
-															<span className="mt-1 block text-xs text-foreground">
-																{progressText(plan)}
 															</span>
 															<span className="relative mt-2 block h-1.5 overflow-hidden rounded-full bg-muted">
 																<span
@@ -878,7 +872,7 @@ export function VisualPlanningPanel({
 					}}
 				>
 					<div className="flex shrink-0 items-start justify-between gap-3 border-b px-4 py-3">
-						<div className="min-w-0 space-y-1">
+						<div className="min-w-0 flex-1 space-y-1">
 							<p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
 								{draft?.archivedAt
 									? "Arhivētais plāns"
@@ -896,7 +890,10 @@ export function VisualPlanningPanel({
 											: visualLayers.other.color,
 									}}
 								/>
-								<span className="truncate">
+								<span
+									data-plan-work-name="detail"
+									className="min-w-0 flex-1 truncate"
+								>
 									{draft?.work || "Izvēlieties darbu"}
 								</span>
 							</p>
@@ -978,12 +975,19 @@ export function VisualPlanningPanel({
 										});
 									}}
 								>
-									<SelectTrigger id={workId}>
-										<SelectValue placeholder="Izvēlieties darbu" />
+									<SelectTrigger id={workId} className="w-full min-w-0">
+										<SelectValue
+											className="min-w-0 flex-1 overflow-hidden text-ellipsis"
+											placeholder="Izvēlieties darbu"
+										/>
 									</SelectTrigger>
-									<SelectContent>
+									<SelectContent className="max-w-[calc(100vw-2rem)]">
 										{index.workOptions.map((option) => (
-											<SelectItem key={option.work} value={option.work}>
+											<SelectItem
+												key={option.work}
+												value={option.work}
+												className="whitespace-normal"
+											>
 												{option.work}
 											</SelectItem>
 										))}

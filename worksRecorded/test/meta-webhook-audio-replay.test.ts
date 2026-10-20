@@ -47,6 +47,7 @@ function installRouteMocks(args?: {
   ztcRole?: "worker" | "quality";
   recoveryError?: Error;
   mediaError?: Error;
+  dedicatedNumber?: boolean;
 }) {
   const handleSiteManagerRoute = args?.routeError
     ? jest.fn().mockRejectedValue(args.routeError)
@@ -55,6 +56,19 @@ function installRouteMocks(args?: {
 
   const claimedMessageIds = new Set<string>();
   const prisma = {
+    whatsAppBusinessNumber: {
+      findFirst: jest.fn().mockResolvedValue(args?.dedicatedNumber ? {
+        id: "limeni-number",
+        organizationId: "limeni-org",
+        businessPhoneNumberId: "business-phone-test-001",
+        inboundMode: "archive_text_only",
+        active: true,
+      } : null),
+    },
+    whatsAppTaskSendItem: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      update: jest.fn().mockResolvedValue({}),
+    },
     metaInboundMessage: {
       create: jest.fn(async ({ data }: any) => {
         if (args?.claimError) throw args.claimError;
@@ -365,6 +379,59 @@ describe("Meta webhook audio replay", () => {
     await POST({ json: async () => secondFixture } as Request);
 
     expect(mocks.handleSiteManagerRoute).toHaveBeenCalledTimes(2);
+  });
+
+  it("archives dedicated-number text without any reply or agent work", async () => {
+    const mocks = installRouteMocks({ dedicatedNumber: true });
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+    const fixture = JSON.parse(JSON.stringify(siteManagerAudioFixture));
+    const message = fixture.entry[0].changes[0].value.messages[0];
+    message.type = "text";
+    message.text = { body: "  Darbs\u0000 pabeigts  " };
+    delete message.audio;
+
+    const response = await POST({ json: async () => fixture } as Request);
+
+    expect(response.status).toBe(200);
+    expect(mocks.prisma.metaInboundMessage.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        organizationId: "limeni-org",
+        filteredText: "Darbs pabeigts",
+        routeOutcome: "dedicated_number_archived",
+      }),
+    });
+    expect(mocks.prisma.metaInboundMessage.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "completed" }),
+      }),
+    );
+    expect(mocks.fetchMock).not.toHaveBeenCalled();
+    expect(mocks.sendMetaGraphMessage).not.toHaveBeenCalled();
+    expect(mocks.handleSiteManagerRoute).not.toHaveBeenCalled();
+    expect(mocks.handleWorkerRoute).not.toHaveBeenCalled();
+    expect(mocks.prisma.whatsappTextLock.create).not.toHaveBeenCalled();
+  });
+
+  it("audits dedicated-number media without downloading it", async () => {
+    const mocks = installRouteMocks({ dedicatedNumber: true });
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+
+    const response = await POST({
+      json: async () => siteManagerAudioFixture,
+    } as Request);
+
+    expect(response.status).toBe(200);
+    expect(mocks.prisma.metaInboundMessage.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        messageType: "audio",
+        organizationId: "limeni-org",
+        filteredText: null,
+        routeOutcome: "dedicated_number_archived",
+      }),
+    });
+    expect(mocks.fetchMock).not.toHaveBeenCalled();
+    expect(mocks.handleSiteManagerRoute).not.toHaveBeenCalled();
+    expect(mocks.handleWorkerRoute).not.toHaveBeenCalled();
   });
 
   it("does not claim delivery-status webhooks", async () => {

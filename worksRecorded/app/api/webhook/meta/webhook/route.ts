@@ -2,7 +2,7 @@
 // Next.js App Router webhook endpoint (GET verify + POST events)
 export const maxDuration = 300;
 
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import {
 	deleteSession,
 	getSession,
@@ -21,16 +21,16 @@ import {
 	ZTC_ORGANIZATION_ID,
 } from "@/flows/ztc-production/backend";
 import {
+	retainZtcMessageFormData,
+	runWithZtcMessageRecovery,
+	ZtcMessageRetentionError,
+} from "@/flows/ztc-production/backend/message-recovery";
+import {
 	assertZtcMessageActive,
 	getZtcMessageRecoveryContext,
 	markZtcRecoveryAwaitingBatch,
 	setZtcRecoveryBatch,
 } from "@/flows/ztc-production/backend/message-recovery-context";
-import {
-	retainZtcMessageFormData,
-	runWithZtcMessageRecovery,
-	ZtcMessageRetentionError,
-} from "@/flows/ztc-production/backend/message-recovery";
 import { routeRegisteredWhatsappUserByFlow } from "@/lib/flows/registered-user-whatsapp-runtime-server";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
@@ -53,6 +53,12 @@ import {
 	normalizePhone,
 } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import { runWithMetaReplyContext } from "@/lib/utils/whatsapp-helpers/shared/sender";
+import {
+	ARCHIVE_TEXT_ONLY_MODE,
+	getActiveWhatsAppBusinessNumber,
+	persistWhatsAppTaskStatus,
+	sanitizeInboundWhatsAppText,
+} from "@/lib/whatsapp-business-numbers";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN } = process.env;
@@ -153,6 +159,9 @@ async function claimMetaInboundMessage(args: {
 	messageType?: string | null;
 	sender?: string | null;
 	businessPhoneNumberId?: string | null;
+	organizationId?: string | null;
+	filteredText?: string | null;
+	routeOutcome?: string | null;
 }) {
 	try {
 		await prisma.metaInboundMessage.create({
@@ -161,6 +170,9 @@ async function claimMetaInboundMessage(args: {
 				messageType: args.messageType ?? null,
 				sender: args.sender ?? null,
 				businessPhoneNumberId: args.businessPhoneNumberId ?? null,
+				organizationId: args.organizationId ?? null,
+				filteredText: args.filteredText ?? null,
+				routeOutcome: args.routeOutcome ?? null,
 			},
 		});
 		return true;
@@ -437,7 +449,9 @@ async function toWhatsAppFormData(
 			formData.set("MediaUrl0", mediaInfo.url);
 			formData.set(
 				"MediaContentType0",
-				mediaInfo.mimeType || message.document.mime_type || "application/octet-stream",
+				mediaInfo.mimeType ||
+					message.document.mime_type ||
+					"application/octet-stream",
 			);
 			formData.set("MediaProvider0", "meta");
 			if (typeof message.document.filename === "string") {
@@ -1007,10 +1021,11 @@ async function runWhatsappRoutingForMeta(args: {
 	let flowResolutionError: unknown;
 	if (resolved.worker) {
 		try {
-			ztcFlow = (await resolveFlowModuleKeyForRuntime({
-				organizationId: resolved.worker.organizationId,
-				siteId: resolved.worker.siteId,
-			})) === FLOW_MODULE_KEYS.ZTC_PRODUCTION;
+			ztcFlow =
+				(await resolveFlowModuleKeyForRuntime({
+					organizationId: resolved.worker.organizationId,
+					siteId: resolved.worker.siteId,
+				})) === FLOW_MODULE_KEYS.ZTC_PRODUCTION;
 		} catch (error) {
 			if (resolved.worker.organizationId !== ZTC_ORGANIZATION_ID) throw error;
 			ztcFlow = true;
@@ -1022,13 +1037,16 @@ async function runWhatsappRoutingForMeta(args: {
 		return runResolvedWhatsappRoutingForMeta({ ...args, resolved });
 	};
 	if (ztcFlow && resolved.worker) {
-		return runWithZtcMessageRecovery({
-			worker: resolved.worker,
-			message,
-			metadata: value?.metadata ?? {},
-			businessPhoneNumberId,
-			recipient: resolved.replyTarget,
-		}, run);
+		return runWithZtcMessageRecovery(
+			{
+				worker: resolved.worker,
+				message,
+				metadata: value?.metadata ?? {},
+				businessPhoneNumberId,
+				recipient: resolved.replyTarget,
+			},
+			run,
+		);
 	}
 	return run();
 }
@@ -1426,16 +1444,27 @@ export async function POST(req: Request): Promise<Response> {
 	const webhookStartedAtMs = Date.now();
 	try {
 		const body = await req.json();
-
-		console.log("Incoming webhook message:", JSON.stringify(body, null, 2));
-
 		const change = body?.entry?.[0]?.changes?.[0];
 		const value = change?.value;
 		const field = change?.field;
 		const messages = Array.isArray(value?.messages) ? value.messages : [];
 		const business_phone_number_id = value?.metadata?.phone_number_id;
+		const businessNumber = await getActiveWhatsAppBusinessNumber(
+			business_phone_number_id,
+		);
+		const archiveOnly = businessNumber?.inboundMode === ARCHIVE_TEXT_ONLY_MODE;
+		if (archiveOnly) {
+			console.log("Meta dedicated-number webhook received", {
+				field,
+				phoneNumberId: business_phone_number_id,
+				messageCount: messages.length,
+			});
+		} else {
+			console.log("Incoming webhook message:", JSON.stringify(body, null, 2));
+		}
 
 		if (field === "user_id_update" && business_phone_number_id) {
+			if (archiveOnly) return new Response("OK", { status: 200 });
 			await handleUserIdUpdate({
 				value,
 				businessPhoneNumberId: business_phone_number_id,
@@ -1444,6 +1473,17 @@ export async function POST(req: Request): Promise<Response> {
 		}
 
 		if (Array.isArray(value?.statuses)) {
+			await Promise.all(
+				value.statuses.map((status: any) =>
+					persistWhatsAppTaskStatus(status).catch((error) => {
+						console.error("Meta task status persistence failed", {
+							messageId: status?.id ?? null,
+							error,
+						});
+						return false;
+					}),
+				),
+			);
 			console.log("Meta status webhook received", {
 				field,
 				phoneNumberId: business_phone_number_id,
@@ -1491,6 +1531,12 @@ export async function POST(req: Request): Promise<Response> {
 					messageType: message.type,
 					sender: message.from,
 					businessPhoneNumberId: business_phone_number_id,
+					organizationId: archiveOnly ? businessNumber?.organizationId : null,
+					filteredText:
+						archiveOnly && message.type === "text"
+							? sanitizeInboundWhatsAppText(message.text?.body)
+							: null,
+					routeOutcome: archiveOnly ? "dedicated_number_archived" : null,
 				});
 			} catch (error) {
 				console.error("Meta inbound message claim failed", {
@@ -1501,6 +1547,21 @@ export async function POST(req: Request): Promise<Response> {
 			}
 
 			if (!claimed) continue;
+			if (archiveOnly) {
+				try {
+					await finishMetaInboundMessage(message.id);
+				} catch (error) {
+					console.error("Meta dedicated inbound archive completion failed", {
+						messageId: message.id,
+						error,
+					});
+					await prisma.metaInboundMessage.deleteMany({
+						where: { messageId: message.id, status: "processing" },
+					});
+					return new Response("Temporary failure", { status: 500 });
+				}
+				continue;
+			}
 
 			let processingError: unknown;
 			let retryUnretainedZtcMessage = false;
@@ -1681,14 +1742,16 @@ export async function POST(req: Request): Promise<Response> {
 				});
 			} finally {
 				if (retryUnretainedZtcMessage) {
-					await prisma.metaInboundMessage.deleteMany({
-						where: { messageId: message.id, status: "processing" },
-					}).catch((error) => {
-						console.error("Could not release unretained ZTC message claim", {
-							messageId: message.id,
-							error,
+					await prisma.metaInboundMessage
+						.deleteMany({
+							where: { messageId: message.id, status: "processing" },
+						})
+						.catch((error) => {
+							console.error("Could not release unretained ZTC message claim", {
+								messageId: message.id,
+								error,
+							});
 						});
-					});
 				} else {
 					await finishMetaInboundMessage(message.id, processingError).catch(
 						(error) => {

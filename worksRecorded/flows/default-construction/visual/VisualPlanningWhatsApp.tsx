@@ -16,16 +16,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { revokeVisualWorkShare } from "./actions";
 import type { PlanningImage } from "./planning-image";
 import type { VisualPlan } from "./planning-model";
-import { publishPlanningShare } from "./planning-share-client";
 import {
 	normalizePlanningWhatsAppPhone,
-	planningMessageWithShare,
 	planningWhatsAppMessage,
-	planningWhatsAppUrl,
 } from "./planning-whatsapp";
+import {
+	type PlanningWhatsAppSendResult,
+	sendPlanningWhatsAppTask,
+} from "./planning-whatsapp-send-client";
 
 export function VisualPlanningWhatsApp({
 	siteId,
@@ -47,13 +47,14 @@ export function VisualPlanningWhatsApp({
 		[],
 	);
 	const [preparing, setPreparing] = useState(false);
-	const [share, setShare] = useState<Awaited<
-		ReturnType<typeof publishPlanningShare>
-	> | null>(null);
-	const [revoking, setRevoking] = useState(false);
 	const [imageError, setImageError] = useState<string | null>(null);
 	const [copying, setCopying] = useState<number | null>(null);
 	const [copyNotice, setCopyNotice] = useState<string | null>(null);
+	const [sending, setSending] = useState(false);
+	const [sendError, setSendError] = useState<string | null>(null);
+	const [sendResult, setSendResult] =
+		useState<PlanningWhatsAppSendResult | null>(null);
+	const [clientRequestId, setClientRequestId] = useState("");
 	const imageRequest = useRef<AbortController | null>(null);
 	const imageUrls = useRef<string[]>([]);
 	const clearImages = useCallback(() => {
@@ -80,20 +81,9 @@ export function VisualPlanningWhatsApp({
 			}));
 			imageUrls.current = prepared.map((image) => image.url);
 			setImages(prepared);
-			if (!share || share.version !== plan.version) {
-				const publication = await publishPlanningShare(
-					siteId,
-					plan,
-					result,
-					controller.signal,
-				);
-				if (!controller.signal.aborted) setShare(publication);
-			}
 		} catch {
 			if (!controller.signal.aborted)
-				setImageError(
-					"Neizdevās sagatavot attēlu vai publisko saiti. Mēģiniet vēlreiz.",
-				);
+				setImageError("Neizdevās sagatavot attēlu. Mēģiniet vēlreiz.");
 		} finally {
 			if (!controller.signal.aborted) setPreparing(false);
 		}
@@ -122,26 +112,60 @@ export function VisualPlanningWhatsApp({
 			if (!request?.signal.aborted) setCopying(null);
 		}
 	}
+	async function sendTask() {
+		const recipient = normalizePlanningWhatsAppPhone(phone);
+		if (!recipient || !message.trim() || !images.length || !clientRequestId)
+			return;
+		const controller = new AbortController();
+		setSending(true);
+		setSendError(null);
+		try {
+			const result = await sendPlanningWhatsAppTask({
+				siteId,
+				planId: plan.id,
+				planVersion: plan.version,
+				recipient,
+				message: message.trim(),
+				clientRequestId,
+				images,
+				signal: controller.signal,
+			});
+			setSendResult(result);
+		} catch (error) {
+			setSendError(
+				error instanceof Error
+					? error.message
+					: "Neizdevās nosūtīt WhatsApp darba uzdevumu.",
+			);
+		} finally {
+			setSending(false);
+		}
+	}
 	const id = useId();
-	const currentShare = share?.version === plan.version ? share : null;
-	const url =
-		currentShare && !preparing && !revoking && message.trim()
-			? planningWhatsAppUrl(
-					phone,
-					planningMessageWithShare(message, currentShare.url),
-				)
-			: null;
 	const invalidPhone = !!phone.trim() && !normalizePlanningWhatsAppPhone(phone);
+	const messageTooLong = message.length > 900;
+	const sendDisabled =
+		preparing ||
+		sending ||
+		!images.length ||
+		invalidPhone ||
+		!phone.trim() ||
+		!message.trim() ||
+		messageTooLong ||
+		sendResult?.status === "sent";
 
 	return (
 		<Dialog
 			open={open}
 			onOpenChange={(nextOpen) => {
-				if (revoking) return;
+				if (sending) return;
 				if (nextOpen) {
 					setPhone(contact?.phone ?? "");
 					setMessage(planningWhatsAppMessage(plan));
 					setCopying(null);
+					setSendError(null);
+					setSendResult(null);
+					setClientRequestId(crypto.randomUUID());
 					void prepareImages();
 				} else {
 					clearImages();
@@ -160,8 +184,8 @@ export function VisualPlanningWhatsApp({
 				<DialogHeader className="shrink-0">
 					<DialogTitle>Sagatavot uzdevumu WhatsApp</DialogTitle>
 					<DialogDescription>
-						Pārbaudiet saņēmēju un ziņu. WhatsApp Web izmantos tajā pieslēgto
-						kontu; nosūtīšanu apstiprināsiet WhatsApp.
+						Pārbaudiet saņēmēju un ziņu. Uzdevums tiks nosūtīts no Limeni
+						WhatsApp numura kopā ar visiem sagatavotajiem attēliem.
 					</DialogDescription>
 				</DialogHeader>
 				<div className="grid min-h-0 gap-5 overflow-y-auto sm:grid-cols-2">
@@ -250,68 +274,6 @@ export function VisualPlanningWhatsApp({
 						) : null}
 					</div>
 					<div className="space-y-4">
-						<div className="space-y-2 rounded-lg border p-3">
-							<p className="text-sm font-medium">Publiska zonas attēla saite</p>
-							<p className="text-xs text-muted-foreground">
-								Ikviens ar saiti varēs apskatīt tikai kopīgotos uzdevuma attēlus
-								bez pierakstīšanās. Saite tiks pievienota WhatsApp ziņai.
-							</p>
-							{currentShare ? (
-								<>
-									<a
-										href={currentShare.url}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="block break-all text-xs text-emerald-700 underline"
-									>
-										{currentShare.url}
-									</a>
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										disabled={preparing || revoking}
-										onClick={async () => {
-											if (
-												!window.confirm(
-													"Atspējot šo publisko saiti? Iepriekš nosūtītā saite vairs nedarbosies.",
-												)
-											)
-												return;
-											setRevoking(true);
-											try {
-												await revokeVisualWorkShare(siteId, currentShare.token);
-												setShare(null);
-											} catch {
-												setImageError(
-													"Neizdevās atspējot saiti. Mēģiniet vēlreiz.",
-												);
-											} finally {
-												setRevoking(false);
-											}
-										}}
-									>
-										Atspējot saiti
-									</Button>
-								</>
-							) : (
-								<div className="space-y-2 text-xs text-muted-foreground">
-									{preparing
-										? "Sagatavo publisko saiti…"
-										: "Saite nav izveidota."}
-									{!preparing && !imageError ? (
-										<Button
-											type="button"
-											variant="outline"
-											size="sm"
-											onClick={() => void prepareImages()}
-										>
-											Izveidot saiti
-										</Button>
-									) : null}
-								</div>
-							)}
-						</div>
 						<div className="space-y-2">
 							<Label htmlFor={`${id}-phone`}>
 								Saņēmēja numurs ar valsts kodu
@@ -321,6 +283,7 @@ export function VisualPlanningWhatsApp({
 								type="tel"
 								placeholder="+371 20000000"
 								value={phone}
+								disabled={Boolean(sendResult)}
 								aria-invalid={invalidPhone}
 								aria-describedby={`${id}-phone-help`}
 								onChange={(event) => setPhone(event.target.value)}
@@ -342,16 +305,41 @@ export function VisualPlanningWhatsApp({
 								id={`${id}-message`}
 								rows={6}
 								value={message}
+								disabled={Boolean(sendResult)}
+								aria-invalid={messageTooLong}
 								onChange={(event) => setMessage(event.target.value)}
 							/>
+							<p
+								className={`text-xs ${messageTooLong ? "text-destructive" : "text-muted-foreground"}`}
+							>
+								{message.length}/900 rakstzīmes
+							</p>
 						</div>
+						<p className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+							Nosūtot jūs apliecināt, ka saņēmējs ir piekritis saņemt darba
+							uzdevumus WhatsApp. Piekrišanu pārvalda Limeni ārpus šīs sistēmas.
+						</p>
+						{sendResult ? (
+							<output
+								className={`block rounded-lg border p-3 text-sm ${sendResult.status === "sent" ? "text-emerald-700" : "text-amber-700"}`}
+							>
+								{sendResult.status === "sent"
+									? `Nosūtīti ${sendResult.items.length} attēli.`
+									: `Nosūtīti ${sendResult.items.filter((item) => item.status !== "failed").length} no ${sendResult.items.length} attēliem. Varat atkārtot tikai nenosūtītos.`}
+							</output>
+						) : null}
+						{sendError ? (
+							<p role="alert" className="text-sm text-destructive">
+								{sendError}
+							</p>
+						) : null}
 					</div>
 				</div>
 				<DialogFooter className="shrink-0">
 					<Button
 						type="button"
 						variant="outline"
-						disabled={revoking}
+						disabled={sending}
 						onClick={() => {
 							clearImages();
 							setImages([]);
@@ -360,17 +348,18 @@ export function VisualPlanningWhatsApp({
 					>
 						Atcelt
 					</Button>
-					{url ? (
-						<Button asChild>
-							<a href={url} target="_blank" rel="noopener noreferrer">
-								Atvērt WhatsApp Web
-							</a>
-						</Button>
-					) : (
-						<Button type="button" disabled>
-							Atvērt WhatsApp Web
-						</Button>
-					)}
+					<Button
+						type="button"
+						disabled={sendDisabled}
+						onClick={() => void sendTask()}
+					>
+						{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+						{sendResult && sendResult.status !== "sent"
+							? "Atkārtot nenosūtītos attēlus"
+							: sendResult?.status === "sent"
+								? "Nosūtīts"
+								: "Nosūtīt no Limeni WhatsApp"}
+					</Button>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
