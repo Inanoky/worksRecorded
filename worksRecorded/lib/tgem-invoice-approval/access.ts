@@ -79,6 +79,75 @@ export async function loadTgemAccessScope(
 	};
 }
 
+export async function loadTgemAccessScopes(
+	db: TgemAccessDb,
+	input: { userIds: string[]; organizationId: string },
+) {
+	const userIds = Array.from(new Set(input.userIds));
+	const scopes = new Map<string, TgemAccessScope>();
+	if (userIds.length === 0) return scopes;
+
+	const [users, organizationMemberships, siteMemberships] = await Promise.all([
+		db.user.findMany({
+			where: {
+				id: { in: userIds },
+				organizationId: input.organizationId,
+				status: "active",
+			},
+			select: { id: true },
+		}),
+		db.tgemOrganizationAccessMembership.findMany({
+			where: {
+				userId: { in: userIds },
+				group: { organizationId: input.organizationId },
+			},
+			select: {
+				userId: true,
+				group: { select: { permissions: true } },
+			},
+		}),
+		db.tgemSiteAccessMembership.findMany({
+			where: {
+				userId: { in: userIds },
+				group: { organizationId: input.organizationId },
+				site: { organizationId: input.organizationId },
+			},
+			select: {
+				userId: true,
+				siteId: true,
+				group: { select: { permissions: true } },
+			},
+		}),
+	]);
+
+	for (const user of users) {
+		const groupsBySite = new Map<string, Array<{ permissions: string[] }>>();
+		for (const membership of siteMemberships) {
+			if (membership.userId !== user.id) continue;
+			const groups = groupsBySite.get(membership.siteId) ?? [];
+			groups.push(membership.group);
+			groupsBySite.set(membership.siteId, groups);
+		}
+		scopes.set(user.id, {
+			organizationId: input.organizationId,
+			userId: user.id,
+			organizationPermissions: unionPermissions(
+				organizationMemberships
+					.filter((membership) => membership.userId === user.id)
+					.map((membership) => membership.group),
+			),
+			sitePermissions: new Map(
+				Array.from(groupsBySite, ([siteId, groups]) => [
+					siteId,
+					unionPermissions(groups),
+				]),
+			),
+		});
+	}
+
+	return scopes;
+}
+
 export function getTgemPermissionsForSite(
 	scope: TgemAccessScope,
 	siteId: string | null,

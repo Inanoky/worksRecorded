@@ -1,5 +1,6 @@
 const mockRequireUser = jest.fn();
 const mockCanTgem = jest.fn();
+const mockLoadTgemAccessScopes = jest.fn();
 const mockPrisma = {
 	site: { findFirst: jest.fn(), findMany: jest.fn() },
 	user: { findFirst: jest.fn(), findMany: jest.fn() },
@@ -50,6 +51,8 @@ const mockPrisma = {
 jest.mock("@/lib/utils/db", () => ({ prisma: mockPrisma }));
 jest.mock("@/lib/tgem-invoice-approval/access", () => ({
 	loadTgemAccessScope: async () => ({}),
+	loadTgemAccessScopes: (...args: unknown[]) =>
+		mockLoadTgemAccessScopes(...args),
 	canTgem: (...args: unknown[]) => mockCanTgem(...args),
 }));
 jest.mock("@/lib/utils/requireUser", () => ({
@@ -161,6 +164,10 @@ describe("TGEM invoice approval actions", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
 		mockCanTgem.mockReturnValue(true);
+		mockLoadTgemAccessScopes.mockImplementation(
+			async (_db, input: { userIds: string[] }) =>
+				new Map(input.userIds.map((userId) => [userId, {}])),
+		);
 		mockRequireUser.mockResolvedValue({ id: "user-1" });
 		mockPrisma.$transaction.mockImplementation(
 			(callback: (transaction: typeof mockPrisma) => unknown) =>
@@ -617,6 +624,9 @@ describe("TGEM invoice approval actions", () => {
 			invoiceCaseId: "case-1",
 			actorUserId: "user-1",
 			trigger: "manual",
+		});
+		expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+			timeout: 15_000,
 		});
 
 		expect(
@@ -1183,6 +1193,18 @@ describe("TGEM invoice approval actions", () => {
 			error:
 				"Assign a personal approval flow or configure the project approval flow before submitting",
 			errorCode: "approval_flow_missing",
+		});
+	});
+
+	it("returns a retryable error when the approval transaction expires", async () => {
+		mockPrisma.$transaction.mockRejectedValueOnce({ code: "P2028" });
+
+		await expect(
+			submitTgemInvoiceForApproval({ invoiceCaseId: "case-1" }),
+		).resolves.toEqual({
+			error:
+				"Approval could not be started in time. Please try again. If it continues, contact an administrator.",
+			errorCode: "approval_start_timed_out",
 		});
 	});
 

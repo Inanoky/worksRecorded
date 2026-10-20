@@ -589,6 +589,18 @@ export async function submitTgemInvoiceForApproval(input: {
 		if (isTgemApprovalStartError(error)) {
 			return { error: error.message, errorCode: error.code };
 		}
+		if (
+			typeof error === "object" &&
+			error !== null &&
+			"code" in error &&
+			error.code === "P2028"
+		) {
+			return {
+				error:
+					"Approval could not be started in time. Please try again. If it continues, contact an administrator.",
+				errorCode: "approval_start_timed_out",
+			};
+		}
 		throw error;
 	}
 }
