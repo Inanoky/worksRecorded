@@ -42,6 +42,9 @@ it("only returns a ready flag and never returns secrets to a client", async () =
 		enabled: true,
 		unavailable: false,
 	});
+	expect(getUserBisTokenByUserId).toHaveBeenCalledWith("user", {
+		refresh: false,
+	});
 });
 it("treats an account without saved tokens as disconnected, not as an outage", async () => {
 	jest.mocked(getUserBisTokenByUserId).mockResolvedValue(null);

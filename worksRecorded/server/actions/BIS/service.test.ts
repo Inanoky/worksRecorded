@@ -58,6 +58,21 @@ describe("BIS token reads", () => {
 		warnSpy.mockRestore();
 	});
 
+	it("can inspect a saved connection without renewing an expired token or calling BIS", async () => {
+		const token = {
+			accessToken: "expired",
+			refreshToken: "saved",
+			updatedAt: new Date(0),
+			userId: "user-1",
+		};
+		queryRawMock.mockResolvedValue([token]);
+		await expect(
+			getUserBisTokenByUserId("user-1", { refresh: false }),
+		).resolves.toEqual(token);
+		expect(bisFetch).not.toHaveBeenCalled();
+		expect(executeRawMock).not.toHaveBeenCalled();
+	});
+
 	it("returns disconnected state when the BisToken relation is missing", async () => {
 		queryRawMock.mockRejectedValue(createRawQueryError());
 

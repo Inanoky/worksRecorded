@@ -14,7 +14,7 @@ export async function getDashboardBisStatus(
 	try {
 		const config = await getSiteBisConfig(siteId);
 		if (!config?.bisCaseId) return { enabled: false, unavailable: false };
-		const token = await getUserBisTokenByUserId(userId);
+		const token = await getUserBisTokenByUserId(userId, { refresh: false });
 		return { enabled: Boolean(token?.accessToken), unavailable: false };
 	} catch (error) {
 		const code =

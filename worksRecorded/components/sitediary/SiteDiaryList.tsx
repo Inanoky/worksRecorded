@@ -48,6 +48,7 @@ import {
   Trash2,
 } from "lucide-react";
 import React from "react";
+import type { FimaProjectDiary } from "@/lib/fima/project-diary";
 import { BeginHoursCost, BeginHoursImport, useBeginHours } from "@/components/sitediary/BeginHours";
 import { BeginRecordHours } from "@/components/sitediary/BeginRecordHours";
 import { toast } from "sonner";
@@ -684,6 +685,7 @@ export default function SiteDiaryCalendar({
   limeniClientDiary = false,
   active = true,
   batchEditing = false,
+  initialFimaDiary,
 }: {
   siteId: string | null;
   bisEnabled?: boolean;
@@ -692,7 +694,10 @@ export default function SiteDiaryCalendar({
   limeniClientDiary?: boolean;
   active?: boolean;
   batchEditing?: boolean;
+  initialFimaDiary?: FimaProjectDiary | null;
 }) {
+  const initialDiary = initialFimaDiary?.siteId === siteId && !isZtcFlow ? initialFimaDiary : null;
+  const initialFimaPage = React.useRef(initialDiary);
   const today = new Date();
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSiteDiaryListMessages(language);
@@ -823,14 +828,15 @@ export default function SiteDiaryCalendar({
   //----------------------Table---------------------------------------------------
 
   const [defaultMap, setMap] =
-    React.useState<Record<string, any>>(defaultConfig);
-  const [configSiteId, setConfigSiteId] = React.useState<string | null>(null);
+    React.useState<Record<string, any>>(() => initialDiary?.config ?? defaultConfig);
+  const [configSiteId, setConfigSiteId] = React.useState<string | null>(() => initialDiary?.siteId ?? null);
   const clientDiary = !isZtcFlow && (limeniClientDiary || (configSiteId === siteId && defaultMap?.otherSettings?.inlineDiaryPhotos === true));
   const fimaPanelRow = rows.find((row) => row.id === fimaRecordId) ?? (fimaRecordId ? fimaSelectedRow : null);
   const fimaDiary = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.fimaCollaboration === true;
   const fimaFilterOptions = useFimaDiaryFilterOptions(siteId, fimaDiary, optionsRevision);
-  const planner = useConstructionPlanner(siteId, !isZtcFlow && !fimaDiary, rows);
-  const beginHours = useBeginHours(fimaDiary ? null : siteId, rows);
+  const ancillaryDiaryEnabled = configSiteId === siteId && hasLoadedRowsOnce && !fimaDiary;
+  const planner = useConstructionPlanner(siteId, !isZtcFlow && ancillaryDiaryEnabled, rows);
+  const beginHours = useBeginHours(ancillaryDiaryEnabled ? siteId : null, rows);
   const fimaCurrentRows = React.useRef(rows);
   fimaCurrentRows.current = rows;
   const fimaCurrentSelection = React.useRef(fimaSelectedRow);
@@ -1210,7 +1216,7 @@ export default function SiteDiaryCalendar({
     setWorkerFilter,
   });
   const defaultConstructionSummary = useDefaultConstructionSiteDiarySummary({
-    enabled: !isZtcSite && !fimaDiary,
+    enabled: !isZtcSite && ancillaryDiaryEnabled,
     siteId,
     organizationLanguage,
     refreshKey: rows,
@@ -1320,6 +1326,13 @@ export default function SiteDiaryCalendar({
       if (!options?.useCache) {
         fimaPages.clear();
         if (fimaPrefetchTimer.current) clearTimeout(fimaPrefetchTimer.current);
+      }
+      const bootstrap = initialFimaPage.current;
+      if (bootstrap) {
+        initialFimaPage.current = null;
+        if (isFima && options?.useCache && optionsRevision === 0 && bootstrap.siteId === siteId && remoteFilters.page === 1 && !remoteFilters.dateFrom && !remoteFilters.dateTo && !remoteFilters.keyword && remoteFilters.workFilter === "__ALL__" && remoteFilters.floorFilter === "__ALL__" && !remoteFilters.review && !remoteFilters.bis && !remoteFilters.materials && !remoteFilters.examples) {
+          fimaPages.seed(pageKey, bootstrap.page);
+        }
       }
       const fimaParams = (page: number) => {
         const params = new URLSearchParams({ project: siteId, view: "project", page: String(page) });
@@ -1514,7 +1527,9 @@ export default function SiteDiaryCalendar({
         // is intentionally not on the critical path for the initial screen.
         const configKey = `${siteId}:${siteDiaryFlowId}:${optionsRevision}`;
         if (fimaConfig.current?.key !== configKey) {
-          const entry = { key: configKey, enabled: false, promise: getConfig(siteId, { flowId: siteDiaryFlowId }) };
+          const bootstrap = initialFimaPage.current;
+          const useInitialConfig = bootstrap?.siteId === siteId && optionsRevision === 0 && !isZtcSite;
+          const entry = { key: configKey, enabled: useInitialConfig, promise: useInitialConfig ? Promise.resolve(bootstrap.config) : getConfig(siteId, { flowId: siteDiaryFlowId }) };
           fimaConfig.current = entry;
           void entry.promise.then(value => { entry.enabled = !isZtcSite && value?.otherSettings?.fimaCollaboration === true; }).catch(() => {
             if (fimaConfig.current === entry) fimaConfig.current = null;

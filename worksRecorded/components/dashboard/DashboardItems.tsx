@@ -68,7 +68,7 @@ export function DashboardItems({
 					<TooltipTrigger asChild>
 						<Link
 							href={item.href}
-							prefetch
+							prefetch={false}
 							aria-label={item.name}
 							title={item.name}
 							onMouseEnter={() => router.prefetch(item.href)}
@@ -152,7 +152,7 @@ export function DashboardProjectNavigation({
 					<Link
 						key={item.view}
 						href={getTgemWorkspaceHref(item.view, activeProjectFilter)}
-						prefetch
+						prefetch={false}
 						aria-current={activeView === item.view ? "page" : undefined}
 						onMouseEnter={() =>
 							router.prefetch(
@@ -301,7 +301,7 @@ function TgemProjectSwitcher({
 						<DropdownMenuItem key={project.id ?? "all"} asChild>
 							<Link
 								href={href}
-								prefetch
+								prefetch={false}
 								onMouseEnter={() => onPrefetch(href)}
 								className="flex w-full min-w-0 items-center gap-2"
 							>
@@ -320,7 +320,7 @@ function TgemProjectSwitcher({
 				<DropdownMenuItem asChild>
 					<Link
 						href="/dashboard/sites"
-						prefetch
+						prefetch={false}
 						onMouseEnter={() => onPrefetch("/dashboard/sites")}
 					>
 						<Building2 className="size-4" />
@@ -448,7 +448,7 @@ function ProjectSwitcher({
 						<DropdownMenuItem key={project.id} asChild>
 							<Link
 								href={href}
-								prefetch
+								prefetch={false}
 								aria-current={
 									project.id === activeProjectId ? "page" : undefined
 								}
@@ -489,7 +489,7 @@ function ProjectNavLink({
 			<TooltipTrigger asChild>
 				<Link
 					href={item.href}
-					prefetch
+					prefetch={false}
 					aria-label={item.displayName}
 					onMouseEnter={onPrefetch}
 					data-tour={item.dataTour}
@@ -553,7 +553,7 @@ function ProjectMoreMenu({
 					<DropdownMenuItem key={item.path} asChild>
 						<Link
 							href={item.href}
-							prefetch
+							prefetch={false}
 							onMouseEnter={() => onPrefetch(item.href)}
 							className={cn(
 								"flex w-full items-center gap-2",

@@ -1,6 +1,6 @@
 "use server";
 import { BisDiarySyncCache, syncLinkedBisRecords } from "@/lib/bis/diary-record-sync";
-import { withFimaDiaryColumns } from "@/lib/fima/diary-collaboration";
+import { buildDefaultConstructionDiaryConfig } from "@/flows/default-construction/lib/diary-config";
 import { withFimaExampleSources } from "@/flows/default-construction/backend/fima-example-sources";
 import type { FimaDiaryFilters } from "@/lib/fima/diary-filters";
 import { buildFimaDiaryFilterWhere } from "@/flows/default-construction/backend/fima-diary-filters";
@@ -28,14 +28,12 @@ import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import { syncDefaultConstructionForma2WorkAssignments } from "@/flows/default-construction/backend/forma2-analytics-actions";
 import {
-  applyDefaultConstructionQuantityProfile,
   DEFAULT_CONSTRUCTION_ACTUAL_QUANTITY_FIELD,
   hasDefaultConstructionQuantityProfile,
   normalizeActualQuantityForStorage,
 } from "@/flows/default-construction/lib/quantity-plan-actual";
 import {
   setDefaultConstructionWorkDropdownOptions,
-  withDefaultConstructionSystemWorks,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import {
   type ZtcRateProject,
@@ -364,23 +362,7 @@ export async function getConfig(
   }
 
   if (!clientConfig) return null;
-  const defaultConstructionMap =
-    clientConfig.siteDiaryRecordsMap &&
-    typeof clientConfig.siteDiaryRecordsMap === "object"
-      ? structuredClone(clientConfig.siteDiaryRecordsMap as Record<string, any>)
-      : structuredClone(defaultConfig as Record<string, any>);
-
-  setDefaultConstructionWorkDropdownOptions(
-    defaultConstructionMap,
-    withDefaultConstructionSystemWorks(defaultConstructionMap),
-  );
-  const result = applyDefaultConstructionQuantityProfile(defaultConstructionMap);
-  result.otherSettings = {
-    ...result.otherSettings,
-    inlineDiaryPhotos: hasInlineDiaryPhotos("organizationId" in clientConfig ? clientConfig.organizationId as string : null),
-    visualConstruction: hasInlineDiaryPhotos("organizationId" in clientConfig ? clientConfig.organizationId as string : null),
-  };
-  return withFimaDiaryColumns(result, "bisCaseNumber" in clientConfig ? clientConfig.bisCaseNumber : null, "bisCaseId" in clientConfig ? clientConfig.bisCaseId : null);
+  return buildDefaultConstructionDiaryConfig(clientConfig);
 }
 
 export async function updateSiteDiaryDropdownOptions(args: {

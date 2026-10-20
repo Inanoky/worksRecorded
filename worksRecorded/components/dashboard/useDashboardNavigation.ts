@@ -219,22 +219,6 @@ export function useDashboardNavigation({
 		if (isAboveProject && (projectId || projectName)) setProject("", "");
 	}, [pathname, projectId, projectName, setProject]);
 
-	useEffect(() => {
-		globalNavLinks.forEach((item) => {
-			router.prefetch(item.href);
-		});
-		if (!activeProjectId || !isProjectRoute) return;
-		projectNavLinks.forEach((item) => {
-			router.prefetch(item.href);
-		});
-	}, [
-		activeProjectId,
-		globalNavLinks,
-		isProjectRoute,
-		projectNavLinks,
-		router,
-	]);
-
 	return {
 		globalNavLinks,
 		isProjectRoute,

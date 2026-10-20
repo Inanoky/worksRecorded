@@ -123,7 +123,7 @@ export function MobileMenu({
 							const isSelected = (activeProjectFilter ?? null) === project.id;
 							return (
 								<DropdownMenuItem key={project.id ?? "all"} asChild>
-									<Link href={href} prefetch>
+									<Link href={href} prefetch={false}>
 										<Check
 											className={cn(
 												"size-4",
@@ -136,7 +136,7 @@ export function MobileMenu({
 							);
 						})}
 						<DropdownMenuItem asChild>
-							<Link href="/dashboard/sites" prefetch>
+							<Link href="/dashboard/sites" prefetch={false}>
 								<Building2 className="size-4" />
 								{tgemProjectLabels.manageProjects}
 							</Link>
@@ -148,7 +148,7 @@ export function MobileMenu({
 					<DropdownMenuItem key={item.view} asChild>
 						<Link
 							href={item.href}
-							prefetch
+							prefetch={false}
 							className={cn(
 								"flex w-full items-center gap-2",
 								item.isActive
@@ -165,7 +165,7 @@ export function MobileMenu({
 					<DropdownMenuItem key={item.name} asChild>
 						<Link
 							href={item.href}
-							prefetch
+							prefetch={false}
 							className={cn(
 								"flex w-full items-center gap-2",
 								item.isActive
@@ -189,7 +189,7 @@ export function MobileMenu({
 							<DropdownMenuItem key={item.path} asChild>
 								<Link
 									href={item.href}
-									prefetch
+									prefetch={false}
 									data-tour={item.dataTour}
 									className={cn(
 										"flex w-full items-center gap-2",

@@ -3,9 +3,11 @@
 import dynamic from "next/dynamic";
 import type { ComponentType } from "react";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
+import type { FimaProjectDiary } from "@/lib/fima/project-diary";
 import { FLOW_MODULE_KEYS, type FlowModuleKey } from "@/lib/flows/types";
 
 export type FlowDashboardProps = {
+	initialFimaDiary?: FimaProjectDiary | null;
 	siteId: string;
 	bisEnabled: boolean;
 	organizationLanguage?: string | null;
