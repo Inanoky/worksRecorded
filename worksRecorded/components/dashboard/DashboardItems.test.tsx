@@ -111,6 +111,28 @@ describe("dashboard navigation", () => {
 		);
 	});
 
+	it("does not load other project pages on mount and prefetches the requested link on hover", async () => {
+		mockPathname = "/dashboard/sites/loading-project/dashboard";
+		getProjectNavigationRuntimeForSiteMock.mockResolvedValue({
+			flowModuleKey: FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION,
+			productionConfig: null,
+			siteName: "Loading project",
+		});
+		render(
+			<ProjectProvider>
+				<DashboardProjectNavigation organizationLanguage="en" />
+			</ProjectProvider>,
+		);
+		const diary = await screen.findByRole("link", {
+			name: "Construction journal",
+		});
+		expect(mockPrefetch).not.toHaveBeenCalled();
+		await userEvent.hover(diary);
+		expect(mockPrefetch).toHaveBeenCalledWith(
+			"/dashboard/sites/loading-project/dashboard",
+		);
+	});
+
 	it("hides permission-gated global links without access", () => {
 		render(<DashboardItems organizationLanguage="en" />);
 
@@ -545,7 +567,6 @@ function seedProject(userId: string, id: string, name: string) {
 		JSON.stringify({ id, name }),
 	);
 }
-
 
 it("adds Visi projekti to FIMA's project switcher and preserves the real project selection", async () => {
   mockPathname = "/dashboard/sites/fima-site/dashboard";

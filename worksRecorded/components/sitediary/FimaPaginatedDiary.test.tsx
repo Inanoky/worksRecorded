@@ -159,6 +159,60 @@ it("keeps the initial page cached through Strict Mode effect replay", async () =
 	expect(global.fetch).toHaveBeenCalledTimes(1);
 });
 
+it("combines FIMA filters, preserves them across pages and export, then clears them", async () => {
+	mount();
+	fireEvent.change(screen.getByRole("combobox", { name: "Rīcība" }), {
+		target: { value: "needs_changes" },
+	});
+	fireEvent.change(screen.getByRole("combobox", { name: "BIS ieraksts" }), {
+		target: { value: "missing" },
+	});
+	fireEvent.change(screen.getByRole("combobox", { name: "Materiāli" }), {
+		target: { value: "missing" },
+	});
+	fireEvent.change(screen.getByRole("combobox", { name: "Paraugas" }), {
+		target: { value: "present" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Filtrēt" }));
+	await waitFor(() =>
+		expect(window.location.search).toBe(
+			"?review=needs_changes&bis=missing&materials=missing&examples=present",
+		),
+	);
+	expect(screen.getByRole("combobox", { name: "Materiāli" })).toHaveValue(
+		"missing",
+	);
+	next();
+	await waitFor(() => expect(window.location.search).toContain("page=2"));
+	expect(screen.getByRole("link", { name: "Eksportēt" })).toHaveAttribute(
+		"href",
+		"/api/all-projects/export?review=needs_changes&bis=missing&materials=missing&examples=present&page=2",
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Notīrīt" }));
+	await waitFor(() => expect(window.location.search).toBe("?page=2"));
+	expect(screen.getByText("row-2")).toBeInTheDocument();
+	expect(screen.getByRole("combobox", { name: "Paraugas" })).toHaveValue("");
+	expect(screen.getByRole("link", { name: "Eksportēt" })).toHaveAttribute(
+		"href",
+		"/api/all-projects/export?page=2",
+	);
+});
+
+it("keeps the current page when clearing unapplied filter changes", async () => {
+	mount();
+	next();
+	await screen.findByText("row-2");
+	fireEvent.change(screen.getByRole("textbox", { name: "Meklēt" }), {
+		target: { value: "cable" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Notīrīt" }));
+	await waitFor(() =>
+		expect(screen.getByRole("textbox", { name: "Meklēt" })).toHaveValue(""),
+	);
+	expect(window.location.search).toBe("?page=2");
+	expect(screen.getByText("row-2")).toBeInTheDocument();
+});
+
 it("does not let a late response replace a newer browser-history navigation", async () => {
 	let finish!: (value: unknown) => void;
 	jest.mocked(global.fetch).mockImplementationOnce(

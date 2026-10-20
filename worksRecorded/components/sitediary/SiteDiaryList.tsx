@@ -1,4 +1,8 @@
 "use client";
+import { DiaryFilterCard } from "./DiaryFilterCard";
+import { FimaDiaryFilters } from "./FimaDiaryFilters";
+import { useFimaDiaryFilterOptions } from "./useFimaDiaryFilterOptions";
+import type { FimaDiaryFilters as FimaFilters } from "@/lib/fima/diary-filters";
 import { FimaBisState } from "./FimaBisState";
 import { fimaDiaryColumnWeights, fimaDiaryTableClassName } from "@/lib/fima/diary-table";
 import { getFimaDiaryCollaboration, refreshFimaBisMaterials } from "@/server/actions/fima-diary-collaboration";
@@ -44,6 +48,7 @@ import {
   Trash2,
 } from "lucide-react";
 import React from "react";
+import type { FimaProjectDiary } from "@/lib/fima/project-diary";
 import { BeginHoursCost, BeginHoursImport, useBeginHours } from "@/components/sitediary/BeginHours";
 import { BeginRecordHours } from "@/components/sitediary/BeginRecordHours";
 import { toast } from "sonner";
@@ -680,6 +685,7 @@ export default function SiteDiaryCalendar({
   limeniClientDiary = false,
   active = true,
   batchEditing = false,
+  initialFimaDiary,
 }: {
   siteId: string | null;
   bisEnabled?: boolean;
@@ -688,7 +694,10 @@ export default function SiteDiaryCalendar({
   limeniClientDiary?: boolean;
   active?: boolean;
   batchEditing?: boolean;
+  initialFimaDiary?: FimaProjectDiary | null;
 }) {
+  const initialDiary = initialFimaDiary?.siteId === siteId && !isZtcFlow ? initialFimaDiary : null;
+  const initialFimaPage = React.useRef(initialDiary);
   const today = new Date();
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSiteDiaryListMessages(language);
@@ -780,6 +789,7 @@ export default function SiteDiaryCalendar({
   const [elementFilter, setElementFilter] = React.useState<string>("__ALL__");
   const [workerFilter, setWorkerFilter] = React.useState<string>("__ALL__");
   const [keywordFilter, setKeywordFilter] = React.useState<string>("");
+  const [fimaFilters, setFimaFilters] = React.useState<FimaFilters>({});
   const [ztcFilterOptions, setZtcFilterOptions] =
     React.useState<ZtcFilterOptions>({
       projects: [],
@@ -788,6 +798,7 @@ export default function SiteDiaryCalendar({
       workers: [],
     });
   const [listPage, setListPage] = React.useState(1);
+  const pageAfterClearingFilters = React.useRef<number | null>(null);
   const [listTotalCount, setListTotalCount] = React.useState(0);
   const [listTotalPages, setListTotalPages] = React.useState(1);
   const keywordInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -808,6 +819,7 @@ export default function SiteDiaryCalendar({
 
   React.useEffect(() => {
     setDiarySnapshotSiteId(null);
+    setFimaFilters({});
     return () => {
       ++diaryRowsRequestRef.current;
     };
@@ -816,13 +828,15 @@ export default function SiteDiaryCalendar({
   //----------------------Table---------------------------------------------------
 
   const [defaultMap, setMap] =
-    React.useState<Record<string, any>>(defaultConfig);
-  const [configSiteId, setConfigSiteId] = React.useState<string | null>(null);
+    React.useState<Record<string, any>>(() => initialDiary?.config ?? defaultConfig);
+  const [configSiteId, setConfigSiteId] = React.useState<string | null>(() => initialDiary?.siteId ?? null);
   const clientDiary = !isZtcFlow && (limeniClientDiary || (configSiteId === siteId && defaultMap?.otherSettings?.inlineDiaryPhotos === true));
   const fimaPanelRow = rows.find((row) => row.id === fimaRecordId) ?? (fimaRecordId ? fimaSelectedRow : null);
   const fimaDiary = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.fimaCollaboration === true;
-  const planner = useConstructionPlanner(siteId, !isZtcFlow && !fimaDiary, rows);
-  const beginHours = useBeginHours(fimaDiary ? null : siteId, rows);
+  const fimaFilterOptions = useFimaDiaryFilterOptions(siteId, fimaDiary, optionsRevision);
+  const ancillaryDiaryEnabled = configSiteId === siteId && hasLoadedRowsOnce && !fimaDiary;
+  const planner = useConstructionPlanner(siteId, !isZtcFlow && ancillaryDiaryEnabled, rows);
+  const beginHours = useBeginHours(ancillaryDiaryEnabled ? siteId : null, rows);
   const fimaCurrentRows = React.useRef(rows);
   fimaCurrentRows.current = rows;
   const fimaCurrentSelection = React.useRef(fimaSelectedRow);
@@ -1202,7 +1216,7 @@ export default function SiteDiaryCalendar({
     setWorkerFilter,
   });
   const defaultConstructionSummary = useDefaultConstructionSiteDiarySummary({
-    enabled: !isZtcSite && !fimaDiary,
+    enabled: !isZtcSite && ancillaryDiaryEnabled,
     siteId,
     organizationLanguage,
     refreshKey: rows,
@@ -1268,6 +1282,7 @@ export default function SiteDiaryCalendar({
     elementFilter: isZtcSite ? elementFilter : undefined,
     workerFilter: isZtcSite ? workerFilter : undefined,
     keyword: keywordFilter, page: listPage,
+    ...(fimaDiary ? fimaFilters : {}),
   });
   const refreshRowsWithBisSync = React.useCallback(
     async (options?: { skipSync?: boolean; useCache?: boolean }) => {
@@ -1312,9 +1327,16 @@ export default function SiteDiaryCalendar({
         fimaPages.clear();
         if (fimaPrefetchTimer.current) clearTimeout(fimaPrefetchTimer.current);
       }
+      const bootstrap = initialFimaPage.current;
+      if (bootstrap) {
+        initialFimaPage.current = null;
+        if (isFima && options?.useCache && optionsRevision === 0 && bootstrap.siteId === siteId && remoteFilters.page === 1 && !remoteFilters.dateFrom && !remoteFilters.dateTo && !remoteFilters.keyword && remoteFilters.workFilter === "__ALL__" && remoteFilters.floorFilter === "__ALL__" && !remoteFilters.review && !remoteFilters.bis && !remoteFilters.materials && !remoteFilters.examples) {
+          fimaPages.seed(pageKey, bootstrap.page);
+        }
+      }
       const fimaParams = (page: number) => {
         const params = new URLSearchParams({ project: siteId, view: "project", page: String(page) });
-        for (const [key, value] of Object.entries({ q: remoteFilters.keyword, from: remoteFilters.dateFrom, to: remoteFilters.dateTo, work: remoteFilters.workFilter, floor: remoteFilters.floorFilter })) {
+        for (const [key, value] of Object.entries({ q: remoteFilters.keyword, from: remoteFilters.dateFrom, to: remoteFilters.dateTo, work: remoteFilters.workFilter, floor: remoteFilters.floorFilter, review: remoteFilters.review, bis: remoteFilters.bis, materials: remoteFilters.materials, examples: remoteFilters.examples })) {
           if (typeof value === "string" && value && value !== "__ALL__") params.set(key, value);
         }
         return params;
@@ -1402,7 +1424,8 @@ export default function SiteDiaryCalendar({
   }, [refreshRowsWithBisSync]);
 
   React.useEffect(() => {
-    setListPage(1);
+    setListPage(pageAfterClearingFilters.current ?? 1);
+    pageAfterClearingFilters.current = null;
   }, [
     dateFrom,
     dateTo,
@@ -1411,6 +1434,7 @@ export default function SiteDiaryCalendar({
     elementFilter,
     workerFilter,
     keywordFilter,
+    fimaFilters,
   ]);
 
   React.useEffect(() => {
@@ -1503,7 +1527,9 @@ export default function SiteDiaryCalendar({
         // is intentionally not on the critical path for the initial screen.
         const configKey = `${siteId}:${siteDiaryFlowId}:${optionsRevision}`;
         if (fimaConfig.current?.key !== configKey) {
-          const entry = { key: configKey, enabled: false, promise: getConfig(siteId, { flowId: siteDiaryFlowId }) };
+          const bootstrap = initialFimaPage.current;
+          const useInitialConfig = bootstrap?.siteId === siteId && optionsRevision === 0 && !isZtcSite;
+          const entry = { key: configKey, enabled: useInitialConfig, promise: useInitialConfig ? Promise.resolve(bootstrap.config) : getConfig(siteId, { flowId: siteDiaryFlowId }) };
           fimaConfig.current = entry;
           void entry.promise.then(value => { entry.enabled = !isZtcSite && value?.otherSettings?.fimaCollaboration === true; }).catch(() => {
             if (fimaConfig.current === entry) fimaConfig.current = null;
@@ -1677,8 +1703,12 @@ export default function SiteDiaryCalendar({
   }, [rows, isZtcSite, floorFilter, elementFilter, planner.showAny, planner.diaryRows]);
 
   const worksOptions = React.useMemo(
-    () => (isZtcSite ? ztcFilterOptions.works : pageWorksOptions),
-    [isZtcSite, pageWorksOptions, ztcFilterOptions.works],
+    () => {
+      if (isZtcSite) return ztcFilterOptions.works;
+      if (fimaDiary) return withSelectedOption(fimaFilterOptions?.works ?? pageWorksOptions, workFilter);
+      return pageWorksOptions;
+    },
+    [isZtcSite, fimaDiary, fimaFilterOptions, pageWorksOptions, workFilter, ztcFilterOptions.works],
   );
   const groupedWorksOptions = React.useMemo(
     () => groupDefaultConstructionSiteDiaryWorks(worksOptions, (work) => work),
@@ -1707,11 +1737,12 @@ export default function SiteDiaryCalendar({
   }, [rows, isZtcSite, planner.showAny, planner.diaryRows]);
 
   const floorOptions = React.useMemo(
-    () =>
-      isZtcSite
-        ? withSelectedOption(ztcFilterOptions.projects, floorFilter)
-        : pageFloorOptions,
-    [floorFilter, isZtcSite, pageFloorOptions, ztcFilterOptions.projects],
+    () => {
+      if (isZtcSite) return withSelectedOption(ztcFilterOptions.projects, floorFilter);
+      if (fimaDiary) return withSelectedOption(fimaFilterOptions?.locations ?? pageFloorOptions, floorFilter);
+      return pageFloorOptions;
+    },
+    [floorFilter, isZtcSite, fimaDiary, fimaFilterOptions, pageFloorOptions, ztcFilterOptions.projects],
   );
 
   const pageElementOptions = React.useMemo(() => {
@@ -2235,6 +2266,8 @@ export default function SiteDiaryCalendar({
   };
 
   const clearFilters = () => {
+    if (fimaDiary) pageAfterClearingFilters.current = listPage;
+    setFimaFilters({});
     setDateFrom(null);
     setDateTo(null);
     setWorkFilter("__ALL__");
@@ -2254,6 +2287,7 @@ export default function SiteDiaryCalendar({
   const loadAllFilteredRowsForExport = React.useCallback(async () => {
     if (!siteId) return [];
     const allRows = (await getSitediaryRecordsBySiteIdForExcel(siteId, {
+      ...(fimaDiary ? fimaFilters : {}),
       flowId: siteDiaryFlowId,
       dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
       dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
@@ -2299,6 +2333,8 @@ export default function SiteDiaryCalendar({
     ztc.defaultRates,
     workFilter,
     workerFilter,
+    fimaDiary,
+    fimaFilters,
   ]);
 
   const runExcelExport = React.useCallback(
@@ -3346,7 +3382,7 @@ export default function SiteDiaryCalendar({
           {/* LIST VIEW */}
           <TabsContent value="list" className="mt-0">
             {/* {t.filters} */}
-            <Card className="mb-4 border-muted bg-muted/30">
+            <DiaryFilterCard sticky={fimaDiary} className="mb-4 border-muted bg-muted/30">
               <CardContent className="px-3 py-3 sm:px-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
                   <div className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -3547,6 +3583,7 @@ export default function SiteDiaryCalendar({
                         className="h-9 pl-8"
                       />
                     </div>
+                    {fimaDiary ? <FimaDiaryFilters value={fimaFilters} onChange={(value) => { setListPage(1); setFimaFilters(value); }} /> : null}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
@@ -3656,7 +3693,7 @@ export default function SiteDiaryCalendar({
                   ) : null}
                 </div>
               </CardContent>
-            </Card>
+            </DiaryFilterCard>
 
             {/* Error / empty */}
             {error && (
@@ -5536,7 +5573,7 @@ export default function SiteDiaryCalendar({
                                   >
                                     {showDayPlan || clientDiary || fitDiaryTable ? <PlanTableColumns hideBisStatus={fimaDiary} trailingFields={fimaDiary ? ["FimaReviewStatus"] : undefined} fields={dayTableHeads} bisEnabled={bisUiEnabled} showPlan={showDayPlan} columnWeights={fitDiaryTable ? {
                                       ...Object.fromEntries(dayTableHeads.map((field) => [field, getCellWidthByKey(field, defaultMap)])),
-                                      FimaReviewStatus: 220, FimaMaterials: 500, select: 52, createdAt: 80, "man-hours": 75, cost: 80, bis: 140, status: 140, action: 80, source: 60,
+                                      FimaReviewStatus: 220, FimaMaterials: 500, FimaExamples: 260, select: 52, createdAt: 80, "man-hours": 75, cost: 80, bis: 140, status: 140, action: 80, source: 60,
                                       "plan-Works": getCellWidthByKey("Works", defaultMap), "plan-Amounts": 125,
                                       ...(fimaDiary ? fimaDiaryColumnWeights : {}),
                                     } : undefined} /> : null}

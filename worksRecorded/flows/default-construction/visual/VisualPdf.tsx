@@ -12,7 +12,7 @@ import {
 	X,
 } from "lucide-react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { type VisualMark, visualLayers } from "./model";
@@ -41,6 +41,7 @@ export type VisualPlanAreaSelection = {
 };
 
 export type VisualPdfPlanning = {
+	purpose?: "record";
 	planId: string | null;
 	areas: VisualPlanArea[];
 	backgroundAreas?: Array<
@@ -132,6 +133,8 @@ export function VisualPdf({
 	resourceCache,
 	controlsHost,
 	onDocumentChange,
+	onCreateRecord,
+	createRecordBlockedReason,
 }: {
 	url: string;
 	marks: VisualMark[];
@@ -149,7 +152,10 @@ export function VisualPdf({
 	resourceCache?: VisualClientCache;
 	controlsHost?: HTMLElement | null;
 	onDocumentChange?: (document: PDFDocumentProxy | null) => void;
+	onCreateRecord?: () => void;
+	createRecordBlockedReason?: string;
 }) {
+	const recordHintId = useId();
 	const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
 	useEffect(() => {
 		onDocumentChange?.(document);
@@ -173,6 +179,7 @@ export function VisualPdf({
 	const planningInteractionKey = planning?.interactionKey ?? planning?.planId;
 	const previousPlanningInteractionKey = useRef(planningInteractionKey);
 	const planningEnabled = planning !== undefined;
+	const recordCreation = planning?.purpose === "record";
 	const navigation = useDrawingViewport(
 		aspect,
 		`${url}:${page}`,
@@ -572,6 +579,29 @@ export function VisualPdf({
 			>
 				<ChevronRight className="h-4 w-4" />
 			</Button>
+			{onCreateRecord && !planning && !draft ? (
+				<>
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={!ready || !editable || !!createRecordBlockedReason}
+						aria-describedby={
+							createRecordBlockedReason ? recordHintId : undefined
+						}
+						onClick={onCreateRecord}
+					>
+						<Plus className="h-3.5 w-3.5" /> Pievienot ierakstu
+					</Button>
+					{createRecordBlockedReason ? (
+						<span
+							id={recordHintId}
+							className="px-1 text-xs text-muted-foreground"
+						>
+							{createRecordBlockedReason}
+						</span>
+					) : null}
+				</>
+			) : null}
 			{planning && planningEditable && !planningAreaDraft && !penMode ? (
 				<>
 					<Button
@@ -609,7 +639,9 @@ export function VisualPdf({
 				<Button
 					size="sm"
 					variant="outline"
-					aria-label="Pielāgot plānoto zonu"
+					aria-label={
+						recordCreation ? "Pielāgot jauno zonu" : "Pielāgot plānoto zonu"
+					}
 					onClick={editPlanArea}
 				>
 					<Pencil className="h-3.5 w-3.5 md:mr-1" />
@@ -625,8 +657,14 @@ export function VisualPdf({
 					size="icon"
 					variant="ghost"
 					className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-					aria-label="Dzēst plānoto zonu"
-					title="Dzēst izvēlēto plānoto zonu"
+					aria-label={
+						recordCreation ? "Dzēst jauno zonu" : "Dzēst plānoto zonu"
+					}
+					title={
+						recordCreation
+							? "Dzēst izvēlēto jauno zonu"
+							: "Dzēst izvēlēto plānoto zonu"
+					}
 					onClick={() => {
 						planning.onChange(
 							planning.areas.filter((area) => area.id !== selectedPlanArea.id),
@@ -874,8 +912,8 @@ export function VisualPdf({
 			</div>
 			{planningAreaDraft && selectedPlanArea ? (
 				<p className="sr-only">
-					Velciet plānoto zonu, lai pārvietotu visu laukumu, vai velciet tās
-					stūrus. “+” pie malas pievieno stūri; Delete to noņem.
+					Velciet zonu, lai pārvietotu visu laukumu, vai velciet tās stūrus. “+”
+					pie malas pievieno stūri; Delete to noņem.
 				</p>
 			) : draft ? (
 				<p className="sr-only">
@@ -902,8 +940,8 @@ export function VisualPdf({
 					role="alert"
 					className="absolute inset-x-3 top-16 z-30 rounded-md border bg-background p-3 text-sm text-destructive"
 				>
-					Plānotās zonas malas krustojas vai laukums ir pārāk mazs. Pielāgojiet
-					stūrus pirms plāna saglabāšanas.
+					Zonas malas krustojas vai laukums ir pārāk mazs. Pielāgojiet stūrus
+					pirms saglabāšanas.
 				</p>
 			) : null}
 			{saveError ? (
@@ -1050,11 +1088,15 @@ export function VisualPdf({
 							className="pointer-events-none absolute inset-0 h-full w-full"
 							viewBox="0 0 1 1"
 							preserveAspectRatio="none"
-							aria-label="Plānotās darbu zonas"
+							aria-label={
+								recordCreation ? "Jaunā ieraksta zonas" : "Plānotās darbu zonas"
+							}
 							role="img"
 						>
 							<title>
-								Plānotās darbu zonas ir attēlotas ar pārtrauktu kontūru.
+								{recordCreation
+									? "Jaunā ieraksta zonas pirms saglabāšanas."
+									: "Plānotās darbu zonas ir attēlotas ar pārtrauktu kontūru."}
 							</title>
 							{planning.backgroundAreas
 								?.filter((area) => area.page === page)
@@ -1161,7 +1203,7 @@ export function VisualPdf({
 									<VisualPlanAreaTarget
 										key={`plan-hit-${key}`}
 										area={area}
-										label={`Plānotā zona ${index + 1}`}
+										label={`${recordCreation ? "Jaunā zona" : "Plānotā zona"} ${index + 1}`}
 										disabled={!!planningAreaDraft && !movable}
 										movable={movable}
 										selected={
@@ -1216,7 +1258,7 @@ export function VisualPdf({
 							key={selectedPlanArea.id}
 							area={selectedPlanArea}
 							surface={surface}
-							planned
+							planned={!recordCreation}
 							onChange={updatePlanArea}
 						/>
 					) : null}

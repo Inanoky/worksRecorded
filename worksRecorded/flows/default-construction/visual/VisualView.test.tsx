@@ -9,6 +9,7 @@ import {
 import type { ReactNode } from "react";
 import { DIARY_PHOTO_DELETED } from "@/lib/photos/photo-deleted-event";
 import {
+	addVisualRecord,
 	deleteVisualDrawing,
 	deleteVisualPolygon,
 	getVisualDrawings,
@@ -27,7 +28,9 @@ import type {
 	PolygonEdit,
 	PolygonSaveResponse,
 } from "./polygon-edit";
+import type { VisualRecordInput } from "./record-model";
 import { visualDiaryDay } from "./timeline";
+import type { VisualPdfPlanning } from "./VisualPdf";
 import VisualView from "./VisualView";
 
 const mockUpload = jest.fn();
@@ -35,6 +38,7 @@ jest.mock("@/lib/utils/UploadthingsComponents", () => ({
 	useUploadThing: () => ({ startUpload: mockUpload }),
 }));
 jest.mock("./actions", () => ({
+	addVisualRecord: jest.fn(),
 	getVisualDrawings: jest.fn(),
 	getVisualPlanning: jest.fn(),
 	refreshVisualDrawing: jest.fn(),
@@ -56,6 +60,9 @@ jest.mock("./VisualPdf", () => ({
 		onQueueSave,
 		editable,
 		selected,
+		onCreateRecord,
+		createRecordBlockedReason,
+		planning,
 	}: {
 		marks: VisualMark[];
 		onSelect: (id: string | null) => void;
@@ -63,6 +70,9 @@ jest.mock("./VisualPdf", () => ({
 		onQueueSave: (edit: PolygonEdit) => void;
 		editable: boolean;
 		selected: string | null;
+		onCreateRecord?: () => void;
+		createRecordBlockedReason?: string;
+		planning?: VisualPdfPlanning;
 	}) => (
 		<div
 			data-testid="pdf"
@@ -70,6 +80,29 @@ jest.mock("./VisualPdf", () => ({
 			data-polygons={JSON.stringify(marks.map((mark) => mark.polygon))}
 		>
 			{marks.length} zones
+			{onCreateRecord ? (
+				<button
+					type="button"
+					onClick={onCreateRecord}
+					disabled={!editable || !!createRecordBlockedReason}
+					title={createRecordBlockedReason}
+				>
+					Pievienot ierakstu
+				</button>
+			) : null}
+			{planning ? (
+				<button
+					type="button"
+					onClick={() => {
+						planning.onChange([
+							{ id: "new-area", page: 1, polygon: marks[0].polygon },
+						]);
+						planning.onEditingChange?.(false);
+					}}
+				>
+					Save new record polygon
+				</button>
+			) : null}
 			<button type="button" onClick={() => onSelect(marks[0]?.id ?? null)}>
 				Select drawing zone
 			</button>
@@ -249,6 +282,101 @@ afterEach(() => {
 	global.fetch = originalFetch;
 	sessionStorage.clear();
 	jest.useRealTimers();
+});
+
+it("adds a diary record from a new polygon and selects its saved execution zone", async () => {
+	jest
+		.mocked(addVisualRecord)
+		.mockImplementation(async (_siteId, _drawingId, input) => {
+			const record = input as VisualRecordInput;
+			return {
+				ok: true,
+				markId: "created-mark",
+				assignmentWarning: undefined,
+				drawing: {
+					...complete,
+					state: {
+						...complete.state,
+						evidence: [
+							...complete.state.evidence,
+							{
+								...complete.state.evidence[0],
+								id: "created-source",
+								recordId: record.id,
+								manual: true,
+								photoUrl: "",
+								work: record.work,
+								date: `${record.date}T00:00:00.000Z`,
+								amount: record.quantity,
+								unit: record.unit,
+							},
+						],
+						marks: [
+							...complete.state.marks,
+							{
+								...complete.state.marks[0],
+								id: "created-mark",
+								evidenceId: "created-source",
+								polygon: record.areas[0].polygon,
+							},
+						],
+					},
+				},
+			};
+		});
+	render(<VisualView siteId="site" />);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Pievienot ierakstu" }),
+	);
+	expect(screen.getByRole("button", { name: "Plānošana" })).toBeDisabled();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Save new record polygon" }),
+	);
+	fireEvent.change(screen.getByLabelText("Darbs"), {
+		target: { value: "XPS" },
+	});
+	fireEvent.change(screen.getByLabelText("Daudzums"), {
+		target: { value: "85" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt ierakstu" }));
+	await waitFor(() =>
+		expect(
+			screen.queryByRole("complementary", { name: "Jauns izpildes ieraksts" }),
+		).not.toBeInTheDocument(),
+	);
+	expect(addVisualRecord).toHaveBeenCalledWith(
+		"site",
+		"drawing",
+		expect.objectContaining({
+			quantity: 85,
+			work: "XPS",
+			areas: [
+				{ id: "new-area", page: 1, polygon: complete.state.marks[0].polygon },
+			],
+		}),
+	);
+	expect(
+		screen.queryByRole("complementary", { name: "Jauns izpildes ieraksts" }),
+	).not.toBeInTheDocument();
+	expect(
+		screen.getByRole("complementary", { name: "Izvēlētās zonas informācija" }),
+	).toHaveTextContent("Zona norādīta manuāli");
+	expect(screen.getByRole("button", { name: "Plānošana" })).toBeEnabled();
+});
+
+it("cancels a new record polygon without writing to the diary", async () => {
+	render(<VisualView siteId="site" />);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Pievienot ierakstu" }),
+	);
+	fireEvent.click(
+		screen.getByRole("button", { name: "Atcelt jauno ierakstu" }),
+	);
+	expect(
+		screen.queryByRole("button", { name: "Save new record polygon" }),
+	).not.toBeInTheDocument();
+	expect(screen.getByRole("button", { name: "Plānošana" })).toBeEnabled();
+	expect(addVisualRecord).not.toHaveBeenCalled();
 });
 
 it("dismisses the review warning without clearing reviews and only reopens it for changed sources", async () => {
@@ -1558,6 +1686,57 @@ it("polls live progress during POST and never overwrites completion with a stale
 	).toHaveLength(1);
 });
 
+it("dismisses failed-analysis progress and errors without losing zones, and reopens status on retry", async () => {
+	const failed: VisualDrawing = {
+		...complete,
+		state: {
+			...complete.state,
+			status: "failed",
+			error: "Neizdevās analizēt attēlu.",
+			processed: 0,
+			imageProgress: [
+				{ evidenceId: "photo", status: "failed", error: "Laika limits" },
+			],
+		},
+	};
+	mockFetch.mockResolvedValue({ ok: true, json: async () => failed });
+	jest.mocked(refreshVisualDrawing).mockResolvedValue({
+		drawing: failed,
+		addedCount: 0,
+		updatedCount: 0,
+		removedCount: 0,
+		analysisCount: 0,
+		reviewCount: 0,
+	});
+	render(<VisualView siteId="site" />);
+	await screen.findByRole("region", { name: "Analīzes paziņojumi" });
+	const geometry = screen.getByTestId("pdf").getAttribute("data-polygons");
+	fireEvent.click(
+		screen.getByRole("button", { name: "Aizvērt analīzes paziņojumus" }),
+	);
+	expect(
+		screen.queryByRole("region", { name: "Analīzes paziņojumi" }),
+	).not.toBeInTheDocument();
+	expect(
+		screen.queryByText("Neizdevās analizēt attēlu."),
+	).not.toBeInTheDocument();
+	expect(screen.getByTestId("pdf")).toHaveAttribute("data-polygons", geometry);
+	expect(
+		screen.getByRole("button", { name: "Turpināt analīzi" }),
+	).toBeEnabled();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Rādīt analīzes paziņojumus" }),
+	);
+	expect(
+		screen.getByRole("region", { name: "Analīzes paziņojumi" }),
+	).toHaveTextContent("Neizdevās analizēt attēlu.");
+	fireEvent.click(
+		screen.getByRole("button", { name: "Aizvērt analīzes paziņojumus" }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Turpināt analīzi" }));
+	await screen.findByRole("region", { name: "Analīzes paziņojumi" });
+});
+
 it("reopens running analysis with polling but does not start another AI request", async () => {
 	jest.useFakeTimers();
 	let saved: VisualDrawing = {
@@ -1576,6 +1755,12 @@ it("reopens running analysis with polling but does not start another AI request"
 	const view = render(<VisualView siteId="site" />);
 	await selectLocation();
 	expect(
+		screen.getByRole("button", { name: "Pievienot ierakstu" }),
+	).toBeDisabled();
+	expect(
+		screen.getByRole("button", { name: "Pievienot ierakstu" }),
+	).toHaveAttribute("title", "Pieejams pēc zonu atjaunošanas.");
+	expect(
 		screen.getByRole("button", { name: "Turpināt analīzi" }),
 	).toBeDisabled();
 	saved = complete;
@@ -1583,6 +1768,9 @@ it("reopens running analysis with polling but does not start another AI request"
 		await jest.advanceTimersByTimeAsync(1000);
 	});
 	expect(screen.getByTestId("pdf")).toHaveTextContent("1 zones");
+	expect(
+		screen.getByRole("button", { name: "Pievienot ierakstu" }),
+	).toBeEnabled();
 	expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
 	const count = mockFetch.mock.calls.length;
 	view.unmount();

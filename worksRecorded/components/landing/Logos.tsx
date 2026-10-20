@@ -4,14 +4,15 @@ import type { StaticImageData } from "next/image";
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import TgemLogo from "@/lib/images/tgem-logo.png";
 import DepromLogo from "@/public/logos/deprom.webp";
+import FimaLogo from "@/public/logos/fima-official.png";
 import LecLogo from "@/public/logos/lec.png";
-import LimeniLogo from "@/public/logos/limeni.svg";
 import ZtcLogo from "@/public/logos/ztc.jpg";
 
 type Client = {
 	name: string;
-	descriptionKey: string;
+	descriptionKey?: string;
 	href: string;
 	logo: StaticImageData | string;
 	logoWidth?: number;
@@ -49,7 +50,19 @@ const CLIENTS: Client[] = [
 		name: "Līmenī",
 		descriptionKey: "clientLimeniDescription",
 		href: "https://www.limeni.lv/",
-		logo: LimeniLogo,
+		logo: "/logos/limeni.svg",
+		logoWidth: 1012,
+		logoHeight: 330,
+	},
+	{
+		name: "FIMA",
+		href: "https://www.fima.lv/",
+		logo: FimaLogo,
+	},
+	{
+		name: "TGEM",
+		href: "https://tgem.tj/en",
+		logo: TgemLogo,
 	},
 ];
 
@@ -77,7 +90,7 @@ export function Logos() {
 									alt={client.name}
 									width={client.logoWidth}
 									height={client.logoHeight}
-									className="max-h-10 w-auto object-contain grayscale opacity-70 transition duration-300 group-hover:grayscale-0 group-hover:opacity-100 group-focus-visible:grayscale-0 group-focus-visible:opacity-100"
+									className={`${client.name === "TGEM" ? "h-10 w-36 object-cover object-[center_45%]" : "max-h-10 w-auto object-contain"} grayscale opacity-70 transition duration-300 group-hover:grayscale-0 group-hover:opacity-100 group-focus-visible:grayscale-0 group-focus-visible:opacity-100`}
 								/>
 							</Link>
 						))}
@@ -121,7 +134,9 @@ export function Logos() {
 
 				<div className="hidden mt-6 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
 					{CLIENTS.map((client) => {
-						const rawParagraphs = t.raw(client.descriptionKey);
+						const rawParagraphs = client.descriptionKey
+							? t.raw(client.descriptionKey)
+							: [];
 						const paragraphs = Array.isArray(rawParagraphs)
 							? rawParagraphs.filter(
 									(paragraph): paragraph is string =>

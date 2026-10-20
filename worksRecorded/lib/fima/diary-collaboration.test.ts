@@ -36,6 +36,7 @@ it("fits FIMA columns and hides labour metrics without changing saved configurat
 	expect(result.TimeInvolved.customSettings?.displayinSiteList).toBe("no");
 	expect(result.WorkersInvolved.customSettings?.displayinSiteList).toBe("no");
 	expect(result.FimaMaterials.DisplayName).toBe("Materiāli");
+	expect(result.FimaExamples.DisplayName).toBe("Paraugas");
 	expect(config.TimeInvolved.customSettings.displayinSiteList).toBe("yes");
 });
 it("retains every member's comment and an earlier status event", () => {

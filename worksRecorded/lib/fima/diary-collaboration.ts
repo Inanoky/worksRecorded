@@ -1,9 +1,12 @@
 import { z } from "zod";
+import { type FimaBisExamples, readFimaBisExamples } from "./bis-examples";
 import { fimaDiaryColumns } from "./diary-table";
 
 export const fimaStatuses = {
 	do_not_create: "Netaisīt",
 	needs_changes: "Labot",
+	coordinate_with_fima: "Saskaņot ar Fima",
+	updated: "Updated",
 	ai_prepared: "AI sagatavots",
 	ready_for_approval: "Sūtīt uz apstiprināšanu",
 	approved: "Apstiprināts",
@@ -11,6 +14,8 @@ export const fimaStatuses = {
 export const fimaStatusSchema = z.enum([
 	"do_not_create",
 	"needs_changes",
+	"coordinate_with_fima",
+	"updated",
 	"ai_prepared",
 	"ready_for_approval",
 	"approved",
@@ -29,12 +34,16 @@ export type FimaEvent = {
 	actorName: string;
 	at: string;
 	text: string;
+	previousStatus?: keyof typeof fimaStatuses | null;
+	status?: keyof typeof fimaStatuses | null;
 };
 export type FimaCollaboration = {
 	version: number;
 	status: keyof typeof fimaStatuses | null;
 	materials: FimaMaterial[];
+	materialsNote?: string | null;
 	history: FimaEvent[];
+	examples?: FimaBisExamples;
 	bisMaterials?: {
 		fetchedAt: string;
 		entries: {
@@ -45,16 +54,32 @@ export type FimaCollaboration = {
 		}[];
 	};
 };
+export function formatFimaEventText(event: FimaEvent) {
+	if (event.kind !== "status" || event.status === undefined) return event.text;
+	const label = (status: keyof typeof fimaStatuses | null) =>
+		status ? fimaStatuses[status] : "Nav atzīmes";
+	return `${event.previousStatus !== undefined ? `${label(event.previousStatus)} → ` : ""}${label(event.status)}`;
+}
 export const fimaVirtualFields = [
+	"FimaNumber",
 	"FimaComments",
 	"FimaBisCase",
 	"FimaMaterials",
+	"FimaExamples",
 	"FimaReviewStatus",
 ];
 export function readFimaCollaboration(metadata: unknown): FimaCollaboration {
 	const value = (metadata as { fimaCollaboration?: FimaCollaboration } | null)
 		?.fimaCollaboration;
-	return { version: 0, status: null, materials: [], history: [], ...value };
+	const examples = readFimaBisExamples(value?.examples, value?.history);
+	return {
+		version: 0,
+		status: null,
+		materials: [],
+		history: [],
+		...value,
+		...(examples ? { examples } : {}),
+	};
 }
 export function isFimaDiary(config: unknown) {
 	return (
@@ -117,7 +142,9 @@ export function withFimaDiaryColumns(
 export function appendFimaEvent(
 	state: FimaCollaboration,
 	event: FimaEvent,
-	patch: Partial<Pick<FimaCollaboration, "status" | "materials">>,
+	patch: Partial<
+		Pick<FimaCollaboration, "status" | "materials" | "materialsNote">
+	>,
 	expectedVersion?: number,
 ) {
 	if (state.history.some((item) => item.id === event.id)) return state;

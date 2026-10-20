@@ -21,13 +21,16 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
+import TgemLogo from "@/lib/images/tgem-logo.png";
 import HeroLaptopDashboard from "@/public/frontend/pages/Home/HeroLaptopDashboardDiagram.png";
 import HeroWhatsAppPhone from "@/public/frontend/pages/Home/HeroWhatsAppPhoneSource.png";
 import ScreenshotSiteDiary from "@/public/frontend/pages/Home/ScreenshotSiteDiary.png";
 import DepromLogo from "@/public/logos/deprom.webp";
+import FimaLogo from "@/public/logos/fima-official.png";
 import LecLogo from "@/public/logos/lec.png";
 import ZtcLogo from "@/public/logos/ztc.jpg";
 import styles from "./LandingV3.module.css";
+
 //nothing
 const archivo = Archivo({
 	subsets: ["latin"],
@@ -61,7 +64,13 @@ type LaptopFrameProps = {
 	objectClassName?: string;
 };
 
-const clients = [
+const clients: {
+	name: string;
+	logo: StaticImageData | string;
+	href: string;
+	logoWidth?: number;
+	logoHeight?: number;
+}[] = [
 	{
 		name: "Deprom",
 		logo: DepromLogo,
@@ -76,6 +85,23 @@ const clients = [
 		name: "ZTC",
 		logo: ZtcLogo,
 		href: "https://ztc.lv/",
+	},
+	{
+		name: "Līmenī",
+		logo: "/logos/limeni.svg",
+		logoWidth: 1012,
+		logoHeight: 330,
+		href: "https://www.limeni.lv/",
+	},
+	{
+		name: "FIMA",
+		logo: FimaLogo,
+		href: "https://www.fima.lv/",
+	},
+	{
+		name: "TGEM",
+		logo: TgemLogo,
+		href: "https://tgem.tj/en",
 	},
 ];
 
@@ -301,7 +327,9 @@ export default function LandingV3Page() {
 							<Image
 								src={client.logo}
 								alt={client.name}
-								className="max-h-10 w-auto object-contain"
+								width={client.logoWidth}
+								height={client.logoHeight}
+								className={client.name === "TGEM" ? "h-10 w-36 max-w-full object-cover object-[center_45%]" : "max-h-10 max-w-full w-auto object-contain"}
 							/>
 						</Link>
 					))}

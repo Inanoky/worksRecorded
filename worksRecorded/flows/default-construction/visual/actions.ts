@@ -21,6 +21,7 @@ import {
 	PolygonSaveConflictError,
 	type PolygonSaveResponse,
 } from "./polygon-edit";
+import { createVisualRecord, VisualRecordError } from "./record-store";
 import { appendVisualSection } from "./section-store";
 import {
 	appendVisualDiaryEvidence,
@@ -58,6 +59,29 @@ export async function saveVisualLayers(
 export async function getVisualWorkTypes(siteId: string) {
 	const user = await requireUser();
 	return listVisualWorkTypes(user.id, siteId);
+}
+
+export async function addVisualRecord(
+	siteId: string,
+	drawingId: string,
+	input: unknown,
+) {
+	const user = await requireUser();
+	try {
+		const result = await createVisualRecord(user.id, siteId, drawingId, input);
+		revalidatePath(`/dashboard/sites/${siteId}/dashboard`);
+		revalidatePath(`/dashboard/sites/${siteId}/analytics`);
+		revalidatePath(`/dashboard/sites/${siteId}/izpildshemas`);
+		return { ok: true as const, ...result };
+	} catch (error) {
+		return {
+			ok: false as const,
+			error:
+				error instanceof VisualRecordError
+					? error.message
+					: "Neizdevās saglabāt ierakstu. Zona un ievadītie dati ir saglabāti šajā logā; mēģiniet vēlreiz.",
+		};
+	}
 }
 
 export async function addVisualSection(siteId: string, label: string) {

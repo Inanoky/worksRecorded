@@ -4,7 +4,15 @@ export function summarizeFimaCollaboration(
 	state: FimaCollaboration,
 ): FimaCollaboration {
 	const latest = state.history.findLast((event) => event.kind === "comment");
-	return { ...state, history: latest ? [latest] : [] };
+	const latestStatus = state.history.findLast(
+		(event) => event.kind === "status",
+	);
+	return {
+		...state,
+		history: state.history.filter(
+			(event) => event === latest || event === latestStatus,
+		),
+	};
 }
 
 export function mergeFimaCollaboration(

@@ -140,6 +140,36 @@ afterEach(() => {
 	global.fetch = originalFetch;
 });
 
+it("keeps record creation visible with an accessible explanation while updating, then enables it without reloading the PDF", async () => {
+	const onCreateRecord = jest.fn();
+	const props = {
+		url: "/drawing",
+		marks: [mark],
+		selected: null,
+		onSelect: jest.fn(),
+		editable: true,
+		onCreateRecord,
+	};
+	const view = render(
+		<VisualPdf
+			{...props}
+			createRecordBlockedReason="Pieejams pēc zonu atjaunošanas."
+		/>,
+	);
+	await screen.findByRole("button", { name: "XPS: Sakrīt" });
+	const add = screen.getByRole("button", { name: "Pievienot ierakstu" });
+	expect(add).toBeVisible();
+	expect(add).toBeDisabled();
+	expect(add).toHaveAccessibleDescription("Pieejams pēc zonu atjaunošanas.");
+	fireEvent.click(add);
+	expect(onCreateRecord).not.toHaveBeenCalled();
+	view.rerender(<VisualPdf {...props} />);
+	expect(add).toBeEnabled();
+	fireEvent.click(add);
+	expect(onCreateRecord).toHaveBeenCalledTimes(1);
+	expect(mockGetDocument).toHaveBeenCalledTimes(1);
+});
+
 it("reuses a parsed PDF when switching locations back without downloading or parsing again", async () => {
 	const cache = new VisualClientCache("site");
 	const props = {

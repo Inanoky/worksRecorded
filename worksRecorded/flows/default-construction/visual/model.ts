@@ -37,7 +37,8 @@ const pointSchema = z.object({
 export const visualEvidenceSchema = z.object({
 	id: z.string(),
 	recordId: z.string(),
-	photoUrl: z.string().url(),
+	photoUrl: z.union([z.string().url(), z.literal("")]),
+	manual: z.boolean().optional(),
 	work: z.string(),
 	location: z.string(),
 	description: z.string(),
@@ -146,6 +147,7 @@ export type VisualDrawing = {
 export function visualImageProgress(state: VisualState) {
 	if (state.imageProgress) return state.imageProgress;
 	const completed = new Set([
+		...state.evidence.filter((item) => item.manual).map((item) => item.id),
 		...state.evidence.slice(0, state.processed).map((item) => item.id),
 		...state.marks.map((item) => item.evidenceId),
 		...state.unlocated.map((item) => item.evidenceId),

@@ -185,8 +185,8 @@ async function getUserBisTokenRecordByUserId(userId: string) {
   }
 }
 
-export async function getUserBisTokenByUserId(userId: string) {
-  return ensureUserBisAccessToken(userId);
+export async function getUserBisTokenByUserId(userId: string, options?: { refresh?: boolean }) {
+  return options?.refresh === false ? getUserBisTokenRecordByUserId(userId) : ensureUserBisAccessToken(userId);
 }
 
 export async function getCurrentUserBisToken() {

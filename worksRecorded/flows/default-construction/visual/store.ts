@@ -22,6 +22,7 @@ import {
 	VISUAL_LEASE_MS,
 	VISUAL_MAX_PHOTOS,
 	type VisualDrawing,
+	type VisualEvidence,
 	type VisualState,
 	visualImageProgress,
 	visualStateSchema,
@@ -156,13 +157,17 @@ async function loadVisualEvidence(
 	organizationId: string,
 	location: string,
 	db: Pick<typeof prisma, "sitediaryrecords"> = prisma,
+	manualRecordIds: string[] = [],
 ) {
 	const rows = await db.sitediaryrecords.findMany({
 		where: {
 			siteId,
 			organizationId,
 			archivedAt: null,
-			Photos: { isEmpty: false },
+			OR: [
+				{ Photos: { isEmpty: false } },
+				...(manualRecordIds.length ? [{ id: { in: manualRecordIds } }] : []),
+			],
 		},
 		orderBy: [{ Date: "asc" }, { id: "asc" }],
 	});
@@ -173,31 +178,42 @@ async function loadVisualEvidence(
 				normalizeVisualLocation(location),
 		)
 		.flatMap((row) =>
-			normalizeDiaryPhotoUrls(row.Photos).map((photoUrl, index) => ({
-				id: `${row.id}:${index}`,
-				recordId: row.id,
-				photoUrl,
-				work: row.Works || "",
-				location,
-				description: row.Comments || "",
-				date: row.Date?.toISOString() ?? null,
-				amount: row.Amounts,
-				unit: row.Units || "",
-				sourceRevision: createHash("sha256")
-					.update(
-						JSON.stringify(
-							Object.fromEntries(
-								Object.entries({
-									...row,
-									Location: normalizeVisualLocation(row.Location || ""),
-								})
-									.filter(([key]) => key !== "Photos")
-									.sort(([a], [b]) => a.localeCompare(b)),
+			[
+				...normalizeDiaryPhotoUrls(row.Photos).map((photoUrl) => ({
+					photoUrl,
+					manual: undefined,
+				})),
+				...(manualRecordIds.includes(row.id)
+					? [{ photoUrl: "", manual: true }]
+					: []),
+			].map(
+				({ photoUrl, manual }, index): VisualEvidence => ({
+					id: manual ? `${row.id}:manual` : `${row.id}:${index}`,
+					recordId: row.id,
+					photoUrl,
+					...(manual ? { manual: true } : {}),
+					work: row.Works || "",
+					location,
+					description: row.Comments || "",
+					date: row.Date?.toISOString() ?? null,
+					amount: row.Amounts,
+					unit: row.Units || "",
+					sourceRevision: createHash("sha256")
+						.update(
+							JSON.stringify(
+								Object.fromEntries(
+									Object.entries({
+										...row,
+										Location: normalizeVisualLocation(row.Location || ""),
+									})
+										.filter(([key]) => key !== "Photos")
+										.sort(([a], [b]) => a.localeCompare(b)),
+								),
 							),
-						),
-					)
-					.digest("hex"),
-			})),
+						)
+						.digest("hex"),
+				}),
+			),
 		);
 }
 
@@ -247,6 +263,9 @@ export async function editVisualWorkType(
 					organizationId,
 					drawing.state.location,
 					tx,
+					drawing.state.evidence
+						.filter((item) => item.manual)
+						.map((item) => item.recordId),
 				)
 			).find(
 				(item) =>
@@ -300,6 +319,9 @@ export async function editVisualWorkType(
 					organizationId,
 					state.location,
 					tx,
+					state.evidence
+						.filter((item) => item.manual)
+						.map((item) => item.recordId),
 				);
 				const byPhoto = new Map(
 					snapshot
@@ -384,6 +406,8 @@ export async function reviewVisualSource(
 		throw new Error("Avots jau ir pārskatīts. Atjaunojiet skatu.");
 	delete source.reviewRequired;
 	if (reanalyze) {
+		if (source.manual)
+			throw new Error("Manuāli izveidotai zonai nav analizējama avota attēla.");
 		if (drawing.state.deletedPolygons)
 			drawing.state.deletedPolygons = drawing.state.deletedPolygons.filter(
 				(item) => item.evidenceId !== evidenceId,
@@ -639,6 +663,8 @@ export async function appendVisualDiaryEvidence(
 		siteId,
 		row.organizationId,
 		state.location,
+		prisma,
+		state.evidence.filter((item) => item.manual).map((item) => item.recordId),
 	);
 	const result = syncVisualEvidence(state, current, randomUUID, true);
 	drawing.state = result.state;
@@ -853,17 +879,30 @@ export async function resetVisualDrawing(
 		siteId,
 		row.organizationId,
 		drawing.state.location,
+		prisma,
+		drawing.state.evidence
+			.filter((item) => item.manual)
+			.map((item) => item.recordId),
 	);
 	if (evidence.length > VISUAL_MAX_PHOTOS)
 		throw new Error(`Too many photos (maximum ${VISUAL_MAX_PHOTOS})`);
+	const manualIds = new Set(
+		evidence.filter((item) => item.manual).map((item) => item.id),
+	);
 	const state: VisualState = {
 		...drawing.state,
 		evidence,
 		status: "uploaded",
-		processed: 0,
-		marks: [],
+		processed: manualIds.size,
+		marks: drawing.state.marks.filter((mark) => manualIds.has(mark.evidenceId)),
 		deletedPolygons: undefined,
-		imageProgress: undefined,
+		imageProgress: manualIds.size
+			? evidence.map((item) => ({
+					evidenceId: item.id,
+					status: item.manual ? "complete" : "pending",
+					error: null,
+				}))
+			: undefined,
 		unlocated: [],
 		error: null,
 		lockedAt: null,

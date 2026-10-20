@@ -4,6 +4,7 @@ import {
 	type FimaCollaboration,
 	readFimaCollaboration,
 } from "@/lib/fima/diary-collaboration";
+import type { FimaExampleSources } from "@/lib/fima/example-sources";
 import {
 	commonDiaryListSelect,
 	mapCommonDiaryListRecord,
@@ -11,12 +12,15 @@ import {
 
 export const constructionDiaryListSelect = {
 	...commonDiaryListSelect,
+	fimaNumber: true,
 	evalMetadata: true,
 } as const satisfies Prisma.sitediaryrecordsSelect;
 
 export type ConstructionDiaryListRow = ReturnType<
 	typeof mapCommonDiaryListRecord
 > & {
+	fimaNumber?: number | null;
+	fimaExampleSources?: FimaExampleSources;
 	fimaBisRecords?: ReturnType<typeof readFimaBisRecordLinks>;
 	hasFimaBisReferences?: boolean;
 	fimaCollaboration?: FimaCollaboration;
@@ -27,6 +31,7 @@ export function mapConstructionDiaryListRecord(
 ): ConstructionDiaryListRow {
 	return {
 		...mapCommonDiaryListRecord(rec),
+		fimaNumber: rec.fimaNumber ?? null,
 		fimaBisRecords: readFimaBisRecordLinks(rec.evalMetadata, rec.BISId),
 		hasFimaBisReferences:
 			Array.isArray(rec.evalMetadata?.kuceImport?.bisLinks) &&

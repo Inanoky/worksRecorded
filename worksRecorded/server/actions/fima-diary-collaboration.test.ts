@@ -7,6 +7,7 @@ import { orgCheck } from "@/server/actions/shared-actions";
 import { getBisCaseAvailableMaterials } from "@/server/actions/site-diary-actions";
 import {
 	getFimaDiaryCollaboration,
+	getFimaExampleSource,
 	refreshFimaBisMaterials,
 	saveFimaDiaryCollaboration,
 } from "./fima-diary-collaboration";
@@ -100,6 +101,74 @@ it("requires the record to belong to the requested site and organization", async
 		}),
 	);
 });
+it("opens only a source linked to an example on the authorized record and within the same organization", async () => {
+	metadata.fimaCollaboration = {
+		examples: {
+			entries: [
+				{
+					id: "123",
+					label: "BIS 123",
+					url: "https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/123",
+				},
+			],
+		},
+	};
+	const source = { id: "source", Works: "Console assembly", fimaNumber: 42 };
+	jest
+		.mocked(prisma.sitediaryrecords.findFirst)
+		.mockResolvedValueOnce({ id: "record", evalMetadata: metadata } as never)
+		.mockResolvedValueOnce(source as never);
+	await expect(
+		getFimaExampleSource({ ...scope, bisId: "123", sourceRecordId: "source" }),
+	).resolves.toEqual(source);
+	expect(prisma.sitediaryrecords.findFirst).toHaveBeenLastCalledWith(
+		expect.objectContaining({
+			where: expect.objectContaining({
+				id: "source",
+				archivedAt: null,
+				Site: expect.objectContaining({ organizationId: "fima" }),
+			}),
+		}),
+	);
+});
+it("rejects a BIS reference that is not an example on the requesting record", async () => {
+	await expect(
+		getFimaExampleSource({ ...scope, bisId: "999", sourceRecordId: "source" }),
+	).rejects.toThrow("BIS paraugs");
+	expect(prisma.sitediaryrecords.findFirst).toHaveBeenCalledTimes(1);
+});
+it("denies another organization's member before loading a KUCE source", async () => {
+	jest.mocked(orgCheck).mockResolvedValue(false);
+	await expect(
+		getFimaExampleSource({ ...scope, bisId: "123", sourceRecordId: "source" }),
+	).rejects.toThrow("Nav piekļuves");
+	expect(prisma.sitediaryrecords.findFirst).not.toHaveBeenCalled();
+});
+
+it("rejects a source record that does not satisfy the authorized BIS association", async () => {
+	metadata.fimaCollaboration = {
+		examples: {
+			entries: [
+				{
+					id: "123",
+					label: "BIS 123",
+					url: "https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/123",
+				},
+			],
+		},
+	};
+	jest
+		.mocked(prisma.sitediaryrecords.findFirst)
+		.mockResolvedValueOnce({ id: "record", evalMetadata: metadata } as never)
+		.mockResolvedValueOnce(null);
+	await expect(
+		getFimaExampleSource({
+			...scope,
+			bisId: "123",
+			sourceRecordId: "unrelated-record",
+		}),
+	).rejects.toThrow("KUCE avots vairs nav pieejams");
+});
 it("appends authenticated comments without replacing KUCE provenance and retries safely", async () => {
 	const args = {
 		...scope,
@@ -135,6 +204,13 @@ it("prevents stale review edits", async () => {
 	).rejects.toThrow("Ieraksts ir mainīts");
 });
 it("validates quantities and stores material names from BIS rather than client labels", async () => {
+	metadata.fimaCollaboration = {
+		version: 0,
+		status: null,
+		materials: [],
+		history: [],
+		materialsNote: "nevaram saprast materiālus",
+	};
 	jest.mocked(getBisCaseAvailableMaterials).mockResolvedValue([
 		{
 			id: "m1",
@@ -151,6 +227,7 @@ it("validates quantities and stores material names from BIS rather than client l
 		materials: [{ id: "m1", label: "Client text", unit: "m", quantity: 2 }],
 	};
 	const state = await saveFimaDiaryCollaboration(args);
+	expect(state.materialsNote).toBeNull();
 	expect(state.materials[0]).toMatchObject({
 		label: "BIS oriģinālais nosaukums",
 		unit: "gab.",
@@ -247,6 +324,7 @@ it.each([null, "653"])(
 it.each([
 	["ai_prepared", "AI sagatavots"],
 	["approved", "Apstiprināts"],
+	["updated", "Updated"],
 ] as const)(
 	"saves %s with its Latvian history label",
 	async (status, label) => {
@@ -261,9 +339,51 @@ it.each([
 		expect(state.version).toBe(1);
 		expect(state.history.at(-1)).toMatchObject({
 			kind: "status",
+			previousStatus: null,
+			status,
 			actorName: "Anna Bērziņa",
 			text: `Rīcība: ${label}`,
 		});
 		expect(metadata.kuceImport).toEqual({ key: "preserve-original-source" });
 	},
 );
+
+it("retains each authenticated badge change and removal, deduplicating retries", async () => {
+	await saveFimaDiaryCollaboration({
+		...scope,
+		requestId,
+		kind: "status",
+		status: "needs_changes",
+		expectedVersion: 0,
+	});
+	jest.mocked(requireUser).mockResolvedValue({ id: "second-member" } as never);
+	jest
+		.mocked(prisma.user.findUnique)
+		.mockResolvedValue({ firstName: "Jānis", lastName: "Ozols" } as never);
+	const args = {
+		...scope,
+		requestId: "0bcc12cf-619b-47a5-a0ec-5a365a4ecc0c",
+		kind: "status" as const,
+		status: null,
+		expectedVersion: 1,
+	};
+	await saveFimaDiaryCollaboration(args);
+	const state = await saveFimaDiaryCollaboration(args);
+	expect(state.history).toHaveLength(2);
+	expect(state.history[0]).toMatchObject({
+		actorId: "member",
+		actorName: "Anna Bērziņa",
+		previousStatus: null,
+		status: "needs_changes",
+		at: expect.any(String),
+	});
+	expect(state.history[1]).toMatchObject({
+		actorId: "second-member",
+		actorName: "Jānis Ozols",
+		previousStatus: "needs_changes",
+		status: null,
+		at: expect.any(String),
+	});
+	expect(state.status).toBeNull();
+	expect(state.version).toBe(2);
+});

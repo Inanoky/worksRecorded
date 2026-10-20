@@ -77,6 +77,7 @@ import {
 	visualImageProgress,
 	visualLayers,
 } from "./model";
+import type { VisualPlanArea } from "./planning-model";
 import type { PolygonDelete, PolygonSaveResult } from "./polygon-edit";
 import { applyPolygonSave, projectPolygonSaves } from "./polygon-save-queue";
 import { pruneVisualEvidence } from "./prune-evidence";
@@ -92,10 +93,12 @@ import {
 	type VisualAnalysisPhase,
 	VisualAnalysisProgress,
 } from "./VisualAnalysisProgress";
+import { VisualFeedbackPanel } from "./VisualFeedbackPanel";
 import { VisualLayerManager } from "./VisualLayerManager";
-import { VisualPdf } from "./VisualPdf";
+import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
 import { VisualPlanningPanel } from "./VisualPlanningPanel";
 import { VisualPolygonSaveStatus } from "./VisualPolygonSaveStatus";
+import { VisualRecordForm } from "./VisualRecordForm";
 import { VisualSidebar } from "./VisualSidebar";
 import { VisualTimeline } from "./VisualTimeline";
 import { VisualZoneDetails } from "./VisualZoneDetails";
@@ -150,6 +153,14 @@ export default function VisualView({
 	const [busy, setBusy] = useState(false);
 	const [editing, setEditing] = useState(false);
 	const [workEditing, setWorkEditing] = useState(false);
+	const [recordDraft, setRecordDraft] = useState<{
+		id: string;
+		areas: VisualPlanArea[];
+	} | null>(null);
+	const [recordArea, setRecordArea] = useState<VisualPlanAreaSelection | null>(
+		null,
+	);
+	const [recordSaving, setRecordSaving] = useState(false);
 	const [automatic, setAutomatic] = useState(false);
 	const [syncedAt, setSyncedAt] = useState<number | null>(null);
 	const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -171,6 +182,7 @@ export default function VisualView({
 		busy ||
 		editing ||
 		workEditing ||
+		recordDraft !== null ||
 		remoteActive ||
 		planningDirty ||
 		managingLayers ||
@@ -193,6 +205,7 @@ export default function VisualView({
 	const [progress, setProgress] = useState(0);
 	const [phase, setPhase] = useState<VisualAnalysisPhase>("idle");
 	const [progressUnavailable, setProgressUnavailable] = useState(false);
+	const [feedbackRequest, setFeedbackRequest] = useState(0);
 	const [throughDay, setThroughDay] = useState<number | null>(null);
 	const [includeUndated, setIncludeUndated] = useState(false);
 	const [layers, setLayers] = useState<VisualLayer[]>(allLayers);
@@ -247,6 +260,10 @@ export default function VisualView({
 		setDrawing(null);
 		setSelected(null);
 		setFile(null);
+		setRecordDraft(null);
+		setRecordArea(null);
+		setEditing(false);
+		setRecordSaving(false);
 		setSyncedAt(null);
 		if (cached) showIndex(cached, true);
 		void loadIndex().then(
@@ -476,6 +493,7 @@ export default function VisualView({
 		busyRef.current = true;
 		setBusy(true);
 		setAutomatic(auto);
+		if (!auto) setFeedbackRequest((value) => value + 1);
 		setError(null);
 		setNotice(null);
 		setProgress(0);
@@ -722,8 +740,15 @@ export default function VisualView({
 		(item) => item.id === selectedMark?.evidenceId,
 	);
 	function selectZone(id: string | null) {
-		if (editing || workEditing || savingLayers || managingLayers) return;
+		if (editing || workEditing || savingLayers || managingLayers || recordDraft)
+			return;
 		setSelected(id);
+	}
+	function cancelRecord() {
+		if (recordSaving) return;
+		setRecordDraft(null);
+		setRecordArea(null);
+		setEditing(false);
 	}
 	async function persistLayers(settings: VisualLayerSettings) {
 		const run = epoch.current;
@@ -932,7 +957,12 @@ export default function VisualView({
 						className="h-7 px-2 text-xs shadow-none"
 						aria-label="Plānošana"
 						aria-pressed={mode === "planning"}
-						disabled={editing || workEditing || hasUnsavedPolygons}
+						disabled={
+							editing ||
+							workEditing ||
+							hasUnsavedPolygons ||
+							recordDraft !== null
+						}
 						title="Plānot darbus rasējumā"
 						onClick={() => {
 							setSelected(null);
@@ -1184,6 +1214,43 @@ export default function VisualView({
 								layerStyles={layerStyles}
 								key={drawing.id}
 								fillWorkspace
+								onCreateRecord={() => {
+									if (
+										mutationControlsLocked ||
+										drawing.state.status === "running"
+									)
+										return;
+									setSelected(null);
+									setRecordArea(null);
+									setRecordDraft({ id: crypto.randomUUID(), areas: [] });
+								}}
+								createRecordBlockedReason={
+									busy || remoteActive || drawing.state.status === "running"
+										? "Pieejams pēc zonu atjaunošanas."
+										: mutationControlsLocked
+											? "Pabeidziet vai atceliet pašreizējās izmaiņas."
+											: undefined
+								}
+								planning={
+									recordDraft
+										? {
+												planId: null,
+												purpose: "record",
+												areas: recordDraft.areas,
+												selectedArea: recordArea,
+												areaRequest: 1,
+												interactionKey: recordDraft.id,
+												editable: !recordSaving,
+												label: "Jaunais izpildes ieraksts",
+												onChange: (areas) =>
+													setRecordDraft((current) =>
+														current ? { ...current, areas } : null,
+													),
+												onSelectArea: setRecordArea,
+												onEditingChange: setEditing,
+											}
+										: undefined
+								}
 								url={`${endpoint(drawing.id)}?pdf=1`}
 								marks={visibleMarks}
 								selected={selectedMark?.id ?? null}
@@ -1215,6 +1282,60 @@ export default function VisualView({
 									polygonSaves.enqueue(drawing.id, edit);
 								}}
 							/>
+							{recordDraft ? (
+								<>
+									<Button
+										className="absolute bottom-16 left-3 z-40"
+										variant="outline"
+										size="sm"
+										disabled={recordSaving}
+										onClick={cancelRecord}
+									>
+										Atcelt jauno ierakstu
+									</Button>
+									<VisualRecordForm
+										key={recordDraft.id}
+										siteId={siteId}
+										drawingId={drawing.id}
+										recordId={recordDraft.id}
+										location={drawing.state.location}
+										areas={recordDraft.areas}
+										workOptions={layerConfiguration.workOptions}
+										hidden={editing || !recordDraft.areas.length}
+										onSavingChange={setRecordSaving}
+										onCancel={cancelRecord}
+										onSaved={(result) => {
+											if (currentCache.current !== resourceCache) return;
+											showDrawing({
+												...result.drawing,
+												latestDiaryDate: drawing.latestDiaryDate,
+											});
+											setRecordDraft(null);
+											setRecordArea(null);
+											setEditing(false);
+											setThroughDay(null);
+											setLayers((current) => [
+												...new Set([
+													...current,
+													resolveVisualWorkLayer(
+														result.drawing.state.evidence.find(
+															(item) => item.recordId === recordDraft.id,
+														)?.work ?? "",
+														layerConfiguration.settings,
+														layerConfiguration.positionIds,
+													),
+												]),
+											]);
+											setSelected(result.markId);
+											resourceCache.invalidatePlanning();
+											setNotice(
+												result.assignmentWarning ??
+													"Ieraksts un tā zona pievienoti būvdarbu žurnālam.",
+											);
+										}}
+									/>
+								</>
+							) : null}
 							<VisualZoneDetails
 								layerStyles={layerStyles}
 								layerOverride={
@@ -1303,69 +1424,82 @@ export default function VisualView({
 						{deleting ? "Dzēš rasējumu…" : "Ielādē…"}
 					</output>
 				) : null}
-				{mode === "actual" &&
-				((!automatic &&
-					(busy ||
-						(drawing &&
-							!["complete", "unlocated"].includes(drawing.state.status)))) ||
-					error ||
-					drawing?.state.error ||
-					showReviewWarning) ? (
-					<div className="absolute bottom-14 left-3 right-16 z-40 max-h-[calc(100%-8rem)] max-w-xl space-y-2 overflow-y-auto rounded-lg border bg-background/95 p-3 shadow-lg">
-						{deletingPolygon ? (
-							<output className="flex items-center gap-2 text-xs">
-								<Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-								Dzēš poligonu…
-							</output>
-						) : !automatic ? (
-							<VisualAnalysisProgress
-								phase={phase}
-								drawing={drawing}
-								uploadProgress={progress}
-								interrupted={!!error}
-								progressUnavailable={progressUnavailable}
-							/>
-						) : null}
-						{error || drawing?.state.error ? (
-							<p role="alert" className="text-xs text-destructive">
-								{error || drawing?.state.error}
+				<VisualFeedbackPanel
+					key={JSON.stringify([
+						siteId,
+						drawing?.id ?? location,
+						drawing?.state.attempts.at(-1)?.id,
+						feedbackRequest,
+						reviewWarningKey,
+					])}
+					visible={
+						mode === "actual" &&
+						Boolean(
+							(!automatic &&
+								(busy ||
+									(drawing &&
+										!["complete", "unlocated"].includes(
+											drawing.state.status,
+										)))) ||
+								error ||
+								drawing?.state.error ||
+								showReviewWarning,
+						)
+					}
+				>
+					{deletingPolygon ? (
+						<output className="flex items-center gap-2 text-xs">
+							<Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+							Dzēš poligonu…
+						</output>
+					) : !automatic ? (
+						<VisualAnalysisProgress
+							phase={phase}
+							drawing={drawing}
+							uploadProgress={progress}
+							interrupted={!!error}
+							progressUnavailable={progressUnavailable}
+						/>
+					) : null}
+					{error || drawing?.state.error ? (
+						<p role="alert" className="text-xs text-destructive">
+							{error || drawing?.state.error}
+						</p>
+					) : null}
+					{error && !drawing && locationDrawings[0] ? (
+						<Button
+							size="sm"
+							variant="outline"
+							disabled={loading || controlsLocked}
+							onClick={() => void loadDrawing(locationDrawings[0].id)}
+						>
+							Mēģināt vēlreiz
+						</Button>
+					) : null}
+					{showReviewWarning ? (
+						<div className="flex items-start gap-2">
+							<p className="min-w-0 flex-1 text-xs">
+								Žurnālā mainīti {reviewedSources.length} manuāli pielāgotu zonu
+								avoti. Zonas saglabātas; izvēlieties avotu un pārskatiet
+								izmaiņas.
 							</p>
-						) : null}
-						{error && !drawing && locationDrawings[0] ? (
 							<Button
-								size="sm"
-								variant="outline"
-								disabled={loading || controlsLocked}
-								onClick={() => void loadDrawing(locationDrawings[0].id)}
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="h-7 w-7 shrink-0"
+								aria-label="Aizvērt brīdinājumu par zonu avotiem"
+								onClick={() =>
+									setDismissedReviewWarnings(
+										(previous) => new Set([...previous, reviewWarningKey]),
+									)
+								}
 							>
-								Mēģināt vēlreiz
+								<X className="h-4 w-4" aria-hidden="true" />
 							</Button>
-						) : null}
-						{showReviewWarning ? (
-							<div className="flex items-start gap-2">
-								<p className="min-w-0 flex-1 text-xs">
-									Žurnālā mainīti {reviewedSources.length} manuāli pielāgotu
-									zonu avoti. Zonas saglabātas; izvēlieties avotu un pārskatiet
-									izmaiņas.
-								</p>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon"
-									className="h-7 w-7 shrink-0"
-									aria-label="Aizvērt brīdinājumu par zonu avotiem"
-									onClick={() =>
-										setDismissedReviewWarnings(
-											(previous) => new Set([...previous, reviewWarningKey]),
-										)
-									}
-								>
-									<X className="h-4 w-4" aria-hidden="true" />
-								</Button>
-							</div>
-						) : null}
-					</div>
-				) : null}
+						</div>
+					) : null}
+				</VisualFeedbackPanel>
 				{mode === "actual" && notice ? (
 					<output className="pointer-events-none absolute bottom-3 left-1/2 z-40 max-w-[90%] -translate-x-1/2 rounded-md border bg-background/95 px-3 py-2 text-xs shadow-sm">
 						{notice}

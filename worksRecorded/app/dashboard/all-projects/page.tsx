@@ -1,4 +1,5 @@
 import { FimaPaginatedDiary } from "@/components/sitediary/FimaPaginatedDiary";
+import { fimaDiaryFilterKeys, readFimaDiaryFilters } from "@/lib/fima/diary-filters";
 import { summarizeFimaCollaboration } from "@/lib/fima/diary-list-summary";
 import { DiaryPhotoActions } from "@/flows/default-construction/frontend/DiaryPhotoActions";
 import Link from "next/link";
@@ -84,7 +85,7 @@ function pageHref(
   page: number,
 ) {
   const params = new URLSearchParams();
-  for (const key of ["project", "q", "from", "to"] as const) {
+  for (const key of ["project", "q", "from", "to", ...fimaDiaryFilterKeys] as const) {
     const value = firstValue(searchParams[key]);
     if (value) params.set(key, value);
   }
@@ -97,7 +98,7 @@ function exportHref(
   searchParams: Record<string, string | string[] | undefined>,
 ) {
   const params = new URLSearchParams();
-  for (const key of ["project", "q", "from", "to"] as const) {
+  for (const key of ["project", "q", "from", "to", ...fimaDiaryFilterKeys] as const) {
     const value = firstValue(searchParams[key]);
     if (value) params.set(key, value);
   }
@@ -195,6 +196,7 @@ export default async function AllProjectsPage({
   if (flowModuleKey !== FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION) notFound();
 
   const filters: AllProjectsDiaryFilters = {
+    ...readFimaDiaryFilters(Object.fromEntries(fimaDiaryFilterKeys.map((key) => [key, firstValue(rawSearchParams[key])]))),
     page: parsePage(firstValue(rawSearchParams.page)),
     projectId: firstValue(rawSearchParams.project),
     keyword: firstValue(rawSearchParams.q),

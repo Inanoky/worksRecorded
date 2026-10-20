@@ -1,0 +1,58 @@
+html[data-prodev-suite="true"],
+.prodev-suite {
+	--primary: #f68e2d;
+	--primary-foreground: #20262d;
+	--ring: #f68e2d;
+	--accent: #fff3e8;
+	--accent-foreground: #97460c;
+	--sidebar-primary: #f68e2d;
+	--sidebar-primary-foreground: #20262d;
+	--sidebar-accent: #fff3e8;
+	--sidebar-accent-foreground: #97460c;
+	--sidebar-ring: #f68e2d;
+	--prodev-link: #a64b08;
+	--prodev-control-border: #fbc99b;
+	--prodev-control-hover: #e6740a;
+}
+
+.dark[data-prodev-suite="true"],
+.dark .prodev-suite {
+	--accent: #382616;
+	--accent-foreground: #ffd9b5;
+	--sidebar-accent: #382616;
+	--sidebar-accent-foreground: #ffd9b5;
+	--prodev-link: #ffb471;
+	--prodev-control-border: #8a4b1c;
+}
+
+:is(html[data-prodev-suite="true"], .prodev-suite)
+	:is(a, button):is([class~="text-green-700"], [class~="text-green-600"]) {
+	color: var(--prodev-link);
+}
+
+:is(html[data-prodev-suite="true"], .prodev-suite)
+	:is(a, button)[class~="bg-green-50"] {
+	background-color: var(--accent);
+	border-color: var(--prodev-control-border);
+}
+
+:is(html[data-prodev-suite="true"], .prodev-suite)
+	button:is([class~="bg-green-600"], [class~="bg-green-700"]) {
+	background-color: var(--primary);
+	color: var(--primary-foreground);
+}
+
+:is(html[data-prodev-suite="true"], .prodev-suite)
+	button:is([class~="bg-green-600"], [class~="bg-green-700"]):hover {
+	background-color: var(--prodev-control-hover);
+}
+
+:is(html[data-prodev-suite="true"], .prodev-suite)
+	:is(a, button):is([class~="border-green-300"], [class~="border-green-100"]) {
+	border-color: var(--prodev-control-border);
+}
+
+:is(html[data-prodev-suite="true"], .prodev-suite)
+	a:not([data-slot="button"])[class~="text-primary"] {
+	color: var(--prodev-link);
+}

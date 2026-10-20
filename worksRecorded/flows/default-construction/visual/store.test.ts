@@ -1005,6 +1005,76 @@ it("restarts the same drawing from the first image without changing its sources"
 	);
 });
 
+it.each([appendVisualDiaryEvidence, resetVisualDrawing])(
+	"keeps manual zones from photo-free diary entries when refreshing or restarting",
+	async (mutate) => {
+		const { row, state } = await mockSavedDrawing();
+		const source = {
+			...state.evidence[0],
+			id: "manual-record:manual",
+			recordId: "manual-record",
+			photoUrl: "",
+			manual: true,
+		};
+		const mark = {
+			id: "manual-mark",
+			evidenceId: source.id,
+			page: 1,
+			polygon: [
+				{ x: 0.1, y: 0.1 },
+				{ x: 0.4, y: 0.1 },
+				{ x: 0.4, y: 0.4 },
+			],
+			layer: "xps",
+			confidence: 1,
+			anchors: ["Manual", "1. stāvs"],
+			explanation: "Manual",
+			editedAt: "2026-10-19",
+			editedBy: "user",
+		};
+		state.evidence = [source];
+		state.marks = [mark];
+		state.unlocated = [];
+		jest.mocked(prisma.documents.findFirst).mockResolvedValue({
+			...row,
+			description: JSON.stringify(state),
+		} as never);
+		jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([
+			{
+				id: source.recordId,
+				Location: source.location,
+				Works: source.work,
+				Comments: source.description,
+				Date: null,
+				Amounts: source.amount,
+				Units: source.unit,
+				Photos: [],
+			},
+		] as never);
+		const result = await mutate("user", "site", "drawing");
+		const updated = "drawing" in result ? result.drawing : result;
+		expect(updated.state.marks).toEqual([mark]);
+		expect(updated.state.evidence[0]).toMatchObject({
+			id: source.id,
+			manual: true,
+			photoUrl: "",
+		});
+		expect(updated.state.imageProgress).toEqual([
+			{ evidenceId: source.id, status: "complete", error: null },
+		]);
+		expect(prisma.sitediaryrecords.findMany).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({
+					siteId: "site",
+					organizationId: LIMENI_ORGANIZATION_ID,
+					archivedAt: null,
+					OR: expect.arrayContaining([{ id: { in: [source.recordId] } }]),
+				}),
+			}),
+		);
+	},
+);
+
 it.each([removeVisualDrawing, resetVisualDrawing])(
 	"blocks mutations during active analysis",
 	async (mutate) => {

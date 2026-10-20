@@ -21,6 +21,10 @@ import {
 	ZTC_ORGANIZATION_ID,
 } from "@/flows/ztc-production/backend";
 import {
+	buildZtcImageBatchDeleteQuery,
+	buildZtcImageBatchStageQuery,
+} from "@/flows/ztc-production/backend/image-batch-queries";
+import {
 	retainZtcMessageFormData,
 	runWithZtcMessageRecovery,
 	ZtcMessageRetentionError,
@@ -614,54 +618,19 @@ async function stageZtcImageBatch(args: {
 	const stageStartedAt = Date.now();
 	const stagedRows = await prisma.$queryRaw<
 		Array<{ itemCount: number | bigint }>
-	>`
-    INSERT INTO "ZtcInboundMediaBatch" (
-      "id",
-      "batchKey",
-      "workerId",
-      "organizationId",
-      "mode",
-      "status",
-      "items",
-      "firstReceivedAt",
-      "lastReceivedAt",
-      "lastMessageId",
-      "processAfter",
-      "createdAt",
-      "updatedAt"
-    )
-    VALUES (
-      ${randomUUID()},
-      ${batchKey},
-      ${args.worker.id},
-      ${args.worker.organizationId ?? null},
-      ${args.mode},
-      'collecting',
-      ${JSON.stringify([item])}::jsonb,
-      NOW(),
-      NOW(),
-      ${messageId || null},
-      NOW() + (${ZTC_IMAGE_BATCH_QUIET_MS}::int * INTERVAL '1 millisecond'),
-      NOW(),
-      NOW()
-    )
-    ON CONFLICT ("batchKey") DO UPDATE SET
-      "workerId" = EXCLUDED."workerId",
-      "organizationId" = EXCLUDED."organizationId",
-      "mode" = EXCLUDED."mode",
-      "status" = 'collecting',
-      "items" = CASE
-        WHEN "ZtcInboundMediaBatch"."status" = 'collecting'
-          AND "ZtcInboundMediaBatch"."updatedAt" > NOW() - (${ZTC_IMAGE_BATCH_STALE_MS}::int * INTERVAL '1 millisecond')
-        THEN "ZtcInboundMediaBatch"."items" || EXCLUDED."items"
-        ELSE EXCLUDED."items"
-      END,
-      "lastReceivedAt" = NOW(),
-      "lastMessageId" = EXCLUDED."lastMessageId",
-      "processAfter" = EXCLUDED."processAfter",
-      "updatedAt" = NOW()
-    RETURNING jsonb_array_length("items") AS "itemCount"
-  `;
+	>(
+		buildZtcImageBatchStageQuery({
+			id: randomUUID(),
+			batchKey,
+			workerId: args.worker.id,
+			organizationId: args.worker.organizationId ?? null,
+			mode: args.mode,
+			item,
+			messageId,
+			quietMs: ZTC_IMAGE_BATCH_QUIET_MS,
+			staleMs: ZTC_IMAGE_BATCH_STALE_MS,
+		}),
+	);
 	const stagedItemCount = Number(stagedRows[0]?.itemCount ?? 0);
 	logMetaWebhookTiming("ztc_image_batch_stage", stageStartedAt, {
 		batchKey,
@@ -780,10 +749,7 @@ async function stageZtcImageBatch(args: {
 
 async function deleteZtcImageBatch(batchId: string | null | undefined) {
 	if (!batchId) return;
-	await prisma.$executeRaw`
-    DELETE FROM "ZtcInboundMediaBatch"
-    WHERE "id" = ${batchId}
-  `;
+	await prisma.$executeRaw(buildZtcImageBatchDeleteQuery(batchId));
 }
 
 async function stageDefaultConstructionImageBatch(args: {

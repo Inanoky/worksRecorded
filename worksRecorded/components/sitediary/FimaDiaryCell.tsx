@@ -9,12 +9,16 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { readFimaBisExamples } from "@/lib/fima/bis-examples";
 import {
 	getFimaBisRecordUrl,
 	readFimaBisRecordLinks,
 } from "@/lib/fima/bis-record-links";
 import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
+import { formatFimaDiaryNumber } from "@/lib/fima/diary-number";
+import type { FimaExampleSources } from "@/lib/fima/example-sources";
 import { FimaCommentCell } from "./FimaCommentCell";
+import { FimaExamplesCell } from "./FimaExamplesCell";
 import { FimaMaterialPicker } from "./FimaMaterialPicker";
 import { FimaRecordHistory } from "./FimaRecordHistory";
 import { FimaReviewBadge } from "./FimaReviewBadge";
@@ -26,6 +30,7 @@ type Props = {
 		id?: string;
 		BISId?: string | null;
 		fimaCollaboration?: FimaCollaboration;
+		fimaExampleSources?: FimaExampleSources;
 		[key: string]: unknown;
 	};
 	caseNumber?: string | null;
@@ -52,6 +57,25 @@ export function FimaDiaryCell({
 	const [open, setOpen] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const state = row.fimaCollaboration ?? empty;
+	if (field === "FimaNumber") {
+		return (
+			<span className="tabular-nums whitespace-nowrap">
+				{formatFimaDiaryNumber(row.fimaNumber)}
+			</span>
+		);
+	}
+	if (field === "FimaExamples") {
+		const examples = readFimaBisExamples(state.examples, state.history);
+		if (!examples) return null;
+		return (
+			<FimaExamplesCell
+				siteId={siteId}
+				recordId={row.id}
+				examples={examples}
+				sources={row.fimaExampleSources}
+			/>
+		);
+	}
 	if (field === "FimaBisCase") {
 		const links = readFimaBisRecordLinks(
 			{
@@ -125,7 +149,13 @@ export function FimaDiaryCell({
 						aria-label="Pievienot materiālus"
 						className="min-h-8 w-full rounded text-left hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 						onClick={() => setOpen(true)}
-					></button>
+					>
+						{state.materialsNote ? (
+							<span className="text-xs text-muted-foreground">
+								{state.materialsNote}
+							</span>
+						) : null}
+					</button>
 				)}
 				<Dialog
 					open={open}

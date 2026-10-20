@@ -11,6 +11,7 @@ import {
 	type AllProjectsDiaryFilters,
 	buildAllProjectsDiaryWhere,
 } from "./all-projects-diary";
+import { withFimaExampleSources } from "./fima-example-sources";
 
 export type FimaPageFilters = AllProjectsDiaryFilters & {
 	projectView?: boolean;
@@ -91,6 +92,7 @@ export async function loadFimaDiaryPage(
 			take: pageSize,
 			select: {
 				...commonDiaryListSelect,
+				fimaNumber: true,
 				siteId: true,
 				evalMetadata: true,
 				Site: { select: { name: true, bisCaseId: true, bisCaseNumber: true } },
@@ -112,6 +114,7 @@ export async function loadFimaDiaryPage(
 					? mapCommonDiaryListRecord({ ...record, User, Worker })
 					: record),
 				id: record.id,
+				fimaNumber: record.fimaNumber,
 				siteId: record.siteId,
 				Site: Site ? { name: Site.name } : null,
 				bisCaseId: Site?.bisCaseId ?? null,
@@ -124,5 +127,11 @@ export async function loadFimaDiaryPage(
 			};
 		},
 	);
-	return { rows, page, pageSize, totalCount, totalPages };
+	return {
+		rows: await withFimaExampleSources(organizationId, rows),
+		page,
+		pageSize,
+		totalCount,
+		totalPages,
+	};
 }

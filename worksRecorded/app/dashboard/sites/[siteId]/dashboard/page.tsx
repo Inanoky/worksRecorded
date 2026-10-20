@@ -4,6 +4,7 @@ import AiWidgetRag from "@/components/ai/AiChatLazy";
 import { ClientFlowDashboard } from "@/components/client-flows/ClientFlowDashboard";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import TourRunner from "@/components/joyride/TourRunner";
+import { loadFimaProjectDiary } from "@/flows/default-construction/backend/fima-project-diary";
 import {
 	ClearRetainedDiary,
 	RegisterLimeniDiary,
@@ -60,11 +61,16 @@ export default async function InvoiceRoute({
 	if (flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL) {
 		redirect(`/dashboard/invoices?project=${encodeURIComponent(siteId)}`);
 	}
-	const bisStatus = await getDashboardBisStatus(
-		user.id,
-		siteId,
-		!getFlowModuleUi(flowModuleKey).hideBisSettings,
-	);
+	const [bisStatus, initialFimaDiary] = await Promise.all([
+		getDashboardBisStatus(
+			user.id,
+			siteId,
+			!getFlowModuleUi(flowModuleKey).hideBisSettings,
+		),
+		flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION && siteOrganizationId
+			? loadFimaProjectDiary(siteOrganizationId, siteId)
+			: null,
+	]);
 
 	if (onboardingProjectName) {
 		after(async () => {
@@ -116,10 +122,12 @@ export default async function InvoiceRoute({
 				<>
 					<ClearRetainedDiary />
 					<ClientFlowDashboard
+						key={siteId}
 						flowModuleKey={flowModuleKey}
 						siteId={siteId}
 						bisEnabled={bisStatus.enabled}
 						organizationLanguage={organizationLanguage}
+						initialFimaDiary={initialFimaDiary}
 					/>
 				</>
 			)}

@@ -4,6 +4,7 @@ jest.mock("@/lib/utils/db", () => ({
 	prisma: { sitediaryrecords: { findMany, count } },
 }));
 
+import { buildFimaDiaryFilterWhere } from "./fima-diary-filters";
 import { buildFimaDiaryPageWhere, loadFimaDiaryPage } from "./fima-diary-page";
 
 beforeEach(() => {
@@ -68,10 +69,16 @@ it("preserves project filters, keyword fields, dates and the 75-row page size", 
 it("returns only the latest comment and current materials, not extraction metadata or full history", async () => {
 	const first = { id: "old", kind: "comment", text: "Old" };
 	const latest = { id: "new", kind: "comment", text: "New" };
+	const latestStatus = {
+		id: "badge",
+		kind: "status",
+		actorName: "Anna",
+		text: "Rīcība: Labot",
+	};
 	const state = {
 		version: 3,
 		materials: [{ id: "material" }],
-		history: [first, { kind: "status" }, latest],
+		history: [first, latestStatus, latest],
 		bisMaterials: { fetchedAt: "today", entries: [] },
 	};
 	findMany.mockResolvedValue([
@@ -92,7 +99,7 @@ it("returns only the latest comment and current materials, not extraction metada
 		Amounts: 2,
 		fimaCollaboration: {
 			version: 3,
-			history: [latest],
+			history: [latestStatus, latest],
 			materials: state.materials,
 			bisMaterials: state.bisMaterials,
 		},
@@ -110,13 +117,80 @@ it("clamps a deleted last page and never requests unlimited history", async () =
 	);
 });
 
+it("applies combined workflow filters to both records and total count before pagination", async () => {
+	const filters = {
+		projectId: "project",
+		page: 2,
+		review: "needs_changes",
+		bis: "missing",
+		materials: "missing",
+		examples: "present",
+	} as const;
+	await loadFimaDiaryPage("fima-org", filters);
+	const where = findMany.mock.calls[0][0].where;
+	expect(where.AND).toEqual(buildFimaDiaryFilterWhere(filters));
+	expect(where.AND).toHaveLength(4);
+	expect(count).toHaveBeenCalledWith({ where });
+	expect(where.Site.organizationId).toBe("fima-org");
+});
+
 it("maps project numeric fields to the existing diary format", async () => {
 	findMany.mockResolvedValue([
-		{ id: "row", Amounts: 2, Site: null, evalMetadata: null },
+		{ id: "row", fimaNumber: 42, Amounts: 2, Site: null, evalMetadata: null },
 	]);
 	const result = await loadFimaDiaryPage("org", { projectView: true });
 	expect(result.rows[0]).toMatchObject({
+		fimaNumber: 42,
 		Amounts: "2",
 		fimaCollaboration: { history: [], version: 0 },
 	});
+});
+
+it("includes the source KUCE descriptions beside examples in a paginated response", async () => {
+	findMany
+		.mockResolvedValueOnce([
+			{
+				id: "target",
+				siteId: "project",
+				Site: null,
+				evalMetadata: {
+					fimaCollaboration: {
+						examples: {
+							entries: [
+								{
+									id: "123",
+									label: "BIS 123",
+									url: "https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/123",
+								},
+							],
+						},
+					},
+				},
+			},
+		])
+		.mockResolvedValueOnce([
+			{
+				id: "source",
+				siteId: "another-project",
+				fimaNumber: 42,
+				Works: "Source KUCE work",
+				BISId: "123",
+				evalMetadata: null,
+			},
+		]);
+	const result = await loadFimaDiaryPage("org", { projectView: true });
+	expect(result.rows[0]).toMatchObject({
+		id: "target",
+		fimaExampleSources: {
+			"123": [
+				{
+					id: "source",
+					siteId: "another-project",
+					fimaNumber: 42,
+					work: "Source KUCE work",
+				},
+			],
+		},
+	});
+	expect(result.rows[0]).not.toHaveProperty("evalMetadata");
 });

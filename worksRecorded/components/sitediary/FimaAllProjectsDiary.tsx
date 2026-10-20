@@ -33,6 +33,7 @@ import {
 	fimaDiaryTableClassName,
 	groupFimaDiaryRows,
 } from "@/lib/fima/diary-table";
+import type { FimaExampleSources } from "@/lib/fima/example-sources";
 import type { FimaInlineField } from "@/lib/fima/inline-fields";
 import { isFimaInlineField } from "@/lib/fima/inline-fields";
 import { shouldOpenFimaRecordPanel } from "@/lib/fima/record-panel";
@@ -46,6 +47,7 @@ import { OriginalSourceContent } from "./OriginalSourceContent";
 
 export type FimaAllProjectsRecordRow = {
 	id: string;
+	fimaNumber?: number | null;
 	siteId: string | null;
 	Date: Date | string | null;
 	Works: string | null;
@@ -62,6 +64,7 @@ export type FimaAllProjectsRecordRow = {
 	bisCaseNumber?: string | null;
 	hasFimaBisReferences?: boolean;
 	fimaCollaboration?: FimaCollaboration;
+	fimaExampleSources?: FimaExampleSources;
 	fimaBisRecords?: { id: string; number: string | null }[];
 	Site: { name: string } | null;
 };
@@ -495,6 +498,7 @@ export function FimaAllProjectsDiary({
 																"Works",
 																"Works_Custom_1",
 																"FimaMaterials",
+																"FimaExamples",
 																"FimaComments",
 																"FimaReviewStatus",
 															].includes(field) && "col-span-2",

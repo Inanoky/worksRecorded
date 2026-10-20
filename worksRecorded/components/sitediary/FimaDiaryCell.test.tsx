@@ -31,6 +31,19 @@ beforeEach(() => {
 	jest.clearAllMocks();
 	jest.mocked(getFimaDiaryCollaboration).mockResolvedValue(initial);
 });
+it("displays the saved FIMA number as a read-only value without a network request", () => {
+	render(
+		<FimaDiaryCell
+			field="FimaNumber"
+			siteId={siteId}
+			row={{ id: "record", fimaNumber: 42 }}
+			onChange={jest.fn()}
+		/>,
+	);
+	expect(screen.getByText("FIMA-000042")).toBeInTheDocument();
+	expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+	expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
+});
 function Harness() {
 	const [state, setState] = useState(initial);
 	const change = useCallback(
@@ -179,6 +192,53 @@ it("keeps material management accessible in the record panel even with no materi
 	).toBeInTheDocument();
 });
 
+it("shows an unresolved review note in the empty materials cell without creating a material", () => {
+	render(
+		<FimaDiaryCell
+			field="FimaMaterials"
+			siteId={siteId}
+			row={{
+				id: "record",
+				fimaCollaboration: {
+					...initial,
+					materialsNote: "nevaram saprast materiālus",
+				},
+			}}
+			onChange={jest.fn()}
+		/>,
+	);
+	expect(screen.getByText("nevaram saprast materiālus")).toBeInTheDocument();
+	expect(screen.queryByRole("list")).not.toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: "Pievienot materiālus" }),
+	).toBeEnabled();
+	expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
+});
+
+it("does not show an old unresolved note when actual materials are present", () => {
+	render(
+		<FimaDiaryCell
+			field="FimaMaterials"
+			siteId={siteId}
+			row={{
+				id: "record",
+				fimaCollaboration: {
+					...initial,
+					materialsNote: "nevaram saprast materiālus",
+					materials: [
+						{ id: "material", label: "Izolators", quantity: 1, unit: "gab." },
+					],
+				},
+			}}
+			onChange={jest.fn()}
+		/>,
+	);
+	expect(
+		screen.queryByText("nevaram saprast materiālus"),
+	).not.toBeInTheDocument();
+	expect(screen.getByText(/Izolators/)).toBeInTheDocument();
+});
+
 it("shows associated BIS materials alongside prepared materials without duplicating the same material", () => {
 	const shared = {
 		id: "one",
@@ -259,4 +319,54 @@ it("leaves an unlinked BIS record cell blank instead of showing the project case
 	);
 	expect(screen.queryByRole("link")).not.toBeInTheDocument();
 	expect(screen.queryByText("BIS-BL-668714")).not.toBeInTheDocument();
+});
+
+it("renders each BIS example as its own clickable bullet without opening the row", () => {
+	const openRow = jest.fn();
+	const examples = {
+		entries: [
+			{
+				id: "7540711",
+				label: "BIS ieraksts Nr.360 (Olaine stacija, lieta BIS-BL-668714-524)",
+				url: "https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/7540711",
+			},
+			{
+				id: "7209025",
+				label:
+					"BIS ieraksts Nr.1806 (Torņakalns–Olaine, lieta BIS-BL-668708-558)",
+				url: "https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/7209025",
+			},
+		],
+		note: "Nav tieša parauga. Salīdzināšanai izmantots:",
+	};
+	render(
+		<table>
+			<tbody>
+				<tr tabIndex={0} onClick={openRow} onKeyDown={openRow}>
+					<td>
+						<FimaDiaryCell
+							field="FimaExamples"
+							siteId={siteId}
+							row={{
+								id: "record",
+								fimaCollaboration: { ...initial, examples },
+							}}
+							onChange={jest.fn()}
+						/>
+					</td>
+				</tr>
+			</tbody>
+		</table>,
+	);
+	expect(screen.getAllByRole("listitem")).toHaveLength(2);
+	const links = screen.getAllByRole("link");
+	for (const [index, link] of links.entries()) {
+		expect(link).toHaveAttribute("href", examples.entries[index].url);
+		expect(link).toHaveAttribute("target", "_blank");
+		expect(link).toHaveAttribute("rel", "noopener noreferrer");
+	}
+	fireEvent.click(links[0]);
+	expect(openRow).not.toHaveBeenCalled();
+	expect(screen.getByText(examples.note)).toBeInTheDocument();
+	expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
 });

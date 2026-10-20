@@ -1,4 +1,7 @@
 import { readFimaBisRecordLinks } from "@/lib/fima/bis-record-links";
+import type { FimaDiaryFilters } from "@/lib/fima/diary-filters";
+import { buildFimaDiaryFilterWhere } from "./fima-diary-filters";
+import { withFimaExampleSources } from "./fima-example-sources";
 import type { Prisma } from "@prisma/client";
 
 import { isFimaDiary, readFimaCollaboration } from "@/lib/fima/diary-collaboration";
@@ -29,6 +32,7 @@ const allProjectsDiaryOrderBy = [
 
 const allProjectsDiaryRecordSelect = {
   id: true,
+  fimaNumber: true,
   siteId: true,
   Date: true,
   createdAt: true,
@@ -123,7 +127,7 @@ function addActualCosts(
   );
 }
 
-export type AllProjectsDiaryFilters = {
+export type AllProjectsDiaryFilters = FimaDiaryFilters & {
   page?: number;
   projectId?: string;
   keyword?: string;
@@ -161,6 +165,7 @@ export function buildAllProjectsDiaryWhere(
   const dateFrom = parseDateOnly(filters.dateFrom);
   const dateTo = parseDateOnly(filters.dateTo);
   const dateFilter: Prisma.DateTimeNullableFilter = {};
+  const fimaFilters = buildFimaDiaryFilterWhere(filters);
 
   if (dateFrom) dateFilter.gte = dateFrom;
   if (dateTo) dateFilter.lt = nextUtcDay(dateTo);
@@ -168,6 +173,7 @@ export function buildAllProjectsDiaryWhere(
   return {
     archivedAt: null,
     Site: { organizationId },
+    ...(fimaFilters.length ? { AND: fimaFilters } : {}),
     ...(projectId ? { siteId: projectId } : {}),
     ...(Object.keys(dateFilter).length ? { Date: dateFilter } : {}),
     ...(keyword
@@ -241,7 +247,7 @@ export async function loadAllProjectsDiary(
   return {
     fimaCollaborationEnabled: projects.some((project) => isFimaDiary(project.siteDiaryRecordsMap)),
     projects: projects.map(({ siteDiaryRecordsMap: _, ...project }) => project),
-    records: addActualCosts(records, organizationId),
+    records: await withFimaExampleSources(organizationId, addActualCosts(records, organizationId)),
     photoUrls: normalizeDiaryPhotoUrls(
       photoRecords.flatMap((record) => record.Photos ?? []),
     ).sort(),

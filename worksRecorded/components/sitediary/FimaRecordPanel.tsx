@@ -7,18 +7,22 @@ import {
 	type FimaCollaboration,
 	fimaStatuses,
 } from "@/lib/fima/diary-collaboration";
+import { formatFimaDiaryNumber } from "@/lib/fima/diary-number";
+import type { FimaExampleSources } from "@/lib/fima/example-sources";
 import { getFimaBisCaseUrl } from "@/lib/fima/record-panel";
 import { FimaDiaryCell } from "./FimaDiaryCell";
 import { FimaRecordHistory } from "./FimaRecordHistory";
 
 type Row = {
 	id?: string;
+	fimaNumber?: number | null;
 	Works?: string | null;
 	Works_Custom_1?: string | null;
 	Location?: string | null;
 	Date?: string | Date | null;
 	BISId?: string | null;
 	fimaCollaboration?: FimaCollaboration;
+	fimaExampleSources?: FimaExampleSources;
 };
 type Props = {
 	siteId: string;
@@ -71,7 +75,7 @@ export function FimaRecordPanel({
 								Ieraksta pārskats
 							</Dialog.Title>
 							<Dialog.Description className="text-sm text-muted-foreground">
-								KUCE darbs, BIS atsauces un organizācijas komentāru vēsture.
+								KUCE darbs, BIS atsauces, komentāru un atzīmju vēsture.
 							</Dialog.Description>
 							<Dialog.Close asChild>
 								<button
@@ -89,6 +93,8 @@ export function FimaRecordPanel({
 									{row.Works || "KUCE ieraksts"}
 								</h2>
 								<dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
+									<dt className="text-muted-foreground">FIMA Nr.</dt>
+									<dd>{formatFimaDiaryNumber(row.fimaNumber)}</dd>
 									<dt className="text-muted-foreground">Datums</dt>
 									<dd>
 										{date && Number.isFinite(date.getTime())
@@ -125,6 +131,17 @@ export function FimaRecordPanel({
 									) : null}
 								</div>
 							</section>
+							{state.examples ? (
+								<section className="space-y-2 rounded-lg border p-3">
+									<h2 className="text-sm font-semibold">Paraugas</h2>
+									<FimaDiaryCell
+										field="FimaExamples"
+										siteId={siteId}
+										row={row}
+										onChange={onChange}
+									/>
+								</section>
+							) : null}
 							<section className="space-y-2 rounded-lg border p-3">
 								<h2 className="text-sm font-semibold">Materiāli</h2>
 								<FimaDiaryCell

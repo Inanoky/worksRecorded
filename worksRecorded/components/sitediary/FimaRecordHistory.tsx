@@ -4,7 +4,10 @@ import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
+import {
+	type FimaCollaboration,
+	formatFimaEventText,
+} from "@/lib/fima/diary-collaboration";
 import {
 	getFimaDiaryCollaboration,
 	saveFimaDiaryCollaboration,
@@ -89,10 +92,14 @@ export function FimaRecordHistory({
 						>
 							<p className="text-xs text-muted-foreground">
 								{event.actorName} · {new Date(event.at).toLocaleString("lv-LV")}
-								{event.kind !== "comment" ? " · Izmaiņa" : ""}
+								{event.kind === "status"
+									? " · Atzīme"
+									: event.kind !== "comment"
+										? " · Izmaiņa"
+										: ""}
 							</p>
 							<p className="mt-1 whitespace-pre-wrap break-words text-sm">
-								{event.text}
+								{formatFimaEventText(event)}
 							</p>
 						</article>
 					))

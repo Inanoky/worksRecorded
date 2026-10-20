@@ -44,6 +44,30 @@ function savedState(): VisualState {
 	};
 }
 
+it("refreshes manually created diary entries without queuing AI or changing their polygons", () => {
+	const previous = savedState();
+	previous.evidence[0] = { ...evidence, photoUrl: "", manual: true };
+	const current = previous.evidence.map((source) => ({
+		...source,
+		amount: 90,
+		description: "Updated diary entry",
+	}));
+	const result = syncVisualEvidence(previous, current, () => "new", true);
+	expect(result.state.evidence[0]).toMatchObject({
+		manual: true,
+		photoUrl: "",
+		amount: 90,
+		description: "Updated diary entry",
+	});
+	expect(result.state.marks[0]).toEqual(previous.marks[0]);
+	expect(
+		result.state.imageProgress?.find((item) => item.evidenceId === "old")
+			?.status,
+	).toBe("complete");
+	expect(result.state.evidence[0].reviewRequired).toBeUndefined();
+	expect(result.analysisCount).toBe(0);
+});
+
 it("protects manually adjusted zones and flags changed sources once in automatic sync", () => {
 	const previous = savedState();
 	const current = [

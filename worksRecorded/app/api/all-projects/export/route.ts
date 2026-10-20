@@ -1,5 +1,6 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { NextResponse } from "next/server";
+import { readFimaDiaryFilters } from "@/lib/fima/diary-filters";
 
 import {
   type AllProjectsDiaryFilters,
@@ -92,6 +93,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const filters: AllProjectsDiaryFilters = {
+    ...readFimaDiaryFilters(Object.fromEntries(searchParams)),
     projectId: optionalSearchParam(searchParams, "project"),
     keyword: optionalSearchParam(searchParams, "q"),
     dateFrom: optionalSearchParam(searchParams, "from"),
