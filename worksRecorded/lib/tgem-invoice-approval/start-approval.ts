@@ -15,6 +15,31 @@ import {
 } from "@/lib/tgem-invoice-approval/approval-route-snapshot";
 import { prisma } from "@/lib/utils/db";
 
+export const TGEM_APPROVAL_START_ERROR_CODES = [
+	"approval_flow_missing",
+	"approval_flow_unavailable_user",
+	"approval_flow_approver_permission",
+] as const;
+
+export type TgemApprovalStartErrorCode =
+	(typeof TGEM_APPROVAL_START_ERROR_CODES)[number];
+
+export class TgemApprovalStartError extends Error {
+	readonly code: TgemApprovalStartErrorCode;
+
+	constructor(code: TgemApprovalStartErrorCode, message: string) {
+		super(message);
+		this.name = "TgemApprovalStartError";
+		this.code = code;
+	}
+}
+
+export function isTgemApprovalStartError(
+	error: unknown,
+): error is TgemApprovalStartError {
+	return error instanceof TgemApprovalStartError;
+}
+
 async function loadSnapshot(input: {
 	tx: Prisma.TransactionClient;
 	invoiceCase: {
@@ -83,7 +108,10 @@ async function loadSnapshot(input: {
 		: null;
 	if (assignment) {
 		if (!assignment.flow.steps.length) {
-			throw new Error("Configure the approval flow before submitting");
+			throw new TgemApprovalStartError(
+				"approval_flow_missing",
+				"Configure the personal approval flow before submitting",
+			);
 		}
 		if (
 			assignment.flow.organizationId !== input.invoiceCase.organizationId ||
@@ -93,7 +121,10 @@ async function loadSnapshot(input: {
 					step.approver.organizationId !== input.invoiceCase.organizationId,
 			)
 		) {
-			throw new Error("The approval flow contains an unavailable user");
+			throw new TgemApprovalStartError(
+				"approval_flow_unavailable_user",
+				"The personal approval flow contains an unavailable user",
+			);
 		}
 		return buildTgemApprovalRouteSnapshot({
 			source: "submitter",
@@ -140,7 +171,10 @@ async function loadSnapshot(input: {
 		},
 	});
 	if (!template?.steps.length) {
-		throw new Error("Configure the approval flow before submitting");
+		throw new TgemApprovalStartError(
+			"approval_flow_missing",
+			"Assign a personal approval flow or configure the project approval flow before submitting",
+		);
 	}
 	if (
 		template.steps.some(
@@ -149,7 +183,10 @@ async function loadSnapshot(input: {
 				step.approver.organizationId !== input.invoiceCase.organizationId,
 		)
 	) {
-		throw new Error("The approval flow contains an unavailable user");
+		throw new TgemApprovalStartError(
+			"approval_flow_unavailable_user",
+			"The project approval flow contains an unavailable user",
+		);
 	}
 
 	return buildTgemApprovalRouteSnapshot({
@@ -185,7 +222,8 @@ async function validateSnapshotUsers(
 		select: { id: true },
 	});
 	if (activeUsers.length !== new Set(userIds).size) {
-		throw new Error(
+		throw new TgemApprovalStartError(
+			"approval_flow_unavailable_user",
 			"The saved approval flow contains an unavailable user. Update the flow, reset this invoice, and submit it again.",
 		);
 	}
@@ -194,13 +232,24 @@ async function validateSnapshotUsers(
 			loadTgemAccessScope(tx, { organizationId, userId: user.id }),
 		),
 	);
-	if (
-		accessScopes.some(
-			(scope) => !scope || !canTgem(scope, siteId, "invoice.approve"),
+	const approverIdsWithoutPermission = activeUsers
+		.filter(
+			(_user, index) =>
+				!accessScopes[index] ||
+				!canTgem(accessScopes[index], siteId, "invoice.approve"),
 		)
-	) {
-		throw new Error(
-			"The saved approval flow contains an approver without permission for this project. Update access, reset this invoice, and submit it again.",
+		.map((user) => user.id);
+	if (approverIdsWithoutPermission.length > 0) {
+		const approverNames = snapshot.steps
+			.filter((step) =>
+				approverIdsWithoutPermission.includes(step.approverUserId),
+			)
+			.map((step) => step.approverName)
+			.join(", ");
+		const flowType = snapshot.source === "submitter" ? "personal" : "project";
+		throw new TgemApprovalStartError(
+			"approval_flow_approver_permission",
+			`The ${flowType} approval flow was found, but these approvers do not have approval access for this project: ${approverNames}. Assign them an Approver group and try again.`,
 		);
 	}
 }

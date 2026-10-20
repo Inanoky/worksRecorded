@@ -262,7 +262,13 @@ export function TgemApprovalControls({
 		setPending("submit");
 		setError(null);
 		try {
-			await submitTgemInvoiceForApproval({ invoiceCaseId: invoice.id });
+			const result = await submitTgemInvoiceForApproval({
+				invoiceCaseId: invoice.id,
+			});
+			if ("errorCode" in result && result.error) {
+				setError(result.error);
+				return;
+			}
 			await onChanged();
 		} catch (submitError) {
 			setError(

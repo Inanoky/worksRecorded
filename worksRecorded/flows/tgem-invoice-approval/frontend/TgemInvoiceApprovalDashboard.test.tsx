@@ -2457,6 +2457,34 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		});
 	});
 
+	it("shows a handled approval configuration error without refreshing", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue(dashboardData);
+		mockSubmitForApproval.mockResolvedValue({
+			error:
+				"The personal approval flow was found, but an approver needs project access.",
+			errorCode: "approval_flow_approver_permission",
+		});
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				initialView="approval"
+				organizationLanguage="en"
+			/>,
+		);
+
+		fireEvent.click(
+			await screen.findByRole("button", { name: "Start approval path" }),
+		);
+
+		expect(
+			await screen.findByText(
+				"The personal approval flow was found, but an approver needs project access.",
+			),
+		).toBeInTheDocument();
+		expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(1);
+	});
+
 	it("resets an unfinished approval flow after confirmation", async () => {
 		const confirm = jest.spyOn(window, "confirm").mockReturnValue(true);
 		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({

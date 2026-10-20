@@ -1079,7 +1079,7 @@ describe("TGEM invoice approval actions", () => {
 		expect(mockPrisma.tgemInvoiceApprovalStep.createMany).toHaveBeenCalled();
 	});
 
-	it("rejects a template containing an inactive approver", async () => {
+	it("returns a handled error for a template containing an inactive approver", async () => {
 		mockRequireUser.mockResolvedValue({ id: "submitter-1" });
 		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
 			id: "case-1",
@@ -1099,10 +1099,13 @@ describe("TGEM invoice approval actions", () => {
 
 		await expect(
 			submitTgemInvoiceForApproval({ invoiceCaseId: "case-1" }),
-		).rejects.toThrow("unavailable user");
+		).resolves.toEqual({
+			error: "The project approval flow contains an unavailable user",
+			errorCode: "approval_flow_unavailable_user",
+		});
 	});
 
-	it("rejects an approval route whose approver lacks project permission", async () => {
+	it("returns a handled error when an approver lacks project permission", async () => {
 		mockCanTgem.mockImplementation(
 			(_scope, _siteId, permission) => permission === "invoice.submit_approval",
 		);
@@ -1123,10 +1126,64 @@ describe("TGEM invoice approval actions", () => {
 
 		await expect(
 			submitTgemInvoiceForApproval({ invoiceCaseId: "case-1" }),
-		).rejects.toThrow("approver without permission");
+		).resolves.toEqual({
+			error:
+				"The project approval flow was found, but these approvers do not have approval access for this project: Anna Bērziņa, Jānis Ozols, Māra Liepa, Ilze Kalniņa. Assign them an Approver group and try again.",
+			errorCode: "approval_flow_approver_permission",
+		});
 		expect(
 			mockPrisma.tgemInvoiceApprovalStep.createMany,
 		).not.toHaveBeenCalled();
+	});
+
+	it("returns the personal-flow permission error without falling back to the project flow", async () => {
+		mockCanTgem.mockImplementation(
+			(_scope, _siteId, permission) => permission === "invoice.submit_approval",
+		);
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			siteId: "site-1",
+			submittedByUserId: "submitter-1",
+			status: "needs_review",
+			approvalRound: 0,
+			approvalRouteSnapshot: null,
+		});
+		mockPrisma.tgemInvoiceSubmitterApprovalFlow.findFirst.mockResolvedValue({
+			flow: peopleFlow(),
+		});
+
+		await expect(
+			submitTgemInvoiceForApproval({ invoiceCaseId: "case-1" }),
+		).resolves.toEqual(
+			expect.objectContaining({
+				errorCode: "approval_flow_approver_permission",
+			}),
+		);
+		expect(
+			mockPrisma.tgemInvoiceApprovalTemplate.findFirst,
+		).not.toHaveBeenCalled();
+	});
+
+	it("returns a handled error when neither a personal nor project flow exists", async () => {
+		mockPrisma.tgemInvoiceCase.findFirst.mockResolvedValue({
+			id: "case-1",
+			organizationId: "org-1",
+			siteId: "site-1",
+			submittedByUserId: "submitter-1",
+			status: "needs_review",
+			approvalRound: 0,
+			approvalRouteSnapshot: null,
+		});
+		mockPrisma.tgemInvoiceApprovalTemplate.findFirst.mockResolvedValue(null);
+
+		await expect(
+			submitTgemInvoiceForApproval({ invoiceCaseId: "case-1" }),
+		).resolves.toEqual({
+			error:
+				"Assign a personal approval flow or configure the project approval flow before submitting",
+			errorCode: "approval_flow_missing",
+		});
 	});
 
 	it("allows only the current approver and advances one step", async () => {
