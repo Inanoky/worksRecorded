@@ -2,7 +2,6 @@
 
 import {
 	AlertTriangle,
-	Archive,
 	ArrowDown,
 	ArrowRight,
 	ArrowUp,
@@ -24,6 +23,7 @@ import {
 	ReceiptText,
 	RefreshCw,
 	Search,
+	Trash2,
 	X,
 } from "lucide-react";
 import Link from "next/link";
@@ -1199,7 +1199,11 @@ function InvoiceRegister({
 		className?: string;
 	}[] = [
 		{ key: "costCode", label: copy.costCode },
-		{ key: "invoiceNumber", label: copy.invoiceNumber },
+		{
+			key: "invoiceNumber",
+			label: copy.invoiceNumber,
+			className: "w-36 max-w-36",
+		},
 		{ key: "project", label: copy.project },
 		{ key: "supplier", field: "supplier", label: copy.supplier },
 		{ key: "invoiceDate", field: "invoiceDate", label: copy.invoiceDate },
@@ -1300,7 +1304,7 @@ function InvoiceRegister({
 								disabled={deleting}
 								onClick={() => requestDelete(selectedInvoices)}
 							>
-								<Archive className="h-4 w-4" />
+								<Trash2 className="h-4 w-4" />
 								{copy.deleteSelected} ({selectedInvoices.length})
 							</Button>
 						) : null}
@@ -1454,19 +1458,29 @@ function InvoiceRegister({
 											<TableCell className="font-medium">
 												{invoice.costCode || "—"}
 											</TableCell>
-											<TableCell className="font-semibold">
-												<div className="flex items-center gap-2">
+											<TableCell className="w-36 max-w-36 align-top font-semibold">
+												<div className="grid gap-1.5">
 													<button
 														type="button"
 														aria-label={`${copy.previewInvoice}: ${invoiceLabel}`}
-														className="text-left hover:text-tgem-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
+														className="max-w-36 break-all text-left leading-tight hover:text-tgem-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
 													>
 														{invoiceLabel}
 													</button>
-													{invoice.isNewestDuplicateInvoiceNumber ? (
-														<NewestDuplicateInvoiceNumberWarning copy={copy} />
+													{invoice.isNewestDuplicateInvoiceNumber ||
+													(invoice.splitKind && invoice.splitGeneration) ? (
+														<div className="flex flex-wrap items-center gap-1">
+															{invoice.isNewestDuplicateInvoiceNumber ? (
+																<NewestDuplicateInvoiceNumberWarning
+																	copy={copy}
+																/>
+															) : null}
+															<SplitInvoiceBadge
+																invoice={invoice}
+																copy={copy}
+															/>
+														</div>
 													) : null}
-													<SplitInvoiceBadge invoice={invoice} copy={copy} />
 												</div>
 											</TableCell>
 											<TableCell>
@@ -1534,14 +1548,15 @@ function InvoiceRegister({
 														variant="ghost"
 														size="icon"
 														aria-label={`${copy.deleteInvoice}: ${invoiceLabel}`}
+														title={copy.deleteInvoice}
 														disabled={deleting}
 														onClick={(event) => {
 															event.stopPropagation();
 															requestDelete([invoice]);
 														}}
-														className="text-destructive hover:text-destructive"
+														className="text-destructive hover:bg-transparent hover:text-destructive"
 													>
-														<Archive className="h-4 w-4" />
+														<Trash2 className="h-4 w-4" />
 													</Button>
 												) : null}
 												<ArrowRight className="inline h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
@@ -1582,15 +1597,20 @@ function InvoiceRegister({
 											<div className="mb-1 text-xs text-muted-foreground">
 												{copy.costCode}: {invoice.costCode || "—"}
 											</div>
-											<div className="flex items-center gap-2 font-semibold">
+											<div className="font-semibold">
 												<span className="truncate">
 													{invoice.invoiceNumber || invoice.id}
 												</span>
-												{invoice.isNewestDuplicateInvoiceNumber ? (
-													<NewestDuplicateInvoiceNumberWarning copy={copy} />
-												) : null}
-												<SplitInvoiceBadge invoice={invoice} copy={copy} />
 											</div>
+											{invoice.isNewestDuplicateInvoiceNumber ||
+											(invoice.splitKind && invoice.splitGeneration) ? (
+												<div className="mt-1 flex flex-wrap items-center gap-1">
+													{invoice.isNewestDuplicateInvoiceNumber ? (
+														<NewestDuplicateInvoiceNumberWarning copy={copy} />
+													) : null}
+													<SplitInvoiceBadge invoice={invoice} copy={copy} />
+												</div>
+											) : null}
 											<div className="mt-0.5 truncate text-sm text-muted-foreground">
 												{invoice.supplierName || "—"}
 											</div>
@@ -1642,11 +1662,12 @@ function InvoiceRegister({
 											variant="ghost"
 											size="icon"
 											aria-label={`${copy.deleteInvoice}: ${invoice.invoiceNumber || invoice.id}`}
+											title={copy.deleteInvoice}
 											disabled={deleting}
 											onClick={() => requestDelete([invoice])}
-											className="shrink-0 text-destructive hover:text-destructive"
+											className="shrink-0 text-destructive hover:bg-transparent hover:text-destructive"
 										>
-											<Archive className="h-4 w-4" />
+											<Trash2 className="h-4 w-4" />
 										</Button>
 									) : null}
 								</div>
@@ -1684,7 +1705,8 @@ function InvoiceRegister({
 							{deleteTargets.map((invoice) => (
 								<li key={invoice.id}>
 									{invoice.invoiceNumber || invoice.id} ·{" "}
-									{invoice.supplierName || "—"}
+									{invoice.supplierName || "—"} ·{" "}
+									{invoice.project?.name || copy.unassigned}
 								</li>
 							))}
 						</ul>

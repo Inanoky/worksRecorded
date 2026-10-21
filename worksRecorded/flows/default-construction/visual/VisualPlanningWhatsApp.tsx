@@ -1,6 +1,12 @@
 "use client";
 
-import { Copy, Download, Loader2, MessageCircle } from "lucide-react";
+import {
+	CheckCircle2,
+	Copy,
+	Download,
+	Loader2,
+	MessageCircle,
+} from "lucide-react";
 import Image from "next/image";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -60,12 +66,20 @@ export function VisualPlanningWhatsApp({
 	const [clientRequestId, setClientRequestId] = useState("");
 	const imageRequest = useRef<AbortController | null>(null);
 	const imageUrls = useRef<string[]>([]);
+	const successCloseTimer = useRef<number | null>(null);
 	const clearImages = useCallback(() => {
 		imageRequest.current?.abort();
 		for (const url of imageUrls.current) URL.revokeObjectURL(url);
 		imageUrls.current = [];
 	}, []);
-	useEffect(() => clearImages, [clearImages]);
+	useEffect(
+		() => () => {
+			if (successCloseTimer.current !== null)
+				window.clearTimeout(successCloseTimer.current);
+			clearImages();
+		},
+		[clearImages],
+	);
 
 	async function prepareImages() {
 		clearImages();
@@ -138,9 +152,12 @@ export function VisualPlanningWhatsApp({
 			setSendResult(result);
 			onSendResult?.(result);
 			if (result.status === "sent") {
-				clearImages();
-				setImages([]);
-				setOpen(false);
+				successCloseTimer.current = window.setTimeout(() => {
+					clearImages();
+					setImages([]);
+					setOpen(false);
+					successCloseTimer.current = null;
+				}, 1100);
 			}
 		} catch (error) {
 			setSendError(
@@ -171,6 +188,10 @@ export function VisualPlanningWhatsApp({
 			open={open}
 			onOpenChange={(nextOpen) => {
 				if (sending) return;
+				if (successCloseTimer.current !== null) {
+					window.clearTimeout(successCloseTimer.current);
+					successCloseTimer.current = null;
+				}
 				if (nextOpen) {
 					setPhone(contact?.phone ?? "");
 					setMessage(planningWhatsAppTemplateMessage(plan));
@@ -193,6 +214,27 @@ export function VisualPlanningWhatsApp({
 				</Button>
 			</DialogTrigger>
 			<DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col sm:max-w-4xl">
+				{sendResult?.status === "sent" ? (
+					<output
+						aria-live="polite"
+						aria-label="WhatsApp sūtījums veiksmīgs"
+						className="absolute inset-0 z-20 flex animate-in flex-col items-center justify-center gap-4 rounded-lg bg-background p-8 text-center fade-in-0 duration-200"
+					>
+						<span className="flex h-20 w-20 animate-in items-center justify-center rounded-full bg-emerald-100 text-emerald-700 zoom-in-50 duration-300">
+							<CheckCircle2 className="h-11 w-11" strokeWidth={2.25} />
+						</span>
+						<span className="space-y-1 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+							<strong className="block text-2xl text-emerald-700">
+								Nosūtīts
+							</strong>
+							<span className="block text-sm text-muted-foreground">
+								Meta pieņēma {sendResult.items.length}{" "}
+								{sendResult.items.length === 1 ? "attēlu" : "attēlus"}. Atveram
+								sūtījumu vēsturi…
+							</span>
+						</span>
+					</output>
+				) : null}
 				<DialogHeader className="shrink-0">
 					<DialogTitle>Sagatavot uzdevumu WhatsApp</DialogTitle>
 					<DialogDescription>

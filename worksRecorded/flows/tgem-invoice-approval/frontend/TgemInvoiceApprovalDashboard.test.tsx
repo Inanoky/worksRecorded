@@ -480,6 +480,47 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		);
 	});
 
+	it("shows archive controls only for invoices allowed in their project", async () => {
+		const restrictedInvoice = {
+			...dashboardData.invoices[0],
+			id: "case-2",
+			invoiceNumber: "NO-ARCHIVE",
+			project: { id: "site-2", name: "Jurmala warehouse" },
+			permissions: [
+				"invoice.view",
+			] as TgemDashboardData["invoices"][number]["permissions"],
+		};
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
+			...dashboardData,
+			invoices: [dashboardData.invoices[0], restrictedInvoice],
+		});
+
+		render(<TgemInvoiceApprovalDashboard organizationLanguage="en" />);
+		const allowedRow = await screen.findByTestId(
+			"tgem-register-invoice-case-1",
+		);
+		const restrictedRow = screen.getByTestId("tgem-register-invoice-case-2");
+
+		expect(
+			within(allowedRow).getByRole("button", {
+				name: "Archive invoice: TG-2026-0718",
+			}),
+		).toBeVisible();
+		expect(
+			within(restrictedRow).queryByRole("button", {
+				name: "Archive invoice: NO-ARCHIVE",
+			}),
+		).not.toBeInTheDocument();
+		expect(within(restrictedRow).getByRole("checkbox")).toBeDisabled();
+
+		fireEvent.click(
+			within(allowedRow).getByRole("button", {
+				name: "Archive invoice: TG-2026-0718",
+			}),
+		);
+		expect(screen.getByRole("alertdialog")).toHaveTextContent("Riga office");
+	});
+
 	it("puts checkboxes first and bulk-archives only the current filtered selection", async () => {
 		const invoices = [
 			dashboardData.invoices[0],
