@@ -311,3 +311,40 @@ it("deduplicates rendering across execution and planning and cancels previews af
 	await expect(other).rejects.toMatchObject({ name: "AbortError" });
 	expect(cache.peekPreview("/other", 1)).toBeUndefined();
 });
+
+it("reports project preparation only when the corresponding floor resources finish", async () => {
+	const cache = new VisualClientCache("site");
+	let finishPlanning!: (value: VisualPlanningIndex) => void;
+	const planning = new Promise<VisualPlanningIndex>((resolve) => {
+		finishPlanning = resolve;
+	});
+	const report = jest.fn();
+	const pending = cache.prefetch("drawing", () => planning, report);
+	await cache.loadDrawing("drawing");
+	expect(report).toHaveBeenCalledWith("visual-drawing", "done");
+	expect(report).not.toHaveBeenCalledWith("visual-planning", "done");
+	finishPlanning(planningIndex);
+	await pending;
+	expect(report).toHaveBeenCalledWith("visual-planning", "done");
+	expect(report).toHaveBeenCalledWith("visual-preview", "done");
+	const preview = cache.peekPreview(`${cache.endpoint("drawing")}?pdf=1`, 1);
+	expect(
+		(preview?.canvas.width ?? 0) * (preview?.canvas.height ?? 0),
+	).toBeLessThanOrEqual(1_000_000);
+	cache.clear();
+});
+
+it("keeps the displayed floor preview while warming more floors under the memory limit", async () => {
+	const cache = new VisualClientCache("site");
+	const lease = cache.openPdf("/active");
+	await lease.promise;
+	const source = document.createElement("canvas");
+	source.width = 2000;
+	source.height = 2000;
+	cache.rememberPreview("/active", 1, source, 1);
+	for (let i = 0; i < 4; i++) cache.rememberPreview(`/warm-${i}`, 1, source, 1);
+	expect(cache.peekPreview("/active", 1)).toBeDefined();
+	expect(cache.peekPreview("/warm-0", 1)).toBeUndefined();
+	lease.release();
+	cache.clear();
+});

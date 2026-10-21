@@ -5,6 +5,7 @@ import type { MouseEvent } from "react";
 import { useEffect, useState } from "react";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import { useProject } from "@/components/providers/ProjectProvider";
+import { useProjectPreparationReset } from "./ProjectLoadingProgressProvider";
 
 type ProjectNavigationLinkProps = {
 	projectId: string;
@@ -17,7 +18,8 @@ export function ProjectNavigationLink({
 	projectName,
 	loadingLabel,
 }: ProjectNavigationLinkProps) {
-	const { setProject } = useProject();
+	const { setProject, projectId: currentProjectId } = useProject();
+	const resetProgress = useProjectPreparationReset(projectId);
 	const [opening, setOpening] = useState(false);
 
 	useEffect(() => {
@@ -33,6 +35,7 @@ export function ProjectNavigationLink({
 		}
 
 		setOpening(true);
+		if (currentProjectId !== projectId) resetProgress();
 		setProject(projectId, projectName);
 		try {
 			window.localStorage.setItem("projectName", projectName);
@@ -49,7 +52,9 @@ export function ProjectNavigationLink({
 			>
 				{projectName}
 			</Link>
-			{opening ? <ProjectOpeningOverlay label={loadingLabel} /> : null}
+			{opening ? (
+				<ProjectOpeningOverlay label={loadingLabel} siteId={projectId} />
+			) : null}
 		</>
 	);
 }

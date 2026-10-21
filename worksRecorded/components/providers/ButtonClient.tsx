@@ -5,6 +5,7 @@ import { type MouseEvent, useEffect, useState } from "react";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Button } from "@/components/ui/button";
+import { useProjectPreparationReset } from "./ProjectLoadingProgressProvider";
 
 type CommonProps = {
 	label?: string;
@@ -32,7 +33,8 @@ export default function OpenProjectButton({
 	label = "Open Project",
 	loadingLabel = "Opening project...",
 }: Props) {
-	const { setProject } = useProject();
+	const { setProject, projectId: currentProjectId } = useProject();
+	const resetProgress = useProjectPreparationReset(projectId ?? "");
 	const [opening, setOpening] = useState(false);
 	const href =
 		destination ??
@@ -50,6 +52,7 @@ export default function OpenProjectButton({
 			return;
 		}
 		setOpening(true);
+		if (projectId && currentProjectId !== projectId) resetProgress();
 		if (projectId && projectName) {
 			setProject(projectId, projectName);
 			try {
@@ -76,7 +79,9 @@ export default function OpenProjectButton({
 					)}
 				</a>
 			</Button>
-			{opening ? <ProjectOpeningOverlay label={loadingLabel} /> : null}
+			{opening ? (
+				<ProjectOpeningOverlay label={loadingLabel} siteId={projectId} />
+			) : null}
 		</>
 	);
 }

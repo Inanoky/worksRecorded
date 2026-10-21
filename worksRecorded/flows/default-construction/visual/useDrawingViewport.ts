@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import {
 	type DrawingCamera,
 	fitDrawing,
@@ -15,6 +21,7 @@ export function useDrawingViewport(
 	pageKey: string,
 	enabled: boolean,
 	drawing = false,
+	visible = true,
 ) {
 	const viewport = useRef<HTMLElement>(null);
 	const surface = useRef<HTMLDivElement>(null);
@@ -33,6 +40,12 @@ export function useDrawingViewport(
 		height: number;
 	} | null>(null);
 	const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const measurement = useRef({
+		pageKey: "",
+		aspect: 0,
+		measured: false,
+		previous: { width: 0, height: 0, pageWidth: 1, pageHeight: 1 },
+	});
 	const stop = useCallback(() => {
 		if (frame.current !== null) cancelAnimationFrame(frame.current);
 		frame.current = null;
@@ -115,12 +128,21 @@ export function useDrawingViewport(
 		target.current = camera.current;
 		setZoom(camera.current.scale);
 	}, [stop]);
-	useEffect(() => {
+	useLayoutEffect(() => {
 		const element = viewport.current;
-		if (!element || !pageKey) return;
-		let measured = false;
-		let previous = { width: 0, height: 0, pageWidth: 1, pageHeight: 1 };
+		if (!element || !pageKey || !visible) return;
+		if (
+			measurement.current.pageKey !== pageKey ||
+			measurement.current.aspect !== aspect
+		)
+			measurement.current = {
+				pageKey,
+				aspect,
+				measured: false,
+				previous: { width: 0, height: 0, pageWidth: 1, pageHeight: 1 },
+			};
 		const measure = () => {
+			const { measured, previous } = measurement.current;
 			const width = element.clientWidth,
 				height = element.clientHeight;
 			if (!width || !height) return;
@@ -144,13 +166,13 @@ export function useDrawingViewport(
 			paint(next);
 			target.current = next;
 			setZoom(next.scale);
-			previous = {
+			measurement.current.previous = {
 				width,
 				height,
 				pageWidth: fitted.width,
 				pageHeight: fitted.height,
 			};
-			measured = true;
+			measurement.current.measured = true;
 		};
 		measure();
 		const observer =
@@ -164,7 +186,7 @@ export function useDrawingViewport(
 			window.removeEventListener("resize", measure);
 			stop();
 		};
-	}, [aspect, pageKey, paint, stop]);
+	}, [aspect, pageKey, paint, stop, visible]);
 	useEffect(() => {
 		const element = viewport.current;
 		if (!element || !enabled) return;

@@ -19,6 +19,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useProjectPreparationReporter } from "@/components/providers/ProjectLoadingProgressProvider";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -110,6 +111,17 @@ import {
 } from "./visual-client-cache";
 
 type Index = Awaited<ReturnType<typeof getVisualDrawings>>;
+function firstAssignedDrawing(index: Index) {
+	for (const location of index.locations) {
+		const drawing = index.drawings.find(
+			(item) =>
+				normalizeVisualLocation(item.location) ===
+				normalizeVisualLocation(location),
+		);
+		if (drawing) return drawing;
+	}
+	return index.drawings[0];
+}
 const allLayers = Object.keys(visualLayers) as VisualLayer[];
 const defaultLayerConfiguration: VisualLayerConfiguration = {
 	settings: defaultVisualLayerSettings(),
@@ -120,10 +132,16 @@ const defaultLayerConfiguration: VisualLayerConfiguration = {
 export default function VisualView({
 	siteId,
 	active = true,
+	preload = false,
 }: {
 	siteId: string;
 	active?: boolean;
+	preload?: boolean;
 }) {
+	const reportPreparation = useProjectPreparationReporter(siteId);
+	useEffect(() => {
+		reportPreparation("visual-module");
+	}, [reportPreparation]);
 	const { workspace, height } = useVisualWorkspace(active);
 	const resourceCache = useMemo(() => new VisualClientCache(siteId), [siteId]);
 	const [index, setIndex] = useState<Index | null>(null);
@@ -280,9 +298,37 @@ export default function VisualView({
 		if (cached) showIndex(cached, true);
 		void loadIndex().then(
 			(data) => {
-				if (run === epoch.current) showIndex(data, !cached);
+				if (run !== epoch.current) return;
+				showIndex(data, !cached);
+				reportPreparation("visual-index");
+				const first = firstAssignedDrawing(data);
+				if (preload && first)
+					void resourceCache
+						.prefetch(
+							first.id,
+							() => getVisualPlanning(siteId, first.id),
+							(step, status) => {
+								if (run === epoch.current) reportPreparation(step, status);
+							},
+						)
+						.catch(() => {});
+				else if (!first)
+					for (const step of [
+						"visual-drawing",
+						"visual-planning",
+						"visual-preview",
+					])
+						reportPreparation(step);
 			},
 			() => {
+				if (run === epoch.current)
+					for (const step of [
+						"visual-index",
+						"visual-drawing",
+						"visual-planning",
+						"visual-preview",
+					])
+						reportPreparation(step, "error");
 				if (run === epoch.current && !cached)
 					setError("Neizdevās ielādēt lokācijas un rasējumus.");
 			},
@@ -291,30 +337,69 @@ export default function VisualView({
 			++epoch.current;
 			++requestId.current;
 		};
-	}, [loadIndex, resourceCache, showIndex]);
+	}, [loadIndex, resourceCache, showIndex, preload, siteId, reportPreparation]);
 	const pollDrawingId = drawing?.id;
 	useEffect(() => {
-		if (!active || !pollDrawingId) return;
+		if ((!active && !preload) || !pollDrawingId) return;
 		void resourceCache
 			.loadPlanning(pollDrawingId, () =>
 				getVisualPlanning(siteId, pollDrawingId),
 			)
 			.catch(() => {});
-	}, [active, pollDrawingId, resourceCache, siteId]);
+	}, [active, preload, pollDrawingId, resourceCache, siteId]);
 	useEffect(() => {
-		if (!active || !pollDrawingId || !index?.drawings.length) return;
+		if (
+			(!active && !preload) ||
+			!pollDrawingId ||
+			!index?.drawings.length ||
+			planningDirty ||
+			editing ||
+			workEditing
+		)
+			return;
 		const position = index.drawings.findIndex(
 			(item) => item.id === pollDrawingId,
 		);
 		const next = index.drawings[(position + 1) % index.drawings.length];
 		if (!next || next.id === pollDrawingId) return;
+		let cancelled = false;
 		const timer = setTimeout(() => {
-			void resourceCache
-				.prefetch(next.id, () => getVisualPlanning(siteId, next.id))
-				.catch(() => {});
+			void (async () => {
+				const previous =
+					index.drawings[
+						(position - 1 + index.drawings.length) % index.drawings.length
+					];
+				const neighbors = new Set([next.id, previous.id]);
+				for (const id of neighbors) {
+					if (cancelled) return;
+					await resourceCache
+						.prefetch(id, () => getVisualPlanning(siteId, id))
+						.catch(() => {});
+				}
+				for (const item of index.drawings) {
+					if (cancelled) return;
+					if (item.id === pollDrawingId || neighbors.has(item.id)) continue;
+					await resourceCache
+						.prefetch(item.id, () => getVisualPlanning(siteId, item.id))
+						.catch(() => {});
+				}
+			})();
 		}, 300);
-		return () => clearTimeout(timer);
-	}, [active, pollDrawingId, index?.drawings, resourceCache, siteId]);
+		return () => {
+			cancelled = true;
+			clearTimeout(timer);
+		};
+	}, [
+		active,
+		preload,
+		pollDrawingId,
+		index?.drawings,
+		resourceCache,
+		siteId,
+		planningDirty,
+		editing,
+		workEditing,
+	]);
 	useEffect(() => {
 		if (!active) return;
 		const refreshIfVisible = async () => {
@@ -472,11 +557,14 @@ export default function VisualView({
 		},
 		[index, loadDrawing],
 	);
-	const firstLocation = index?.locations[0] ?? "";
+	const firstLocation =
+		(preload && index ? firstAssignedDrawing(index)?.location : undefined) ??
+		index?.locations[0] ??
+		"";
 	useEffect(() => {
-		if (!active || location || !firstLocation) return;
+		if ((!active && !preload) || location || !firstLocation) return;
 		selectLocation(firstLocation);
-	}, [active, firstLocation, location, selectLocation]);
+	}, [active, preload, firstLocation, location, selectLocation]);
 	async function analyze(id: string, run: number, request: number) {
 		++analysisVersion.current;
 		try {
@@ -1242,6 +1330,7 @@ export default function VisualView({
 							className="relative h-full overflow-hidden"
 						>
 							<VisualPdf
+								active={active && mode === "actual"}
 								resourceCache={resourceCache}
 								layerStyles={layerStyles}
 								key={drawing.id}

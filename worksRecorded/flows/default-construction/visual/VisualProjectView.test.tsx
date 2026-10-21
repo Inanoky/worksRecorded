@@ -1,7 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { getProjectNavLinks } from "@/components/dashboard/NavLinks";
+import { ProjectLoadingProgressProvider } from "@/components/providers/ProjectLoadingProgressProvider";
+
 let mockPathname = "/dashboard/sites/site/dashboard";
 jest.mock("next/navigation", () => ({ usePathname: () => mockPathname }));
+
 import { VisualProjectView } from "./VisualProjectView";
 
 const mockMount = jest.fn();
@@ -85,4 +88,44 @@ it("offers Izpildshēmas only when enabled for the project", () => {
 			(item) => item.path === "izpildshemas",
 		)?.name,
 	).toBe("Izpildshēmas");
+});
+
+it("preloads Limeni's hidden view when opening a project and reuses it on the first visit", async () => {
+	const view = render(
+		<ProjectLoadingProgressProvider enabled visualPreloadEnabled>
+			<Diary active={false} />
+		</ProjectLoadingProgressProvider>,
+	);
+	const input = await screen.findByLabelText("Location");
+	expect(input).not.toBeVisible();
+	expect(mockMount).toHaveBeenCalledTimes(1);
+	view.rerender(
+		<ProjectLoadingProgressProvider enabled visualPreloadEnabled>
+			<Diary active />
+		</ProjectLoadingProgressProvider>,
+	);
+	expect(screen.getByRole("textbox")).toBe(input);
+	expect(mockMount).toHaveBeenCalledTimes(1);
+});
+
+it("preloads only eligible projects for an administrator visiting multiple organizations", async () => {
+	const view = render(
+		<ProjectLoadingProgressProvider
+			enabled={false}
+			visualPreloadSites={["limeni-site"]}
+		>
+			<Diary active={false} siteId="another-company" />
+		</ProjectLoadingProgressProvider>,
+	);
+	expect(mockMount).not.toHaveBeenCalled();
+	view.rerender(
+		<ProjectLoadingProgressProvider
+			enabled={false}
+			visualPreloadSites={["limeni-site"]}
+		>
+			<Diary active={false} siteId="limeni-site" />
+		</ProjectLoadingProgressProvider>,
+	);
+	expect(await screen.findByLabelText("Location")).not.toBeVisible();
+	expect(mockMount).toHaveBeenCalledWith("limeni-site");
 });

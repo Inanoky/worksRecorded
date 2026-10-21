@@ -838,10 +838,10 @@ it("prepares the saved task for its contact and allows editing the WhatsApp draf
 		name: "Nosūtīt no Limeni WhatsApp",
 	});
 	expect((message as HTMLTextAreaElement).value).toContain(
-		"Darbs: Smilts Lokācija: 1. stāvs",
+		"*Darbs:* Smilts\n*Lokācija:* 1. stāvs",
 	);
 	expect((message as HTMLTextAreaElement).value).toContain(
-		"Plānotais apjoms: 10,123456 m2",
+		"*Plānotais apjoms:* 10,123456 m2",
 	);
 	expect((message as HTMLTextAreaElement).value).toContain("12.10.2026.");
 	expect((message as HTMLTextAreaElement).value).toContain("16.10.2026.");
@@ -881,7 +881,7 @@ it("prepares the saved task for its contact and allows editing the WhatsApp draf
 				planId: plan.id,
 				planVersion: plan.version,
 				recipient: "37121111111",
-				message: "Lūdzu, pārbaudīt XPS & grīdu #1",
+				message: "Lūdzu,\npārbaudīt XPS & grīdu #1",
 				images: [expect.objectContaining({ page: 1 })],
 			}),
 		),

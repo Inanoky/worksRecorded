@@ -117,6 +117,7 @@ function createVisualPlanArea(areas: VisualPlanArea[], page: number) {
 }
 
 export function VisualPdf({
+	active = true,
 	url,
 	marks,
 	selected,
@@ -136,6 +137,7 @@ export function VisualPdf({
 	onCreateRecord,
 	createRecordBlockedReason,
 }: {
+	active?: boolean;
 	url: string;
 	marks: VisualMark[];
 	selected: string | null;
@@ -189,8 +191,9 @@ export function VisualPdf({
 	const navigation = useDrawingViewport(
 		aspect,
 		`${url}:${page}`,
-		ready && !saving,
+		active && ready && !saving,
 		penMode !== null,
+		active,
 	);
 	const { surface } = navigation;
 	const interactionLocked = !!draft || planningEnabled || navigation.panning;
@@ -1066,7 +1069,7 @@ export function VisualPdf({
 							pageHeight={navigation.size.height}
 							overviewWidth={canvas.current?.width ?? 0}
 							view={navigation.settledView}
-							enabled={!navigation.panning}
+							enabled={active && !navigation.panning}
 						/>
 					) : null}
 					{ready ? (

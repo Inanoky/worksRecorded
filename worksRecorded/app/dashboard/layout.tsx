@@ -18,6 +18,7 @@ import { clearUserTourAction } from "@/components/joyride/user-tour-action";
 import { ProjectLoadingProgressProvider } from "@/components/providers/ProjectLoadingProgressProvider";
 import { ProjectProvider } from "@/components/providers/ProjectProvider";
 import { DiarySaveProvider } from "@/flows/default-construction/frontend/DiarySaveProvider";
+import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -101,7 +102,13 @@ export default async function DashboardLayout({
 
 	return (
 		<ProjectProvider userId={userId}>
-			<ProjectLoadingProgressProvider enabled={flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}>
+			<ProjectLoadingProgressProvider
+				key={`${userId}:${organizationId}`}
+				enabled={flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}
+				visualPreloadSites={allHeaderProjects
+					.filter((project) => project.organizationId === LIMENI_ORGANIZATION_ID)
+					.map((project) => project.id)}
+			>
 			<FimaWarehouseProvider key={`${userId}-${organizationId ?? ""}`}>
 				<FimaSuiteTheme enabled={fimaCollaborationEnabled} />
 				<ProdevSuiteTheme enabled={prodevSuiteEnabled} />

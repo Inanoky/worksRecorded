@@ -1,6 +1,10 @@
 "use client";
 
-export type ProjectLoadingProgress = { completed: number; total: number };
+export type ProjectLoadingProgress = {
+	completed: number;
+	total: number;
+	steps?: Array<{ label: string; status: "pending" | "done" | "error" }>;
+};
 
 export function ProjectLoadingProgressBar({
 	label,
@@ -18,6 +22,9 @@ export function ProjectLoadingProgressBar({
 			: undefined;
 	return (
 		<div className="w-full">
+			<p className="mb-2 text-right text-sm tabular-nums" aria-live="polite">
+				{value === undefined ? "0%" : `${Math.round(value)}%`}
+			</p>
 			<progress
 				className="sr-only"
 				aria-label={label}
@@ -37,6 +44,29 @@ export function ProjectLoadingProgressBar({
 					style={value === undefined ? undefined : { width: `${value}%` }}
 				/>
 			</div>
+			{progress?.steps ? (
+				<ol className="mt-3 space-y-1 text-left text-xs">
+					{progress.steps.map((step, index) => (
+						<li
+							key={step.label}
+							className={
+								step.status === "done"
+									? "text-primary"
+									: step.status === "error"
+										? "text-destructive"
+										: "text-muted-foreground"
+							}
+						>
+							{index + 1}. {step.label} ·{" "}
+							{step.status === "done"
+								? "Gatavs"
+								: step.status === "error"
+									? "Neizdevās ielādēt"
+									: "Gaida"}
+						</li>
+					))}
+				</ol>
+			) : null}
 		</div>
 	);
 }

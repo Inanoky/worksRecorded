@@ -112,7 +112,7 @@ afterEach(() => {
 	global.fetch = originalFetch;
 });
 
-it("uploads and sends one dedicated template message per ordered image", async () => {
+it("sends a formatted task caption and only the section name on its Griezums image", async () => {
 	let media = 0;
 	let message = 0;
 	const fetchMock = jest.fn(
@@ -162,40 +162,64 @@ it("uploads and sends one dedicated template message per ordered image", async (
 	expect(messageBodies[0]).toEqual(
 		expect.objectContaining({
 			to: "37120000000",
-			template: expect.objectContaining({ name: "limeni_work_task" }),
+			type: "image",
 		}),
 	);
-	expect(messageBodies[0].template.components[0].parameters[0]).toEqual({
-		type: "image",
-		image: { id: "media-1" },
+	expect(messageBodies[0].image).toEqual({
+		id: "media-1",
+		caption: "*Objekts:* Testa objekts\n\nPārbaudīt\ndarbu šeit",
 	});
-	expect(messageBodies[0].template.components[1].parameters).toEqual([
+	expect(sendCreate).toHaveBeenCalledWith(
+		expect.objectContaining({
+			data: expect.objectContaining({ message: "Pārbaudīt\ndarbu šeit" }),
+		}),
+	);
+	expect(messageBodies[1]).toMatchObject({
+		type: "image",
+		image: { id: "media-2", caption: "PA1.6" },
+	});
+	expect(messageBodies[1]).not.toHaveProperty("template");
+});
+
+it("uses the approved template only when Meta explicitly closes the reply window and keeps section text short", async () => {
+	const fetchMock = jest.fn(
+		async (url: RequestInfo | URL, init?: RequestInit) => {
+			if (String(url).endsWith("/media"))
+				return { ok: true, json: async () => ({ id: "media" }) } as Response;
+			const body = JSON.parse(String(init?.body));
+			if (body.type === "image")
+				return {
+					ok: false,
+					status: 400,
+					json: async () => ({ error: { code: 131047 } }),
+				} as Response;
+			return {
+				ok: true,
+				json: async () => ({ messages: [{ id: "wamid.template" }] }),
+			} as Response;
+		},
+	);
+	global.fetch = fetchMock as typeof fetch;
+	const result = await sendVisualPlanningWhatsAppTask(validRequest());
+	expect(result.status).toBe("sent");
+	const templates = fetchMock.mock.calls
+		.filter(
+			([url, init]) =>
+				String(url).endsWith("/messages") &&
+				JSON.parse(String(init?.body)).type === "template",
+		)
+		.map(([, init]) => JSON.parse(String(init?.body)));
+	expect(templates).toHaveLength(2);
+	expect(templates[0].template.name).toBe("limeni_work_task");
+	expect(templates[1].template.components[1].parameters).toEqual([
 		{
 			type: "text",
 			parameter_name: "objekts",
-			text: "Testa objekts — PDF lapa 1",
+			text: "Testa objekts — Sekcija PA1.6",
 		},
-		{
-			type: "text",
-			parameter_name: "uzdevuma_apraksts",
-			text: "Pārbaudīt darbu šeit",
-		},
-		{
-			type: "text",
-			parameter_name: "attelu_skaits",
-			text: "2",
-		},
+		{ type: "text", parameter_name: "uzdevuma_apraksts", text: "PA1.6" },
+		{ type: "text", parameter_name: "attelu_skaits", text: "1" },
 	]);
-	expect(sendCreate).toHaveBeenCalledWith(
-		expect.objectContaining({
-			data: expect.objectContaining({ message: "Pārbaudīt darbu šeit" }),
-		}),
-	);
-	expect(messageBodies[1].template.components[1].parameters[0]).toEqual({
-		type: "text",
-		parameter_name: "objekts",
-		text: "Testa objekts — Sekcija PA1.6",
-	});
 });
 
 it("never falls back to the shared Meta credential", async () => {

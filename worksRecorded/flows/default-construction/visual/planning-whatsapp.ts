@@ -14,14 +14,25 @@ export function planningWhatsAppMessage(plan: VisualPlan) {
 			new Date(`${date}T00:00:00Z`),
 		);
 	const details = [
-		`Darbs: ${plan.work}`,
-		`Lokācija: ${plan.location}`,
-		`Plānotais apjoms: ${new Intl.NumberFormat("lv-LV", { maximumFractionDigits: 20 }).format(plan.quantity)} ${plan.unit}`,
-		...(plan.geometry.section ? [`Sekcija: ${plan.geometry.section}`] : []),
-		`Sākums: ${formatDate(plan.startDate)}`,
-		`Izpildes termiņš: ${formatDate(plan.endDate)}`,
+		`*Darbs:* ${plan.work}`,
+		`*Lokācija:* ${plan.location}`,
+		`*Plānotais apjoms:* ${new Intl.NumberFormat("lv-LV", { maximumFractionDigits: 20 }).format(plan.quantity)} ${plan.unit}`,
+		...(plan.geometry.section ? [`*Sekcija:* ${plan.geometry.section}`] : []),
+		"",
+		`*Sākums:* ${formatDate(plan.startDate)}`,
+		`*Izpildes termiņš:* ${formatDate(plan.endDate)}`,
 	];
-	return ["Darba uzdevums", ...details].join("\n");
+	return ["*Darba uzdevums*", "", ...details].join("\n");
+}
+
+export function normalizePlanningWhatsAppMessage(value: string) {
+	return value
+		.replace(/\r\n?/g, "\n")
+		.split("\n")
+		.map((line) => line.replace(/[^\S\n]+/gu, " ").trim())
+		.join("\n")
+		.replace(/\n{3,}/g, "\n\n")
+		.trim();
 }
 
 export function normalizePlanningWhatsAppTemplateText(value: string) {
@@ -29,9 +40,7 @@ export function normalizePlanningWhatsAppTemplateText(value: string) {
 }
 
 export function planningWhatsAppTemplateMessage(plan: VisualPlan) {
-	return normalizePlanningWhatsAppTemplateText(
-		planningWhatsAppMessage(plan).replace(/^Darba uzdevums\s*/u, ""),
-	);
+	return planningWhatsAppMessage(plan);
 }
 
 export function planningMessageWithShare(message: string, url: string) {

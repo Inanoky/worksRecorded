@@ -5,16 +5,25 @@ import {
 	type ProjectLoadingProgress,
 	ProjectLoadingProgressBar,
 } from "./ProjectLoadingProgressBar";
-import { useProjectLoadingProgress } from "./ProjectLoadingProgressProvider";
+import {
+	useProjectLoadingProgress,
+	useProjectPreparation,
+	useVisualProjectPreload,
+} from "./ProjectLoadingProgressProvider";
 
 export function ProjectOpeningOverlay({
 	label,
 	progress,
+	siteId,
 }: {
 	label: string;
 	progress?: ProjectLoadingProgress | null;
+	siteId?: string;
 }) {
-	const showProgress = useProjectLoadingProgress();
+	const enabled = useProjectLoadingProgress();
+	const visualPreload = useVisualProjectPreload(siteId);
+	const showProgress = enabled || visualPreload;
+	const preparation = useProjectPreparation(siteId);
 	return (
 		<output
 			className="fixed inset-0 z-[100] flex items-center justify-center bg-background/85 p-6 backdrop-blur-sm"
@@ -30,7 +39,17 @@ export function ProjectOpeningOverlay({
 				/>
 				<p className="text-center text-base font-medium">{label}</p>
 				{showProgress ? (
-					<ProjectLoadingProgressBar label={label} progress={progress} />
+					<ProjectLoadingProgressBar
+						label={label}
+						progress={
+							preparation ??
+							progress ?? {
+								completed: 0,
+								total: 1,
+								steps: [{ label: "Projekta datu ielāde", status: "pending" }],
+							}
+						}
+					/>
 				) : null}
 			</div>
 		</output>

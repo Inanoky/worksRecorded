@@ -9,7 +9,10 @@ import {
 	VISUAL_WORK_TASK_PURPOSE,
 } from "@/lib/whatsapp-business-numbers";
 import { VISUAL_PLAN_TYPE, visualPlanAreasSchema } from "./planning-model";
-import { normalizePlanningWhatsAppTemplateText } from "./planning-whatsapp";
+import {
+	normalizePlanningWhatsAppMessage,
+	normalizePlanningWhatsAppTemplateText,
+} from "./planning-whatsapp";
 import { requireVisualAccess } from "./store";
 
 export const WHATSAPP_TASK_MAX_BODY = 16_000_000;
@@ -22,7 +25,7 @@ const sendInputSchema = z
 		recipient: z.string().transform((value) => normalizeMetaPhone(value)),
 		message: z
 			.string()
-			.transform(normalizePlanningWhatsAppTemplateText)
+			.transform(normalizePlanningWhatsAppMessage)
 			.pipe(z.string().min(1).max(900)),
 		clientRequestId: z.string().uuid(),
 		images: z
@@ -56,6 +59,15 @@ function userFacingProviderError() {
 	return "Ziņu neizdevās nosūtīt. Pārbaudiet Meta numura un veidnes iestatījumus.";
 }
 
+class WhatsAppProviderError extends Error {
+	constructor(
+		message: string,
+		public readonly code?: number,
+	) {
+		super(message);
+	}
+}
+
 async function graphJson(args: {
 	url: string;
 	token: string;
@@ -70,10 +82,38 @@ async function graphJson(args: {
 	});
 	const payload = await response.json().catch(() => null);
 	if (!response.ok)
-		throw new Error(
+		throw new WhatsAppProviderError(
 			`Meta request failed (${response.status}): ${JSON.stringify(payload)}`,
+			payload?.error?.code,
 		);
 	return payload;
+}
+
+async function sendImage(args: {
+	businessPhoneNumberId: string;
+	token: string;
+	recipient: string;
+	mediaId: string;
+	caption: string;
+}) {
+	const payload = await graphJson({
+		url: `${getMetaGraphBaseUrl()}/${args.businessPhoneNumberId}/messages`,
+		token: args.token,
+		init: {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				messaging_product: "whatsapp",
+				recipient_type: "individual",
+				to: args.recipient,
+				type: "image",
+				image: { id: args.mediaId, caption: args.caption },
+			}),
+		},
+	});
+	const id = payload?.messages?.[0]?.id;
+	if (typeof id !== "string") throw new Error("Meta message ID missing");
+	return id as string;
 }
 
 async function uploadMetaImage(args: {
@@ -259,7 +299,7 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 			send.planId !== input.planId ||
 			send.planVersion !== input.planVersion ||
 			send.recipient !== input.recipient ||
-			normalizePlanningWhatsAppTemplateText(send.message) !== input.message ||
+			normalizePlanningWhatsAppMessage(send.message) !== input.message ||
 			existingItems.length !== input.images.length ||
 			existingItems.some(
 				(item, ordinal) =>
@@ -312,17 +352,40 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 			const label = item.section
 				? `Sekcija ${item.section}`
 				: `PDF lapa ${item.page}`;
-			const metaMessageId = await sendTemplate({
-				businessPhoneNumberId: businessNumber.businessPhoneNumberId,
-				token,
-				templateName: businessNumber.templateName,
-				templateLanguage: businessNumber.templateLanguage,
-				recipient: input.recipient,
-				objectName: `${plan.site.name} — ${label}`,
-				message: input.message,
-				total: items.length,
-				mediaId,
-			});
+			const projectName = Array.from(
+				normalizePlanningWhatsAppTemplateText(plan.site.name),
+			)
+				.slice(0, 80)
+				.join("");
+			const caption = item.section
+				? item.section
+				: `*Objekts:* ${projectName}\n\n${input.message}`;
+			let metaMessageId: string;
+			try {
+				metaMessageId = await sendImage({
+					businessPhoneNumberId: businessNumber.businessPhoneNumberId,
+					token,
+					recipient: input.recipient,
+					mediaId,
+					caption,
+				});
+			} catch (error) {
+				if (!(error instanceof WhatsAppProviderError) || error.code !== 131047)
+					throw error;
+				metaMessageId = await sendTemplate({
+					businessPhoneNumberId: businessNumber.businessPhoneNumberId,
+					token,
+					templateName: businessNumber.templateName,
+					templateLanguage: businessNumber.templateLanguage,
+					recipient: input.recipient,
+					objectName: `${plan.site.name} — ${label}`,
+					message: item.section
+						? item.section
+						: normalizePlanningWhatsAppTemplateText(input.message),
+					total: item.section ? 1 : items.length,
+					mediaId,
+				});
+			}
 			await prisma.whatsAppTaskSendItem.update({
 				where: { id: item.id },
 				data: {

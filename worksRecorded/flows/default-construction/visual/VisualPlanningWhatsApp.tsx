@@ -19,8 +19,8 @@ import { Textarea } from "@/components/ui/textarea";
 import type { PlanningImage } from "./planning-image";
 import type { VisualPlan } from "./planning-model";
 import {
+	normalizePlanningWhatsAppMessage,
 	normalizePlanningWhatsAppPhone,
-	normalizePlanningWhatsAppTemplateText,
 	planningWhatsAppTemplateMessage,
 } from "./planning-whatsapp";
 import {
@@ -117,7 +117,7 @@ export function VisualPlanningWhatsApp({
 	}
 	async function sendTask() {
 		const recipient = normalizePlanningWhatsAppPhone(phone);
-		const normalizedMessage = normalizePlanningWhatsAppTemplateText(message);
+		const normalizedMessage = normalizePlanningWhatsAppMessage(message);
 		if (!recipient || !normalizedMessage || !images.length || !clientRequestId)
 			return;
 		const controller = new AbortController();
@@ -154,7 +154,7 @@ export function VisualPlanningWhatsApp({
 	}
 	const id = useId();
 	const invalidPhone = !!phone.trim() && !normalizePlanningWhatsAppPhone(phone);
-	const normalizedMessage = normalizePlanningWhatsAppTemplateText(message);
+	const normalizedMessage = normalizePlanningWhatsAppMessage(message);
 	const messageTooLong = normalizedMessage.length > 900;
 	const sendDisabled =
 		preparing ||
@@ -204,9 +204,9 @@ export function VisualPlanningWhatsApp({
 					<div className="space-y-3">
 						<p className="text-sm font-medium">Uzdevuma zonas attēls</p>
 						<p className="text-xs text-muted-foreground">
-							Nokopējiet attēlu, atveriet WhatsApp un ielīmējiet to sarunā ar
-							Ctrl+V vai Cmd+V. Varat arī lejupielādēt attēlu un pievienot to kā
-							failu.
+							Attēli tiks pievienoti uzdevumam automātiski. Griezuma attēlam
+							pievienosim sekcijas nosaukumu. Attēlus var arī nokopēt vai
+							lejupielādēt.
 						</p>
 						{preparing ? (
 							<output className="flex items-center gap-2 text-sm text-muted-foreground">

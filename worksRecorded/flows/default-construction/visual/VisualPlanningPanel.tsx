@@ -764,6 +764,7 @@ export function VisualPlanningPanel({
 			/>
 			<div className="relative min-h-0 flex-1 overflow-hidden">
 				<VisualPdf
+					active={active}
 					onDocumentChange={onPdfDocumentChange}
 					controlsHost={controlsHost}
 					resourceCache={cache}

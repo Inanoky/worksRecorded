@@ -63,7 +63,7 @@ export class VisualClientCache {
 	>();
 	private previews = new Map<
 		string,
-		{ canvas: HTMLCanvasElement; aspect: number }
+		{ canvas: HTMLCanvasElement; aspect: number; url: string }
 	>();
 
 	constructor(
@@ -347,13 +347,14 @@ export class VisualClientCache {
 			old.canvas.height = 0;
 		}
 		this.previews.delete(key);
-		this.previews.set(key, { canvas, aspect });
+		this.previews.set(key, { canvas, aspect, url });
 		let pixels = [...this.previews.values()].reduce(
 			(sum, entry) => sum + entry.canvas.width * entry.canvas.height,
 			0,
 		);
 		for (const [previewKey, preview] of this.previews) {
 			if (pixels <= 16_000_000) break;
+			if (this.pdfs.get(preview.url)?.references) continue;
 			pixels -= preview.canvas.width * preview.canvas.height;
 			preview.canvas.width = 0;
 			preview.canvas.height = 0;
@@ -361,7 +362,12 @@ export class VisualClientCache {
 		}
 	}
 
-	renderPreview(url: string, page: number, pdf: PDFDocumentProxy) {
+	renderPreview(
+		url: string,
+		page: number,
+		pdf: PDFDocumentProxy,
+		maxPixels = 4_000_000,
+	) {
 		const cached = this.peekPreview(url, page);
 		if (cached) return Promise.resolve(cached);
 		const key = `${url}:${page}`;
@@ -384,8 +390,8 @@ export class VisualClientCache {
 						throw new DOMException("Preview cancelled", "AbortError");
 					const base = pdfPage.getViewport({ scale: 1 });
 					const width = Math.min(
-						1800,
-						Math.sqrt((4_000_000 * base.width) / base.height),
+						maxPixels <= 1_000_000 ? 1200 : 1800,
+						Math.sqrt((maxPixels * base.width) / base.height),
 						(4096 * base.width) / base.height,
 					);
 					const viewport = pdfPage.getViewport({ scale: width / base.width });
@@ -418,16 +424,39 @@ export class VisualClientCache {
 	async prefetch(
 		id: string,
 		loadPlanning?: () => Promise<VisualPlanningIndex>,
+		onProgress?: (step: string, status: "done" | "error") => void,
 	) {
-		const pdf = this.pdfEntry(`${this.endpoint(id)}?pdf=1`);
-		this.trimPdfs();
-		await Promise.all([
-			this.loadDrawing(id),
-			pdf.promise.then((document) =>
-				this.renderPreview(`${this.endpoint(id)}?pdf=1`, 1, document),
-			),
-			...(loadPlanning ? [this.loadPlanning(id, loadPlanning)] : []),
-		]);
+		const url = `${this.endpoint(id)}?pdf=1`;
+		const preview = this.peekPreview(url, 1);
+		const pdf = preview ? null : this.openPdf(url);
+		const track = async <T>(step: string, promise: Promise<T>) => {
+			try {
+				const value = await promise;
+				onProgress?.(step, "done");
+				return value;
+			} catch (error) {
+				onProgress?.(step, "error");
+				throw error;
+			}
+		};
+		try {
+			await Promise.all([
+				track("visual-drawing", this.loadDrawing(id)),
+				track(
+					"visual-preview",
+					pdf
+						? pdf.promise.then((document) =>
+								this.renderPreview(url, 1, document, 1_000_000),
+							)
+						: Promise.resolve(preview),
+				),
+				...(loadPlanning
+					? [track("visual-planning", this.loadPlanning(id, loadPlanning))]
+					: []),
+			]);
+		} finally {
+			pdf?.release();
+		}
 	}
 
 	removeDrawing(id: string) {

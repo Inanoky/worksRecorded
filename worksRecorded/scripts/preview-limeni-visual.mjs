@@ -8,6 +8,7 @@ import postcss from "postcss";
 
 const root = process.cwd();
 const performancePreview = process.argv.includes("--performance");
+const projectPreloadPreview = process.argv.includes("--project-preload");
 const sectionCatalog = JSON.parse(
 	await readFile(
 		path.join(root, "assets/visual-sections/ar-701/catalog.json"),
@@ -90,6 +91,7 @@ if (process.argv.includes("--failed-analysis")) {
 	}));
 }
 const modules = {
+	navigation: `import {useSyncExternalStore} from 'react';export function usePathname(){return useSyncExternalStore(listener=>{window.addEventListener('popstate',listener);return ()=>window.removeEventListener('popstate',listener)},()=>window.location.pathname,()=>'/')}`,
 	actions: `let drawing=${JSON.stringify(fixture)}; export async function getVisualDrawings(){return {locations:['1. stāvs'],drawings:[{id:drawing.id,name:drawing.name,location:drawing.state.location,createdAt:drawing.createdAt,status:'complete'}]}}; export async function saveVisualPolygon(site,id,edit){drawing=structuredClone(drawing);drawing.state.marks.find(x=>x.id===edit.markId).polygon=edit.polygon;window.__visualPreviewDrawing=drawing;return drawing}; export async function deleteVisualDrawing(){};export async function deleteVisualPolygon(site,id,input){drawing=structuredClone(drawing);const mark=drawing.state.marks.find(x=>x.id===input.markId);if(!mark)throw Error('Missing polygon');drawing.state.marks=drawing.state.marks.filter(x=>x.id!==input.markId);drawing.state.deletedPolygons=[...(drawing.state.deletedPolygons??[]),{markId:mark.id,evidenceId:mark.evidenceId,polygon:mark.polygon,deletedAt:new Date().toISOString(),deletedBy:'preview'}];window.__visualPreviewDrawing=drawing;return drawing};export async function refreshVisualDrawing(){return {drawing,addedCount:0,updatedCount:0,removedCount:0,analysisCount:0,reviewCount:0}};export async function restartVisualDrawing(){throw Error('Preview only')};export async function getVisualWorkTypes(){return ['Smilts līdzināšana','XPS izolācija 150 mm','Estrich grīda 70 mm']};export async function saveVisualWorkType(site,id,edit){drawing=structuredClone(drawing);const source=drawing.state.evidence.find(x=>x.id===edit.evidenceId);const layer=edit.work.includes('XPS')?'xps':edit.work.includes('Estrich')?'estrich':'sand';for(const item of drawing.state.evidence.filter(x=>x.recordId===source.recordId)){item.work=edit.work;for(const mark of drawing.state.marks.filter(x=>x.evidenceId===item.id))mark.layer=layer}window.__visualPreviewDrawing=drawing;return drawing};export async function resolveVisualSourceReview(){throw Error('Preview only')}`,
 	upload: `export const useUploadThing=()=>({startUpload:async()=>{throw Error('Preview only')}});`,
 	image: `import React from 'react';export default function Image({fill,unoptimized,sizes,style,...props}){return React.createElement('img',{...props,style:{...(fill?{position:'absolute',inset:0,width:'100%',height:'100%'}:{}),...style}})}`,
@@ -167,6 +169,23 @@ modules.actions += `let sections=${JSON.stringify(planningFixture.sections)};exp
 modules.share = `export async function publishPlanningShare(site,plan){return {token:'synthetic-preview',url:'https://www.worksrecorded.com/shared/work/synthetic-preview',version:plan.version}};`;
 modules.send = `export async function sendPlanningWhatsAppTask(){throw Error('Preview only')};`;
 modules.actions += `export async function saveVisualPolygonPatch(){throw Error('Preview only')};export async function saveVisualLayers(){throw Error('Preview only')};`;
+if (projectPreloadPreview) {
+	modules.actions = modules.actions
+		.replace(
+			"export async function getVisualDrawings()",
+			"async function getPreviewDrawingIndex()",
+		)
+		.replace(
+			"export async function refreshVisualDrawing()",
+			"async function refreshPreviewDrawing()",
+		)
+		.replace(
+			"export async function getVisualPlanning()",
+			"async function getPreviewPlanning()",
+		);
+	modules.actions += `export async function getVisualDrawings(){await new Promise(resolve=>setTimeout(resolve,6000));const index=await getPreviewDrawingIndex();return {...index,locations:['1. stāvs','2. stāvs'],drawings:[...index.drawings,{...index.drawings[0],id:'demo-drawing-2',location:'2. stāvs'}]}};export async function getVisualPlanning(site,id){await new Promise(resolve=>setTimeout(resolve,9000));const index=await getPreviewPlanning();return {...index,location:id==='demo-drawing-2'?'2. stāvs':'1. stāvs',plans:index.plans.filter(plan=>plan.drawingId===id)}};`;
+	modules.actions += `export async function refreshVisualDrawing(site,id){const result=structuredClone(await refreshPreviewDrawing());if(id==='demo-drawing-2'){result.drawing.id=id;result.drawing.state.location='2. stāvs'}return result};`;
+}
 modules.actions += `export async function addVisualRecord(site,id,record){
  drawing=structuredClone(drawing);
  const sourceId=record.id+':manual';
@@ -179,11 +198,13 @@ modules.actions += `export async function addVisualRecord(site,id,record){
 };`;
 const bundled = await build({
 	stdin: {
-		contents: performancePreview
-			? `import React,{useMemo,useState} from 'react';import {createRoot} from 'react-dom/client';import {VisualPlanningPanel} from './flows/default-construction/visual/VisualPlanningPanel';import {VisualClientCache} from './flows/default-construction/visual/visual-client-cache';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('?pdf=1')?original('/plan.pdf'):original(url,options);function Preview(){const [floor,setFloor]=useState('1. stāvs');const [dirty,setDirty]=useState(false);const cache=useMemo(()=>new VisualClientCache('demo'),[]);const drawing={...${JSON.stringify(fixture)},id:floor==='1. stāvs'?'demo-drawing':'demo-drawing-2',state:{...${JSON.stringify(fixture.state)},location:floor}};return <main style={{padding:20,height:'100dvh',display:'flex',flexDirection:'column'}}><label style={{padding:8}}>Stāvs <select aria-label="Stāvs" value={floor} disabled={dirty} onChange={event=>setFloor(event.target.value)}><option>1. stāvs</option><option>2. stāvs</option></select></label><div style={{flex:1,minHeight:0}}><VisualPlanningPanel key={drawing.id} drawing={drawing} siteId="demo" resourceCache={cache} sidebarOpen onDirtyChange={setDirty}/></div></main>}createRoot(document.getElementById('root')).render(<Preview/>);`
-			: process.argv.includes("--planning")
-				? `import React from 'react';import {createRoot} from 'react-dom/client';import {VisualPlanningPanel} from './flows/default-construction/visual/VisualPlanningPanel';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('?pdf=1')?original('/plan.pdf'):original(url,options);createRoot(document.getElementById('root')).render(<main style={{padding:20,height:'100dvh'}}><VisualPlanningPanel drawing={${JSON.stringify(fixture)}} siteId="demo" sidebarOpen onDirtyChange={()=>{}}/></main>);`
-				: `import React from 'react';import {createRoot} from 'react-dom/client';import VisualView from './flows/default-construction/visual/VisualView';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('/api/sites/')&&!String(url).includes('/section-drawing?')?(String(url).includes('?pdf=1')?original('/plan.pdf'):Promise.resolve(new Response(JSON.stringify(window.__visualPreviewDrawing??${JSON.stringify(fixture)})))):original(url,options);createRoot(document.getElementById('root')).render(<main style={{maxWidth:1700,margin:'0 auto',padding:20}}><VisualView siteId="demo"/></main>);`,
+		contents: projectPreloadPreview
+			? `import React,{useEffect,useState} from 'react';import {createRoot} from 'react-dom/client';import {VisualProjectView} from './flows/default-construction/visual/VisualProjectView';import {ProjectLoadingProgressProvider,useProjectPreparationStep} from './components/providers/ProjectLoadingProgressProvider';import {ProjectOpeningOverlay} from './components/providers/ProjectOpeningOverlay';const original=window.fetch;window.fetch=async(url,options)=>{if(String(url).includes('?pdf=1')){await new Promise(resolve=>setTimeout(resolve,5000));return original('/plan.pdf')}if(String(url).includes('/api/sites/')&&!String(url).includes('/section-drawing?')){const drawing=structuredClone(${JSON.stringify(fixture)});if(String(url).includes('demo-drawing-2')){drawing.id='demo-drawing-2';drawing.state.location='2. stāvs'}return new Response(JSON.stringify(drawing))}return original(url,options)};history.replaceState(null,'','/dashboard/sites/demo/dashboard');function Diary(){const [settings,setSettings]=useState(false);const [ready,setReady]=useState(false);useEffect(()=>{const first=setTimeout(()=>setSettings(true),4000);const second=setTimeout(()=>setReady(true),18000);return()=>{clearTimeout(first);clearTimeout(second)}},[]);useProjectPreparationStep('demo','settings',settings);useProjectPreparationStep('demo','diary',ready);return <><h1 style={{fontSize:24,padding:12}}>Limeni · demonstrācijas projekts</h1><button style={{padding:12,border:'1px solid #ccc'}} onClick={()=>{history.pushState(null,'','/dashboard/sites/demo/izpildshemas');window.dispatchEvent(new PopStateEvent('popstate'))}}>Atvērt Izpildshēmas</button>{!ready?<ProjectOpeningOverlay label="Ielādē projektu…"/>:null}</>}createRoot(document.getElementById('root')).render(<main style={{padding:20}}><ProjectLoadingProgressProvider enabled visualPreloadEnabled><VisualProjectView siteId="demo"><Diary/></VisualProjectView></ProjectLoadingProgressProvider></main>);`
+			: performancePreview
+				? `import React,{useMemo,useState} from 'react';import {createRoot} from 'react-dom/client';import {VisualPlanningPanel} from './flows/default-construction/visual/VisualPlanningPanel';import {VisualClientCache} from './flows/default-construction/visual/visual-client-cache';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('?pdf=1')?original('/plan.pdf'):original(url,options);function Preview(){const [floor,setFloor]=useState('1. stāvs');const [dirty,setDirty]=useState(false);const cache=useMemo(()=>new VisualClientCache('demo'),[]);const drawing={...${JSON.stringify(fixture)},id:floor==='1. stāvs'?'demo-drawing':'demo-drawing-2',state:{...${JSON.stringify(fixture.state)},location:floor}};return <main style={{padding:20,height:'100dvh',display:'flex',flexDirection:'column'}}><label style={{padding:8}}>Stāvs <select aria-label="Stāvs" value={floor} disabled={dirty} onChange={event=>setFloor(event.target.value)}><option>1. stāvs</option><option>2. stāvs</option></select></label><div style={{flex:1,minHeight:0}}><VisualPlanningPanel key={drawing.id} drawing={drawing} siteId="demo" resourceCache={cache} sidebarOpen onDirtyChange={setDirty}/></div></main>}createRoot(document.getElementById('root')).render(<Preview/>);`
+				: process.argv.includes("--planning")
+					? `import React from 'react';import {createRoot} from 'react-dom/client';import {VisualPlanningPanel} from './flows/default-construction/visual/VisualPlanningPanel';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('?pdf=1')?original('/plan.pdf'):original(url,options);createRoot(document.getElementById('root')).render(<main style={{padding:20,height:'100dvh'}}><VisualPlanningPanel drawing={${JSON.stringify(fixture)}} siteId="demo" sidebarOpen onDirtyChange={()=>{}}/></main>);`
+					: `import React from 'react';import {createRoot} from 'react-dom/client';import VisualView from './flows/default-construction/visual/VisualView';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('/api/sites/')&&!String(url).includes('/section-drawing?')?(String(url).includes('?pdf=1')?original('/plan.pdf'):Promise.resolve(new Response(JSON.stringify(window.__visualPreviewDrawing??${JSON.stringify(fixture)})))):original(url,options);createRoot(document.getElementById('root')).render(<main style={{maxWidth:1700,margin:'0 auto',padding:20}}><VisualView siteId="demo"/></main>);`,
 		loader: "tsx",
 		resolveDir: root,
 	},
@@ -197,6 +218,10 @@ const bundled = await build({
 		{
 			name: "isolated-visual-preview",
 			setup(build) {
+				build.onResolve({ filter: /^next\/navigation$/ }, () => ({
+					path: "navigation",
+					namespace: "fixture",
+				}));
 				build.onResolve(
 					{ filter: /^\.\/planning-whatsapp-send-client$/ },
 					() => ({ path: "send", namespace: "fixture" }),

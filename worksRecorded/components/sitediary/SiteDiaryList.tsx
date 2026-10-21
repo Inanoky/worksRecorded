@@ -54,6 +54,7 @@ import { BeginRecordHours } from "@/components/sitediary/BeginRecordHours";
 import { toast } from "sonner";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
+import { useProjectPreparationStep } from "@/components/providers/ProjectLoadingProgressProvider";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import { OriginalSourceContent } from "@/components/sitediary/OriginalSourceContent";
 import { SiteDiaryOptionsManager } from "@/components/sitediary/SiteDiaryOptionsManager";
@@ -1982,6 +1983,8 @@ export default function SiteDiaryCalendar({
     diaryPagePhotoUrls, siteId ?? "", clientDiary && diarySnapshotSiteId === siteId,
   );
   const imagesPreloading = clientDiary && (diarySnapshotSiteId !== siteId || (!limeniClientDiary && pageImagesLoading));
+  useProjectPreparationStep(siteId ?? "", "settings", configSiteId === siteId, !!error);
+  useProjectPreparationStep(siteId ?? "", "diary", hasLoadedRowsOnce && !imagesPreloading, !!error);
   const showInitialListSkeleton = ((loading && !hasLoadedRowsOnce) || imagesPreloading) && !error;
   const showUpdatingListSkeleton =
     loading && hasLoadedRowsOnce && showDelayedListSkeleton && !error;

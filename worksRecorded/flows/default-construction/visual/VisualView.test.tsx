@@ -532,6 +532,24 @@ it("selects the first location when navigating to Izpildshēmas", async () => {
 	expect(await screen.findByTestId("pdf")).toBeInTheDocument();
 });
 
+it("warms execution and planning before the workspace is opened without starting analysis", async () => {
+	const view = render(<VisualView siteId="site" active={false} preload />);
+	await screen.findByTestId("pdf");
+	expect(screen.getByRole("combobox")).toHaveValue("1. stāvs");
+	await waitFor(() =>
+		expect(getVisualPlanning).toHaveBeenCalledWith("site", "drawing"),
+	);
+	expect(refreshVisualDrawing).not.toHaveBeenCalled();
+	const requests = mockFetch.mock.calls.filter(
+		([url]) => !String(url).includes("?pdf=1"),
+	).length;
+	view.rerender(<VisualView siteId="site" active preload />);
+	expect(screen.getByTestId("pdf")).toHaveTextContent("1 zones");
+	expect(
+		mockFetch.mock.calls.filter(([url]) => !String(url).includes("?pdf=1")),
+	).toHaveLength(requests);
+});
+
 it("switches between execution and planning modes from the workspace header", async () => {
 	await selectDrawing();
 	const actualMode = screen.getByRole("button", { name: "Izpilde" });
