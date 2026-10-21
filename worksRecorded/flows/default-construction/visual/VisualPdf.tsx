@@ -1230,7 +1230,7 @@ export function VisualPdf({
 			>
 				<div
 					ref={surface}
-					className="absolute left-0 top-0 origin-top-left bg-white shadow-md will-change-transform"
+					className="absolute left-0 top-0 origin-top-left bg-white shadow-md"
 					style={{
 						width: navigation.size.width,
 						height: navigation.size.height,

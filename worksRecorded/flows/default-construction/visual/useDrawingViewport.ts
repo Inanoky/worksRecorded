@@ -53,6 +53,7 @@ export function useDrawingViewport(
 	const paint = useCallback((value: DrawingCamera) => {
 		camera.current = value;
 		if (surface.current) {
+			surface.current.style.willChange = "transform";
 			surface.current.style.transform = `translate3d(${value.x}px, ${value.y}px, 0) scale(${value.scale})`;
 			surface.current.style.setProperty(
 				"--drawing-inverse-scale",
@@ -63,6 +64,11 @@ export function useDrawingViewport(
 			scaleLabel.current.textContent = `${Math.round(value.scale * 100)}%`;
 		if (settleTimer.current) clearTimeout(settleTimer.current);
 		settleTimer.current = setTimeout(() => {
+			if (surface.current) {
+				const value = camera.current;
+				surface.current.style.willChange = "auto";
+				surface.current.style.transform = `translate(${value.x}px, ${value.y}px) scale(${value.scale})`;
+			}
 			const element = viewport.current;
 			if (element)
 				setSettledView({

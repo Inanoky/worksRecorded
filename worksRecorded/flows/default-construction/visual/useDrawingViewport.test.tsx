@@ -68,7 +68,7 @@ function camera() {
 	const match = screen
 		.getByTestId("surface")
 		.style.transform.match(
-			/translate3d\(([^p]+)px, ([^p]+)px, 0\) scale\(([^)]+)\)/,
+			/translate(?:3d)?\(([^p]+)px, ([^p]+)px(?:, 0)?\) scale\(([^)]+)\)/,
 		);
 	if (!match) throw new Error("No camera transform");
 	return { x: Number(match[1]), y: Number(match[2]), scale: Number(match[3]) };
@@ -228,8 +228,13 @@ it("publishes only settled views for PDF redraws and cancels its timer on unmoun
 	});
 	try {
 		const { unmount } = render(<Harness />);
+		expect(screen.getByTestId("surface").style.willChange).toBe("transform");
 		expect(screen.getByLabelText("settled view")).toHaveTextContent("null");
 		act(() => jest.advanceTimersByTime(300));
+		expect(screen.getByTestId("surface").style.willChange).toBe("auto");
+		expect(screen.getByTestId("surface").style.transform).toContain(
+			"translate(",
+		);
 		expect(
 			JSON.parse(screen.getByLabelText("settled view").textContent ?? "null"),
 		).toEqual({
@@ -240,12 +245,17 @@ it("publishes only settled views for PDF redraws and cancels its timer on unmoun
 		const previous = screen.getByLabelText("settled view").textContent;
 		fireEvent.click(screen.getByRole("button", { name: "Zoom" }));
 		advance(60);
+		expect(screen.getByTestId("surface").style.willChange).toBe("transform");
 		act(() => jest.advanceTimersByTime(79));
 		expect(screen.getByLabelText("settled view").textContent).toBe(previous);
 		advance(120);
 		act(() => jest.advanceTimersByTime(79));
 		expect(screen.getByLabelText("settled view").textContent).toBe(previous);
 		act(() => jest.advanceTimersByTime(1));
+		expect(screen.getByTestId("surface").style.willChange).toBe("auto");
+		expect(screen.getByTestId("surface").style.transform).toContain(
+			"translate(",
+		);
 		expect(
 			JSON.parse(screen.getByLabelText("settled view").textContent ?? "null")
 				.camera,
