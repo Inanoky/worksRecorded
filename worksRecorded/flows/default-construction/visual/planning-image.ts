@@ -36,7 +36,7 @@ function fitText(
 
 export async function renderPlanningImages(
 	pdf: PDFDocumentProxy,
-	plan: VisualPlan,
+	plan: Pick<VisualPlan, "work" | "location" | "geometry">,
 	color: string,
 	signal: AbortSignal,
 ): Promise<PlanningImage[]> {
@@ -73,6 +73,7 @@ export async function renderPlanningImages(
 			viewport,
 			transform: [1, 0, 0, 1, -offsetX, header - offsetY],
 		});
+		render.onContinue = (resume: () => void) => setTimeout(resume, 0);
 		const cancel = () => render.cancel();
 		signal.addEventListener("abort", cancel, { once: true });
 		try {

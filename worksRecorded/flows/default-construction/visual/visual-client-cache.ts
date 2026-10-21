@@ -5,11 +5,18 @@ import {
 	readDrawingPageMeasurement,
 } from "./drawing-scale";
 import type { VisualDrawing } from "./model";
+import { renderPlanningImages } from "./planning-image";
+import {
+	PlanningImageCache,
+	type PlanningImagePlan,
+	planningImageCacheKey,
+} from "./planning-image-cache";
 import { PlanningSaveQueue, planningItem } from "./planning-save-queue";
 import type { PreparedPreview } from "./prepared-preview-model";
 import type { PersistentProjectCache } from "./project-persistent-cache";
 import type { LimeniProjectSnapshot } from "./project-snapshot-store";
 import { patchProject } from "./project-sync";
+import { fetchSectionDrawing } from "./section-drawing-client";
 
 export const VISUAL_CACHE_FRESH_MS = 60_000;
 export const VISUAL_PLANNING_CACHE_INVALIDATED =
@@ -47,6 +54,54 @@ type PdfEntry = {
 type LoadOptions = { force?: boolean };
 
 export class VisualClientCache {
+	private planningImages = new PlanningImageCache();
+	planningImageKey(
+		url: string,
+		plan: PlanningImagePlan,
+		color: string,
+		section?: string,
+	) {
+		return planningImageCacheKey(
+			this.preparedManifest(url)?.source ?? url,
+			plan,
+			color,
+			section,
+		);
+	}
+	peekPlanningImages(key: string) {
+		return this.planningImages.peek(key);
+	}
+	loadPlanningImages(
+		url: string,
+		plan: PlanningImagePlan,
+		color: string,
+		section?: string,
+	) {
+		const key = this.planningImageKey(url, plan, color, section);
+		return this.planningImages.load(
+			url,
+			key,
+			async (signal) => {
+				const sectionImage = section
+					? fetchSectionDrawing(this.siteId, section, signal)
+					: Promise.resolve(null);
+				const lease = this.openPdf(url);
+				try {
+					const [images, drawing] = await Promise.all([
+						lease.promise.then((pdf) => {
+							signal.throwIfAborted();
+							return renderPlanningImages(pdf, plan, color, signal);
+						}),
+						sectionImage,
+					]);
+					return drawing ? [...images, drawing] : images;
+				} finally {
+					lease.release();
+				}
+			},
+			this.prepared.get(url)?.persistence,
+		);
+	}
 	private managed = false;
 	private seeding = false;
 	private tileRequests = new Map<string, Promise<Blob>>();
@@ -841,6 +896,7 @@ export class VisualClientCache {
 	}
 
 	clear() {
+		this.planningImages.clear();
 		this.tileAbort.abort();
 		this.tileAbort = new AbortController();
 		this.tileBlobs.clear();

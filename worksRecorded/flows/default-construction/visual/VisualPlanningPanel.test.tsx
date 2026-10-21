@@ -319,6 +319,10 @@ function sidebarAddZone() {
 }
 beforeEach(() => {
 	jest.clearAllMocks();
+	jest.spyOn(VisualClientCache.prototype, "openPdf").mockReturnValue({
+		promise: Promise.resolve({} as PDFDocumentProxy),
+		release: jest.fn(),
+	});
 	jest.mocked(fetchSectionDrawing).mockResolvedValue({
 		page: 11,
 		section: "PA1.6",
@@ -376,6 +380,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	jest.restoreAllMocks();
 	jest.useRealTimers();
 });
 
@@ -436,6 +441,7 @@ it("reports a dedicated-number send failure and allows an explicit retry", async
 		<VisualPlanningWhatsApp
 			siteId="site"
 			plan={plan}
+			imageKey="test-image-key"
 			contact={{ name: "Anna", phone: "37120000000" }}
 			disabled={false}
 			createImages={async () => [
@@ -443,9 +449,9 @@ it("reports a dedicated-number send failure and allows an explicit retry", async
 			]}
 		/>,
 	);
-	fireEvent.click(screen.getByRole("button", { name: "Sagatavot WhatsApp" }));
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
 	const send = await screen.findByRole("button", {
-		name: "Nosūtīt no Limeni WhatsApp",
+		name: "Nosūtīt",
 	});
 	fireEvent.click(send);
 	expect(await screen.findByRole("alert")).toHaveTextContent("Meta failed");
@@ -454,9 +460,7 @@ it("reports a dedicated-number send failure and allows an explicit retry", async
 		await screen.findByRole("status", {
 			name: "WhatsApp sūtījums veiksmīgs",
 		}),
-	).toHaveTextContent(
-		/Nosūtīts\s*Meta pieņēma 1 attēlu\. Atveram sūtījumu vēsturi…/,
-	);
+	).toHaveTextContent(/Nosūtīts/);
 	await waitFor(
 		() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
 		{ timeout: 2_000 },
@@ -912,13 +916,40 @@ it("assigns a saved project contact to a planned job", async () => {
 	);
 });
 
-it("prepares the saved task for its contact and allows editing the WhatsApp draft", async () => {
+it("starts preparing a new polygon in the background before the plan or dialog is saved", async () => {
+	render(
+		<VisualPlanningPanel
+			siteId="site"
+			drawing={drawing}
+			sidebarOpen
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	await waitFor(() => expect(sidebarAddZone()).toBeEnabled());
+	fireEvent.click(sidebarAddZone());
+	fireEvent.click(screen.getByRole("button", { name: "Uzzīmēt testu zonu" }));
+	await waitFor(() => expect(renderPlanningImages).toHaveBeenCalledTimes(1));
+	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	expect(saveVisualPlanningItem).not.toHaveBeenCalled();
+	expect(renderPlanningImages).toHaveBeenCalledWith(
+		expect.anything(),
+		expect.objectContaining({
+			geometry: expect.objectContaining({
+				areas: expect.arrayContaining([
+					expect.objectContaining({ id: "area-1" }),
+				]),
+			}),
+		}),
+		expect.any(String),
+		expect.any(AbortSignal),
+	);
+});
+
+it("prepares images before opening and sends to the assigned contact without asking for a number", async () => {
 	jest.mocked(getVisualPlanning).mockResolvedValue({
 		...emptyIndex,
 		contacts: [planningContact],
-		plans: [
-			{ ...indexedPlan, quantity: 10.123456, contactId: planningContact.id },
-		],
+		plans: [{ ...indexedPlan, contactId: planningContact.id }],
 	});
 	render(
 		<VisualPlanningPanel
@@ -931,92 +962,40 @@ it("prepares the saved task for its contact and allows editing the WhatsApp draf
 	fireEvent.click(
 		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
 	);
-	fireEvent.click(screen.getByRole("button", { name: "Sagatavot WhatsApp" }));
-	const dialog = screen.getByRole("dialog", {
-		name: "Sagatavot uzdevumu WhatsApp",
-	});
-	const phone = within(dialog).getByLabelText("Saņēmēja numurs ar valsts kodu");
-	const message = within(dialog).getByLabelText("Uzdevuma ziņa");
-	expect(phone).toHaveValue(planningContact.phone);
-	await within(dialog).findByRole("button", {
-		name: "Nosūtīt no Limeni WhatsApp",
-	});
-	expect((message as HTMLTextAreaElement).value).toContain(
-		"*Darbs:* Smilts\n*Lokācija:* 1. stāvs",
-	);
-	expect((message as HTMLTextAreaElement).value).toContain(
-		"*Plānotais apjoms:* 10,123456 m2",
-	);
-	expect((message as HTMLTextAreaElement).value).toContain("12.10.2026.");
-	expect((message as HTMLTextAreaElement).value).toContain("16.10.2026.");
+	await waitFor(() => expect(renderPlanningImages).toHaveBeenCalledTimes(1));
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
+	const dialog = screen.getByRole("dialog", { name: "Nosūtīt uzdevumu" });
 	expect(
-		await within(dialog).findByRole("img", {
-			name: "Uzdevuma zona · PDF lapa 1",
-		}),
+		within(dialog).queryByRole("textbox", { name: /numurs/ }),
+	).not.toBeInTheDocument();
+	expect(within(dialog).getByText(planningContact.name)).toBeInTheDocument();
+	expect(
+		within(dialog).getByRole("img", { name: "Uzdevuma zona · PDF lapa 1" }),
 	).toHaveAttribute("src", "blob:zone-preview");
+	const message = within(dialog).getByLabelText("Ziņa");
+	expect((message as HTMLTextAreaElement).value).toContain("*Darbs:* Smilts");
+	expect(within(dialog).getByRole("button", { name: "Nosūtīt" })).toBeEnabled();
+	fireEvent.click(within(dialog).getByRole("button", { name: "Atcelt" }));
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
+	expect(renderPlanningImages).toHaveBeenCalledTimes(1);
 	expect(
-		within(dialog).getByRole("link", { name: "Lejupielādēt" }),
-	).toHaveAttribute("download", `uzdevums-${plan.id}-lapa-1.png`);
-	expect(renderPlanningImages).toHaveBeenCalledWith(
-		expect.anything(),
-		expect.objectContaining({ id: plan.id, quantity: 10.123456 }),
-		expect.any(String),
-		expect.any(AbortSignal),
-	);
-	fireEvent.click(within(dialog).getByRole("button", { name: "Kopēt attēlu" }));
-	expect(
-		await within(dialog).findByText(
-			"Attēlu neizdevās nokopēt. Lejupielādējiet to un pievienojiet WhatsApp sarunā.",
-		),
+		screen.getByRole("img", { name: "Uzdevuma zona · PDF lapa 1" }),
 	).toBeInTheDocument();
-	fireEvent.change(phone, { target: { value: "00371 (2111) 1111" } });
-	fireEvent.change(message, {
+	fireEvent.change(screen.getByLabelText("Ziņa"), {
 		target: { value: "Lūdzu,\n\tpārbaudīt     XPS & grīdu #1" },
 	});
-	fireEvent.click(
-		within(dialog).getByRole("button", {
-			name: "Nosūtīt no Limeni WhatsApp",
-		}),
-	);
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt" }));
 	await waitFor(() =>
 		expect(sendPlanningWhatsAppTask).toHaveBeenCalledWith(
 			expect.objectContaining({
 				siteId: "site",
 				planId: plan.id,
-				planVersion: plan.version,
-				recipient: "37121111111",
+				recipient: planningContact.phone,
 				message: "Lūdzu,\npārbaudīt XPS & grīdu #1",
 				images: [expect.objectContaining({ page: 1 })],
 			}),
 		),
 	);
-	await waitFor(
-		() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
-		{ timeout: 2_000 },
-	);
-	const historySummary = screen
-		.getByText("WhatsApp sūtījumi")
-		.closest("summary");
-	expect(historySummary?.parentElement).toHaveAttribute("open");
-	fireEvent.click(screen.getByRole("button", { name: "Sagatavot WhatsApp" }));
-	const reopened = screen.getByRole("dialog");
-	const reopenedPhone = within(reopened).getByLabelText(
-		"Saņēmēja numurs ar valsts kodu",
-	);
-	fireEvent.change(reopenedPhone, { target: { value: "not-a-number" } });
-	expect(
-		within(reopened).getByRole("button", {
-			name: "Nosūtīt no Limeni WhatsApp",
-		}),
-	).toBeDisabled();
-	fireEvent.click(within(reopened).getByRole("button", { name: "Atcelt" }));
-	expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:zone-preview");
-	fireEvent.click(screen.getByRole("button", { name: "Sagatavot WhatsApp" }));
-	expect(screen.getByLabelText("Saņēmēja numurs ar valsts kodu")).toHaveValue(
-		planningContact.phone,
-	);
-	await screen.findByRole("img", { name: "Uzdevuma zona · PDF lapa 1" });
-	expect(saveVisualPlanningItem).not.toHaveBeenCalled();
 });
 
 it("shows WhatsApp delivery history on the connected planning task", async () => {
@@ -1102,7 +1081,7 @@ it("prepares only the selected project section drawing with the saved task's zon
 	fireEvent.click(
 		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
 	);
-	fireEvent.click(screen.getByRole("button", { name: "Sagatavot WhatsApp" }));
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
 	expect(
 		await screen.findByRole("img", { name: "Sekcijas rasējums · PA1.6" }),
 	).toBeInTheDocument();
@@ -1115,7 +1094,7 @@ it("prepares only the selected project section drawing with the saved task's zon
 	);
 });
 
-it("requires a recipient for an unassigned task and blocks sharing unsaved changes", async () => {
+it("requires assigning a contact and blocks sending unsaved changes", async () => {
 	jest
 		.mocked(getVisualPlanning)
 		.mockResolvedValue({ ...emptyIndex, plans: [indexedPlan] });
@@ -1130,34 +1109,23 @@ it("requires a recipient for an unassigned task and blocks sharing unsaved chang
 	fireEvent.click(
 		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
 	);
-	fireEvent.click(screen.getByRole("button", { name: "Sagatavot WhatsApp" }));
-	await screen.findByRole("img", { name: "Uzdevuma zona · PDF lapa 1" });
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Izvēlieties uzdevumam kontaktu ar WhatsApp numuru.",
+	);
+	expect(screen.getByRole("button", { name: "Nosūtīt" })).toBeDisabled();
 	expect(
-		screen.getByRole("button", { name: "Nosūtīt no Limeni WhatsApp" }),
-	).toBeDisabled();
-	fireEvent.change(screen.getByLabelText("Saņēmēja numurs ar valsts kodu"), {
-		target: { value: "+371 2000 0000" },
-	});
-	expect(
-		screen.getByRole("button", { name: "Nosūtīt no Limeni WhatsApp" }),
-	).toBeEnabled();
-	fireEvent.change(screen.getByLabelText("Uzdevuma ziņa"), {
-		target: { value: "   " },
-	});
-	expect(
-		screen.getByRole("button", { name: "Nosūtīt no Limeni WhatsApp" }),
-	).toBeDisabled();
+		screen.queryByRole("textbox", { name: /numurs/ }),
+	).not.toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Atcelt" }));
 	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {
 		target: { value: "25" },
 	});
 	expect(
-		screen.getByRole("button", { name: "Sagatavot WhatsApp" }),
+		screen.getByRole("button", { name: "Nosūtīt uzdevumu" }),
 	).toBeDisabled();
 	expect(
-		screen.getByText(
-			"Pirms uzdevuma sagatavošanas WhatsApp saglabājiet plānu.",
-		),
+		screen.getByText("Pirms nosūtīšanas saglabājiet plānu."),
 	).toBeInTheDocument();
 });
 
@@ -1440,7 +1408,7 @@ it("saves locally immediately, keeps newer edits when the acknowledgement arrive
 		screen.getByText(/serverī vēl nav apstiprināts: 1/),
 	).toBeInTheDocument();
 	expect(
-		screen.getByRole("button", { name: "Sagatavot WhatsApp" }),
+		screen.getByRole("button", { name: "Nosūtīt uzdevumu" }),
 	).toBeDisabled();
 	expect(screen.getByLabelText("Plānotais apjoms")).toBeEnabled();
 	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {

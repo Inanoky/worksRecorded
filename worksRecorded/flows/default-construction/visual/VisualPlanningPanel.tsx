@@ -12,7 +12,6 @@ import {
 	X,
 } from "lucide-react";
 import Link from "next/link";
-import type { PDFDocumentProxy } from "pdfjs-dist";
 import {
 	useCallback,
 	useEffect,
@@ -56,9 +55,7 @@ import {
 	visualLayerStyles,
 } from "./layer-settings";
 import { type VisualDrawing, visualLayers } from "./model";
-import { renderPlanningImages } from "./planning-image";
 import type { VisualPlan, VisualPlanArea } from "./planning-model";
-import { fetchSectionDrawing } from "./section-drawing-client";
 import { sectionKey } from "./sections";
 import { usePlanningSaveQueue } from "./usePlanningSaveQueue";
 import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
@@ -371,13 +368,6 @@ export function VisualPlanningPanel({
 	editingRef.current = dirty || areaEditing;
 	const request = useRef(0);
 	const wasActive = useRef(active);
-	const pdfDocument = useRef<PDFDocumentProxy | null>(null);
-	const onPdfDocumentChange = useCallback(
-		(document: PDFDocumentProxy | null) => {
-			pdfDocument.current = document;
-		},
-		[],
-	);
 	const drawerCloseButton = useRef<HTMLButtonElement>(null);
 	const fieldId = useId();
 	const archiveId = `${fieldId}-archive`;
@@ -829,6 +819,46 @@ export function VisualPlanningPanel({
 		(contact) => !contact.archivedAt || contact.id === draft?.contactId,
 	);
 	const selectedWhatsAppSends = selectedPlan?.whatsAppSends ?? [];
+	const pdfUrl = `${cache.endpoint(drawing.id)}?pdf=1`;
+	const imagePlan = useMemo(
+		() =>
+			draft?.areas.length
+				? {
+						work: draft.work,
+						location: index?.location ?? drawing.state.location,
+						geometry: { version: 1 as const, areas: draft.areas },
+					}
+				: null,
+		[draft?.work, draft?.areas, index?.location, drawing.state.location],
+	);
+	const imageColor = draft ? workColor(draft.work) : "";
+	const imageSection =
+		draft?.section &&
+		index?.sectionDrawingCodes?.some(
+			(code) => sectionKey(code) === sectionKey(draft.section ?? ""),
+		)
+			? draft.section
+			: undefined;
+	const imageKey = imagePlan
+		? cache.planningImageKey(pdfUrl, imagePlan, imageColor, imageSection)
+		: "";
+	const createImages = useCallback(() => {
+		if (!imagePlan)
+			return Promise.reject(new Error("Plānam nav saglabātu zonu."));
+		return cache.loadPlanningImages(
+			pdfUrl,
+			imagePlan,
+			imageColor,
+			imageSection,
+		);
+	}, [cache, pdfUrl, imagePlan, imageColor, imageSection]);
+	useEffect(() => {
+		if (!active || areaEditing || !imagePlan || draft?.archivedAt) return;
+		const timer = window.setTimeout(() => {
+			void createImages().catch(() => {});
+		}, 250);
+		return () => window.clearTimeout(timer);
+	}, [active, areaEditing, imagePlan, draft?.archivedAt, createImages]);
 
 	return (
 		<div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -850,7 +880,6 @@ export function VisualPlanningPanel({
 			<div className="relative min-h-0 flex-1 overflow-hidden">
 				<VisualPdf
 					active={active}
-					onDocumentChange={onPdfDocumentChange}
 					controlsHost={controlsHost}
 					resourceCache={cache}
 					fillWorkspace
@@ -1502,48 +1531,9 @@ export function VisualPlanningPanel({
 												siteId={siteId}
 												key={selectedPlan.id}
 												plan={selectedPlan}
-												createImages={async (signal) => {
-													const lease = pdfDocument.current
-														? null
-														: cache.openPdf(
-																`${cache.endpoint(drawing.id)}?pdf=1`,
-															);
-													let images: Awaited<
-														ReturnType<typeof renderPlanningImages>
-													>;
-													try {
-														const pdf =
-															pdfDocument.current ?? (await lease?.promise);
-														if (!pdf) throw new Error("Rasējums nav pieejams.");
-														if (signal?.aborted)
-															throw new DOMException("Cancelled", "AbortError");
-														images = await renderPlanningImages(
-															pdf,
-															selectedPlan,
-															workColor(selectedPlan.work),
-															signal,
-														);
-													} finally {
-														lease?.release();
-													}
-													const section = selectedPlan.geometry.section;
-													const prepared = [...images];
-													if (
-														section &&
-														index.sectionDrawingCodes?.some(
-															(code) =>
-																sectionKey(code) === sectionKey(section),
-														)
-													)
-														prepared.push(
-															await fetchSectionDrawing(
-																siteId,
-																section,
-																signal,
-															),
-														);
-													return prepared;
-												}}
+												imageKey={imageKey}
+												initialImages={cache.peekPlanningImages(imageKey)}
+												createImages={createImages}
 												contact={index.contacts.find(
 													(contact) => contact.id === selectedPlan.contactId,
 												)}
@@ -1592,7 +1582,7 @@ export function VisualPlanningPanel({
 							</div>
 							{!draft.archivedAt && (!selectedPlan || dirty) ? (
 								<p className="text-xs text-muted-foreground">
-									Pirms uzdevuma sagatavošanas WhatsApp saglabājiet plānu.
+									Pirms nosūtīšanas saglabājiet plānu.
 								</p>
 							) : null}
 						</form>

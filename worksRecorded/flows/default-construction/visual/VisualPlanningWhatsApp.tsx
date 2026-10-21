@@ -1,14 +1,8 @@
 "use client";
 
-import {
-	CheckCircle2,
-	Copy,
-	Download,
-	Loader2,
-	MessageCircle,
-} from "lucide-react";
+import { CheckCircle2, Loader2, MessageCircle } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -19,7 +13,6 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { PlanningImage } from "./planning-image";
@@ -34,9 +27,13 @@ import {
 	sendPlanningWhatsAppTask,
 } from "./planning-whatsapp-send-client";
 
+type PreviewImage = PlanningImage & { url: string };
+
 export function VisualPlanningWhatsApp({
 	siteId,
 	plan,
+	imageKey,
+	initialImages,
 	createImages,
 	contact,
 	disabled,
@@ -44,97 +41,82 @@ export function VisualPlanningWhatsApp({
 }: {
 	siteId: string;
 	plan: VisualPlan;
+	imageKey: string;
+	initialImages?: PlanningImage[];
 	createImages: (signal: AbortSignal) => Promise<PlanningImage[]>;
 	contact?: { name: string; phone: string };
 	disabled: boolean;
 	onSendResult?: (result: PlanningWhatsAppSendResult) => void;
 }) {
 	const [open, setOpen] = useState(false);
-	const [phone, setPhone] = useState("");
 	const [message, setMessage] = useState("");
-	const [images, setImages] = useState<Array<PlanningImage & { url: string }>>(
-		[],
-	);
-	const [preparing, setPreparing] = useState(false);
+	const [prepared, setPrepared] = useState<{
+		key: string;
+		images: PreviewImage[];
+	}>({ key: "", images: [] });
 	const [imageError, setImageError] = useState<string | null>(null);
-	const [copying, setCopying] = useState<number | null>(null);
-	const [copyNotice, setCopyNotice] = useState<string | null>(null);
+	const [retry, setRetry] = useState(0);
 	const [sending, setSending] = useState(false);
 	const [sendError, setSendError] = useState<string | null>(null);
 	const [sendResult, setSendResult] =
 		useState<PlanningWhatsAppSendResult | null>(null);
 	const [clientRequestId, setClientRequestId] = useState("");
-	const imageRequest = useRef<AbortController | null>(null);
-	const imageUrls = useRef<string[]>([]);
-	const successCloseTimer = useRef<number | null>(null);
-	const clearImages = useCallback(() => {
-		imageRequest.current?.abort();
-		for (const url of imageUrls.current) URL.revokeObjectURL(url);
-		imageUrls.current = [];
-	}, []);
+	const creator = useRef(createImages);
+	const initial = useRef(initialImages);
+	const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useEffect(() => {
+		creator.current = createImages;
+		initial.current = initialImages;
+	}, [createImages, initialImages]);
+	useEffect(() => {
+		const controller = new AbortController();
+		let urls: string[] = [];
+		setImageError(null);
+		setPrepared({ key: imageKey, images: [] });
+		void (async () => {
+			try {
+				const images =
+					retry === 0 && initial.current?.length
+						? initial.current
+						: await creator.current(controller.signal);
+				controller.signal.throwIfAborted();
+				const previews = images.map((image) => ({
+					...image,
+					url: URL.createObjectURL(image.blob),
+				}));
+				urls = previews.map((image) => image.url);
+				setPrepared({ key: imageKey, images: previews });
+			} catch {
+				if (!controller.signal.aborted)
+					setImageError("Neizdevās sagatavot attēlus.");
+			}
+		})();
+		return () => {
+			controller.abort();
+			for (const url of urls) URL.revokeObjectURL(url);
+		};
+	}, [imageKey, retry]);
 	useEffect(
 		() => () => {
-			if (successCloseTimer.current !== null)
-				window.clearTimeout(successCloseTimer.current);
-			clearImages();
+			if (closeTimer.current) clearTimeout(closeTimer.current);
 		},
-		[clearImages],
+		[],
 	);
-
-	async function prepareImages() {
-		clearImages();
-		const controller = new AbortController();
-		imageRequest.current = controller;
-		setImages([]);
-		setImageError(null);
-		setCopyNotice(null);
-		setPreparing(true);
-		try {
-			const result = await createImages(controller.signal);
-			if (controller.signal.aborted) return;
-			const prepared = result.map((image) => ({
-				...image,
-				url: URL.createObjectURL(image.blob),
-			}));
-			imageUrls.current = prepared.map((image) => image.url);
-			setImages(prepared);
-		} catch {
-			if (!controller.signal.aborted)
-				setImageError("Neizdevās sagatavot attēlu. Mēģiniet vēlreiz.");
-		} finally {
-			if (!controller.signal.aborted) setPreparing(false);
-		}
-	}
-
-	async function copyImage(image: PlanningImage) {
-		const request = imageRequest.current;
-		setCopying(image.page);
-		setCopyNotice(null);
-		try {
-			if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined")
-				throw new Error("Image clipboard unavailable");
-			await navigator.clipboard.write([
-				new ClipboardItem({ "image/png": image.blob }),
-			]);
-			if (!request?.signal.aborted)
-				setCopyNotice(
-					`${image.section ? `Sekcijas ${image.section} rasējums` : `Lapas ${image.page} attēls`} nokopēts. WhatsApp sarunā ielīmējiet to ar Ctrl+V vai Cmd+V.`,
-				);
-		} catch {
-			if (!request?.signal.aborted)
-				setCopyNotice(
-					"Attēlu neizdevās nokopēt. Lejupielādējiet to un pievienojiet WhatsApp sarunā.",
-				);
-		} finally {
-			if (!request?.signal.aborted) setCopying(null);
-		}
-	}
+	const images = prepared.key === imageKey ? prepared.images : [];
+	const recipient = normalizePlanningWhatsAppPhone(contact?.phone ?? "");
+	const normalizedMessage = normalizePlanningWhatsAppMessage(message);
+	const messageTooLong = normalizedMessage.length > 900;
+	const id = useId();
+	const sendDisabled =
+		disabled ||
+		sending ||
+		!images.length ||
+		!recipient ||
+		!normalizedMessage ||
+		messageTooLong ||
+		sendResult?.status === "sent";
 	async function sendTask() {
-		const recipient = normalizePlanningWhatsAppPhone(phone);
-		const normalizedMessage = normalizePlanningWhatsAppMessage(message);
-		if (!recipient || !normalizedMessage || !images.length || !clientRequestId)
-			return;
-		const controller = new AbortController();
+		if (sendDisabled || !recipient || !clientRequestId) return;
 		setMessage(normalizedMessage);
 		setSending(true);
 		setSendError(null);
@@ -147,118 +129,83 @@ export function VisualPlanningWhatsApp({
 				message: normalizedMessage,
 				clientRequestId,
 				images,
-				signal: controller.signal,
+				signal: new AbortController().signal,
 			});
 			setSendResult(result);
 			onSendResult?.(result);
-			if (result.status === "sent") {
-				successCloseTimer.current = window.setTimeout(() => {
-					clearImages();
-					setImages([]);
+			if (result.status === "sent")
+				closeTimer.current = setTimeout(() => {
 					setOpen(false);
-					successCloseTimer.current = null;
+					closeTimer.current = null;
 				}, 1100);
-			}
 		} catch (error) {
 			setSendError(
-				error instanceof Error
-					? error.message
-					: "Neizdevās nosūtīt WhatsApp darba uzdevumu.",
+				error instanceof Error ? error.message : "Neizdevās nosūtīt uzdevumu.",
 			);
 		} finally {
 			setSending(false);
 		}
 	}
-	const id = useId();
-	const invalidPhone = !!phone.trim() && !normalizePlanningWhatsAppPhone(phone);
-	const normalizedMessage = normalizePlanningWhatsAppMessage(message);
-	const messageTooLong = normalizedMessage.length > 900;
-	const sendDisabled =
-		preparing ||
-		sending ||
-		!images.length ||
-		invalidPhone ||
-		!phone.trim() ||
-		!normalizedMessage ||
-		messageTooLong ||
-		sendResult?.status === "sent";
-
 	return (
 		<Dialog
 			open={open}
-			onOpenChange={(nextOpen) => {
+			onOpenChange={(next) => {
 				if (sending) return;
-				if (successCloseTimer.current !== null) {
-					window.clearTimeout(successCloseTimer.current);
-					successCloseTimer.current = null;
+				if (closeTimer.current) {
+					clearTimeout(closeTimer.current);
+					closeTimer.current = null;
 				}
-				if (nextOpen) {
-					setPhone(contact?.phone ?? "");
+				if (next) {
 					setMessage(planningWhatsAppTemplateMessage(plan));
-					setCopying(null);
 					setSendError(null);
 					setSendResult(null);
 					setClientRequestId(crypto.randomUUID());
-					void prepareImages();
-				} else {
-					clearImages();
-					setImages([]);
 				}
-				setOpen(nextOpen);
+				setOpen(next);
 			}}
 		>
 			<DialogTrigger asChild>
 				<Button type="button" variant="outline" disabled={disabled}>
 					<MessageCircle className="h-4 w-4" />
-					Sagatavot WhatsApp
+					Nosūtīt uzdevumu
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col sm:max-w-4xl">
+			<DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col sm:max-w-3xl">
 				{sendResult?.status === "sent" ? (
 					<output
 						aria-live="polite"
 						aria-label="WhatsApp sūtījums veiksmīgs"
-						className="absolute inset-0 z-20 flex animate-in flex-col items-center justify-center gap-4 rounded-lg bg-background p-8 text-center fade-in-0 duration-200"
+						className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 rounded-lg bg-background p-8 text-center"
 					>
-						<span className="flex h-20 w-20 animate-in items-center justify-center rounded-full bg-emerald-100 text-emerald-700 zoom-in-50 duration-300">
-							<CheckCircle2 className="h-11 w-11" strokeWidth={2.25} />
-						</span>
-						<span className="space-y-1 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
-							<strong className="block text-2xl text-emerald-700">
-								Nosūtīts
-							</strong>
-							<span className="block text-sm text-muted-foreground">
-								Meta pieņēma {sendResult.items.length}{" "}
-								{sendResult.items.length === 1 ? "attēlu" : "attēlus"}. Atveram
-								sūtījumu vēsturi…
-							</span>
-						</span>
+						<CheckCircle2 className="h-16 w-16 text-emerald-600" />
+						<strong className="text-2xl text-emerald-700">Nosūtīts</strong>
 					</output>
 				) : null}
 				<DialogHeader className="shrink-0">
-					<DialogTitle>Sagatavot uzdevumu WhatsApp</DialogTitle>
-					<DialogDescription>
-						Pārbaudiet saņēmēju un ziņu. Uzdevums tiks nosūtīts no Limeni
-						WhatsApp numura kopā ar visiem sagatavotajiem attēliem.
+					<DialogTitle>Nosūtīt uzdevumu</DialogTitle>
+					<DialogDescription
+						className={contact ? "flex items-center gap-2" : "sr-only"}
+					>
+						<MessageCircle className="h-4 w-4" />
+						{contact?.name ?? "Darba uzdevums WhatsApp"}
 					</DialogDescription>
 				</DialogHeader>
-				<div className="grid min-h-0 gap-5 overflow-y-auto sm:grid-cols-2">
+				<div className="grid min-h-0 gap-4 overflow-y-auto sm:grid-cols-2">
 					<div className="space-y-3">
-						<p className="text-sm font-medium">Uzdevuma zonas attēls</p>
-						<p className="text-xs text-muted-foreground">
-							Attēli tiks pievienoti uzdevumam automātiski. Griezuma attēlam
-							pievienosim sekcijas nosaukumu. Attēlus var arī nokopēt vai
-							lejupielādēt.
-						</p>
-						{preparing ? (
-							<output className="flex items-center gap-2 text-sm text-muted-foreground">
-								<Loader2 className="h-4 w-4 animate-spin" />
-								Sagatavo zonas attēlu…
+						{!images.length && !imageError ? (
+							<output
+								aria-label="Attēlu sagatavošana"
+								className="flex h-48 items-center justify-center rounded-lg border text-muted-foreground"
+							>
+								<Loader2 className="h-5 w-5 animate-spin" />
 							</output>
 						) : null}
 						{images.map((image) => (
-							<div key={image.page} className="space-y-2 rounded-lg border p-2">
-								<div className="relative h-64 w-full">
+							<figure
+								key={`${image.page}:${image.section ?? "zone"}`}
+								className="overflow-hidden rounded-lg border"
+							>
+								<div className="relative h-52 w-full">
 									<Image
 										src={image.url}
 										alt={
@@ -269,44 +216,17 @@ export function VisualPlanningWhatsApp({
 										fill
 										unoptimized
 										className="object-contain"
-										sizes="(max-width: 640px) 90vw, 520px"
+										sizes="(max-width: 640px) 90vw, 360px"
 									/>
 								</div>
-								<div className="flex flex-wrap items-center gap-2">
-									<span className="mr-auto text-xs text-muted-foreground">
-										{image.section
-											? `Sekcija ${image.section}`
-											: `PDF lapa ${image.page}`}
-									</span>
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										disabled={copying !== null}
-										onClick={() => void copyImage(image)}
-									>
-										{copying === image.page ? (
-											<Loader2 className="h-4 w-4 animate-spin" />
-										) : (
-											<Copy className="h-4 w-4" />
-										)}
-										Kopēt attēlu
-									</Button>
-									<Button asChild variant="outline" size="sm">
-										<a
-											href={image.url}
-											download={
-												image.section
-													? `sekcija-${image.section}.png`
-													: `uzdevums-${plan.id}-lapa-${image.page}.png`
-											}
-										>
-											<Download className="h-4 w-4" />
-											Lejupielādēt
-										</a>
-									</Button>
-								</div>
-							</div>
+								<figcaption className="px-3 py-2 text-xs text-muted-foreground">
+									{image.section
+										? `Sekcija ${image.section}`
+										: images.filter((image) => !image.section).length > 1
+											? `Zona · ${image.page}. lapa`
+											: "Zona"}
+								</figcaption>
+							</figure>
 						))}
 						{imageError ? (
 							<div role="alert" className="space-y-2 text-sm text-destructive">
@@ -315,72 +235,44 @@ export function VisualPlanningWhatsApp({
 									type="button"
 									variant="outline"
 									size="sm"
-									onClick={() => void prepareImages()}
+									onClick={() => setRetry((value) => value + 1)}
 								>
 									Mēģināt vēlreiz
 								</Button>
 							</div>
 						) : null}
-						{copyNotice ? (
-							<output className="block text-xs text-muted-foreground">
-								{copyNotice}
-							</output>
-						) : null}
 					</div>
-					<div className="space-y-4">
-						<div className="space-y-2">
-							<Label htmlFor={`${id}-phone`}>
-								Saņēmēja numurs ar valsts kodu
-							</Label>
-							<Input
-								id={`${id}-phone`}
-								type="tel"
-								placeholder="+371 20000000"
-								value={phone}
-								disabled={Boolean(sendResult)}
-								aria-invalid={invalidPhone}
-								aria-describedby={`${id}-phone-help`}
-								onChange={(event) => setPhone(event.target.value)}
-							/>
-							<p
-								id={`${id}-phone-help`}
-								className={`text-xs ${invalidPhone ? "text-destructive" : "text-muted-foreground"}`}
-							>
-								{invalidPhone
-									? "Ievadiet derīgu numuru ar valsts kodu, piemēram, +371 20000000."
-									: contact
-										? `Plāna kontakts: ${contact.name}. Šeit numuru var mainīt šai ziņai.`
-										: "Ievadiet saņēmēja WhatsApp numuru, piemēram, +371 20000000."}
+					<div className="space-y-3">
+						{!recipient ? (
+							<p role="alert" className="text-sm text-destructive">
+								Izvēlieties uzdevumam kontaktu ar WhatsApp numuru.
 							</p>
-						</div>
+						) : null}
 						<div className="space-y-2">
-							<Label htmlFor={`${id}-message`}>Uzdevuma ziņa</Label>
+							<Label htmlFor={`${id}-message`}>Ziņa</Label>
 							<Textarea
 								id={`${id}-message`}
-								rows={6}
+								rows={12}
 								value={message}
-								disabled={Boolean(sendResult)}
+								disabled={Boolean(sendResult) || sending}
 								aria-invalid={messageTooLong}
 								onChange={(event) => setMessage(event.target.value)}
 								onBlur={() => setMessage(normalizedMessage)}
 							/>
-							<p
-								className={`text-xs ${messageTooLong ? "text-destructive" : "text-muted-foreground"}`}
-							>
-								{normalizedMessage.length}/900 rakstzīmes
-							</p>
+							{messageTooLong ? (
+								<p role="alert" className="text-xs text-destructive">
+									Ziņa pārsniedz 900 rakstzīmes.
+								</p>
+							) : null}
 						</div>
-						<p className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
-							Nosūtot jūs apliecināt, ka saņēmējs ir piekritis saņemt darba
-							uzdevumus WhatsApp. Piekrišanu pārvalda Limeni ārpus šīs sistēmas.
-						</p>
-						{sendResult ? (
-							<output
-								className={`block rounded-lg border p-3 text-sm ${sendResult.status === "sent" ? "text-emerald-700" : "text-amber-700"}`}
-							>
-								{sendResult.status === "sent"
-									? `Meta pieņēma ${sendResult.items.length} ${sendResult.items.length === 1 ? "attēlu" : "attēlus"} nosūtīšanai. Piegādes statusu skatiet uzdevuma vēsturē.`
-									: `Nosūtīti ${sendResult.items.filter((item) => item.status !== "failed").length} no ${sendResult.items.length} attēliem. Varat atkārtot tikai nenosūtītos.`}
+						{sendResult && sendResult.status !== "sent" ? (
+							<output className="block text-sm text-amber-700">
+								Nosūtīti{" "}
+								{
+									sendResult.items.filter((item) => item.status !== "failed")
+										.length
+								}{" "}
+								no {sendResult.items.length} attēliem.
 							</output>
 						) : null}
 						{sendError ? (
@@ -395,11 +287,7 @@ export function VisualPlanningWhatsApp({
 						type="button"
 						variant="outline"
 						disabled={sending}
-						onClick={() => {
-							clearImages();
-							setImages([]);
-							setOpen(false);
-						}}
+						onClick={() => setOpen(false)}
 					>
 						Atcelt
 					</Button>
@@ -410,10 +298,8 @@ export function VisualPlanningWhatsApp({
 					>
 						{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
 						{sendResult && sendResult.status !== "sent"
-							? "Atkārtot nenosūtītos attēlus"
-							: sendResult?.status === "sent"
-								? "Nosūtīts"
-								: "Nosūtīt no Limeni WhatsApp"}
+							? "Atkārtot nenosūtītos"
+							: "Nosūtīt"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
