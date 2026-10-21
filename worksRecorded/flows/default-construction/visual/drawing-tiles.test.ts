@@ -1,4 +1,5 @@
 import { type DrawingTiles, visibleDrawingTiles } from "./drawing-tiles";
+import { preparedPreviewSchema } from "./prepared-preview-model";
 
 const tiles: DrawingTiles = {
 	version: 1,
@@ -12,6 +13,55 @@ const tiles: DrawingTiles = {
 		),
 	})),
 };
+it("keeps full detail at deep zoom and supports tile ordinals above 99", () => {
+	const highResolution: DrawingTiles = {
+		version: 1,
+		format: "png",
+		size: 1024,
+		levels: [2048, 4096, 8192, 16384].map((width) => ({
+			width,
+			height: Math.ceil((width * 11589) / 16384),
+			urls: Array.from(
+				{
+					length:
+						Math.ceil(width / 1024) * Math.ceil((width * 11589) / 16384 / 1024),
+				},
+				(_, i) => `https://a.ufs.sh/${width}-${i}.png`,
+			),
+		})),
+	};
+	expect(
+		preparedPreviewSchema.safeParse({
+			version: 1,
+			source: "hires",
+			pages: [
+				{
+					page: 1,
+					width: 3370.39,
+					height: 2383.94,
+					scales: [100],
+					url: "https://a.ufs.sh/overview.webp",
+					tiles: highResolution,
+				},
+			],
+		}).success,
+	).toBe(true);
+	const visible = visibleDrawingTiles(
+		highResolution,
+		3370.39,
+		2383.94,
+		{
+			camera: { x: -10000, y: -8000, scale: 4 },
+			width: 1000,
+			height: 800,
+		},
+		2,
+	);
+	expect(visible.length).toBeGreaterThan(0);
+	expect(visible.length).toBeLessThanOrEqual(25);
+	expect(visible.every((tile) => tile.level === 3)).toBe(true);
+	expect(visible.some((tile) => tile.ordinal > 99)).toBe(true);
+});
 it("selects resolution for zoom and device density, and reuses normalized full-page coordinates", () => {
 	const overview = visibleDrawingTiles(tiles, 1000, 500, {
 		camera: { x: 0, y: 0, scale: 1 },

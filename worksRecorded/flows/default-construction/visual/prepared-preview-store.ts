@@ -3,6 +3,7 @@ import { UTApi } from "uploadthing/server";
 import { prisma } from "@/lib/utils/db";
 import { drawingScaleLabels } from "./drawing-scale";
 import { loadVisualPdf } from "./pdf";
+import { openPdfTileRenderer } from "./pdf-tile-renderer";
 import {
 	PREVIEW_DOCUMENT_TYPE,
 	preparedPreviewSchema,
@@ -11,7 +12,7 @@ import { previewSource } from "./preview-revision";
 
 export async function generatePreviewPages(
 	bytes: Uint8Array,
-	maxPixels = 12_000_000,
+	maxPixels = 192_000_000,
 ) {
 	const native = await import("@napi-rs/canvas");
 	const globals = globalThis as unknown as Record<string, unknown>;
@@ -30,106 +31,86 @@ export async function generatePreviewPages(
 	try {
 		const pdf = await task.promise;
 		if (pdf.numPages > 10) throw new Error("Too many drawing pages");
-		const pages = [];
-		for (let page = 1; page <= pdf.numPages; page++) {
-			const documentPage = await pdf.getPage(page);
-			const base = documentPage.getViewport({ scale: 1 });
-			const scale = Math.min(
-				7168 / base.width,
-				7168 / base.height,
-				Math.sqrt(maxPixels / (base.width * base.height)),
-			);
-			const viewport = documentPage.getViewport({ scale });
-			const canvas = native.createCanvas(
-				Math.ceil(viewport.width),
-				Math.ceil(viewport.height),
-			);
-			await documentPage.render({
-				canvas: canvas as unknown as HTMLCanvasElement,
-				canvasContext: canvas.getContext(
-					"2d",
-				) as unknown as CanvasRenderingContext2D,
-				viewport,
-				transform: [
-					canvas.width / viewport.width,
-					0,
-					0,
-					canvas.height / viewport.height,
-					0,
-					0,
-				],
-			}).promise;
-			const content = await documentPage.getTextContent();
-			const scales = drawingScaleLabels(
-				content.items.map((item) => ("str" in item ? item.str : "")).join(" "),
-			);
-			const overviewWidth = Math.max(
-				1,
-				Math.floor(
-					Math.min(
-						1600,
-						canvas.width,
-						Math.sqrt((2_000_000 * base.width) / base.height),
+		const renderer = await openPdfTileRenderer(bytes);
+		try {
+			const pages = [];
+			for (let page = 1; page <= pdf.numPages; page++) {
+				const documentPage = await pdf.getPage(page);
+				const base = documentPage.getViewport({ scale: 1 });
+				const scale = Math.min(
+					16384 / base.width,
+					16384 / base.height,
+					Math.sqrt(maxPixels / (base.width * base.height)),
+				);
+				const width = Math.min(16384, Math.ceil(base.width * scale));
+				const height = Math.min(16384, Math.ceil(base.height * scale));
+				const content = await documentPage.getTextContent();
+				const scales = drawingScaleLabels(
+					content.items
+						.map((item) => ("str" in item ? item.str : ""))
+						.join(" "),
+				);
+				const overviewWidth = Math.max(
+					1,
+					Math.floor(
+						Math.min(
+							1600,
+							width,
+							Math.sqrt((2_000_000 * base.width) / base.height),
+						),
 					),
-				),
-			);
-			const overviewHeight = Math.max(
-				1,
-				Math.round((overviewWidth * base.height) / base.width),
-			);
-			const overview = native.createCanvas(overviewWidth, overviewHeight);
-			overview
-				.getContext("2d")
-				.drawImage(canvas, 0, 0, overviewWidth, overviewHeight);
-			const levels = [];
-			for (const divisor of [4, 2, 1]) {
-				const width = Math.ceil(canvas.width / divisor);
-				const height = Math.ceil(canvas.height / divisor);
-				const level = native.createCanvas(width, height);
-				level.getContext("2d").drawImage(canvas, 0, 0, width, height);
-				const tiles = [];
-				for (let y = 0; y < height; y += 1024)
-					for (let x = 0; x < width; x += 1024) {
-						const tile = native.createCanvas(
-							Math.min(1024, width - x),
-							Math.min(1024, height - y),
-						);
-						tile
-							.getContext("2d")
-							.drawImage(
-								level,
+				);
+				const overviewHeight = Math.max(
+					1,
+					Math.round((overviewWidth * base.height) / base.width),
+				);
+				const overview = renderer.render(
+					page,
+					overviewWidth,
+					overviewHeight,
+					0,
+					0,
+					overviewWidth,
+					overviewHeight,
+				);
+				const levels = [];
+				for (const divisor of [8, 4, 2, 1]) {
+					const levelWidth = Math.ceil(width / divisor);
+					const levelHeight = Math.ceil(height / divisor);
+					const tiles = [];
+					for (let y = 0; y < levelHeight; y += 1024)
+						for (let x = 0; x < levelWidth; x += 1024) {
+							const tile = renderer.render(
+								page,
+								levelWidth,
+								levelHeight,
 								x,
 								y,
-								tile.width,
-								tile.height,
-								0,
-								0,
-								tile.width,
-								tile.height,
+								Math.min(1024, levelWidth - x),
+								Math.min(1024, levelHeight - y),
 							);
-						tiles.push(await tile.encode("webp", 90));
-						tile.width = 1;
-						tile.height = 1;
-					}
-				levels.push({ width, height, tiles });
-				level.width = 1;
-				level.height = 1;
+							tiles.push(await tile.encode("png"));
+							tile.width = 1;
+							tile.height = 1;
+						}
+					levels.push({ width: levelWidth, height: levelHeight, tiles });
+				}
+				pages.push({
+					page,
+					width: base.width,
+					height: base.height,
+					scales,
+					bytes: await overview.encode("webp", 88),
+					levels,
+				});
+				overview.width = 1;
+				overview.height = 1;
+				documentPage.cleanup();
 			}
-			pages.push({
-				page,
-				width: base.width,
-				height: base.height,
-				scales,
-				bytes: await overview.encode("webp", 88),
-				levels,
-			});
-			overview.width = 1;
-			overview.height = 1;
-			canvas.width = 1;
-			canvas.height = 1;
-			documentPage.cleanup();
+			return pages;
+		} finally {
+			renderer.close();
 		}
-		return pages;
 	} finally {
 		await task.destroy();
 	}
@@ -174,8 +155,8 @@ export async function prepareVisualDrawingPreviews(
 				files.push(
 					new File(
 						[new Uint8Array(bytes)],
-						`${drawingId}-${page.page}-${index}-${ordinal}.webp`,
-						{ type: "image/webp" },
+						`${drawingId}-${page.page}-${index}-${ordinal}.png`,
+						{ type: "image/png" },
 					),
 				);
 				return offset;
@@ -197,6 +178,7 @@ export async function prepareVisualDrawingPreviews(
 			url: uploaded[layouts[index].overview].data?.ufsUrl,
 			tiles: {
 				version: 1,
+				format: "png",
 				size: 1024,
 				levels: layouts[index].levels.map((level) => ({
 					width: level.width,
@@ -206,28 +188,33 @@ export async function prepareVisualDrawingPreviews(
 			},
 		})),
 	});
-	await prisma.$transaction(async (tx) => {
-		const current = await tx.documents.findUnique({ where: { id: drawingId } });
-		if (
-			!current ||
-			current.url !== row.url ||
-			current.documentType !== row.documentType
-		)
-			throw new Error("Drawing replaced during preview preparation");
-		await tx.documents.upsert({
-			where: { id },
-			create: {
-				id,
-				siteId: row.siteId,
-				organizationId: row.organizationId,
-				userId: row.userId,
-				documentName: drawingId,
-				documentType: PREVIEW_DOCUMENT_TYPE,
-				url: row.url,
-				description: JSON.stringify(manifest),
-			},
-			update: { description: JSON.stringify(manifest) },
-		});
-	});
+	await prisma.$transaction(
+		async (tx) => {
+			const current = await tx.documents.findUnique({
+				where: { id: drawingId },
+			});
+			if (
+				!current ||
+				current.url !== row.url ||
+				current.documentType !== row.documentType
+			)
+				throw new Error("Drawing replaced during preview preparation");
+			await tx.documents.upsert({
+				where: { id },
+				create: {
+					id,
+					siteId: row.siteId,
+					organizationId: row.organizationId,
+					userId: row.userId,
+					documentName: drawingId,
+					documentType: PREVIEW_DOCUMENT_TYPE,
+					url: row.url,
+					description: JSON.stringify(manifest),
+				},
+				update: { description: JSON.stringify(manifest) },
+			});
+		},
+		{ timeout: 30_000, maxWait: 10_000 },
+	);
 	return manifest;
 }

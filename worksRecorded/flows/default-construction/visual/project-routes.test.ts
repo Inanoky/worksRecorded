@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { GET as project } from "@/app/api/sites/[siteId]/limeni-project/route";
 import { GET as preview } from "@/app/api/sites/[siteId]/visual/[drawingId]/preview/[page]/route";
 import { prisma } from "@/lib/utils/db";
@@ -129,6 +130,59 @@ it("rejects obsolete preview versions before accessing stored images", async () 
 	expect(prisma.documents.findFirst).toHaveBeenCalledTimes(1);
 });
 
+it("invalidates the old low-resolution recipe for an unchanged source PDF", async () => {
+	const oldSource = createHash("sha256")
+		.update("full-page-v1:https://a.ufs.sh/source.pdf")
+		.digest("hex");
+	expect(source).not.toBe(oldSource);
+	jest
+		.mocked(prisma.documents.findFirst)
+		.mockResolvedValue({ url: "https://a.ufs.sh/source.pdf" } as never);
+	expect(
+		(await preview(new Request(`https://test/preview?v=${oldSource}`), context))
+			.status,
+	).toBe(404);
+	expect(global.fetch).not.toHaveBeenCalled();
+});
+
+it("serves lossless high-resolution tiles with three-digit ordinals", async () => {
+	const urls = Array.from(
+		{ length: 192 },
+		(_, i) => `https://a.ufs.sh/tile${i}.png`,
+	);
+	jest
+		.mocked(prisma.documents.findFirst)
+		.mockResolvedValueOnce({ url: "https://a.ufs.sh/source.pdf" } as never)
+		.mockResolvedValueOnce({
+			description: JSON.stringify({
+				version: 1,
+				source,
+				pages: [
+					{
+						page: 1,
+						width: 3370.39,
+						height: 2383.94,
+						scales: [100],
+						url: "https://a.ufs.sh/overview.webp",
+						tiles: {
+							version: 1,
+							format: "png",
+							size: 1024,
+							levels: [{ width: 16384, height: 11589, urls }],
+						},
+					},
+				],
+			}),
+		} as never);
+	const response = await preview(
+		new Request(`https://test/preview?v=${source}&level=0&tile=191`),
+		context,
+	);
+	expect(response.status).toBe(200);
+	expect(response.headers.get("content-type")).toBe("image/png");
+	expect(String(jest.mocked(global.fetch).mock.calls[0][0])).toBe(urls[191]);
+});
+
 it("serves only an existing authorized tile and rejects invalid tile coordinates", async () => {
 	const description = JSON.stringify({
 		version: 1,
@@ -201,13 +255,11 @@ it("returns only changed project sections and skips snapshot loading when that r
 	const cached = await first.json();
 	expect(cached.revision).toBe("revision");
 	jest.mocked(loadProjectRevision).mockResolvedValue("changed-revision");
-	jest
-		.mocked(loadLimeniProjectSnapshot)
-		.mockResolvedValue({
-			...initial,
-			version: "v2",
-			config: { label: "after" },
-		} as never);
+	jest.mocked(loadLimeniProjectSnapshot).mockResolvedValue({
+		...initial,
+		version: "v2",
+		config: { label: "after" },
+	} as never);
 	const second = await project(
 		new Request("https://test/api/sites/site/limeni-project", {
 			headers: {

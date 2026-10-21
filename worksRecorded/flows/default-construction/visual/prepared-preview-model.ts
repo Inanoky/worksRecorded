@@ -16,12 +16,13 @@ export const preparedPreviewSchema = z.object({
 					.object({
 						version: z.literal(1),
 						size: z.literal(1024),
+						format: z.enum(["webp", "png"]).optional(),
 						levels: z
 							.array(
 								z.object({
-									width: z.number().int().positive().max(8192),
-									height: z.number().int().positive().max(8192),
-									urls: z.array(z.string().url()).min(1).max(64),
+									width: z.number().int().positive().max(16384),
+									height: z.number().int().positive().max(16384),
+									urls: z.array(z.string().url()).min(1).max(256),
 								}),
 							)
 							.min(1)

@@ -53,7 +53,7 @@ export async function GET(
 		const tile = query.get("tile");
 		if (
 			(level !== null || tile !== null) &&
-			(!/^[0-3]$/.test(level ?? "") || !/^\d{1,2}$/.test(tile ?? ""))
+			(!/^[0-3]$/.test(level ?? "") || !/^\d{1,3}$/.test(tile ?? ""))
 		)
 			throw new Error("Invalid tile");
 		const imageUrl =
@@ -74,7 +74,10 @@ export async function GET(
 		if (!response.ok) throw new Error("Preview unavailable");
 		return new Response(response.body, {
 			headers: {
-				"Content-Type": "image/webp",
+				"Content-Type":
+					level !== null && image.tiles?.format === "png"
+						? "image/png"
+						: "image/webp",
 				"Cache-Control": "private, no-store",
 				"X-Content-Type-Options": "nosniff",
 			},

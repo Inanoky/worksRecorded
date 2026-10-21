@@ -12,9 +12,10 @@ import { withWorkflow } from "workflow/next";
 // //------------------------------
 
 const nextConfig: NextConfig = {
-	serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist"],
+	serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist", "@embedpdf/pdfium"],
 	outputFileTracingIncludes: {
 		"/api/uploadthing": [
+			"./node_modules/@embedpdf/pdfium/dist/pdfium.wasm",
 			"./node_modules/pdfjs-dist/standard_fonts/**",
 			"./node_modules/pdfjs-dist/cmaps/**",
 			"./node_modules/pdfjs-dist/wasm/**",

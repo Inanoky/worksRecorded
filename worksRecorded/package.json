@@ -49,6 +49,7 @@
 		"@conform-to/react": "^1.6.0",
 		"@conform-to/zod": "^1.6.0",
 		"@dynamicpdf/api": "^2.0.0",
+		"@embedpdf/pdfium": "2.15.1",
 		"@googlemaps/js-api-loader": "^2.0.2",
 		"@hookform/resolvers": "^5.2.1",
 		"@kinde-oss/kinde-auth-nextjs": "^2.6.2",

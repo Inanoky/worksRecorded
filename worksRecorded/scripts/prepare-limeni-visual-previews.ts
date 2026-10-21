@@ -40,7 +40,7 @@ async function run() {
 			maxPixels !== undefined &&
 			(!Number.isFinite(maxPixels) ||
 				maxPixels < 2_000_000 ||
-				maxPixels > 32_000_000)
+				maxPixels > 192_000_000)
 		)
 			throw new Error("Invalid pixel limit");
 		const preview = await prepareVisualDrawingPreviews(row.id, maxPixels);
