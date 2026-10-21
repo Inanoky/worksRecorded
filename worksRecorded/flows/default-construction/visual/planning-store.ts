@@ -171,6 +171,7 @@ async function canonicalizeInput(
 			unit: option.unit,
 		})),
 		unitOptions: options.units,
+		config: (site.siteDiaryRecordsMap ?? {}) as Record<string, unknown>,
 	};
 }
 
@@ -318,9 +319,43 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 	)
 		throw new Error("Plāna stāvs neatbilst izvēlētajam rasējumam.");
 	const canonical = await canonicalizeInput(input, drawingRow.organizationId);
-	return prisma.$transaction(
+	const plan = await prisma.$transaction(
 		async (tx) => {
 			await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`visual-plan:${input.siteId}:${planMatchKey(canonical.work, drawing.state.location, canonical.unit)}`}))`;
+			if (input.mutationId) {
+				const previous = await tx.constructionPlan.findFirst({
+					where: {
+						id: input.id ?? input.clientId,
+						siteId: input.siteId,
+						planType: VISUAL_PLAN_TYPE,
+					},
+				});
+				if (previous) {
+					const saved = serializeVisualPlan(
+						previous as unknown as StoredVisualPlan,
+					);
+					if (
+						saved.geometry.mutationId === input.mutationId &&
+						saved.drawingId === input.drawingId &&
+						!saved.archivedAt &&
+						saved.work === canonical.work &&
+						saved.unit === canonical.unit &&
+						saved.quantity === input.quantity &&
+						saved.startDate === input.startDate &&
+						saved.endDate === input.endDate &&
+						saved.contactId === input.contactId &&
+						JSON.stringify(saved.geometry.areas) ===
+							JSON.stringify(canonical.geometry.areas) &&
+						(saved.geometry.section ?? null) ===
+							(canonical.geometry.section ?? null)
+					)
+						return saved;
+					if (!input.id)
+						throw new Error(
+							"Plāns ar šo identifikatoru jau pastāv. Atjaunojiet skatu.",
+						);
+				}
+			}
 			const existingRows = await tx.constructionPlan.findMany({
 				where: {
 					siteId: input.siteId,
@@ -334,7 +369,7 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 				},
 			});
 			const candidate: VisualPlan = {
-				id: input.id ?? "new",
+				id: input.id ?? input.clientId ?? "new",
 				version: input.version ?? 1,
 				drawingId: input.drawingId,
 				work: canonical.work,
@@ -369,7 +404,10 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 					canonical.unit,
 				),
 				visualDrawingId: input.drawingId,
-				visualAreas: canonical.geometry,
+				visualAreas: {
+					...canonical.geometry,
+					...(input.mutationId ? { mutationId: input.mutationId } : {}),
+				},
 				visualPlanningContactId: organizationContactReferenceSchema.safeParse(
 					input.contactId,
 				).success
@@ -384,6 +422,7 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 				saved = (await tx.constructionPlan.create({
 					data: {
 						...data,
+						...(input.clientId ? { id: input.clientId } : {}),
 						siteId: input.siteId,
 						createdBy: userId,
 					},
@@ -416,6 +455,44 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 		},
 		{ isolationLevel: "Serializable" },
 	);
+	const rows = await prisma.sitediaryrecords.findMany({
+		where: {
+			siteId: input.siteId,
+			organizationId: drawingRow.organizationId,
+			archivedAt: null,
+			Date: { gte: new Date(addDays(plan.startDate, -1)) },
+		},
+		select: {
+			id: true,
+			Date: true,
+			Works: true,
+			Location: true,
+			Units: true,
+			Amounts: true,
+			Comments_Custom_1: true,
+		},
+	});
+	const actuals = rows.flatMap((row) => {
+		if (!row.Date) return [];
+		const quantity = getDefaultConstructionQuantityComparison(
+			row,
+			canonical.config,
+		);
+		return [
+			{
+				id: row.id,
+				date: plannerToday(row.Date),
+				work: row.Works ?? "",
+				location: row.Location ?? "",
+				unit: row.Units ?? "",
+				quantity: quantity.enabled ? quantity.actualAmount : row.Amounts,
+			},
+		];
+	});
+	return {
+		...plan,
+		progress: compareVisualPlanProgress(plan, actuals, plannerToday()),
+	};
 }
 
 const visualPlanMutationSchema = z

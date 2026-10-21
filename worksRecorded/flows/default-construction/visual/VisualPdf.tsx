@@ -12,7 +12,7 @@ import {
 	X,
 } from "lucide-react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { type VisualMark, visualLayers } from "./model";
@@ -156,13 +156,19 @@ export function VisualPdf({
 	createRecordBlockedReason?: string;
 }) {
 	const recordHintId = useId();
-	const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
+	const [loadedPdf, setLoadedPdf] = useState<{
+		url: string;
+		pdf: PDFDocumentProxy;
+	} | null>(null);
+	const document = loadedPdf?.url === url ? loadedPdf.pdf : null;
 	useEffect(() => {
 		onDocumentChange?.(document);
 		return () => onDocumentChange?.(null);
 	}, [document, onDocumentChange]);
 	const [page, setPage] = useState(1);
-	const [aspect, setAspect] = useState(1);
+	const [aspect, setAspect] = useState(
+		() => resourceCache?.peekPreview(url, 1)?.aspect ?? 1,
+	);
 	const [error, setError] = useState(false);
 	const [ready, setReady] = useState(false);
 	const [highlighted, setHighlighted] = useState<string | null>(null);
@@ -427,16 +433,16 @@ export function VisualPdf({
 			| undefined;
 		const abort = new AbortController();
 		const cachedPdf = resourceCache?.openPdf(url);
-		setDocument(null);
+		setLoadedPdf(null);
 		setHighlighted(null);
 		setError(false);
-		setReady(false);
+		setReady(!!resourceCache?.peekPreview(url, 1));
 		setPage(1);
 		void (async () => {
 			try {
 				if (cachedPdf) {
 					const pdf = await cachedPdf.promise;
-					if (active) setDocument(pdf);
+					if (active) setLoadedPdf({ url, pdf });
 					return;
 				}
 				const [response, pdfjs, worker] = await Promise.all([
@@ -450,7 +456,7 @@ export function VisualPdf({
 				pdfjs.GlobalWorkerOptions.workerSrc = worker.pdfWorkerUrl;
 				task = pdfjs.getDocument({ data: bytes });
 				const pdf = await task.promise;
-				if (active) setDocument(pdf);
+				if (active) setLoadedPdf({ url, pdf });
 			} catch {
 				if (active) setError(true);
 			}
@@ -462,14 +468,43 @@ export function VisualPdf({
 			void task?.destroy();
 		};
 	}, [url, resourceCache]);
+	useLayoutEffect(() => {
+		const preview = resourceCache?.peekPreview(url, page);
+		const element = canvas.current;
+		if (!preview || !element) return;
+		const context = element.getContext("2d");
+		if (!context) return;
+		element.width = preview.canvas.width;
+		element.height = preview.canvas.height;
+		context.drawImage(preview.canvas, 0, 0);
+		setAspect(preview.aspect);
+		setReady(true);
+	}, [url, page, resourceCache]);
 	useEffect(() => {
 		if (!document) return;
 		let active = true;
 		let render: { promise: Promise<void>; cancel: () => void } | undefined;
-		setReady(false);
+		if (!resourceCache?.peekPreview(url, page)) setReady(false);
 		setError(false);
 		void (async () => {
 			try {
+				if (resourceCache) {
+					const preview = await resourceCache.renderPreview(
+						url,
+						page,
+						document,
+					);
+					if (!active || !canvas.current) return;
+					const element = canvas.current;
+					element.width = preview.canvas.width;
+					element.height = preview.canvas.height;
+					const context = element.getContext("2d");
+					if (!context) throw new Error("Canvas unavailable");
+					context.drawImage(preview.canvas, 0, 0);
+					setAspect(preview.aspect);
+					setReady(true);
+					return;
+				}
 				const pdfPage = await document.getPage(page);
 				if (!active || !canvas.current) return;
 				const base = pdfPage.getViewport({ scale: 1 });
@@ -493,7 +528,9 @@ export function VisualPdf({
 					viewport,
 				});
 				await render.promise;
-				if (active) setReady(true);
+				if (active) {
+					setReady(true);
+				}
 			} catch {
 				if (active) setError(true);
 			}
@@ -502,7 +539,7 @@ export function VisualPdf({
 			active = false;
 			render?.cancel();
 		};
-	}, [document, page]);
+	}, [document, page, url, resourceCache]);
 	const actualLayerCandidates: LayerHitOption[] = shownMarks
 		.filter((mark) => mark.page === page)
 		.map((mark) => ({

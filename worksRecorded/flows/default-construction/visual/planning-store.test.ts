@@ -68,6 +68,78 @@ const input = {
 	geometry,
 };
 
+it("uses the client plan ID and returns a confirmed retry without creating another plan or revision", async () => {
+	const mutationId = "77777777-7777-4777-8777-777777777777";
+	const request = { ...input, clientId: planId, mutationId };
+	const row = stored({ visualAreas: { ...geometry, mutationId } });
+	jest.mocked(prisma.constructionPlan.create).mockResolvedValue(row as never);
+	const first = await persistVisualPlan("user", request);
+	expect(first).toMatchObject({
+		id: planId,
+		version: 1,
+		progress: { actualQuantity: 0 },
+	});
+	expect(prisma.constructionPlan.create).toHaveBeenCalledWith({
+		data: expect.objectContaining({
+			id: planId,
+			visualAreas: { ...geometry, mutationId },
+		}),
+	});
+	jest
+		.mocked(prisma.constructionPlan.findFirst)
+		.mockResolvedValue(row as never);
+	expect(await persistVisualPlan("user", request)).toEqual(first);
+	expect(prisma.constructionPlan.create).toHaveBeenCalledTimes(1);
+	expect(prisma.constructionPlanRevision.create).toHaveBeenCalledTimes(1);
+	expect(prisma.constructionPlan.updateMany).not.toHaveBeenCalled();
+});
+
+it("recognizes an update whose acknowledgement was lost without incrementing the version again", async () => {
+	const mutationId = "77777777-7777-4777-8777-777777777777";
+	const row = stored({ version: 2, visualAreas: { ...geometry, mutationId } });
+	jest
+		.mocked(prisma.constructionPlan.findFirst)
+		.mockResolvedValue(row as never);
+	const result = await persistVisualPlan("user", {
+		...input,
+		id: planId,
+		version: 1,
+		mutationId,
+	});
+	expect(result.version).toBe(2);
+	expect(prisma.constructionPlan.updateMany).not.toHaveBeenCalled();
+	expect(prisma.constructionPlanRevision.create).not.toHaveBeenCalled();
+	expect(loadVisualDrawing).toHaveBeenCalledWith("user", siteId, drawingId);
+});
+
+it("rejects a reused client ID with a different payload and still enforces stale update versions", async () => {
+	const mutationId = "77777777-7777-4777-8777-777777777777";
+	jest
+		.mocked(prisma.constructionPlan.findFirst)
+		.mockResolvedValue(
+			stored({ visualAreas: { ...geometry, mutationId } }) as never,
+		);
+	await expect(
+		persistVisualPlan("user", {
+			...input,
+			clientId: planId,
+			mutationId,
+			quantity: 200,
+		}),
+	).rejects.toThrow(/identifikatoru/);
+	jest
+		.mocked(prisma.constructionPlan.updateMany)
+		.mockResolvedValue({ count: 0 });
+	await expect(
+		persistVisualPlan("user", {
+			...input,
+			id: planId,
+			version: 1,
+			mutationId: "88888888-8888-4888-8888-888888888888",
+		}),
+	).rejects.toThrow(/jau ir mainīts/);
+});
+
 function stored(overrides: Record<string, unknown> = {}) {
 	return {
 		id: planId,
@@ -97,6 +169,7 @@ function stored(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	jest.mocked(prisma.constructionPlan.findFirst).mockResolvedValue(null);
 	jest.mocked(organizationPlanningContacts).mockResolvedValue([]);
 	jest.useFakeTimers().setSystemTime(new Date("2026-10-15T10:00:00Z"));
 	jest.mocked(loadVisualDrawing).mockResolvedValue({
@@ -145,16 +218,14 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 it("stores organization contact references without creating duplicate project contacts", async () => {
-	jest
-		.mocked(organizationPlanningContacts)
-		.mockResolvedValue([
-			{
-				id: "member:user-1",
-				name: "Anna Bērziņa",
-				phone: "37120000000",
-				archivedAt: null,
-			},
-		]);
+	jest.mocked(organizationPlanningContacts).mockResolvedValue([
+		{
+			id: "member:user-1",
+			name: "Anna Bērziņa",
+			phone: "37120000000",
+			archivedAt: null,
+		},
+	]);
 	jest
 		.mocked(prisma.constructionPlan.create)
 		.mockImplementation((async (args: { data: Record<string, unknown> }) =>

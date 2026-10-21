@@ -1,6 +1,7 @@
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from "pdfjs-dist";
 import type { getVisualDrawings, getVisualPlanning } from "./actions";
 import type { VisualDrawing } from "./model";
+import { PlanningSaveQueue, planningItem } from "./planning-save-queue";
 
 export const VISUAL_CACHE_FRESH_MS = 60_000;
 export const VISUAL_PLANNING_CACHE_INVALIDATED =
@@ -51,6 +52,19 @@ export class VisualClientCache {
 		ResourceRequest<VisualPlanningIndex>
 	>();
 	private pdfs = new Map<string, PdfEntry>();
+	private planningSaves?: PlanningSaveQueue;
+	private previewGeneration = 0;
+	private previewRequests = new Map<
+		string,
+		{
+			promise: Promise<{ canvas: HTMLCanvasElement; aspect: number }>;
+			cancel: () => void;
+		}
+	>();
+	private previews = new Map<
+		string,
+		{ canvas: HTMLCanvasElement; aspect: number }
+	>();
 
 	constructor(
 		private readonly siteId: string,
@@ -166,7 +180,47 @@ export class VisualClientCache {
 	}
 
 	peekPlanning(id: string) {
-		return this.planning.get(id)?.value;
+		const value = this.planning.get(id)?.value;
+		return value ? this.projectPlanning(id, value) : undefined;
+	}
+
+	getPlanningSaveQueue(
+		transport: ConstructorParameters<typeof PlanningSaveQueue>[0],
+	) {
+		this.planningSaves ??= new PlanningSaveQueue(
+			transport,
+			(id, plan) => this.mergePlanningPlan(id, plan),
+			this.siteId,
+		);
+		return this.planningSaves;
+	}
+
+	mergePlanningPlan(id: string, plan: Parameters<typeof planningItem>[0]) {
+		const current = this.planning.get(id)?.value;
+		if (!current) return;
+		const previous = current.plans.find((item) => item.id === plan.id);
+		const item = planningItem(plan, previous, current.today);
+		this.rememberPlanning(id, {
+			...current,
+			plans: previous
+				? current.plans.map((entry) => (entry.id === plan.id ? item : entry))
+				: [...current.plans, item],
+		});
+	}
+
+	private projectPlanning(id: string, value: VisualPlanningIndex) {
+		const pending = this.planningSaves
+			?.getSnapshot()
+			.filter((item) => item.input.drawingId === id);
+		if (!pending?.length) return value;
+		const plans = [...value.plans];
+		for (const item of pending) {
+			const index = plans.findIndex((plan) => plan.id === item.id);
+			const projected = planningItem(item.plan, plans[index], value.today);
+			if (index >= 0) plans[index] = projected;
+			else plans.push(projected);
+		}
+		return { ...value, plans };
 	}
 
 	rememberPlanning(id: string, value: VisualPlanningIndex) {
@@ -181,7 +235,8 @@ export class VisualClientCache {
 		options: LoadOptions = {},
 	) {
 		const cached = this.planning.get(id);
-		if (!options.force && cached && this.isFresh(cached)) return cached.value;
+		if (!options.force && cached && this.isFresh(cached))
+			return this.projectPlanning(id, cached.value);
 		const pending = this.planningRequests.get(id);
 		if (pending) return pending.promise;
 		const generation = this.planningGeneration(id);
@@ -195,11 +250,12 @@ export class VisualClientCache {
 						this.planningGeneration(id) !== generation
 					) {
 						const current = this.planning.get(id);
-						if (current?.updatedAt) return current.value;
+						if (current?.updatedAt)
+							return this.projectPlanning(id, current.value);
 						throw new DOMException("Planning request superseded", "AbortError");
 					}
 					this.planning.set(id, { value, updatedAt: this.now() });
-					return value;
+					return this.projectPlanning(id, value);
 				})
 				.finally(() => {
 					if (this.planningRequests.get(id) === request)
@@ -256,6 +312,103 @@ export class VisualClientCache {
 		};
 	}
 
+	peekPreview(url: string, page: number) {
+		const key = `${url}:${page}`;
+		const preview = this.previews.get(key);
+		if (preview) {
+			this.previews.delete(key);
+			this.previews.set(key, preview);
+		}
+		return preview;
+	}
+
+	rememberPreview(
+		url: string,
+		page: number,
+		source: HTMLCanvasElement,
+		aspect: number,
+	) {
+		const canvas = document.createElement("canvas");
+		canvas.width = source.width;
+		canvas.height = source.height;
+		const context = canvas.getContext("2d");
+		if (!context) return;
+		context.drawImage(source, 0, 0);
+		const key = `${url}:${page}`;
+		const old = this.previews.get(key);
+		if (old) {
+			old.canvas.width = 0;
+			old.canvas.height = 0;
+		}
+		this.previews.delete(key);
+		this.previews.set(key, { canvas, aspect });
+		let pixels = [...this.previews.values()].reduce(
+			(sum, entry) => sum + entry.canvas.width * entry.canvas.height,
+			0,
+		);
+		for (const [previewKey, preview] of this.previews) {
+			if (pixels <= 16_000_000) break;
+			pixels -= preview.canvas.width * preview.canvas.height;
+			preview.canvas.width = 0;
+			preview.canvas.height = 0;
+			this.previews.delete(previewKey);
+		}
+	}
+
+	renderPreview(url: string, page: number, pdf: PDFDocumentProxy) {
+		const cached = this.peekPreview(url, page);
+		if (cached) return Promise.resolve(cached);
+		const key = `${url}:${page}`;
+		const pending = this.previewRequests.get(key);
+		if (pending) return pending.promise;
+		const generation = this.previewGeneration;
+		let render:
+			| ReturnType<Awaited<ReturnType<PDFDocumentProxy["getPage"]>>["render"]>
+			| undefined;
+		let cancelled = false;
+		const request = {
+			cancel: () => {
+				cancelled = true;
+				render?.cancel();
+			},
+			promise: Promise.resolve()
+				.then(async () => {
+					const pdfPage = await pdf.getPage(page);
+					if (cancelled)
+						throw new DOMException("Preview cancelled", "AbortError");
+					const base = pdfPage.getViewport({ scale: 1 });
+					const width = Math.min(
+						1800,
+						Math.sqrt((4_000_000 * base.width) / base.height),
+						(4096 * base.width) / base.height,
+					);
+					const viewport = pdfPage.getViewport({ scale: width / base.width });
+					const canvas = document.createElement("canvas");
+					canvas.width = viewport.width;
+					canvas.height = viewport.height;
+					const context = canvas.getContext("2d");
+					if (!context) throw new Error("Canvas unavailable");
+					render = pdfPage.render({ canvas, canvasContext: context, viewport });
+					await render.promise;
+					if (cancelled || generation !== this.previewGeneration)
+						throw new DOMException("Preview superseded", "AbortError");
+					this.rememberPreview(url, page, canvas, base.width / base.height);
+					return (
+						this.peekPreview(url, page) ?? {
+							canvas,
+							aspect: base.width / base.height,
+						}
+					);
+				})
+				.finally(() => {
+					if (this.previewRequests.get(key) === request)
+						this.previewRequests.delete(key);
+				}),
+		};
+		this.previewRequests.set(key, request);
+		return request.promise;
+	}
+
 	async prefetch(
 		id: string,
 		loadPlanning?: () => Promise<VisualPlanningIndex>,
@@ -264,17 +417,28 @@ export class VisualClientCache {
 		this.trimPdfs();
 		await Promise.all([
 			this.loadDrawing(id),
-			pdf.promise,
+			pdf.promise.then((document) =>
+				this.renderPreview(`${this.endpoint(id)}?pdf=1`, 1, document),
+			),
 			...(loadPlanning ? [this.loadPlanning(id, loadPlanning)] : []),
 		]);
 	}
 
 	removeDrawing(id: string) {
+		this.previewGeneration += 1;
+		for (const request of this.previewRequests.values()) request.cancel();
+		this.previewRequests.clear();
 		this.invalidateDrawing(id);
 		this.bumpPlanningGeneration(id);
 		this.planning.delete(id);
 		this.planningRequests.delete(id);
 		const url = `${this.endpoint(id)}?pdf=1`;
+		for (const [key, preview] of this.previews) {
+			if (!key.startsWith(`${url}:`)) continue;
+			preview.canvas.width = 0;
+			preview.canvas.height = 0;
+			this.previews.delete(key);
+		}
 		const entry = this.pdfs.get(url);
 		if (entry) this.destroyPdf(url, entry);
 	}
@@ -287,6 +451,14 @@ export class VisualClientCache {
 	}
 
 	clear() {
+		this.previewGeneration += 1;
+		for (const request of this.previewRequests.values()) request.cancel();
+		this.previewRequests.clear();
+		for (const preview of this.previews.values()) {
+			preview.canvas.width = 0;
+			preview.canvas.height = 0;
+		}
+		this.previews.clear();
 		this.index = null;
 		this.indexGeneration += 1;
 		this.indexRequest = null;

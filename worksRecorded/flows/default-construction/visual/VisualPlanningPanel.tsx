@@ -44,7 +44,6 @@ import {
 	archiveVisualPlanningItem,
 	getVisualPlanning,
 	restoreVisualPlanningItem,
-	saveVisualPlanningItem,
 } from "./actions";
 import {
 	defaultVisualLayerSettings,
@@ -57,13 +56,15 @@ import { renderPlanningImages } from "./planning-image";
 import type { VisualPlan, VisualPlanArea } from "./planning-model";
 import { fetchSectionDrawing } from "./section-drawing-client";
 import { sectionKey } from "./sections";
+import { usePlanningSaveQueue } from "./usePlanningSaveQueue";
 import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
+import { VisualPlanningSaveStatus } from "./VisualPlanningSaveStatus";
 import { VisualPlanningWhatsApp } from "./VisualPlanningWhatsApp";
 import { VisualSectionSelect } from "./VisualSectionSelect";
 import { VisualTimeline } from "./VisualTimeline";
 import {
 	VISUAL_PLANNING_CACHE_INVALIDATED,
-	type VisualClientCache,
+	VisualClientCache,
 } from "./visual-client-cache";
 
 type PlanningIndex = Awaited<ReturnType<typeof getVisualPlanning>>;
@@ -205,6 +206,7 @@ export function VisualPlanningPanel({
 	onDirtyChange,
 	layerConfiguration = defaultLayerConfiguration,
 	resourceCache,
+	showSaveStatus = true,
 }: {
 	active?: boolean;
 	siteId: string;
@@ -213,7 +215,12 @@ export function VisualPlanningPanel({
 	onDirtyChange: (dirty: boolean) => void;
 	layerConfiguration?: VisualLayerConfiguration;
 	resourceCache?: VisualClientCache;
+	showSaveStatus?: boolean;
 }) {
+	const localCache = useMemo(() => new VisualClientCache(siteId), [siteId]);
+	const cache = resourceCache ?? localCache;
+	const { queue: planningSaves, state: planningSaveState } =
+		usePlanningSaveQueue(cache, siteId);
 	const styles = visualLayerStyles(layerConfiguration.settings);
 	const workColor = (work: string) =>
 		(
@@ -225,7 +232,9 @@ export function VisualPlanningPanel({
 				)
 			] ?? visualLayers.other
 		).color;
-	const [index, setIndex] = useState<PlanningIndex | null>(null);
+	const [index, setIndex] = useState<PlanningIndex | null>(
+		() => cache.peekPlanning(drawing.id) ?? null,
+	);
 	const [draft, setDraft] = useState<PlanningDraft | null>(null);
 	const [selectedArea, setSelectedArea] =
 		useState<VisualPlanAreaSelection | null>(null);
@@ -243,6 +252,8 @@ export function VisualPlanningPanel({
 	const [error, setError] = useState<string | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
 	const [conflict, setConflict] = useState<VisualPlan | null>(null);
+	const editingRef = useRef(false);
+	editingRef.current = dirty || areaEditing;
 	const request = useRef(0);
 	const wasActive = useRef(active);
 	const pdfDocument = useRef<PDFDocumentProxy | null>(null);
@@ -262,6 +273,31 @@ export function VisualPlanningPanel({
 	const endId = `${fieldId}-end`;
 	const contactId = `${fieldId}-contact`;
 	const drawerKey = draft ? (draft.id ?? "new") : null;
+	const planPending = planningSaveState.some((item) => item.id === draft?.id);
+	useEffect(() => {
+		const value = cache.peekPlanning(drawing.id);
+		if (!value) return;
+		setIndex(value);
+		const pending = planningSaveState.find((item) => item.id === draft?.id);
+		if (pending?.status === "failed") {
+			setConflict(pending.conflict ?? null);
+			setError(pending.error ?? null);
+		}
+		if (!pending)
+			setNotice((current) =>
+				current === "Plāns saglabāts šajā cilnē. Notiek sinhronizācija."
+					? "Plāns saglabāts."
+					: current,
+			);
+		setDraft((current) => {
+			if (!current?.id) return current;
+			const plan = value.plans.find((item) => item.id === current.id);
+			if (!plan) return dirty || areaEditing ? current : null;
+			return dirty || areaEditing
+				? { ...current, version: plan.version }
+				: draftFromPlan(plan);
+		});
+	}, [cache, drawing.id, planningSaveState, dirty, areaEditing, draft?.id]);
 
 	useEffect(() => {
 		onDirtyChange(dirty || areaEditing);
@@ -277,7 +313,7 @@ export function VisualPlanningPanel({
 	);
 	useEffect(() => {
 		const run = ++request.current;
-		const cached = resourceCache?.peekPlanning(drawing.id);
+		const cached = cache.peekPlanning(drawing.id);
 		setLoading(!cached);
 		setError(null);
 		const showInitial = (value: PlanningIndex) => {
@@ -291,11 +327,14 @@ export function VisualPlanningPanel({
 		};
 		if (cached) showInitial(cached);
 		const load = () => getVisualPlanning(siteId, drawing.id);
-		void (resourceCache ? resourceCache.loadPlanning(drawing.id, load) : load())
+		void cache
+			.loadPlanning(drawing.id, load)
 			.then(
 				(value) => {
 					if (run !== request.current) return;
-					showInitial(value);
+					const latest = cache.peekPlanning(drawing.id) ?? value;
+					if (cached) setIndex(latest);
+					else showInitial(latest);
 				},
 				() => {
 					if (run === request.current && !cached)
@@ -308,15 +347,16 @@ export function VisualPlanningPanel({
 		return () => {
 			++request.current;
 		};
-	}, [drawing.id, resourceCache, siteId]);
+	}, [drawing.id, cache, siteId]);
 
 	const refreshPlanning = useCallback(async () => {
 		if (!active || dirty || areaEditing || saving) return;
+		const run = request.current;
 		try {
 			const load = () => getVisualPlanning(siteId, drawing.id);
-			const value = resourceCache
-				? await resourceCache.loadPlanning(drawing.id, load)
-				: await load();
+			const loaded = await cache.loadPlanning(drawing.id, load);
+			if (run !== request.current || editingRef.current) return;
+			const value = cache.peekPlanning(drawing.id) ?? loaded;
 			setIndex(value);
 			setError(null);
 			setDraft((current) => {
@@ -326,7 +366,7 @@ export function VisualPlanningPanel({
 				return selected ? draftFromPlan(selected) : null;
 			});
 		} catch {}
-	}, [active, areaEditing, dirty, drawing.id, resourceCache, saving, siteId]);
+	}, [active, areaEditing, dirty, drawing.id, cache, saving, siteId]);
 	useEffect(() => {
 		if (active && !wasActive.current) void refreshPlanning();
 		wasActive.current = active;
@@ -351,39 +391,22 @@ export function VisualPlanningPanel({
 		const invalidate = (event: Event) => {
 			const detail = (event as CustomEvent<{ siteId?: string }>).detail;
 			if (detail?.siteId !== siteId) return;
-			resourceCache?.invalidatePlanning();
+			cache.invalidatePlanning();
 			queueMicrotask(() => void refreshPlanning());
 		};
 		window.addEventListener(VISUAL_PLANNING_CACHE_INVALIDATED, invalidate);
 		return () =>
 			window.removeEventListener(VISUAL_PLANNING_CACHE_INVALIDATED, invalidate);
-	}, [refreshPlanning, resourceCache, siteId]);
+	}, [refreshPlanning, cache, siteId]);
 
-	async function reload(
-		preferredId?: string | null,
-		fallbackPlan?: VisualPlan,
-	) {
-		const load = () => getVisualPlanning(siteId, drawing.id);
-		resourceCache?.invalidatePlanning(drawing.id);
-		const value = resourceCache
-			? await resourceCache.refreshPlanning(drawing.id, load)
-			: await load();
-		setIndex(value);
-		const selected = preferredId
-			? value.plans.find((plan) => plan.id === preferredId)
-			: undefined;
-		setDraft(
-			selected
-				? draftFromPlan(selected)
-				: fallbackPlan
-					? draftFromPlan(fallbackPlan)
-					: null,
-		);
+	function applySavedPlan(plan: VisualPlan, close = false) {
+		cache.mergePlanningPlan(drawing.id, plan);
+		setIndex(cache.peekPlanning(drawing.id) ?? null);
+		setDraft(close ? null : draftFromPlan(plan));
 		setPlanningSession((current) => current + 1);
 		setSelectedArea(null);
 		setDirty(false);
 		setAreaEditing(false);
-		return value;
 	}
 
 	function activatePlan(plan: PlanningItem, areaId?: string) {
@@ -491,7 +514,15 @@ export function VisualPlanningPanel({
 	}
 
 	async function savePlan() {
-		if (!index || !draft || saving || draft.archivedAt || areaEditing) return;
+		if (
+			!index ||
+			!draft ||
+			saving ||
+			planPending ||
+			draft.archivedAt ||
+			areaEditing
+		)
+			return;
 		const quantity = Number(draft.quantity);
 		if (!draft.work || !draft.unit) {
 			setError("Izvēlieties darbu un mērvienību.");
@@ -513,11 +544,10 @@ export function VisualPlanningPanel({
 			setError("Uzzīmējiet vismaz vienu plānoto zonu rasējumā.");
 			return;
 		}
-		setSaving(true);
 		setError(null);
 		setConflict(null);
 		try {
-			const result = await saveVisualPlanningItem({
+			const plan = planningSaves.enqueue({
 				siteId,
 				drawingId: drawing.id,
 				...(draft.id && draft.version
@@ -536,22 +566,27 @@ export function VisualPlanningPanel({
 					...(draft.section ? { section: draft.section } : {}),
 				},
 			});
-			if (!result.ok) {
-				setError(result.error);
-				setConflict(result.conflict ?? null);
-				return;
-			}
-			await reload(result.plan.id, result.plan);
-			setNotice(draft.id ? "Plāns atjaunināts." : "Plāns saglabāts.");
+			setIndex(cache.peekPlanning(drawing.id) ?? null);
+			setDraft(draftFromPlan(plan));
+			setDirty(false);
+			setAreaEditing(false);
+			setSelectedArea(null);
+			setNotice("Plāns saglabāts šajā cilnē. Notiek sinhronizācija.");
 		} catch {
 			setError("Neizdevās saglabāt plānu. Mēģiniet vēlreiz.");
-		} finally {
-			setSaving(false);
 		}
 	}
 
 	async function archivePlan() {
-		if (!draft?.id || !draft.version || saving || dirty || areaEditing) return;
+		if (
+			!draft?.id ||
+			!draft.version ||
+			saving ||
+			planPending ||
+			dirty ||
+			areaEditing
+		)
+			return;
 		setSaving(true);
 		setError(null);
 		try {
@@ -564,7 +599,7 @@ export function VisualPlanningPanel({
 				setError(result.error);
 				return;
 			}
-			await reload(null);
+			applySavedPlan(result.plan, true);
 			setNotice("Plāns arhivēts. To var atjaunot arhīva sarakstā.");
 		} catch {
 			setError("Neizdevās arhivēt plānu.");
@@ -574,7 +609,14 @@ export function VisualPlanningPanel({
 	}
 
 	async function restorePlan() {
-		if (!draft?.id || !draft.version || saving || !draft.archivedAt) return;
+		if (
+			!draft?.id ||
+			!draft.version ||
+			saving ||
+			planPending ||
+			!draft.archivedAt
+		)
+			return;
 		setSaving(true);
 		setError(null);
 		setConflict(null);
@@ -589,7 +631,7 @@ export function VisualPlanningPanel({
 				setConflict(result.conflict ?? null);
 				return;
 			}
-			await reload(result.plan.id, result.plan);
+			applySavedPlan(result.plan);
 			setNotice("Plāns atjaunots.");
 		} catch {
 			setError("Neizdevās atjaunot plānu.");
@@ -664,6 +706,16 @@ export function VisualPlanningPanel({
 
 	return (
 		<div className="flex h-full min-h-0 flex-col overflow-hidden">
+			{showSaveStatus ? (
+				<VisualPlanningSaveStatus
+					queue={planningSaves}
+					items={planningSaveState}
+					onDiscard={(id) => {
+						cache.invalidatePlanning(id);
+						void refreshPlanning();
+					}}
+				/>
+			) : null}
 			<div
 				ref={setControlsHost}
 				data-planning-controls
@@ -673,7 +725,7 @@ export function VisualPlanningPanel({
 				<VisualPdf
 					onDocumentChange={onPdfDocumentChange}
 					controlsHost={controlsHost}
-					resourceCache={resourceCache}
+					resourceCache={cache}
 					fillWorkspace
 					url={`/api/sites/${encodeURIComponent(siteId)}/visual/${encodeURIComponent(drawing.id)}?pdf=1`}
 					marks={[]}
@@ -1119,9 +1171,13 @@ export function VisualPlanningPanel({
 											size="sm"
 											variant="outline"
 											onClick={() => {
-												const existing = index.plans.find(
-													(plan) => plan.id === conflict.id,
-												);
+												if (conflict.id === draft.id)
+													planningSaves.discard(conflict.id);
+												cache.mergePlanningPlan(drawing.id, conflict);
+												const existing = cache
+													.peekPlanning(drawing.id)
+													?.plans.find((plan) => plan.id === conflict.id);
+												setIndex(cache.peekPlanning(drawing.id) ?? null);
 												if (existing) {
 													setDraft(draftFromPlan(existing));
 													setSelectedArea(null);
@@ -1160,7 +1216,7 @@ export function VisualPlanningPanel({
 									<>
 										<Button
 											type="submit"
-											disabled={saving || areaEditing || !dirty}
+											disabled={saving || planPending || areaEditing || !dirty}
 										>
 											{saving ? (
 												<Loader2 className="h-4 w-4 animate-spin" />
@@ -1206,7 +1262,7 @@ export function VisualPlanningPanel({
 												contact={index.contacts.find(
 													(contact) => contact.id === selectedPlan.contactId,
 												)}
-												disabled={saving || dirty || areaEditing}
+												disabled={saving || planPending || dirty || areaEditing}
 											/>
 										) : null}
 										{dirty ? (
@@ -1233,7 +1289,7 @@ export function VisualPlanningPanel({
 												type="button"
 												variant="ghost"
 												className="text-muted-foreground"
-												disabled={saving || dirty || areaEditing}
+												disabled={saving || planPending || dirty || areaEditing}
 												onClick={() => void archivePlan()}
 											>
 												<Archive className="h-4 w-4" />

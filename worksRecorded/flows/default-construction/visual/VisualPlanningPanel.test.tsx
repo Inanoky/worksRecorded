@@ -224,13 +224,11 @@ function sidebarAddZone() {
 }
 beforeEach(() => {
 	jest.clearAllMocks();
-	jest
-		.mocked(fetchSectionDrawing)
-		.mockResolvedValue({
-			page: 11,
-			section: "PA1.6",
-			blob: new Blob(["section"], { type: "image/png" }),
-		});
+	jest.mocked(fetchSectionDrawing).mockResolvedValue({
+		page: 11,
+		section: "PA1.6",
+		blob: new Blob(["section"], { type: "image/png" }),
+	});
 	jest.mocked(publishPlanningShare).mockResolvedValue({
 		token: "share-token",
 		url: "https://www.worksrecorded.com/shared/work/share-token",
@@ -250,7 +248,19 @@ beforeEach(() => {
 			{ page: 1, blob: new Blob(["zone"], { type: "image/png" }) },
 		]);
 	jest.mocked(getVisualPlanning).mockResolvedValue(emptyIndex);
-	jest.mocked(saveVisualPlanningItem).mockResolvedValue({ ok: true, plan });
+	jest.mocked(saveVisualPlanningItem).mockImplementation(async (raw) => {
+		const input = raw as typeof plan & { clientId?: string };
+		return {
+			ok: true,
+			plan: {
+				...plan,
+				...input,
+				id: input.id ?? input.clientId ?? plan.id,
+				version: input.id ? input.version + 1 : 1,
+				progress: indexedPlan.progress,
+			},
+		};
+	});
 	jest.mocked(archiveVisualPlanningItem).mockResolvedValue({
 		ok: true,
 		plan: { ...plan, version: 3, archivedAt: "2026-10-11T10:00:00Z" },
@@ -623,6 +633,8 @@ it("creates a visual plan from project work, dates, quantity, and drawn areas", 
 	fireEvent.click(screen.getByRole("button", { name: "Saglabāt plānu" }));
 	await waitFor(() =>
 		expect(saveVisualPlanningItem).toHaveBeenCalledWith({
+			clientId: expect.any(String),
+			mutationId: expect.any(String),
 			siteId: "22222222-2222-4222-8222-222222222222",
 			drawingId: "drawing",
 			work: "Smilts",
@@ -1067,7 +1079,16 @@ it("shows cumulative actual progress and saves edits with optimistic versioning"
 		});
 	jest.mocked(saveVisualPlanningItem).mockResolvedValue({
 		ok: true,
-		plan: { ...plan, quantity: 12, version: 3 },
+		plan: {
+			...plan,
+			quantity: 12,
+			version: 3,
+			progress: {
+				...indexedPlan.progress,
+				progressPercent: 100 / 3,
+				variance: -8,
+			},
+		},
 	});
 	render(
 		<VisualPlanningPanel
@@ -1101,15 +1122,8 @@ it("shows cumulative actual progress and saves edits with optimistic versioning"
 });
 
 it("archives and restores plans while keeping them available in the archive list", async () => {
-	const archived = {
-		...indexedPlan,
-		version: 3,
-		archivedAt: "2026-10-11T10:00:00Z",
-	};
 	jest
 		.mocked(getVisualPlanning)
-		.mockResolvedValueOnce({ ...emptyIndex, plans: [indexedPlan] })
-		.mockResolvedValueOnce({ ...emptyIndex, plans: [archived] })
 		.mockResolvedValue({ ...emptyIndex, plans: [indexedPlan] });
 	const view = render(
 		<VisualPlanningPanel
@@ -1149,6 +1163,7 @@ it("archives and restores plans while keeping them available in the archive list
 		}),
 	);
 	view.unmount();
+	expect(getVisualPlanning).toHaveBeenCalledTimes(1);
 });
 
 it("links an overlapping date range to the existing plan", async () => {
@@ -1183,4 +1198,106 @@ it("links an overlapping date range to the existing plan", async () => {
 	).toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Atvērt esošo plānu" }));
 	expect(screen.getByLabelText("Plānotais apjoms")).toHaveValue(10);
+});
+
+it("saves locally immediately, keeps newer edits when the acknowledgement arrives, and never refetches after saving", async () => {
+	jest
+		.mocked(getVisualPlanning)
+		.mockResolvedValue({ ...emptyIndex, plans: [indexedPlan] });
+	let finish!: (
+		value: Awaited<ReturnType<typeof saveVisualPlanningItem>>,
+	) => void;
+	jest.mocked(saveVisualPlanningItem).mockImplementationOnce(
+		() =>
+			new Promise((resolve) => {
+				finish = resolve;
+			}),
+	);
+	const onDirtyChange = jest.fn();
+	render(
+		<VisualPlanningPanel
+			siteId="22222222-2222-4222-8222-222222222222"
+			drawing={drawing}
+			sidebarOpen
+			onDirtyChange={onDirtyChange}
+		/>,
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
+	);
+	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {
+		target: { value: "12" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt izmaiņas" }));
+	expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+	expect(
+		screen.getByText(/serverī vēl nav apstiprināts: 1/),
+	).toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: "Sagatavot WhatsApp" }),
+	).toBeDisabled();
+	expect(screen.getByLabelText("Plānotais apjoms")).toBeEnabled();
+	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {
+		target: { value: "99" },
+	});
+	await act(async () =>
+		finish({ ok: true, plan: { ...indexedPlan, quantity: 12, version: 3 } }),
+	);
+	expect(screen.getByLabelText("Plānotais apjoms")).toHaveValue(99);
+	expect(
+		screen.getByRole("button", { name: "Saglabāt izmaiņas" }),
+	).toBeEnabled();
+	expect(getVisualPlanning).toHaveBeenCalledTimes(1);
+});
+
+it("keeps a pending local save when changing floors and displays the cached task on return", async () => {
+	const cache = new VisualClientCache("22222222-2222-4222-8222-222222222222");
+	cache.rememberPlanning(drawing.id, { ...emptyIndex, plans: [indexedPlan] });
+	const other = {
+		...drawing,
+		id: "other",
+		state: { ...drawing.state, location: "2. stāvs" },
+	};
+	cache.rememberPlanning(other.id, { ...emptyIndex, location: "2. stāvs" });
+	let finish!: (
+		value: Awaited<ReturnType<typeof saveVisualPlanningItem>>,
+	) => void;
+	jest.mocked(saveVisualPlanningItem).mockImplementationOnce(
+		() =>
+			new Promise((resolve) => {
+				finish = resolve;
+			}),
+	);
+	const props = {
+		siteId: "22222222-2222-4222-8222-222222222222",
+		sidebarOpen: true,
+		onDirtyChange: jest.fn(),
+		resourceCache: cache,
+	};
+	const view = render(
+		<VisualPlanningPanel key={drawing.id} {...props} drawing={drawing} />,
+	);
+	fireEvent.click(screen.getByRole("button", { name: /Smilts.*12\.10\.2026/ }));
+	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {
+		target: { value: "12" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt izmaiņas" }));
+	view.rerender(
+		<VisualPlanningPanel key={other.id} {...props} drawing={other} />,
+	);
+	expect(
+		screen.getByText(/serverī vēl nav apstiprināts: 1/),
+	).toBeInTheDocument();
+	view.rerender(
+		<VisualPlanningPanel key={drawing.id} {...props} drawing={drawing} />,
+	);
+	fireEvent.click(screen.getByRole("button", { name: /Smilts.*12\.10\.2026/ }));
+	expect(screen.getByLabelText("Plānotais apjoms")).toHaveValue(12);
+	expect(getVisualPlanning).not.toHaveBeenCalled();
+	await act(async () =>
+		finish({ ok: true, plan: { ...indexedPlan, quantity: 12, version: 3 } }),
+	);
+	expect(
+		screen.queryByText(/serverī vēl nav apstiprināts/),
+	).not.toBeInTheDocument();
 });

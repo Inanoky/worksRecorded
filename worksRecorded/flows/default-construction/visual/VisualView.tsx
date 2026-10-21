@@ -86,6 +86,7 @@ import {
 	cumulativeVisualMarks,
 	sortVisualMarksChronologically,
 } from "./timeline";
+import { usePlanningSaveQueue } from "./usePlanningSaveQueue";
 import { usePolygonSaveQueue } from "./usePolygonSaveQueue";
 import { useVisualAutoSync } from "./useVisualAutoSync";
 import { useVisualWorkspace } from "./useVisualWorkspace";
@@ -97,6 +98,7 @@ import { VisualFeedbackPanel } from "./VisualFeedbackPanel";
 import { VisualLayerManager } from "./VisualLayerManager";
 import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
 import { VisualPlanningPanel } from "./VisualPlanningPanel";
+import { VisualPlanningSaveStatus } from "./VisualPlanningSaveStatus";
 import { VisualPolygonSaveStatus } from "./VisualPolygonSaveStatus";
 import { VisualRecordForm } from "./VisualRecordForm";
 import { VisualSidebar } from "./VisualSidebar";
@@ -127,6 +129,8 @@ export default function VisualView({
 	const [index, setIndex] = useState<Index | null>(null);
 	const [location, setLocation] = useState("");
 	const [drawing, setDrawing] = useState<VisualDrawing | null>(null);
+	const { queue: planningSaves, state: planningSaveState } =
+		usePlanningSaveQueue(resourceCache, siteId, index?.userId);
 	const currentCache = useRef(resourceCache);
 	currentCache.current = resourceCache;
 	const confirmPolygonSave = useCallback(
@@ -188,6 +192,14 @@ export default function VisualView({
 		managingLayers ||
 		savingLayers;
 	const mutationControlsLocked = controlsLocked || hasUnsavedPolygons;
+	const navigationLocked =
+		(busy && !automatic) ||
+		editing ||
+		workEditing ||
+		recordDraft !== null ||
+		planningDirty ||
+		managingLayers ||
+		savingLayers;
 	const [confirmation, setConfirmation] = useState<
 		"delete" | "restart" | "replace" | "polygon" | null
 	>(null);
@@ -315,8 +327,10 @@ export default function VisualView({
 			if (!pollDrawingId) return;
 			try {
 				const value = await resourceCache.loadDrawing(pollDrawingId);
-				if (run === epoch.current && drawing?.id === pollDrawingId)
-					setDrawing(value);
+				if (run === epoch.current)
+					setDrawing((current) =>
+						current?.id === pollDrawingId ? value : current,
+					);
 			} catch {}
 		};
 		const timer = window.setInterval(refreshIfVisible, 60_000);
@@ -327,7 +341,7 @@ export default function VisualView({
 			window.removeEventListener("focus", refreshIfVisible);
 			document.removeEventListener("visibilitychange", refreshIfVisible);
 		};
-	}, [active, drawing?.id, loadIndex, pollDrawingId, resourceCache, showIndex]);
+	}, [active, loadIndex, pollDrawingId, resourceCache, showIndex]);
 	useEffect(() => {
 		function onPhotoDeleted(event: Event) {
 			const detail = (event as CustomEvent<DiaryPhotoDeleted>).detail;
@@ -463,7 +477,7 @@ export default function VisualView({
 		if (!active || location || !firstLocation) return;
 		selectLocation(firstLocation);
 	}, [active, firstLocation, location, selectLocation]);
-	async function analyze(id: string, run: number) {
+	async function analyze(id: string, run: number, request: number) {
 		++analysisVersion.current;
 		try {
 			const response = await fetch(endpoint(id), { method: "POST" });
@@ -472,7 +486,8 @@ export default function VisualView({
 			if (run !== epoch.current) return;
 			const result = data as VisualDrawing;
 			++analysisVersion.current;
-			showDrawing(result);
+			resourceCache.rememberDrawing(result);
+			if (request === requestId.current) setDrawing(result);
 		} finally {
 			++analysisVersion.current;
 		}
@@ -490,6 +505,7 @@ export default function VisualView({
 		)
 			return;
 		const run = epoch.current;
+		const request = requestId.current;
 		busyRef.current = true;
 		setBusy(true);
 		setAutomatic(auto);
@@ -519,6 +535,8 @@ export default function VisualView({
 				const result = await refreshVisualDrawing(siteId, id);
 				if (run !== epoch.current) return;
 				loaded = result.drawing;
+				resourceCache.rememberDrawing(loaded);
+				if (request !== requestId.current) return;
 				showDrawing(loaded);
 				setSyncedAt(Date.now());
 				if (
@@ -554,14 +572,15 @@ export default function VisualView({
 			previousAttempt.current = loaded.state.attempts.at(-1)?.id;
 			setProgressUnavailable(false);
 			setPhase("analyzing");
-			await analyze(id, run);
-			if (run !== epoch.current) return;
+			await analyze(id, run, requestId.current);
+			if (run !== epoch.current || (auto && request !== requestId.current))
+				return;
 			setPhase("idle");
 			resourceCache.invalidateIndex();
 			const data = await loadIndex(true);
 			if (run === epoch.current) showIndex(data);
 		} catch (issue) {
-			if (run === epoch.current)
+			if (run === epoch.current && request === requestId.current)
 				setError(issue instanceof Error ? issue.message : "Analīze neizdevās.");
 		} finally {
 			busyRef.current = false;
@@ -597,7 +616,7 @@ export default function VisualView({
 			if (reanalyze) {
 				previousAttempt.current = updated.state.attempts.at(-1)?.id;
 				setPhase("analyzing");
-				await analyze(drawing.id, run);
+				await analyze(drawing.id, run, requestId.current);
 			}
 		} catch (issue) {
 			if (run === epoch.current)
@@ -914,7 +933,7 @@ export default function VisualView({
 				</h3>
 				<Select
 					value={location}
-					disabled={controlsLocked || !index}
+					disabled={navigationLocked || !index}
 					onValueChange={selectLocation}
 				>
 					<SelectTrigger
@@ -1158,6 +1177,18 @@ export default function VisualView({
 					</PopoverContent>
 				</Popover>
 			</header>
+			<VisualPlanningSaveStatus
+				queue={planningSaves}
+				items={planningSaveState}
+				onDiscard={(id) => {
+					resourceCache.invalidatePlanning(id);
+					window.dispatchEvent(
+						new CustomEvent(VISUAL_PLANNING_CACHE_INVALIDATED, {
+							detail: { siteId },
+						}),
+					);
+				}}
+			/>
 			<div
 				className="relative min-h-0 flex-1 overflow-hidden"
 				data-testid="visual-canvas-workspace"
@@ -1194,6 +1225,7 @@ export default function VisualView({
 							className="absolute inset-0"
 						>
 							<VisualPlanningPanel
+								showSaveStatus={false}
 								active={active && mode === "planning"}
 								resourceCache={resourceCache}
 								layerConfiguration={layerConfiguration}

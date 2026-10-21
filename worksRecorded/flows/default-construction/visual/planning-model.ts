@@ -36,6 +36,7 @@ export const visualPlanAreasSchema = z
 		areas: z.array(visualPlanAreaSchema).min(1).max(50),
 		section: visualSectionSchema.nullable().optional(),
 		organizationContact: organizationContactReferenceSchema.optional(),
+		mutationId: z.string().uuid().optional(),
 	})
 	.strict();
 
@@ -43,6 +44,8 @@ export const visualPlanInputSchema = z
 	.object({
 		siteId: z.string().uuid(),
 		id: z.string().uuid().optional(),
+		clientId: z.string().uuid().optional(),
+		mutationId: z.string().uuid().optional(),
 		version: z.number().int().positive().optional(),
 		drawingId: z.string().uuid(),
 		work: z.string().trim().min(1).max(200),
@@ -55,6 +58,12 @@ export const visualPlanInputSchema = z
 		geometry: visualPlanAreasSchema,
 	})
 	.strict()
+	.refine((input) => !input.mutationId || !!(input.id ?? input.clientId), {
+		message: "Trūkst saglabāšanas identifikatora.",
+	})
+	.refine((input) => !(input.id && input.clientId), {
+		message: "Norādiet vienu plāna identifikatoru.",
+	})
 	.refine((input) => input.startDate <= input.endDate, {
 		message: "Beigu datumam jābūt vienādam ar sākuma datumu vai vēlākam.",
 		path: ["endDate"],

@@ -1061,6 +1061,42 @@ it("switches back to a loaded location immediately on the client without a secon
 	expect(mockUpload).not.toHaveBeenCalled();
 });
 
+it("allows switching floors during an automatic refresh and ignores its late response", async () => {
+	jest.useFakeTimers();
+	let finish!: (
+		value: Awaited<ReturnType<typeof refreshVisualDrawing>>,
+	) => void;
+	jest.mocked(refreshVisualDrawing).mockImplementationOnce(
+		() =>
+			new Promise((resolve) => {
+				finish = resolve;
+			}),
+	);
+	await selectDrawing();
+	await act(async () => jest.advanceTimersByTime(1000));
+	expect(refreshVisualDrawing).toHaveBeenCalledTimes(1);
+	expect(screen.getByRole("combobox")).toBeEnabled();
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "2. stāvs" },
+	});
+	await act(async () =>
+		finish({
+			drawing: complete,
+			addedCount: 0,
+			updatedCount: 0,
+			removedCount: 0,
+			analysisCount: 0,
+			reviewCount: 0,
+		}),
+	);
+	expect(screen.getByRole("combobox")).toHaveValue("2. stāvs");
+	expect(screen.queryByTestId("pdf")).not.toBeInTheDocument();
+	fireEvent.change(screen.getByRole("combobox"), {
+		target: { value: "1. stāvs" },
+	});
+	expect(screen.getByTestId("pdf")).toHaveTextContent("1 zones");
+});
+
 it("shows optimistic polygons, allows editing other zones, queues writes, and blocks journal refresh until acknowledged", async () => {
 	jest.useFakeTimers();
 	const twoZones = {

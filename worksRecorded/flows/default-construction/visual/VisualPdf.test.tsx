@@ -87,9 +87,9 @@ function PlanningHarness({
 
 beforeEach(() => {
 	jest.clearAllMocks();
-	jest
-		.spyOn(HTMLCanvasElement.prototype, "getContext")
-		.mockReturnValue({} as CanvasRenderingContext2D);
+	jest.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+		drawImage: jest.fn(),
+	} as unknown as CanvasRenderingContext2D);
 	global.fetch = jest.fn().mockResolvedValue({
 		ok: true,
 		arrayBuffer: async () => new ArrayBuffer(4),
@@ -183,8 +183,15 @@ it("reuses a parsed PDF when switching locations back without downloading or par
 	view.rerender(<VisualPdf {...props} url="/second.pdf" />);
 	await waitFor(() => expect(mockGetDocument).toHaveBeenCalledTimes(2));
 	await screen.findByRole("button", { name: "XPS: Sakrīt" });
+	const pageRequests = mockGetPage.mock.calls.length;
 	view.rerender(<VisualPdf {...props} url="/first.pdf" />);
-	await screen.findByRole("button", { name: "XPS: Sakrīt" });
+	expect(
+		screen.getByRole("button", { name: "XPS: Sakrīt" }),
+	).toBeInTheDocument();
+	await waitFor(() =>
+		expect(screen.getByText("Lapa 1 / 2")).toBeInTheDocument(),
+	);
+	expect(mockGetPage).toHaveBeenCalledTimes(pageRequests);
 	expect(global.fetch).toHaveBeenCalledTimes(2);
 	expect(mockGetDocument).toHaveBeenCalledTimes(2);
 	expect(mockDestroy).not.toHaveBeenCalled();

@@ -1,3 +1,4 @@
+import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { VisualDrawing } from "./model";
 import {
 	VisualClientCache,
@@ -30,13 +31,25 @@ const planningIndex = {
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	jest.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+		drawImage: jest.fn(),
+	} as unknown as CanvasRenderingContext2D);
 	global.fetch = jest.fn().mockResolvedValue({
 		ok: true,
 		json: async () => drawing,
 		arrayBuffer: async () => new ArrayBuffer(4),
 	});
 	mockGetDocument.mockImplementation(() => ({
-		promise: Promise.resolve({ numPages: 1 }),
+		promise: Promise.resolve({
+			numPages: 1,
+			getPage: async () => ({
+				getViewport: ({ scale }: { scale: number }) => ({
+					width: 100 * scale,
+					height: 200 * scale,
+				}),
+				render: () => ({ promise: Promise.resolve(), cancel: jest.fn() }),
+			}),
+		}),
 		destroy: mockDestroy,
 	}));
 });
@@ -259,4 +272,42 @@ it("invalidates planning after mutations and retries a failed planning request",
 	cache.removeDrawing("drawing");
 	expect(cache.peekPlanning("drawing")).toBeUndefined();
 	cache.clear();
+});
+
+it("bounds rendered previews by memory and releases the least recently used floor", () => {
+	const cache = new VisualClientCache("site");
+	const source = document.createElement("canvas");
+	source.width = 2000;
+	source.height = 2000;
+	for (let i = 0; i < 4; i++)
+		cache.rememberPreview(`/floor-${i}`, 1, source, 1);
+	const oldest = cache.peekPreview("/floor-0", 1);
+	cache.peekPreview("/floor-1", 1);
+	cache.peekPreview("/floor-2", 1);
+	cache.peekPreview("/floor-3", 1);
+	cache.rememberPreview("/floor-4", 1, source, 1);
+	expect(cache.peekPreview("/floor-0", 1)).toBeUndefined();
+	expect(oldest?.canvas.width).toBe(0);
+	expect(cache.peekPreview("/floor-4", 1)?.canvas.width).toBe(2000);
+	const retained = cache.peekPreview("/floor-4", 1);
+	cache.clear();
+	expect(retained?.canvas.width).toBe(0);
+});
+
+it("deduplicates rendering across execution and planning and cancels previews after clearing", async () => {
+	const cache = new VisualClientCache("site");
+	const getPage = jest.fn(async () => ({
+		getViewport: () => ({ width: 100, height: 200 }),
+		render: () => ({ promise: Promise.resolve(), cancel: jest.fn() }),
+	}));
+	const pdf = { getPage } as unknown as PDFDocumentProxy;
+	const first = cache.renderPreview("/floor", 1, pdf);
+	expect(cache.renderPreview("/floor", 1, pdf)).toBe(first);
+	await first;
+	await cache.renderPreview("/floor", 1, pdf);
+	expect(getPage).toHaveBeenCalledTimes(1);
+	const other = cache.renderPreview("/other", 1, pdf);
+	cache.clear();
+	await expect(other).rejects.toMatchObject({ name: "AbortError" });
+	expect(cache.peekPreview("/other", 1)).toBeUndefined();
 });

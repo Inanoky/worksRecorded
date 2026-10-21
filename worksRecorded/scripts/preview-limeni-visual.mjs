@@ -7,6 +7,7 @@ import { PDFDocument, rgb } from "pdf-lib";
 import postcss from "postcss";
 
 const root = process.cwd();
+const performancePreview = process.argv.includes("--performance");
 const sectionCatalog = JSON.parse(
 	await readFile(
 		path.join(root, "assets/visual-sections/ar-701/catalog.json"),
@@ -159,7 +160,9 @@ const planningFixture = {
 			]
 		: [],
 };
-modules.actions += `export async function getVisualPlanning(){return ${JSON.stringify(planningFixture)}};export async function saveVisualPlanningItem(){throw Error('Preview only')};export async function archiveVisualPlanningItem(){throw Error('Preview only')};export async function restoreVisualPlanningItem(){throw Error('Preview only')};`;
+modules.actions += performancePreview
+	? `const planning=${JSON.stringify(planningFixture)};export async function getVisualPlanning(site,id){return {...planning,location:id==='demo-drawing-2'?'2. stāvs':'1. stāvs',plans:planning.plans.filter(plan=>plan.drawingId===id)}};export async function saveVisualPlanningItem(input){await new Promise(resolve=>setTimeout(resolve,15000));const plan={...input,id:input.id??input.clientId,version:(input.version??0)+1,geometryReviewRequired:false,archivedAt:null,progress:{actualIds:[],actualQuantity:0,progressPercent:0,variance:-input.quantity,dataIncomplete:false,status:'active'}};planning.plans=planning.plans.filter(item=>item.id!==plan.id);planning.plans.push(plan);return {ok:true,plan}};export async function archiveVisualPlanningItem(){throw Error('Preview only')};export async function restoreVisualPlanningItem(){throw Error('Preview only')};`
+	: `export async function getVisualPlanning(){return ${JSON.stringify(planningFixture)}};export async function saveVisualPlanningItem(){throw Error('Preview only')};export async function archiveVisualPlanningItem(){throw Error('Preview only')};export async function restoreVisualPlanningItem(){throw Error('Preview only')};`;
 modules.actions += `let sections=${JSON.stringify(planningFixture.sections)};export async function addVisualSection(site,label){sections=[...sections,label.trim()];return sections};export async function revokeVisualWorkShare(){};`;
 modules.share = `export async function publishPlanningShare(site,plan){return {token:'synthetic-preview',url:'https://www.worksrecorded.com/shared/work/synthetic-preview',version:plan.version}};`;
 modules.actions += `export async function saveVisualPolygonPatch(){throw Error('Preview only')};export async function saveVisualLayers(){throw Error('Preview only')};`;
@@ -175,9 +178,11 @@ modules.actions += `export async function addVisualRecord(site,id,record){
 };`;
 const bundled = await build({
 	stdin: {
-		contents: process.argv.includes("--planning")
-			? `import React from 'react';import {createRoot} from 'react-dom/client';import {VisualPlanningPanel} from './flows/default-construction/visual/VisualPlanningPanel';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('?pdf=1')?original('/plan.pdf'):original(url,options);createRoot(document.getElementById('root')).render(<main style={{padding:20,height:'100dvh'}}><VisualPlanningPanel drawing={${JSON.stringify(fixture)}} siteId="demo" sidebarOpen onDirtyChange={()=>{}}/></main>);`
-			: `import React from 'react';import {createRoot} from 'react-dom/client';import VisualView from './flows/default-construction/visual/VisualView';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('/api/sites/')&&!String(url).includes('/section-drawing?')?(String(url).includes('?pdf=1')?original('/plan.pdf'):Promise.resolve(new Response(JSON.stringify(window.__visualPreviewDrawing??${JSON.stringify(fixture)})))):original(url,options);createRoot(document.getElementById('root')).render(<main style={{maxWidth:1700,margin:'0 auto',padding:20}}><VisualView siteId="demo"/></main>);`,
+		contents: performancePreview
+			? `import React,{useMemo,useState} from 'react';import {createRoot} from 'react-dom/client';import {VisualPlanningPanel} from './flows/default-construction/visual/VisualPlanningPanel';import {VisualClientCache} from './flows/default-construction/visual/visual-client-cache';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('?pdf=1')?original('/plan.pdf'):original(url,options);function Preview(){const [floor,setFloor]=useState('1. stāvs');const [dirty,setDirty]=useState(false);const cache=useMemo(()=>new VisualClientCache('demo'),[]);const drawing={...${JSON.stringify(fixture)},id:floor==='1. stāvs'?'demo-drawing':'demo-drawing-2',state:{...${JSON.stringify(fixture.state)},location:floor}};return <main style={{padding:20,height:'100dvh',display:'flex',flexDirection:'column'}}><label style={{padding:8}}>Stāvs <select aria-label="Stāvs" value={floor} disabled={dirty} onChange={event=>setFloor(event.target.value)}><option>1. stāvs</option><option>2. stāvs</option></select></label><div style={{flex:1,minHeight:0}}><VisualPlanningPanel key={drawing.id} drawing={drawing} siteId="demo" resourceCache={cache} sidebarOpen onDirtyChange={setDirty}/></div></main>}createRoot(document.getElementById('root')).render(<Preview/>);`
+			: process.argv.includes("--planning")
+				? `import React from 'react';import {createRoot} from 'react-dom/client';import {VisualPlanningPanel} from './flows/default-construction/visual/VisualPlanningPanel';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('?pdf=1')?original('/plan.pdf'):original(url,options);createRoot(document.getElementById('root')).render(<main style={{padding:20,height:'100dvh'}}><VisualPlanningPanel drawing={${JSON.stringify(fixture)}} siteId="demo" sidebarOpen onDirtyChange={()=>{}}/></main>);`
+				: `import React from 'react';import {createRoot} from 'react-dom/client';import VisualView from './flows/default-construction/visual/VisualView';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('/api/sites/')&&!String(url).includes('/section-drawing?')?(String(url).includes('?pdf=1')?original('/plan.pdf'):Promise.resolve(new Response(JSON.stringify(window.__visualPreviewDrawing??${JSON.stringify(fixture)})))):original(url,options);createRoot(document.getElementById('root')).render(<main style={{maxWidth:1700,margin:'0 auto',padding:20}}><VisualView siteId="demo"/></main>);`,
 		loader: "tsx",
 		resolveDir: root,
 	},
