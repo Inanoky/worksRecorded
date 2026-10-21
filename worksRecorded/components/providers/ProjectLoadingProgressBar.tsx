@@ -3,7 +3,12 @@
 export type ProjectLoadingProgress = {
 	completed: number;
 	total: number;
-	steps?: Array<{ label: string; status: "pending" | "done" | "error" }>;
+	steps?: Array<{
+		label: string;
+		status: "pending" | "done" | "error";
+		completed?: number;
+		total?: number;
+	}>;
 };
 
 export function ProjectLoadingProgressBar({
@@ -58,6 +63,7 @@ export function ProjectLoadingProgressBar({
 							}
 						>
 							{index + 1}. {step.label} ·{" "}
+							{step.total ? `${step.completed ?? 0}/${step.total} · ` : ""}
 							{step.status === "done"
 								? "Gatavs"
 								: step.status === "error"

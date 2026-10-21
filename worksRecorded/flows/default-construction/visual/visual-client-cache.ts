@@ -1,5 +1,9 @@
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from "pdfjs-dist";
 import type { getVisualDrawings, getVisualPlanning } from "./actions";
+import {
+	type DrawingPageMeasurement,
+	readDrawingPageMeasurement,
+} from "./drawing-scale";
 import type { VisualDrawing } from "./model";
 import { PlanningSaveQueue, planningItem } from "./planning-save-queue";
 
@@ -52,6 +56,10 @@ export class VisualClientCache {
 		ResourceRequest<VisualPlanningIndex>
 	>();
 	private pdfs = new Map<string, PdfEntry>();
+	private pdfBytes = new Map<string, Uint8Array>();
+	private preparedDrawings = new Set<string>();
+	private previewPixels = new Map<string, number>();
+	private measurements = new Map<string, Promise<DrawingPageMeasurement>>();
 	private planningSaves?: PlanningSaveQueue;
 	private previewGeneration = 0;
 	private previewRequests = new Map<
@@ -328,6 +336,21 @@ export class VisualClientCache {
 		return preview;
 	}
 
+	loadPageMeasurement(url: string, page: number, pdf: PDFDocumentProxy) {
+		const key = `${url}:${page}`;
+		const existing = this.measurements.get(key);
+		if (existing) return existing;
+		const request = readDrawingPageMeasurement(pdf, page).catch(
+			(error: unknown) => {
+				if (this.measurements.get(key) === request)
+					this.measurements.delete(key);
+				throw error;
+			},
+		);
+		this.measurements.set(key, request);
+		return request;
+	}
+
 	rememberPreview(
 		url: string,
 		page: number,
@@ -366,7 +389,7 @@ export class VisualClientCache {
 		url: string,
 		page: number,
 		pdf: PDFDocumentProxy,
-		maxPixels = 4_000_000,
+		maxPixels = this.previewPixels.get(url) ?? 4_000_000,
 	) {
 		const cached = this.peekPreview(url, page);
 		if (cached) return Promise.resolve(cached);
@@ -421,6 +444,82 @@ export class VisualClientCache {
 		return request.promise;
 	}
 
+	async prepareProject(
+		drawings: Array<{ id: string }>,
+		loadPlanning: (id: string) => Promise<VisualPlanningIndex>,
+		onProgress: (
+			step: string,
+			status: "pending" | "done" | "error",
+			counts: { completed: number; total: number },
+		) => void,
+		cancelled: () => boolean = () => false,
+	) {
+		const ids = [...new Set(drawings.map((drawing) => drawing.id))];
+		this.preparedDrawings = new Set(ids);
+		const steps = ["visual-drawing", "visual-planning", "visual-preview"];
+		const completed = new Map(steps.map((step) => [step, 0]));
+		const failed = new Set<string>();
+		const track = async (step: string, work: () => Promise<unknown>) => {
+			try {
+				await work();
+			} catch {
+				failed.add(step);
+			} finally {
+				const count = (completed.get(step) ?? 0) + 1;
+				completed.set(step, count);
+				if (!cancelled())
+					onProgress(
+						step,
+						count === ids.length
+							? failed.has(step)
+								? "error"
+								: "done"
+							: "pending",
+						{ completed: count, total: ids.length },
+					);
+			}
+		};
+		for (const step of steps)
+			onProgress(step, ids.length ? "pending" : "done", {
+				completed: 0,
+				total: ids.length,
+			});
+		let next = 0;
+		const worker = async () => {
+			while (next < ids.length && !cancelled()) {
+				const id = ids[next++];
+				await Promise.all([
+					track("visual-drawing", () => this.loadDrawing(id)),
+					track("visual-planning", () =>
+						this.loadPlanning(id, () => loadPlanning(id)),
+					),
+					track("visual-preview", async () => {
+						const url = `${this.endpoint(id)}?pdf=1`;
+						const lease = this.openPdf(url);
+						try {
+							const pdf = await lease.promise;
+							const pixels = Math.min(
+								1_000_000,
+								Math.floor(12_000_000 / (ids.length * pdf.numPages)),
+							);
+							this.previewPixels.set(url, pixels);
+							for (let page = 1; page <= pdf.numPages; page++) {
+								if (cancelled()) return;
+								await Promise.all([
+									this.renderPreview(url, page, pdf, pixels),
+									this.loadPageMeasurement(url, page, pdf),
+								]);
+							}
+						} finally {
+							lease.release();
+						}
+					}),
+				]);
+			}
+		};
+		await Promise.all(Array.from({ length: Math.min(2, ids.length) }, worker));
+	}
+
 	async prefetch(
 		id: string,
 		loadPlanning?: () => Promise<VisualPlanningIndex>,
@@ -468,6 +567,11 @@ export class VisualClientCache {
 		this.planning.delete(id);
 		this.planningRequests.delete(id);
 		const url = `${this.endpoint(id)}?pdf=1`;
+		this.pdfBytes.delete(url);
+		this.previewPixels.delete(url);
+		this.preparedDrawings.delete(id);
+		for (const key of this.measurements.keys())
+			if (key.startsWith(`${url}:`)) this.measurements.delete(key);
 		for (const [key, preview] of this.previews) {
 			if (!key.startsWith(`${url}:`)) continue;
 			preview.canvas.width = 0;
@@ -494,6 +598,10 @@ export class VisualClientCache {
 			preview.canvas.height = 0;
 		}
 		this.previews.clear();
+		this.pdfBytes.clear();
+		this.previewPixels.clear();
+		this.measurements.clear();
+		this.preparedDrawings.clear();
 		this.index = null;
 		this.indexGeneration += 1;
 		this.indexRequest = null;
@@ -534,9 +642,9 @@ export class VisualClientCache {
 			value: drawing,
 			updatedAt: this.now(),
 		});
-		if (this.drawings.size > 20) {
-			const oldest = this.drawings.keys().next().value;
-			if (oldest) this.drawings.delete(oldest);
+		for (const id of this.drawings.keys()) {
+			if (this.drawings.size <= Math.max(20, this.preparedDrawings.size)) break;
+			if (!this.preparedDrawings.has(id)) this.drawings.delete(id);
 		}
 	}
 
@@ -558,21 +666,30 @@ export class VisualClientCache {
 			references: 0,
 			promise: Promise.resolve()
 				.then(async () => {
-					const [response, pdfjs, worker] = await Promise.all([
-						fetch(url, { signal: controller.signal }),
+					const [bytes, pdfjs, worker] = await Promise.all([
+						this.pdfBytes.get(url) ??
+							fetch(url, { signal: controller.signal }).then(
+								async (response) => {
+									if (!response.ok) throw new Error("PDF unavailable");
+									const bytes = new Uint8Array(await response.arrayBuffer());
+									if (!controller.signal.aborted) this.pdfBytes.set(url, bytes);
+									return bytes;
+								},
+							),
 						import("pdfjs-dist"),
 						import("./pdf-worker-url"),
 					]);
-					if (!response.ok) throw new Error("PDF unavailable");
-					const bytes = new Uint8Array(await response.arrayBuffer());
 					if (controller.signal.aborted)
 						throw new DOMException("PDF request cancelled", "AbortError");
 					pdfjs.GlobalWorkerOptions.workerSrc = worker.pdfWorkerUrl;
-					entry.task = pdfjs.getDocument({ data: bytes });
+					entry.task = pdfjs.getDocument({ data: bytes.slice() });
 					return entry.task.promise;
 				})
 				.catch((error: unknown) => {
-					if (this.pdfs.get(url) === entry) this.destroyPdf(url, entry);
+					if (this.pdfs.get(url) === entry) {
+						this.pdfBytes.delete(url);
+						this.destroyPdf(url, entry);
+					}
 					throw error;
 				}),
 		};

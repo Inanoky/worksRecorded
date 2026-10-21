@@ -483,6 +483,42 @@ it("loads live progress from the start date and respects factual quantities", as
 	expect(getDefaultConstructionQuantityComparison).toBeDefined();
 });
 
+it("explains an asynchronous Meta reply-window rejection in the send history", async () => {
+	jest
+		.mocked(prisma.constructionPlan.findMany)
+		.mockResolvedValue([stored()] as never);
+	jest.mocked(prisma.whatsAppTaskSend.findMany).mockResolvedValue([
+		{
+			id: "failed-send",
+			planId,
+			planVersion: 1,
+			recipient: "37120000000",
+			message: "Darba uzdevums",
+			status: "failed",
+			createdAt: new Date(),
+			completedAt: new Date(),
+			items: [
+				{
+					ordinal: 0,
+					page: 1,
+					section: null,
+					status: "failed",
+					metaMessageId: "wamid.failed",
+					sentAt: new Date(),
+					deliveredAt: null,
+					readAt: null,
+					failedAt: new Date(),
+					providerError: '[{"code":131047,"title":"Re-engagement message"}]',
+				},
+			],
+		},
+	] as never);
+	const result = await listVisualPlans("user", siteId, drawingId);
+	expect(result.plans[0].whatsAppSends[0].items[0].failureReason).toMatch(
+		/24 stundu.*apstiprinātu WhatsApp veidni/,
+	);
+});
+
 it("archives without deleting and restores only when no active item conflicts", async () => {
 	jest
 		.mocked(prisma.constructionPlan.findUniqueOrThrow)

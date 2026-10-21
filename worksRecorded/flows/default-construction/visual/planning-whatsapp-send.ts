@@ -236,6 +236,7 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 	const input = sendInputSchema.parse(args.input);
 	if (!input.recipient || !/^\d{8,15}$/.test(input.recipient))
 		throw new Error("Nederīgs saņēmēja tālruņa numurs.");
+	const recipient = input.recipient;
 	if (args.files.length !== input.images.length)
 		throw new Error("Trūkst darba uzdevuma attēlu.");
 	for (const file of args.files) {
@@ -285,6 +286,16 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 	if (!businessNumber)
 		throw new Error("Limeni WhatsApp numurs nav aktivizēts.");
 	const token = getWhatsAppBusinessToken(businessNumber.credentialProfile);
+	const latestReply = await prisma.metaInboundMessage.findFirst({
+		where: {
+			organizationId: access.organizationId,
+			businessPhoneNumberId: businessNumber.businessPhoneNumberId,
+			sender: input.recipient,
+			receivedAt: { gt: new Date(Date.now() - 23 * 60 * 60 * 1_000) },
+		},
+		orderBy: { receivedAt: "desc" },
+		select: { receivedAt: true },
+	});
 	const idempotencyKey = `${access.organizationId}:${input.clientRequestId}`;
 	let send = await prisma.whatsAppTaskSend.findUnique({
 		where: { idempotencyKey },
@@ -361,23 +372,13 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 				? item.section
 				: `*Objekts:* ${projectName}\n\n${input.message}`;
 			let metaMessageId: string;
-			try {
-				metaMessageId = await sendImage({
-					businessPhoneNumberId: businessNumber.businessPhoneNumberId,
-					token,
-					recipient: input.recipient,
-					mediaId,
-					caption,
-				});
-			} catch (error) {
-				if (!(error instanceof WhatsAppProviderError) || error.code !== 131047)
-					throw error;
-				metaMessageId = await sendTemplate({
+			const template = () =>
+				sendTemplate({
 					businessPhoneNumberId: businessNumber.businessPhoneNumberId,
 					token,
 					templateName: businessNumber.templateName,
 					templateLanguage: businessNumber.templateLanguage,
-					recipient: input.recipient,
+					recipient,
 					objectName: `${plan.site.name} — ${label}`,
 					message: item.section
 						? item.section
@@ -385,6 +386,26 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 					total: item.section ? 1 : items.length,
 					mediaId,
 				});
+			try {
+				if (!latestReply) {
+					metaMessageId = await template();
+				} else {
+					metaMessageId = await sendImage({
+						businessPhoneNumberId: businessNumber.businessPhoneNumberId,
+						token,
+						recipient: input.recipient,
+						mediaId,
+						caption,
+					});
+				}
+			} catch (error) {
+				if (
+					!latestReply ||
+					!(error instanceof WhatsAppProviderError) ||
+					error.code !== 131047
+				)
+					throw error;
+				metaMessageId = await template();
 			}
 			await prisma.whatsAppTaskSendItem.update({
 				where: { id: item.id },

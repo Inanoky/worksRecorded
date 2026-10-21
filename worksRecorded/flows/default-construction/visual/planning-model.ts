@@ -37,6 +37,7 @@ export const visualPlanAreasSchema = z
 		section: visualSectionSchema.nullable().optional(),
 		organizationContact: organizationContactReferenceSchema.optional(),
 		mutationId: z.string().uuid().optional(),
+		quantitySource: z.enum(["area", "manual"]).optional(),
 	})
 	.strict();
 

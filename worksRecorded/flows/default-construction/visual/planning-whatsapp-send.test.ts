@@ -8,10 +8,12 @@ const itemUpdate = jest.fn();
 const itemFindMany = jest.fn();
 const sendFindUniqueOrThrow = jest.fn();
 const originalFetch = global.fetch;
+const inboundFindFirst = jest.fn();
 
 jest.mock("./store", () => ({ requireVisualAccess }));
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
+		metaInboundMessage: { findFirst: inboundFindFirst },
 		constructionPlan: { findFirst: constructionPlanFindFirst },
 		whatsAppBusinessNumber: { findFirst: businessNumberFindFirst },
 		whatsAppTaskSend: {
@@ -60,6 +62,7 @@ function validRequest() {
 beforeEach(() => {
 	jest.clearAllMocks();
 	process.env.LIMENI_META_ACCESS_TOKEN = "limeni-secret";
+	inboundFindFirst.mockResolvedValue({ receivedAt: new Date() });
 	requireVisualAccess.mockResolvedValue({ organizationId: "limeni-org" });
 	constructionPlanFindFirst.mockResolvedValue({
 		id: "11111111-1111-4111-8111-111111111111",
@@ -220,6 +223,40 @@ it("uses the approved template only when Meta explicitly closes the reply window
 		{ type: "text", parameter_name: "uzdevuma_apraksts", text: "PA1.6" },
 		{ type: "text", parameter_name: "attelu_skaits", text: "1" },
 	]);
+});
+
+it("uses approved templates immediately when there is no recent reply to this business number", async () => {
+	inboundFindFirst.mockResolvedValue(null);
+	global.fetch = jest.fn(
+		async (url: RequestInfo | URL) =>
+			({
+				ok: true,
+				json: async () =>
+					String(url).endsWith("/media")
+						? { id: "media" }
+						: { messages: [{ id: "wamid.template" }] },
+			}) as Response,
+	) as typeof fetch;
+	await sendVisualPlanningWhatsAppTask(validRequest());
+	const messages = jest
+		.mocked(global.fetch)
+		.mock.calls.filter(([url]) => String(url).endsWith("/messages"))
+		.map(([, init]) => JSON.parse(String(init?.body)));
+	expect(messages.map((message) => message.type)).toEqual([
+		"template",
+		"template",
+	]);
+	expect(messages[1].template.components[1].parameters[1].text).toBe("PA1.6");
+	expect(inboundFindFirst).toHaveBeenCalledWith(
+		expect.objectContaining({
+			where: expect.objectContaining({
+				organizationId: "limeni-org",
+				businessPhoneNumberId: "limeni-phone-id",
+				sender: "37120000000",
+				receivedAt: { gt: expect.any(Date) },
+			}),
+		}),
+	);
 });
 
 it("never falls back to the shared Meta credential", async () => {

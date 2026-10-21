@@ -13,11 +13,21 @@ import type { ProjectLoadingProgress } from "./ProjectLoadingProgressBar";
 
 const Context = createContext(false);
 const noSites: readonly string[] = [];
+type PreparationReport = {
+	status: "pending" | "done" | "error";
+	completed?: number;
+	total?: number;
+};
 const Preparation = createContext<{
 	visual: boolean;
 	visualSites: readonly string[];
-	reports: Record<string, Record<string, "done" | "error">>;
-	report: (siteId: string, step: string, status: "done" | "error") => void;
+	reports: Record<string, Record<string, PreparationReport>>;
+	report: (
+		siteId: string,
+		step: string,
+		status: PreparationReport["status"],
+		counts?: { completed: number; total: number },
+	) => void;
 	reset: (siteId: string) => void;
 } | null>(null);
 const Scope = createContext<string | undefined>(undefined);
@@ -27,9 +37,9 @@ const steps = [
 	["diary", "Būvdarbu žurnāls"],
 	["visual-module", "Izpildshēmu rīki"],
 	["visual-index", "Stāvi un rasējumi"],
-	["visual-drawing", "Izpildes zonas"],
-	["visual-planning", "Plānotie darbi"],
-	["visual-preview", "Rasējuma priekšskatījums"],
+	["visual-drawing", "Izpildes zonas (visi stāvi)"],
+	["visual-planning", "Plānotie darbi (visi stāvi)"],
+	["visual-preview", "Visas rasējumu lapas"],
 ] as const;
 
 export function ProjectLoadingProgressProvider({
@@ -44,14 +54,24 @@ export function ProjectLoadingProgressProvider({
 	children: ReactNode;
 }) {
 	const [reports, setReports] = useState<
-		Record<string, Record<string, "done" | "error">>
+		Record<string, Record<string, PreparationReport>>
 	>({});
 	const report = useCallback(
-		(siteId: string, step: string, status: "done" | "error") => {
+		(
+			siteId: string,
+			step: string,
+			status: PreparationReport["status"],
+			counts?: { completed: number; total: number },
+		) => {
 			setReports((current) =>
-				current[siteId]?.[step] === status
+				current[siteId]?.[step]?.status === status &&
+				current[siteId]?.[step]?.completed === counts?.completed &&
+				current[siteId]?.[step]?.total === counts?.total
 					? current
-					: { ...current, [siteId]: { ...current[siteId], [step]: status } },
+					: {
+							...current,
+							[siteId]: { ...current[siteId], [step]: { status, ...counts } },
+						},
 			);
 		},
 		[],
@@ -113,10 +133,22 @@ export function useProjectPreparation(
 	);
 	return {
 		total: visible.length,
-		completed: visible.filter(([key]) => reports[key]).length,
+		completed: visible.reduce((sum, [key]) => {
+			const report = reports[key];
+			return (
+				sum +
+				(report?.status === "done" || report?.status === "error"
+					? 1
+					: report?.total
+						? Math.min(1, (report.completed ?? 0) / report.total)
+						: 0)
+			);
+		}, 0),
 		steps: visible.map(([key, label]) => ({
 			label,
-			status: reports[key] ?? "pending",
+			status: reports[key]?.status ?? "pending",
+			completed: reports[key]?.completed,
+			total: reports[key]?.total,
 		})),
 	};
 }
@@ -124,8 +156,11 @@ export function useProjectPreparation(
 export function useProjectPreparationReporter(siteId: string) {
 	const report = useContext(Preparation)?.report;
 	return useCallback(
-		(step: string, status: "done" | "error" = "done") =>
-			report?.(siteId, step, status),
+		(
+			step: string,
+			status: PreparationReport["status"] = "done",
+			counts?: { completed: number; total: number },
+		) => report?.(siteId, step, status, counts),
 		[report, siteId],
 	);
 }

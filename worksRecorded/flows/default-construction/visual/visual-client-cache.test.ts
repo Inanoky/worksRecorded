@@ -348,3 +348,79 @@ it("keeps the displayed floor preview while warming more floors under the memory
 	lease.release();
 	cache.clear();
 });
+
+it("prepares every page and keeps every floor available beyond the old cache limits", async () => {
+	const cache = new VisualClientCache("site");
+	const ids = Array.from({ length: 22 }, (_, i) => ({ id: `floor-${i}` }));
+	jest.mocked(global.fetch).mockImplementation(
+		async (url) =>
+			({
+				ok: true,
+				json: async () => ({ ...drawing, id: String(url).split("/").at(-1) }),
+				arrayBuffer: async () => new ArrayBuffer(4),
+			}) as Response,
+	);
+	const original = mockGetDocument.getMockImplementation();
+	if (!original) throw new Error("Missing PDF fixture");
+	mockGetDocument.mockImplementation(() => {
+		const task = original();
+		task.promise = task.promise.then((pdf: PDFDocumentProxy) => ({
+			...pdf,
+			numPages: 2,
+		}));
+		return task;
+	});
+	const report = jest.fn();
+	const loadPlanning = jest.fn().mockResolvedValue(planningIndex);
+	await cache.prepareProject(ids, loadPlanning, report);
+	expect(report).toHaveBeenCalledWith("visual-preview", "done", {
+		completed: 22,
+		total: 22,
+	});
+	for (const { id } of ids) {
+		expect(cache.peekDrawing(id)?.id).toBe(id);
+		expect(cache.peekPlanning(id)).toBeDefined();
+		const url = `${cache.endpoint(id)}?pdf=1`;
+		for (const page of [1, 2])
+			expect(cache.peekPreview(url, page)).toBeDefined();
+		const lease = cache.openPdf(url);
+		await lease.promise;
+		lease.release();
+	}
+	expect(global.fetch).toHaveBeenCalledTimes(44);
+	cache.clear();
+});
+
+it("keeps preparation pending for the last floor and reports errors without discarding other floors", async () => {
+	const cache = new VisualClientCache("site");
+	let finish!: () => void;
+	const wait = new Promise<void>((resolve) => {
+		finish = resolve;
+	});
+	const report = jest.fn();
+	const pending = cache.prepareProject(
+		[{ id: "first" }, { id: "last" }],
+		async (id) => {
+			if (id === "last") {
+				await wait;
+				throw new Error("Offline");
+			}
+			return planningIndex;
+		},
+		report,
+	);
+	await cache.loadPlanning("first", async () => planningIndex);
+	expect(report).not.toHaveBeenCalledWith(
+		"visual-planning",
+		"done",
+		expect.anything(),
+	);
+	finish();
+	await pending;
+	expect(report).toHaveBeenCalledWith("visual-planning", "error", {
+		completed: 2,
+		total: 2,
+	});
+	expect(cache.peekPlanning("first")).toBeDefined();
+	cache.clear();
+});

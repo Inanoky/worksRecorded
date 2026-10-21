@@ -4,6 +4,7 @@ import {
 	type RefObject,
 	useCallback,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -21,6 +22,7 @@ export function VisualAreaPen({
 	color,
 	onComplete,
 	onCancel,
+	onPreviewChange,
 }: {
 	mode: AreaPenMode;
 	surface: RefObject<HTMLDivElement | null>;
@@ -28,6 +30,7 @@ export function VisualAreaPen({
 	color: string;
 	onComplete: (points: PenPoint[]) => void;
 	onCancel: () => void;
+	onPreviewChange?: (points: PenPoint[]) => void;
 }) {
 	const [points, setPoints] = useState<PenPoint[]>([]);
 	const latest = useRef(points);
@@ -100,7 +103,26 @@ export function VisualAreaPen({
 		window.addEventListener("keydown", keyboard);
 		return () => window.removeEventListener("keydown", keyboard);
 	}, [keyboard]);
-	const preview = cursor && mode === "polygon" ? [...points, cursor] : points;
+	const preview = useMemo(() => {
+		const last = points.at(-1);
+		return cursor &&
+			mode === "polygon" &&
+			(!last || Math.hypot(cursor.x - last.x, cursor.y - last.y) > 1e-9)
+			? [...points, cursor]
+			: points;
+	}, [cursor, mode, points]);
+	useEffect(() => {
+		if (!onPreviewChange) return;
+		const frame = requestAnimationFrame(() => {
+			const rect = surface.current?.getBoundingClientRect();
+			onPreviewChange(
+				mode === "freehand" && rect && preview.length > 40
+					? simplifyPenOutline(preview, rect.width, rect.height)
+					: preview,
+			);
+		});
+		return () => cancelAnimationFrame(frame);
+	}, [onPreviewChange, preview, mode, surface]);
 	return (
 		<>
 			<div

@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import type { ReactNode } from "react";
 import {
 	type ProjectLoadingProgress,
 	ProjectLoadingProgressBar,
@@ -15,10 +16,12 @@ export function ProjectOpeningOverlay({
 	label,
 	progress,
 	siteId,
+	children,
 }: {
 	label: string;
 	progress?: ProjectLoadingProgress | null;
 	siteId?: string;
+	children?: ReactNode;
 }) {
 	const enabled = useProjectLoadingProgress();
 	const visualPreload = useVisualProjectPreload(siteId);
@@ -42,8 +45,8 @@ export function ProjectOpeningOverlay({
 					<ProjectLoadingProgressBar
 						label={label}
 						progress={
-							preparation ??
-							progress ?? {
+							progress ??
+							preparation ?? {
 								completed: 0,
 								total: 1,
 								steps: [{ label: "Projekta datu ielāde", status: "pending" }],
@@ -51,6 +54,7 @@ export function ProjectOpeningOverlay({
 						}
 					/>
 				) : null}
+				{children}
 			</div>
 		</output>
 	);
