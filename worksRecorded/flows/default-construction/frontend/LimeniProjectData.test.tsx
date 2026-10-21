@@ -10,6 +10,8 @@ import {
 	clearPersistentProjects,
 	PersistentProjectCache,
 } from "../visual/project-persistent-cache";
+import { patchProject } from "../visual/project-sync";
+import { VisualProjectView } from "../visual/VisualProjectView";
 import { LimeniProjectData, useLimeniProjectData } from "./LimeniProjectData";
 import {
 	RegisterLimeniDiary,
@@ -22,6 +24,10 @@ jest.mock("next/navigation", () => ({
 jest.mock("@/components/sitediary/SiteDiaryList", () => ({
 	__esModule: true,
 	default: () => <output>Diary mounted</output>,
+}));
+jest.mock("../visual/VisualView", () => ({
+	__esModule: true,
+	default: () => <div>Plans ready</div>,
 }));
 const mockRead = jest.fn();
 const mockWrite = jest.fn();
@@ -103,7 +109,7 @@ it("shows the saved project immediately and revalidates without resetting an edi
 	);
 	expect(screen.getByLabelText("Draft")).toHaveValue("unsaved");
 	expect(screen.getByText("cached")).toBeInTheDocument();
-	expect(mockWrite).toHaveBeenCalledWith("snapshot", project("updated"));
+	expect(mockWrite).not.toHaveBeenCalled();
 	expect(global.fetch).toHaveBeenCalledWith(
 		expect.any(String),
 		expect.objectContaining({ headers: { "If-None-Match": '"cached"' } }),
@@ -169,4 +175,75 @@ it("waits for the shared snapshot even when the server page registers diary sett
 		finish({ ok: true, json: async () => project("fresh") } as Response),
 	);
 	expect(await screen.findByText("Diary mounted")).toBeInTheDocument();
+});
+
+it("reopens from disk without a project loading gate while the background check is still pending", async () => {
+	mockRead.mockResolvedValue(project("cached"));
+	jest.mocked(global.fetch).mockImplementation(() => new Promise(() => {}));
+	const workspace = () => (
+		<ProjectLoadingProgressProvider
+			enabled
+			visualPreloadEnabled
+			cacheScope="user:organization"
+		>
+			<LimeniProjectData siteId="site">
+				<VisualProjectView siteId="site">
+					<Consumer />
+				</VisualProjectView>
+			</LimeniProjectData>
+		</ProjectLoadingProgressProvider>
+	);
+	const first = render(workspace());
+	await screen.findByText("cached");
+	expect(screen.queryByLabelText("Sagatavo projektu…")).not.toBeInTheDocument();
+	first.unmount();
+	render(workspace());
+	await screen.findByText("cached");
+	expect(screen.queryByLabelText("Sagatavo projektu…")).not.toBeInTheDocument();
+	expect(global.fetch).toHaveBeenCalledTimes(2);
+});
+it("keeps the local project for an unchanged revision without parsing a response body", async () => {
+	mockRead.mockResolvedValue({
+		...project("cached"),
+		revision: "r1",
+		partVersions: { diary: "a".repeat(64) },
+	});
+	const json = jest.fn();
+	jest
+		.mocked(global.fetch)
+		.mockResolvedValue({ status: 304, json } as unknown as Response);
+	render(<Workspace />);
+	await screen.findByText("cached");
+	await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+	expect(json).not.toHaveBeenCalled();
+	expect(mockWrite).not.toHaveBeenCalled();
+	expect(global.fetch).toHaveBeenCalledWith(
+		expect.any(String),
+		expect.objectContaining({
+			headers: {
+				"If-None-Match": '"r1"',
+				"X-Project-Parts": JSON.stringify({ diary: "a".repeat(64) }),
+			},
+		}),
+	);
+});
+it("writes a confirmed local update before leaving so the next visit restores it", async () => {
+	mockRead.mockResolvedValue(project("cached"));
+	jest.mocked(global.fetch).mockImplementation(() => new Promise(() => {}));
+	const first = render(<Workspace />);
+	await screen.findByText("cached");
+	act(() =>
+		patchProject("site", (snapshot) => ({
+			...snapshot,
+			version: "saved-locally",
+		})),
+	);
+	expect(mockWrite).toHaveBeenLastCalledWith(
+		"snapshot",
+		project("saved-locally"),
+	);
+	mockRead.mockResolvedValue(project("saved-locally"));
+	first.unmount();
+	render(<Workspace />);
+	expect(await screen.findByText("saved-locally")).toBeInTheDocument();
 });

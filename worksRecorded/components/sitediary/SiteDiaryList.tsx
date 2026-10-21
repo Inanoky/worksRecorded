@@ -1410,7 +1410,7 @@ export default function SiteDiaryCalendar({
   );
 
   React.useEffect(() => {
-    if (!clientDiary || !initialLimeniProject || initialLimeniProject.version === limeniProjectSeed.current?.version || diarySaveSnapshot.revision || diarySaveSnapshot.items.length || dialogOpen) return;
+    if (!clientDiary || !initialLimeniProject || initialLimeniProject.version === limeniProjectSeed.current?.version || diarySaveSnapshot.items.length || dialogOpen) return;
     limeniProjectSeed.current = initialLimeniProject;
     void refreshRowsWithBisSync({ skipSync: true, useCache: true }).catch(() => {});
   }, [initialLimeniProject, clientDiary, diarySaveSnapshot.revision, diarySaveSnapshot.items.length, dialogOpen, refreshRowsWithBisSync]);
@@ -1630,7 +1630,7 @@ export default function SiteDiaryCalendar({
   const backgroundRefresh = React.useCallback(() => refreshRowsWithBisSync({ skipSync: true }), [refreshRowsWithBisSync]);
   const revalidationFailed = useDiaryRevalidation({
     siteId: siteId ?? undefined,
-    enabled: limeniClientDiary && hasLoadedRowsOnce,
+    enabled: limeniClientDiary && hasLoadedRowsOnce && !initialLimeniProject,
     active,
     blocked: loading || dialogOpen,
     lastLoaded: diaryLastLoaded,

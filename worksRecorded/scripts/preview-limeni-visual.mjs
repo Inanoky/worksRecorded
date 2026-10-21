@@ -361,6 +361,30 @@ const assets = new Map([
 	["/plan.pdf", ["application/pdf", pdfBytes]],
 	["/prepared.webp", ["image/webp", preparedBytes]],
 ]);
+for (let y = 0; y < 1120; y += 1024)
+	for (let x = 0; x < 1600; x += 1024) {
+		const tile = createCanvas(
+			Math.min(1024, 1600 - x),
+			Math.min(1024, 1120 - y),
+		);
+		tile
+			.getContext("2d")
+			.drawImage(
+				preparedCanvas,
+				x,
+				y,
+				tile.width,
+				tile.height,
+				0,
+				0,
+				tile.width,
+				tile.height,
+			);
+		assets.set(
+			`/tile-${Math.floor(y / 1024) * 2 + Math.floor(x / 1024)}.webp`,
+			["image/webp", await tile.encode("webp", 90)],
+		);
+	}
 for (let i = 0; i < 3; i++) {
 	assets.set(`/source-${i}.svg`, [
 		"image/svg+xml",

@@ -43,7 +43,11 @@ export function VisualProjectView({
 	const pending =
 		!requiredSteps || requiredSteps.some((step) => step.status === "pending");
 	const failed = requiredSteps?.some((step) => step.status === "error");
-	const preparing = preload && !opened;
+	const preparing =
+		preload &&
+		!opened &&
+		!projectData.restored &&
+		!(projectData.enabled && projectData.checkingCache);
 	useLayoutEffect(() => {
 		reset();
 		report("project");

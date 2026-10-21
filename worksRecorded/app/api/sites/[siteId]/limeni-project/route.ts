@@ -1,7 +1,12 @@
+import { loadProjectRevision } from "@/flows/default-construction/visual/project-revision-store";
 import {
 	loadLimeniProjectSnapshot,
 	ProjectAccessError,
 } from "@/flows/default-construction/visual/project-snapshot-store";
+import {
+	projectSyncPayload,
+	readProjectParts,
+} from "@/flows/default-construction/visual/project-sync-server";
 import { requireUser } from "@/lib/utils/requireUser";
 
 export const runtime = "nodejs";
@@ -20,8 +25,8 @@ export async function GET(
 		);
 	try {
 		const { siteId } = await params;
-		const snapshot = await loadLimeniProjectSnapshot(user.id, siteId);
-		const etag = `"${snapshot.version}"`;
+		const revision = await loadProjectRevision(user.id, siteId);
+		const etag = `"${revision}"`;
 		const headers = {
 			"Cache-Control": "private, no-cache",
 			ETag: etag,
@@ -29,7 +34,17 @@ export async function GET(
 		};
 		if (request.headers.get("if-none-match") === etag)
 			return new Response(null, { status: 304, headers });
-		return Response.json(snapshot, { headers });
+		const snapshot = await loadLimeniProjectSnapshot(user.id, siteId);
+		headers["Server-Timing"] =
+			`project;dur=${(performance.now() - started).toFixed(1)}`;
+		return Response.json(
+			projectSyncPayload(
+				snapshot,
+				revision,
+				readProjectParts(request.headers.get("x-project-parts")),
+			),
+			{ headers },
+		);
 	} catch (error) {
 		return Response.json(
 			{ error: "Neizdevās ielādēt projektu." },

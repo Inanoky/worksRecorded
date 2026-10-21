@@ -558,3 +558,50 @@ it("uses persisted previews across visits and replaces them when the drawing rev
 		global.createImageBitmap = originalBitmap;
 	}
 });
+
+it("persists tiles across viewer instances, shares requests and invalidates only a replaced source", async () => {
+	const project = preparedProject();
+	const tiles = {
+		version: 1 as const,
+		size: 1024 as const,
+		levels: [{ width: 2048, height: 1024, urls: ["/tile-0", "/tile-1"] }],
+	};
+	project.drawings[0].preview!.pages[0].tiles = tiles;
+	const saved = new Map<string, Blob>();
+	const persistence = {
+		read: jest.fn(async (key: string) => saved.get(key)),
+		write: jest.fn(async (key: string, blob: Blob) => {
+			saved.set(key, blob);
+		}),
+	} as unknown as PersistentProjectCache;
+	const blob = new Blob(["tile"], { type: "image/webp" });
+	global.fetch = jest
+		.fn()
+		.mockResolvedValue({ ok: true, blob: async () => blob });
+	const first = new VisualClientCache("site");
+	first.seedProject(project, persistence);
+	const url = `${first.endpoint("floor-1")}?pdf=1`;
+	await Promise.all([
+		first.loadDrawingTile(url, 1, 0, 0),
+		first.loadDrawingTile(url, 1, 0, 0),
+	]);
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+	first.clear();
+	const reopened = new VisualClientCache("site");
+	reopened.seedProject(project, persistence);
+	expect(await reopened.loadDrawingTile(url, 1, 0, 0)).toBe(blob);
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+	const replacement = {
+		...project,
+		drawings: [
+			{
+				...project.drawings[0],
+				preview: { ...project.drawings[0].preview!, source: "changed" },
+			},
+		],
+	};
+	reopened.seedProject(replacement, persistence);
+	await reopened.loadDrawingTile(url, 1, 0, 0);
+	expect(global.fetch).toHaveBeenCalledTimes(2);
+	reopened.clear();
+});

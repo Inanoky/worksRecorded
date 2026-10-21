@@ -47,7 +47,7 @@ it("expires saved data and bounds storage by discarding old entries", async () =
 	await cache.write("expired", { data: 1 }, 1);
 	now += 86_400_001;
 	expect(await cache.read("expired")).toBeUndefined();
-	const large = "x".repeat(12 * 1024 * 1024);
+	const large = "x".repeat(40 * 1024 * 1024);
 	await cache.write("oldest", large);
 	now++;
 	await cache.write("middle", large);
@@ -79,4 +79,42 @@ it("falls back to network loading when browser storage is unavailable or denied"
 		throw new DOMException("Denied", "SecurityError");
 	});
 	expect(await cache.read("snapshot")).toBeUndefined();
+});
+
+it("keeps the project and downloaded images across months without age-based expiry", async () => {
+	let now = 1000000;
+	jest.spyOn(Date, "now").mockImplementation(() => now);
+	const cache = new PersistentProjectCache("user:org", "site");
+	await cache.write("snapshot", { version: "unchanged" });
+	await cache.write("tile:floor:1", { image: "saved" });
+	now += 90 * 86400000;
+	const reopened = new PersistentProjectCache("user:org", "site");
+	expect(await reopened.read("snapshot")).toEqual({ version: "unchanged" });
+	expect(await reopened.read("tile:floor:1")).toEqual({ image: "saved" });
+});
+
+it("upgrades an existing downloaded project without discarding it when the old expiry passes", async () => {
+	await new Promise<void>((resolve, reject) => {
+		const request = indexedDB.open("works-recorded-limeni-v1", 1);
+		request.onupgradeneeded = () =>
+			request.result.createObjectStore("project-cache", { keyPath: "key" });
+		request.onerror = () => reject(request.error);
+		request.onsuccess = () => {
+			const tx = request.result.transaction("project-cache", "readwrite");
+			tx.objectStore("project-cache").put({
+				key: JSON.stringify(["user:org", "site", "snapshot"]),
+				value: { version: "downloaded-before-upgrade" },
+				bytes: 100,
+				saved: 1,
+				expires: 2,
+			});
+			tx.oncomplete = () => {
+				request.result.close();
+				resolve();
+			};
+		};
+	});
+	expect(
+		await new PersistentProjectCache("user:org", "site").read("snapshot"),
+	).toEqual({ version: "downloaded-before-upgrade" });
 });

@@ -70,7 +70,7 @@ export function useDrawingViewport(
 					width: element.clientWidth,
 					height: element.clientHeight,
 				});
-		}, 300);
+		}, 80);
 	}, []);
 	useEffect(
 		() => () => {

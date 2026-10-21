@@ -48,7 +48,20 @@ export async function GET(
 		);
 		const image = manifest.pages.find((item) => item.page === Number(page));
 		if (!image) throw new Error("Page unavailable");
-		const url = new URL(image.url);
+		const query = new URL(request.url).searchParams;
+		const level = query.get("level");
+		const tile = query.get("tile");
+		if (
+			(level !== null || tile !== null) &&
+			(!/^[0-3]$/.test(level ?? "") || !/^\d{1,2}$/.test(tile ?? ""))
+		)
+			throw new Error("Invalid tile");
+		const imageUrl =
+			level === null
+				? image.url
+				: image.tiles?.levels[Number(level)]?.urls[Number(tile)];
+		if (!imageUrl) throw new Error("Tile unavailable");
+		const url = new URL(imageUrl);
 		if (
 			url.protocol !== "https:" ||
 			!(url.hostname.endsWith(".ufs.sh") || url.hostname === "utfs.io")

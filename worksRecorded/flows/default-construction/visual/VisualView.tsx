@@ -710,11 +710,33 @@ export default function VisualView({
 			}
 		}
 	}
+	const diarySyncRevisions = useRef<Map<string, string> | null>(null);
+	if (!diarySyncRevisions.current && projectData.snapshot)
+		diarySyncRevisions.current = new Map(
+			projectData.snapshot.drawings.map((item) => [
+				item.drawing.id,
+				projectData.snapshot?.partVersions?.diary ??
+					projectData.snapshot!.version,
+			]),
+		);
 	useVisualAutoSync({
 		active: active && mode === "actual",
 		scope: drawing ? `${siteId}:${drawing.id}` : null,
 		blocked: mutationControlsLocked || loading || !!confirmation,
-		sync: () => process("refresh", true),
+		sync: async () => {
+			const revision =
+				projectData.snapshot?.partVersions?.diary ??
+				projectData.snapshot?.version;
+			if (
+				projectData.enabled &&
+				drawing &&
+				revision === diarySyncRevisions.current?.get(drawing.id)
+			)
+				return;
+			await process("refresh", true);
+			if (drawing && revision)
+				diarySyncRevisions.current?.set(drawing.id, revision);
+		},
 	});
 	async function resolveReview(reanalyze: boolean) {
 		if (!drawing || !source || mutationControlsLocked || busyRef.current)

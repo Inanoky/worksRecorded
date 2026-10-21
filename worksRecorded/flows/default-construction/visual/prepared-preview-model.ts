@@ -12,6 +12,22 @@ export const preparedPreviewSchema = z.object({
 				height: z.number().positive(),
 				scales: z.array(z.number().positive()),
 				url: z.string().url(),
+				tiles: z
+					.object({
+						version: z.literal(1),
+						size: z.literal(1024),
+						levels: z
+							.array(
+								z.object({
+									width: z.number().int().positive().max(8192),
+									height: z.number().int().positive().max(8192),
+									urls: z.array(z.string().url()).min(1).max(64),
+								}),
+							)
+							.min(1)
+							.max(4),
+					})
+					.optional(),
 			}),
 		)
 		.min(1)

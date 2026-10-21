@@ -9,6 +9,7 @@ import { PlanningSaveQueue, planningItem } from "./planning-save-queue";
 import type { PreparedPreview } from "./prepared-preview-model";
 import type { PersistentProjectCache } from "./project-persistent-cache";
 import type { LimeniProjectSnapshot } from "./project-snapshot-store";
+import { patchProject } from "./project-sync";
 
 export const VISUAL_CACHE_FRESH_MS = 60_000;
 export const VISUAL_PLANNING_CACHE_INVALIDATED =
@@ -46,6 +47,13 @@ type PdfEntry = {
 type LoadOptions = { force?: boolean };
 
 export class VisualClientCache {
+	private managed = false;
+	private seeding = false;
+	private tileRequests = new Map<string, Promise<Blob>>();
+	private tileBlobs = new Map<string, Blob>();
+	private tilesActive = 0;
+	private tilesWaiting: Array<() => void> = [];
+	private tileAbort = new AbortController();
 	private prepared = new Map<
 		string,
 		{ manifest: PreparedPreview; persistence?: PersistentProjectCache }
@@ -55,6 +63,8 @@ export class VisualClientCache {
 		snapshot: LimeniProjectSnapshot,
 		persistence?: PersistentProjectCache,
 	) {
+		this.managed = true;
+		this.seeding = true;
 		const allowed = new Set(snapshot.drawings.map((item) => item.drawing.id));
 		for (const id of this.drawings.keys())
 			if (!allowed.has(id)) this.removeDrawing(id);
@@ -73,6 +83,62 @@ export class VisualClientCache {
 					manifest: item.preview,
 					persistence,
 				});
+		}
+		this.seeding = false;
+	}
+	async loadDrawingTile(
+		url: string,
+		page: number,
+		level: number,
+		ordinal: number,
+	): Promise<Blob> {
+		const prepared = this.prepared.get(url);
+		const tileUrl = prepared?.manifest.pages.find((item) => item.page === page)
+			?.tiles?.levels[level]?.urls[ordinal];
+		if (!prepared || !tileUrl) throw new Error("Tile unavailable");
+		const key = `tile:v1:${prepared.manifest.source}:${page}:${level}:${ordinal}`;
+		const cached = this.tileBlobs.get(key);
+		if (cached) {
+			this.tileBlobs.delete(key);
+			this.tileBlobs.set(key, cached);
+			return cached;
+		}
+		const pending = this.tileRequests.get(key);
+		if (pending) return pending;
+		const signal = this.tileAbort.signal;
+		const work = (async () => {
+			if (this.tilesActive >= 6)
+				await new Promise<void>((resolve) => this.tilesWaiting.push(resolve));
+			else this.tilesActive++;
+			try {
+				if (signal.aborted)
+					throw new DOMException("Tile cancelled", "AbortError");
+				let blob = await prepared.persistence?.read<Blob>(key);
+				if (!blob || !blob.type.startsWith("image/")) {
+					const response = await fetch(tileUrl, { cache: "no-store", signal });
+					if (!response.ok) throw new Error("Tile unavailable");
+					blob = await response.blob();
+					if (!blob.type.startsWith("image/") || blob.size > 4_000_000)
+						throw new Error("Invalid tile");
+					if (!signal.aborted) void prepared.persistence?.write(key, blob);
+				}
+				if (signal.aborted)
+					throw new DOMException("Tile cancelled", "AbortError");
+				this.tileBlobs.set(key, blob);
+				while (this.tileBlobs.size > 64)
+					this.tileBlobs.delete(this.tileBlobs.keys().next().value as string);
+				return blob;
+			} finally {
+				const next = this.tilesWaiting.shift();
+				if (next) next();
+				else this.tilesActive--;
+			}
+		})();
+		this.tileRequests.set(key, work);
+		try {
+			return await work;
+		} finally {
+			if (this.tileRequests.get(key) === work) this.tileRequests.delete(key);
 		}
 	}
 	preparedManifest(url: string) {
@@ -138,7 +204,7 @@ export class VisualClientCache {
 				if (!context) throw new Error("Canvas unavailable");
 				context.drawImage(image, 0, 0);
 				this.rememberPreview(url, page, canvas, item.width / item.height);
-				if (downloaded) void prepared.persistence?.write(blobKey, blob, 30);
+				if (downloaded) void prepared.persistence?.write(blobKey, blob);
 				this.measurements.set(
 					key,
 					Promise.resolve({
@@ -256,6 +322,14 @@ export class VisualClientCache {
 		this.drawingRequests.get(drawing.id)?.controller.abort();
 		this.drawingRequests.delete(drawing.id);
 		this.storeDrawing(drawing);
+		if (this.managed && !this.seeding)
+			patchProject(this.siteId, (snapshot) => ({
+				...snapshot,
+				revision: undefined,
+				drawings: snapshot.drawings.map((item) =>
+					item.drawing.id === drawing.id ? { ...item, drawing } : item,
+				),
+			}));
 	}
 
 	async loadDrawing(
@@ -358,6 +432,14 @@ export class VisualClientCache {
 		this.bumpPlanningGeneration(id);
 		this.planningRequests.delete(id);
 		this.planning.set(id, { value, updatedAt: this.now() });
+		if (this.managed && !this.seeding)
+			patchProject(this.siteId, (snapshot) => ({
+				...snapshot,
+				revision: undefined,
+				drawings: snapshot.drawings.map((item) =>
+					item.drawing.id === id ? { ...item, planning: value } : item,
+				),
+			}));
 	}
 
 	async loadPlanning(
@@ -664,6 +746,26 @@ export class VisualClientCache {
 			}
 		};
 		await Promise.all(Array.from({ length: ids.length }, worker));
+		const signal = this.tileAbort.signal;
+		setTimeout(() => {
+			void (async () => {
+				for (const id of ids) {
+					const url = `${this.endpoint(id)}?pdf=1`;
+					for (const page of this.preparedManifest(url)?.pages ?? []) {
+						for (const [level, image] of (page.tiles?.levels ?? []).entries()) {
+							for (let tile = 0; tile < image.urls.length; tile++) {
+								if (signal.aborted) return;
+								try {
+									await this.loadDrawingTile(url, page.page, level, tile);
+								} catch {
+									if (signal.aborted) return;
+								}
+							}
+						}
+					}
+				}
+			})();
+		}, 500);
 	}
 
 	async prefetch(
@@ -739,6 +841,10 @@ export class VisualClientCache {
 	}
 
 	clear() {
+		this.tileAbort.abort();
+		this.tileAbort = new AbortController();
+		this.tileBlobs.clear();
+		this.tileRequests.clear();
 		this.prepared.clear();
 		this.preparedRequests.clear();
 		this.previewGeneration += 1;
@@ -768,7 +874,11 @@ export class VisualClientCache {
 	}
 
 	private isFresh<T>(entry: CacheEntry<T> | null | undefined) {
-		return !!entry && this.now() - entry.updatedAt < VISUAL_CACHE_FRESH_MS;
+		return (
+			!!entry &&
+			((this.managed && entry.updatedAt > 0) ||
+				this.now() - entry.updatedAt < VISUAL_CACHE_FRESH_MS)
+		);
 	}
 
 	private drawingGeneration(id: string) {

@@ -25,14 +25,31 @@ import { previewSource } from "./preview-revision";
 import { requireVisualAccess, visualDrawingIndex } from "./store";
 
 export class ProjectAccessError extends Error {}
+export function projectAccessFailure(error: unknown): never {
+	if (
+		(error &&
+			typeof error === "object" &&
+			"code" in error &&
+			error.code === "FORBIDDEN") ||
+		(error instanceof Error &&
+			[
+				"Denied",
+				"Access denied",
+				"Project access denied",
+				"Visual skats šai organizācijai nav pieejams.",
+			].includes(error.message))
+	)
+		throw new ProjectAccessError("Project access denied");
+	throw error;
+}
 
 export async function loadLimeniProjectSnapshot(
 	userId: string,
 	siteId: string,
 ) {
-	const access = await requireVisualAccess(userId, siteId).catch(() => {
-		throw new ProjectAccessError("Project access denied");
-	});
+	const access = await requireVisualAccess(userId, siteId).catch(
+		projectAccessFailure,
+	);
 	const [documents, planning, diary, config, forma2, bis, language] =
 		await Promise.all([
 			prisma.documents.findMany({
@@ -87,6 +104,20 @@ export async function loadLimeniProjectSnapshot(
 						pages: parsed.pages.map((page) => ({
 							...page,
 							url: `/api/sites/${encodeURIComponent(siteId)}/visual/${row.id}/preview/${page.page}?v=${source}`,
+							...(page.tiles
+								? {
+										tiles: {
+											...page.tiles,
+											levels: page.tiles.levels.map((level, levelIndex) => ({
+												...level,
+												urls: level.urls.map(
+													(_, tileIndex) =>
+														`/api/sites/${encodeURIComponent(siteId)}/visual/${row.id}/preview/${page.page}?v=${source}&level=${levelIndex}&tile=${tileIndex}`,
+												),
+											})),
+										},
+									}
+								: {}),
 						})),
 					}
 				: null;
@@ -118,4 +149,4 @@ export async function loadLimeniProjectSnapshot(
 
 export type LimeniProjectSnapshot = Awaited<
 	ReturnType<typeof loadLimeniProjectSnapshot>
->;
+> & { revision?: string; partVersions?: Record<string, string> };

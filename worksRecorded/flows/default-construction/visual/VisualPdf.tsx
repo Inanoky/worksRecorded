@@ -43,6 +43,7 @@ import {
 import { useDrawingViewport } from "./useDrawingViewport";
 import { type AreaPenMode, VisualAreaPen } from "./VisualAreaPen";
 import { VisualDrawingScale } from "./VisualDrawingScale";
+import { VisualDrawingTiles } from "./VisualDrawingTiles";
 import { VisualPdfDetail } from "./VisualPdfDetail";
 import { VisualPlanAreaTarget } from "./VisualPlanAreaTarget";
 import { VisualPolygonEditor } from "./VisualPolygonEditor";
@@ -546,10 +547,13 @@ export function VisualPdf({
 		setLayerPicker(null);
 	}, [planning, planningAreaDraft, penMode, planningEditable, ready]);
 	const [previewFailure, setPreviewFailure] = useState<string | null>(null);
+	const tiles = resourceCache
+		?.preparedManifest(url)
+		?.pages.find((item) => item.page === page)?.tiles;
 	const needsOriginal =
 		!preparedPages ||
 		previewFailure === `${url}:${preparedSource}` ||
-		(active && navigation.zoom > 1.4);
+		(!tiles && active && navigation.zoom > 1.4);
 	useEffect(() => {
 		setLoadedPdf(null);
 		setHighlighted(null);
@@ -1238,7 +1242,19 @@ export function VisualPdf({
 						className="block h-auto w-full"
 						aria-label={`Rasējuma ${page}. lapa`}
 					/>
-					{document && ready ? (
+					{tiles && resourceCache && ready ? (
+						<VisualDrawingTiles
+							key={`${url}:${page}:${preparedSource}`}
+							tiles={tiles}
+							cache={resourceCache}
+							url={url}
+							page={page}
+							pageWidth={navigation.size.width}
+							pageHeight={navigation.size.height}
+							view={navigation.settledView}
+						/>
+					) : null}
+					{!tiles && document && ready ? (
 						<VisualPdfDetail
 							key={`${url}:${page}`}
 							document={document}

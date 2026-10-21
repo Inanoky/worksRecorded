@@ -32,7 +32,18 @@ async function run() {
 	if (!process.argv.includes("--apply")) return;
 	for (const row of rows) {
 		const started = performance.now();
-		const preview = await prepareVisualDrawingPreviews(row.id);
+		const rawPixels = process.argv
+			.find((value) => value.startsWith("--max-pixels="))
+			?.slice(13);
+		const maxPixels = rawPixels ? Number(rawPixels) : undefined;
+		if (
+			maxPixels !== undefined &&
+			(!Number.isFinite(maxPixels) ||
+				maxPixels < 2_000_000 ||
+				maxPixels > 32_000_000)
+		)
+			throw new Error("Invalid pixel limit");
+		const preview = await prepareVisualDrawingPreviews(row.id, maxPixels);
 		console.log(
 			JSON.stringify({
 				drawingId: row.id,

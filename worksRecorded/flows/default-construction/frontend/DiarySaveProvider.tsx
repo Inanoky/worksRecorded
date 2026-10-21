@@ -3,9 +3,7 @@
 import { Check, Loader2, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import {
-	createContext,
 	type ReactNode,
-	useContext,
 	useEffect,
 	useMemo,
 	useState,
@@ -13,25 +11,11 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { saveDefaultConstructionDiaryEdits } from "../backend/diary-edit-actions";
-import {
-	DiarySaveQueue,
-	type DiarySaveSnapshot,
-} from "../lib/diary-save-queue";
+import { DiarySaveQueue } from "../lib/diary-save-queue";
 
-const emptySnapshot: DiarySaveSnapshot = {
-	items: [],
-	savingId: null,
-	error: null,
-	lastSavedAt: null,
-	confirmed: { rows: [], createdIds: [] },
-	confirmedRevisions: {},
-	revision: 0,
-};
-const subscribeEmpty = () => () => {};
-const getEmpty = () => emptySnapshot;
-const Context = createContext<
-	((siteId: string) => DiarySaveQueue | null) | null
->(null);
+import { Context, getEmpty } from "./DiarySaveContext";
+
+export { useDiarySaveQueue } from "./DiarySaveContext";
 
 function SaveStatus({
 	queue,
@@ -256,22 +240,4 @@ export function DiarySaveProvider({
 			</section>
 		</Context.Provider>
 	);
-}
-
-export function useDiarySaveQueue(siteId: string | null, enabled: boolean) {
-	const get = useContext(Context);
-	const queue = useMemo(
-		() => (enabled && siteId ? (get?.(siteId) ?? null) : null),
-		[get, siteId, enabled],
-	);
-	const snapshot = useSyncExternalStore(
-		queue?.subscribe ?? subscribeEmpty,
-		queue?.getSnapshot ?? getEmpty,
-		getEmpty,
-	);
-	useEffect(() => {
-		if (queue)
-			window.dispatchEvent(new Event("construction-diary-queue-created"));
-	}, [queue]);
-	return { queue, snapshot };
 }

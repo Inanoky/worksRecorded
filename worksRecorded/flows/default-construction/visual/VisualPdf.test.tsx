@@ -1271,16 +1271,103 @@ it("reads a page scale label, reports physical area and recalculates when the us
 		expect(onAreaChange).toHaveBeenLastCalledWith(expect.closeTo(14.5161, 4)),
 	);
 	fireEvent.click(screen.getByRole("button", { name: "Rasējuma mērogs" }));
-	fireEvent.change(
-		screen.getByRole("textbox", { name: "Mērogs", exact: true }),
-		{
-			target: { value: "1:50" },
-		},
-	);
+	fireEvent.change(screen.getByRole("textbox", { name: /^Mērogs$/ }), {
+		target: { value: "1:50" },
+	});
 	fireEvent.click(screen.getByRole("button", { name: "Lietot" }));
 	await waitFor(() => expect(onScaleChange).toHaveBeenCalledWith(1, 50));
 	view.rerender(content({ 1: 50 }));
 	await waitFor(() =>
 		expect(onAreaChange).toHaveBeenLastCalledWith(expect.closeTo(3.629025, 4)),
 	);
+});
+
+it("zooms tiled drawings without downloading or parsing a PDF and preserves record and planning geometry", async () => {
+	const cache = new VisualClientCache("site");
+	const url = `${cache.endpoint("floor")}?pdf=1`;
+	cache.seedProject({
+		index: { locations: [], drawings: [] },
+		drawings: [
+			{
+				drawing: { id: "floor", state: { location: "floor" } },
+				planning: { plans: [] },
+				preview: {
+					version: 1,
+					source: "tiles-v1",
+					pages: [
+						{
+							page: 1,
+							width: 2000,
+							height: 1000,
+							scales: [100],
+							url: "/overview",
+							tiles: {
+								version: 1,
+								size: 1024,
+								levels: [
+									{ width: 2048, height: 1024, urls: ["/tile0", "/tile1"] },
+								],
+							},
+						},
+					],
+				},
+			},
+		],
+	} as never);
+	const overview = document.createElement("canvas");
+	overview.width = 1600;
+	overview.height = 800;
+	cache.rememberPreview(url, 1, overview, 2);
+	jest
+		.spyOn(cache, "loadDrawingTile")
+		.mockResolvedValue(new Blob(["tile"], { type: "image/webp" }));
+	jest.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(1000);
+	jest.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(600);
+	const originalCreate = URL.createObjectURL;
+	const originalRevoke = URL.revokeObjectURL;
+	URL.createObjectURL = jest.fn(() => "blob:tile");
+	URL.revokeObjectURL = jest.fn();
+	try {
+		const view = render(
+			<VisualPdf
+				resourceCache={cache}
+				url={url}
+				marks={[mark]}
+				selected={null}
+				onSelect={jest.fn()}
+				planning={{
+					planId: "plan",
+					areas: [plannedArea],
+					selectedArea: null,
+					onChange: jest.fn(),
+					onSelectArea: jest.fn(),
+				}}
+			/>,
+		);
+		const zoom = screen.getByRole("button", { name: "Tuvināt" });
+		await waitFor(() => expect(zoom).toBeEnabled());
+		fireEvent.click(zoom);
+		fireEvent.click(zoom);
+		fireEvent.click(zoom);
+		await waitFor(() =>
+			expect(
+				view.container.querySelector("[data-drawing-tile]"),
+			).toBeInTheDocument(),
+		);
+		expect(global.fetch).not.toHaveBeenCalled();
+		expect(mockGetDocument).not.toHaveBeenCalled();
+		expect(
+			view.container.querySelector(
+				'svg[aria-label="AI ieteiktās darbu zonas"] polygon',
+			),
+		).toHaveAttribute("points", "0.1,0.1 0.4,0.1 0.4,0.4");
+		expect(
+			view.container.querySelector("[data-plan-area] ")?.getAttribute("points"),
+		).toBe("0.1,0.1 0.4,0.1 0.4,0.4");
+		view.unmount();
+	} finally {
+		cache.clear();
+		URL.createObjectURL = originalCreate;
+		URL.revokeObjectURL = originalRevoke;
+	}
 });

@@ -1,6 +1,7 @@
 const DATABASE = "works-recorded-limeni-v1";
 const STORE = "project-cache";
-const MAX_BYTES = 64 * 1024 * 1024;
+const META = "project-cache-meta";
+const MAX_BYTES = 192 * 1024 * 1024;
 let generation = 0;
 type Entry<T> = {
 	key: string;
@@ -25,9 +26,38 @@ async function database() {
 		};
 		const timeout = setTimeout(() => finish(null), 1500);
 		try {
-			const request = indexedDB.open(DATABASE, 1);
-			request.onupgradeneeded = () =>
-				request.result.createObjectStore(STORE, { keyPath: "key" });
+			const request = indexedDB.open(DATABASE, 2);
+			request.onupgradeneeded = () => {
+				const db = request.result;
+				if (!db.objectStoreNames.contains(STORE))
+					db.createObjectStore(STORE, { keyPath: "key" });
+				if (!db.objectStoreNames.contains(META)) {
+					const metadata = db.createObjectStore(META, { keyPath: "key" });
+					const cursor = request.transaction?.objectStore(STORE).openCursor();
+					if (cursor)
+						cursor.onsuccess = () => {
+							const item = cursor.result;
+							if (!item) return;
+							const entry = item.value as Entry<unknown>;
+							const resource = JSON.parse(entry.key)[2] as string;
+							if (
+								resource === "snapshot" ||
+								(typeof resource === "string" &&
+									resource.startsWith("preview:"))
+							) {
+								entry.expires = Number.MAX_SAFE_INTEGER;
+								item.update(entry);
+							}
+							metadata.put({
+								key: entry.key,
+								saved: entry.saved,
+								bytes: entry.bytes,
+								expires: entry.expires,
+							});
+							item.continue();
+						};
+				}
+			};
 			request.onsuccess = () => {
 				request.result.onversionchange = () => request.result.close();
 				finish(request.result);
@@ -77,7 +107,7 @@ export class PersistentProjectCache {
 			}
 		});
 	}
-	async write<T>(key: string, value: T, days = 7) {
+	async write<T>(key: string, value: T, days = 0) {
 		const started = generation;
 		const db = await database();
 		if (!db) return;
@@ -87,7 +117,7 @@ export class PersistentProjectCache {
 		}
 		await new Promise<void>((resolve) => {
 			try {
-				const tx = db.transaction(STORE, "readwrite");
+				const tx = db.transaction([STORE, META], "readwrite");
 				const store = tx.objectStore(STORE);
 				const bytes =
 					value instanceof Blob ? value.size : JSON.stringify(value).length * 2;
@@ -101,9 +131,20 @@ export class PersistentProjectCache {
 					value,
 					bytes,
 					saved: Date.now(),
-					expires: Date.now() + days * 86_400_000,
+					expires: days
+						? Date.now() + days * 86_400_000
+						: Number.MAX_SAFE_INTEGER,
 				} satisfies Entry<T>);
-				const all = store.getAll();
+				const metadata = tx.objectStore(META);
+				metadata.put({
+					key: this.key(key),
+					bytes,
+					saved: Date.now(),
+					expires: days
+						? Date.now() + days * 86_400_000
+						: Number.MAX_SAFE_INTEGER,
+				});
+				const all = metadata.getAll();
 				all.onsuccess = () => {
 					const entries = (all.result as Entry<unknown>[]).sort(
 						(a, b) => a.saved - b.saved,
@@ -112,6 +153,7 @@ export class PersistentProjectCache {
 					for (const entry of entries)
 						if (entry.expires < Date.now() || size > MAX_BYTES) {
 							store.delete(entry.key);
+							metadata.delete(entry.key);
 							size -= entry.bytes;
 						}
 				};

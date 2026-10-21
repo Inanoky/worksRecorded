@@ -19,11 +19,21 @@ export function mountPreparedWorkspace(fixture: VisualDrawing) {
 		const name = String(url);
 		counts[name] = (counts[name] ?? 0) + 1;
 		window.dispatchEvent(new Event("preview-count"));
-		if (name.includes("/preview/")) return original("/prepared.webp");
+		if (name.includes("/preview/")) {
+			const query = new URL(name, location.origin).searchParams;
+			return original(
+				query.has("tile")
+					? `/tile-${query.get("tile")}.webp`
+					: "/prepared.webp",
+			);
+		}
 		if (name.includes("?pdf=1")) return original("/plan.pdf");
 		if (name.endsWith("/limeni-project")) {
 			await new Promise((resolve) => setTimeout(resolve, 800));
-			if (new Headers(options?.headers).has("If-None-Match"))
+			if (
+				new Headers(options?.headers).get("If-None-Match") ===
+				'"prepared-fixture-v2"'
+			)
 				return new Response(null, { status: 304 });
 			const index = await getVisualDrawings("demo");
 			const drawings = await Promise.all(
@@ -44,13 +54,27 @@ export function mountPreparedWorkspace(fixture: VisualDrawing) {
 								height: 700,
 								scales: [100],
 								url: `/api/sites/demo/visual/${item.id}/preview/1?v=${item.id}`,
+								tiles: {
+									version: 1,
+									size: 1024,
+									levels: [
+										{
+											width: 1600,
+											height: 1120,
+											urls: [0, 1, 2, 3].map(
+												(tile) =>
+													`/api/sites/demo/visual/${item.id}/preview/1?v=${item.id}&level=0&tile=${tile}`,
+											),
+										},
+									],
+								},
 							},
 						],
 					},
 				})),
 			);
 			return Response.json({
-				version: "prepared-fixture-v1",
+				version: "prepared-fixture-v2",
 				settings: {
 					siteId: "demo",
 					userId: "preview",

@@ -170,3 +170,9 @@ it("rejects unauthorized access before any project queries", async () => {
 	expect(prisma.documents.findMany).not.toHaveBeenCalled();
 	expect(loadVisualPlanningProjectData).not.toHaveBeenCalled();
 });
+
+it("keeps temporary database failures distinct from revoked project access", async () => {
+	const failure = new Error("Database unavailable");
+	jest.mocked(requireVisualAccess).mockRejectedValue(failure);
+	await expect(loadLimeniProjectSnapshot("user", "site")).rejects.toBe(failure);
+});

@@ -15,6 +15,7 @@ import {
 } from "@/components/providers/ProjectLoadingProgressProvider";
 import type { getDefaultConstructionForma2Results } from "../backend/forma2-analytics-actions";
 import { DIARY_RECORD_UPDATED } from "../lib/diary-record-updated-event";
+import { patchProject } from "../visual/project-sync";
 import { useDiarySaveQueue } from "./DiarySaveProvider";
 import { FORMA2_CHANGED, Forma2RefreshContext } from "./forma2-client-refresh";
 import { useLimeniProjectData } from "./LimeniProjectData";
@@ -63,6 +64,17 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 					if (request.signal.aborted) return;
 					etag.current = response.headers.get("etag") ?? "";
 					setPayload(next);
+					if (projectData.enabled)
+						patchProject(siteId, (snapshot) => ({
+							...snapshot,
+							revision: undefined,
+							forma2: {
+								...next,
+								organizationLanguage:
+									next.organizationLanguage ??
+									snapshot.forma2.organizationLanguage,
+							},
+						}));
 				}
 				lastLoaded.current = Date.now();
 				setFailed(false);
@@ -78,7 +90,7 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 			});
 		pending.current = work;
 		return work;
-	}, [siteId, report]);
+	}, [siteId, report, projectData.enabled]);
 	useEffect(() => {
 		if (projectData.enabled) {
 			void loadView().catch(() => report("forma2", "error"));
@@ -109,10 +121,18 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 		if (snapshot.revision === lastDiaryRevision.current) return;
 		lastDiaryRevision.current = snapshot.revision;
 		lastLoaded.current = 0;
-		if (enabled && active && !snapshot.items.length) void refresh();
-	}, [snapshot.revision, snapshot.items.length, enabled, active, refresh]);
+		if (enabled && active && !snapshot.items.length && !projectData.enabled)
+			void refresh();
+	}, [
+		snapshot.revision,
+		snapshot.items.length,
+		enabled,
+		active,
+		refresh,
+		projectData.enabled,
+	]);
 	useEffect(() => {
-		if (!enabled) return;
+		if (!enabled || projectData.enabled) return;
 		const check = () => {
 			if (
 				!active ||
@@ -146,7 +166,7 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 			window.removeEventListener(FORMA2_CHANGED, changed);
 			window.removeEventListener(DIARY_RECORD_UPDATED, changed);
 		};
-	}, [enabled, active, refresh, siteId]);
+	}, [enabled, active, refresh, siteId, projectData.enabled]);
 	const update = useCallback(() => {
 		void refresh();
 	}, [refresh]);

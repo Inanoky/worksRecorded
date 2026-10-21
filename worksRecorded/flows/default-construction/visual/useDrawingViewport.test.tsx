@@ -240,10 +240,10 @@ it("publishes only settled views for PDF redraws and cancels its timer on unmoun
 		const previous = screen.getByLabelText("settled view").textContent;
 		fireEvent.click(screen.getByRole("button", { name: "Zoom" }));
 		advance(60);
-		act(() => jest.advanceTimersByTime(200));
+		act(() => jest.advanceTimersByTime(79));
 		expect(screen.getByLabelText("settled view").textContent).toBe(previous);
 		advance(120);
-		act(() => jest.advanceTimersByTime(299));
+		act(() => jest.advanceTimersByTime(79));
 		expect(screen.getByLabelText("settled view").textContent).toBe(previous);
 		act(() => jest.advanceTimersByTime(1));
 		expect(
