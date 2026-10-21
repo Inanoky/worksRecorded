@@ -210,27 +210,19 @@ async function createRevision(
 	});
 }
 
-export async function listVisualPlans(
-	userId: string,
+export async function loadVisualPlanningProjectData(
 	siteId: string,
-	drawingId: string,
+	organizationId: string,
 ) {
-	const { row: drawingRow, drawing } = await loadVisualDrawing(
-		userId,
-		siteId,
-		drawingId,
-	);
-	if (!drawingRow.organizationId)
-		throw new Error("Rasējuma organizācija nav atrasta.");
-	const site = await loadPlanningSite(
-		prisma,
-		siteId,
-		drawingRow.organizationId,
-	);
-	const options = getDefaultConstructionOptionValues(
-		(site.siteDiaryRecordsMap ?? {}) as Record<string, unknown>,
-	);
-	const [rows, contactRows, organizationContacts] = await Promise.all([
+	const [
+		site,
+		rows,
+		contactRows,
+		organizationContacts,
+		actualRows,
+		whatsAppSends,
+	] = await Promise.all([
+		loadPlanningSite(prisma, siteId, organizationId),
 		prisma.constructionPlan.findMany({
 			where: { siteId, planType: VISUAL_PLAN_TYPE },
 			orderBy: [{ archivedAt: "asc" }, { startDate: "asc" }, { date: "asc" }],
@@ -239,50 +231,47 @@ export async function listVisualPlans(
 			where: { siteId },
 			orderBy: [{ archivedAt: "asc" }, { name: "asc" }, { id: "asc" }],
 		}),
-		organizationPlanningContacts(drawingRow.organizationId),
+		organizationPlanningContacts(organizationId),
+		prisma.sitediaryrecords.findMany({
+			where: { siteId, organizationId, archivedAt: null },
+			select: {
+				id: true,
+				Date: true,
+				Works: true,
+				Location: true,
+				Units: true,
+				Amounts: true,
+				Comments_Custom_1: true,
+			},
+		}),
+		prisma.whatsAppTaskSend.findMany({
+			where: { siteId, organizationId },
+			orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+			include: { items: { orderBy: { ordinal: "asc" } } },
+		}),
 	]);
-	const plans = (rows as unknown as StoredVisualPlan[])
-		.map(serializeVisualPlan)
-		.filter(
-			(plan) =>
-				normalizePlanText(plan.location) ===
-				normalizePlanText(drawing.state.location),
-		);
-	const whatsAppSends = plans.length
-		? await prisma.whatsAppTaskSend.findMany({
-				where: {
-					organizationId: drawingRow.organizationId,
-					siteId,
-					planId: { in: plans.map((plan) => plan.id) },
-				},
-				orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-				include: { items: { orderBy: { ordinal: "asc" } } },
-			})
-		: [];
-	const firstStart = plans.reduce<string | null>(
-		(first, plan) =>
-			!first || plan.startDate < first ? plan.startDate : first,
-		null,
+	return {
+		site,
+		contactRows,
+		organizationContacts,
+		actualRows,
+		whatsAppSends,
+		plans: (rows as unknown as StoredVisualPlan[]).map(serializeVisualPlan),
+	};
+}
+
+export function visualPlansForLocation(
+	location: string,
+	data: Awaited<ReturnType<typeof loadVisualPlanningProjectData>>,
+) {
+	const { site, contactRows, organizationContacts, actualRows, whatsAppSends } =
+		data;
+	const plans = data.plans.filter(
+		(plan) => normalizePlanText(plan.location) === normalizePlanText(location),
 	);
-	const actualRows = firstStart
-		? await prisma.sitediaryrecords.findMany({
-				where: {
-					siteId,
-					organizationId: drawingRow.organizationId,
-					archivedAt: null,
-					Date: { gte: new Date(addDays(firstStart, -1)) },
-				},
-				select: {
-					id: true,
-					Date: true,
-					Works: true,
-					Location: true,
-					Units: true,
-					Amounts: true,
-					Comments_Custom_1: true,
-				},
-			})
-		: [];
+	const options = getDefaultConstructionOptionValues(
+		(site.siteDiaryRecordsMap ?? {}) as Record<string, unknown>,
+	);
 	const config = (site.siteDiaryRecordsMap ?? {}) as Record<string, unknown>;
 	const actuals = actualRows.flatMap((actual) => {
 		if (!actual.Date) return [];
@@ -308,7 +297,7 @@ export async function listVisualPlans(
 					),
 				}
 			: {}),
-		location: drawing.state.location,
+		location,
 		workOptions: options.productivity.works.map((option) => ({
 			work: option.work,
 			unit: option.unit,
@@ -358,6 +347,20 @@ export async function listVisualPlans(
 		...result,
 		sections: readVisualSections(config, site.name),
 	} as typeof result & { sections?: string[] };
+}
+
+export async function listVisualPlans(
+	userId: string,
+	siteId: string,
+	drawingId: string,
+) {
+	const { row, drawing } = await loadVisualDrawing(userId, siteId, drawingId);
+	if (!row.organizationId)
+		throw new Error("Rasējuma organizācija nav atrasta.");
+	return visualPlansForLocation(
+		drawing.state.location,
+		await loadVisualPlanningProjectData(siteId, row.organizationId),
+	);
 }
 
 export async function persistVisualPlan(userId: string, rawInput: unknown) {

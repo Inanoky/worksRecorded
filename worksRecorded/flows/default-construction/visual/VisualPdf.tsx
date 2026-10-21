@@ -176,11 +176,16 @@ export function VisualPdf({
 	createRecordBlockedReason?: string;
 }) {
 	const recordHintId = useId();
+	const preparedSource = resourceCache?.preparedManifest(url)?.source;
 	const [loadedPdf, setLoadedPdf] = useState<{
 		url: string;
+		source?: string;
 		pdf: PDFDocumentProxy;
 	} | null>(null);
-	const document = loadedPdf?.url === url ? loadedPdf.pdf : null;
+	const document =
+		loadedPdf?.url === url && loadedPdf.source === preparedSource
+			? loadedPdf.pdf
+			: null;
 	useEffect(() => {
 		onDocumentChange?.(document);
 		return () => onDocumentChange?.(null);
@@ -223,15 +228,24 @@ export function VisualPdf({
 				.sort((a, b) => a - b)
 				.join(",")
 		: "";
+	const preparedPages = resourceCache?.preparedManifest(url)?.pages.length;
 	useEffect(() => {
-		if (!document || !measurementPages) return;
+		if (!measurementPages) return;
 		let cancelled = false;
 		for (const page of measurementPages.split(",").map(Number)) {
-			void (
-				resourceCache
-					? resourceCache.loadPageMeasurement(url, page, document)
-					: readDrawingPageMeasurement(document, page)
-			)
+			if (resourceCache?.preparedManifest(url)?.source !== preparedSource)
+				continue;
+			const prepared = resourceCache?.preparedMeasurement(url, page);
+
+			const measurement = prepared
+				? Promise.resolve(prepared)
+				: document
+					? resourceCache
+						? resourceCache.loadPageMeasurement(url, page, document)
+						: readDrawingPageMeasurement(document, page)
+					: null;
+			if (!measurement) continue;
+			void measurement
 				.then((value) => {
 					if (!cancelled)
 						setMeasurementState((current) =>
@@ -251,7 +265,7 @@ export function VisualPdf({
 		return () => {
 			cancelled = true;
 		};
-	}, [document, measurementPages, resourceCache, url]);
+	}, [document, measurementPages, resourceCache, url, preparedSource]);
 	const navigation = useDrawingViewport(
 		aspect,
 		`${url}:${page}`,
@@ -531,23 +545,31 @@ export function VisualPdf({
 		planning.onEditingChange?.(true);
 		setLayerPicker(null);
 	}, [planning, planningAreaDraft, penMode, planningEditable, ready]);
+	const [previewFailure, setPreviewFailure] = useState<string | null>(null);
+	const needsOriginal =
+		!preparedPages ||
+		previewFailure === `${url}:${preparedSource}` ||
+		(active && navigation.zoom > 1.4);
 	useEffect(() => {
+		setLoadedPdf(null);
+		setHighlighted(null);
+		setError(false);
+		setReady(!!resourceCache?.peekPreview(url, 1));
+		setPage(1);
+	}, [url, resourceCache]);
+	useEffect(() => {
+		if (!needsOriginal) return;
 		let active = true;
 		let task:
 			| ReturnType<typeof import("pdfjs-dist")["getDocument"]>
 			| undefined;
 		const abort = new AbortController();
 		const cachedPdf = resourceCache?.openPdf(url);
-		setLoadedPdf(null);
-		setHighlighted(null);
-		setError(false);
-		setReady(!!resourceCache?.peekPreview(url, 1));
-		setPage(1);
 		void (async () => {
 			try {
 				if (cachedPdf) {
 					const pdf = await cachedPdf.promise;
-					if (active) setLoadedPdf({ url, pdf });
+					if (active) setLoadedPdf({ url, pdf, source: preparedSource });
 					return;
 				}
 				const [response, pdfjs, worker] = await Promise.all([
@@ -561,9 +583,9 @@ export function VisualPdf({
 				pdfjs.GlobalWorkerOptions.workerSrc = worker.pdfWorkerUrl;
 				task = pdfjs.getDocument({ data: bytes });
 				const pdf = await task.promise;
-				if (active) setLoadedPdf({ url, pdf });
+				if (active) setLoadedPdf({ url, pdf, source: preparedSource });
 			} catch {
-				if (active) setError(true);
+				if (active && !resourceCache?.peekPreview(url, 1)) setError(true);
 			}
 		})();
 		return () => {
@@ -572,7 +594,7 @@ export function VisualPdf({
 			cachedPdf?.release();
 			void task?.destroy();
 		};
-	}, [url, resourceCache]);
+	}, [url, resourceCache, needsOriginal, preparedSource]);
 	useLayoutEffect(() => {
 		const preview = resourceCache?.peekPreview(url, page);
 		const element = canvas.current;
@@ -585,6 +607,34 @@ export function VisualPdf({
 		setAspect(preview.aspect);
 		setReady(true);
 	}, [url, page, resourceCache]);
+	useEffect(() => {
+		if (
+			!preparedPages ||
+			!resourceCache ||
+			resourceCache.preparedManifest(url)?.source !== preparedSource
+		)
+			return;
+		let cancelled = false;
+		void resourceCache.loadPreparedPreview(url, page).then(
+			(preview) => {
+				if (cancelled || !canvas.current || !preview) return;
+				const element = canvas.current;
+				const context = element.getContext("2d");
+				if (!context) return;
+				element.width = preview.canvas.width;
+				element.height = preview.canvas.height;
+				context.drawImage(preview.canvas, 0, 0);
+				setAspect(preview.aspect);
+				setReady(true);
+			},
+			() => {
+				if (!cancelled) setPreviewFailure(`${url}:${preparedSource}`);
+			},
+		);
+		return () => {
+			cancelled = true;
+		};
+	}, [url, page, resourceCache, preparedPages, preparedSource]);
 	useEffect(() => {
 		if (!document) return;
 		let active = true;
@@ -703,7 +753,7 @@ export function VisualPdf({
 				<ChevronLeft className="h-4 w-4" />
 			</Button>
 			<span className="px-2 text-xs tabular-nums">
-				Lapa {page} / {document?.numPages ?? "—"}
+				Lapa {page} / {document?.numPages ?? preparedPages ?? "—"}
 			</span>
 			{measurementEnabled ? (
 				<>
@@ -741,8 +791,7 @@ export function VisualPdf({
 					!!draft ||
 					!!planningAreaDraft ||
 					!!penMode ||
-					!document ||
-					page >= document.numPages
+					page >= (document?.numPages ?? preparedPages ?? 1)
 				}
 				onClick={() => setPage((value) => value + 1)}
 			>

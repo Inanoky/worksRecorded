@@ -1,7 +1,7 @@
 import { PDFDocument } from "pdf-lib";
 import { VISUAL_MAX_BYTES, VISUAL_MAX_PAGES } from "./model";
 
-export async function loadVisualPdf(url: string) {
+export async function readVisualPdfBytes(url: string) {
 	const parsed = new URL(url);
 	if (
 		parsed.protocol !== "https:" ||
@@ -34,6 +34,11 @@ export async function loadVisualPdf(url: string) {
 	const bytes = Buffer.concat(chunks);
 	if (!bytes.subarray(0, 1024).includes(Buffer.from("%PDF-")))
 		throw new Error("Fails nav PDF.");
+	return bytes;
+}
+
+export async function loadVisualPdf(url: string) {
+	const bytes = await readVisualPdfBytes(url);
 	const document = await PDFDocument.load(bytes);
 	const pageCount = document.getPageCount();
 	if (pageCount < 1 || pageCount > VISUAL_MAX_PAGES)

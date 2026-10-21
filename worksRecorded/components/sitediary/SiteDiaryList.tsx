@@ -1,4 +1,5 @@
 "use client";
+import type { LimeniProjectSnapshot } from "@/flows/default-construction/visual/project-snapshot-store";
 import { DiaryFilterCard } from "./DiaryFilterCard";
 import { FimaDiaryFilters } from "./FimaDiaryFilters";
 import { useFimaDiaryFilterOptions } from "./useFimaDiaryFilterOptions";
@@ -687,6 +688,7 @@ export default function SiteDiaryCalendar({
   active = true,
   batchEditing = false,
   initialFimaDiary,
+  initialLimeniProject,
 }: {
   siteId: string | null;
   bisEnabled?: boolean;
@@ -696,9 +698,11 @@ export default function SiteDiaryCalendar({
   active?: boolean;
   batchEditing?: boolean;
   initialFimaDiary?: FimaProjectDiary | null;
+  initialLimeniProject?: LimeniProjectSnapshot;
 }) {
   const initialDiary = initialFimaDiary?.siteId === siteId && !isZtcFlow ? initialFimaDiary : null;
   const initialFimaPage = React.useRef(initialDiary);
+  const limeniProjectSeed = React.useRef(initialLimeniProject);
   const today = new Date();
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSiteDiaryListMessages(language);
@@ -1298,7 +1302,8 @@ export default function SiteDiaryCalendar({
         await syncDeletedSiteDiaryBisRecords(siteId);
       }
       if (clientDiary) {
-        const result = await getLimeniDiarySnapshot(siteId);
+        const seed = limeniProjectSeed.current;
+        const result = options?.useCache && seed?.settings.siteId === siteId ? seed.diary : await getLimeniDiarySnapshot(siteId);
         if (diaryRowsRequestRef.current !== requestId) return result.rows;
         diaryLastLoaded.current = Date.now();
         setRows(result.rows);
@@ -1403,6 +1408,12 @@ export default function SiteDiaryCalendar({
       fimaPages,
     ],
   );
+
+  React.useEffect(() => {
+    if (!clientDiary || !initialLimeniProject || initialLimeniProject.version === limeniProjectSeed.current?.version || diarySaveSnapshot.revision || diarySaveSnapshot.items.length || dialogOpen) return;
+    limeniProjectSeed.current = initialLimeniProject;
+    void refreshRowsWithBisSync({ skipSync: true, useCache: true }).catch(() => {});
+  }, [initialLimeniProject, clientDiary, diarySaveSnapshot.revision, diarySaveSnapshot.items.length, dialogOpen, refreshRowsWithBisSync]);
 
   const queueAcknowledgedRevision = React.useRef(0);
   React.useLayoutEffect(() => {
@@ -1528,7 +1539,7 @@ export default function SiteDiaryCalendar({
         // is intentionally not on the critical path for the initial screen.
         const configKey = `${siteId}:${siteDiaryFlowId}:${optionsRevision}`;
         if (fimaConfig.current?.key !== configKey) {
-          const bootstrap = initialFimaPage.current;
+          const bootstrap = limeniProjectSeed.current ? { siteId: limeniProjectSeed.current.settings.siteId, config: limeniProjectSeed.current.config } : initialFimaPage.current;
           const useInitialConfig = bootstrap?.siteId === siteId && optionsRevision === 0 && !isZtcSite;
           const entry = { key: configKey, enabled: useInitialConfig, promise: useInitialConfig ? Promise.resolve(bootstrap.config) : getConfig(siteId, { flowId: siteDiaryFlowId }) };
           fimaConfig.current = entry;

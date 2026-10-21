@@ -14,6 +14,7 @@ import {
 	requireVisualAccess,
 } from "@/flows/default-construction/visual/store";
 import { validateWarehouseImportFiles } from "@/flows/default-construction/warehouse-import";
+import { prepareVisualDrawingPreviews } from "@/flows/default-construction/visual/prepared-preview-store";
 import { createTgemInvoiceCaseRecord } from "@/lib/tgem-invoice-approval/create-case";
 import { enqueueTgemInvoiceProcessing } from "@/lib/tgem-invoice-approval/workflow-client";
 import { prisma } from "@/lib/utils/db";
@@ -53,13 +54,19 @@ export const ourFileRouter = {
 				replaceDrawingId: input.replaceDrawingId,
 			};
 		})
-		.onUploadComplete(async ({ metadata, file }) => ({
-			drawingId: await createVisualDrawing({
+		.onUploadComplete(async ({ metadata, file }) => {
+			const drawingId = await createVisualDrawing({
 				...metadata,
 				url: file.ufsUrl,
 				name: file.name,
-			}),
-		})),
+			});
+			try {
+				await prepareVisualDrawingPreviews(drawingId);
+			} catch {
+				console.warn("[visual] Drawing saved; preview preparation can be retried", { drawingId });
+			}
+			return { drawingId };
+		}),
 	warehouseInvoiceUploader: f({
 		image: { maxFileSize: "16MB", maxFileCount: 20, minFileCount: 0 },
 		pdf: { maxFileSize: "16MB", maxFileCount: 20, minFileCount: 0 },

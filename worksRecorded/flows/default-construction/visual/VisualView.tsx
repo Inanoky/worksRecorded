@@ -51,6 +51,7 @@ import {
 } from "@/lib/photos/photo-deleted-event";
 import { useUploadThing } from "@/lib/utils/UploadthingsComponents";
 import { DiaryRecordPhotos } from "../frontend/DiaryRecordPhotos";
+import { useLimeniProjectData } from "../frontend/LimeniProjectData";
 import {
 	deleteVisualDrawing,
 	deleteVisualPolygon,
@@ -140,6 +141,12 @@ export default function VisualView({
 	preload?: boolean;
 }) {
 	const reportPreparation = useProjectPreparationReporter(siteId);
+	const projectData = useLimeniProjectData();
+	const initialProject = useRef(projectData.snapshot);
+	if (!initialProject.current && projectData.snapshot)
+		initialProject.current = projectData.snapshot;
+	const projectReady = !projectData.enabled || !!projectData.snapshot;
+	const appliedProjectVersion = useRef("");
 	useEffect(() => {
 		reportPreparation("visual-module");
 	}, [reportPreparation]);
@@ -287,6 +294,14 @@ export default function VisualView({
 			window.removeEventListener(VISUAL_PLANNING_CACHE_INVALIDATED, invalidate);
 	}, [resourceCache, siteId]);
 	useEffect(() => {
+		if (!projectReady) return;
+		if (initialProject.current && !resourceCache.peekIndex()) {
+			resourceCache.seedProject(
+				initialProject.current,
+				projectData.persistence,
+			);
+			appliedProjectVersion.current = initialProject.current.version;
+		}
 		const run = ++epoch.current;
 		const cached = resourceCache.peekIndex();
 		setIndex(cached ?? null);
@@ -343,7 +358,16 @@ export default function VisualView({
 			++epoch.current;
 			++requestId.current;
 		};
-	}, [loadIndex, resourceCache, showIndex, preload, siteId, reportPreparation]);
+	}, [
+		loadIndex,
+		resourceCache,
+		showIndex,
+		preload,
+		siteId,
+		reportPreparation,
+		projectReady,
+		projectData.persistence,
+	]);
 	const pollDrawingId = drawing?.id;
 	useEffect(() => {
 		if ((!active && !preload) || !pollDrawingId) return;
@@ -822,6 +846,41 @@ export default function VisualView({
 					Math.min(throughDay ?? timeline.lastDay, timeline.lastDay),
 				)
 			: null;
+	useEffect(() => {
+		const snapshot = projectData.snapshot;
+		if (
+			!snapshot ||
+			snapshot.version === appliedProjectVersion.current ||
+			hasUnsavedPolygons ||
+			planningSaveState.length ||
+			editing ||
+			planningDirty ||
+			workEditing ||
+			recordDraft
+		)
+			return;
+		resourceCache.seedProject(snapshot, projectData.persistence);
+		appliedProjectVersion.current = snapshot.version;
+		showIndex(snapshot.index);
+		const selected = snapshot.drawings.find(
+			(item) =>
+				normalizeVisualLocation(item.drawing.state.location) ===
+				normalizeVisualLocation(location),
+		);
+		if (selected) setDrawing(selected.drawing);
+	}, [
+		projectData.snapshot,
+		projectData.persistence,
+		hasUnsavedPolygons,
+		planningSaveState.length,
+		editing,
+		planningDirty,
+		workEditing,
+		recordDraft,
+		resourceCache,
+		showIndex,
+		location,
+	]);
 	const categorizedMarks = useMemo(
 		() =>
 			optimisticDrawing

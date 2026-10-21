@@ -1,5 +1,7 @@
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { VisualDrawing } from "./model";
+import type { PersistentProjectCache } from "./project-persistent-cache";
+import type { LimeniProjectSnapshot } from "./project-snapshot-store";
 import {
 	VisualClientCache,
 	type VisualDrawingIndex,
@@ -456,4 +458,103 @@ it("keeps preparation pending for the last floor and reports errors without disc
 	});
 	expect(cache.peekPlanning("first")).toBeDefined();
 	cache.clear();
+});
+
+function preparedProject(source = "revision-1") {
+	return {
+		index: drawingIndex,
+		drawings: [1, 2, 3, 4].map((floor) => ({
+			drawing: { ...drawing, id: `floor-${floor}` },
+			planning: planningIndex,
+			preview: {
+				version: 1,
+				source: `${source}-${floor}`,
+				pages: [
+					{
+						page: 1,
+						width: 3370.39,
+						height: 2383.94,
+						scales: [100],
+						url: `/preview/${floor}?v=${source}`,
+					},
+				],
+			},
+		})),
+	} as unknown as LimeniProjectSnapshot;
+}
+
+it("opens four prepared floors without PDF parsing, repeated metadata or planning requests", async () => {
+	const cache = new VisualClientCache("site");
+	const bitmap = { width: 1600, height: 1132, close: jest.fn() };
+	const originalBitmap = global.createImageBitmap;
+	global.createImageBitmap = jest.fn().mockResolvedValue(bitmap);
+	global.fetch = jest.fn().mockResolvedValue({
+		ok: true,
+		blob: async () => new Blob(["preview"], { type: "image/webp" }),
+	});
+	const project = preparedProject();
+	cache.seedProject(project);
+	const planning = jest.fn();
+	try {
+		await cache.prepareProject(
+			project.drawings.map((item) => ({ id: item.drawing.id })),
+			planning,
+			jest.fn(),
+		);
+		expect(global.fetch).toHaveBeenCalledTimes(4);
+		expect(mockGetDocument).not.toHaveBeenCalled();
+		expect(planning).not.toHaveBeenCalled();
+		for (const floor of project.drawings) {
+			const url = `${cache.endpoint(floor.drawing.id)}?pdf=1`;
+			expect(cache.peekPreview(url, 1)?.aspect).toBe(3370.39 / 2383.94);
+			expect(cache.preparedMeasurement(url, 1)).toEqual({
+				width: 3370.39,
+				height: 2383.94,
+				scales: [100],
+			});
+			await cache.loadPreparedPreview(url, 1);
+		}
+		expect(global.fetch).toHaveBeenCalledTimes(4);
+		jest.mocked(global.fetch).mockResolvedValueOnce({
+			ok: true,
+			arrayBuffer: async () => new ArrayBuffer(4),
+		} as Response);
+		const pdf = cache.openPdf(`${cache.endpoint("floor-1")}?pdf=1`);
+		await pdf.promise;
+		pdf.release();
+		expect(mockGetDocument).toHaveBeenCalledTimes(1);
+	} finally {
+		cache.clear();
+		global.createImageBitmap = originalBitmap;
+	}
+});
+
+it("uses persisted previews across visits and replaces them when the drawing revision changes", async () => {
+	const originalBitmap = global.createImageBitmap;
+	global.createImageBitmap = jest
+		.fn()
+		.mockResolvedValue({ width: 1600, height: 1132, close: jest.fn() });
+	const blob = new Blob(["stored"], { type: "image/webp" });
+	const persistence = {
+		read: jest.fn().mockResolvedValue(blob),
+		write: jest.fn(),
+	} as unknown as PersistentProjectCache;
+	const cache = new VisualClientCache("site");
+	const url = `${cache.endpoint("floor-1")}?pdf=1`;
+	try {
+		cache.seedProject(preparedProject(), persistence);
+		const preview = await cache.loadPreparedPreview(url, 1);
+		expect(global.fetch).not.toHaveBeenCalled();
+		expect(persistence.read).toHaveBeenLastCalledWith("preview:revision-1-1:1");
+		cache.seedProject(preparedProject("replacement"), persistence);
+		expect(preview?.canvas.width).toBe(0);
+		expect(cache.peekPreview(url, 1)).toBeUndefined();
+		await cache.loadPreparedPreview(url, 1);
+		expect(persistence.read).toHaveBeenLastCalledWith(
+			"preview:replacement-1:1",
+		);
+	} finally {
+		cache.clear();
+		global.createImageBitmap = originalBitmap;
+	}
 });

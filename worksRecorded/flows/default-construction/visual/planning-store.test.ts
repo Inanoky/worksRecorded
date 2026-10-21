@@ -4,9 +4,11 @@ import { organizationPlanningContacts } from "./organization-contacts";
 import {
 	archiveVisualPlan,
 	listVisualPlans,
+	loadVisualPlanningProjectData,
 	persistVisualPlan,
 	restoreVisualPlan,
 	VisualPlanConflictError,
+	visualPlansForLocation,
 } from "./planning-store";
 import { loadVisualDrawing, requireVisualAccess } from "./store";
 
@@ -476,7 +478,6 @@ it("loads live progress from the start date and respects factual quantities", as
 				siteId,
 				organizationId,
 				archivedAt: null,
-				Date: { gte: new Date("2026-10-11") },
 			}),
 		}),
 	);
@@ -556,4 +557,29 @@ it("archives without deleting and restores only when no active item conflicts", 
 	expect(prisma.constructionPlanRevision.create).toHaveBeenLastCalledWith({
 		data: expect.objectContaining({ action: "restore", version: 3 }),
 	});
+});
+
+it("reads project planning once and derives every floor without more queries", async () => {
+	jest
+		.mocked(prisma.constructionPlan.findMany)
+		.mockResolvedValue([
+			stored(),
+			stored({ id: "floor-two", location: "2. stāvs" }),
+		] as never);
+	const project = await loadVisualPlanningProjectData(siteId, organizationId);
+	const first = visualPlansForLocation("1. stāvs", project);
+	const second = visualPlansForLocation("2. stāvs", project);
+	expect(first.location).toBe("1. stāvs");
+	expect(second.location).toBe("2. stāvs");
+	expect(first.plans.map((plan) => plan.id)).toEqual([planId]);
+	expect(second.plans.map((plan) => plan.id)).toEqual(["floor-two"]);
+	for (const query of [
+		prisma.site.findFirst,
+		prisma.constructionPlan.findMany,
+		prisma.visualPlanningContact.findMany,
+		organizationPlanningContacts,
+		prisma.sitediaryrecords.findMany,
+		prisma.whatsAppTaskSend.findMany,
+	])
+		expect(query).toHaveBeenCalledTimes(1);
 });

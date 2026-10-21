@@ -1503,18 +1503,29 @@ export function VisualPlanningPanel({
 												key={selectedPlan.id}
 												plan={selectedPlan}
 												createImages={async (signal) => {
-													if (!pdfDocument.current)
-														return Promise.reject(
-															new Error(
-																"Rasējums vēl nav ielādēts. Mēģiniet vēlreiz.",
-															),
+													const lease = pdfDocument.current
+														? null
+														: cache.openPdf(
+																`${cache.endpoint(drawing.id)}?pdf=1`,
+															);
+													let images: Awaited<
+														ReturnType<typeof renderPlanningImages>
+													>;
+													try {
+														const pdf =
+															pdfDocument.current ?? (await lease?.promise);
+														if (!pdf) throw new Error("Rasējums nav pieejams.");
+														if (signal?.aborted)
+															throw new DOMException("Cancelled", "AbortError");
+														images = await renderPlanningImages(
+															pdf,
+															selectedPlan,
+															workColor(selectedPlan.work),
+															signal,
 														);
-													const images = await renderPlanningImages(
-														pdfDocument.current,
-														selectedPlan,
-														workColor(selectedPlan.work),
-														signal,
-													);
+													} finally {
+														lease?.release();
+													}
 													const section = selectedPlan.geometry.section;
 													const prepared = [...images];
 													if (

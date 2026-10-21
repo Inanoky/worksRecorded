@@ -17,6 +17,7 @@ import type { getDefaultConstructionForma2Results } from "../backend/forma2-anal
 import { DIARY_RECORD_UPDATED } from "../lib/diary-record-updated-event";
 import { useDiarySaveQueue } from "./DiarySaveProvider";
 import { FORMA2_CHANGED, Forma2RefreshContext } from "./forma2-client-refresh";
+import { useLimeniProjectData } from "./LimeniProjectData";
 
 const loadView = () =>
 	import("./DefaultConstructionForma2View").then((module) => ({
@@ -30,6 +31,8 @@ type Payload = {
 
 export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 	const enabled = useVisualProjectPreload(siteId);
+	const projectData = useLimeniProjectData();
+	const seeded = useRef("");
 	const active = usePathname() === `/dashboard/sites/${siteId}/analytics`;
 	const report = useProjectPreparationReporter(siteId);
 	const [payload, setPayload] = useState<Payload | null>(null);
@@ -77,6 +80,19 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 		return work;
 	}, [siteId, report]);
 	useEffect(() => {
+		if (projectData.enabled) {
+			void loadView().catch(() => report("forma2", "error"));
+			if (
+				projectData.snapshot &&
+				seeded.current !== projectData.snapshot.version
+			) {
+				seeded.current = projectData.snapshot.version;
+				setPayload(projectData.snapshot.forma2);
+				lastLoaded.current = Date.now();
+				report("forma2");
+			}
+			return;
+		}
 		if (!enabled) {
 			setPayload(null);
 			etag.current = "";
@@ -88,7 +104,7 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 			controller.current?.abort();
 			pending.current = null;
 		};
-	}, [enabled, refresh]);
+	}, [enabled, refresh, projectData.enabled, projectData.snapshot, report]);
 	useEffect(() => {
 		if (snapshot.revision === lastDiaryRevision.current) return;
 		lastDiaryRevision.current = snapshot.revision;

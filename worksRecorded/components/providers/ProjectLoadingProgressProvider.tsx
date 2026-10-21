@@ -9,6 +9,10 @@ import {
 	useMemo,
 	useState,
 } from "react";
+import {
+	clearPersistentProjects,
+	switchPersistentIdentity,
+} from "@/flows/default-construction/visual/project-persistent-cache";
 import type { ProjectLoadingProgress } from "./ProjectLoadingProgressBar";
 
 const Context = createContext(false);
@@ -32,6 +36,7 @@ const Preparation = createContext<{
 } | null>(null);
 const Scope = createContext<string | undefined>(undefined);
 const Managed = createContext(false);
+const CacheScope = createContext<string | undefined>(undefined);
 const steps = [
 	["project", "Projekta atvēršana"],
 	["settings", "Projekta iestatījumi"],
@@ -48,13 +53,35 @@ export function ProjectLoadingProgressProvider({
 	enabled,
 	visualPreloadEnabled = false,
 	visualPreloadSites = noSites,
+	cacheScope,
 	children,
 }: {
 	enabled: boolean;
 	visualPreloadEnabled?: boolean;
 	visualPreloadSites?: readonly string[];
+	cacheScope?: string;
 	children: ReactNode;
 }) {
+	useEffect(() => {
+		if (!cacheScope) return;
+		void switchPersistentIdentity(cacheScope);
+		const logout = (event: MouseEvent) => {
+			const target =
+				event.target instanceof Element ? event.target.closest("a") : null;
+			if (
+				!target ||
+				target.origin !== window.location.origin ||
+				!/\/logout\b/.test(target.pathname)
+			)
+				return;
+			event.preventDefault();
+			void clearPersistentProjects().finally(() =>
+				window.location.assign(target.href),
+			);
+		};
+		document.addEventListener("click", logout, true);
+		return () => document.removeEventListener("click", logout, true);
+	}, [cacheScope]);
 	const [reports, setReports] = useState<
 		Record<string, Record<string, PreparationReport>>
 	>({});
@@ -93,10 +120,16 @@ export function ProjectLoadingProgressProvider({
 		[visualPreloadEnabled, visualPreloadSites, reports, report, reset],
 	);
 	return (
-		<Context.Provider value={enabled}>
-			<Preparation.Provider value={value}>{children}</Preparation.Provider>
-		</Context.Provider>
+		<CacheScope.Provider value={cacheScope}>
+			<Context.Provider value={enabled}>
+				<Preparation.Provider value={value}>{children}</Preparation.Provider>
+			</Context.Provider>
+		</CacheScope.Provider>
 	);
+}
+
+export function useProjectCacheScope() {
+	return useContext(CacheScope);
 }
 
 export function ProjectPreparationScope({

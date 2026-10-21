@@ -105,6 +105,7 @@ export default async function DashboardLayout({
 			<ProjectLoadingProgressProvider
 				key={`${userId}:${organizationId}`}
 				enabled={flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}
+				cacheScope={`${userId}:${organizationId ?? "admin"}`}
 				visualPreloadSites={allHeaderProjects
 					.filter((project) => project.organizationId === LIMENI_ORGANIZATION_ID)
 					.map((project) => project.id)}

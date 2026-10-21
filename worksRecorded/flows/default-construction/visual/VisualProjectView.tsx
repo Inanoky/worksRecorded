@@ -19,6 +19,7 @@ import {
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useLimeniProjectData } from "../frontend/LimeniProjectData";
 
 const VisualView = lazy(() => import("./VisualView"));
 
@@ -30,6 +31,7 @@ export function VisualProjectView({
 	children: ReactNode;
 }) {
 	const pathname = usePathname();
+	const projectData = useLimeniProjectData();
 	const active = pathname === `/dashboard/sites/${siteId}/izpildshemas`;
 	const preload = useVisualProjectPreload(siteId);
 	const progress = useProjectPreparation(siteId);
@@ -51,8 +53,31 @@ export function VisualProjectView({
 		if (active || preload) setVisited(true);
 	}, [active, preload]);
 	useEffect(() => {
-		if (!pending && !failed) setOpened(true);
-	}, [pending, failed]);
+		if (pending || failed || opened) return;
+		setOpened(true);
+		const opening = `limeni:${siteId}:opening`;
+		if (preload && performance.getEntriesByName?.(opening).length) {
+			performance.mark(`limeni:${siteId}:ready`);
+			performance.measure(
+				`limeni:${siteId}:open-duration`,
+				opening,
+				`limeni:${siteId}:ready`,
+			);
+		}
+	}, [pending, failed, opened, preload, siteId]);
+	useEffect(() => {
+		if (projectData.failed && !projectData.snapshot)
+			for (const step of [
+				"settings",
+				"diary",
+				"visual-index",
+				"visual-drawing",
+				"visual-planning",
+				"visual-preview",
+				"forma2",
+			])
+				report(step, "error");
+	}, [projectData.failed, projectData.snapshot, report]);
 	return (
 		<ProjectPreparationScope siteId={siteId} managed={preload}>
 			<div inert={preparing || undefined} aria-hidden={preparing || undefined}>

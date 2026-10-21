@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { analyzeVisualBatch } from "@/flows/default-construction/visual/analyze";
-import { loadVisualPdf } from "@/flows/default-construction/visual/pdf";
-import { loadVisualDrawing } from "@/flows/default-construction/visual/store";
+import { compactVisualDrawing } from "@/flows/default-construction/visual/compact-drawing";
+import { readVisualPdfBytes } from "@/flows/default-construction/visual/pdf";
+import {
+	loadVisualDrawing,
+	requireVisualAccess,
+} from "@/flows/default-construction/visual/store";
+import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 
 export const runtime = "nodejs";
@@ -12,13 +17,19 @@ export async function GET(request: Request, context: Context) {
 	try {
 		const user = await requireUser();
 		const { siteId, drawingId } = await context.params;
-		const { row, drawing } = await loadVisualDrawing(
-			user.id,
-			siteId,
-			drawingId,
-		);
 		if (new URL(request.url).searchParams.get("pdf") === "1") {
-			const { bytes } = await loadVisualPdf(row.url);
+			const access = await requireVisualAccess(user.id, siteId);
+			const row = await prisma.documents.findFirst({
+				where: {
+					id: drawingId,
+					siteId,
+					organizationId: access.organizationId,
+					documentType: "limeni-visual-v1",
+				},
+				select: { url: true },
+			});
+			if (!row) throw new Error("Drawing unavailable");
+			const bytes = await readVisualPdfBytes(row.url);
 			return new Response(new Uint8Array(bytes), {
 				headers: {
 					"Content-Type": "application/pdf",
@@ -28,7 +39,8 @@ export async function GET(request: Request, context: Context) {
 				},
 			});
 		}
-		return NextResponse.json(drawing, {
+		const { drawing } = await loadVisualDrawing(user.id, siteId, drawingId);
+		return NextResponse.json(compactVisualDrawing(drawing), {
 			headers: { "Cache-Control": "private, no-store" },
 		});
 	} catch {

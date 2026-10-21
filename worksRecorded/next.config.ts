@@ -12,7 +12,14 @@ import { withWorkflow } from "workflow/next";
 // //------------------------------
 
 const nextConfig: NextConfig = {
+	serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist"],
 	outputFileTracingIncludes: {
+		"/api/uploadthing": [
+			"./node_modules/pdfjs-dist/standard_fonts/**",
+			"./node_modules/pdfjs-dist/cmaps/**",
+			"./node_modules/pdfjs-dist/wasm/**",
+			"./node_modules/@napi-rs/canvas-*/**/*.node",
+		],
 		"/api/sites/*/visual/section-drawing": [
 			"./assets/visual-sections/ar-701/*.png",
 		],

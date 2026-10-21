@@ -6,6 +6,9 @@ import {
 } from "./drawing-scale";
 import type { VisualDrawing } from "./model";
 import { PlanningSaveQueue, planningItem } from "./planning-save-queue";
+import type { PreparedPreview } from "./prepared-preview-model";
+import type { PersistentProjectCache } from "./project-persistent-cache";
+import type { LimeniProjectSnapshot } from "./project-snapshot-store";
 
 export const VISUAL_CACHE_FRESH_MS = 60_000;
 export const VISUAL_PLANNING_CACHE_INVALIDATED =
@@ -43,6 +46,120 @@ type PdfEntry = {
 type LoadOptions = { force?: boolean };
 
 export class VisualClientCache {
+	private prepared = new Map<
+		string,
+		{ manifest: PreparedPreview; persistence?: PersistentProjectCache }
+	>();
+	private preparedRequests = new Map<string, Promise<unknown>>();
+	seedProject(
+		snapshot: LimeniProjectSnapshot,
+		persistence?: PersistentProjectCache,
+	) {
+		const allowed = new Set(snapshot.drawings.map((item) => item.drawing.id));
+		for (const id of this.drawings.keys())
+			if (!allowed.has(id)) this.removeDrawing(id);
+		this.rememberIndex(snapshot.index);
+		for (const item of snapshot.drawings) {
+			const url = `${this.endpoint(item.drawing.id)}?pdf=1`;
+			if (
+				this.prepared.get(url)?.manifest.source !== item.preview?.source &&
+				this.prepared.has(url)
+			)
+				this.removeDrawing(item.drawing.id);
+			this.rememberDrawing(item.drawing);
+			this.rememberPlanning(item.drawing.id, item.planning);
+			if (item.preview)
+				this.prepared.set(`${this.endpoint(item.drawing.id)}?pdf=1`, {
+					manifest: item.preview,
+					persistence,
+				});
+		}
+	}
+	preparedManifest(url: string) {
+		return this.prepared.get(url)?.manifest;
+	}
+	preparedMeasurement(url: string, page: number) {
+		const item = this.preparedManifest(url)?.pages.find(
+			(item) => item.page === page,
+		);
+		return item
+			? { width: item.width, height: item.height, scales: item.scales }
+			: undefined;
+	}
+	async loadPreparedPreview(url: string, page: number) {
+		const cached = this.peekPreview(url, page);
+		if (cached) return cached;
+		const key = `${url}:${page}`;
+		const pending = this.preparedRequests.get(key);
+		if (pending) {
+			await pending;
+			return this.peekPreview(url, page);
+		}
+		const prepared = this.prepared.get(url);
+		const item = prepared?.manifest.pages.find((item) => item.page === page);
+		if (!prepared || !item) throw new Error("Prepared page unavailable");
+		const generation = this.previewGeneration;
+		const work = (async () => {
+			const blobKey = `preview:${prepared.manifest.source}:${page}`;
+			let blob = await prepared.persistence?.read<Blob>(blobKey);
+			let downloaded = false;
+			const download = async () => {
+				const response = await fetch(item.url, { cache: "no-store" });
+				if (!response.ok) throw new Error("Preview unavailable");
+				const blob = await response.blob();
+				if (generation !== this.previewGeneration)
+					throw new DOMException("Preview cancelled", "AbortError");
+				if (!blob.type.startsWith("image/") || blob.size > 4_000_000)
+					throw new Error("Invalid preview");
+				downloaded = true;
+				return blob;
+			};
+			let image: ImageBitmap;
+			try {
+				if (!blob) blob = await download();
+				image = await createImageBitmap(blob);
+			} catch {
+				blob = await download();
+				image = await createImageBitmap(blob);
+			}
+			try {
+				if (
+					image.width * image.height > 4_000_000 ||
+					image.width < 1 ||
+					image.height < 1
+				)
+					throw new Error("Invalid preview dimensions");
+				if (generation !== this.previewGeneration)
+					throw new DOMException("Preview cancelled", "AbortError");
+				const canvas = document.createElement("canvas");
+				canvas.width = image.width;
+				canvas.height = image.height;
+				const context = canvas.getContext("2d");
+				if (!context) throw new Error("Canvas unavailable");
+				context.drawImage(image, 0, 0);
+				this.rememberPreview(url, page, canvas, item.width / item.height);
+				if (downloaded) void prepared.persistence?.write(blobKey, blob, 30);
+				this.measurements.set(
+					key,
+					Promise.resolve({
+						width: item.width,
+						height: item.height,
+						scales: item.scales,
+					}),
+				);
+			} finally {
+				image.close();
+			}
+		})();
+		this.preparedRequests.set(key, work);
+		try {
+			await work;
+			return this.peekPreview(url, page);
+		} finally {
+			if (this.preparedRequests.get(key) === work)
+				this.preparedRequests.delete(key);
+		}
+	}
 	private index: CacheEntry<VisualDrawingIndex> | null = null;
 	private indexGeneration = 0;
 	private indexRequest: ResourceRequest<VisualDrawingIndex> | null = null;
@@ -509,6 +626,19 @@ export class VisualClientCache {
 					),
 					track("visual-preview", async () => {
 						const url = `${this.endpoint(id)}?pdf=1`;
+						const manifest = this.preparedManifest(url);
+						if (manifest) {
+							try {
+								await Promise.all(
+									manifest.pages.map((page) =>
+										this.loadPreparedPreview(url, page.page),
+									),
+								);
+								return;
+							} catch {
+								if (cancelled()) return;
+							}
+						}
 						const lease = this.openPdf(url);
 						try {
 							const pdf = await lease.promise;
@@ -583,6 +713,9 @@ export class VisualClientCache {
 		this.planning.delete(id);
 		this.planningRequests.delete(id);
 		const url = `${this.endpoint(id)}?pdf=1`;
+		this.prepared.delete(url);
+		for (const key of this.preparedRequests.keys())
+			if (key.startsWith(`${url}:`)) this.preparedRequests.delete(key);
 		this.pdfBytes.delete(url);
 		this.previewPixels.delete(url);
 		this.preparedDrawings.delete(id);
@@ -606,6 +739,8 @@ export class VisualClientCache {
 	}
 
 	clear() {
+		this.prepared.clear();
+		this.preparedRequests.clear();
 		this.previewGeneration += 1;
 		for (const request of this.previewRequests.values()) request.cancel();
 		this.previewRequests.clear();

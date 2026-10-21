@@ -18,6 +18,7 @@ import {
 	useVisualProjectPreload,
 } from "@/components/providers/ProjectLoadingProgressProvider";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
+import { useLimeniProjectData } from "./LimeniProjectData";
 
 const Diary = lazy(() => import("@/components/sitediary/SiteDiaryList"));
 
@@ -42,10 +43,18 @@ export function RetainedLimeniDiary({
 	children: ReactNode;
 }) {
 	const [settings, setSettings] = useState<DiarySettings | null>(null);
+	const projectData = useLimeniProjectData();
 	const preload = useVisualProjectPreload(siteId);
 	const report = useProjectPreparationReporter(siteId);
 	useEffect(() => {
 		if (!preload) return;
+		if (projectData.enabled) {
+			void import("@/components/sitediary/SiteDiaryList").catch(() =>
+				report("diary", "error"),
+			);
+			if (projectData.snapshot) setSettings(projectData.snapshot.settings);
+			return;
+		}
 		const controller = new AbortController();
 		void Promise.all([
 			import("@/components/sitediary/SiteDiaryList"),
@@ -68,7 +77,7 @@ export function RetainedLimeniDiary({
 			},
 		);
 		return () => controller.abort();
-	}, [preload, siteId, report]);
+	}, [preload, siteId, report, projectData.enabled, projectData.snapshot]);
 	const active = usePathname() === `/dashboard/sites/${siteId}/dashboard`;
 	const scroll = useRef(0);
 	const visited = useRef(false);
@@ -76,7 +85,9 @@ export function RetainedLimeniDiary({
 	const scope = settings
 		? `${settings.userId}:${settings.organizationId}:${siteId}`
 		: "";
-	const ready = settings?.siteId === siteId;
+	const ready =
+		settings?.siteId === siteId &&
+		(!projectData.enabled || !!projectData.snapshot);
 	const context = useMemo(
 		() => ({ register: setSettings, ready: active && ready }),
 		[active, ready],
@@ -132,6 +143,7 @@ export function RetainedLimeniDiary({
 							bisEnabled={settings.bisEnabled}
 							organizationLanguage={settings.organizationLanguage}
 							limeniClientDiary
+							initialLimeniProject={projectData.snapshot ?? undefined}
 							active={active}
 							batchEditing
 						/>

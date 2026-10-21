@@ -90,6 +90,20 @@ export async function listVisualDrawings(userId: string, siteId: string) {
 		}),
 	]);
 	if (!site) throw new Error("Projekts nav atrasts.");
+	return visualDrawingIndex(rows, documents, site);
+}
+
+export function visualDrawingIndex(
+	rows: { Location: string | null }[],
+	documents: {
+		id: string;
+		documentName: string;
+		createdAt: Date;
+		description: string;
+	}[],
+	site: { siteDiaryRecordsMap: unknown },
+) {
+	if (!site) throw new Error("Projekts nav atrasts.");
 	const seenLocations = new Set<string>();
 	const drawings = documents.flatMap((row) => {
 		try {
