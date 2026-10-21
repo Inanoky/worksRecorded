@@ -34,6 +34,7 @@ jest.mock("@/lib/utils/db", () => ({
 			findMany: jest.fn(),
 			findFirst: jest.fn(),
 		},
+		whatsAppTaskSend: { findMany: jest.fn() },
 		sitediaryrecords: { findMany: jest.fn() },
 	},
 }));
@@ -213,6 +214,7 @@ beforeEach(() => {
 	jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([]);
 	jest.mocked(prisma.visualPlanningContact.findMany).mockResolvedValue([]);
 	jest.mocked(prisma.visualPlanningContact.findFirst).mockResolvedValue(null);
+	jest.mocked(prisma.whatsAppTaskSend.findMany).mockResolvedValue([]);
 });
 
 afterEach(() => jest.useRealTimers());
@@ -414,6 +416,33 @@ it("loads live progress from the start date and respects factual quantities", as
 			Comments_Custom_1: null,
 		},
 	] as never);
+	jest.mocked(prisma.whatsAppTaskSend.findMany).mockResolvedValue([
+		{
+			id: "send-1",
+			planId,
+			planVersion: 1,
+			recipient: "37120000000",
+			message: "Pārbaudīt XPS",
+			status: "sent",
+			createdAt: new Date("2026-10-15T09:00:00Z"),
+			completedAt: new Date("2026-10-15T09:00:02Z"),
+			items: [
+				{
+					ordinal: 0,
+					page: 1,
+					section: null,
+					status: "failed",
+					metaMessageId: "wamid.1",
+					sentAt: new Date("2026-10-15T09:00:02Z"),
+					deliveredAt: new Date("2026-10-15T09:00:04Z"),
+					readAt: null,
+					failedAt: new Date("2026-10-15T09:01:00Z"),
+					providerError:
+						'[{"code":131042,"error_data":{"details":"Message failed because of errors related to your payment method."}}]',
+				},
+			],
+		},
+	] as never);
 	const result = await listVisualPlans("user", siteId, drawingId);
 	expect(result.plans[0]).toMatchObject({
 		id: planId,
@@ -423,6 +452,22 @@ it("loads live progress from the start date and respects factual quantities", as
 			progressPercent: 60,
 			status: "active",
 		},
+		whatsAppSends: [
+			expect.objectContaining({
+				id: "send-1",
+				recipient: "37120000000",
+				createdAt: "2026-10-15T09:00:00.000Z",
+				items: [
+					expect.objectContaining({
+						status: "failed",
+						metaMessageId: "wamid.1",
+						failedAt: "2026-10-15T09:01:00.000Z",
+						failureReason:
+							"Meta maksājuma metode nav derīga vai nav aktivizēta.",
+					}),
+				],
+			}),
+		],
 	});
 	expect(result.contacts).toEqual([]);
 	expect(prisma.sitediaryrecords.findMany).toHaveBeenCalledWith(

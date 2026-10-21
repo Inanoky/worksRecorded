@@ -50,6 +50,22 @@ function dateOnly(date: Date) {
 	return date.toISOString().slice(0, 10);
 }
 
+function whatsAppFailureReason(providerError: string | null) {
+	if (!providerError) return "Meta piegāde neizdevās.";
+	try {
+		const errors = JSON.parse(providerError);
+		if (Array.isArray(errors) && errors[0]?.code === 131042) {
+			const details = String(
+				errors[0]?.error_data?.details ?? "",
+			).toLowerCase();
+			if (details.includes("currency is not configured"))
+				return "Meta kontam nav konfigurēta norēķinu valūta.";
+			return "Meta maksājuma metode nav derīga vai nav aktivizēta.";
+		}
+	} catch {}
+	return "Meta piegāde neizdevās.";
+}
+
 export function serializeVisualPlan(row: StoredVisualPlan): VisualPlan {
 	if (!row.startDate) throw new Error("Vizuālajam plānam nav sākuma datuma.");
 	const geometry = visualPlanAreasSchema.parse(row.visualAreas);
@@ -230,6 +246,17 @@ export async function listVisualPlans(
 				normalizePlanText(plan.location) ===
 				normalizePlanText(drawing.state.location),
 		);
+	const whatsAppSends = plans.length
+		? await prisma.whatsAppTaskSend.findMany({
+				where: {
+					organizationId: drawingRow.organizationId,
+					siteId,
+					planId: { in: plans.map((plan) => plan.id) },
+				},
+				orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+				include: { items: { orderBy: { ordinal: "asc" } } },
+			})
+		: [];
 	const firstStart = plans.reduce<string | null>(
 		(first, plan) =>
 			!first || plan.startDate < first ? plan.startDate : first,
@@ -296,6 +323,33 @@ export async function listVisualPlans(
 		plans: plans.map((plan) => ({
 			...plan,
 			progress: compareVisualPlanProgress(plan, actuals, today),
+			whatsAppSends: whatsAppSends
+				.filter((send) => send.planId === plan.id)
+				.slice(0, 10)
+				.map((send) => ({
+					id: send.id,
+					planVersion: send.planVersion,
+					recipient: send.recipient,
+					message: send.message,
+					status: send.status,
+					createdAt: send.createdAt.toISOString(),
+					completedAt: send.completedAt?.toISOString() ?? null,
+					items: send.items.map((item) => ({
+						ordinal: item.ordinal,
+						page: item.page,
+						section: item.section,
+						status: item.status,
+						metaMessageId: item.metaMessageId,
+						sentAt: item.sentAt?.toISOString() ?? null,
+						deliveredAt: item.deliveredAt?.toISOString() ?? null,
+						readAt: item.readAt?.toISOString() ?? null,
+						failedAt: item.failedAt?.toISOString() ?? null,
+						failureReason:
+							item.status === "failed"
+								? whatsAppFailureReason(item.providerError)
+								: null,
+					})),
+				})),
 		})),
 	};
 	return {

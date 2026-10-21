@@ -199,7 +199,10 @@ export class VisualClientCache {
 		const current = this.planning.get(id)?.value;
 		if (!current) return;
 		const previous = current.plans.find((item) => item.id === plan.id);
-		const item = planningItem(plan, previous, current.today);
+		const item = {
+			...planningItem(plan, previous, current.today),
+			whatsAppSends: previous?.whatsAppSends ?? [],
+		};
 		this.rememberPlanning(id, {
 			...current,
 			plans: previous
@@ -216,7 +219,10 @@ export class VisualClientCache {
 		const plans = [...value.plans];
 		for (const item of pending) {
 			const index = plans.findIndex((plan) => plan.id === item.id);
-			const projected = planningItem(item.plan, plans[index], value.today);
+			const projected = {
+				...planningItem(item.plan, plans[index], value.today),
+				whatsAppSends: plans[index]?.whatsAppSends ?? [],
+			};
 			if (index >= 0) plans[index] = projected;
 			else plans.push(projected);
 		}

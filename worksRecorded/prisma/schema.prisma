@@ -48,6 +48,8 @@ model Organization {
       tgemInboundMailboxes TgemInboundMailbox[]
       tgemAccessGroups TgemAccessGroup[]
       tgemAccessAuditEvents TgemAccessAuditEvent[]
+      whatsappBusinessNumbers WhatsAppBusinessNumber[]
+      metaInboundMessages MetaInboundMessage[]
 
       
 
@@ -703,6 +705,7 @@ model ConstructionPlan {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   revisions   ConstructionPlanRevision[]
+  whatsAppTaskSends WhatsAppTaskSend[]
 
   @@unique([siteId, date, matchKey, planType])
   @@index([siteId, date])
@@ -1088,6 +1091,10 @@ model MetaInboundMessage {
   messageType           String?
   sender                String?
   businessPhoneNumberId String?
+  organizationId       String?
+  organization         Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  filteredText          String?   @db.Text
+  routeOutcome          String?
   status                String    @default("processing")
   receivedAt            DateTime  @default(now())
   completedAt           DateTime?
@@ -1095,6 +1102,69 @@ model MetaInboundMessage {
   updatedAt             DateTime  @updatedAt
 
   @@index([status, receivedAt], map: "MetaInboundMessage_status_received_idx")
+}
+
+model WhatsAppBusinessNumber {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  businessPhoneNumberId String   @unique
+  displayPhoneNumber    String
+  purpose               String
+  inboundMode           String
+  credentialProfile     String
+  templateName          String
+  templateLanguage      String   @default("lv")
+  active                 Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([organizationId, active], map: "WhatsAppBusinessNumber_org_active_idx")
+}
+
+model WhatsAppTaskSend {
+  id             String   @id @default(uuid())
+  idempotencyKey String   @unique
+  organizationId String
+  siteId         String
+  planId         String
+  plan           ConstructionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  planVersion    Int
+  senderUserId   String
+  recipient      String
+  message        String   @db.Text
+  status         String   @default("processing")
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  items          WhatsAppTaskSendItem[]
+
+  @@index([organizationId, createdAt], map: "WhatsAppTaskSend_org_created_idx")
+  @@index([siteId, planId, createdAt], map: "WhatsAppTaskSend_plan_created_idx")
+  @@index([planId], map: "WhatsAppTaskSend_plan_fkey_idx")
+}
+
+model WhatsAppTaskSendItem {
+  id            String   @id @default(uuid())
+  sendId        String
+  send          WhatsAppTaskSend @relation(fields: [sendId], references: [id], onDelete: Cascade)
+  ordinal       Int
+  page          Int
+  section       String?
+  imageSha256   String
+  status        String   @default("pending")
+  metaMediaId   String?
+  metaMessageId String?  @unique
+  providerError String?  @db.Text
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  readAt        DateTime?
+  failedAt      DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([sendId, ordinal])
+  @@index([sendId, status], map: "WhatsAppTaskSendItem_send_status_idx")
 }
 
 model WhatsappBrowserMessage {

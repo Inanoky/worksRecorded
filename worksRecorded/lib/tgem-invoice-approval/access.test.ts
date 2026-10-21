@@ -4,6 +4,7 @@ import {
 	ensureTgemAccessDefaults,
 	getTgemPermissionsForSite,
 	loadTgemAccessScope,
+	loadTgemAccessScopes,
 	removeTgemUserAccessForOrganization,
 	visibleTgemSiteIds,
 	visibleTgemSites,
@@ -39,6 +40,53 @@ function mockDb(input?: {
 }
 
 describe("TGEM access resolver", () => {
+	it("loads multiple approver scopes with one batched membership lookup", async () => {
+		const db = {
+			user: {
+				findMany: jest
+					.fn()
+					.mockResolvedValue([{ id: "user-1" }, { id: "user-2" }]),
+			},
+			tgemOrganizationAccessMembership: {
+				findMany: jest.fn().mockResolvedValue([
+					{
+						userId: "user-1",
+						group: { permissions: ["invoice.view", "invoice.approve"] },
+					},
+					{
+						userId: "user-2",
+						group: { permissions: ["invoice.view"] },
+					},
+				]),
+			},
+			tgemSiteAccessMembership: {
+				findMany: jest.fn().mockResolvedValue([
+					{
+						userId: "user-2",
+						siteId: "site-1",
+						group: { permissions: ["invoice.view", "invoice.approve"] },
+					},
+				]),
+			},
+		} as unknown as PrismaClient;
+
+		const scopes = await loadTgemAccessScopes(db, {
+			organizationId: "org-1",
+			userIds: ["user-1", "user-2", "user-2"],
+		});
+
+		const firstScope = scopes.get("user-1");
+		const secondScope = scopes.get("user-2");
+		if (!firstScope || !secondScope) throw new Error("Expected access scopes");
+		expect(canTgem(firstScope, "site-1", "invoice.approve")).toBe(true);
+		expect(canTgem(secondScope, "site-1", "invoice.approve")).toBe(true);
+		expect(db.user.findMany).toHaveBeenCalledTimes(1);
+		expect(db.tgemOrganizationAccessMembership.findMany).toHaveBeenCalledTimes(
+			1,
+		);
+		expect(db.tgemSiteAccessMembership.findMany).toHaveBeenCalledTimes(1);
+	});
+
 	it("uses organization permissions when a site has no override", async () => {
 		const scope = await loadTgemAccessScope(
 			mockDb({ organizationGroups: [["invoice.view", "invoice.edit_basic"]] }),

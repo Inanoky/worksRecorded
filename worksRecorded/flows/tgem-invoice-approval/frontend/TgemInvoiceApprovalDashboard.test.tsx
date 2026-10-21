@@ -2457,6 +2457,42 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		});
 	});
 
+	it("shows a handled approval configuration error without refreshing", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue(dashboardData);
+		mockSubmitForApproval.mockResolvedValue({
+			error:
+				"The personal approval flow was found, but an approver needs project access.",
+			errorCode: "approval_flow_approver_permission",
+			approverNames: [
+				"Vitālijs Medaļkins",
+				"Dmitrijs Anisko",
+				"Aleksandrs Trokss",
+			],
+			flowType: "personal",
+		});
+
+		render(
+			<TgemInvoiceApprovalDashboard
+				siteId="site-1"
+				initialView="approval"
+				organizationLanguage="lv"
+			/>,
+		);
+
+		fireEvent.click(
+			await screen.findByRole("button", {
+				name: "Sākt apstiprināšanas ceļu",
+			}),
+		);
+
+		expect(
+			await screen.findByText(
+				"Personīgā apstiprināšanas plūsma ir atrasta, bet šiem apstiprinātājiem nav apstiprināšanas piekļuves šim projektam: Vitālijs Medaļkins, Dmitrijs Anisko, Aleksandrs Trokss. Tikai administrators var mainīt šo piekļuvi. Atveriet Projekta iestatījumi → Projekta piekļuve, piešķiriet viņiem grupu “Apstiprinātājs” un mēģiniet vēlreiz.",
+			),
+		).toBeInTheDocument();
+		expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(1);
+	});
+
 	it("resets an unfinished approval flow after confirmation", async () => {
 		const confirm = jest.spyOn(window, "confirm").mockReturnValue(true);
 		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({

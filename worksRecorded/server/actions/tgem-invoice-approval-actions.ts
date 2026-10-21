@@ -17,7 +17,10 @@ import type {
 	TgemDashboardApprovalSetup,
 	TgemSubmitterApprovalFlowSettings,
 } from "@/lib/tgem-invoice-approval/dashboard-types";
-import { startTgemInvoiceApproval } from "@/lib/tgem-invoice-approval/start-approval";
+import {
+	isTgemApprovalStartError,
+	startTgemInvoiceApproval,
+} from "@/lib/tgem-invoice-approval/start-approval";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 
@@ -572,15 +575,39 @@ export async function submitTgemInvoiceForApproval(input: {
 	invoiceCaseId: string;
 }) {
 	const user = await requireUser();
-	const result = await startTgemInvoiceApproval({
-		invoiceCaseId: input.invoiceCaseId,
-		actorUserId: user.id,
-		trigger: "manual",
-	});
-	return {
-		invoiceCaseId: result.invoiceCaseId,
-		approvalRound: result.approvalRound,
-	};
+	try {
+		const result = await startTgemInvoiceApproval({
+			invoiceCaseId: input.invoiceCaseId,
+			actorUserId: user.id,
+			trigger: "manual",
+		});
+		return {
+			invoiceCaseId: result.invoiceCaseId,
+			approvalRound: result.approvalRound,
+		};
+	} catch (error) {
+		if (isTgemApprovalStartError(error)) {
+			return {
+				error: error.message,
+				errorCode: error.code,
+				...(error.approverNames ? { approverNames: error.approverNames } : {}),
+				...(error.flowType ? { flowType: error.flowType } : {}),
+			};
+		}
+		if (
+			typeof error === "object" &&
+			error !== null &&
+			"code" in error &&
+			error.code === "P2028"
+		) {
+			return {
+				error:
+					"Approval could not be started in time. Please try again. If it continues, contact an administrator.",
+				errorCode: "approval_start_timed_out",
+			};
+		}
+		throw error;
+	}
 }
 
 export async function resetTgemInvoiceApprovalFlow(input: {

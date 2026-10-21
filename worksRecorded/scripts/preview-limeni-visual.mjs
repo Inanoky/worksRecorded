@@ -165,6 +165,7 @@ modules.actions += performancePreview
 	: `export async function getVisualPlanning(){return ${JSON.stringify(planningFixture)}};export async function saveVisualPlanningItem(){throw Error('Preview only')};export async function archiveVisualPlanningItem(){throw Error('Preview only')};export async function restoreVisualPlanningItem(){throw Error('Preview only')};`;
 modules.actions += `let sections=${JSON.stringify(planningFixture.sections)};export async function addVisualSection(site,label){sections=[...sections,label.trim()];return sections};export async function revokeVisualWorkShare(){};`;
 modules.share = `export async function publishPlanningShare(site,plan){return {token:'synthetic-preview',url:'https://www.worksrecorded.com/shared/work/synthetic-preview',version:plan.version}};`;
+modules.send = `export async function sendPlanningWhatsAppTask(){throw Error('Preview only')};`;
 modules.actions += `export async function saveVisualPolygonPatch(){throw Error('Preview only')};export async function saveVisualLayers(){throw Error('Preview only')};`;
 modules.actions += `export async function addVisualRecord(site,id,record){
  drawing=structuredClone(drawing);
@@ -196,6 +197,10 @@ const bundled = await build({
 		{
 			name: "isolated-visual-preview",
 			setup(build) {
+				build.onResolve(
+					{ filter: /^\.\/planning-whatsapp-send-client$/ },
+					() => ({ path: "send", namespace: "fixture" }),
+				);
 				build.onResolve({ filter: /^\.\/planning-share-client$/ }, () => ({
 					path: "share",
 					namespace: "fixture",

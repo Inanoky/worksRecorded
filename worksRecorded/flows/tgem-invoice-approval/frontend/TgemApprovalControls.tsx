@@ -54,6 +54,11 @@ function getCopy(language?: string | null) {
 			reset: "Atiestatīt apstiprināšanas plūsmu",
 			resetConfirm:
 				"Nepabeigtie soļi tiks atcelti. Vēsture tiks saglabāta, un rēķins būs jāiesniedz apstiprināšanai vēlreiz.",
+			approverPermissionError: (
+				approverNames: string[],
+				flowType: "personal" | "project",
+			) =>
+				`${flowType === "personal" ? "Personīgā" : "Projekta"} apstiprināšanas plūsma ir atrasta, bet šiem apstiprinātājiem nav apstiprināšanas piekļuves šim projektam: ${approverNames.join(", ")}. Tikai administrators var mainīt šo piekļuvi. Atveriet Projekta iestatījumi → Projekta piekļuve, piešķiriet viņiem grupu “Apstiprinātājs” un mēģiniet vēlreiz.`,
 			statuses: {
 				configured: "sagatavots",
 				waiting: "gaida savu kārtu",
@@ -93,6 +98,11 @@ function getCopy(language?: string | null) {
 			reset: "Сбросить процесс согласования",
 			resetConfirm:
 				"Незавершенные этапы будут отменены. История сохранится, и счет нужно будет отправить на согласование снова.",
+			approverPermissionError: (
+				approverNames: string[],
+				flowType: "personal" | "project",
+			) =>
+				`${flowType === "personal" ? "Персональный" : "Проектный"} процесс согласования найден, но у следующих согласующих нет права согласования в этом проекте: ${approverNames.join(", ")}. Изменить этот доступ может только администратор. Откройте Настройки проекта → Доступ к проекту, назначьте им группу «Согласующий» и повторите попытку.`,
 			statuses: {
 				configured: "настроено",
 				waiting: "ожидает очереди",
@@ -131,6 +141,11 @@ function getCopy(language?: string | null) {
 		reset: "Reset approval flow",
 		resetConfirm:
 			"Unfinished steps will be cancelled. History will remain, and the invoice must be submitted for approval again.",
+		approverPermissionError: (
+			approverNames: string[],
+			flowType: "personal" | "project",
+		) =>
+			`The ${flowType} approval flow was found, but these approvers do not have approval access for this project: ${approverNames.join(", ")}. Only an administrator can change this access. Open Project settings → Project access, assign them the Approver group, and try again.`,
 		statuses: {
 			configured: "configured",
 			waiting: "waiting its turn",
@@ -262,7 +277,22 @@ export function TgemApprovalControls({
 		setPending("submit");
 		setError(null);
 		try {
-			await submitTgemInvoiceForApproval({ invoiceCaseId: invoice.id });
+			const result = await submitTgemInvoiceForApproval({
+				invoiceCaseId: invoice.id,
+			});
+			if ("errorCode" in result && result.error) {
+				setError(
+					result.errorCode === "approval_flow_approver_permission" &&
+						Array.isArray(result.approverNames) &&
+						(result.flowType === "personal" || result.flowType === "project")
+						? copy.approverPermissionError(
+								result.approverNames,
+								result.flowType,
+							)
+						: result.error,
+				);
+				return;
+			}
 			await onChanged();
 		} catch (submitError) {
 			setError(

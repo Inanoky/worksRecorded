@@ -8,7 +8,10 @@ import {
 	shareTokenSchema,
 } from "./planning-share-model";
 
-async function shareJpeg(image: Blob, signal: AbortSignal) {
+export async function preparePlanningImageForSend(
+	image: Blob,
+	signal: AbortSignal,
+) {
 	const bitmap = await createImageBitmap(image);
 	const canvas = document.createElement("canvas");
 	try {
@@ -50,7 +53,7 @@ export async function publishPlanningShare(
 	const zones = images.filter((image) => !image.section);
 	form.set("pages", JSON.stringify(zones.map((image) => image.page)));
 	for (const image of zones) {
-		const blob = await shareJpeg(image.blob, signal);
+		const blob = await preparePlanningImageForSend(image.blob, signal);
 		form.append("images", blob, `page-${image.page}.jpg`);
 	}
 	signal.throwIfAborted();

@@ -180,3 +180,48 @@ it("rejects restored requests from another project and discards failed local cha
 	queue.discard(plan.id);
 	expect(cache.peekPlanning(drawingId)?.plans).toEqual([]);
 });
+
+it("preserves WhatsApp send history while projecting and confirming a planning edit", async () => {
+	const { cache, queue, pending } = setup();
+	const saved = {
+		...input,
+		id: "11111111-1111-4111-8111-111111111111",
+		version: 1,
+		geometryReviewRequired: false,
+		archivedAt: null,
+	};
+	const history = {
+		id: "send",
+		planVersion: 1,
+		recipient: "37120000000",
+		message: "Task",
+		status: "sent",
+		createdAt: "2026-10-21T10:00:00Z",
+		completedAt: "2026-10-21T10:00:01Z",
+		items: [],
+	};
+	cache.rememberPlanning(drawingId, {
+		...index,
+		plans: [
+			{
+				...saved,
+				progress: compareVisualPlanProgress(saved, [], index.today),
+				whatsAppSends: [history],
+			},
+		],
+	});
+	const plan = queue.enqueue({
+		...input,
+		id: saved.id,
+		version: 1,
+		quantity: 40,
+	});
+	expect(cache.peekPlanning(drawingId)?.plans[0].whatsAppSends).toEqual([
+		history,
+	]);
+	pending.resolve(confirmed(plan));
+	await pending.promise;
+	expect(cache.peekPlanning(drawingId)?.plans[0].whatsAppSends).toEqual([
+		history,
+	]);
+});
