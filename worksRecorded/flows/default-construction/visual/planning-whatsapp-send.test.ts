@@ -8,12 +8,10 @@ const itemUpdate = jest.fn();
 const itemFindMany = jest.fn();
 const sendFindUniqueOrThrow = jest.fn();
 const originalFetch = global.fetch;
-const inboundFindFirst = jest.fn();
 
 jest.mock("./store", () => ({ requireVisualAccess }));
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
-		metaInboundMessage: { findFirst: inboundFindFirst },
 		constructionPlan: { findFirst: constructionPlanFindFirst },
 		whatsAppBusinessNumber: { findFirst: businessNumberFindFirst },
 		whatsAppTaskSend: {
@@ -62,7 +60,6 @@ function validRequest() {
 beforeEach(() => {
 	jest.clearAllMocks();
 	process.env.LIMENI_META_ACCESS_TOKEN = "limeni-secret";
-	inboundFindFirst.mockResolvedValue({ receivedAt: new Date() });
 	requireVisualAccess.mockResolvedValue({ organizationId: "limeni-org" });
 	constructionPlanFindFirst.mockResolvedValue({
 		id: "11111111-1111-4111-8111-111111111111",
@@ -115,7 +112,7 @@ afterEach(() => {
 	global.fetch = originalFetch;
 });
 
-it("sends a formatted task caption and only the section name on its Griezums image", async () => {
+it("sends every ordered image with the approved template", async () => {
 	let media = 0;
 	let message = 0;
 	const fetchMock = jest.fn(
@@ -162,15 +159,18 @@ it("sends a formatted task caption and only the section name on its Griezums ima
 		.filter(([input]) => String(input).endsWith("/messages"))
 		.map(([, init]) => JSON.parse(String(init?.body)));
 	expect(messageBodies).toHaveLength(2);
-	expect(messageBodies[0]).toEqual(
-		expect.objectContaining({
-			to: "37120000000",
-			type: "image",
-		}),
-	);
-	expect(messageBodies[0].image).toEqual({
-		id: "media-1",
-		caption: "*Objekts:* Testa objekts\n\nPārbaudīt\ndarbu šeit",
+	expect(messageBodies[0]).toMatchObject({
+		to: "37120000000",
+		type: "template",
+		template: {
+			name: "limeni_work_task",
+			components: expect.arrayContaining([
+				{
+					type: "header",
+					parameters: [{ type: "image", image: { id: "media-1" } }],
+				},
+			]),
+		},
 	});
 	expect(sendCreate).toHaveBeenCalledWith(
 		expect.objectContaining({
@@ -178,24 +178,25 @@ it("sends a formatted task caption and only the section name on its Griezums ima
 		}),
 	);
 	expect(messageBodies[1]).toMatchObject({
-		type: "image",
-		image: { id: "media-2", caption: "PA1.6" },
+		type: "template",
+		template: {
+			components: expect.arrayContaining([
+				{
+					type: "header",
+					parameters: [{ type: "image", image: { id: "media-2" } }],
+				},
+			]),
+		},
 	});
-	expect(messageBodies[1]).not.toHaveProperty("template");
 });
 
-it("uses the approved template only when Meta explicitly closes the reply window and keeps section text short", async () => {
+it("does not attempt a session image before the approved template", async () => {
 	const fetchMock = jest.fn(
 		async (url: RequestInfo | URL, init?: RequestInit) => {
 			if (String(url).endsWith("/media"))
 				return { ok: true, json: async () => ({ id: "media" }) } as Response;
 			const body = JSON.parse(String(init?.body));
-			if (body.type === "image")
-				return {
-					ok: false,
-					status: 400,
-					json: async () => ({ error: { code: 131047 } }),
-				} as Response;
+			expect(body.type).toBe("template");
 			return {
 				ok: true,
 				json: async () => ({ messages: [{ id: "wamid.template" }] }),
@@ -225,8 +226,7 @@ it("uses the approved template only when Meta explicitly closes the reply window
 	]);
 });
 
-it("uses approved templates immediately when there is no recent reply to this business number", async () => {
-	inboundFindFirst.mockResolvedValue(null);
+it("uses approved templates without consulting inbound conversation history", async () => {
 	global.fetch = jest.fn(
 		async (url: RequestInfo | URL) =>
 			({
@@ -247,16 +247,6 @@ it("uses approved templates immediately when there is no recent reply to this bu
 		"template",
 	]);
 	expect(messages[1].template.components[1].parameters[1].text).toBe("PA1.6");
-	expect(inboundFindFirst).toHaveBeenCalledWith(
-		expect.objectContaining({
-			where: expect.objectContaining({
-				organizationId: "limeni-org",
-				businessPhoneNumberId: "limeni-phone-id",
-				sender: "37120000000",
-				receivedAt: { gt: expect.any(Date) },
-			}),
-		}),
-	);
 });
 
 it("never falls back to the shared Meta credential", async () => {

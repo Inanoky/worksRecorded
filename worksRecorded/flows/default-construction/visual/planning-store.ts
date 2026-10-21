@@ -55,7 +55,7 @@ function whatsAppFailureReason(providerError: string | null) {
 	try {
 		const errors = JSON.parse(providerError);
 		if (Array.isArray(errors) && errors.some((error) => error?.code === 131047))
-			return "Saņēmējs nav atbildējis pēdējo 24 stundu laikā. Nosūtiet atkārtoti ar apstiprinātu WhatsApp veidni vai lūdziet saņēmējam atbildēt.";
+			return "Iepriekšējais sūtījums tika noraidīts ārpus 24 stundu sarakstes loga. Atkārtojiet sūtīšanu ar apstiprināto WhatsApp veidni.";
 		if (Array.isArray(errors) && errors[0]?.code === 131042) {
 			const details = String(
 				errors[0]?.error_data?.details ?? "",

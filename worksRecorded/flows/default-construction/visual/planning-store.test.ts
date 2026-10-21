@@ -515,7 +515,7 @@ it("explains an asynchronous Meta reply-window rejection in the send history", a
 	] as never);
 	const result = await listVisualPlans("user", siteId, drawingId);
 	expect(result.plans[0].whatsAppSends[0].items[0].failureReason).toMatch(
-		/24 stundu.*apstiprinātu WhatsApp veidni/,
+		/24 stundu.*apstiprināto WhatsApp veidni/,
 	);
 });
 

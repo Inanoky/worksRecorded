@@ -89,33 +89,6 @@ async function graphJson(args: {
 	return payload;
 }
 
-async function sendImage(args: {
-	businessPhoneNumberId: string;
-	token: string;
-	recipient: string;
-	mediaId: string;
-	caption: string;
-}) {
-	const payload = await graphJson({
-		url: `${getMetaGraphBaseUrl()}/${args.businessPhoneNumberId}/messages`,
-		token: args.token,
-		init: {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				messaging_product: "whatsapp",
-				recipient_type: "individual",
-				to: args.recipient,
-				type: "image",
-				image: { id: args.mediaId, caption: args.caption },
-			}),
-		},
-	});
-	const id = payload?.messages?.[0]?.id;
-	if (typeof id !== "string") throw new Error("Meta message ID missing");
-	return id as string;
-}
-
 async function uploadMetaImage(args: {
 	businessPhoneNumberId: string;
 	token: string;
@@ -286,16 +259,6 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 	if (!businessNumber)
 		throw new Error("Limeni WhatsApp numurs nav aktivizēts.");
 	const token = getWhatsAppBusinessToken(businessNumber.credentialProfile);
-	const latestReply = await prisma.metaInboundMessage.findFirst({
-		where: {
-			organizationId: access.organizationId,
-			businessPhoneNumberId: businessNumber.businessPhoneNumberId,
-			sender: input.recipient,
-			receivedAt: { gt: new Date(Date.now() - 23 * 60 * 60 * 1_000) },
-		},
-		orderBy: { receivedAt: "desc" },
-		select: { receivedAt: true },
-	});
 	const idempotencyKey = `${access.organizationId}:${input.clientRequestId}`;
 	let send = await prisma.whatsAppTaskSend.findUnique({
 		where: { idempotencyKey },
@@ -363,50 +326,19 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 			const label = item.section
 				? `Sekcija ${item.section}`
 				: `PDF lapa ${item.page}`;
-			const projectName = Array.from(
-				normalizePlanningWhatsAppTemplateText(plan.site.name),
-			)
-				.slice(0, 80)
-				.join("");
-			const caption = item.section
-				? item.section
-				: `*Objekts:* ${projectName}\n\n${input.message}`;
-			let metaMessageId: string;
-			const template = () =>
-				sendTemplate({
-					businessPhoneNumberId: businessNumber.businessPhoneNumberId,
-					token,
-					templateName: businessNumber.templateName,
-					templateLanguage: businessNumber.templateLanguage,
-					recipient,
-					objectName: `${plan.site.name} — ${label}`,
-					message: item.section
-						? item.section
-						: normalizePlanningWhatsAppTemplateText(input.message),
-					total: item.section ? 1 : items.length,
-					mediaId,
-				});
-			try {
-				if (!latestReply) {
-					metaMessageId = await template();
-				} else {
-					metaMessageId = await sendImage({
-						businessPhoneNumberId: businessNumber.businessPhoneNumberId,
-						token,
-						recipient: input.recipient,
-						mediaId,
-						caption,
-					});
-				}
-			} catch (error) {
-				if (
-					!latestReply ||
-					!(error instanceof WhatsAppProviderError) ||
-					error.code !== 131047
-				)
-					throw error;
-				metaMessageId = await template();
-			}
+			const metaMessageId = await sendTemplate({
+				businessPhoneNumberId: businessNumber.businessPhoneNumberId,
+				token,
+				templateName: businessNumber.templateName,
+				templateLanguage: businessNumber.templateLanguage,
+				recipient,
+				objectName: `${plan.site.name} — ${label}`,
+				message: item.section
+					? item.section
+					: normalizePlanningWhatsAppTemplateText(input.message),
+				total: item.section ? 1 : items.length,
+				mediaId,
+			});
 			await prisma.whatsAppTaskSendItem.update({
 				where: { id: item.id },
 				data: {
