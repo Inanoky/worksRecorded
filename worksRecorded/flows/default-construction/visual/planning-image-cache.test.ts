@@ -99,6 +99,35 @@ it("restores the zone and section from persistent blobs without rerendering the 
 	expect(create).toHaveBeenCalledTimes(1);
 });
 
+it("regenerates wider zone images instead of restoring the old tightly cropped images", async () => {
+	const key = planningImageCacheKey("source", plan, "red", "PA1.6");
+	const oldKey = JSON.stringify([
+		"planning-images:v1",
+		"source",
+		plan.work,
+		plan.location,
+		plan.geometry.areas,
+		"red",
+		"PA1.6",
+	]);
+	const entries = new Map<string, unknown>([
+		[`${oldKey}:pages`, [{ page: 1 }]],
+		[`${oldKey}:0`, new Blob(["old crop"], { type: "image/png" })],
+	]);
+	const persistence = {
+		read: jest.fn(async (key: string) => entries.get(key)),
+		write: jest.fn(async (key: string, value: unknown) => {
+			entries.set(key, value);
+		}),
+	} as unknown as PersistentProjectCache;
+	const create = jest.fn(async () => images);
+	expect(
+		await new PlanningImageCache().load("drawing", key, create, persistence),
+	).toEqual(images);
+	expect(create).toHaveBeenCalledTimes(1);
+	await waitFor(() => expect(entries.has(`${key}:pages`)).toBe(true));
+});
+
 it("cancels obsolete polygon work and never caches its stale result", async () => {
 	const cache = new PlanningImageCache();
 	let finish!: (value: typeof images) => void;

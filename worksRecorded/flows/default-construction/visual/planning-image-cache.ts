@@ -14,7 +14,7 @@ export function planningImageCacheKey(
 	section?: string,
 ) {
 	return JSON.stringify([
-		"planning-images:v1",
+		"planning-images:v2",
 		source,
 		plan.work,
 		plan.location,
