@@ -393,3 +393,67 @@ it("rejects an unexpected credential profile without a shared-token fallback", a
 		"Unsupported WhatsApp credential profile",
 	);
 });
+
+it("uses the clean section template with no task description or image count", async () => {
+	businessNumberFindFirst.mockResolvedValue({
+		businessPhoneNumberId: "limeni-phone-id",
+		credentialProfile: "limeni-dedicated",
+		templateName: "limeni_work_task_v2",
+		templateLanguage: "lv",
+	});
+	global.fetch = jest.fn(
+		async (url: RequestInfo | URL) =>
+			({
+				ok: true,
+				json: async () =>
+					String(url).endsWith("/media")
+						? { id: "media" }
+						: { messages: [{ id: "wamid.clean" }] },
+			}) as Response,
+	) as typeof fetch;
+	expect((await sendVisualPlanningWhatsAppTask(validRequest())).status).toBe(
+		"sent",
+	);
+	const messages = jest
+		.mocked(global.fetch)
+		.mock.calls.filter(([url]) => String(url).endsWith("/messages"))
+		.map(([, init]) => JSON.parse(String(init?.body)));
+	expect(messages[0].template.name).toBe("limeni_work_task_v2");
+	expect(
+		messages[0].template.components[1].parameters.map(
+			(parameter: { parameter_name: string }) => parameter.parameter_name,
+		),
+	).toEqual(["uzdevuma_apraksts", "objekts"]);
+	expect(messages[0].template.components[1].parameters[1].text).toBe(
+		"Testa objekts",
+	);
+	expect(messages[1].template).toEqual({
+		name: "limeni_section_pa1_6_v2",
+		language: { code: "lv" },
+		components: [
+			{
+				type: "header",
+				parameters: [{ type: "image", image: { id: "media" } }],
+			},
+		],
+	});
+});
+
+it("rejects an unmapped section before sending any images or creating a send", async () => {
+	businessNumberFindFirst.mockResolvedValue({
+		businessPhoneNumberId: "limeni-phone-id",
+		credentialProfile: "limeni-dedicated",
+		templateName: "limeni_work_task_v2",
+		templateLanguage: "lv",
+	});
+	const plan = await constructionPlanFindFirst();
+	plan.visualAreas.section = "PA1.10";
+	const request = validRequest();
+	request.input.images[1].section = "PA1.10";
+	global.fetch = jest.fn();
+	await expect(sendVisualPlanningWhatsAppTask(request)).rejects.toThrow(
+		"Sekcijai nav pieejama WhatsApp veidne.",
+	);
+	expect(global.fetch).not.toHaveBeenCalled();
+	expect(sendCreate).not.toHaveBeenCalled();
+});

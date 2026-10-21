@@ -13,6 +13,11 @@ import {
 	normalizePlanningWhatsAppMessage,
 	normalizePlanningWhatsAppTemplateText,
 } from "./planning-whatsapp";
+import {
+	LIMENI_TASK_TEMPLATE,
+	limeniSectionTemplateName,
+	planningWhatsAppTemplateContent,
+} from "./planning-whatsapp-templates";
 import { requireVisualAccess } from "./store";
 
 export const WHATSAPP_TASK_MAX_BODY = 16_000_000;
@@ -129,7 +134,9 @@ async function sendTemplate(args: {
 	message: string;
 	total: number;
 	mediaId: string;
+	section?: string | null;
 }) {
+	const content = planningWhatsAppTemplateContent(args);
 	const payload = await graphJson({
 		url: `${getMetaGraphBaseUrl()}/${args.businessPhoneNumberId}/messages`,
 		token: args.token,
@@ -142,33 +149,16 @@ async function sendTemplate(args: {
 				to: args.recipient,
 				type: "template",
 				template: {
-					name: args.templateName,
+					name: content.name,
 					language: { code: args.templateLanguage },
 					components: [
 						{
 							type: "header",
 							parameters: [{ type: "image", image: { id: args.mediaId } }],
 						},
-						{
-							type: "body",
-							parameters: [
-								{
-									type: "text",
-									parameter_name: "objekts",
-									text: args.objectName,
-								},
-								{
-									type: "text",
-									parameter_name: "uzdevuma_apraksts",
-									text: args.message,
-								},
-								{
-									type: "text",
-									parameter_name: "attelu_skaits",
-									text: String(args.total),
-								},
-							],
-						},
+						...(content.parameters.length
+							? [{ type: "body", parameters: content.parameters }]
+							: []),
 					],
 				},
 			}),
@@ -258,6 +248,8 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 	});
 	if (!businessNumber)
 		throw new Error("Limeni WhatsApp numurs nav aktivizēts.");
+	if (businessNumber.templateName === LIMENI_TASK_TEMPLATE && geometry.section)
+		limeniSectionTemplateName(geometry.section);
 	const token = getWhatsAppBusinessToken(businessNumber.credentialProfile);
 	const idempotencyKey = `${access.organizationId}:${input.clientRequestId}`;
 	let send = await prisma.whatsAppTaskSend.findUnique({
@@ -332,12 +324,16 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 				templateName: businessNumber.templateName,
 				templateLanguage: businessNumber.templateLanguage,
 				recipient,
-				objectName: `${plan.site.name} — ${label}`,
+				objectName:
+					businessNumber.templateName === LIMENI_TASK_TEMPLATE
+						? plan.site.name
+						: `${plan.site.name} — ${label}`,
 				message: item.section
 					? item.section
 					: normalizePlanningWhatsAppTemplateText(input.message),
 				total: item.section ? 1 : items.length,
 				mediaId,
+				section: item.section,
 			});
 			await prisma.whatsAppTaskSendItem.update({
 				where: { id: item.id },
