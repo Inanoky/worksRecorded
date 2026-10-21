@@ -74,7 +74,7 @@ it("takes the organization from the session, never the request, and prevents HTT
 	expect(result.headers).toEqual({ "Cache-Control": "private, no-store" });
 });
 
-it.each(["needs_changes", "coordinate_with_fima", "updated"])(
+it.each(["needs_changes", "coordinate_with_fima", "updated", "bis_draft"])(
 	"forwards the %s action with combined FIMA filters",
 	async (review) => {
 		await GET(

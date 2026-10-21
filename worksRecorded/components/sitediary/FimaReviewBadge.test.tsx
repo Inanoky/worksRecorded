@@ -18,6 +18,7 @@ it.each([
 		"bg-violet-50",
 	],
 	["ai_prepared", "AI sagatavots", "border-yellow-200", "bg-yellow-50"],
+	["bis_draft", "BIS sagatave", "border-teal-200", "bg-teal-50"],
 	["approved", "Apstiprināts", "border-emerald-200", "bg-emerald-100"],
 	[
 		"ready_for_approval",

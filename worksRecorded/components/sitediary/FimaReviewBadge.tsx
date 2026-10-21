@@ -21,6 +21,7 @@ const badgeTones = {
 	coordinate_with_fima: "border-violet-200 bg-violet-50 text-violet-700",
 	updated: "border-sky-200 bg-sky-50 text-sky-700",
 	ai_prepared: "border-yellow-200 bg-yellow-50 text-yellow-800",
+	bis_draft: "border-teal-200 bg-teal-50 text-teal-700",
 	approved: "border-emerald-200 bg-emerald-100 text-emerald-800",
 	ready_for_approval: "border-[#B8E0C6] bg-[#ECF8F0] text-[#159447]",
 	unset: "border-[#E1E6ED] bg-slate-50 text-slate-600",

@@ -42,6 +42,7 @@ it.each([
 	"coordinate_with_fima",
 	"updated",
 	"ai_prepared",
+	"bis_draft",
 	"approved",
 ] as const)(
 	"changes %s immediately before the background save completes, without a preliminary read",

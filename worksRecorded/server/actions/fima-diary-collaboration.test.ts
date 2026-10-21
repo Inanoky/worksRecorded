@@ -323,6 +323,7 @@ it.each([null, "653"])(
 
 it.each([
 	["ai_prepared", "AI sagatavots"],
+	["bis_draft", "BIS sagatave"],
 	["approved", "Apstiprināts"],
 	["updated", "Updated"],
 ] as const)(

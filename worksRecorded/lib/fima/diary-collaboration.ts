@@ -8,6 +8,7 @@ export const fimaStatuses = {
 	coordinate_with_fima: "Saskaņot ar Fima",
 	updated: "Updated",
 	ai_prepared: "AI sagatavots",
+	bis_draft: "BIS sagatave",
 	ready_for_approval: "Sūtīt uz apstiprināšanu",
 	approved: "Apstiprināts",
 } as const;
@@ -17,6 +18,7 @@ export const fimaStatusSchema = z.enum([
 	"coordinate_with_fima",
 	"updated",
 	"ai_prepared",
+	"bis_draft",
 	"ready_for_approval",
 	"approved",
 ]);
