@@ -55,7 +55,12 @@ import {
 	visualLayerStyles,
 } from "./layer-settings";
 import { type VisualDrawing, visualLayers } from "./model";
-import type { VisualPlan, VisualPlanArea } from "./planning-model";
+import type {
+	VisualPlan,
+	VisualPlanArea,
+	VisualPlanInput,
+} from "./planning-model";
+import { sameVisualPlanningContent } from "./planning-save-queue";
 import { sectionKey } from "./sections";
 import { usePlanningSaveQueue } from "./usePlanningSaveQueue";
 import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
@@ -456,6 +461,12 @@ export function VisualPlanningPanel({
 
 	const refreshPlanning = useCallback(async () => {
 		if (!active || dirty || areaEditing || saving) return;
+		if (
+			planningSaves
+				.getSnapshot()
+				.some((item) => item.input.drawingId === drawing.id)
+		)
+			return;
 		const run = request.current;
 		try {
 			const load = () => getVisualPlanning(siteId, drawing.id);
@@ -471,7 +482,16 @@ export function VisualPlanningPanel({
 				return selected ? draftFromPlan(selected) : null;
 			});
 		} catch {}
-	}, [active, areaEditing, dirty, drawing.id, cache, saving, siteId]);
+	}, [
+		active,
+		areaEditing,
+		dirty,
+		drawing.id,
+		cache,
+		saving,
+		siteId,
+		planningSaves,
+	]);
 	useEffect(() => {
 		if (active && !wasActive.current) void refreshPlanning();
 		wasActive.current = active;
@@ -618,19 +638,15 @@ export function VisualPlanningPanel({
 		setConflict(null);
 	}
 
-	async function savePlan() {
-		if (
-			!index ||
-			!draft ||
-			saving ||
-			planPending ||
-			draft.archivedAt ||
-			areaEditing
-		)
+	function savePlan(automatic = false) {
+		if (!index || !draft || saving || !dirty || draft.archivedAt || areaEditing)
 			return;
+		const invalid = (message: string) => {
+			if (!automatic) setError(message);
+		};
 		const automaticQuantity = draft.automaticQuantity && isAreaUnit(draft.unit);
 		if (automaticQuantity && measuredArea === null) {
-			setError(
+			invalid(
 				"Norādiet rasējuma mērogu, lai aprēķinātu laukumu, vai ievadiet apjomu manuāli.",
 			);
 			return;
@@ -639,29 +655,29 @@ export function VisualPlanningPanel({
 			? roundedArea(measuredArea ?? 0)
 			: Number(draft.quantity);
 		if (!draft.work || !draft.unit) {
-			setError("Izvēlieties darbu un mērvienību.");
+			invalid("Izvēlieties darbu un mērvienību.");
 			return;
 		}
 		if (!Number.isFinite(quantity) || quantity <= 0) {
-			setError("Norādiet plānoto apjomu, kas ir lielāks par nulli.");
+			invalid("Norādiet plānoto apjomu, kas ir lielāks par nulli.");
 			return;
 		}
 		if (!draft.startDate || !draft.endDate || draft.startDate > draft.endDate) {
-			setError("Beigu datumam jābūt vienādam ar sākuma datumu vai vēlākam.");
+			invalid("Beigu datumam jābūt vienādam ar sākuma datumu vai vēlākam.");
 			return;
 		}
 		if (!draft.id && draft.startDate < index.today) {
-			setError("Jauna plāna sākuma datumam jābūt šodien vai nākotnē.");
+			invalid("Jauna plāna sākuma datumam jābūt šodien vai nākotnē.");
 			return;
 		}
 		if (!draft.areas.length) {
-			setError("Uzzīmējiet vismaz vienu plānoto zonu rasējumā.");
+			invalid("Uzzīmējiet vismaz vienu plānoto zonu rasējumā.");
 			return;
 		}
 		setError(null);
 		setConflict(null);
 		try {
-			const plan = planningSaves.enqueue({
+			const input: VisualPlanInput = {
 				siteId,
 				drawingId: drawing.id,
 				...(draft.id && draft.version
@@ -680,17 +696,43 @@ export function VisualPlanningPanel({
 					...(automaticQuantity ? { quantitySource: "area" as const } : {}),
 					...(draft.section ? { section: draft.section } : {}),
 				},
-			});
+			};
+			const current = draft.id
+				? cache
+						.peekPlanning(drawing.id)
+						?.plans.find((plan) => plan.id === draft.id)
+				: undefined;
+			if (
+				current &&
+				!current.geometryReviewRequired &&
+				sameVisualPlanningContent(current, input)
+			) {
+				setDirty(false);
+				return;
+			}
+			const plan = planningSaves.enqueue(input, automatic ? 300 : 0);
 			setIndex(cache.peekPlanning(drawing.id) ?? null);
 			setDraft(draftFromPlan(plan));
 			setDirty(false);
 			setAreaEditing(false);
-			setSelectedArea(null);
+			if (!automatic) setSelectedArea(null);
 			setNotice("Plāns saglabāts šajā cilnē. Notiek sinhronizācija.");
 		} catch {
 			setError("Neizdevās saglabāt plānu. Mēģiniet vēlreiz.");
 		}
 	}
+	const autoSave = useRef(savePlan);
+	autoSave.current = savePlan;
+	useEffect(() => {
+		if (
+			draft?.automaticQuantity &&
+			isAreaUnit(draft.unit) &&
+			measuredArea === null
+		)
+			return;
+		if (draft?.id && dirty && !areaEditing && !saving && !draft.archivedAt)
+			autoSave.current(true);
+	}, [draft, dirty, areaEditing, saving, measuredArea]);
 
 	async function archivePlan() {
 		if (
@@ -1517,15 +1559,19 @@ export function VisualPlanningPanel({
 									</Button>
 								) : (
 									<>
-										<Button
-											type="submit"
-											disabled={saving || planPending || areaEditing || !dirty}
-										>
-											{saving ? (
-												<Loader2 className="h-4 w-4 animate-spin" />
-											) : null}
-											{draft.id ? "Saglabāt izmaiņas" : "Saglabāt plānu"}
-										</Button>
+										{!draft.id ? (
+											<Button
+												type="submit"
+												disabled={
+													saving || planPending || areaEditing || !dirty
+												}
+											>
+												{saving ? (
+													<Loader2 className="h-4 w-4 animate-spin" />
+												) : null}
+												Saglabāt plānu
+											</Button>
+										) : null}
 										{selectedPlan ? (
 											<VisualPlanningWhatsApp
 												siteId={siteId}
@@ -1580,7 +1626,7 @@ export function VisualPlanningPanel({
 									</>
 								)}
 							</div>
-							{!draft.archivedAt && (!selectedPlan || dirty) ? (
+							{!draft.archivedAt && !selectedPlan ? (
 								<p className="text-xs text-muted-foreground">
 									Pirms nosūtīšanas saglabājiet plānu.
 								</p>

@@ -420,7 +420,9 @@ it("adds project sections from the dropdown and saves the selected section witho
 	await within(dialog).findByText("Kāpņu telpa");
 	fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
 	fireEvent.change(select, { target: { value: "section:Kāpņu telpa" } });
-	fireEvent.click(screen.getByRole("button", { name: "Saglabāt izmaiņas" }));
+	expect(
+		screen.queryByRole("button", { name: "Saglabāt izmaiņas" }),
+	).not.toBeInTheDocument();
 	await waitFor(() =>
 		expect(saveVisualPlanningItem).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -580,7 +582,7 @@ it("reuses cached planning data and pauses stale refresh while the draft is dirt
 	cache.clear();
 });
 
-it("opens saved areas in the right drawer and guards closing dirty changes", async () => {
+it("opens saved areas in the right drawer and guards closing invalid changes", async () => {
 	const laterPlan = {
 		...indexedPlan,
 		id: "55555555-5555-4555-8555-555555555555",
@@ -615,7 +617,7 @@ it("opens saved areas in the right drawer and guards closing dirty changes", asy
 	).toHaveFocus();
 	expect(within(drawer).getByLabelText("Plānotais apjoms")).toHaveValue(10);
 	fireEvent.change(within(drawer).getByLabelText("Plānotais apjoms"), {
-		target: { value: "12" },
+		target: { value: "0" },
 	});
 	fireEvent.click(screen.getByRole("button", { name: /XPS.*15\.10\.2026/ }));
 	expect(screen.getByRole("alertdialog")).toHaveTextContent(
@@ -832,7 +834,9 @@ it("uses the same add-zone action in both panels without replacing a saved plan 
 	expect(screen.getByLabelText("Plānotais apjoms")).toHaveValue(99);
 	expect(screen.getByLabelText("Izpildes termiņš")).toHaveValue("2026-10-18");
 	expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-	fireEvent.click(screen.getByRole("button", { name: "Saglabāt izmaiņas" }));
+	expect(
+		screen.queryByRole("button", { name: "Saglabāt izmaiņas" }),
+	).not.toBeInTheDocument();
 	await waitFor(() =>
 		expect(saveVisualPlanningItem).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -1125,8 +1129,8 @@ it("requires assigning a contact and blocks sending unsaved changes", async () =
 		screen.getByRole("button", { name: "Nosūtīt uzdevumu" }),
 	).toBeDisabled();
 	expect(
-		screen.getByText("Pirms nosūtīšanas saglabājiet plānu."),
-	).toBeInTheDocument();
+		screen.queryByText("Pirms nosūtīšanas saglabājiet plānu."),
+	).not.toBeInTheDocument();
 });
 
 it("shows full history and filters the PDF cumulatively with the bottom slider", async () => {
@@ -1242,6 +1246,89 @@ it("shows plans chronologically with duration bars across the selected period", 
 	);
 });
 
+it("automatically saves finished polygon edits and m² without saving intermediate geometry or refetching", async () => {
+	jest.mocked(getVisualPlanning).mockResolvedValue({
+		...emptyIndex,
+		plans: [
+			{
+				...indexedPlan,
+				geometry: { ...plan.geometry, quantitySource: "area" },
+			},
+		],
+	});
+	const cache = new VisualClientCache("site");
+	render(
+		<VisualPlanningPanel
+			siteId="site"
+			drawing={drawing}
+			resourceCache={cache}
+			sidebarOpen
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
+	);
+	fireEvent.click(
+		screen.getByRole("button", { name: "Sākt zonas rediģēšanu" }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Uzzīmēt testu zonu" }));
+	fireEvent.click(
+		screen.getByRole("button", { name: "Laukuma priekšskatījums" }),
+	);
+	expect(saveVisualPlanningItem).not.toHaveBeenCalled();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Beigt zonas rediģēšanu" }),
+	);
+	expect(cache.peekPlanning(drawing.id)?.plans[0]).toMatchObject({
+		quantity: 42.56,
+		geometry: { areas: expect.any(Array) },
+	});
+	expect(cache.peekPlanning(drawing.id)?.plans[0].geometry.areas).toHaveLength(
+		2,
+	);
+	expect(
+		screen.queryByRole("button", { name: "Saglabāt izmaiņas" }),
+	).not.toBeInTheDocument();
+	await waitFor(() => expect(saveVisualPlanningItem).toHaveBeenCalledTimes(1));
+	expect(saveVisualPlanningItem).toHaveBeenCalledWith(
+		expect.objectContaining({
+			id: plan.id,
+			version: 2,
+			quantity: 42.56,
+			geometry: expect.objectContaining({
+				quantitySource: "area",
+				areas: expect.arrayContaining([area]),
+			}),
+		}),
+	);
+	expect(getVisualPlanning).toHaveBeenCalledTimes(1);
+});
+
+it("does not write an unchanged field value", async () => {
+	jest
+		.mocked(getVisualPlanning)
+		.mockResolvedValue({ ...emptyIndex, plans: [indexedPlan] });
+	render(
+		<VisualPlanningPanel
+			siteId="site"
+			drawing={drawing}
+			sidebarOpen
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
+	);
+	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {
+		target: { value: "10.0" },
+	});
+	expect(saveVisualPlanningItem).not.toHaveBeenCalled();
+	expect(
+		screen.queryByText(/serverī vēl nav apstiprināts/),
+	).not.toBeInTheDocument();
+});
+
 it("shows cumulative actual progress and saves edits with optimistic versioning", async () => {
 	jest
 		.mocked(getVisualPlanning)
@@ -1283,7 +1370,9 @@ it("shows cumulative actual progress and saves edits with optimistic versioning"
 	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {
 		target: { value: "12" },
 	});
-	fireEvent.click(screen.getByRole("button", { name: "Saglabāt izmaiņas" }));
+	expect(
+		screen.queryByRole("button", { name: "Saglabāt izmaiņas" }),
+	).not.toBeInTheDocument();
 	await waitFor(() =>
 		expect(saveVisualPlanningItem).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -1364,7 +1453,9 @@ it("links an overlapping date range to the existing plan", async () => {
 	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {
 		target: { value: "11" },
 	});
-	fireEvent.click(screen.getByRole("button", { name: "Saglabāt izmaiņas" }));
+	expect(
+		screen.queryByRole("button", { name: "Saglabāt izmaiņas" }),
+	).not.toBeInTheDocument();
 	expect(
 		await screen.findByText(
 			"Šis darbs jau ir ieplānots periodā, kas pārklājas.",
@@ -1402,7 +1493,9 @@ it("saves locally immediately, keeps newer edits when the acknowledgement arrive
 	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {
 		target: { value: "12" },
 	});
-	fireEvent.click(screen.getByRole("button", { name: "Saglabāt izmaiņas" }));
+	expect(
+		screen.queryByRole("button", { name: "Saglabāt izmaiņas" }),
+	).not.toBeInTheDocument();
 	expect(onDirtyChange).toHaveBeenLastCalledWith(false);
 	expect(
 		screen.getByText(/serverī vēl nav apstiprināts: 1/),
@@ -1411,16 +1504,22 @@ it("saves locally immediately, keeps newer edits when the acknowledgement arrive
 		screen.getByRole("button", { name: "Nosūtīt uzdevumu" }),
 	).toBeDisabled();
 	expect(screen.getByLabelText("Plānotais apjoms")).toBeEnabled();
+	await waitFor(() => expect(saveVisualPlanningItem).toHaveBeenCalledTimes(1));
 	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {
 		target: { value: "99" },
 	});
+	await waitFor(() => expect(saveVisualPlanningItem).toHaveBeenCalledTimes(1));
 	await act(async () =>
 		finish({ ok: true, plan: { ...indexedPlan, quantity: 12, version: 3 } }),
 	);
 	expect(screen.getByLabelText("Plānotais apjoms")).toHaveValue(99);
 	expect(
-		screen.getByRole("button", { name: "Saglabāt izmaiņas" }),
-	).toBeEnabled();
+		screen.queryByRole("button", { name: "Saglabāt izmaiņas" }),
+	).not.toBeInTheDocument();
+	await waitFor(() => expect(saveVisualPlanningItem).toHaveBeenCalledTimes(2));
+	expect(saveVisualPlanningItem).toHaveBeenLastCalledWith(
+		expect.objectContaining({ quantity: 99, version: 3 }),
+	);
 	expect(getVisualPlanning).toHaveBeenCalledTimes(1);
 });
 
@@ -1455,7 +1554,9 @@ it("keeps a pending local save when changing floors and displays the cached task
 	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {
 		target: { value: "12" },
 	});
-	fireEvent.click(screen.getByRole("button", { name: "Saglabāt izmaiņas" }));
+	expect(
+		screen.queryByRole("button", { name: "Saglabāt izmaiņas" }),
+	).not.toBeInTheDocument();
 	view.rerender(
 		<VisualPlanningPanel key={other.id} {...props} drawing={other} />,
 	);
@@ -1468,6 +1569,7 @@ it("keeps a pending local save when changing floors and displays the cached task
 	fireEvent.click(screen.getByRole("button", { name: /Smilts.*12\.10\.2026/ }));
 	expect(screen.getByLabelText("Plānotais apjoms")).toHaveValue(12);
 	expect(getVisualPlanning).not.toHaveBeenCalled();
+	await waitFor(() => expect(saveVisualPlanningItem).toHaveBeenCalledTimes(1));
 	await act(async () =>
 		finish({ ok: true, plan: { ...indexedPlan, quantity: 12, version: 3 } }),
 	);

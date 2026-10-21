@@ -3,6 +3,7 @@ import {
 	compareVisualPlanProgress,
 	type VisualPlanInput,
 } from "./planning-model";
+import { sameVisualPlanningContent } from "./planning-save-queue";
 import {
 	VisualClientCache,
 	type VisualPlanningIndex,
@@ -134,9 +135,9 @@ it("saves separate floors independently and keeps unconfirmed plans after a remo
 	expect(cache.getPlanningSaveQueue(jest.fn())).toBe(queue);
 	expect(cache.peekPlanning(secondId)?.plans).toEqual([]);
 	expect(cache.peekPlanning(drawingId)?.plans[0].id).toBe(plan.id);
-	expect(() => queue.enqueue({ ...input, id: plan.id, version: 1 })).toThrow(
-		/sinhronizēts/,
-	);
+	expect(queue.enqueue({ ...input, id: plan.id, version: 1 })).toEqual(plan);
+	expect(queue.getSnapshot()).toHaveLength(1);
+	expect(queue.getSnapshot()[0].nextInput).toBeUndefined();
 	pending.resolve(confirmed(plan));
 	await pending.promise;
 });
@@ -224,4 +225,130 @@ it("preserves WhatsApp send history while projecting and confirming a planning e
 	expect(cache.peekPlanning(drawingId)?.plans[0].whatsAppSends).toEqual([
 		history,
 	]);
+});
+
+it("combines rapid local edits into one background write with the original version", async () => {
+	jest.useFakeTimers();
+	try {
+		const { cache, queue, transport, pending } = setup();
+		const first = queue.enqueue(input, 300);
+		const latest = queue.enqueue(
+			{ ...input, id: first.id, version: 1, quantity: 40 },
+			300,
+		);
+		expect(cache.peekPlanning(drawingId)?.plans[0].quantity).toBe(40);
+		expect(transport).not.toHaveBeenCalled();
+		jest.advanceTimersByTime(300);
+		expect(transport).toHaveBeenCalledTimes(1);
+		expect(transport).toHaveBeenCalledWith(
+			expect.objectContaining({
+				id: undefined,
+				clientId: first.id,
+				version: undefined,
+				quantity: 40,
+			}),
+		);
+		pending.resolve(confirmed(latest));
+		await pending.promise;
+		expect(queue.getSnapshot()).toEqual([]);
+	} finally {
+		jest.useRealTimers();
+	}
+});
+
+it("compares unchanged geometry by values rather than JSON property order", () => {
+	const geometry = {
+		...input.geometry,
+		section: "PA1.6",
+		quantitySource: "area" as const,
+	};
+	const saved = {
+		...input,
+		id: "saved",
+		version: 2,
+		geometryReviewRequired: false,
+		archivedAt: null,
+		geometry,
+	};
+	expect(
+		sameVisualPlanningContent(saved, {
+			...input,
+			geometry: {
+				quantitySource: "area",
+				section: "PA1.6",
+				areas: input.geometry.areas,
+				version: 1,
+			},
+		}),
+	).toBe(true);
+});
+
+it("keeps the newest edit visible while an older save completes and rebases the next write", async () => {
+	const { cache, queue, transport, pending } = setup();
+	const first = queue.enqueue({
+		...input,
+		id: "11111111-1111-4111-8111-111111111111",
+		version: 2,
+	});
+	const second = deferred<Result>();
+	transport.mockReturnValueOnce(second.promise);
+	queue.enqueue({ ...input, id: first.id, version: 3, quantity: 30 });
+	const latest = queue.enqueue({
+		...input,
+		id: first.id,
+		version: 4,
+		quantity: 40,
+	});
+	expect(cache.peekPlanning(drawingId)?.plans[0].quantity).toBe(40);
+	expect(transport).toHaveBeenCalledTimes(1);
+	pending.resolve(confirmed(first));
+	await pending.promise;
+	expect(cache.peekPlanning(drawingId)?.plans[0].quantity).toBe(40);
+	expect(transport).toHaveBeenCalledTimes(2);
+	expect(transport).toHaveBeenLastCalledWith(
+		expect.objectContaining({ id: first.id, version: 3, quantity: 40 }),
+	);
+	second.resolve(confirmed(latest));
+	await second.promise;
+	expect(queue.getSnapshot()).toEqual([]);
+	expect(cache.peekPlanning(drawingId)?.plans[0]).toMatchObject({
+		quantity: 40,
+		version: 4,
+	});
+});
+
+it("restores a newer edit after a lost acknowledgement and retries the original mutation first", async () => {
+	const { queue, transport, pending } = setup();
+	let stored: string | null = null;
+	queue.attachStorage(null, (value) => {
+		stored = value;
+	});
+	const first = queue.enqueue(input);
+	const original = transport.mock.calls[0][0];
+	const latest = queue.enqueue({
+		...input,
+		id: first.id,
+		version: 1,
+		quantity: 40,
+	});
+	pending.reject(new Error("Offline"));
+	await pending.promise.catch(() => {});
+	const restored = setup();
+	restored.queue.attachStorage(stored, jest.fn());
+	expect(restored.cache.peekPlanning(drawingId)?.plans[0].quantity).toBe(40);
+	const second = deferred<Result>();
+	restored.transport
+		.mockReturnValueOnce(restored.pending.promise)
+		.mockReturnValueOnce(second.promise);
+	restored.queue.retry(first.id);
+	expect(restored.transport).toHaveBeenCalledWith(original);
+	restored.pending.resolve(confirmed(first));
+	await restored.pending.promise;
+	expect(restored.transport).toHaveBeenLastCalledWith(
+		expect.objectContaining({ id: first.id, version: 1, quantity: 40 }),
+	);
+	expect(restored.cache.peekPlanning(drawingId)?.plans[0].quantity).toBe(40);
+	second.resolve(confirmed(latest));
+	await second.promise;
+	expect(restored.queue.getSnapshot()).toEqual([]);
 });
