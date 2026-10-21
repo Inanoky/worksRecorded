@@ -31,6 +31,7 @@ const Preparation = createContext<{
 	reset: (siteId: string) => void;
 } | null>(null);
 const Scope = createContext<string | undefined>(undefined);
+const Managed = createContext(false);
 const steps = [
 	["project", "Projekta atvēršana"],
 	["settings", "Projekta iestatījumi"],
@@ -40,6 +41,7 @@ const steps = [
 	["visual-drawing", "Izpildes zonas (visi stāvi)"],
 	["visual-planning", "Plānotie darbi (visi stāvi)"],
 	["visual-preview", "Visas rasējumu lapas"],
+	["forma2", "Forma 2"],
 ] as const;
 
 export function ProjectLoadingProgressProvider({
@@ -99,12 +101,22 @@ export function ProjectLoadingProgressProvider({
 
 export function ProjectPreparationScope({
 	siteId,
+	managed = false,
 	children,
 }: {
 	siteId: string;
+	managed?: boolean;
 	children: ReactNode;
 }) {
-	return <Scope.Provider value={siteId}>{children}</Scope.Provider>;
+	return (
+		<Scope.Provider value={siteId}>
+			<Managed.Provider value={managed}>{children}</Managed.Provider>
+		</Scope.Provider>
+	);
+}
+
+export function useProjectPreparationManaged() {
+	return useContext(Managed);
 }
 
 export function useVisualProjectPreload(siteId?: string) {
@@ -129,7 +141,7 @@ export function useProjectPreparation(
 		([key]) =>
 			preparation.visual ||
 			preparation.visualSites.includes(id) ||
-			!key.startsWith("visual-"),
+			(!key.startsWith("visual-") && key !== "forma2"),
 	);
 	return {
 		total: visible.length,

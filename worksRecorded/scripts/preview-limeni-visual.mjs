@@ -8,7 +8,9 @@ import postcss from "postcss";
 
 const root = process.cwd();
 const performancePreview = process.argv.includes("--performance");
-const projectPreloadPreview = process.argv.includes("--project-preload");
+const workspacePreview = process.argv.includes("--project-workspace");
+const projectPreloadPreview =
+	workspacePreview || process.argv.includes("--project-preload");
 const sectionCatalog = JSON.parse(
 	await readFile(
 		path.join(root, "assets/visual-sections/ar-701/catalog.json"),
@@ -98,6 +100,7 @@ const modules = {
 	link: `import React from 'react';export default function Link(props){return React.createElement('a',props)}`,
 	worker: `export const pdfWorkerUrl='/worker.mjs';`,
 };
+modules.navigation += `export function useRouter(){return {refresh(){throw Error("Unexpected route refresh in preview")}}}`;
 const planningFixture = {
 	sections: process.argv.includes("--sections")
 		? sectionCatalog.sections.map((section) => section.code)
@@ -198,13 +201,15 @@ modules.actions += `export async function addVisualRecord(site,id,record){
 };`;
 const bundled = await build({
 	stdin: {
-		contents: projectPreloadPreview
-			? `import React,{useEffect,useState} from 'react';import {createRoot} from 'react-dom/client';import {VisualProjectView} from './flows/default-construction/visual/VisualProjectView';import {ProjectLoadingProgressProvider,useProjectPreparationStep} from './components/providers/ProjectLoadingProgressProvider';import {ProjectOpeningOverlay} from './components/providers/ProjectOpeningOverlay';const original=window.fetch;window.fetch=async(url,options)=>{if(String(url).includes('?pdf=1')){await new Promise(resolve=>setTimeout(resolve,5000));return original('/plan.pdf')}if(String(url).includes('/api/sites/')&&!String(url).includes('/section-drawing?')){const drawing=structuredClone(${JSON.stringify(fixture)});if(String(url).includes('demo-drawing-2')){drawing.id='demo-drawing-2';drawing.state.location='2. stāvs'}return new Response(JSON.stringify(drawing))}return original(url,options)};history.replaceState(null,'','/dashboard/sites/demo/dashboard');function Diary(){const [settings,setSettings]=useState(false);const [ready,setReady]=useState(false);useEffect(()=>{const first=setTimeout(()=>setSettings(true),4000);const second=setTimeout(()=>setReady(true),18000);return()=>{clearTimeout(first);clearTimeout(second)}},[]);useProjectPreparationStep('demo','settings',settings);useProjectPreparationStep('demo','diary',ready);return <><h1 style={{fontSize:24,padding:12}}>Limeni · demonstrācijas projekts</h1><button style={{padding:12,border:'1px solid #ccc'}} onClick={()=>{history.pushState(null,'','/dashboard/sites/demo/izpildshemas');window.dispatchEvent(new PopStateEvent('popstate'))}}>Atvērt Izpildshēmas</button>{!ready?<ProjectOpeningOverlay label="Ielādē projektu…"/>:null}</>}createRoot(document.getElementById('root')).render(<main style={{padding:20}}><ProjectLoadingProgressProvider enabled visualPreloadEnabled><VisualProjectView siteId="demo"><Diary/></VisualProjectView></ProjectLoadingProgressProvider></main>);`
-			: performancePreview
-				? `import React,{useMemo,useState} from 'react';import {createRoot} from 'react-dom/client';import {VisualPlanningPanel} from './flows/default-construction/visual/VisualPlanningPanel';import {VisualClientCache} from './flows/default-construction/visual/visual-client-cache';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('?pdf=1')?original('/plan.pdf'):original(url,options);function Preview(){const [floor,setFloor]=useState('1. stāvs');const [dirty,setDirty]=useState(false);const cache=useMemo(()=>new VisualClientCache('demo'),[]);const drawing={...${JSON.stringify(fixture)},id:floor==='1. stāvs'?'demo-drawing':'demo-drawing-2',state:{...${JSON.stringify(fixture.state)},location:floor}};return <main style={{padding:20,height:'100dvh',display:'flex',flexDirection:'column'}}><label style={{padding:8}}>Stāvs <select aria-label="Stāvs" value={floor} disabled={dirty} onChange={event=>setFloor(event.target.value)}><option>1. stāvs</option><option>2. stāvs</option></select></label><div style={{flex:1,minHeight:0}}><VisualPlanningPanel key={drawing.id} drawing={drawing} siteId="demo" resourceCache={cache} sidebarOpen onDirtyChange={setDirty}/></div></main>}createRoot(document.getElementById('root')).render(<Preview/>);`
-				: process.argv.includes("--planning")
-					? `import React from 'react';import {createRoot} from 'react-dom/client';import {VisualPlanningPanel} from './flows/default-construction/visual/VisualPlanningPanel';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('?pdf=1')?original('/plan.pdf'):original(url,options);createRoot(document.getElementById('root')).render(<main style={{padding:20,height:'100dvh'}}><VisualPlanningPanel drawing={${JSON.stringify(fixture)}} siteId="demo" sidebarOpen onDirtyChange={()=>{}}/></main>);`
-					: `import React from 'react';import {createRoot} from 'react-dom/client';import VisualView from './flows/default-construction/visual/VisualView';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('/api/sites/')&&!String(url).includes('/section-drawing?')?(String(url).includes('?pdf=1')?original('/plan.pdf'):Promise.resolve(new Response(JSON.stringify(window.__visualPreviewDrawing??${JSON.stringify(fixture)})))):original(url,options);createRoot(document.getElementById('root')).render(<main style={{maxWidth:1700,margin:'0 auto',padding:20}}><VisualView siteId="demo"/></main>);`,
+		contents: workspacePreview
+			? `import React,{useState,useEffect} from 'react';import {createRoot} from 'react-dom/client';import {VisualProjectView} from './flows/default-construction/visual/VisualProjectView';import {RetainedLimeniDiary} from './flows/default-construction/frontend/RetainedLimeniDiary';import {RetainedLimeniForma2} from './flows/default-construction/frontend/RetainedLimeniForma2';import {ProjectLoadingProgressProvider} from './components/providers/ProjectLoadingProgressProvider';import {ProjectOpeningOverlay} from './components/providers/ProjectOpeningOverlay';import {getVisualDrawings,getVisualPlanning} from './flows/default-construction/visual/actions';const original=window.fetch;const counts={};const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));window.fetch=async(url,options)=>{const name=String(url);counts[name]=(counts[name]??0)+1;window.dispatchEvent(new Event('preview-count'));if(name.includes('?pdf=1')){await wait(2000);return original('/plan.pdf')}if(name.endsWith('/limeni-workspace')){await wait(3000);return new Response(JSON.stringify({siteId:'demo',userId:'preview',organizationId:'limeni',bisEnabled:false,organizationLanguage:'lv'}))}if(name.endsWith('/forma2/results')){await wait(1200);return new Response(JSON.stringify({data:{siteName:'Demonstrācijas Forma 2',document:null,resultRows:[]},organizationLanguage:'lv'}),{headers:{etag:'"fixture"'}})}if(name.endsWith('/visual'))return new Response(JSON.stringify(await getVisualDrawings()));if(name.endsWith('/planning'))return new Response(JSON.stringify(await getVisualPlanning('demo',name.includes('demo-drawing-2')?'demo-drawing-2':'demo-drawing')));if(name.includes('/api/sites/')&&!name.includes('/section-drawing?')){const drawing=structuredClone(${JSON.stringify(fixture)});if(name.includes('demo-drawing-2')){drawing.id='demo-drawing-2';drawing.state.location='2. stāvs'}return new Response(JSON.stringify(drawing))}return original(url,options)};history.replaceState(null,'','/dashboard/sites/demo/dashboard');function Preview(){const [requests,setRequests]=useState({});useEffect(()=>{const update=()=>setRequests({...counts});window.addEventListener('preview-count',update);return()=>window.removeEventListener('preview-count',update)},[]);return <ProjectLoadingProgressProvider enabled visualPreloadEnabled><header style={{padding:12,display:'flex',gap:12}}>{[['dashboard','Būvdarbu žurnāls'],['izpildshemas','Izpildshēmas'],['analytics','Forma 2']].map(([path,label])=><button key={path} style={{padding:8,border:'1px solid #ccc'}} onClick={()=>{history.pushState(null,'','/dashboard/sites/demo/'+path);window.dispatchEvent(new PopStateEvent('popstate'))}}>{label}</button>)}</header><VisualProjectView siteId="demo"><RetainedLimeniDiary siteId="demo"><RetainedLimeniForma2 siteId="demo"/><ProjectOpeningOverlay label="Ielādē projektu…"/></RetainedLimeniDiary></VisualProjectView><details style={{padding:12}}><summary>Preview request counts</summary><pre aria-label="Request counts">{JSON.stringify(requests,null,2)}</pre></details></ProjectLoadingProgressProvider>}createRoot(document.getElementById('root')).render(<main style={{padding:20}}><Preview/></main>);`
+			: projectPreloadPreview
+				? `import React,{useEffect,useState} from 'react';import {createRoot} from 'react-dom/client';import {VisualProjectView} from './flows/default-construction/visual/VisualProjectView';import {ProjectLoadingProgressProvider,useProjectPreparationStep} from './components/providers/ProjectLoadingProgressProvider';import {ProjectOpeningOverlay} from './components/providers/ProjectOpeningOverlay';const original=window.fetch;window.fetch=async(url,options)=>{if(String(url).includes('?pdf=1')){await new Promise(resolve=>setTimeout(resolve,5000));return original('/plan.pdf')}if(String(url).includes('/api/sites/')&&!String(url).includes('/section-drawing?')){const drawing=structuredClone(${JSON.stringify(fixture)});if(String(url).includes('demo-drawing-2')){drawing.id='demo-drawing-2';drawing.state.location='2. stāvs'}return new Response(JSON.stringify(drawing))}return original(url,options)};history.replaceState(null,'','/dashboard/sites/demo/dashboard');function Diary(){const [settings,setSettings]=useState(false);const [ready,setReady]=useState(false);useEffect(()=>{const first=setTimeout(()=>setSettings(true),4000);const second=setTimeout(()=>setReady(true),18000);return()=>{clearTimeout(first);clearTimeout(second)}},[]);useProjectPreparationStep('demo','settings',settings);useProjectPreparationStep('demo','diary',ready);return <><h1 style={{fontSize:24,padding:12}}>Limeni · demonstrācijas projekts</h1><button style={{padding:12,border:'1px solid #ccc'}} onClick={()=>{history.pushState(null,'','/dashboard/sites/demo/izpildshemas');window.dispatchEvent(new PopStateEvent('popstate'))}}>Atvērt Izpildshēmas</button>{!ready?<ProjectOpeningOverlay label="Ielādē projektu…"/>:null}</>}createRoot(document.getElementById('root')).render(<main style={{padding:20}}><ProjectLoadingProgressProvider enabled visualPreloadEnabled><VisualProjectView siteId="demo"><Diary/></VisualProjectView></ProjectLoadingProgressProvider></main>);`
+				: performancePreview
+					? `import React,{useMemo,useState} from 'react';import {createRoot} from 'react-dom/client';import {VisualPlanningPanel} from './flows/default-construction/visual/VisualPlanningPanel';import {VisualClientCache} from './flows/default-construction/visual/visual-client-cache';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('?pdf=1')?original('/plan.pdf'):original(url,options);function Preview(){const [floor,setFloor]=useState('1. stāvs');const [dirty,setDirty]=useState(false);const cache=useMemo(()=>new VisualClientCache('demo'),[]);const drawing={...${JSON.stringify(fixture)},id:floor==='1. stāvs'?'demo-drawing':'demo-drawing-2',state:{...${JSON.stringify(fixture.state)},location:floor}};return <main style={{padding:20,height:'100dvh',display:'flex',flexDirection:'column'}}><label style={{padding:8}}>Stāvs <select aria-label="Stāvs" value={floor} disabled={dirty} onChange={event=>setFloor(event.target.value)}><option>1. stāvs</option><option>2. stāvs</option></select></label><div style={{flex:1,minHeight:0}}><VisualPlanningPanel key={drawing.id} drawing={drawing} siteId="demo" resourceCache={cache} sidebarOpen onDirtyChange={setDirty}/></div></main>}createRoot(document.getElementById('root')).render(<Preview/>);`
+					: process.argv.includes("--planning")
+						? `import React from 'react';import {createRoot} from 'react-dom/client';import {VisualPlanningPanel} from './flows/default-construction/visual/VisualPlanningPanel';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('?pdf=1')?original('/plan.pdf'):original(url,options);createRoot(document.getElementById('root')).render(<main style={{padding:20,height:'100dvh'}}><VisualPlanningPanel drawing={${JSON.stringify(fixture)}} siteId="demo" sidebarOpen onDirtyChange={()=>{}}/></main>);`
+						: `import React from 'react';import {createRoot} from 'react-dom/client';import VisualView from './flows/default-construction/visual/VisualView';const original=window.fetch;window.fetch=(url,options)=>String(url).includes('/api/sites/')&&!String(url).includes('/section-drawing?')?(String(url).includes('?pdf=1')?original('/plan.pdf'):Promise.resolve(new Response(JSON.stringify(window.__visualPreviewDrawing??${JSON.stringify(fixture)})))):original(url,options);createRoot(document.getElementById('root')).render(<main style={{maxWidth:1700,margin:'0 auto',padding:20}}><VisualView siteId="demo"/></main>);`,
 		loader: "tsx",
 		resolveDir: root,
 	},
@@ -218,6 +223,26 @@ const bundled = await build({
 		{
 			name: "isolated-visual-preview",
 			setup(build) {
+				if (workspacePreview) {
+					modules["workspace-diary"] =
+						`import React,{useEffect} from 'react';import {useProjectPreparationReporter} from './components/providers/ProjectLoadingProgressProvider';export default function Diary(){const report=useProjectPreparationReporter('demo');useEffect(()=>{const timer=setTimeout(()=>{report('settings');report('diary')},1800);return()=>clearTimeout(timer)},[report]);return <section style={{padding:24}}><h1>Būvdarbu žurnāls · preview</h1><input aria-label="Žurnāla filtrs" placeholder="Filtrēt darbus" style={{border:'1px solid #aaa',padding:8}}/></section>}`;
+					modules["workspace-forma2"] =
+						`import React from 'react';export function DefaultConstructionForma2View({data}){return <section style={{padding:24}}><h1>{data.siteName}</h1><input aria-label="Forma 2 filtrs" placeholder="Filtrēt pozīcijas" style={{border:'1px solid #aaa',padding:8}}/><p>Saglabāts Forma 2 priekšskatījums</p></section>}`;
+					modules["workspace-queue"] =
+						`export function useDiarySaveQueue(){return {snapshot:{revision:0,items:[]}}}`;
+					build.onResolve(
+						{ filter: /components\/sitediary\/SiteDiaryList$/ },
+						() => ({ path: "workspace-diary", namespace: "fixture" }),
+					);
+					build.onResolve({ filter: /DefaultConstructionForma2View$/ }, () => ({
+						path: "workspace-forma2",
+						namespace: "fixture",
+					}));
+					build.onResolve({ filter: /DiarySaveProvider$/ }, () => ({
+						path: "workspace-queue",
+						namespace: "fixture",
+					}));
+				}
 				build.onResolve({ filter: /^next\/navigation$/ }, () => ({
 					path: "navigation",
 					namespace: "fixture",
@@ -234,6 +259,10 @@ const bundled = await build({
 					args.importer.includes("visual")
 						? { path: "actions", namespace: "fixture" }
 						: null,
+				);
+				build.onResolve(
+					{ filter: /flows\/default-construction\/visual\/actions$/ },
+					() => ({ path: "actions", namespace: "fixture" }),
 				);
 				build.onResolve({ filter: /UploadthingsComponents$/ }, () => ({
 					path: "upload",
@@ -253,7 +282,7 @@ const bundled = await build({
 				}));
 				build.onLoad({ filter: /.*/, namespace: "fixture" }, (args) => ({
 					contents: modules[args.path],
-					loader: "js",
+					loader: args.path.startsWith("workspace-") ? "jsx" : "js",
 					resolveDir: root,
 				}));
 			},

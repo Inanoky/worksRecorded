@@ -57,6 +57,39 @@ afterEach(() => {
 	global.fetch = originalFetch;
 });
 
+it("starts every floor download and planning load together and retains all four parsed PDFs", async () => {
+	const cache = new VisualClientCache("site");
+	let finish!: (value: VisualPlanningIndex) => void;
+	const planning = new Promise<VisualPlanningIndex>((resolve) => {
+		finish = resolve;
+	});
+	const load = jest.fn(() => planning);
+	const floors = [1, 2, 3, 4].map((floor) => ({ id: `floor-${floor}` }));
+	const prepared = cache.prepareProject(floors, load, jest.fn());
+	await waitForPreparation();
+	expect(load).toHaveBeenCalledTimes(4);
+	expect(
+		jest
+			.mocked(global.fetch)
+			.mock.calls.filter(([url]) => String(url).endsWith("?pdf=1")),
+	).toHaveLength(4);
+	finish(planningIndex);
+	await prepared;
+	expect(mockGetDocument).toHaveBeenCalledTimes(4);
+	for (const floor of [...floors, ...floors].reverse()) {
+		const lease = cache.openPdf(`${cache.endpoint(floor.id)}?pdf=1`);
+		await lease.promise;
+		lease.release();
+	}
+	expect(mockGetDocument).toHaveBeenCalledTimes(4);
+	expect(mockDestroy).not.toHaveBeenCalled();
+	cache.clear();
+});
+
+async function waitForPreparation() {
+	for (let i = 0; i < 20; i++) await Promise.resolve();
+}
+
 it("deduplicates drawing loads and scopes cached data to one project", async () => {
 	const cache = new VisualClientCache("site");
 	const [first, second] = await Promise.all([

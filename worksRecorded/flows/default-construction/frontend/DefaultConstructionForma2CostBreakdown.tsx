@@ -1,7 +1,6 @@
 "use client";
 
 import { FileText, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +25,7 @@ import { formatForma2PositionLabel } from "../lib/forma2-position-label";
 import { DefaultConstructionForma2AssignmentSelect } from "./DefaultConstructionForma2AssignmentSelect";
 import { DefaultConstructionForma2InvoicePreview } from "./DefaultConstructionForma2InvoicePreview";
 import { DefaultConstructionForma2SplitEditor } from "./DefaultConstructionForma2SplitEditor";
+import { useForma2Refresh } from "./forma2-client-refresh";
 
 type CostType = "work" | "material" | "total";
 type CostDetails = Awaited<
@@ -68,7 +68,7 @@ export function DefaultConstructionForma2CostBreakdown({
 	amount: number;
 	organizationLanguage?: string | null;
 }) {
-	const router = useRouter();
+	const refreshForma2 = useForma2Refresh(siteId);
 	const isLatvian = String(organizationLanguage ?? "")
 		.toLowerCase()
 		.startsWith("lv");
@@ -139,7 +139,7 @@ export function DefaultConstructionForma2CostBreakdown({
 	};
 	const refreshAfterAssignment = async () => {
 		await showDetails();
-		router.refresh();
+		refreshForma2();
 	};
 
 	return (

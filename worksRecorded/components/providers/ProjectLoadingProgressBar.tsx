@@ -14,9 +14,11 @@ export type ProjectLoadingProgress = {
 export function ProjectLoadingProgressBar({
 	label,
 	progress,
+	compact = false,
 }: {
 	label: string;
 	progress?: ProjectLoadingProgress | null;
+	compact?: boolean;
 }) {
 	const value =
 		progress &&
@@ -49,7 +51,7 @@ export function ProjectLoadingProgressBar({
 					style={value === undefined ? undefined : { width: `${value}%` }}
 				/>
 			</div>
-			{progress?.steps ? (
+			{!compact && progress?.steps ? (
 				<ol className="mt-3 space-y-1 text-left text-xs">
 					{progress.steps.map((step, index) => (
 						<li

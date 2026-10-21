@@ -485,6 +485,20 @@ export class VisualClientCache {
 				total: ids.length,
 			});
 		let next = 0;
+		let rendering = 0;
+		const waiting: Array<() => void> = [];
+		const render = async (work: () => Promise<unknown>) => {
+			if (rendering >= 2)
+				await new Promise<void>((resolve) => waiting.push(resolve));
+			else rendering++;
+			try {
+				await work();
+			} finally {
+				const resume = waiting.shift();
+				if (resume) resume();
+				else rendering--;
+			}
+		};
 		const worker = async () => {
 			while (next < ids.length && !cancelled()) {
 				const id = ids[next++];
@@ -505,10 +519,12 @@ export class VisualClientCache {
 							this.previewPixels.set(url, pixels);
 							for (let page = 1; page <= pdf.numPages; page++) {
 								if (cancelled()) return;
-								await Promise.all([
-									this.renderPreview(url, page, pdf, pixels),
-									this.loadPageMeasurement(url, page, pdf),
-								]);
+								await render(() =>
+									Promise.all([
+										this.renderPreview(url, page, pdf, pixels),
+										this.loadPageMeasurement(url, page, pdf),
+									]),
+								);
 							}
 						} finally {
 							lease.release();
@@ -517,7 +533,7 @@ export class VisualClientCache {
 				]);
 			}
 		};
-		await Promise.all(Array.from({ length: Math.min(2, ids.length) }, worker));
+		await Promise.all(Array.from({ length: ids.length }, worker));
 	}
 
 	async prefetch(
@@ -699,7 +715,13 @@ export class VisualClientCache {
 
 	private trimPdfs() {
 		for (const [url, entry] of this.pdfs) {
-			if (this.pdfs.size <= 3) break;
+			if (this.pdfs.size <= Math.max(3, this.preparedDrawings.size)) break;
+			if (
+				[...this.preparedDrawings].some(
+					(id) => `${this.endpoint(id)}?pdf=1` === url,
+				)
+			)
+				continue;
 			if (entry.references === 0) this.destroyPdf(url, entry);
 		}
 	}

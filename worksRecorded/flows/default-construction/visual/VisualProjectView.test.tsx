@@ -130,6 +130,7 @@ function CompletePreparation({
 			"visual-index",
 			"visual-drawing",
 			"visual-planning",
+			"forma2",
 		])
 			report(step);
 		if (ready) report("visual-preview", failed ? "error" : "done");

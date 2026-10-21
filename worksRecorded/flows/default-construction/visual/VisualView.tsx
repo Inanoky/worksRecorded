@@ -109,6 +109,7 @@ import {
 	VISUAL_PLANNING_CACHE_INVALIDATED,
 	VisualClientCache,
 } from "./visual-client-cache";
+import { fetchVisualIndex, fetchVisualPlanning } from "./visual-read-client";
 
 type Index = Awaited<ReturnType<typeof getVisualDrawings>>;
 function firstAssignedDrawing(index: Index) {
@@ -269,8 +270,11 @@ export default function VisualView({
 	}, []);
 	const loadIndex = useCallback(
 		(force = false) =>
-			resourceCache.loadIndex(() => getVisualDrawings(siteId), { force }),
-		[resourceCache, siteId],
+			resourceCache.loadIndex(
+				() => (preload ? fetchVisualIndex(siteId) : getVisualDrawings(siteId)),
+				{ force },
+			),
+		[resourceCache, siteId, preload],
 	);
 	useEffect(() => () => resourceCache.clear(), [resourceCache]);
 	useEffect(() => {
@@ -306,7 +310,7 @@ export default function VisualView({
 					void resourceCache
 						.prepareProject(
 							data.drawings,
-							(id) => getVisualPlanning(siteId, id),
+							(id) => fetchVisualPlanning(siteId, id),
 							(step, status, counts) => {
 								if (run === epoch.current)
 									reportPreparation(step, status, counts);

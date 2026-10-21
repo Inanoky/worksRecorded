@@ -1,7 +1,6 @@
 "use client";
 
 import { Link2, Loader2, Search, Sparkles } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +30,7 @@ import {
 	getForma2AnalyticsLocale,
 } from "@/flows/default-construction/lib/forma2-analytics-copy";
 import { DefaultConstructionForma2SplitEditor } from "./DefaultConstructionForma2SplitEditor";
+import { useForma2Refresh } from "./forma2-client-refresh";
 
 type MappingData = Awaited<
 	ReturnType<typeof getDefaultConstructionForma2MappingPage>
@@ -64,7 +64,7 @@ export function DefaultConstructionForma2MappingTable({
 }) {
 	const t = getForma2AnalyticsCopy(organizationLanguage);
 	const locale = getForma2AnalyticsLocale(organizationLanguage);
-	const router = useRouter();
+	const refreshForma2 = useForma2Refresh(siteId);
 	const [selectedRow, setSelectedRow] = useState<MappingRow | null>(null);
 	const [positionSearch, setPositionSearch] = useState("");
 	const [saving, setSaving] = useState(false);
@@ -110,7 +110,7 @@ export function DefaultConstructionForma2MappingTable({
 			});
 			setSelectedRow(null);
 			setPositionSearch("");
-			router.refresh();
+			refreshForma2();
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : t.saveError);
 		} finally {
@@ -130,7 +130,7 @@ export function DefaultConstructionForma2MappingTable({
 				error?: string;
 			};
 			if (!response.ok) throw new Error(result.error || t.saveError);
-			router.refresh();
+			refreshForma2();
 			toast.success(t.suggestionsApplied(Number(result.assignedRecords) || 0));
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : t.saveError);
@@ -233,7 +233,7 @@ export function DefaultConstructionForma2MappingTable({
 													sourceId={row.id}
 													isSplit={Boolean(row.split)}
 													organizationLanguage={organizationLanguage}
-													onSaved={() => router.refresh()}
+													onSaved={() => refreshForma2()}
 												/>
 											</div>
 										) : null}
