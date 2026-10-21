@@ -85,3 +85,11 @@ Public links use a random document UUID plus a 256-bit secret, with only its SHA
 Mocked tests cover organization/project scope, selected-location snapshots, concurrent writes, retry/resume, model-output validation, unsafe PDF URLs, PDF size/page limits, rendering, layer toggles and uploads. No real model or production database is called by these tests.
 
 Before rollout, verify with a real Limeni base drawing and its marked-up diary images, including a rotated crop, a different floor and an unrelated building. Review every proposed region against the source; this quality calibration is not replaced by the unit tests.
+
+## Limeni project opening
+
+Limeni prepares the journal, every assigned drawing and its execution/planning data, and Forma 2 when entering any project section. The shared project layout owns one progress-only opening screen; nested route and diary loaders do not cover the workspace. Readiness includes Forma 2 and the journal even on direct links into another section. The components remain mounted when changing sections, retaining drafts, filters, floor selection and PDF state. Project changes or browser reloads discard this project session. Other organizations retain their existing routes and loaders.
+
+Floor metadata, planning reads and PDF downloads start concurrently through authenticated, private GET routes. PDF preview rendering is limited to two jobs; prepared floors keep their parsed PDFs for the project session, with the existing bounded raster preview budget. Startup progress measures completed resources rather than elapsed time.
+
+Forma 2 retains its last successful snapshot during background checks on return/focus and every minute while visible. Checks pause during text entry and open dialogs. Mutations invalidate the retained snapshot without router refresh; source diary changes invalidate its results too. Conditional requests return 304 when the data is unchanged. Failed background checks retain visible data with an inline retry and never reopen the project loading screen.

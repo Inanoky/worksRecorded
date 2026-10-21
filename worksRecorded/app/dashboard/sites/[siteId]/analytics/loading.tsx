@@ -1,7 +1,12 @@
+"use client";
+
 import { Loader2 } from "lucide-react";
+import { useProjectPreparationManaged } from "@/components/providers/ProjectLoadingProgressProvider";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function AnalyticsLoading() {
+	const managed = useProjectPreparationManaged();
+	if (managed) return null;
 	return (
 		<div className="space-y-4">
 			<div className="h-8 w-48 animate-pulse rounded-md bg-muted" />

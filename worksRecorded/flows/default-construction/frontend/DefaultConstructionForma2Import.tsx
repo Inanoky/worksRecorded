@@ -7,7 +7,6 @@ import {
 	Trash2,
 	Upload,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +29,7 @@ import type {
 	Forma2ExtractionProgress,
 	Forma2ExtractionStreamEvent,
 } from "@/flows/default-construction/lib/forma2-extraction-progress";
+import { useForma2Refresh } from "./forma2-client-refresh";
 
 type DocumentMetadata = {
 	id: string;
@@ -176,7 +176,7 @@ export function DefaultConstructionForma2Import({
 	document: DocumentMetadata;
 }) {
 	const t = getForma2AnalyticsCopy(organizationLanguage);
-	const router = useRouter();
+	const refreshForma2 = useForma2Refresh(siteId);
 	const sheetSelectId = useId();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [parsedSheets, setParsedSheets] = useState<ParsedForma2Sheet[]>([]);
@@ -328,7 +328,7 @@ export function DefaultConstructionForma2Import({
 				label: t.finishingImport,
 				active: false,
 			});
-			router.refresh();
+			refreshForma2();
 			if (assignmentSucceeded) {
 				toast.success(
 					t.importAndAssignmentSuccess(
@@ -353,7 +353,7 @@ export function DefaultConstructionForma2Import({
 		setSaving(true);
 		try {
 			await clearDefaultConstructionForma2Import(siteId);
-			router.refresh();
+			refreshForma2();
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : t.saveError);
 		} finally {

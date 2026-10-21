@@ -37,11 +37,7 @@ export function VisualProjectView({
 	const reset = useProjectPreparationReset(siteId);
 	const [visited, setVisited] = useState(active || preload);
 	const [opened, setOpened] = useState(!preload);
-	const requiredSteps = progress?.steps?.filter(
-		(step) =>
-			pathname === `/dashboard/sites/${siteId}/dashboard` ||
-			!["Projekta iestatījumi", "Būvdarbu žurnāls"].includes(step.label),
-	);
+	const requiredSteps = progress?.steps;
 	const pending =
 		!requiredSteps || requiredSteps.some((step) => step.status === "pending");
 	const failed = requiredSteps?.some((step) => step.status === "error");
@@ -58,7 +54,7 @@ export function VisualProjectView({
 		if (!pending && !failed) setOpened(true);
 	}, [pending, failed]);
 	return (
-		<ProjectPreparationScope siteId={siteId}>
+		<ProjectPreparationScope siteId={siteId} managed={preload}>
 			<div inert={preparing || undefined} aria-hidden={preparing || undefined}>
 				{children}
 			</div>
@@ -81,6 +77,7 @@ export function VisualProjectView({
 			</section>
 			{preparing ? (
 				<ProjectOpeningOverlay
+					primary
 					label="Sagatavo projektu…"
 					siteId={siteId}
 					progress={

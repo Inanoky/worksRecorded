@@ -1,7 +1,6 @@
 "use client";
 
 import { Loader2, Pencil } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { updateDefaultConstructionForma2ContractPosition } from "@/flows/default-construction/backend/forma2-analytics-actions";
 import type { Forma2ResultRow } from "@/flows/default-construction/lib/forma2-analytics";
 import { getForma2AnalyticsCopy } from "@/flows/default-construction/lib/forma2-analytics-copy";
+import { useForma2Refresh } from "./forma2-client-refresh";
 
 type ContractFields = {
 	plannedQuantity: string;
@@ -65,7 +65,7 @@ export function DefaultConstructionForma2ContractEditor({
 	organizationLanguage?: string | null;
 }) {
 	const t = getForma2AnalyticsCopy(organizationLanguage);
-	const router = useRouter();
+	const refreshForma2 = useForma2Refresh(siteId);
 	const id = useId();
 	const [open, setOpen] = useState(false);
 	const [saving, setSaving] = useState(false);
@@ -114,7 +114,7 @@ export function DefaultConstructionForma2ContractEditor({
 				plannedTotalCost: total,
 			});
 			setOpen(false);
-			router.refresh();
+			refreshForma2();
 			toast.success(t.contractUpdated);
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : t.saveError);

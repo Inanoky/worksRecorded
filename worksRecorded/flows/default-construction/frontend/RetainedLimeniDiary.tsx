@@ -13,6 +13,10 @@ import {
 	useRef,
 	useState,
 } from "react";
+import {
+	useProjectPreparationReporter,
+	useVisualProjectPreload,
+} from "@/components/providers/ProjectLoadingProgressProvider";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 
 const Diary = lazy(() => import("@/components/sitediary/SiteDiaryList"));
@@ -38,6 +42,33 @@ export function RetainedLimeniDiary({
 	children: ReactNode;
 }) {
 	const [settings, setSettings] = useState<DiarySettings | null>(null);
+	const preload = useVisualProjectPreload(siteId);
+	const report = useProjectPreparationReporter(siteId);
+	useEffect(() => {
+		if (!preload) return;
+		const controller = new AbortController();
+		void Promise.all([
+			import("@/components/sitediary/SiteDiaryList"),
+			fetch(`/api/sites/${encodeURIComponent(siteId)}/limeni-workspace`, {
+				signal: controller.signal,
+				cache: "no-store",
+			}).then(async (response) => {
+				if (!response.ok) throw new Error("Project unavailable");
+				return (await response.json()) as DiarySettings;
+			}),
+		]).then(
+			([, loaded]) => {
+				if (controller.signal.aborted || loaded.siteId !== siteId) return;
+				setSettings(loaded);
+			},
+			() => {
+				if (controller.signal.aborted) return;
+				report("settings", "error");
+				report("diary", "error");
+			},
+		);
+		return () => controller.abort();
+	}, [preload, siteId, report]);
 	const active = usePathname() === `/dashboard/sites/${siteId}/dashboard`;
 	const scroll = useRef(0);
 	const visited = useRef(false);

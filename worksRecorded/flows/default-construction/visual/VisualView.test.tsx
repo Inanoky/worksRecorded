@@ -52,6 +52,12 @@ jest.mock("./actions", () => ({
 	resolveVisualSourceReview: jest.fn(),
 	saveVisualLayers: jest.fn(),
 }));
+jest.mock("./visual-read-client", () => ({
+	fetchVisualIndex: (...args: unknown[]) =>
+		getVisualDrawings(...(args as [string])),
+	fetchVisualPlanning: (...args: unknown[]) =>
+		getVisualPlanning(...(args as [string, string])),
+}));
 jest.mock("./VisualPdf", () => ({
 	VisualPdf: ({
 		marks,

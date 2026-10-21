@@ -97,13 +97,22 @@ it("shows the real project stages and updates percentages when work completes", 
 		</ProjectLoadingProgressProvider>
 	);
 	const view = render(content(false, false));
-	expect(screen.getByRole("progressbar")).toHaveAttribute("value", "12.5");
-	expect(screen.getByText(/Izpildes zonas/)).toBeInTheDocument();
+	expect(screen.getByRole("progressbar")).toHaveAttribute(
+		"value",
+		String(100 / 9),
+	);
+	expect(screen.queryByText(/Izpildes zonas/)).not.toBeInTheDocument();
 	view.rerender(content(true, false));
-	expect(screen.getByRole("progressbar")).toHaveAttribute("value", "25");
+	expect(screen.getByRole("progressbar")).toHaveAttribute(
+		"value",
+		String(200 / 9),
+	);
 	view.rerender(content(true, true));
-	expect(screen.getByRole("progressbar")).toHaveAttribute("value", "37.5");
-	expect(screen.getByText("38%")).toBeInTheDocument();
+	expect(screen.getByRole("progressbar")).toHaveAttribute(
+		"value",
+		String((3 / 9) * 100),
+	);
+	expect(screen.getByText("33%")).toBeInTheDocument();
 });
 
 it("shows Limeni loading stages to an administrator without enabling them for other projects", () => {
@@ -119,7 +128,7 @@ it("shows Limeni loading stages to an administrator without enabling them for ot
 	expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
 	view.rerender(content("limeni"));
 	expect(screen.getByRole("progressbar")).toHaveAttribute("value", "0");
-	expect(screen.getByText(/Izpildes zonas/)).toBeInTheDocument();
+	expect(screen.queryByText(/Izpildes zonas/)).not.toBeInTheDocument();
 });
 
 it("reports partial floor preparation without marking the whole stage ready", () => {
@@ -135,8 +144,9 @@ it("reports partial floor preparation without marking the whole stage ready", ()
 			<Floors />
 		</ProjectLoadingProgressProvider>,
 	);
-	expect(screen.getByRole("progressbar")).toHaveAttribute("value", "3.125");
-	expect(screen.getByText(/Visas rasējumu lapas/)).toHaveTextContent(
-		"1/4 · Gaida",
+	expect(screen.getByRole("progressbar")).toHaveAttribute(
+		"value",
+		String((0.25 / 9) * 100),
 	);
+	expect(screen.queryByRole("list")).not.toBeInTheDocument();
 });
