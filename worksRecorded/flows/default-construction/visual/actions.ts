@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createPerfTrace } from "@/lib/observability/perf";
 import { requireUser } from "@/lib/utils/requireUser";
+import { persistVisualDrawingScale } from "./drawing-scale-store";
 import { persistVisualLayers } from "./layer-store";
 import {
 	archiveVisualPlanningContact,
@@ -59,6 +60,15 @@ export async function saveVisualLayers(
 export async function getVisualWorkTypes(siteId: string) {
 	const user = await requireUser();
 	return listVisualWorkTypes(user.id, siteId);
+}
+
+export async function saveVisualDrawingScale(
+	siteId: string,
+	drawingId: string,
+	input: unknown,
+) {
+	const user = await requireUser();
+	return persistVisualDrawingScale(user.id, siteId, drawingId, input);
 }
 
 export async function addVisualRecord(

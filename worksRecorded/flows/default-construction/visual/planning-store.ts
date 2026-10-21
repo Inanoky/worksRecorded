@@ -54,6 +54,8 @@ function whatsAppFailureReason(providerError: string | null) {
 	if (!providerError) return "Meta piegāde neizdevās.";
 	try {
 		const errors = JSON.parse(providerError);
+		if (Array.isArray(errors) && errors.some((error) => error?.code === 131047))
+			return "Saņēmējs nav atbildējis pēdējo 24 stundu laikā. Nosūtiet atkārtoti ar apstiprinātu WhatsApp veidni vai lūdziet saņēmējam atbildēt.";
 		if (Array.isArray(errors) && errors[0]?.code === 131042) {
 			const details = String(
 				errors[0]?.error_data?.details ?? "",

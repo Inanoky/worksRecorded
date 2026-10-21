@@ -46,7 +46,9 @@ import {
 	archiveVisualPlanningItem,
 	getVisualPlanning,
 	restoreVisualPlanningItem,
+	saveVisualDrawingScale,
 } from "./actions";
+import { isAreaUnit, roundedArea } from "./drawing-scale";
 import {
 	defaultVisualLayerSettings,
 	resolveVisualWorkLayer,
@@ -82,6 +84,7 @@ type PlanningDraft = {
 	work: string;
 	unit: string;
 	quantity: string;
+	automaticQuantity: boolean;
 	section: string | null;
 	startDate: string;
 	endDate: string;
@@ -201,6 +204,7 @@ function emptyDraft(
 		work: firstWork?.work ?? "",
 		unit: firstWork?.unit || index.unitOptions[0] || "",
 		quantity: "",
+		automaticQuantity: true,
 		section: null,
 		startDate,
 		endDate: startDate,
@@ -217,6 +221,7 @@ function draftFromPlan(plan: VisualPlan): PlanningDraft {
 		work: plan.work,
 		unit: plan.unit,
 		quantity: String(plan.quantity),
+		automaticQuantity: plan.geometry.quantitySource === "area",
 		section: plan.geometry.section ?? null,
 		startDate: plan.startDate,
 		endDate: plan.endDate,
@@ -273,6 +278,55 @@ export function VisualPlanningPanel({
 		() => cache.peekPlanning(drawing.id) ?? null,
 	);
 	const [draft, setDraft] = useState<PlanningDraft | null>(null);
+	const [measuredArea, setMeasuredArea] = useState<number | null>(null);
+	const [pageScales, setPageScales] = useState<Record<string, number>>(
+		() => drawing.state.pageScales ?? {},
+	);
+	const scaleRequests = useRef<Record<number, number>>({});
+	const scaleScope = useRef(drawing.id);
+	useEffect(() => {
+		scaleScope.current = drawing.id;
+		setPageScales(drawing.state.pageScales ?? {});
+	}, [drawing.id, drawing.state.pageScales]);
+	const changeScale = useCallback(
+		async (page: number, scale: number | null) => {
+			const expected = pageScales[page] ?? null;
+			const request = (scaleRequests.current[page] ?? 0) + 1;
+			scaleRequests.current[page] = request;
+			const apply = (scale: number | null) => {
+				setPageScales((current) => {
+					const next = { ...current };
+					if (scale === null) delete next[page];
+					else next[page] = scale;
+					return next;
+				});
+				const current = cache.peekDrawing(drawing.id) ?? drawing;
+				const pageScales = { ...current.state.pageScales };
+				if (scale === null) delete pageScales[page];
+				else pageScales[page] = scale;
+				cache.rememberDrawing({
+					...current,
+					state: { ...current.state, pageScales },
+				});
+			};
+			apply(scale);
+			try {
+				await saveVisualDrawingScale(siteId, drawing.id, {
+					page,
+					scale,
+					expected,
+				});
+			} catch (error) {
+				if (
+					scaleScope.current === drawing.id &&
+					scaleRequests.current[page] === request
+				)
+					apply(expected);
+				throw error;
+			}
+		},
+		[cache, drawing, pageScales, siteId],
+	);
 	const [selectedArea, setSelectedArea] =
 		useState<VisualPlanAreaSelection | null>(null);
 	const [areaRequest, setAreaRequest] = useState(0);
@@ -280,6 +334,27 @@ export function VisualPlanningPanel({
 	const [planningSession, setPlanningSession] = useState(0);
 	const [dirty, setDirty] = useState(false);
 	const [areaEditing, setAreaEditing] = useState(false);
+	const onMeasuredAreaChange = useCallback(
+		(area: number | null) => {
+			setMeasuredArea(area);
+			if (
+				area !== null &&
+				draft?.automaticQuantity &&
+				isAreaUnit(draft.unit) &&
+				!draft.archivedAt &&
+				!areaEditing &&
+				roundedArea(area) !== Number(draft.quantity)
+			)
+				setDirty(true);
+		},
+		[
+			draft?.automaticQuantity,
+			draft?.unit,
+			draft?.archivedAt,
+			draft?.quantity,
+			areaEditing,
+		],
+	);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [showArchived, setShowArchived] = useState(false);
@@ -563,7 +638,16 @@ export function VisualPlanningPanel({
 			areaEditing
 		)
 			return;
-		const quantity = Number(draft.quantity);
+		const automaticQuantity = draft.automaticQuantity && isAreaUnit(draft.unit);
+		if (automaticQuantity && measuredArea === null) {
+			setError(
+				"Norādiet rasējuma mērogu, lai aprēķinātu laukumu, vai ievadiet apjomu manuāli.",
+			);
+			return;
+		}
+		const quantity = automaticQuantity
+			? roundedArea(measuredArea ?? 0)
+			: Number(draft.quantity);
 		if (!draft.work || !draft.unit) {
 			setError("Izvēlieties darbu un mērvienību.");
 			return;
@@ -603,6 +687,7 @@ export function VisualPlanningPanel({
 				geometry: {
 					version: 1,
 					areas: draft.areas,
+					...(automaticQuantity ? { quantitySource: "area" as const } : {}),
 					...(draft.section ? { section: draft.section } : {}),
 				},
 			});
@@ -774,6 +859,9 @@ export function VisualPlanningPanel({
 					selected={null}
 					onSelect={() => {}}
 					planning={{
+						pageScales,
+						onScaleChange: changeScale,
+						onAreaChange: onMeasuredAreaChange,
 						planId: draft?.id ?? null,
 						interactionKey: `${draft ? (draft.id ?? "new") : "closed"}:${planningSession}`,
 						areas: activePlanVisible ? (draft?.areas ?? []) : [],
@@ -1103,10 +1191,19 @@ export function VisualPlanningPanel({
 										type="number"
 										min="0"
 										step="any"
-										value={draft.quantity}
+										value={
+											draft.automaticQuantity && isAreaUnit(draft.unit)
+												? measuredArea === null || measuredArea === 0
+													? ""
+													: roundedArea(measuredArea)
+												: draft.quantity
+										}
 										disabled={saving || !!draft.archivedAt}
 										onChange={(event) =>
-											changeDraft({ quantity: event.target.value })
+											changeDraft({
+												quantity: event.target.value,
+												automaticQuantity: false,
+											})
 										}
 									/>
 								</div>
@@ -1133,6 +1230,35 @@ export function VisualPlanningPanel({
 								</div>
 							</div>
 
+							{isAreaUnit(draft.unit) ? (
+								<div className="space-y-1">
+									<label
+										htmlFor={`${fieldId}-area-quantity`}
+										className="flex items-center gap-2 text-xs"
+									>
+										<Switch
+											id={`${fieldId}-area-quantity`}
+											checked={draft.automaticQuantity}
+											disabled={saving || !!draft.archivedAt}
+											onCheckedChange={(automaticQuantity) =>
+												changeDraft({
+													automaticQuantity,
+													quantity:
+														!automaticQuantity && measuredArea !== null
+															? String(roundedArea(measuredArea))
+															: draft.quantity,
+												})
+											}
+										/>
+										Apjoms no zonas (m²)
+									</label>
+									{draft.automaticQuantity && measuredArea === null ? (
+										<p className="text-xs text-muted-foreground">
+											Laukumam vajadzīgs lapas mērogs un derīga zonas kontūra.
+										</p>
+									) : null}
+								</div>
+							) : null}
 							<VisualSectionSelect
 								siteId={siteId}
 								value={draft.section}

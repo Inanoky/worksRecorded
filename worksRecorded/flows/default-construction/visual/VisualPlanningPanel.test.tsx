@@ -13,6 +13,7 @@ import {
 	archiveVisualPlanningItem,
 	getVisualPlanning,
 	restoreVisualPlanningItem,
+	saveVisualDrawingScale,
 	saveVisualPlanningItem,
 } from "./actions";
 import type { VisualDrawing } from "./model";
@@ -35,6 +36,7 @@ jest.mock("./actions", () => ({
 	saveVisualPlanningItem: jest.fn(),
 	archiveVisualPlanningItem: jest.fn(),
 	restoreVisualPlanningItem: jest.fn(),
+	saveVisualDrawingScale: jest.fn(),
 }));
 jest.mock("./planning-whatsapp-send-client", () => ({
 	sendPlanningWhatsAppTask: jest.fn(),
@@ -57,6 +59,8 @@ jest.mock("./VisualPdf", () => ({
 			>;
 			areaRequest?: number;
 			color?: string;
+			onAreaChange?: (squareMetres: number | null) => void;
+			onScaleChange?: (page: number, scale: number | null) => Promise<void>;
 			onChange: (areas: VisualPlanArea[]) => void;
 			onEditingChange?: (editing: boolean) => void;
 			onSelectArea: (
@@ -100,6 +104,15 @@ jest.mock("./VisualPdf", () => ({
 				</button>
 				<button type="button" onClick={() => planning?.onEditingChange?.(true)}>
 					Sākt zonas rediģēšanu
+				</button>
+				<button type="button" onClick={() => planning?.onAreaChange?.(42.56)}>
+					Laukuma priekšskatījums
+				</button>
+				<button
+					type="button"
+					onClick={() => void planning?.onScaleChange?.(1, 50)}
+				>
+					Mainīt mērogu
 				</button>
 				<button
 					type="button"
@@ -216,6 +229,89 @@ const planningContact = {
 	phone: "37120000000",
 	archivedAt: null,
 };
+
+it("updates m² quantity from the live polygon measurement and preserves a manual override", async () => {
+	render(
+		<VisualPlanningPanel
+			siteId="22222222-2222-4222-8222-222222222222"
+			drawing={drawing}
+			sidebarOpen
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	await waitFor(() => expect(sidebarAddZone()).toBeEnabled());
+	fireEvent.click(sidebarAddZone());
+	fireEvent.click(screen.getByRole("button", { name: "Uzzīmēt testu zonu" }));
+	fireEvent.click(
+		screen.getByRole("button", { name: "Laukuma priekšskatījums" }),
+	);
+	expect(screen.getByLabelText("Plānotais apjoms")).toHaveValue(42.56);
+	expect(saveVisualPlanningItem).not.toHaveBeenCalled();
+	fireEvent.change(screen.getByLabelText("Plānotais apjoms"), {
+		target: { value: "50" },
+	});
+	fireEvent.click(
+		screen.getByRole("button", { name: "Laukuma priekšskatījums" }),
+	);
+	expect(screen.getByLabelText("Plānotais apjoms")).toHaveValue(50);
+	expect(
+		screen.getByRole("switch", { name: "Apjoms no zonas (m²)" }),
+	).not.toBeChecked();
+});
+
+it("saves the calculated amount and remembers that it comes from geometry", async () => {
+	render(
+		<VisualPlanningPanel
+			siteId="22222222-2222-4222-8222-222222222222"
+			drawing={drawing}
+			sidebarOpen
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	await waitFor(() => expect(sidebarAddZone()).toBeEnabled());
+	fireEvent.click(sidebarAddZone());
+	fireEvent.click(screen.getByRole("button", { name: "Uzzīmēt testu zonu" }));
+	fireEvent.click(
+		screen.getByRole("button", { name: "Laukuma priekšskatījums" }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt plānu" }));
+	await waitFor(() =>
+		expect(saveVisualPlanningItem).toHaveBeenCalledWith(
+			expect.objectContaining({
+				quantity: 42.56,
+				geometry: expect.objectContaining({ quantitySource: "area" }),
+			}),
+		),
+	);
+});
+
+it("applies a scale correction locally before its background save completes", async () => {
+	let finish!: (value: Record<string, number>) => void;
+	jest.mocked(saveVisualDrawingScale).mockImplementation(
+		() =>
+			new Promise((resolve) => {
+				finish = resolve;
+			}),
+	);
+	const cache = new VisualClientCache("site");
+	render(
+		<VisualPlanningPanel
+			siteId="site"
+			drawing={drawing}
+			resourceCache={cache}
+			sidebarOpen
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	fireEvent.click(await screen.findByRole("button", { name: "Mainīt mērogu" }));
+	expect(cache.peekDrawing(drawing.id)?.state.pageScales).toEqual({ 1: 50 });
+	expect(saveVisualDrawingScale).toHaveBeenCalledWith("site", "drawing", {
+		page: 1,
+		scale: 50,
+		expected: null,
+	});
+	await act(async () => finish({ 1: 50 }));
+});
 function sidebarAddZone() {
 	return within(
 		screen.getByRole("complementary", { name: "Darbu plānošana" }),

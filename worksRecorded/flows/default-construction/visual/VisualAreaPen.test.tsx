@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useEffect, useRef, useState } from "react";
 import { type AreaPenMode, VisualAreaPen } from "./VisualAreaPen";
 
@@ -30,10 +30,12 @@ function Harness({
 	mode = "polygon",
 	onComplete = jest.fn(),
 	onCancel = jest.fn(),
+	onPreviewChange,
 }: {
 	mode?: AreaPenMode;
 	onComplete?: jest.Mock;
 	onCancel?: jest.Mock;
+	onPreviewChange?: jest.Mock;
 }) {
 	const surface = useRef<HTMLDivElement>(null);
 	const viewport = useRef<HTMLElement>(null);
@@ -50,6 +52,7 @@ function Harness({
 						color="#16a34a"
 						onComplete={onComplete}
 						onCancel={onCancel}
+						onPreviewChange={onPreviewChange}
 					/>
 				) : null}
 			</div>
@@ -77,6 +80,32 @@ it("places normalized corners on a zoomed surface and closes at the first point 
 		{ x: 0.8, y: 0.1 },
 		{ x: 0.8, y: 0.8 },
 	]);
+});
+
+it("updates the area preview as the pointer moves and does not duplicate the last clicked corner", async () => {
+	const onPreviewChange = jest.fn();
+	render(<Harness onPreviewChange={onPreviewChange} />);
+	click(0.1, 0.1);
+	click(0.8, 0.1);
+	fireEvent.pointerMove(screen.getByRole("application"), {
+		clientX: 1700,
+		clientY: 850,
+	});
+	await waitFor(() =>
+		expect(onPreviewChange).toHaveBeenLastCalledWith([
+			{ x: 0.1, y: 0.1 },
+			{ x: 0.8, y: 0.1 },
+			{ x: 0.8, y: 0.8 },
+		]),
+	);
+	click(0.8, 0.8);
+	await waitFor(() =>
+		expect(onPreviewChange).toHaveBeenLastCalledWith([
+			{ x: 0.1, y: 0.1 },
+			{ x: 0.8, y: 0.1 },
+			{ x: 0.8, y: 0.8 },
+		]),
+	);
 });
 it("finishes with double-click, ignores duplicate second clicks, and supports undo and Escape", () => {
 	const onComplete = jest.fn(),

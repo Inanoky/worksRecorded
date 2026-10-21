@@ -302,14 +302,16 @@ export default function VisualView({
 				showIndex(data, !cached);
 				reportPreparation("visual-index");
 				const first = firstAssignedDrawing(data);
-				if (preload && first)
+				if (preload)
 					void resourceCache
-						.prefetch(
-							first.id,
-							() => getVisualPlanning(siteId, first.id),
-							(step, status) => {
-								if (run === epoch.current) reportPreparation(step, status);
+						.prepareProject(
+							data.drawings,
+							(id) => getVisualPlanning(siteId, id),
+							(step, status, counts) => {
+								if (run === epoch.current)
+									reportPreparation(step, status, counts);
 							},
+							() => run !== epoch.current,
 						)
 						.catch(() => {});
 				else if (!first)
@@ -349,6 +351,7 @@ export default function VisualView({
 	}, [active, preload, pollDrawingId, resourceCache, siteId]);
 	useEffect(() => {
 		if (
+			preload ||
 			(!active && !preload) ||
 			!pollDrawingId ||
 			!index?.drawings.length ||

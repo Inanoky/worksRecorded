@@ -12,9 +12,23 @@ import {
 	X,
 } from "lucide-react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useId,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
+import {
+	type DrawingPageMeasurement,
+	measuredPlanningArea,
+	readDrawingPageMeasurement,
+	resolvedDrawingScale,
+} from "./drawing-scale";
 import { type VisualMark, visualLayers } from "./model";
 import {
 	nextVisualPlanAreaId,
@@ -28,6 +42,7 @@ import {
 } from "./polygon-edit";
 import { useDrawingViewport } from "./useDrawingViewport";
 import { type AreaPenMode, VisualAreaPen } from "./VisualAreaPen";
+import { VisualDrawingScale } from "./VisualDrawingScale";
 import { VisualPdfDetail } from "./VisualPdfDetail";
 import { VisualPlanAreaTarget } from "./VisualPlanAreaTarget";
 import { VisualPolygonEditor } from "./VisualPolygonEditor";
@@ -56,6 +71,9 @@ export type VisualPdfPlanning = {
 	onChange: (areas: VisualPlanArea[]) => void;
 	onSelectArea: (selection: VisualPlanAreaSelection | null) => void;
 	onEditingChange?: (editing: boolean) => void;
+	pageScales?: Record<string, number>;
+	onScaleChange?: (page: number, scale: number | null) => Promise<void>;
+	onAreaChange?: (squareMetres: number | null) => void;
 };
 
 type PlanningAreaDraft = {
@@ -179,6 +197,17 @@ export function VisualPdf({
 	const [planningAreaDraft, setPlanningAreaDraft] =
 		useState<PlanningAreaDraft | null>(null);
 	const [penMode, setPenMode] = useState<AreaPenMode | null>(null);
+	const [penPreview, setPenPreview] = useState<Array<{ x: number; y: number }>>(
+		[],
+	);
+	const onPenPreviewChange = useCallback(
+		(points: Array<{ x: number; y: number }>) => setPenPreview(points),
+		[],
+	);
+	const [measurementState, setMeasurementState] = useState<{
+		url: string;
+		pages: Record<number, DrawingPageMeasurement>;
+	}>({ url, pages: {} });
 	const newAreaMethod = useRef<AreaPenMode | "rectangle">("rectangle");
 	const [layerPicker, setLayerPicker] = useState<LayerPicker | null>(null);
 	const [saving, setSaving] = useState(false);
@@ -188,6 +217,41 @@ export function VisualPdf({
 	const previousPlanningInteractionKey = useRef(planningInteractionKey);
 	const planningEnabled = planning !== undefined;
 	const recordCreation = planning?.purpose === "record";
+	const measurementEnabled = !!planning && !recordCreation;
+	const measurementPages = measurementEnabled
+		? [...new Set([page, ...(planning?.areas ?? []).map((area) => area.page)])]
+				.sort((a, b) => a - b)
+				.join(",")
+		: "";
+	useEffect(() => {
+		if (!document || !measurementPages) return;
+		let cancelled = false;
+		for (const page of measurementPages.split(",").map(Number)) {
+			void (
+				resourceCache
+					? resourceCache.loadPageMeasurement(url, page, document)
+					: readDrawingPageMeasurement(document, page)
+			)
+				.then((value) => {
+					if (!cancelled)
+						setMeasurementState((current) =>
+							current.url === url && current.pages[page] === value
+								? current
+								: {
+										url,
+										pages: {
+											...(current.url === url ? current.pages : {}),
+											[page]: value,
+										},
+									},
+						);
+				})
+				.catch(() => {});
+		}
+		return () => {
+			cancelled = true;
+		};
+	}, [document, measurementPages, resourceCache, url]);
 	const navigation = useDrawingViewport(
 		aspect,
 		`${url}:${page}`,
@@ -221,6 +285,41 @@ export function VisualPdf({
 				? replaceVisualPlanArea(planning.areas, planningAreaDraft.area)
 				: planning.areas
 		: [];
+	const liveArea = useMemo(() => {
+		if (!measurementEnabled) return null;
+		const measurements =
+			measurementState.url === url ? measurementState.pages : {};
+		const areas =
+			penMode && penPreview.length >= 3
+				? [
+						...shownPlanningAreas,
+						{ id: "pen-preview", page, polygon: penPreview },
+					]
+				: shownPlanningAreas;
+		if (
+			!areas.length &&
+			!resolvedDrawingScale(measurements[page], planning?.pageScales?.[page])
+		)
+			return null;
+		return measuredPlanningArea(
+			areas,
+			measurements,
+			planning?.pageScales ?? {},
+		);
+	}, [
+		measurementEnabled,
+		measurementState,
+		url,
+		penMode,
+		penPreview,
+		shownPlanningAreas,
+		page,
+		planning?.pageScales,
+	]);
+	const onAreaChange = planning?.onAreaChange;
+	useEffect(() => {
+		onAreaChange?.(liveArea);
+	}, [liveArea, onAreaChange]);
 	const selectedPlanArea = shownPlanningAreas.find(
 		(area) =>
 			area.id === planning?.selectedArea?.areaId &&
@@ -276,6 +375,7 @@ export function VisualPdf({
 		navigation.freeze();
 		newAreaMethod.current = mode;
 		setPenMode(mode);
+		setPenPreview([]);
 		planning.onSelectArea(null);
 		planning.onEditingChange?.(true);
 		setLayerPicker(null);
@@ -307,6 +407,7 @@ export function VisualPdf({
 			if (newAreaMethod.current !== "rectangle") {
 				setPlanningAreaDraft(null);
 				setPenMode(newAreaMethod.current);
+				setPenPreview([]);
 				planning.onSelectArea(null);
 				return;
 			}
@@ -425,6 +526,7 @@ export function VisualPdf({
 		handledAreaRequest.current = request;
 		newAreaMethod.current = "polygon";
 		setPenMode("polygon");
+		setPenPreview([]);
 		planning.onSelectArea(null);
 		planning.onEditingChange?.(true);
 		setLayerPicker(null);
@@ -603,6 +705,33 @@ export function VisualPdf({
 			<span className="px-2 text-xs tabular-nums">
 				Lapa {page} / {document?.numPages ?? "—"}
 			</span>
+			{measurementEnabled ? (
+				<>
+					<VisualDrawingScale
+						key={`${url}:${page}`}
+						measurement={
+							measurementState.url === url
+								? measurementState.pages[page]
+								: undefined
+						}
+						override={planning?.pageScales?.[page]}
+						onChange={
+							planning?.onScaleChange
+								? (scale) =>
+										planning.onScaleChange?.(page, scale) ?? Promise.resolve()
+								: undefined
+						}
+					/>
+					<output
+						aria-label="Plāna laukums"
+						className="px-2 text-xs tabular-nums"
+					>
+						{liveArea === null
+							? "Laukums: — m²"
+							: `Laukums: ${new Intl.NumberFormat("lv-LV", { maximumFractionDigits: 2 }).format(liveArea)} m²`}
+					</output>
+				</>
+			) : null}
 			<Button
 				variant="outline"
 				size="icon"
@@ -1306,6 +1435,7 @@ export function VisualPdf({
 						<VisualAreaPen
 							key={`${planningInteractionKey}:${page}:${penMode}`}
 							mode={penMode}
+							onPreviewChange={onPenPreviewChange}
 							surface={surface}
 							viewport={navigation.viewport}
 							color={planningColor}

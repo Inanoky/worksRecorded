@@ -84,6 +84,12 @@ export const visualStateSchema = z.object({
 		"failed",
 	]),
 	pageCount: z.number().int().positive().nullable(),
+	pageScales: z
+		.record(
+			z.string().regex(/^[1-9]\d*$/),
+			z.number().finite().min(1).max(10_000),
+		)
+		.optional(),
 	processed: z.number().int().nonnegative(),
 	imageProgress: z
 		.array(

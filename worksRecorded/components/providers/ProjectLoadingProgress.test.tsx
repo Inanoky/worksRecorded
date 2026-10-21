@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { useEffect } from "react";
 import DiaryLoading from "@/app/dashboard/sites/[siteId]/dashboard/loading";
 import ProjectLoading from "@/app/dashboard/sites/[siteId]/loading";
 import CalendarLoading from "@/app/dashboard/sites/[siteId]/siteDiary/loading";
@@ -7,6 +8,7 @@ import { ProjectLoadingProgressBar } from "./ProjectLoadingProgressBar";
 import {
 	ProjectLoadingProgressProvider,
 	ProjectPreparationScope,
+	useProjectPreparationReporter,
 	useProjectPreparationStep,
 } from "./ProjectLoadingProgressProvider";
 import { ProjectOpeningOverlay } from "./ProjectOpeningOverlay";
@@ -118,4 +120,23 @@ it("shows Limeni loading stages to an administrator without enabling them for ot
 	view.rerender(content("limeni"));
 	expect(screen.getByRole("progressbar")).toHaveAttribute("value", "0");
 	expect(screen.getByText(/Izpildes zonas/)).toBeInTheDocument();
+});
+
+it("reports partial floor preparation without marking the whole stage ready", () => {
+	function Floors() {
+		const report = useProjectPreparationReporter("site");
+		useEffect(() => {
+			report("visual-preview", "pending", { completed: 1, total: 4 });
+		}, [report]);
+		return <ProjectOpeningOverlay label="Loading floors" siteId="site" />;
+	}
+	render(
+		<ProjectLoadingProgressProvider enabled visualPreloadEnabled>
+			<Floors />
+		</ProjectLoadingProgressProvider>,
+	);
+	expect(screen.getByRole("progressbar")).toHaveAttribute("value", "3.125");
+	expect(screen.getByText(/Visas rasējumu lapas/)).toHaveTextContent(
+		"1/4 · Gaida",
+	);
 });

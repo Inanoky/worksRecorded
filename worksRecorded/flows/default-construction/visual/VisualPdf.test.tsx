@@ -1231,3 +1231,56 @@ it("offers the upper or lower work-log zone when areas overlap", async () => {
 	);
 	expect(onSelect).toHaveBeenCalledWith("mark");
 });
+
+it("reads a page scale label, reports physical area and recalculates when the user changes scale", async () => {
+	mockGetPage.mockResolvedValue({
+		getViewport: ({ scale }: { scale: number }) => ({
+			width: 720 * scale,
+			height: 360 * scale,
+		}),
+		getTextContent: async () => ({ items: [{ str: "M 1:100" }] }),
+		render: () => ({ promise: Promise.resolve(), cancel: mockCancel }),
+	});
+	const onAreaChange = jest.fn();
+	const onScaleChange = jest.fn().mockResolvedValue(undefined);
+	const content = (pageScales: Record<string, number>) => (
+		<VisualPdf
+			url="/drawing"
+			marks={[]}
+			selected={null}
+			onSelect={jest.fn()}
+			planning={{
+				planId: null,
+				areas: [plannedArea],
+				selectedArea: null,
+				onChange: jest.fn(),
+				onSelectArea: jest.fn(),
+				onAreaChange,
+				onScaleChange,
+				pageScales,
+			}}
+		/>
+	);
+	const view = render(content({}));
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Rasējuma mērogs" }),
+		).toHaveTextContent("1:100 · PDF"),
+	);
+	await waitFor(() =>
+		expect(onAreaChange).toHaveBeenLastCalledWith(expect.closeTo(14.5161, 4)),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Rasējuma mērogs" }));
+	fireEvent.change(
+		screen.getByRole("textbox", { name: "Mērogs", exact: true }),
+		{
+			target: { value: "1:50" },
+		},
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Lietot" }));
+	await waitFor(() => expect(onScaleChange).toHaveBeenCalledWith(1, 50));
+	view.rerender(content({ 1: 50 }));
+	await waitFor(() =>
+		expect(onAreaChange).toHaveBeenLastCalledWith(expect.closeTo(3.629025, 4)),
+	);
+});

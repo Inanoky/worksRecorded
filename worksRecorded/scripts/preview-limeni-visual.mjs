@@ -168,7 +168,7 @@ modules.actions += performancePreview
 modules.actions += `let sections=${JSON.stringify(planningFixture.sections)};export async function addVisualSection(site,label){sections=[...sections,label.trim()];return sections};export async function revokeVisualWorkShare(){};`;
 modules.share = `export async function publishPlanningShare(site,plan){return {token:'synthetic-preview',url:'https://www.worksrecorded.com/shared/work/synthetic-preview',version:plan.version}};`;
 modules.send = `export async function sendPlanningWhatsAppTask(){throw Error('Preview only')};`;
-modules.actions += `export async function saveVisualPolygonPatch(){throw Error('Preview only')};export async function saveVisualLayers(){throw Error('Preview only')};`;
+modules.actions += `export async function saveVisualPolygonPatch(){throw Error('Preview only')};export async function saveVisualLayers(){throw Error('Preview only')};export async function saveVisualDrawingScale(site,id,{page,scale}){const pageScales={...drawing.state.pageScales};if(scale===null)delete pageScales[page];else pageScales[page]=scale;drawing={...drawing,state:{...drawing.state,pageScales}};return pageScales};`;
 if (projectPreloadPreview) {
 	modules.actions = modules.actions
 		.replace(
@@ -273,6 +273,7 @@ page.drawText("GROUND FLOOR - DEMONSTRATION DRAWING", {
 	y: 650,
 	size: 18,
 });
+page.drawText("M 1:100", { x: 800, y: 650, size: 14 });
 page.drawRectangle({
 	x: 75,
 	y: 170,
