@@ -138,6 +138,11 @@ export function FimaDiaryCell({
 			/>
 		);
 	if (field === "FimaMaterials") {
+		const materialNoteLines =
+			state.materialsNote
+				?.split(/\r?\n/)
+				.map((line) => line.trim())
+				.filter(Boolean) ?? [];
 		const preparedIds = new Set(state.materials.map((material) => material.id));
 		const materials = [
 			...state.materials,
@@ -161,6 +166,20 @@ export function FimaDiaryCell({
 									onClick={() => setOpen(true)}
 								>
 									{material.label} · {material.quantity} {material.unit}
+								</button>
+							</li>
+						))}
+					</ul>
+				) : materialNoteLines.length > 1 ? (
+					<ul className="list-disc space-y-2 pl-4 text-xs text-muted-foreground marker:text-primary">
+						{materialNoteLines.map((line, index) => (
+							<li key={`${index}-${line}`}>
+								<button
+									type="button"
+									className="w-full whitespace-normal text-left leading-relaxed hover:text-primary"
+									onClick={() => setOpen(true)}
+								>
+									{line}
 								</button>
 							</li>
 						))}

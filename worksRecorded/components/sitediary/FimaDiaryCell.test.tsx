@@ -274,6 +274,42 @@ it("shows an unresolved review note in the empty materials cell without creating
 	expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
 });
 
+it("shows each pending material as a separate bullet without inventing quantities or saving data", () => {
+	const lines = [
+		"ANC-0017 / AS “VOUTSADAKIS S.A.”",
+		"MSE-0007 / ALSTOM Ferroviaria S.p.A",
+		"ANC-0014 / AS “VOUTSADAKIS S.A.”",
+		"ANC-0015 / AS “VOUTSADAKIS S.A.”",
+		"ANC-0007 / AS “VOUTSADAKIS S.A.”",
+		'Spriegošanas ierīce R=1:3 / SA "ALSTOM TRANSPORT"',
+	].map((label) => `${label} — daudzums jāprecizē`);
+	const onChange = jest.fn();
+	render(
+		<FimaDiaryCell
+			field="FimaMaterials"
+			siteId={siteId}
+			row={{
+				id: "record",
+				fimaCollaboration: {
+					...initial,
+					materialsNote: `\r\n${lines.join("\r\n\r\n")}\r\n`,
+				},
+			}}
+			onChange={onChange}
+		/>,
+	);
+	expect(
+		screen.getAllByRole("listitem").map((item) => item.textContent),
+	).toEqual(lines);
+	for (const line of lines) {
+		expect(screen.getByRole("button", { name: line })).toBeEnabled();
+	}
+	expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+	expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
+	expect(saveFimaDiaryCollaboration).not.toHaveBeenCalled();
+	expect(onChange).not.toHaveBeenCalled();
+});
+
 it("does not show an old unresolved note when actual materials are present", () => {
 	render(
 		<FimaDiaryCell
