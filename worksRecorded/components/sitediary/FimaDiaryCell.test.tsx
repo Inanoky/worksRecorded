@@ -27,6 +27,65 @@ const initial: FimaCollaboration = {
 	history: [],
 };
 const siteId = "c39cb04c-8ce5-477d-acd0-99586a82d850";
+
+it.each([100, 90, 80, 50] as const)(
+	"shows %s%% confidence with its evidence and without opening an editor",
+	(level) => {
+		render(
+			<FimaDiaryCell
+				field="FimaConfidence"
+				siteId={siteId}
+				row={{
+					id: "record",
+					fimaCollaboration: {
+						...initial,
+						confidence: { level, basis: "Pārbaudīts pamatojums" },
+					},
+				}}
+				onChange={jest.fn()}
+			/>,
+		);
+		expect(screen.getByText(`${level}%`)).toHaveAttribute(
+			"title",
+			"Pārbaudīts pamatojums",
+		);
+		expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+		expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
+	},
+);
+
+it("leaves missing confidence unrated and uses an actual approved counterpart over a previous proposal", () => {
+	const { rerender } = render(
+		<FimaDiaryCell
+			field="FimaConfidence"
+			siteId={siteId}
+			row={{ id: "record" }}
+			onChange={jest.fn()}
+		/>,
+	);
+	expect(screen.getByText("—")).toHaveAttribute(
+		"title",
+		"Nepietiek pārbaudītu datu vērtējumam.",
+	);
+	rerender(
+		<FimaDiaryCell
+			field="FimaConfidence"
+			siteId={siteId}
+			row={{
+				id: "record",
+				BISId: "123",
+				bisStatus: "approved",
+				fimaCollaboration: {
+					...initial,
+					confidence: { level: 90, basis: "Tuvs paraugs" },
+				},
+			}}
+			onChange={jest.fn()}
+		/>,
+	);
+	expect(screen.getByText("100%")).toBeInTheDocument();
+});
+
 beforeEach(() => {
 	jest.clearAllMocks();
 	jest.mocked(getFimaDiaryCollaboration).mockResolvedValue(initial);

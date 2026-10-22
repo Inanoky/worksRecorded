@@ -12,6 +12,7 @@ export const fimaDiaryColumns = [
 	{ field: "Amounts", label: "Daudzums", order: 11, width: 90 },
 	{ field: "Units", label: "Mērv.", order: 12, width: 70 },
 	{ field: "FimaReviewStatus", label: "Rīcība", order: 1000, width: 220 },
+	{ field: "FimaConfidence", label: "Confidence", order: 1001, width: 100 },
 ] as const;
 
 export const fimaDiaryColumnWeights: Record<string, number> = {

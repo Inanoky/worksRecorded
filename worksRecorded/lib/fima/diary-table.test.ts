@@ -1,5 +1,18 @@
 import { fimaDiaryColumns, groupFimaDiaryRows } from "./diary-table";
 
+it("places Confidence immediately after the action badge", () => {
+	const badge = fimaDiaryColumns.findIndex(
+		(c) => c.field === "FimaReviewStatus",
+	);
+	expect(fimaDiaryColumns[badge + 1]).toMatchObject({
+		field: "FimaConfidence",
+		label: "Confidence",
+	});
+	expect(fimaDiaryColumns[badge + 1].order).toBeGreaterThan(
+		fimaDiaryColumns[badge].order,
+	);
+});
+
 it("places the local FIMA number between the date and BIS record number", () => {
 	expect(fimaDiaryColumns.slice(0, 3).map((column) => column.label)).toEqual([
 		"Datums",

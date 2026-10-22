@@ -71,7 +71,7 @@ export type FimaAllProjectsRecordRow = {
 type RecordRow = FimaAllProjectsRecordRow;
 
 const dataColumns = fimaDiaryColumns.filter(
-	({ field }) => field !== "FimaReviewStatus",
+	({ field }) => field !== "FimaReviewStatus" && field !== "FimaConfidence",
 );
 export function FimaAllProjectsDiary({
 	records,
@@ -192,6 +192,7 @@ export function FimaAllProjectsDiary({
 		{ field: "action", label: "Darbība" },
 		{ field: "source", label: "Avots" },
 		{ field: "FimaReviewStatus", label: "Rīcība" },
+		{ field: "FimaConfidence", label: "Confidence" },
 	];
 	const totalWidth = columns.reduce(
 		(sum, column) => sum + fimaDiaryColumnWeights[column.field],
@@ -434,6 +435,7 @@ export function FimaAllProjectsDiary({
 														{renderSource(row)}
 													</TableCell>
 													<TableCell>{cell("FimaReviewStatus", row)}</TableCell>
+													<TableCell>{cell("FimaConfidence", row)}</TableCell>
 												</TableRow>
 											))}
 										</TableBody>
@@ -486,10 +488,7 @@ export function FimaAllProjectsDiary({
 												{renderActions(row)}
 											</div>
 											<dl className="grid grid-cols-2 gap-3 text-xs">
-												{[
-													...dataColumns,
-													fimaDiaryColumns[fimaDiaryColumns.length - 1],
-												].map(({ field, label }) => (
+												{fimaDiaryColumns.map(({ field, label }) => (
 													<div
 														key={field}
 														className={cn(

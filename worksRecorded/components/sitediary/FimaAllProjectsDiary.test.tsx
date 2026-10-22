@@ -121,11 +121,12 @@ it("uses individual-project columns and spacing, adding only the project column"
 		expect(labels).toEqual([
 			"",
 			"Projekts",
-			...sharedLabels.slice(0, -1),
+			...sharedLabels.slice(0, -2),
 			"Statuss",
 			"Darbība",
 			"Avots",
 			"Rīcība",
+			"Confidence",
 		]);
 		for (const className of fimaDiaryTableClassName.split(" "))
 			expect(table).toHaveClass(className);
@@ -145,7 +146,8 @@ it("uses individual-project columns and spacing, adding only the project column"
 		expect(materialWidth / workWidth).toBeCloseTo(
 			fimaDiaryColumnWeights.FimaMaterials / fimaDiaryColumnWeights.Works,
 		);
-		expect(headers.at(-1)).toHaveTextContent("Rīcība");
+		expect(headers.at(-2)).toHaveTextContent("Rīcība");
+		expect(headers.at(-1)).toHaveTextContent("Confidence");
 		expect(within(table).getAllByRole("row")[1].children).toHaveLength(
 			headers.length,
 		);

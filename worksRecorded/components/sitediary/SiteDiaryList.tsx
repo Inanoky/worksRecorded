@@ -4165,7 +4165,7 @@ export default function SiteDiaryCalendar({
                   <div className="space-y-3 p-2 sm:p-3">
                     {keywordMatchedDayGroups.map((group) => {
                       const showDayPlan = !isZtcSite && planner.showDay(group.key);
-                      const dayTableHeads = tableHeads.filter((head) => !(fimaDiary && head === "FimaReviewStatus") && !(showDayPlan && isDefaultConstructionActualQuantityField(defaultMap, head)));
+                      const dayTableHeads = tableHeads.filter((head) => !(fimaDiary && (head === "FimaReviewStatus" || head === "FimaConfidence")) && !(showDayPlan && isDefaultConstructionActualQuantityField(defaultMap, head)));
                       const unmatchedPlans = showDayPlan ? visiblePlanRows.filter((row) => row.date === group.key && row.actualIds.length === 0) : [];
                       const totalTasks = group.rows.length;
                       const isMediaOnlyGroup = group.mediaOnly === true && unmatchedPlans.length === 0;
@@ -5585,9 +5585,9 @@ export default function SiteDiaryCalendar({
                                   <Table
                                     className={cn("table-fixed text-xs", showDayPlan || clientDiary || fitDiaryTable ? "w-full min-w-0 [&_th]:!w-auto [&_td]:!w-auto [&_th]:!px-1.5 [&_td]:!px-1.5 [&_th]:!whitespace-normal [&_td]:!whitespace-normal [&_th]:[overflow-wrap:anywhere] [&_td]:[overflow-wrap:anywhere] [&_button]:max-w-full" : isZtcSite ? "min-w-[1180px] sm:text-sm" : "min-w-[985px] sm:text-sm", fimaDiary && fimaDiaryTableClassName, fitDiaryTable && !fimaDiary && "[&_button]:whitespace-normal [&_button]:break-words [&_button]:h-auto [&_button]:min-h-8 [&_button]:px-1")}
                                   >
-                                    {showDayPlan || clientDiary || fitDiaryTable ? <PlanTableColumns hideBisStatus={fimaDiary} trailingFields={fimaDiary ? ["FimaReviewStatus"] : undefined} fields={dayTableHeads} bisEnabled={bisUiEnabled} showPlan={showDayPlan} columnWeights={fitDiaryTable ? {
+                                    {showDayPlan || clientDiary || fitDiaryTable ? <PlanTableColumns hideBisStatus={fimaDiary} trailingFields={fimaDiary ? ["FimaReviewStatus", "FimaConfidence"] : undefined} fields={dayTableHeads} bisEnabled={bisUiEnabled} showPlan={showDayPlan} columnWeights={fitDiaryTable ? {
                                       ...Object.fromEntries(dayTableHeads.map((field) => [field, getCellWidthByKey(field, defaultMap)])),
-                                      FimaReviewStatus: 220, FimaMaterials: 500, FimaExamples: 260, select: 52, createdAt: 80, "man-hours": 75, cost: 80, bis: 140, status: 140, action: 80, source: 60,
+                                      FimaReviewStatus: 220, FimaConfidence: 100, FimaMaterials: 500, FimaExamples: 260, select: 52, createdAt: 80, "man-hours": 75, cost: 80, bis: 140, status: 140, action: 80, source: 60,
                                       "plan-Works": getCellWidthByKey("Works", defaultMap), "plan-Amounts": 125,
                                       ...(fimaDiary ? fimaDiaryColumnWeights : {}),
                                     } : undefined} /> : null}
@@ -5726,6 +5726,7 @@ export default function SiteDiaryCalendar({
                                           {t.source}
                                         </TableHead>
                                         {fimaDiary ? <TableHead className="text-left">Rīcība</TableHead> : null}
+                                        {fimaDiary ? <TableHead className="text-left">Confidence</TableHead> : null}
                                       </TableRow>
                                     </TableHeader>
 
@@ -6224,9 +6225,10 @@ export default function SiteDiaryCalendar({
                                             )}
                                           </TableCell>
                                           {fimaDiary ? <TableCell className="align-top px-3 py-3"><FimaDiaryCell field="FimaReviewStatus" siteId={siteId!} row={group.rows[i] ?? row} onChange={updateFimaCollaboration} /></TableCell> : null}
+                                          {fimaDiary ? <TableCell className="align-top px-3 py-3"><FimaDiaryCell field="FimaConfidence" siteId={siteId!} row={group.rows[i] ?? row} onChange={updateFimaCollaboration} /></TableCell> : null}
                                         </TableRow>
                                       ))}
-                                      {unmatchedPlans.map((row) => <PlanOnlyRow hideBisStatus={fimaDiary} trailingFields={fimaDiary ? ["FimaReviewStatus"] : undefined} key={row.key} row={row} fields={dayTableHeads} bisEnabled={bisUiEnabled} getAlignment={(field) => getSiteListTextAlignmentByKey(field, defaultMap)} />)}
+                                      {unmatchedPlans.map((row) => <PlanOnlyRow hideBisStatus={fimaDiary} trailingFields={fimaDiary ? ["FimaReviewStatus", "FimaConfidence"] : undefined} key={row.key} row={row} fields={dayTableHeads} bisEnabled={bisUiEnabled} getAlignment={(field) => getSiteListTextAlignmentByKey(field, defaultMap)} />)}
                                     </TableBody>
                                   </Table>
                                 );

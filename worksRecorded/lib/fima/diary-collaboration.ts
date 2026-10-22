@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { type FimaBisExamples, readFimaBisExamples } from "./bis-examples";
+import { type FimaConfidence, readFimaConfidence } from "./confidence";
 import { fimaDiaryColumns } from "./diary-table";
 
 export const fimaStatuses = {
@@ -46,6 +47,7 @@ export type FimaCollaboration = {
 	materialsNote?: string | null;
 	history: FimaEvent[];
 	examples?: FimaBisExamples;
+	confidence?: FimaConfidence;
 	bisMaterials?: {
 		fetchedAt: string;
 		entries: {
@@ -69,18 +71,22 @@ export const fimaVirtualFields = [
 	"FimaMaterials",
 	"FimaExamples",
 	"FimaReviewStatus",
+	"FimaConfidence",
 ];
 export function readFimaCollaboration(metadata: unknown): FimaCollaboration {
 	const value = (metadata as { fimaCollaboration?: FimaCollaboration } | null)
 		?.fimaCollaboration;
 	const examples = readFimaBisExamples(value?.examples, value?.history);
+	const confidence = readFimaConfidence(metadata);
+	const { confidence: _storedConfidence, ...state } = value ?? {};
 	return {
 		version: 0,
 		status: null,
 		materials: [],
 		history: [],
-		...value,
+		...state,
 		...(examples ? { examples } : {}),
+		...(confidence ? { confidence } : {}),
 	};
 }
 export function isFimaDiary(config: unknown) {

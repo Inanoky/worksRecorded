@@ -105,6 +105,28 @@ export function FimaDiaryCell({
 	}
 	if (!row.id) return <span>—</span>;
 	const recordId = row.id;
+	if (field === "FimaConfidence") {
+		const approved =
+			row.bisStatus === "approved" &&
+			(Boolean(row.BISId) ||
+				(Array.isArray(row.fimaBisRecords) && row.fimaBisRecords.length > 0));
+		const confidence = approved
+			? {
+					level: 100,
+					basis: "Ierakstam ir piesaistīts apstiprināts BIS ieraksts.",
+				}
+			: state.confidence;
+		return confidence ? (
+			<span
+				title={confidence.basis}
+				className="text-xs font-medium tabular-nums whitespace-nowrap"
+			>
+				{confidence.level}%<span className="sr-only"> {confidence.basis}</span>
+			</span>
+		) : (
+			<span title="Nepietiek pārbaudītu datu vērtējumam.">—</span>
+		);
+	}
 	if (field === "FimaReviewStatus")
 		return (
 			<FimaReviewBadge
