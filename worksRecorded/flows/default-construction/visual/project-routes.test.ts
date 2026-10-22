@@ -9,11 +9,12 @@ import {
 	loadLimeniProjectSnapshot,
 	ProjectAccessError,
 } from "./project-snapshot-store";
+import { projectSyncPayload } from "./project-sync-server";
 import { requireVisualAccess } from "./store";
 
 jest.mock("@/lib/utils/requireUser", () => ({ requireUser: jest.fn() }));
 jest.mock("@/lib/utils/db", () => ({
-	prisma: { documents: { findFirst: jest.fn() } },
+	prisma: { documents: { findFirst: jest.fn() }, $queryRaw: jest.fn() },
 }));
 jest.mock("./project-revision-store", () => ({
 	loadProjectRevision: jest.fn(),
@@ -79,6 +80,66 @@ it("does not read or revalidate a project for an unauthenticated visitor", async
 		401,
 	);
 	expect(loadLimeniProjectSnapshot).not.toHaveBeenCalled();
+});
+
+it("refreshes cached Forma 2 calculations after a code change without resending drawings", async () => {
+	const cached = {
+		version: "old-calculation",
+		settings: { siteId: "site" },
+		index: { drawings: [] },
+		drawings: [],
+		diary: { rows: [] },
+		config: {},
+		forma2: {
+			data: { resultRows: [{ id: "thermowhite", actualQuantity: null }] },
+		},
+	};
+	const parts = projectSyncPayload(
+		cached as never,
+		"project-v2-same-data",
+	).partVersions;
+	jest.mocked(prisma.$queryRaw).mockResolvedValue([{ revision: "same-data" }]);
+	jest
+		.mocked(loadProjectRevision)
+		.mockImplementation(
+			jest.requireActual<typeof import("./project-revision-store")>(
+				"./project-revision-store",
+			).loadProjectRevision,
+		);
+	jest.mocked(loadLimeniProjectSnapshot).mockResolvedValue({
+		...cached,
+		version: "corrected-calculation",
+		forma2: {
+			data: { resultRows: [{ id: "thermowhite", actualQuantity: 420 }] },
+		},
+	} as never);
+	const response = await project(
+		new Request("https://test/api/sites/site/limeni-project", {
+			headers: {
+				"If-None-Match": '"project-v2-same-data"',
+				"X-Project-Parts": JSON.stringify(parts),
+			},
+		}),
+		context,
+	);
+	expect(response.status).toBe(200);
+	expect(await response.json()).toMatchObject({
+		kind: "delta",
+		changes: {
+			forma2: {
+				data: { resultRows: [{ id: "thermowhite", actualQuantity: 420 }] },
+			},
+		},
+		drawings: [],
+	});
+	const unchanged = await project(
+		new Request("https://test/api/sites/site/limeni-project", {
+			headers: { "If-None-Match": response.headers.get("etag") ?? "" },
+		}),
+		context,
+	);
+	expect(unchanged.status).toBe(304);
+	expect(loadLimeniProjectSnapshot).toHaveBeenCalledTimes(1);
 });
 
 it("serves a source-matched preview scoped to the authorized project and organization", async () => {

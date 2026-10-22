@@ -26,5 +26,5 @@ export async function loadProjectRevision(userId: string, siteId: string) {
 			(SELECT md5(COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.id)::text, '[]')) FROM "BisToken" t WHERE t."userId" = ${userId})
 		)) AS revision
 	`;
-	return `project-v2-${rows[0].revision}`;
+	return `project-v3-${process.env.VERCEL_GIT_COMMIT_SHA || "local"}-${rows[0].revision}`;
 }
