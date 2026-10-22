@@ -187,6 +187,72 @@ describe("Forma 2 diary quantity loaders", () => {
 		},
 	);
 
+	it("counts journal work selected from a material child in both results and quantity details", async () => {
+		const thermowhite = {
+			...position,
+			id: "thermowhite",
+			name: "PA1.3 - ThermoWhite, 53-30mm, Thermowhite WD100R",
+			kind: "material" as const,
+			parentId: position.id,
+		};
+		jest.mocked(prisma.analytics.findUnique).mockResolvedValue({
+			currentWeekProgress: {
+				defaultConstructionForma2: {
+					version: 1,
+					document: { id: "document", positions: [position, thermowhite] },
+					allocations: [],
+				},
+			},
+		} as never);
+		jest.mocked(prisma.site.findUnique).mockResolvedValue({
+			name: "Site",
+			siteDiaryRecordsMap: {
+				otherSettings: {
+					defaultConstructionForma2WorkSync: {
+						documentId: "document",
+						entries: [{ positionId: thermowhite.id, work: thermowhite.name }],
+					},
+				},
+			},
+		} as never);
+		jest
+			.mocked(prisma.sitediaryrecords.findMany)
+			.mockResolvedValue([
+				{ id: "diary", Works: thermowhite.name, Units: "m2", Amounts: 420 },
+			] as never);
+		jest
+			.mocked(prisma.bISmaterialRecords.findMany)
+			.mockResolvedValue([
+				{
+					id: "invoice",
+					name: thermowhite.name,
+					measurementUnit: "m2",
+					quantity: 900,
+					cost: 50,
+				},
+			] as never);
+		const results = await getDefaultConstructionForma2Results("site");
+		expect(
+			results.resultRows.find((row) => row.id === thermowhite.id),
+		).toMatchObject({
+			actualQuantity: 420,
+			excludedQuantityRecords: 0,
+		});
+		expect(
+			results.resultRows.find((row) => row.id === position.id)?.actualQuantity,
+		).toBeNull();
+		const details = await getDefaultConstructionForma2PositionQuantityDetails({
+			siteId: "site",
+			positionId: thermowhite.id,
+		});
+		expect(details).toMatchObject({
+			calculatedTotal: 420,
+			includedRecords: 1,
+			excludedRecords: 0,
+			records: [{ id: "diary", reportedQuantity: 420, exclusion: null }],
+		});
+	});
+
 	it("rejects inaccessible sites before reading diary data", async () => {
 		jest.mocked(orgCheck).mockResolvedValue(null as never);
 		await expect(

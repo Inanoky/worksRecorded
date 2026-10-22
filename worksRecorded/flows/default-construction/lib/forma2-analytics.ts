@@ -691,7 +691,7 @@ export function buildForma2AnalyticsView(args: {
 	for (const source of mappingRows) {
 		if (!source.assignedPositionId || source.type !== "work") continue;
 		const position = positionsById.get(source.assignedPositionId);
-		if (!position || position.kind !== "work") continue;
+		if (!position) continue;
 		const quantity = quantities.get(position.id) ?? {
 			amount: null,
 			excluded: 0,

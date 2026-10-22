@@ -139,6 +139,52 @@ describe("Forma 2 analytics", () => {
 		});
 	});
 
+	it("counts only linked journal quantities on material children without rolling them into their parent", () => {
+		const parent = extractForma2PositionsFromRows(rows, "1-1").positions[0];
+		const child: Forma2Position = {
+			...parent,
+			id: "thermowhite",
+			kind: "material",
+			parentId: parent.id,
+			unit: "m2",
+		};
+		const source: Forma2ActualSource = {
+			id: "diary",
+			type: "work",
+			selectedPositionId: child.id,
+			label: child.name,
+			secondaryLabel: "",
+			date: null,
+			unit: "m²",
+			quantity: 410,
+			reportedQuantity: 420,
+			hours: null,
+			actualCost: 726.39,
+		};
+		const view = buildForma2AnalyticsView({
+			positions: [parent, child],
+			allocations: [],
+			sources: [
+				source,
+				{ ...source, id: "invoice", type: "material", reportedQuantity: 900 },
+				{
+					...source,
+					id: "other-section",
+					selectedPositionId: null,
+					reportedQuantity: 100,
+				},
+				{ ...source, id: "wrong-unit", unit: "m3", reportedQuantity: 50 },
+			],
+		});
+		expect(view.resultRows[1]).toMatchObject({
+			actualQuantity: 420,
+			excludedQuantityRecords: 1,
+			actualWorkCost: 1452.78,
+			actualMaterialCost: 726.39,
+		});
+		expect(view.resultRows[0].actualQuantity).toBeNull();
+	});
+
 	it("flags missing quantities and incompatible units without adding them", () => {
 		const position = {
 			...extractForma2PositionsFromRows(rows, "1-1").positions[0],

@@ -582,10 +582,7 @@ export async function getDefaultConstructionForma2PositionQuantityDetails(args: 
 	const diaryById = new Map(data.diaryRecords.map((row) => [row.id, row]));
 	const records = view.mappingRows
 		.filter(
-			(row) =>
-				position.kind === "work" &&
-				row.type === "work" &&
-				row.assignedPositionId === position.id,
+			(row) => row.type === "work" && row.assignedPositionId === position.id,
 		)
 		.map((row) => ({
 			id: row.id,
