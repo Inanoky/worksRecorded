@@ -1,5 +1,6 @@
 "use client";
 
+import { Pencil } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,11 +16,11 @@ import {
 	readFimaBisRecordLinks,
 } from "@/lib/fima/bis-record-links";
 import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
-import { formatFimaDiaryNumber } from "@/lib/fima/diary-number";
 import type { FimaExampleSources } from "@/lib/fima/example-sources";
 import { FimaCommentCell } from "./FimaCommentCell";
 import { FimaExamplesCell } from "./FimaExamplesCell";
 import { FimaMaterialPicker } from "./FimaMaterialPicker";
+import { FimaNumberCell } from "./FimaNumberCell";
 import { FimaRecordHistory } from "./FimaRecordHistory";
 import { FimaReviewBadge } from "./FimaReviewBadge";
 
@@ -58,11 +59,7 @@ export function FimaDiaryCell({
 	const [busy, setBusy] = useState(false);
 	const state = row.fimaCollaboration ?? empty;
 	if (field === "FimaNumber") {
-		return (
-			<span className="tabular-nums whitespace-nowrap">
-				{formatFimaDiaryNumber(row.fimaNumber)}
-			</span>
-		);
+		return <FimaNumberCell value={row.fimaNumber} />;
 	}
 	if (field === "FimaExamples") {
 		const examples = readFimaBisExamples(state.examples, state.history);
@@ -152,52 +149,55 @@ export function FimaDiaryCell({
 		];
 		return (
 			<>
-				{materialEditor ? (
-					<Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-						Pārvaldīt materiālus
-					</Button>
-				) : materials.length ? (
-					<ul className="list-disc space-y-2 pl-4 text-xs marker:text-primary">
-						{materials.map((material, index) => (
-							<li key={`${material.id}-${index}`}>
-								<button
-									type="button"
-									className="w-full whitespace-normal text-left leading-relaxed hover:text-primary"
-									onClick={() => setOpen(true)}
-								>
-									{material.label} · {material.quantity} {material.unit}
-								</button>
-							</li>
-						))}
-					</ul>
-				) : materialNoteLines.length > 1 ? (
-					<ul className="list-disc space-y-2 pl-4 text-xs text-muted-foreground marker:text-primary">
-						{materialNoteLines.map((line, index) => (
-							<li key={`${index}-${line}`}>
-								<button
-									type="button"
-									className="w-full whitespace-normal text-left leading-relaxed hover:text-primary"
-									onClick={() => setOpen(true)}
-								>
-									{line}
-								</button>
-							</li>
-						))}
-					</ul>
-				) : (
-					<button
-						type="button"
-						aria-label="Pievienot materiālus"
-						className="min-h-8 w-full rounded text-left hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						onClick={() => setOpen(true)}
-					>
-						{state.materialsNote ? (
-							<span className="text-xs text-muted-foreground">
-								{state.materialsNote}
-							</span>
-						) : null}
-					</button>
-				)}
+				<div className="group flex min-w-0 items-start gap-1">
+					{materialEditor ? (
+						<Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+							Pārvaldīt materiālus
+						</Button>
+					) : (
+						<>
+							<div className="min-w-0 flex-1 cursor-text select-text">
+								{materials.length ? (
+									<ul className="list-disc space-y-2 pl-4 text-xs marker:text-primary">
+										{materials.map((material, index) => (
+											<li key={`${material.id}-${index}`}>
+												<span className="whitespace-normal leading-relaxed">
+													{material.label} · {material.quantity} {material.unit}
+												</span>
+											</li>
+										))}
+									</ul>
+								) : materialNoteLines.length > 1 ? (
+									<ul className="list-disc space-y-2 pl-4 text-xs text-muted-foreground marker:text-primary">
+										{materialNoteLines.map((line, index) => (
+											<li key={`${index}-${line}`}>
+												<span className="whitespace-normal leading-relaxed">
+													{line}
+												</span>
+											</li>
+										))}
+									</ul>
+								) : (
+									<span className="text-xs text-muted-foreground">
+										{state.materialsNote}
+									</span>
+								)}
+							</div>
+							<button
+								type="button"
+								aria-label={
+									materials.length || state.materialsNote
+										? "Rediģēt materiālus"
+										: "Pievienot materiālus"
+								}
+								className="shrink-0 rounded p-1 text-muted-foreground opacity-60 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 group-focus-within:opacity-100"
+								onClick={() => setOpen(true)}
+							>
+								<Pencil className="size-3" aria-hidden="true" />
+							</button>
+						</>
+					)}
+				</div>
 				<Dialog
 					open={open}
 					onOpenChange={(value) => {

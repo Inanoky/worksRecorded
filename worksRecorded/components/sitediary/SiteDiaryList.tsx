@@ -13,7 +13,7 @@ import { mergeFimaCollaboration } from "@/lib/fima/diary-list-summary";
 import { FimaInlineCell } from "./FimaInlineCell";
 import { isFimaInlineField, type FimaInlineField } from "@/lib/fima/inline-fields";
 import { FimaRecordPanel } from "@/components/sitediary/FimaRecordPanel";
-import { shouldOpenFimaRecordPanel } from "@/lib/fima/record-panel";
+import { FimaOpenRecordButton } from "@/components/sitediary/FimaOpenRecordButton";
 import { FimaDiaryCell } from "@/components/sitediary/FimaDiaryCell";
 import { fimaVirtualFields, type FimaCollaboration } from "@/lib/fima/diary-collaboration";
 import { getBisWorkDescription } from "@/lib/bis/work-description";
@@ -3152,7 +3152,7 @@ export default function SiteDiaryCalendar({
         <ProjectOpeningOverlay label={language === "lv" ? "Ielādē būvdarbu žurnālu…" : "Loading construction diary…"} progress={imagesPreloading && pageImagesLoading ? diaryImageProgress : null} />
       ) : null}
       <div
-        className={cn("w-full mx-auto px-2 sm:px-4 py-4", fimaDiary && fimaPanelRow && "xl:pr-[30rem]")}
+        className={cn("w-full mx-auto px-2 sm:px-4 py-4", fimaDiary && "select-text")}
         style={{ maxWidth: fimaDiary ? "none" : `${screenWidth}rem`, minWidth: 0 }}
       >
         {fimaDiary && siteId ? <FimaMaterialRefresh key={siteId} siteId={siteId} records={rows} onChange={updateFimaCollaboration} autoRefresh={false} /> : null}
@@ -4357,9 +4357,6 @@ export default function SiteDiaryCalendar({
                               {group.rows.map((r, idx) => (
                                 <div
                                   key={r.id ?? `${group.key}-${idx}`}
-                                  tabIndex={fimaDiary && r.id ? 0 : undefined}
-                                  onClick={(event) => { if (fimaDiary && shouldOpenFimaRecordPanel(event.target, event.currentTarget)) openFimaRecord(r, event.currentTarget); }}
-                                  onKeyDown={(event) => { if (fimaDiary && event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openFimaRecord(r, event.currentTarget); } }}
                                   className={cn(
                                     "rounded-md border bg-muted/40 p-2 text-[11px]",
                                     isZtcSite
@@ -4388,7 +4385,8 @@ export default function SiteDiaryCalendar({
                                   }
                                 >
                                   {r.id ? (
-                                    <div className="mb-2 flex justify-end">
+                                    <div className="mb-2 flex items-center justify-end gap-2">
+                                      {fimaDiary ? <FimaOpenRecordButton onOpen={(trigger) => openFimaRecord(r, trigger)} /> : null}
                                       <Checkbox
                                         checked={selectedRecordIds.has(r.id)}
                                         onCheckedChange={(checked) =>
@@ -4412,12 +4410,14 @@ export default function SiteDiaryCalendar({
                                       >
                                         {r.Location}
                                       </button>
+                                    ) : fimaDiary && r.Location ? (
+                                      <span className="font-medium select-text">{r.Location}</span>
                                     ) : r.Location ? (
                                       <button
                                         type="button"
                                         className="font-medium underline-offset-2 hover:text-blue-700 hover:underline"
                                         onClick={() =>
-                                          fimaDiary ? openFimaRecord(r) : defaultConstructionSummary.openLocationSummary(
+                                          defaultConstructionSummary.openLocationSummary(
                                             r.Location,
                                           )
                                         }
@@ -4524,12 +4524,14 @@ export default function SiteDiaryCalendar({
                                           ) : null}
                                         </span>
                                       </button>
+                                    ) : fimaDiary && r.Works ? (
+                                      <span className="block font-semibold select-text">{r.Works}</span>
                                     ) : r.Works ? (
                                       <button
                                         type="button"
                                         className="block text-left font-semibold underline-offset-2 hover:text-blue-700 hover:underline"
                                         onClick={() =>
-                                          fimaDiary ? openFimaRecord(r) : defaultConstructionSummary.openWorkSummary(
+                                          defaultConstructionSummary.openWorkSummary(
                                             r.Works,
                                           )
                                         }
@@ -5734,12 +5736,9 @@ export default function SiteDiaryCalendar({
                                     <TableBody>
                                       {formattedGroupRows.map((row, i) => (
                                         <TableRow
-                                          tabIndex={fimaDiary && row.id ? 0 : undefined}
                                           data-fima-active={fimaDiary && row.id === fimaRecordId ? "true" : undefined}
-                                          onClick={(event) => { if (fimaDiary && shouldOpenFimaRecordPanel(event.target, event.currentTarget)) openFimaRecord(group.rows[i] ?? row, event.currentTarget); }}
-                                          onKeyDown={(event) => { if (fimaDiary && event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openFimaRecord(group.rows[i] ?? row, event.currentTarget); } }}
                                           key={row.id ?? `${group.key}-${i}`}
-                                          className={cn(fimaDiary && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[fima-active=true]:bg-red-50/60", showDayPlan ? planTone(planByRecordId.get(row.id ?? "")) : getDefaultConstructionQuantityToneClass(
+                                          className={cn(fimaDiary && "data-[fima-active=true]:bg-red-50/60", showDayPlan ? planTone(planByRecordId.get(row.id ?? "")) : getDefaultConstructionQuantityToneClass(
                                             getDefaultConstructionQuantityComparison(
                                               group.rows[i] ?? row,
                                               defaultMap,
@@ -5851,14 +5850,14 @@ export default function SiteDiaryCalendar({
                                                       )}
                                                       dateLocale={dateLocale}
                                                     />
-                                                  ) : !isZtcSite &&
+                                                  ) : !isZtcSite && !fimaDiary &&
                                                     (field === "Location" ||
                                                       field === "Works") ? (
                                                     <button
                                                       type="button"
                                                       className="line-clamp-4 text-left underline-offset-2 hover:text-blue-700 hover:underline"
                                                       onClick={() =>
-                                                        fimaDiary ? openFimaRecord(originalRow) : field === "Location"
+                                                        field === "Location"
                                                           ? defaultConstructionSummary.openLocationSummary(
                                                               String(
                                                                 row[field],
@@ -6116,6 +6115,7 @@ export default function SiteDiaryCalendar({
                                             className="align-top px-3 py-3 text-center"
                                             style={{ width: 100 }}
                                           >
+                                            {fimaDiary ? <div className="mb-1"><FimaOpenRecordButton disabled={!row.id} onOpen={(trigger) => openFimaRecord(group.rows[i] ?? row, trigger)} /></div> : null}
                                             <DropdownMenu>
                                               <DropdownMenuTrigger asChild>
                                                 <Button

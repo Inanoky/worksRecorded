@@ -269,7 +269,7 @@ it("shows an unresolved review note in the empty materials cell without creating
 	expect(screen.getByText("nevaram saprast materiālus")).toBeInTheDocument();
 	expect(screen.queryByRole("list")).not.toBeInTheDocument();
 	expect(
-		screen.getByRole("button", { name: "Pievienot materiālus" }),
+		screen.getByRole("button", { name: "Rediģēt materiālus" }),
 	).toBeEnabled();
 	expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
 });
@@ -302,8 +302,14 @@ it("shows each pending material as a separate bullet without inventing quantitie
 		screen.getAllByRole("listitem").map((item) => item.textContent),
 	).toEqual(lines);
 	for (const line of lines) {
-		expect(screen.getByRole("button", { name: line })).toBeEnabled();
+		const text = screen.getByText(line);
+		expect(text.closest("button")).toBeNull();
+		fireEvent.click(text);
 	}
+	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: "Rediģēt materiālus" }),
+	).toBeEnabled();
 	expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
 	expect(getFimaDiaryCollaboration).not.toHaveBeenCalled();
 	expect(saveFimaDiaryCollaboration).not.toHaveBeenCalled();

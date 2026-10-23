@@ -2,7 +2,7 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
 	type FimaCollaboration,
 	fimaStatuses,
@@ -49,6 +49,7 @@ export function FimaRecordPanel({
 	onChange,
 }: Props) {
 	const [drafts, setDrafts] = useState<Record<string, string>>({});
+	const panel = useRef<HTMLDivElement>(null);
 	const state = row?.fimaCollaboration ?? empty;
 	const caseUrl = getFimaBisCaseUrl(caseId);
 	const date = row?.Date ? new Date(row.Date) : null;
@@ -63,6 +64,11 @@ export function FimaRecordPanel({
 			<Dialog.Portal>
 				{row?.id ? (
 					<Dialog.Content
+						ref={panel}
+						onOpenAutoFocus={(event) => {
+							event.preventDefault();
+							panel.current?.focus({ preventScroll: true });
+						}}
 						onInteractOutside={(event) => event.preventDefault()}
 						onCloseAutoFocus={(event) => {
 							event.preventDefault();

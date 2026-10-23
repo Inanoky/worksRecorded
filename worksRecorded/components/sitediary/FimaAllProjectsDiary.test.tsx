@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { withFimaDiaryColumns } from "@/lib/fima/diary-collaboration";
 import {
 	fimaDiaryColumnWeights,
@@ -21,18 +22,21 @@ jest.mock("./FimaDiaryCell", () => ({
 	}: {
 		field: string;
 		siteId: string;
-		row: { id: string };
+		row: { id: string; fimaNumber?: number };
 		onOpenRecord?: () => void;
-	}) => (
-		<button
-			type="button"
-			data-site={siteId}
-			data-record={row.id}
-			onClick={onOpenRecord}
-		>
-			{field}
-		</button>
-	),
+	}) =>
+		field === "FimaNumber" ? (
+			<span>{`FIMA-${String(row.fimaNumber ?? 0).padStart(6, "0")}`}</span>
+		) : (
+			<button
+				type="button"
+				data-site={siteId}
+				data-record={row.id}
+				onClick={onOpenRecord}
+			>
+				{field}
+			</button>
+		),
 }));
 jest.mock("./FimaRecordPanel", () => ({
 	FimaRecordPanel: ({
@@ -51,6 +55,7 @@ jest.mock("./FimaRecordPanel", () => ({
 const records = [
 	{
 		id: "row-1",
+		fimaNumber: 42,
 		siteId: "site-1",
 		Date: "2026-09-01",
 		Works: "KUCE one",
@@ -65,6 +70,7 @@ const records = [
 	},
 	{
 		id: "row-2",
+		fimaNumber: 43,
 		siteId: "site-2",
 		Date: "2026-09-02",
 		Works: "KUCE two",
@@ -92,6 +98,11 @@ it("uses each record's actual project for collaboration and opens its right pane
 		within(second).getByRole("button", { name: "FimaReviewStatus" }),
 	).toHaveAttribute("data-site", "site-2");
 	fireEvent.click(second);
+	fireEvent.click(within(second).getByText("KUCE two"));
+	expect(screen.queryByLabelText("Record panel")).not.toBeInTheDocument();
+	fireEvent.click(
+		within(second).getByRole("button", { name: "Atvērt ierakstu" }),
+	);
 	expect(screen.getByLabelText("Record panel")).toHaveTextContent(
 		"site-2 row-2",
 	);
@@ -177,7 +188,8 @@ it("groups records by work date in newest-first order and keeps project links", 
 	).toHaveAttribute("href", "/dashboard/sites/site-1/dashboard");
 });
 
-it("selects a day without opening a record, and keyboard activation opens the panel", () => {
+it("selects a day without opening a record, and keyboard activation of Atvērt opens the panel", async () => {
+	const user = userEvent.setup();
 	render(<FimaAllProjectsDiary records={records} />);
 	const table = tableFor("KUCE one");
 	const boxes = within(table).getAllByRole("checkbox");
@@ -187,7 +199,8 @@ it("selects a day without opening a record, and keyboard activation opens the pa
 	expect(screen.queryByLabelText("Record panel")).not.toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Notīrīt atlasi" }));
 	expect(boxes[1]).not.toBeChecked();
-	fireEvent.keyDown(within(table).getAllByRole("row")[1], { key: "Enter" });
+	within(table).getByRole("button", { name: "Atvērt ierakstu" }).focus();
+	await user.keyboard("{Enter}");
 	expect(screen.getByLabelText("Record panel")).toHaveTextContent(
 		"site-1 row-1",
 	);
@@ -196,7 +209,7 @@ it("selects a day without opening a record, and keyboard activation opens the pa
 it("omits the optional BIS control column when no displayed project is connected", () => {
 	render(<FimaAllProjectsDiary records={[records[1]]} />);
 	expect(
-		screen.queryByRole("columnheader", { name: "Statuss", exact: true }),
+		screen.queryByRole("columnheader", { name: "Statuss" }),
 	).not.toBeInTheDocument();
 	const table = screen.getByRole("table");
 	expect(within(table).getAllByRole("row")[1].children).toHaveLength(
@@ -215,9 +228,11 @@ it("shows a clear empty state", () => {
 it("preserves the selected record panel and checkboxes across page changes", () => {
 	const { rerender } = render(<FimaAllProjectsDiary records={[records[0]]} />);
 	fireEvent.click(within(tableFor("KUCE one")).getAllByRole("checkbox")[1]);
-	fireEvent.keyDown(within(tableFor("KUCE one")).getAllByRole("row")[1], {
-		key: "Enter",
-	});
+	fireEvent.click(
+		within(tableFor("KUCE one")).getByRole("button", {
+			name: "Atvērt ierakstu",
+		}),
+	);
 	rerender(<FimaAllProjectsDiary records={[records[1]]} />);
 	expect(screen.getByLabelText("Record panel")).toHaveTextContent(
 		"site-1 row-1",
@@ -227,4 +242,29 @@ it("preserves the selected record panel and checkboxes across page changes", () 
 	expect(
 		within(tableFor("KUCE one")).getAllByRole("checkbox")[1],
 	).toBeChecked();
+});
+
+it("preserves selected number text and leaves the table layout unchanged when the panel opens", () => {
+	const { container } = render(<FimaAllProjectsDiary records={[records[0]]} />);
+	const root = container.firstElementChild;
+	const classes = root?.className;
+	const table = tableFor("KUCE one");
+	const number = within(table).getByText("FIMA-000042");
+	const range = document.createRange();
+	range.selectNodeContents(number);
+	const selection = window.getSelection();
+	selection?.removeAllRanges();
+	selection?.addRange(range);
+	fireEvent.mouseDown(number);
+	fireEvent.mouseUp(number);
+	fireEvent.click(number);
+	fireEvent.doubleClick(number);
+	expect(selection?.toString()).toBe("FIMA-000042");
+	expect(screen.queryByLabelText("Record panel")).not.toBeInTheDocument();
+	fireEvent.click(
+		within(table).getByRole("button", { name: "Atvērt ierakstu" }),
+	);
+	expect(screen.getByLabelText("Record panel")).toBeInTheDocument();
+	expect(root?.className).toBe(classes);
+	selection?.removeAllRanges();
 });

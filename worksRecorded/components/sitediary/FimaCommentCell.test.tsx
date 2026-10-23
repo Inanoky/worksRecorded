@@ -16,9 +16,7 @@ it("shows an empty comment cell when there is no comment", () => {
 			onOpenRecord={jest.fn()}
 		/>,
 	);
-	expect(
-		screen.getByRole("button", { name: "Komentāri" }),
-	).toBeEmptyDOMElement();
+	expect(screen.getByRole("button", { name: "Komentāri" })).toBeEnabled();
 	expect(screen.queryByText("Pievienot komentāru")).not.toBeInTheDocument();
 });
 it("shows only the latest comment and appends inline comments without rewriting history", async () => {
@@ -35,17 +33,22 @@ it("shows only the latest comment and appends inline comments without rewriting 
 		history: [event, { ...event, id: "2", text: "Latest comment" }],
 	};
 	jest.mocked(saveFimaDiaryCollaboration).mockResolvedValue(state);
+	const onOpenRecord = jest.fn();
 	render(
 		<FimaCommentCell
 			siteId="site"
 			recordId="record"
 			state={state}
 			onChange={jest.fn()}
-			onOpenRecord={jest.fn()}
+			onOpenRecord={onOpenRecord}
 		/>,
 	);
 	expect(screen.getByText("Latest comment")).toBeInTheDocument();
 	expect(screen.queryByText("Older comment")).not.toBeInTheDocument();
+	fireEvent.click(screen.getByText("Latest comment"));
+	expect(onOpenRecord).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Komentāri" }));
+	expect(onOpenRecord).toHaveBeenCalledTimes(1);
 	fireEvent.click(
 		screen.getByRole("button", { name: "Pievienot komentāru rindā" }),
 	);

@@ -86,6 +86,7 @@ it("opens as a right-hand panel, exposes BIS links and saves shared comments wit
 	const panel = screen.getByRole("dialog", { name: "Ieraksta pārskats" });
 	expect(panel).toHaveClass("right-0", "h-dvh");
 	expect(panel).not.toHaveAttribute("aria-modal", "true");
+	await waitFor(() => expect(panel).toHaveFocus());
 	expect(
 		screen.getByRole("link", { name: "BIS-BL-668714-524" }),
 	).toHaveAttribute(

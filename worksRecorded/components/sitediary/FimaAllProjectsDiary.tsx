@@ -36,12 +36,12 @@ import {
 import type { FimaExampleSources } from "@/lib/fima/example-sources";
 import type { FimaInlineField } from "@/lib/fima/inline-fields";
 import { isFimaInlineField } from "@/lib/fima/inline-fields";
-import { shouldOpenFimaRecordPanel } from "@/lib/fima/record-panel";
 import { cn } from "@/lib/utils/utils";
 import { FimaBisState } from "./FimaBisState";
 import { FimaDiaryCell } from "./FimaDiaryCell";
 import { FimaInlineCell } from "./FimaInlineCell";
 import { FimaMaterialRefresh } from "./FimaMaterialRefresh";
+import { FimaOpenRecordButton } from "./FimaOpenRecordButton";
 import { FimaRecordPanel } from "./FimaRecordPanel";
 import { OriginalSourceContent } from "./OriginalSourceContent";
 
@@ -230,51 +230,52 @@ export function FimaAllProjectsDiary({
 			"—"
 		);
 	const renderActions = (row: RecordRow) => (
-		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				<Button
-					aria-label="Ieraksta darbības"
-					size="icon"
-					variant="ghost"
-					className="h-8 w-8"
-					disabled={!row.siteId}
-				>
-					<Ellipsis className="h-4 w-4" />
-				</Button>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end">
-				<DropdownMenuItem onClick={() => openRecord(row)}>
-					Atvērt ierakstu
-				</DropdownMenuItem>
-				<DropdownMenuItem asChild>
-					<Link href={`/dashboard/sites/${row.siteId}/dashboard`}>
-						Atvērt projekta žurnālu
-					</Link>
-				</DropdownMenuItem>
-				{row.BISId ? (
-					<DropdownMenuItem asChild>
-						<a
-							href={getFimaBisRecordUrl(row.BISId) ?? undefined}
-							target="_blank"
-							rel="noopener noreferrer"
-						>
-							<ExternalLink className="mr-2 h-3.5 w-3.5" />
-							Atvērt BIS
-						</a>
+		<div className="flex flex-col items-center gap-1">
+			<FimaOpenRecordButton
+				disabled={!row.siteId}
+				onOpen={(target) => openRecord(row, target)}
+			/>
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<Button
+						aria-label="Ieraksta darbības"
+						size="icon"
+						variant="ghost"
+						className="h-8 w-8"
+						disabled={!row.siteId}
+					>
+						<Ellipsis className="h-4 w-4" />
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end">
+					<DropdownMenuItem onClick={() => openRecord(row)}>
+						Atvērt ierakstu
 					</DropdownMenuItem>
-				) : null}
-			</DropdownMenuContent>
-		</DropdownMenu>
+					<DropdownMenuItem asChild>
+						<Link href={`/dashboard/sites/${row.siteId}/dashboard`}>
+							Atvērt projekta žurnālu
+						</Link>
+					</DropdownMenuItem>
+					{row.BISId ? (
+						<DropdownMenuItem asChild>
+							<a
+								href={getFimaBisRecordUrl(row.BISId) ?? undefined}
+								target="_blank"
+								rel="noopener noreferrer"
+							>
+								<ExternalLink className="mr-2 h-3.5 w-3.5" />
+								Atvērt BIS
+							</a>
+						</DropdownMenuItem>
+					) : null}
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</div>
 	);
 	const renderField = (field: string, row: RecordRow) =>
 		isFimaInlineField(field) ? inline(field, row) : cell(field, row);
 	return (
-		<div
-			className={cn(
-				"min-w-0 transition-[padding]",
-				activeRow && "xl:pr-[30rem]",
-			)}
-		>
+		<div className="min-w-0 select-text">
 			<FimaMaterialRefresh
 				records={rows}
 				onChange={onChange}
@@ -367,29 +368,10 @@ export function FimaAllProjectsDiary({
 											{group.rows.map((row) => (
 												<TableRow
 													key={row.id}
-													tabIndex={0}
 													data-fima-active={
 														selected?.id === row.id ? "true" : undefined
 													}
-													className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[fima-active=true]:bg-red-50/60 dark:data-[fima-active=true]:bg-red-950/30"
-													onClick={(event) => {
-														if (
-															shouldOpenFimaRecordPanel(
-																event.target,
-																event.currentTarget,
-															)
-														)
-															openRecord(row, event.currentTarget);
-													}}
-													onKeyDown={(event) => {
-														if (
-															event.target === event.currentTarget &&
-															(event.key === "Enter" || event.key === " ")
-														) {
-															event.preventDefault();
-															openRecord(row, event.currentTarget);
-														}
-													}}
+													className="data-[fima-active=true]:bg-red-50/60 dark:data-[fima-active=true]:bg-red-950/30"
 												>
 													<TableCell className="text-center">
 														<Checkbox
@@ -443,28 +425,7 @@ export function FimaAllProjectsDiary({
 								</div>
 								<div className="space-y-2 xl:hidden">
 									{group.rows.map((row) => (
-										<article
-											key={row.id}
-											className="rounded-lg border p-4"
-											onClick={(event) => {
-												if (
-													shouldOpenFimaRecordPanel(
-														event.target,
-														event.currentTarget,
-													)
-												)
-													openRecord(row, event.currentTarget);
-											}}
-											onKeyDown={(event) => {
-												if (
-													event.target === event.currentTarget &&
-													(event.key === "Enter" || event.key === " ")
-												) {
-													event.preventDefault();
-													openRecord(row, event.currentTarget);
-												}
-											}}
-										>
+										<article key={row.id} className="rounded-lg border p-4">
 											<div className="mb-3 flex items-center justify-between gap-2">
 												<div className="flex min-w-0 items-center gap-2">
 													<Checkbox
