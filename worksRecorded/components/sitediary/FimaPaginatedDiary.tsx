@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +21,7 @@ import {
 	type FimaAllProjectsRecordRow,
 } from "./FimaAllProjectsDiary";
 import { FimaDiaryFilters } from "./FimaDiaryFilters";
+import { useFimaFilterReturn } from "./useFimaFilterReturn";
 
 type Page = {
 	rows: FimaAllProjectsRecordRow[];
@@ -57,12 +64,21 @@ function normalizedQuery(query: string) {
 	return params.toString();
 }
 
+function filterQuery(query: string) {
+	const params = new URLSearchParams(normalizedQuery(query));
+	params.delete("page");
+	return params.toString();
+}
+
 export function FimaPaginatedDiary({
 	initialPage,
 	initialQuery,
 	projects,
 	messages,
 }: Props) {
+	const container = useRef<HTMLDivElement>(null);
+	const { change: changeFilters, restore: restorePosition } =
+		useFimaFilterReturn("all-projects", container);
 	const [cache] = useState(() => {
 		const value = createFimaPageCache<Page>();
 		value.seed(normalizedQuery(initialQuery), initialPage);
@@ -84,7 +100,19 @@ export function FimaPaginatedDiary({
 	const failedQuery = useRef(query);
 	const load = useCallback(
 		async (next: string, history: "push" | "replace" | "none" = "push") => {
-			const key = normalizedQuery(next);
+			const params = new URLSearchParams(normalizedQuery(next));
+			const previousFilters = filterQuery(currentQuery.current);
+			const nextFilters = filterQuery(next);
+			if (history === "push" && previousFilters !== nextFilters) {
+				const number = changeFilters(
+					Boolean(previousFilters),
+					Boolean(nextFilters),
+					currentPage.current.page,
+				);
+				if (number > 1) params.set("page", String(number));
+				else params.delete("page");
+			}
+			const key = normalizedQuery(params.toString());
 			failedQuery.current = key;
 			const revision = ++request.current;
 			const cached = cache.read(key);
@@ -130,8 +158,11 @@ export function FimaPaginatedDiary({
 				if (revision === request.current) setLoading(false);
 			}
 		},
-		[cache],
+		[cache, changeFilters],
 	);
+	useLayoutEffect(() => {
+		if (!loading && !error && !filterQuery(query)) restorePosition();
+	}, [loading, error, query, restorePosition]);
 	useEffect(() => {
 		cache.seed(currentQuery.current, currentPage.current);
 		const onPopState = () => void load(window.location.search, "none");
@@ -217,7 +248,7 @@ export function FimaPaginatedDiary({
 		</nav>
 	);
 	return (
-		<div className="space-y-6">
+		<div ref={container} className="space-y-6">
 			<DiaryFilterCard sticky>
 				<CardContent className="pt-6">
 					<form

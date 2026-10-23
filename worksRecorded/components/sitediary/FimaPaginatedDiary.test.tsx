@@ -55,6 +55,7 @@ const first = {
 };
 const originalFetch = global.fetch;
 beforeEach(() => {
+	jest.spyOn(window, "scrollTo").mockImplementation(() => {});
 	window.history.replaceState(null, "", "/dashboard/all-projects");
 	global.fetch = jest.fn().mockImplementation(async (url: string) => {
 		const params = new URL(url, "http://localhost").searchParams;
@@ -67,6 +68,7 @@ beforeEach(() => {
 });
 afterEach(() => {
 	global.fetch = originalFetch;
+	jest.restoreAllMocks();
 });
 const next = () =>
 	fireEvent.click(screen.getAllByRole("button", { name: "Nākamā" })[0]);
@@ -189,13 +191,90 @@ it("combines FIMA filters, preserves them across pages and export, then clears t
 		"/api/all-projects/export?review=needs_changes&bis=missing&materials=missing&examples=present&page=2",
 	);
 	fireEvent.click(screen.getByRole("button", { name: "Notīrīt" }));
-	await waitFor(() => expect(window.location.search).toBe("?page=2"));
-	expect(screen.getByText("row-2")).toBeInTheDocument();
+	await waitFor(() => expect(window.location.search).toBe(""));
+	expect(screen.getAllByText("1 / 3")).toHaveLength(2);
 	expect(screen.getByRole("combobox", { name: "Paraugas" })).toHaveValue("");
 	expect(screen.getByRole("link", { name: "Eksportēt" })).toHaveAttribute(
 		"href",
-		"/api/all-projects/export?page=2",
+		"/api/all-projects/export?",
 	);
+});
+
+it("restores the original page after changing filters and navigating filtered pages", async () => {
+	mount();
+	next();
+	await screen.findByText("row-2");
+	next();
+	await screen.findByText("row-3");
+	fireEvent.click(screen.getByRole("button", { name: "Select record" }));
+	fireEvent.change(screen.getByRole("textbox", { name: "Meklēt" }), {
+		target: { value: "cable" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Filtrēt" }));
+	await waitFor(() => expect(window.location.search).toBe("?q=cable"));
+	next();
+	await waitFor(() => expect(window.location.search).toBe("?q=cable&page=2"));
+	fireEvent.change(screen.getByRole("combobox", { name: "BIS ieraksts" }), {
+		target: { value: "missing" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Filtrēt" }));
+	await waitFor(() =>
+		expect(window.location.search).toBe("?q=cable&bis=missing"),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Notīrīt" }));
+	await waitFor(() => expect(window.location.search).toBe("?page=3"));
+	expect(screen.getByText("row-3")).toBeInTheDocument();
+	expect(screen.getByText("Still selected")).toBeInTheDocument();
+});
+
+it("restores a page beyond the filtered page count when the last filter is removed manually", async () => {
+	mount();
+	next();
+	await screen.findByText("row-2");
+	next();
+	await screen.findByText("row-3");
+	jest.mocked(global.fetch).mockResolvedValueOnce({
+		ok: true,
+		json: async () => ({
+			...first,
+			page: 1,
+			totalPages: 1,
+			totalCount: 1,
+			rows: [{ id: "filtered-row" }],
+		}),
+	} as Response);
+	fireEvent.change(screen.getByRole("textbox", { name: "Meklēt" }), {
+		target: { value: "cable" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Filtrēt" }));
+	await screen.findByText("filtered-row");
+	expect(screen.getAllByText("1 / 1")).toHaveLength(2);
+	fireEvent.change(screen.getByRole("textbox", { name: "Meklēt" }), {
+		target: { value: "" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Filtrēt" }));
+	await screen.findByText("row-3");
+	expect(window.location.search).toBe("?page=3");
+	expect(screen.getAllByText("3 / 3")).toHaveLength(2);
+});
+
+it("keeps the return page through a failed clear and retry after cache invalidation", async () => {
+	mount();
+	next();
+	await screen.findByText("row-2");
+	fireEvent.change(screen.getByRole("textbox", { name: "Meklēt" }), {
+		target: { value: "cable" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Filtrēt" }));
+	await waitFor(() => expect(window.location.search).toBe("?q=cable"));
+	fireEvent.click(screen.getByRole("button", { name: "Saved edit" }));
+	jest.mocked(global.fetch).mockRejectedValueOnce(new Error("Offline"));
+	fireEvent.click(screen.getByRole("button", { name: "Notīrīt" }));
+	expect(await screen.findByRole("alert")).toHaveTextContent("Offline");
+	expect(window.location.search).toBe("?q=cable");
+	fireEvent.click(screen.getByRole("button", { name: "Mēģināt vēlreiz" }));
+	await screen.findByText("row-2");
+	expect(window.location.search).toBe("?page=2");
 });
 
 it("keeps the current page when clearing unapplied filter changes", async () => {
@@ -214,7 +293,7 @@ it("keeps the current page when clearing unapplied filter changes", async () => 
 });
 
 it("does not let a late response replace a newer browser-history navigation", async () => {
-	let finish!: (value: unknown) => void;
+	let finish!: (value: Response) => void;
 	jest.mocked(global.fetch).mockImplementationOnce(
 		() =>
 			new Promise((resolve) => {
@@ -229,7 +308,7 @@ it("does not let a late response replace a newer browser-history navigation", as
 		finish({
 			ok: true,
 			json: async () => ({ ...first, page: 2, rows: [{ id: "late-row" }] }),
-		}),
+		} as Response),
 	);
 	expect(screen.queryByText("late-row")).not.toBeInTheDocument();
 	expect(window.location.search).toBe("");

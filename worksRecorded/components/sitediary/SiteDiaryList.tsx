@@ -3,6 +3,7 @@ import type { LimeniProjectSnapshot } from "@/flows/default-construction/visual/
 import { DiaryFilterCard } from "./DiaryFilterCard";
 import { FimaDiaryFilters } from "./FimaDiaryFilters";
 import { useFimaDiaryFilterOptions } from "./useFimaDiaryFilterOptions";
+import { useFimaFilterReturn } from "./useFimaFilterReturn";
 import type { FimaDiaryFilters as FimaFilters } from "@/lib/fima/diary-filters";
 import { FimaBisState } from "./FimaBisState";
 import { fimaDiaryColumnWeights, fimaDiaryTableClassName } from "@/lib/fima/diary-table";
@@ -803,7 +804,16 @@ export default function SiteDiaryCalendar({
       workers: [],
     });
   const [listPage, setListPage] = React.useState(1);
-  const pageAfterClearingFilters = React.useRef<number | null>(null);
+  const fimaTableContainer = React.useRef<HTMLDivElement>(null);
+  const { change: changeFimaFilters, restore: restoreFimaPosition } =
+    useFimaFilterReturn(siteId, fimaTableContainer);
+  const previousFimaView = React.useRef<{
+    siteId: string | null;
+    key: string;
+    filtered: boolean;
+    page: number;
+  } | null>(null);
+  const [loadedFimaQuery, setLoadedFimaQuery] = React.useState<string | null>(null);
   const [listTotalCount, setListTotalCount] = React.useState(0);
   const [listTotalPages, setListTotalPages] = React.useState(1);
   const keywordInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -1280,6 +1290,18 @@ export default function SiteDiaryCalendar({
     }).then(setFilledDays);
   }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode]);
 
+  const fimaFilterKey = JSON.stringify({
+    dateFrom: dateFrom ? toLocalDateKey(dateFrom) : null,
+    dateTo: dateTo ? toLocalDateKey(dateTo) : null,
+    workFilter,
+    floorFilter,
+    keyword: keywordFilter.trim(),
+    ...Object.fromEntries(Object.entries(fimaFilters).filter(([, value]) => Boolean(value))),
+  });
+  const hasFimaFilters = Boolean(
+    dateFrom || dateTo || workFilter !== "__ALL__" || floorFilter !== "__ALL__" ||
+    keywordFilter.trim() || Object.values(fimaFilters).some(Boolean)
+  );
   const remoteQueryKey = JSON.stringify(clientDiary ? {} : {
     dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
     dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
@@ -1366,6 +1388,7 @@ export default function SiteDiaryCalendar({
       }
       const data: DiaryRow[] = result.rows || [];
       if (diaryRowsRequestRef.current !== requestId) return data;
+      if (fimaLoaded) setLoadedFimaQuery(pageKey);
       if (fimaLoaded && result.page !== remoteFilters.page) setListPage(result.page);
       setRows(data || []);
       setListTotalCount(result.totalCount ?? 0);
@@ -1436,8 +1459,8 @@ export default function SiteDiaryCalendar({
   }, [refreshRowsWithBisSync]);
 
   React.useEffect(() => {
-    setListPage(pageAfterClearingFilters.current ?? 1);
-    pageAfterClearingFilters.current = null;
+    if (fimaDiary) return;
+    setListPage(1);
   }, [
     dateFrom,
     dateTo,
@@ -1447,7 +1470,32 @@ export default function SiteDiaryCalendar({
     workerFilter,
     keywordFilter,
     fimaFilters,
+    fimaDiary,
   ]);
+
+  React.useLayoutEffect(() => {
+    if (!fimaDiary) {
+      previousFimaView.current = null;
+      return;
+    }
+    const previous = previousFimaView.current;
+    if (previous?.siteId === siteId && previous.key !== fimaFilterKey) {
+      setListPage(changeFimaFilters(previous.filtered, hasFimaFilters, previous.page));
+    }
+    previousFimaView.current = {
+      siteId,
+      key: fimaFilterKey,
+      filtered: hasFimaFilters,
+      page: listPage,
+    };
+  }, [fimaDiary, siteId, fimaFilterKey, hasFimaFilters, listPage, changeFimaFilters]);
+
+  React.useLayoutEffect(() => {
+    if (
+      fimaDiary && !hasFimaFilters && !loading && !error &&
+      loadedFimaQuery === `${siteId}:${remoteQueryKey}`
+    ) restoreFimaPosition();
+  }, [fimaDiary, hasFimaFilters, loading, error, siteId, remoteQueryKey, loadedFimaQuery, restoreFimaPosition]);
 
   React.useEffect(() => {
     setHasLoadedRowsOnce(false);
@@ -1455,10 +1503,10 @@ export default function SiteDiaryCalendar({
   }, [siteId]);
 
   React.useEffect(() => {
-    if (listPage > listTotalPages) {
+    if (!fimaDiary && listPage > listTotalPages) {
       setListPage(Math.max(1, listTotalPages));
     }
-  }, [listPage, listTotalPages]);
+  }, [fimaDiary, listPage, listTotalPages]);
 
   React.useEffect(() => {
     if (!loading || !hasLoadedRowsOnce) {
@@ -2280,7 +2328,6 @@ export default function SiteDiaryCalendar({
   };
 
   const clearFilters = () => {
-    if (fimaDiary) pageAfterClearingFilters.current = listPage;
     setFimaFilters({});
     setDateFrom(null);
     setDateTo(null);
@@ -3152,6 +3199,7 @@ export default function SiteDiaryCalendar({
         <ProjectOpeningOverlay label={language === "lv" ? "Ielādē būvdarbu žurnālu…" : "Loading construction diary…"} progress={imagesPreloading && pageImagesLoading ? diaryImageProgress : null} />
       ) : null}
       <div
+        ref={fimaTableContainer}
         className={cn("w-full mx-auto px-2 sm:px-4 py-4", fimaDiary && "select-text")}
         style={{ maxWidth: fimaDiary ? "none" : `${screenWidth}rem`, minWidth: 0 }}
       >
@@ -3597,7 +3645,7 @@ export default function SiteDiaryCalendar({
                         className="h-9 pl-8"
                       />
                     </div>
-                    {fimaDiary ? <FimaDiaryFilters value={fimaFilters} onChange={(value) => { setListPage(1); setFimaFilters(value); }} /> : null}
+                    {fimaDiary ? <FimaDiaryFilters value={fimaFilters} onChange={setFimaFilters} /> : null}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
