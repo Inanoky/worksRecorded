@@ -8,7 +8,7 @@ jest.mock("@/server/actions/fima-diary-inline", () => ({
 jest.mock("sonner", () => ({ toast: { error: jest.fn() } }));
 beforeEach(() => jest.resetAllMocks());
 const base = { siteId: "site", recordId: "record", onSaved: jest.fn() };
-it("allows selecting and double-clicking text without starting an edit", () => {
+it("starts inline editing when the cell text is clicked", () => {
 	render(
 		<FimaInlineCell
 			{...base}
@@ -17,12 +17,12 @@ it("allows selecting and double-clicking text without starting an edit", () => {
 		/>,
 	);
 	const text = screen.getByText("Original work description");
-	fireEvent.mouseDown(text);
-	fireEvent.mouseUp(text);
 	fireEvent.click(text);
-	fireEvent.doubleClick(text);
-	expect(text.closest("button")).toBeNull();
-	expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+	const editor = screen.getByRole("textbox", {
+		name: "Rediģēt: Darba apraksts",
+	});
+	expect(editor).toHaveValue("Original work description");
+	expect(editor).toHaveFocus();
 	expect(updateFimaDiaryField).not.toHaveBeenCalled();
 });
 it("edits a description inline and saves the original value for conflict detection", async () => {
