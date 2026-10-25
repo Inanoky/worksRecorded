@@ -2,6 +2,7 @@
 import type { LimeniProjectSnapshot } from "@/flows/default-construction/visual/project-snapshot-store";
 import { DiaryFilterCard } from "./DiaryFilterCard";
 import { FimaDiaryFilters } from "./FimaDiaryFilters";
+import { FimaPagination } from "./FimaPagination";
 import { useFimaDiaryFilterOptions } from "./useFimaDiaryFilterOptions";
 import { useFimaFilterReturn } from "./useFimaFilterReturn";
 import type { FimaDiaryFilters as FimaFilters } from "@/lib/fima/diary-filters";
@@ -2546,6 +2547,20 @@ export default function SiteDiaryCalendar({
     const lastRecord = Math.min(
       listTotalCount,
       listPage * SITE_DIARY_LIST_PAGE_SIZE,
+    );
+
+    if (fimaDiary) return (
+      <FimaPagination
+        page={listPage}
+        totalPages={listTotalPages}
+        summary={t.listPaginationSummary(firstRecord, lastRecord, listTotalCount)}
+        onPageChange={setListPage}
+        disabled={loading}
+        language={language}
+        previous={t.previous}
+        next={t.next}
+        label={t.recordsPagination}
+      />
     );
 
     return (

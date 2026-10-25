@@ -313,3 +313,53 @@ it("does not let a late response replace a newer browser-history navigation", as
 	expect(screen.queryByText("late-row")).not.toBeInTheDocument();
 	expect(window.location.search).toBe("");
 });
+
+it("jumps directly from either pagination bar, retains filters, and returns to the original distant page", async () => {
+	const manyPages = { ...first, totalPages: 52, totalCount: 2600 };
+	jest.mocked(global.fetch).mockImplementation(async (url) => {
+		const params = new URL(String(url), "http://localhost").searchParams;
+		const page = Number(params.get("page") || 1);
+		return {
+			ok: true,
+			json: async () => ({ ...manyPages, page, rows: [{ id: `row-${page}` }] }),
+		} as Response;
+	});
+	render(
+		<FimaPaginatedDiary
+			initialPage={manyPages}
+			initialQuery=""
+			projects={[]}
+			messages={messages}
+		/>,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Select record" }));
+	fireEvent.change(screen.getAllByRole("spinbutton", { name: "Uz lapu" })[1], {
+		target: { value: "15" },
+	});
+	fireEvent.click(screen.getAllByRole("button", { name: "Iet" })[1]);
+	await screen.findByText("row-15");
+	expect(window.location.search).toBe("?page=15");
+	await waitFor(() => {
+		for (const input of screen.getAllByRole("spinbutton", { name: "Uz lapu" }))
+			expect(input).toHaveValue(15);
+	});
+	fireEvent.change(screen.getByRole("textbox", { name: "Meklēt" }), {
+		target: { value: "cable" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Filtrēt" }));
+	await waitFor(() => expect(window.location.search).toBe("?q=cable"));
+	fireEvent.change(screen.getAllByRole("spinbutton", { name: "Uz lapu" })[0], {
+		target: { value: "12" },
+	});
+	fireEvent.click(screen.getAllByRole("button", { name: "Iet" })[0]);
+	await screen.findByText("row-12");
+	expect(window.location.search).toBe("?q=cable&page=12");
+	expect(screen.getByRole("link", { name: "Eksportēt" })).toHaveAttribute(
+		"href",
+		"/api/all-projects/export?q=cable&page=12",
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Notīrīt" }));
+	await screen.findByText("row-15");
+	expect(window.location.search).toBe("?page=15");
+	expect(screen.getByText("Still selected")).toBeInTheDocument();
+});

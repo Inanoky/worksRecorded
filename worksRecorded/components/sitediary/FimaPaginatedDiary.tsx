@@ -21,6 +21,7 @@ import {
 	type FimaAllProjectsRecordRow,
 } from "./FimaAllProjectsDiary";
 import { FimaDiaryFilters } from "./FimaDiaryFilters";
+import { FimaPagination } from "./FimaPagination";
 import { useFimaFilterReturn } from "./useFimaFilterReturn";
 
 type Page = {
@@ -50,6 +51,7 @@ type Props = {
 	initialQuery: string;
 	projects: { id: string; name: string }[];
 	messages: Messages;
+	language?: "lv" | "en";
 };
 
 function normalizedQuery(query: string) {
@@ -75,6 +77,7 @@ export function FimaPaginatedDiary({
 	initialQuery,
 	projects,
 	messages,
+	language = "lv",
 }: Props) {
 	const container = useRef<HTMLDivElement>(null);
 	const { change: changeFilters, restore: restorePosition } =
@@ -215,37 +218,22 @@ export function FimaPaginatedDiary({
 		void load(params.toString());
 	};
 	const pagination = (
-		<nav
-			aria-label="Ierakstu lapas"
-			className="flex flex-wrap items-center justify-between gap-3 py-3"
-		>
-			<span className="text-sm text-muted-foreground">
-				{page.totalCount ? (page.page - 1) * page.pageSize + 1 : 0}–
-				{Math.min(page.page * page.pageSize, page.totalCount)} /{" "}
-				{page.totalCount} {messages.records}
-			</span>
-			<div className="flex items-center gap-2">
-				<Button
-					variant="outline"
-					size="sm"
-					disabled={loading || page.page <= 1}
-					onClick={() => changePage(page.page - 1)}
-				>
-					{messages.previous}
-				</Button>
-				<span className="text-sm tabular-nums">
-					{page.page} / {page.totalPages}
-				</span>
-				<Button
-					variant="outline"
-					size="sm"
-					disabled={loading || page.page >= page.totalPages}
-					onClick={() => changePage(page.page + 1)}
-				>
-					{messages.next}
-				</Button>
-			</div>
-		</nav>
+		<FimaPagination
+			page={page.page}
+			totalPages={page.totalPages}
+			onPageChange={changePage}
+			disabled={loading}
+			language={language}
+			previous={messages.previous}
+			next={messages.next}
+			summary={
+				<>
+					{page.totalCount ? (page.page - 1) * page.pageSize + 1 : 0}–
+					{Math.min(page.page * page.pageSize, page.totalCount)} /{" "}
+					{page.totalCount} {messages.records}
+				</>
+			}
+		/>
 	);
 	return (
 		<div ref={container} className="space-y-6">

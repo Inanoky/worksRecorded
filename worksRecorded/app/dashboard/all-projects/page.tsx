@@ -225,6 +225,7 @@ export default async function AllProjectsPage({
             totalPages: data.totalPages,
           }}
           messages={messages}
+          language={organizationLanguage === "lv" ? "lv" : "en"}
         />
       </div>
     );
