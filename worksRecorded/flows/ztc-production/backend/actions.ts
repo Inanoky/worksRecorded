@@ -29,11 +29,13 @@ import {
   normalizeZtcRateTaskKey,
   type ZtcProjectRateExclusions,
 } from "@/flows/ztc-production/lib/ztc-rate-exclusions";
+import { readZtcRateMatchDecision } from "@/flows/ztc-production/lib/ztc-rate-match-decision";
 import { findZtcDefaultRateForTask } from "@/flows/ztc-production/lib/ztc-rate-matching";
 import {
   buildZtcRecordedWorkFilterOptions,
   isZtcUnassignedRateTaskFilter,
   resolveZtcRateTaskForRow,
+  resolveZtcFilterRateTaskForRow,
   ztcRowMatchesConfiguredWorkFilter,
 } from "@/flows/ztc-production/lib/ztc-rate-resolver";
 import {
@@ -673,11 +675,9 @@ function getZtcReportedAmountForUnit(row: Record<string, any>, unit: string) {
 function sanitizeZtcRecordRow(row: Record<string, any>) {
   const defaultRates = normalizeProjectRates(row.__ztcDefaultTaskRates);
   const category = getZtcRateCategoryForRow(row);
-  const defaultRate = findDefaultRateForTask(
-    row.Works,
-    getProjectCategoryRates(defaultRates, row.Location, category),
-    { category },
-  );
+  const defaultRate = readZtcRateMatchDecision(row.Comments_Custom_2)
+    ? resolveZtcFilterRateTaskForRow(row, defaultRates)?.entry ?? null
+    : findDefaultRateForTask(row.Works, getProjectCategoryRates(defaultRates, row.Location, category), { category });
   const complexityCode = getZtcDrawingComplexityCode(
     row.Comments_Custom_2,
     row.Location_Custom_1,

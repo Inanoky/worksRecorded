@@ -280,3 +280,22 @@ describe("ztcRowMatchesConfiguredWorkFilter", () => {
     ).toBe(false);
   });
 });
+
+
+describe("persisted semantic rate decisions", () => {
+  const rates = [{ projectName: "H13", works: [{ task: "vertikāls latojums 45x45", rate: "0.9", unit: "m2" as const }] }];
+  it("keeps an explicit no-match unassigned instead of applying a heuristic fallback", () => {
+    const row = { Location: "H13", Works: "vertikāls latojums 45x45", Comments_Custom_2: JSON.stringify({ ztcRateMatch: { task: null, source: "raw", reason: "Ambiguous" } }) };
+    expect(getZtcRateTaskDisplayForRow(row, rates).rateTask).toBe(ZTC_UNASSIGNED_RATE_TASK_LABEL);
+  });
+  it("uses the selected configured task for abbreviated drawing labels", () => {
+    const row = { Location: "H13", Works: "R3/T3 - Vertikāls latojums 45mm", Comments_Custom_2: JSON.stringify({ ztcRateMatch: { task: "vertikāls latojums 45x45", source: "llm" } }) };
+    expect(resolveZtcRateTaskForRow(row, rates)?.entry.rate).toBe("0.9");
+  });
+});
+
+
+it("allows a manually changed work to replace a prior no-match decision", () => {
+  const row = { Location: "H13", Works: "vertikāls latojums 45x45", Comments_Custom_2: JSON.stringify({ ztcRateMatch: { task: null, work: "Neskaidrs darbs", source: "raw" } }) };
+  expect(resolveZtcRateTaskForRow(row, [{ projectName: "H13", works: [{ task: "vertikāls latojums 45x45", rate: "0.9", unit: "m2" }] }])?.entry.rate).toBe("0.9");
+});

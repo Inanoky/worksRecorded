@@ -21,6 +21,7 @@ import {
   type ZtcWorker,
 } from "@/flows/ztc-production/backend/whatsapp-worker";
 import { getZtcTaskIdentityKey } from "@/flows/ztc-production/lib/ztc-task-amount-allocation";
+import { matchZtcQualityWork } from "./quality-work-matching";
 import { matchZtcCanonicalEntities } from "@/flows/ztc-production/backend/canonical-entity-matching";
 import { canonicalizeZtcExtractedProjectName } from "@/flows/ztc-production/backend/project-name-canonicalization";
 import {
@@ -329,51 +330,6 @@ function formatQaWorkOptions(payload: QaPendingPayload) {
   return works.length
     ? works.map((work, index) => `${index + 1}. ${work}`).join("\n")
     : "Nav nolasītu darbu.";
-}
-
-function normalizeQaText(value: unknown) {
-  return String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function findCheckedWork(payload: QaPendingPayload, text: string) {
-  const works = getQaWorkOptions(payload);
-  const trimmed = text.trim();
-  const numericSelection = trimmed.match(/^\s*(\d{1,2})\s*\.?\s*$/)?.[1];
-  if (numericSelection) {
-    const selectedIndex = Number(numericSelection) - 1;
-    if (selectedIndex >= 0 && selectedIndex < works.length) return works[selectedIndex];
-  }
-
-  const selectedTaskKey = getZtcTaskIdentityKey(trimmed);
-  const selectedByIdentity = works.find(
-    (work) => getZtcTaskIdentityKey(work) === selectedTaskKey,
-  );
-  if (selectedByIdentity) return selectedByIdentity;
-
-  const codeMatch = trimmed.match(/\b((?:[LR]\s*\d\s*\/\s*[BT]\s*\d)|TL|L\s*0)\b/i)?.[1];
-  if (codeMatch) {
-    const selectedByCode = works.find(
-      (work) => getZtcTaskIdentityKey(work) === getZtcTaskIdentityKey(codeMatch),
-    );
-    if (selectedByCode) return selectedByCode;
-  }
-
-  const normalizedText = normalizeQaText(trimmed);
-  if (/\b(karkas\w*|timber\s*frame|koka\s*karkas\w*)\b/i.test(trimmed)) {
-    const tl = works.find((work) => /^TL(\b|\s*[-/])/i.test(work));
-    if (tl) return tl;
-  }
-
-  return works.find((work) => {
-    const parts = normalizeQaText(work)
-      .split(/[^a-z0-9]+/i)
-      .filter((part) => part.length >= 4);
-    return parts.some((part) => normalizedText.includes(part));
-  }) ?? null;
 }
 
 async function promptForCheckedWork(to: string | null, payload: QaPendingPayload) {
@@ -974,13 +930,11 @@ async function handleQualityPhotos(args: {
   const now = Date.now();
   const shouldPrompt = shouldSendPendingPhotoPrompt(payload, now);
   const caption = args.caption.trim();
-  const captionCheckedWork =
-    !payload.checkedWork && caption ? findCheckedWork(payload, caption) : null;
-  const captionIsElementQuality =
-    !payload.checkedWork &&
-    !captionCheckedWork &&
-    isUsefulQaText(caption) &&
-    !payload.qualityText;
+  const selection = !payload.checkedWork && payload.qualityScope !== "element" && caption
+    ? await matchZtcQualityWork(caption, getQaWorkOptions(payload))
+    : null;
+  const captionCheckedWork = selection?.checkedWork ?? null;
+  const captionIsElementQuality = selection?.scope === "element";
   const nextPayload: QaPendingPayload = {
     ...payload,
     qualityScope: payload.qualityScope ?? (captionIsElementQuality ? "element" : null),
@@ -1043,9 +997,10 @@ async function handleQualityText(args: {
   }
 
   if (!payload.checkedWork && payload.qualityScope !== "element") {
-    const checkedWork = findCheckedWork(payload, args.text);
+    const selection = await matchZtcQualityWork(args.text, getQaWorkOptions(payload));
+    const checkedWork = selection.checkedWork;
     if (!checkedWork) {
-      if (isUsefulQaText(args.text) && !payload.qualityText && (payload.qualityPhotoUrls ?? []).length === 0) {
+      if (selection.scope === "element" && isUsefulQaText(args.text) && !payload.qualityText) {
         const nextPayload: QaPendingPayload = {
           ...payload,
           qualityScope: "element",
@@ -1060,7 +1015,11 @@ async function handleQualityText(args: {
         }));
 
         outcome = "element_quality_text_received";
-        await sendZtcMessage(args.to, "Elementa kvalitātes apraksts saņemts. Lūdzu, atsūtiet kvalitātes kontroles foto.");
+        if ((nextPayload.qualityPhotoUrls ?? []).length) {
+          await completeQualitySession({ session, worker: args.worker, to: args.to, payload: nextPayload });
+        } else {
+          await sendZtcMessage(args.to, "Elementa kvalitātes apraksts saņemts. Lūdzu, atsūtiet kvalitātes kontroles foto.");
+        }
         return;
       }
 

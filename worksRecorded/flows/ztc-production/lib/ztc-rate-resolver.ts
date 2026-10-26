@@ -1,3 +1,4 @@
+import { readZtcRateMatchDecision } from "./ztc-rate-match-decision";
 import {
   isZtcComplexityCoefficientTask,
   ZTC_ALL_PROJECTS_RATE_NAME,
@@ -129,11 +130,13 @@ function resolveZtcRateTaskForCategory(
   const extractedTask = cleanZtcWorkName(String(row.Works ?? ""));
   if (!extractedTask) return null;
 
-  const match = findZtcDefaultRateForTask(
-    extractedTask,
-    getZtcProjectCategoryRates(defaultRates, row.Location, category),
-    { category },
-  )?.entry;
+  const storedDecision = readZtcRateMatchDecision(row.Comments_Custom_2);
+  const decision = storedDecision?.work && normalizeSpecialLabel(storedDecision.work) !== normalizeSpecialLabel(extractedTask) ? null : storedDecision;
+  if (decision && !decision.task) return null;
+  const rates = getZtcProjectCategoryRates(defaultRates, row.Location, category);
+  const match = decision
+    ? rates.find((entry) => normalizeSpecialLabel(entry.task) === normalizeSpecialLabel(decision.task))
+    : findZtcDefaultRateForTask(extractedTask, rates, { category })?.entry;
   if (!match?.task) return null;
 
   const canonicalTask = cleanZtcWorkName(match.task);

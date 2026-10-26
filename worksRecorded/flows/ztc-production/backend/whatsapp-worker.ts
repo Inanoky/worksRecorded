@@ -1,3 +1,4 @@
+import { attachZtcRateMatchDecision } from "@/flows/ztc-production/lib/ztc-rate-match-decision";
 import { auditZtcMutation, withZtcRecordAudit, ztcMessageAuditContext } from "@/flows/ztc-production/lib/ztc-record-audit";
 import { drawingLogText, drawingRejectionReasons, summarizeDrawingExtraction } from "@/flows/ztc-production/lib/ztc-drawing-diagnostics";
 import { validateZtcDrawingProjectCode } from "@/flows/ztc-production/lib/ztc-drawing-project-code";
@@ -2442,16 +2443,7 @@ async function createAdditionalDetailRows(args: {
   const rows = await Promise.all(
     details.map(async (detail, index) => {
       const entityWorkMatch = workMatchesByIndex.get(index);
-      const defaultRateMatch =
-        entityWorkMatch?.rate ??
-        (await getDefaultRateMatchForWork(
-          entityWorkMatch?.task || detail.description,
-          {
-            projectName: canonicalProjectName,
-            category: "additionalDetails",
-            siteId: context.siteId,
-          },
-        ));
+      const defaultRateMatch = entityWorkMatch?.rate ?? null;
       const mappedDescription = defaultRateMatch?.task?.trim() || detail.description;
 
       return {
@@ -2481,6 +2473,7 @@ async function createAdditionalDetailRows(args: {
           mainWork: args.session.Works,
           extractedWork: detail.description,
           matchedRateTask: defaultRateMatch?.task ?? null,
+          ztcRateMatch: { task: defaultRateMatch?.task ?? null, work: mappedDescription, source: entityWorkMatch?.source ?? "raw", reason: entityWorkMatch?.reason },
         }),
         originalUserComment: args.completedText?.trim() ?? null,
         Photos: [],
@@ -3421,16 +3414,7 @@ async function createAdditionalWorkSession(args: {
     entityMatch.project?.name ??
     (shouldAttachToProject ? drawingContext?.Location ?? null : null);
   const entityWorkMatch = entityMatch.works[0];
-  const defaultRateMatch =
-    entityWorkMatch?.rate ??
-    (await getDefaultRateMatchForWork(
-      entityWorkMatch?.task || rawAdditionalWork,
-      {
-        projectName: canonicalProjectName,
-        category: "additionalWorks",
-        siteId: context.siteId,
-      },
-    ));
+  const defaultRateMatch = entityWorkMatch?.rate ?? null;
   const mappedWorkOption = defaultRateMatch?.task?.trim() || workOption;
   const relatesToElement = defaultRateMatch?.relatesToElement === true;
   const shouldAttachToElement =
@@ -3458,7 +3442,7 @@ async function createAdditionalWorkSession(args: {
         ? drawingContext?.Location_Custom_1
         : null,
       Works_Custom_1: shouldAttachToProject ? "Papilddarbi" : null,
-      Comments_Custom_2: attachZtcAdditionalWorkContext(
+      Comments_Custom_2: attachZtcRateMatchDecision(attachZtcAdditionalWorkContext(
         shouldAttachToProject
           ? canonicalizeDrawingMetadataProject(
               drawingContext?.Comments_Custom_2,
@@ -3466,7 +3450,7 @@ async function createAdditionalWorkSession(args: {
             )
           : null,
         additionalWorkContext,
-      ),
+      ), { task: defaultRateMatch?.task ?? null, work: mappedWorkOption, source: entityWorkMatch?.source ?? "raw", reason: entityWorkMatch?.reason }),
       Photos: shouldAttachToProject && drawingContext?.Photos?.[0] ? [drawingContext.Photos[0]] : [],
       Works: mappedWorkOption,
       Location_Custom_2: defaultRateMatch?.rate ?? null,
@@ -3799,16 +3783,7 @@ async function handleWorkText(args: {
   const canonicalProjectName = entityMatch.project?.name ?? session.Location;
   const entityWorkMatch = entityMatch.works[0];
   const rateStartedAt = Date.now();
-  const defaultRateMatch =
-    entityWorkMatch?.rate ??
-    (await getDefaultRateMatchForWork(
-      entityWorkMatch?.task || selectedWorkName,
-      {
-        projectName: canonicalProjectName,
-        category: "works",
-        worker,
-      },
-    ));
+  const defaultRateMatch = entityWorkMatch?.rate ?? null;
   logZtcTiming("default_rate_lookup", rateStartedAt, {
     workerId: worker.id,
     workOption: work.workOption,
@@ -3846,18 +3821,17 @@ async function handleWorkText(args: {
       Date: now,
       Location: canonicalProjectName,
       Works: canonicalWorkName,
-      Location_Custom_2: session.Location_Custom_2 ?? defaultRateMatch?.rate ?? null,
+      Location_Custom_2: defaultRateMatch?.rate ?? null,
       WorkersInvolved: Number(complexity),
       Units: "m2",
       Amounts: amountM2 ?? undefined,
       Comments: comments,
-      Comments_Custom_2: defaultRateMatch?.rate
-        ? attachZtcLaborNormToMetadata(
-            canonicalDrawingMetadata,
-            defaultRateMatch.laborNorm,
-            "m2",
-          )
-        : clearZtcLaborNormFromMetadata(canonicalDrawingMetadata),
+      Comments_Custom_2: attachZtcRateMatchDecision(
+        defaultRateMatch?.rate
+          ? attachZtcLaborNormToMetadata(canonicalDrawingMetadata, defaultRateMatch.laborNorm, "m2")
+          : clearZtcLaborNormFromMetadata(canonicalDrawingMetadata),
+        { task: defaultRateMatch?.task ?? null, work: canonicalWorkName, source: entityWorkMatch?.source ?? "raw", reason: entityWorkMatch?.reason },
+      ),
       originalUserComment: `${workerFullName(worker)} : ${text}`,
       originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
     },
