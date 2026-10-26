@@ -681,7 +681,7 @@ async function stageZtcImageBatch(args: {
 		}>
 	>`
     SELECT "id", "items", "lastMessageId", "processAfter"
-    FROM "ZtcInboundMediaBatch"
+    FROM "public"."ZtcInboundMediaBatch"
     WHERE "batchKey" = ${batchKey}
       AND "status" = 'collecting'
     LIMIT 1
@@ -710,7 +710,7 @@ async function stageZtcImageBatch(args: {
 	const claimedRows = await prisma.$queryRaw<
 		Array<{ id: string; items: unknown }>
 	>`
-    UPDATE "ZtcInboundMediaBatch"
+    UPDATE "public"."ZtcInboundMediaBatch"
     SET "status" = 'processing',
         "updatedAt" = NOW()
     WHERE "id" = ${row.id}
@@ -783,7 +783,7 @@ async function stageDefaultConstructionImageBatch(args: {
 	const stagedRows = await prisma.$queryRaw<
 		Array<{ itemCount: number | bigint }>
 	>`
-    INSERT INTO "DefaultConstructionInboundMediaBatch" (
+    INSERT INTO "public"."DefaultConstructionInboundMediaBatch" (
       "id",
       "batchKey",
       "userId",
@@ -848,7 +848,7 @@ async function stageDefaultConstructionImageBatch(args: {
 	);
 
 	const acknowledgementClaim = await prisma.$queryRaw<Array<{ id: string }>>`
-    UPDATE "DefaultConstructionInboundMediaBatch"
+    UPDATE "public"."DefaultConstructionInboundMediaBatch"
     SET "acknowledgedAt" = NOW()
     WHERE "batchKey" = ${batchKey}
       AND "status" = 'collecting'
@@ -886,7 +886,7 @@ async function stageDefaultConstructionImageBatch(args: {
 		}>
 	>`
     SELECT "id", "items", "lastMessageId", "processAfter"
-    FROM "DefaultConstructionInboundMediaBatch"
+    FROM "public"."DefaultConstructionInboundMediaBatch"
     WHERE "batchKey" = ${batchKey}
       AND "status" = 'collecting'
     LIMIT 1
@@ -917,7 +917,7 @@ async function stageDefaultConstructionImageBatch(args: {
 	const claimedRows = await prisma.$queryRaw<
 		Array<{ id: string; items: unknown }>
 	>`
-    UPDATE "DefaultConstructionInboundMediaBatch"
+    UPDATE "public"."DefaultConstructionInboundMediaBatch"
     SET "status" = 'processing',
         "updatedAt" = NOW()
     WHERE "id" = ${row.id}
@@ -956,7 +956,7 @@ async function deleteDefaultConstructionImageBatch(
 ) {
 	if (!batchId) return;
 	await prisma.$executeRaw`
-    DELETE FROM "DefaultConstructionInboundMediaBatch"
+    DELETE FROM "public"."DefaultConstructionInboundMediaBatch"
     WHERE "id" = ${batchId}
       AND "status" = 'processing'
   `;

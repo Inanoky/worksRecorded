@@ -158,7 +158,7 @@ export async function saveFimaDiaryCollaboration(
 	const state = await prisma.$transaction(async (tx) => {
 		const rows = await tx.$queryRaw<
 			{ evalMetadata: Prisma.JsonValue }[]
-		>`SELECT "evalMetadata" FROM "sitediaryrecords" WHERE id=${input.recordId} AND "siteId"=${input.siteId} AND "organizationId"=${scope.site.organizationId} AND "archivedAt" IS NULL FOR UPDATE`;
+		>`SELECT "evalMetadata" FROM "public"."sitediaryrecords" WHERE id=${input.recordId} AND "siteId"=${input.siteId} AND "organizationId"=${scope.site.organizationId} AND "archivedAt" IS NULL FOR UPDATE`;
 		if (rows.length !== 1) throw new Error("Ieraksts vairs nav pieejams.");
 		const metadata = (rows[0].evalMetadata ?? {}) as Prisma.JsonObject;
 		const current = readFimaCollaboration(metadata);
@@ -267,6 +267,6 @@ export async function refreshFimaBisMaterials(
 		});
 	}
 	const snapshot = { fetchedAt: new Date().toISOString(), entries };
-	await prisma.$executeRaw`UPDATE "sitediaryrecords" SET "evalMetadata"=jsonb_set(COALESCE("evalMetadata",'{}'::jsonb),'{fimaCollaboration}',COALESCE("evalMetadata"->'fimaCollaboration','{}'::jsonb)||jsonb_build_object('bisMaterials',${JSON.stringify(snapshot)}::jsonb),true) WHERE id=${input.recordId} AND "siteId"=${input.siteId} AND "organizationId"=${scope.site.organizationId} AND "archivedAt" IS NULL`;
+	await prisma.$executeRaw`UPDATE "public"."sitediaryrecords" SET "evalMetadata"=jsonb_set(COALESCE("evalMetadata",'{}'::jsonb),'{fimaCollaboration}',COALESCE("evalMetadata"->'fimaCollaboration','{}'::jsonb)||jsonb_build_object('bisMaterials',${JSON.stringify(snapshot)}::jsonb),true) WHERE id=${input.recordId} AND "siteId"=${input.siteId} AND "organizationId"=${scope.site.organizationId} AND "archivedAt" IS NULL`;
 	return getFimaDiaryCollaboration(input);
 }

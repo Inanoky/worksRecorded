@@ -216,7 +216,7 @@ describe("production photo isolation", () => {
 			{ source: "manual", actorId: "user" },
 		);
 		for (const [sql, ...values] of execute.mock.calls) {
-			expect(sql.join("?")).toContain('UPDATE "ZTCrecords"');
+			expect(sql.join("?")).toContain('UPDATE "public"."ZTCrecords"');
 			expect(values.slice(1)).toEqual([
 				"owner",
 				"site",

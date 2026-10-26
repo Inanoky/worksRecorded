@@ -63,7 +63,7 @@ export async function deleteDiaryPhoto(id: string, requestedSiteId?: string) {
 					);
 				for (const owner of owners) {
 					for (const url of urls) {
-						await tx.$executeRaw`UPDATE "ZTCrecords" SET "Photos" = array_remove("Photos", ${url}) WHERE id = ${owner.id} AND "siteId" = ${siteId} AND "organizationId" = ${site.organizationId}`;
+						await tx.$executeRaw`UPDATE "public"."ZTCrecords" SET "Photos" = array_remove("Photos", ${url}) WHERE id = ${owner.id} AND "siteId" = ${siteId} AND "organizationId" = ${site.organizationId}`;
 					}
 				}
 				return {
@@ -121,7 +121,7 @@ export async function deleteDiaryPhoto(id: string, requestedSiteId?: string) {
 		for (const recordId of deletedRecordIds) {
 			for (const url of urls) {
 				await tx.$executeRaw`
-        UPDATE "sitediaryrecords"
+        UPDATE "public"."sitediaryrecords"
         SET "Photos" = array_remove("Photos", ${url})
         WHERE "siteId" = ${siteId} AND "organizationId" = ${site.organizationId}
           AND id = ${recordId}

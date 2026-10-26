@@ -59,7 +59,7 @@ export async function getBisConnectionStatus(
           EXISTS (
             SELECT 1 FROM "public"."BisToken" token WHERE token."userId" = ${scope.userId}
           ) AS "hasBisToken"
-        FROM "Site" site
+        FROM "public"."Site" site
         WHERE site.id = ${scope.siteId}
         LIMIT 1
   `;
@@ -100,7 +100,7 @@ export async function readBisMaterialRecords(
           id, name, quantity, "measurementUnit", "categoryName", "costCode",
           "invoiceNr", "invoiceDate", "materialDate", "supplierName",
           cost, "BISId", "bisStatus", "createdAt"
-        FROM "BISmaterialRecords"
+        FROM "public"."BISmaterialRecords"
         WHERE "siteId" = ${scope.siteId}
           AND (
             ${search} = '' OR
@@ -131,7 +131,7 @@ export async function readSiteDiaryBisStatuses(
   const pattern = `%${search}%`;
   const rows = await prisma.$queryRaw<Array<Record<string, unknown>>>`
         SELECT id, "Date", "Location", "Works", "Comments", "BISId", "bisStatus", "createdAt"
-        FROM "sitediaryrecords"
+        FROM "public"."sitediaryrecords"
         WHERE "siteId" = ${scope.siteId}
           AND "archivedAt" IS NULL
           AND (${submission} = 'all'

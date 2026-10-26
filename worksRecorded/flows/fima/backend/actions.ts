@@ -139,7 +139,7 @@ export async function importFimaRows(
 	});
 	return prisma.$transaction(
 		async (tx) => {
-			await tx.$queryRaw`SELECT id FROM "Organization" WHERE id=${a.organizationId} FOR UPDATE`;
+			await tx.$queryRaw`SELECT id FROM "public"."Organization" WHERE id=${a.organizationId} FOR UPDATE`;
 			const existing = await tx.fimaImportBatch.findUnique({
 				where: {
 					organizationId_siteId_fileHash: {
@@ -330,7 +330,7 @@ export async function saveFimaRecord(
 export async function addFimaRecord(siteId: string) {
 	const a = await fimaAccess(siteId);
 	return prisma.$transaction(async (tx) => {
-		await tx.$queryRaw`SELECT id FROM "Organization" WHERE id=${a.organizationId} FOR UPDATE`;
+		await tx.$queryRaw`SELECT id FROM "public"."Organization" WHERE id=${a.organizationId} FOR UPDATE`;
 		const ordinal =
 			((
 				await tx.fimaWorkRecord.aggregate({
@@ -476,7 +476,7 @@ export async function mergeFimaRows(ids: string[], workers: number | null) {
 	if (workers !== null && (!Number.isInteger(workers) || workers < 0))
 		throw new Error("Nederīgs darbinieku skaits");
 	return prisma.$transaction(async (tx) => {
-		await tx.$queryRaw`SELECT id FROM "Organization" WHERE id=${a.organizationId} FOR UPDATE`;
+		await tx.$queryRaw`SELECT id FROM "public"."Organization" WHERE id=${a.organizationId} FOR UPDATE`;
 		const records = await tx.fimaWorkRecord.findMany({
 			where: { id: { in: ids }, organizationId: a.organizationId },
 			orderBy: { ordinal: "asc" },

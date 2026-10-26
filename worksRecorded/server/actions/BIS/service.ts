@@ -372,7 +372,7 @@ export async function getSiteBisConfig(siteId: string): Promise<SiteBisConfigRow
       "bisConstructionRoundName",
       "bisConstructionRoundNumber",
       "bisConstructionRoundStatus"
-    FROM "Site"
+    FROM "public"."Site"
     WHERE id = ${siteId}
     LIMIT 1
   `;
@@ -382,7 +382,7 @@ export async function getSiteBisConfig(siteId: string): Promise<SiteBisConfigRow
 
 export async function setSiteBisConfig(siteId: string, config: Omit<SiteBisConfigRow, "id">) {
   await prisma.$executeRaw`
-    UPDATE "Site"
+    UPDATE "public"."Site"
     SET
       "bisCaseId" = ${config.bisCaseId},
       "bisCaseNumber" = ${config.bisCaseNumber},
@@ -406,7 +406,7 @@ export async function setSiteBisConstructionRound(
   },
 ) {
   await prisma.$executeRaw`
-    UPDATE "Site"
+    UPDATE "public"."Site"
     SET
       "bisConstructionRoundId" = ${round.id},
       "bisConstructionRoundName" = ${round.name},

@@ -967,7 +967,7 @@ async function getStoredSiteWeatherRows(
     }>
   >(
     `SELECT "hour", "temperatureC", "windSpeedMs", "precipitationMm"
-     FROM "SiteWeatherHourly"
+     FROM "public"."SiteWeatherHourly"
      WHERE "siteId" = $1 AND "weatherDate" = $2::date
      ORDER BY "hour" ASC`,
     siteId,
@@ -1023,7 +1023,7 @@ async function getLatestWeatherUpdateAt(
 ): Promise<Date | null> {
   const rows = await prisma.$queryRawUnsafe<Array<{ updatedAt: Date }>>(
     `SELECT MAX("updatedAt") AS "updatedAt"
-     FROM "SiteWeatherHourly"
+     FROM "public"."SiteWeatherHourly"
      WHERE "siteId" = $1 AND "weatherDate" = $2::date`,
     siteId,
     dayISO,
@@ -1111,7 +1111,7 @@ async function fetchAndStoreSiteWeather(args: {
 
   for (const row of results) {
     await prisma.$executeRawUnsafe(
-      `INSERT INTO "SiteWeatherHourly"
+      `INSERT INTO "public"."SiteWeatherHourly"
       ("id", "siteId", "organizationId", "weatherDate", "hour", "observedAt", "latitude", "longitude", "temperatureC", "windSpeedMs", "precipitationMm", "provider", "fetchedAt", "sourceUpdatedAt", "isForecast")
       VALUES ($1, $2, $3, $4::date, $5, $6::timestamp, $7, $8, $9, $10, $11, 'open-meteo', $12::timestamp, $13::timestamp, $14)
       ON CONFLICT ("siteId", "weatherDate", "hour")

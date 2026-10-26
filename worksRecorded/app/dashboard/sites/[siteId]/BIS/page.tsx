@@ -381,8 +381,8 @@ async function loadWarehouseBisState(
 async function fetchOrganizationMaterialConfigurationTemplatesForSite(siteId: string): Promise<MaterialCategory[]> {
   const rows = await prisma.$queryRawUnsafe<Array<{ bisMaterialConfigurationTemplates: unknown }>>(
     `SELECT o."bisMaterialConfigurationTemplates"
-     FROM "Site" s
-     INNER JOIN "Organization" o ON o.id = s."organizationId"
+     FROM "public"."Site" s
+     INNER JOIN "public"."Organization" o ON o.id = s."organizationId"
      WHERE s.id = $1
      LIMIT 1`,
     siteId,

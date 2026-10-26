@@ -13,7 +13,7 @@ async function main() {
 	await db.connect();
 	try {
 		await db.query("BEGIN");
-		await db.query("SET LOCAL search_path = pg_temp");
+		await db.query("SET LOCAL search_path = ''");
 		await db.query(`CREATE TEMP TABLE "ZtcInboundMediaBatch" (
       id text PRIMARY KEY, "batchKey" text UNIQUE, "workerId" text,
       "organizationId" text, mode text, status text, items jsonb,
@@ -21,6 +21,11 @@ async function main() {
       "lastMessageId" text, "processAfter" timestamp,
       "createdAt" timestamp, "updatedAt" timestamp
     ) ON COMMIT DROP`);
+		const temporaryTableQuery = (text: string) =>
+			text.replaceAll(
+				'"public"."ZtcInboundMediaBatch"',
+				'pg_temp."ZtcInboundMediaBatch"',
+			);
 		const stage = async (id: string, messageId: string) => {
 			const query = buildZtcImageBatchStageQuery({
 				id,
@@ -33,21 +38,25 @@ async function main() {
 				quietMs: 5_000,
 				staleMs: 120_000,
 			});
-			return (await db.query(query.text, query.values)).rows[0];
+			assert.match(query.text, /INSERT INTO "public"\."ZtcInboundMediaBatch"/);
+			await db.query(`EXPLAIN ${query.text}`, query.values);
+			return (await db.query(temporaryTableQuery(query.text), query.values))
+				.rows[0];
 		};
 		const remove = async (id: string) => {
 			const query = buildZtcImageBatchDeleteQuery(id);
-			return db.query(query.text, query.values);
+			assert.match(query.text, /DELETE FROM "public"\."ZtcInboundMediaBatch"/);
+			return db.query(temporaryTableQuery(query.text), query.values);
 		};
 		const current = async () =>
-			(await db.query('SELECT * FROM "ZtcInboundMediaBatch"')).rows[0];
+			(await db.query('SELECT * FROM pg_temp."ZtcInboundMediaBatch"')).rows[0];
 
 		assert.equal((await stage("generation-a", "photo-a")).itemCount, 1);
 		assert.equal((await stage("unused-id", "photo-b")).itemCount, 2);
 		assert.equal((await current()).id, "generation-a");
 		assert.equal((await remove("generation-a")).rowCount, 0);
 		await db.query(
-			`UPDATE "ZtcInboundMediaBatch" SET status='processing' WHERE id='generation-a'`,
+			`UPDATE pg_temp."ZtcInboundMediaBatch" SET status='processing' WHERE id='generation-a'`,
 		);
 
 		assert.equal((await stage("generation-b", "photo-c")).itemCount, 1);
@@ -56,14 +65,14 @@ async function main() {
 		assert.equal((await current()).items[0].messageId, "photo-c");
 
 		await db.query(
-			`UPDATE "ZtcInboundMediaBatch" SET status='processing' WHERE id='generation-b'`,
+			`UPDATE pg_temp."ZtcInboundMediaBatch" SET status='processing' WHERE id='generation-b'`,
 		);
 		assert.equal((await remove("generation-b")).rowCount, 1);
 		assert.equal(await current(), undefined);
 
 		await stage("stale-generation", "stale-photo");
 		await db.query(
-			`UPDATE "ZtcInboundMediaBatch" SET "updatedAt"=NOW()-INTERVAL '3 minutes'`,
+			`UPDATE pg_temp."ZtcInboundMediaBatch" SET "updatedAt"=NOW()-INTERVAL '3 minutes'`,
 		);
 		assert.equal((await stage("fresh-generation", "fresh-photo")).itemCount, 1);
 		assert.equal((await current()).id, "fresh-generation");

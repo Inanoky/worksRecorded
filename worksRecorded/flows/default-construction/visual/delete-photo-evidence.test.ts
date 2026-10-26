@@ -97,7 +97,7 @@ it("locks scoped drawings and removes only matching URLs with compare-and-swap",
 		VISUAL_DOCUMENT_TYPE,
 	]);
 	expect(query.mock.calls[0][0].join("?")).toContain("FOR UPDATE");
-	expect(query.mock.calls[0][0].join("?")).toContain('FROM "Documents"');
+	expect(query.mock.calls[0][0].join("?")).toContain('FROM "public"."Documents"');
 	expect(update.mock.calls[0][0].where).toEqual({
 		id: "drawing",
 		siteId: "site",

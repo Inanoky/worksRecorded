@@ -304,7 +304,7 @@ export async function getOrganizationWorkers(orgId: string) {
 
   const roleRows = workers.length
     ? await prisma.$queryRaw<Array<{ id: string; role: string | null }>>`
-        SELECT id, role FROM "workers" WHERE id IN (${Prisma.join(workers.map((worker) => worker.id))})
+        SELECT id, role FROM "public"."workers" WHERE id IN (${Prisma.join(workers.map((worker) => worker.id))})
       `
     : [];
   const roleByWorkerId = new Map(roleRows.map((row) => [row.id, row.role]));
@@ -340,7 +340,7 @@ export async function updateWorkerOrganizationSettings(
 
   if (role !== undefined) {
     await prisma.$executeRaw`
-      UPDATE "workers" SET role = ${role} WHERE id = ${workerId}
+      UPDATE "public"."workers" SET role = ${role} WHERE id = ${workerId}
     `;
   }
 
@@ -370,7 +370,7 @@ export async function createOrganizationWorker(data: {
 
   if (data.role?.trim()) {
     await prisma.$executeRaw`
-      UPDATE "workers" SET role = ${data.role.trim()} WHERE id = ${created.id}
+      UPDATE "public"."workers" SET role = ${data.role.trim()} WHERE id = ${created.id}
     `;
   }
 
@@ -408,11 +408,11 @@ export async function deleteOrganizationWorker(workerId: string) {
   ]);
 
   await prisma.$executeRaw`
-    UPDATE "workers" SET role = NULL WHERE id = ${workerId}
+    UPDATE "public"."workers" SET role = NULL WHERE id = ${workerId}
   `;
 
   await prisma.$executeRaw`
-    UPDATE "workers" SET "personalId" = NULL WHERE id = ${workerId}
+    UPDATE "public"."workers" SET "personalId" = NULL WHERE id = ${workerId}
   `;
 
   return { ok: true };

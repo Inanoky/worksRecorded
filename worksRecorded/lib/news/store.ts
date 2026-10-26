@@ -124,7 +124,7 @@ function normalizeArticleRow(row: {
 
 async function ensureNewsTableWithPrisma() {
   await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS ai_news_feed (
+    CREATE TABLE IF NOT EXISTS "public"."ai_news_feed" (
       id SERIAL PRIMARY KEY,
       topic_key TEXT,
       headline TEXT NOT NULL,
@@ -143,28 +143,28 @@ async function ensureNewsTableWithPrisma() {
     )
   `);
 
-  await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS topic_key TEXT`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS full_article TEXT`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS seo_title TEXT`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS seo_description TEXT`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS seo_keywords JSONB NOT NULL DEFAULT '[]'::jsonb`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS source_title TEXT`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS source_url TEXT`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS source_publisher TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS topic_key TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS full_article TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS seo_title TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS seo_description TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS seo_keywords JSONB NOT NULL DEFAULT '[]'::jsonb`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS source_title TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS source_url TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS source_publisher TEXT`);
 
   await prisma.$executeRawUnsafe(
-    `CREATE UNIQUE INDEX IF NOT EXISTS ai_news_feed_topic_key_uidx ON ai_news_feed(topic_key)`
+    `CREATE UNIQUE INDEX IF NOT EXISTS ai_news_feed_topic_key_uidx ON "public"."ai_news_feed"(topic_key)`
   );
   await prisma.$executeRawUnsafe(
-    `CREATE UNIQUE INDEX IF NOT EXISTS ai_news_feed_source_url_uidx ON ai_news_feed(source_url)`
+    `CREATE UNIQUE INDEX IF NOT EXISTS ai_news_feed_source_url_uidx ON "public"."ai_news_feed"(source_url)`
   );
 }
 
 async function ensureNewsTableWithVercelPg() {
   const { sql } = await import("@vercel/postgres");
   await sql`
-    CREATE TABLE IF NOT EXISTS ai_news_feed (
+    CREATE TABLE IF NOT EXISTS "public"."ai_news_feed" (
       id SERIAL PRIMARY KEY,
       topic_key TEXT,
       headline TEXT NOT NULL,
@@ -183,18 +183,18 @@ async function ensureNewsTableWithVercelPg() {
     )
   `;
 
-  await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS topic_key TEXT`;
-  await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS full_article TEXT`;
-  await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS seo_title TEXT`;
-  await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS seo_description TEXT`;
-  await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS seo_keywords JSONB NOT NULL DEFAULT '[]'::jsonb`;
-  await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb`;
-  await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS source_title TEXT`;
-  await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS source_url TEXT`;
-  await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS source_publisher TEXT`;
+  await sql`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS topic_key TEXT`;
+  await sql`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS full_article TEXT`;
+  await sql`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS seo_title TEXT`;
+  await sql`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS seo_description TEXT`;
+  await sql`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS seo_keywords JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await sql`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await sql`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS source_title TEXT`;
+  await sql`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS source_url TEXT`;
+  await sql`ALTER TABLE "public"."ai_news_feed" ADD COLUMN IF NOT EXISTS source_publisher TEXT`;
 
-  await sql`CREATE UNIQUE INDEX IF NOT EXISTS ai_news_feed_topic_key_uidx ON ai_news_feed(topic_key)`;
-  await sql`CREATE UNIQUE INDEX IF NOT EXISTS ai_news_feed_source_url_uidx ON ai_news_feed(source_url)`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS ai_news_feed_topic_key_uidx ON "public"."ai_news_feed"(topic_key)`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS ai_news_feed_source_url_uidx ON "public"."ai_news_feed"(source_url)`;
 }
 
 async function ensureNewsTable() {
@@ -229,7 +229,7 @@ export async function getExistingNewsKeys() {
     const { sql } = await import("@vercel/postgres");
     const result = await sql`
       SELECT topic_key, source_url, image_url
-      FROM ai_news_feed
+      FROM "public"."ai_news_feed"
       ORDER BY created_at DESC
       LIMIT 400
     `;
@@ -243,7 +243,7 @@ export async function getExistingNewsKeys() {
 
   if (hasDatabaseUrl) {
     const rows = await prisma.$queryRawUnsafe<Array<{ topic_key: string | null; source_url: string | null; image_url: string | null }>>(
-      `SELECT topic_key, source_url, image_url FROM ai_news_feed ORDER BY created_at DESC LIMIT 400`
+      `SELECT topic_key, source_url, image_url FROM "public"."ai_news_feed" ORDER BY created_at DESC LIMIT 400`
     );
 
     return {
@@ -268,7 +268,7 @@ export async function saveNewsArticle(article: GeneratedNewsArticle, topicKey: s
   if (hasVercelPostgres) {
     const { sql } = await import("@vercel/postgres");
     await sql`
-      INSERT INTO ai_news_feed (
+      INSERT INTO "public"."ai_news_feed" (
         topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags, image_url,
         source_title, source_url, source_publisher, source_links
       )
@@ -284,7 +284,7 @@ export async function saveNewsArticle(article: GeneratedNewsArticle, topicKey: s
 
   if (hasDatabaseUrl) {
     await prisma.$executeRawUnsafe(
-      `INSERT INTO ai_news_feed (
+      `INSERT INTO "public"."ai_news_feed" (
         topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags, image_url,
         source_title, source_url, source_publisher, source_links
       )
@@ -315,7 +315,7 @@ export async function getLatestNewsArticles(limit = 24): Promise<StoredNewsArtic
     const result = await sql`
       SELECT id, topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags,
              image_url, source_title, source_url, source_publisher, source_links, created_at
-      FROM ai_news_feed
+      FROM "public"."ai_news_feed"
       ORDER BY created_at DESC
       LIMIT ${limit}
     `;
@@ -363,7 +363,7 @@ export async function getLatestNewsArticles(limit = 24): Promise<StoredNewsArtic
     >(
       `SELECT id, topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags,
               image_url, source_title, source_url, source_publisher, source_links, created_at
-       FROM ai_news_feed
+       FROM "public"."ai_news_feed"
        ORDER BY created_at DESC
        LIMIT $1`,
       limit
@@ -393,7 +393,7 @@ export async function getPaginatedNewsArticles(page = 1, pageSize = 6): Promise<
       sql`
         SELECT id, topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags,
                image_url, source_title, source_url, source_publisher, source_links, created_at
-        FROM ai_news_feed
+        FROM "public"."ai_news_feed"
         ORDER BY created_at DESC
         LIMIT ${safePageSize}
         OFFSET ${offset}
@@ -448,7 +448,7 @@ export async function getPaginatedNewsArticles(page = 1, pageSize = 6): Promise<
       >(
         `SELECT id, topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags,
                 image_url, source_title, source_url, source_publisher, source_links, created_at
-         FROM ai_news_feed
+         FROM "public"."ai_news_feed"
          ORDER BY created_at DESC
          LIMIT $1
          OFFSET $2`,
@@ -477,7 +477,7 @@ export async function getNewsArticleById(id: number): Promise<StoredNewsArticle 
     const result = await sql`
       SELECT id, topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags,
              image_url, source_title, source_url, source_publisher, source_links, created_at
-      FROM ai_news_feed
+      FROM "public"."ai_news_feed"
       WHERE id = ${id}
       LIMIT 1
     `;
@@ -526,7 +526,7 @@ export async function getNewsArticleById(id: number): Promise<StoredNewsArticle 
     >(
       `SELECT id, topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags,
               image_url, source_title, source_url, source_publisher, source_links, created_at
-       FROM ai_news_feed
+       FROM "public"."ai_news_feed"
        WHERE id = $1
        LIMIT 1`,
       id

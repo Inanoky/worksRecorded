@@ -49,7 +49,7 @@ export async function getOrganizationMaterialConfigurationTemplates(organization
   await requireOrganizationAccess(organizationId);
 
   const rows = await prisma.$queryRawUnsafe<Array<{ bisMaterialConfigurationTemplates: unknown }>>(
-    `SELECT "bisMaterialConfigurationTemplates" FROM "Organization" WHERE id = $1 LIMIT 1`,
+    `SELECT "bisMaterialConfigurationTemplates" FROM "public"."Organization" WHERE id = $1 LIMIT 1`,
     organizationId,
   );
 
@@ -65,7 +65,7 @@ export async function updateOrganizationMaterialConfigurationTemplates(
   const normalizedTemplates = serializeMaterialConfigurationTemplates(templates);
 
   await prisma.$executeRawUnsafe(
-    `UPDATE "Organization" SET "bisMaterialConfigurationTemplates" = $1::jsonb WHERE id = $2`,
+    `UPDATE "public"."Organization" SET "bisMaterialConfigurationTemplates" = $1::jsonb WHERE id = $2`,
     JSON.stringify(normalizedTemplates),
     organizationId,
   );

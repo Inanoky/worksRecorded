@@ -1,37 +1,27 @@
-# .github/workflows/db-backup.yml
 name: DB Backup (plain SQL)
 
 on:
   schedule:
-    - cron: "0 */2 * * *"   # every 2 hours UTC
+    - cron: "0 */2 * * *"
   workflow_dispatch: {}
 
 jobs:
   dump:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - name: Prepare output dir
-        run: mkdir -p backups
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      - name: Dump database as plain SQL (Postgres 17 via Docker)
-        run: |
-          TS=$(date -u +"%Y%m%d_%H%M%S")
-          FILE="db_${TS}.sql"
-
-          docker run --rm \
-            -e PGPASSWORD='${{ secrets.PG_PASSWORD }}' \
-            -e PGSSLMODE='require' \
-            -v "$PWD/backups":/backups \
-            postgres:17 \
-            bash -lc "pg_dump \
-              -h '${{ secrets.PG_HOST }}' \
-              -p '${{ secrets.PG_PORT }}' \
-              -U '${{ secrets.PG_USER }}' \
-              -d '${{ secrets.PG_DATABASE }}' \
-              -Fp --no-owner --no-privileges \
-              > '/backups/$FILE'"
-
-          ls -lh backups
+      - name: Dump database through a direct or session connection
+        env:
+          PGHOST: ${{ secrets.PG_HOST }}
+          PGPORT: "5432"
+          PGUSER: ${{ secrets.PG_USER }}
+          PGDATABASE: ${{ secrets.PG_DATABASE }}
+          PGPASSWORD: ${{ secrets.PG_PASSWORD }}
+          PGSSLMODE: require
+        run: bash .github/scripts/db-backup.sh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

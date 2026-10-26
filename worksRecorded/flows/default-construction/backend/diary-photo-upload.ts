@@ -42,7 +42,7 @@ export async function appendDiaryPhoto(input: {
 		throw new Error("Invalid photo URL");
 	return prisma.$transaction(async (tx) => {
 		const rows = await tx.$queryRaw<Array<{ Photos: string[] }>>`
-    UPDATE "sitediaryrecords"
+    UPDATE "public"."sitediaryrecords"
     SET "Photos" = CASE
       WHEN ${input.url} = ANY(COALESCE("Photos", ARRAY[]::text[])) THEN "Photos"
       ELSE array_append(COALESCE("Photos", ARRAY[]::text[]), ${input.url})

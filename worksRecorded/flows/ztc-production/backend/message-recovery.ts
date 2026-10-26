@@ -62,7 +62,7 @@ async function updateRecoveryStatus(status: string, error?: unknown) {
 		statusChangedAt: new Date().toISOString(),
 	});
 	await prisma.$executeRaw`
-    UPDATE "ZtcInboundMediaBatch"
+    UPDATE "public"."ZtcInboundMediaBatch"
     SET "status" = ${status}, "items" = "items" || ${details}::jsonb, "updatedAt" = NOW()
     WHERE "mode" = 'ztc_recovery'
       AND "workerId" = ${context.workerId}
@@ -81,7 +81,7 @@ export async function retainZtcMessageFormData(formData: FormData) {
 		typeof value === "string" ? value : value.name,
 	]);
 	await prisma.$executeRaw`
-    UPDATE "ZtcInboundMediaBatch"
+    UPDATE "public"."ZtcInboundMediaBatch"
     SET "items" = "items" || ${JSON.stringify({ formData: entries })}::jsonb, "updatedAt" = NOW()
     WHERE "mode" = 'ztc_recovery' AND "workerId" = ${context.workerId}
       AND "lastMessageId" = ${messageId}
@@ -96,7 +96,7 @@ export async function retainZtcUploadedMedia(
 	if (!context || !publicUrl) return;
 	const item = JSON.stringify([{ url: publicUrl, contentType }]);
 	await prisma.$executeRaw`
-    UPDATE "ZtcInboundMediaBatch"
+    UPDATE "public"."ZtcInboundMediaBatch"
     SET "items" = jsonb_set("items", '{uploadedMedia}',
       COALESCE("items"->'uploadedMedia', '[]'::jsonb) || ${item}::jsonb), "updatedAt" = NOW()
     WHERE "mode" = 'ztc_recovery' AND "workerId" = ${context.workerId}

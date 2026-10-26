@@ -74,7 +74,7 @@ export function buildPhotoCommentBackfillCandidateSql(args: PhotoCommentBackfill
   p."Comment",
   p."URL",
   p."fileUrl"
-FROM "photos" p
+FROM "public"."photos" p
 WHERE p."siteId" = '${siteId}'
   AND p."userId" = '${userId}'
   AND p."Date" >= '${startDate} 00:00:00'
@@ -83,7 +83,7 @@ WHERE p."siteId" = '${siteId}'
   AND char_length(trim(p."Comment")) >= ${minCommentLength}
   AND NOT EXISTS (
     SELECT 1
-    FROM "SiteDiarySaveBatch" b
+    FROM "public"."SiteDiarySaveBatch" b
     WHERE b."sourceMessageId" = concat('photo-comment-backfill:', p."id")
   )
 ORDER BY p."Date", p."createdAt";`;
@@ -91,7 +91,7 @@ ORDER BY p."Date", p."createdAt";`;
 
 export function buildPhotoCommentBackfillCountSql(args: PhotoCommentBackfillArgs) {
   return `SELECT count(*) AS candidate_count
-FROM "photos" p
+FROM "public"."photos" p
 WHERE p."siteId" = '${escapeSqlLiteral(args.siteId)}'
   AND p."userId" = '${escapeSqlLiteral(args.userId)}'
   AND p."Date" >= '${escapeSqlLiteral(args.startDate)} 00:00:00'
@@ -100,7 +100,7 @@ WHERE p."siteId" = '${escapeSqlLiteral(args.siteId)}'
   AND char_length(trim(p."Comment")) >= ${Math.max(1, Math.trunc(args.minCommentLength))}
   AND NOT EXISTS (
     SELECT 1
-    FROM "SiteDiarySaveBatch" b
+    FROM "public"."SiteDiarySaveBatch" b
     WHERE b."sourceMessageId" = concat('photo-comment-backfill:', p."id")
   );`;
 }

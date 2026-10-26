@@ -12,7 +12,7 @@ export function buildZtcImageBatchStageQuery(args: {
 	staleMs: number;
 }) {
 	return Prisma.sql`
-    INSERT INTO "ZtcInboundMediaBatch" (
+    INSERT INTO "public"."ZtcInboundMediaBatch" (
       "id", "batchKey", "workerId", "organizationId", "mode", "status",
       "items", "firstReceivedAt", "lastReceivedAt", "lastMessageId",
       "processAfter", "createdAt", "updatedAt"
@@ -55,7 +55,7 @@ export function buildZtcImageBatchStageQuery(args: {
 
 export function buildZtcImageBatchDeleteQuery(batchId: string) {
 	return Prisma.sql`
-    DELETE FROM "ZtcInboundMediaBatch"
+    DELETE FROM "public"."ZtcInboundMediaBatch"
     WHERE "id" = ${batchId} AND "status" = 'processing'
   `;
 }

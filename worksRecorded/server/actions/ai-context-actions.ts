@@ -86,19 +86,19 @@ async function getCheckpointSummaries(threadIds: string[]) {
     ),
     checkpoint_counts AS (
       SELECT thread_id, COUNT(*)::int AS checkpoint_count
-      FROM "checkpoints"
+      FROM "public"."checkpoints"
       WHERE thread_id IN (SELECT thread_id FROM requested)
       GROUP BY thread_id
     ),
     write_counts AS (
       SELECT thread_id, COUNT(*)::int AS write_count
-      FROM "checkpoint_writes"
+      FROM "public"."checkpoint_writes"
       WHERE thread_id IN (SELECT thread_id FROM requested)
       GROUP BY thread_id
     ),
     blob_counts AS (
       SELECT thread_id, COUNT(*)::int AS blob_count
-      FROM "checkpoint_blobs"
+      FROM "public"."checkpoint_blobs"
       WHERE thread_id IN (SELECT thread_id FROM requested)
       GROUP BY thread_id
     ),
@@ -108,7 +108,7 @@ async function getCheckpointSummaries(threadIds: string[]) {
         checkpoint_id,
         checkpoint->>'ts' AS checkpoint_ts,
         metadata
-      FROM "checkpoints"
+      FROM "public"."checkpoints"
       WHERE thread_id IN (SELECT thread_id FROM requested)
       ORDER BY thread_id, COALESCE(checkpoint->>'ts', '') DESC, checkpoint_id DESC
     )
@@ -195,7 +195,7 @@ export async function getDashboardAiContextInspection(siteId: string, threadId: 
       checkpoint->>'ts' AS "checkpointTs",
       metadata,
       checkpoint
-    FROM "checkpoints"
+    FROM "public"."checkpoints"
     WHERE thread_id = ${threadId}
     ORDER BY COALESCE(checkpoint->>'ts', '') DESC, checkpoint_id DESC
     LIMIT 1
@@ -206,7 +206,7 @@ export async function getDashboardAiContextInspection(siteId: string, threadId: 
       COUNT(*)::int AS "writeCount",
       COALESCE(SUM(octet_length(blob)), 0)::int AS "writeBytes",
       COALESCE(MAX(octet_length(blob)), 0)::int AS "largestWriteBytes"
-    FROM "checkpoint_writes"
+    FROM "public"."checkpoint_writes"
     WHERE thread_id = ${threadId}
   `);
 
@@ -249,9 +249,9 @@ export async function resetAiCheckpointThreadAction(formData: FormData) {
   }
 
   await prisma.$transaction([
-    prisma.$executeRaw(Prisma.sql`DELETE FROM "checkpoint_writes" WHERE thread_id = ${threadId}`),
-    prisma.$executeRaw(Prisma.sql`DELETE FROM "checkpoint_blobs" WHERE thread_id = ${threadId}`),
-    prisma.$executeRaw(Prisma.sql`DELETE FROM "checkpoints" WHERE thread_id = ${threadId}`),
+    prisma.$executeRaw(Prisma.sql`DELETE FROM "public"."checkpoint_writes" WHERE thread_id = ${threadId}`),
+    prisma.$executeRaw(Prisma.sql`DELETE FROM "public"."checkpoint_blobs" WHERE thread_id = ${threadId}`),
+    prisma.$executeRaw(Prisma.sql`DELETE FROM "public"."checkpoints" WHERE thread_id = ${threadId}`),
   ]);
 
   revalidatePath(`/dashboard/sites/${siteId}/ai-context`);
