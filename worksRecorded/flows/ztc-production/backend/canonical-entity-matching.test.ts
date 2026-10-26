@@ -82,7 +82,12 @@ describe("matchZtcCanonicalEntities", () => {
 				projectCandidateId: "project_0",
 				projectConfidence: 0.99,
 				workMatches: [
-					{ rawIndex: 0, workCandidateId: "work_0", confidence: 0.99 },
+					{
+						rawIndex: 0,
+						workCandidateId: "work_0",
+						decision: "matched",
+						confidence: 0.99,
+					},
 				],
 			},
 		});
@@ -188,6 +193,7 @@ describe("matchZtcCanonicalEntities", () => {
 						{
 							rawIndex: 0,
 							workCandidateId: "work_0",
+							decision: "matched",
 							confidence: 0.6,
 							reason: "Same work, abbreviated dimensions.",
 						},
@@ -209,6 +215,30 @@ describe("matchZtcCanonicalEntities", () => {
 		},
 	);
 
+	it("ignores a candidate ID when the model explicitly decides it is unsuitable", async () => {
+		mockResponsesParse.mockResolvedValue({
+			output_parsed: {
+				projectCandidateId: "project_0",
+				projectConfidence: 1,
+				workMatches: [
+					{
+						rawIndex: 0,
+						decision: "unassigned",
+						workCandidateId: "work_0",
+						confidence: 0.08,
+						reason: "Different material and thickness.",
+					},
+				],
+			},
+		});
+		const result = await matchZtcCanonicalEntities({
+			siteId: "explicit-unassigned-id",
+			rawProjectName: canonicalProject,
+			rawWorks: ["Plywood 22mm apšuvums"],
+		});
+		expect(result.works[0].rate).toBeNull();
+	});
+
 	it("preserves the model's unassigned decision", async () => {
 		mockResponsesParse.mockResolvedValue({
 			output_parsed: {
@@ -218,6 +248,7 @@ describe("matchZtcCanonicalEntities", () => {
 					{
 						rawIndex: 0,
 						workCandidateId: null,
+						decision: "unassigned",
 						confidence: 1,
 						reason: "Different material.",
 					},
@@ -244,7 +275,12 @@ describe("matchZtcCanonicalEntities", () => {
 				projectCandidateId: "project_2",
 				projectConfidence: 1,
 				workMatches: [
-					{ rawIndex: 0, workCandidateId: "work_0", confidence: 1 },
+					{
+						rawIndex: 0,
+						workCandidateId: "work_0",
+						decision: "matched",
+						confidence: 1,
+					},
 				],
 			},
 		});
@@ -259,7 +295,12 @@ describe("matchZtcCanonicalEntities", () => {
 				projectCandidateId: "project_0",
 				projectConfidence: 1,
 				workMatches: [
-					{ rawIndex: 0, workCandidateId: "invented", confidence: 1 },
+					{
+						rawIndex: 0,
+						workCandidateId: "invented",
+						decision: "matched",
+						confidence: 1,
+					},
 				],
 			},
 		});
@@ -277,7 +318,12 @@ describe("matchZtcCanonicalEntities", () => {
 				projectCandidateId: "project_0",
 				projectConfidence: 1,
 				workMatches: [
-					{ rawIndex: 0, workCandidateId: "work_0", confidence: 1 },
+					{
+						rawIndex: 0,
+						workCandidateId: "work_0",
+						decision: "matched",
+						confidence: 1,
+					},
 				],
 			},
 		});
@@ -296,7 +342,12 @@ describe("matchZtcCanonicalEntities", () => {
 					projectCandidateId: "project_0",
 					projectConfidence: 1,
 					workMatches: [
-						{ rawIndex: 0, workCandidateId: "work_0", confidence: 1 },
+						{
+							rawIndex: 0,
+							workCandidateId: "work_0",
+							decision: "matched",
+							confidence: 1,
+						},
 					],
 				},
 			});
@@ -321,6 +372,7 @@ describe("matchZtcCanonicalEntities", () => {
 					{
 						rawIndex: 0,
 						workCandidateId: "work_0",
+						decision: "matched",
 						confidence: 0.96,
 					},
 				],
@@ -411,6 +463,7 @@ describe("matchZtcCanonicalEntities", () => {
 					{
 						rawIndex: 0,
 						workCandidateId: null,
+						decision: "unassigned",
 						confidence: 0,
 						reason: "No suitable configured dimensions.",
 					},
@@ -461,6 +514,7 @@ describe("matchZtcCanonicalEntities", () => {
 					{
 						rawIndex: 0,
 						workCandidateId: "work_1",
+						decision: "matched",
 						confidence: 0.99,
 					},
 				],
@@ -533,6 +587,7 @@ describe("matchZtcCanonicalEntities", () => {
 					{
 						rawIndex: 0,
 						workCandidateId: "work_0",
+						decision: "matched",
 						confidence: 0.93,
 					},
 				],
@@ -580,7 +635,12 @@ describe("matchZtcCanonicalEntities", () => {
 				projectCandidateId: "project_0",
 				projectConfidence: 1,
 				workMatches: [
-					{ rawIndex: 0, workCandidateId: "work_0", confidence: 0.99 },
+					{
+						rawIndex: 0,
+						workCandidateId: "work_0",
+						decision: "matched",
+						confidence: 0.99,
+					},
 				],
 			},
 		});
