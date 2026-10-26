@@ -13,6 +13,52 @@ beforeEach(() => {
 	count.mockResolvedValue(200);
 });
 
+it.each([true, false])(
+	"finds formatted FIMA IDs before pagination (project view: %s)",
+	async (projectView) => {
+		count.mockResolvedValue(1);
+		findMany.mockResolvedValue([
+			{ id: "row-3383", fimaNumber: 3383, Site: null, evalMetadata: null },
+		]);
+		const filters = {
+			projectView,
+			keyword: "FIMA-003383",
+			projectId: "project",
+			review: "coordinate_with_fima",
+		} as const;
+		const result = await loadFimaDiaryPage("org", filters);
+		const where = findMany.mock.calls[0][0].where;
+		expect(where.OR).toContainEqual({ fimaNumber: 3383 });
+		expect(where).toMatchObject({
+			archivedAt: null,
+			siteId: "project",
+			Site: { organizationId: "org" },
+			AND: buildFimaDiaryFilterWhere(filters),
+		});
+		expect(count).toHaveBeenCalledWith({ where });
+		expect(result.rows).toEqual([
+			expect.objectContaining({ id: "row-3383", fimaNumber: 3383 }),
+		]);
+		expect(result.totalCount).toBe(1);
+	},
+);
+
+it.each(["FIMA-0", "FIMA-2147483648", "night"])(
+	"keeps non-ID or invalid search %s as ordinary text",
+	(keyword) => {
+		const where = buildFimaDiaryPageWhere("org", {
+			keyword,
+			projectView: true,
+		});
+		expect(where.OR).not.toContainEqual(
+			expect.objectContaining({ fimaNumber: expect.anything() }),
+		);
+		expect(where.OR).toContainEqual({
+			Works: { contains: keyword, mode: "insensitive" },
+		});
+	},
+);
+
 it("requires both organization ownership and the FIMA flag for every query", async () => {
 	await loadFimaDiaryPage("fima-org", { page: 2, projectId: "project" });
 	const where = expect.objectContaining({

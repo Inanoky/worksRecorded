@@ -3,6 +3,7 @@ import type { LimeniProjectSnapshot } from "@/flows/default-construction/visual/
 import { DiaryFilterCard } from "./DiaryFilterCard";
 import { FimaDiaryFilters } from "./FimaDiaryFilters";
 import { FimaPagination } from "./FimaPagination";
+import { matchesFimaDiaryNumber } from "@/lib/fima/diary-number";
 import { useFimaDiaryFilterOptions } from "./useFimaDiaryFilterOptions";
 import { useFimaFilterReturn } from "./useFimaFilterReturn";
 import type { FimaDiaryFilters as FimaFilters } from "@/lib/fima/diary-filters";
@@ -679,6 +680,13 @@ function getDiaryRowSearchableText(row: DiaryRow) {
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+}
+
+function diaryRowMatchesKeyword(row: DiaryRow, keyword: string) {
+  return (
+    matchesFimaDiaryNumber(row.fimaNumber, keyword) ||
+    getDiaryRowSearchableText(row).includes(keyword.trim().toLowerCase())
+  );
 }
 
 export default function SiteDiaryCalendar({
@@ -1909,7 +1917,7 @@ export default function SiteDiaryCalendar({
   ]);
 
   const mediaOnlyDays = React.useMemo(() => clientDiary
-    ? getClientDiaryMediaDays(clientMediaPhotos, filteredRows.filter(row => !keywordFilter.trim() || getDiaryRowSearchableText(row).includes(keywordFilter.trim().toLowerCase())).map(row => row.Date), { dateFrom, dateTo, work: workFilter, location: floorFilter, keyword: keywordFilter })
+    ? getClientDiaryMediaDays(clientMediaPhotos, filteredRows.filter(row => diaryRowMatchesKeyword(row, keywordFilter)).map(row => row.Date), { dateFrom, dateTo, work: workFilter, location: floorFilter, keyword: keywordFilter })
     : serverMediaOnlyDays,
     [clientDiary, clientMediaPhotos, filteredRows, keywordFilter, dateFrom, dateTo, workFilter, floorFilter, serverMediaOnlyDays]);
 
@@ -2001,7 +2009,7 @@ export default function SiteDiaryCalendar({
           .map((group) => ({
             ...group,
             rows: group.rows.filter((r) => {
-              return getDiaryRowSearchableText(r).includes(normalizedKeyword);
+              return diaryRowMatchesKeyword(r, normalizedKeyword);
             }),
           }))
           .filter((group) => group.rows.length > 0);
@@ -2381,7 +2389,7 @@ export default function SiteDiaryCalendar({
       )
         return false;
       if (!normalizedKeyword) return true;
-      return getDiaryRowSearchableText(row).includes(normalizedKeyword);
+      return diaryRowMatchesKeyword(row, normalizedKeyword);
     });
   }, [
     dateFrom,

@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { readFimaBisRecordLinks } from "@/lib/fima/bis-record-links";
 import { readFimaCollaboration } from "@/lib/fima/diary-collaboration";
 import { summarizeFimaCollaboration } from "@/lib/fima/diary-list-summary";
+import { parseFimaDiaryNumber } from "@/lib/fima/diary-number";
 import {
 	commonDiaryListSelect,
 	mapCommonDiaryListRecord,
@@ -44,7 +45,9 @@ export function buildFimaDiaryPageWhere(
 			contains: filters.keyword.trim(),
 			mode: "insensitive" as const,
 		};
+		const fimaNumber = parseFimaDiaryNumber(filters.keyword);
 		where.OR = [
+			...(fimaNumber !== null ? [{ fimaNumber }] : []),
 			...[
 				"Works",
 				"Works_Custom_1",

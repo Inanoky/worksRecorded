@@ -1,5 +1,6 @@
 import { readFimaBisRecordLinks } from "@/lib/fima/bis-record-links";
 import type { FimaDiaryFilters } from "@/lib/fima/diary-filters";
+import { parseFimaDiaryNumber } from "@/lib/fima/diary-number";
 import { buildFimaDiaryFilterWhere } from "./fima-diary-filters";
 import { withFimaExampleSources } from "./fima-example-sources";
 import type { Prisma } from "@prisma/client";
@@ -162,6 +163,7 @@ export function buildAllProjectsDiaryWhere(
 ): Prisma.sitediaryrecordsWhereInput {
   const projectId = normalizedText(filters.projectId);
   const keyword = normalizedText(filters.keyword);
+  const fimaNumber = parseFimaDiaryNumber(keyword);
   const dateFrom = parseDateOnly(filters.dateFrom);
   const dateTo = parseDateOnly(filters.dateTo);
   const dateFilter: Prisma.DateTimeNullableFilter = {};
@@ -179,6 +181,7 @@ export function buildAllProjectsDiaryWhere(
     ...(keyword
       ? {
           OR: [
+            ...(fimaNumber !== null ? [{ fimaNumber }] : []),
             ...(organizationId === SB_STOMME_ORGANIZATION_ID
               ? [
                   {

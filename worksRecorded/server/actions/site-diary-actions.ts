@@ -4,6 +4,7 @@ import { buildDefaultConstructionDiaryConfig } from "@/flows/default-constructio
 import { withFimaExampleSources } from "@/flows/default-construction/backend/fima-example-sources";
 import type { FimaDiaryFilters } from "@/lib/fima/diary-filters";
 import { buildFimaDiaryFilterWhere } from "@/flows/default-construction/backend/fima-diary-filters";
+import { parseFimaDiaryNumber } from "@/lib/fima/diary-number";
 import {
   constructionDiaryListSelect,
   mapConstructionDiaryListRecord,
@@ -2412,8 +2413,10 @@ function buildSiteDiaryListWhere(
   const keyword = compactFilterValue(options.keyword);
   if (keyword) {
     const containsKeyword = { contains: keyword, mode: "insensitive" as const };
+    const fimaNumber = useZtcRecords ? null : parseFimaDiaryNumber(keyword);
     andFilters.push({
       OR: [
+        ...(fimaNumber !== null ? [{ fimaNumber }] : []),
         { Works: containsKeyword },
         { Works_Custom_1: containsKeyword },
         { Works_Custom_2: containsKeyword },
@@ -2840,6 +2843,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(
       }
     : {
         id: true,
+        fimaNumber: true,
         createdAt: true,
         Date: true,
         Date_Custom_1: true,
@@ -2887,11 +2891,13 @@ export async function getSitediaryRecordsBySiteIdForExcel(
   };
 
   try {
-    const records = await trace.measure("recordsQuery", () =>
-      useZtcRecords
-        ? prisma.ztcRecords.findMany(query)
-        : prisma.sitediaryrecords.findMany(query),
-    );
+    const records = useZtcRecords
+      ? await trace.measure("recordsQuery", () =>
+          prisma.ztcRecords.findMany(query),
+        )
+      : await trace.measure("recordsQuery", () =>
+          prisma.sitediaryrecords.findMany(query),
+        );
     const defaultRates =
       useZtcRecords && ztcWorkFilter ? await loadZtcFilterRates(siteId) : [];
     const exportRecords =
@@ -2925,6 +2931,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(
 
       return {
         id: rec.id,
+        ...("fimaNumber" in rec ? { fimaNumber: rec.fimaNumber } : {}),
         createdAt: rec.createdAt,
         Date: rec.Date,
         Date_Custom_1: rec.Date_Custom_1,

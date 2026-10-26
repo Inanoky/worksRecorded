@@ -132,6 +132,7 @@ import {
   getPhotosByDate,
   getSiteDiaryMediaOnlyDays,
   getSiteDiaryRecordsPage,
+  getSitediaryRecordsBySiteIdForExcel,
   getSiteDiaryProjectCopyTargets,
   movePhotoToDate,
   movePhotosToDate,
@@ -177,6 +178,44 @@ function expectSuccessfulSave(result: unknown, count: number) {
 }
 
 describe("saveSiteDiaryRecord originalAudioUrl", () => {
+	it("finds FIMA numbers in project page and Excel queries and retains the number in export rows", async () => {
+		siteDiaryCountMock.mockResolvedValue(1);
+		siteDiaryFindManyMock.mockResolvedValue([
+			{ id: "fima-record", fimaNumber: 3383, Works: "Work", evalMetadata: null },
+		]);
+		await getSiteDiaryRecordsPage("site-1", {
+			flowId: "default",
+			keyword: "FIMA-003383",
+		});
+		const pageWhere = siteDiaryFindManyMock.mock.calls[0][0].where;
+		expect(pageWhere).toMatchObject({ siteId: "site-1", archivedAt: null });
+		expect(pageWhere.AND).toContainEqual(
+			expect.objectContaining({ OR: expect.arrayContaining([{ fimaNumber: 3383 }]) }),
+		);
+		const exported = await getSitediaryRecordsBySiteIdForExcel("site-1", {
+			flowId: "default",
+			keyword: "FIMA-003383",
+		});
+		expect(siteDiaryFindManyMock).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				where: pageWhere,
+				select: expect.objectContaining({ fimaNumber: true }),
+			}),
+		);
+		expect(exported[0]).toMatchObject({ fimaNumber: 3383 });
+	});
+
+	it("keeps FIMA-number fields out of ZTC search queries", async () => {
+		ztcRecordsCountMock.mockResolvedValue(0);
+		ztcRecordsFindManyMock.mockResolvedValue([]);
+		await getSiteDiaryRecordsPage("site-1", {
+			flowId: "ztc",
+			keyword: "FIMA-003383",
+		});
+		expect(JSON.stringify(ztcRecordsFindManyMock.mock.calls[0][0].where)).not.toContain(
+			'"fimaNumber"',
+		);
+	});
 	it.each([undefined, "CNC"])("loads ZTC diary pages without construction/FIMA fields (work filter: %s)", async (workFilter) => {
 		ztcRecordsCountMock.mockResolvedValue(1);
 		ztcRecordsFindManyMock.mockImplementation(async ({ select }) => {

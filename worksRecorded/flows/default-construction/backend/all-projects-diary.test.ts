@@ -22,6 +22,27 @@ import { SB_STOMME_ORGANIZATION_ID } from "../sb-stomme-inline-plan/model";
 import { LIMENI_ORGANIZATION_ID } from "../lib/diary-photos";
 
 describe("all projects diary", () => {
+  it("keeps record-number lookup in the same organization, project and export filters", async () => {
+    const filters = {
+      projectId: "site-1",
+      keyword: " FIMA-003383 ",
+      materials: "missing",
+    } as const;
+    const where = buildAllProjectsDiaryWhere("org", filters);
+    expect(where.OR).toContainEqual({ fimaNumber: 3383 });
+    expect(where).toMatchObject({
+      archivedAt: null,
+      Site: { organizationId: "org" },
+      siteId: "site-1",
+      AND: expect.any(Array),
+    });
+    await loadAllProjectsDiaryExportRecords("org", filters);
+    expect(recordsFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where }),
+    );
+    expect(recordsFindManyMock.mock.calls[0][0]).not.toHaveProperty("take");
+  });
+
   it("preloads linked photos from the first two filtered pages only for Limeni", async () => {
     const photo = "https://utfs.io/f/current";
     const laterPhoto = "https://utfs.io/f/later-page";
