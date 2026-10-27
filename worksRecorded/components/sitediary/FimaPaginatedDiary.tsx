@@ -16,6 +16,7 @@ import {
 } from "@/lib/fima/diary-filters";
 import { createFimaPageCache, fetchFimaPage } from "@/lib/fima/page-cache";
 import { DiaryFilterCard } from "./DiaryFilterCard";
+import { FimaActsRefreshButton } from "./FimaActsRefreshButton";
 import {
 	FimaAllProjectsDiary,
 	type FimaAllProjectsRecordRow,
@@ -336,6 +337,13 @@ export function FimaPaginatedDiary({
 				<CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<CardTitle>{messages.title}</CardTitle>
 					<div className="flex gap-2">
+						<FimaActsRefreshButton
+							siteId={new URLSearchParams(query).get("project")}
+							onRefreshed={async () => {
+								invalidate();
+								await load(query, "replace");
+							}}
+						/>
 						<Button
 							variant="outline"
 							size="sm"

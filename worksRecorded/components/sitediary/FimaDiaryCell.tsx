@@ -10,6 +10,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import type { FimaRecordActCoverage } from "@/lib/fima/acceptance-acts";
 import { readFimaBisExamples } from "@/lib/fima/bis-examples";
 import {
 	getFimaBisRecordUrl,
@@ -17,6 +18,7 @@ import {
 } from "@/lib/fima/bis-record-links";
 import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
 import type { FimaExampleSources } from "@/lib/fima/example-sources";
+import { FimaAcceptanceActsCell } from "./FimaAcceptanceActsCell";
 import { FimaCommentCell } from "./FimaCommentCell";
 import { FimaExamplesCell } from "./FimaExamplesCell";
 import { FimaMaterialPicker } from "./FimaMaterialPicker";
@@ -60,6 +62,17 @@ export function FimaDiaryCell({
 	const state = row.fimaCollaboration ?? empty;
 	if (field === "FimaNumber") {
 		return <FimaNumberCell value={row.fimaNumber} />;
+	}
+	if (field === "FimaAcceptanceActs") {
+		return (
+			<FimaAcceptanceActsCell
+				coverage={row.fimaActCoverage as FimaRecordActCoverage | undefined}
+				hasBisRecord={
+					Boolean(row.BISId) ||
+					(Array.isArray(row.fimaBisRecords) && row.fimaBisRecords.length > 0)
+				}
+			/>
+		);
 	}
 	if (field === "FimaExamples") {
 		const examples = readFimaBisExamples(state.examples, state.history);

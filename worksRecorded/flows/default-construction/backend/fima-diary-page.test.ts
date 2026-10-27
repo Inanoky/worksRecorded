@@ -1,7 +1,11 @@
 const findMany = jest.fn();
 const count = jest.fn();
+const sitesFindMany = jest.fn();
 jest.mock("@/lib/utils/db", () => ({
-	prisma: { sitediaryrecords: { findMany, count } },
+	prisma: {
+		sitediaryrecords: { findMany, count },
+		site: { findMany: sitesFindMany },
+	},
 }));
 
 import { buildFimaDiaryFilterWhere } from "./fima-diary-filters";
@@ -11,6 +15,58 @@ beforeEach(() => {
 	jest.clearAllMocks();
 	findMany.mockResolvedValue([]);
 	count.mockResolvedValue(200);
+	sitesFindMany.mockResolvedValue([]);
+});
+
+it("loads act indexes once per project and returns only coverage for the row's current BIS link", async () => {
+	findMany.mockResolvedValue([
+		{
+			id: "row",
+			siteId: "project",
+			BISId: "587",
+			Site: { name: "Olaine", bisCaseId: "668714" },
+			evalMetadata: null,
+		},
+	]);
+	sitesFindMany.mockResolvedValue([
+		{
+			id: "project",
+			bisCaseId: "668714",
+			siteDiaryRecordsMap: {
+				otherSettings: {
+					fimaBisActCoverage: {
+						version: 1,
+						caseId: "668714",
+						fetchedAt: "2026-10-27T10:00:00Z",
+						acts: [
+							{
+								id: "101",
+								collection: "other_acceptance_acts",
+								number: "KT-16",
+								status: "approved",
+								date: "2026-10-07",
+								works: [{ id: "587", quantity: 3 }],
+							},
+						],
+					},
+				},
+			},
+		},
+	]);
+	const result = await loadFimaDiaryPage("org", {
+		projectId: "project",
+		projectView: true,
+	});
+	expect(result.rows[0].fimaActCoverage?.acts[0]).toMatchObject({
+		id: "101",
+		works: [{ id: "587", quantity: 3 }],
+	});
+	expect(sitesFindMany).toHaveBeenCalledWith(
+		expect.objectContaining({
+			where: { organizationId: "org", id: { in: ["project"] } },
+		}),
+	);
+	expect(result.rows[0].Site).toEqual({ name: "Olaine" });
 });
 
 it.each([true, false])(

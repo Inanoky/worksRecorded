@@ -68,6 +68,7 @@ export const fimaVirtualFields = [
 	"FimaNumber",
 	"FimaComments",
 	"FimaBisCase",
+	"FimaAcceptanceActs",
 	"FimaMaterials",
 	"FimaExamples",
 	"FimaReviewStatus",
@@ -105,8 +106,10 @@ export function withFimaDiaryColumns(
 ) {
 	if (!isFimaDiary(config)) return config;
 	const result = { ...config };
+	const { fimaBisActCoverage: _actCoverage, ...otherSettings } =
+		result.otherSettings;
 	result.otherSettings = {
-		...result.otherSettings,
+		...otherSettings,
 		fitDiaryTableToWidth: true,
 		hideCreatedAtInSiteList: true,
 		bisCaseNumber: caseNumber,

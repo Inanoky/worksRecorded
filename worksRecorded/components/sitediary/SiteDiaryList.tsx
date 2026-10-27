@@ -18,6 +18,7 @@ import { isFimaInlineField, type FimaInlineField } from "@/lib/fima/inline-field
 import { FimaRecordPanel } from "@/components/sitediary/FimaRecordPanel";
 import { FimaOpenRecordButton } from "@/components/sitediary/FimaOpenRecordButton";
 import { FimaDiaryCell } from "@/components/sitediary/FimaDiaryCell";
+import { FimaActsRefreshButton } from "@/components/sitediary/FimaActsRefreshButton";
 import { fimaVirtualFields, type FimaCollaboration } from "@/lib/fima/diary-collaboration";
 import { getBisWorkDescription } from "@/lib/bis/work-description";
 import { DiaryPhotoUploadMenuItem, DiaryPhotoUploadProvider } from "@/flows/default-construction/frontend/DiaryPhotoActions";
@@ -3334,6 +3335,7 @@ export default function SiteDiaryCalendar({
                     </Button>
                   </>
                 ) : null}
+                {fimaDiary ? <FimaActsRefreshButton siteId={siteId} onRefreshed={backgroundRefresh} /> : null}
                 {bisUiEnabled ? (
                   <Button
                     variant="outline"

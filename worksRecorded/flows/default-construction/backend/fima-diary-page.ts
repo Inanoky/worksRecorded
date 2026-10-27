@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { createFimaActCoverageReader } from "@/lib/fima/acceptance-acts";
 import { readFimaBisRecordLinks } from "@/lib/fima/bis-record-links";
 import { readFimaCollaboration } from "@/lib/fima/diary-collaboration";
 import { summarizeFimaCollaboration } from "@/lib/fima/diary-list-summary";
@@ -109,9 +110,34 @@ export async function loadFimaDiaryPage(
 	const page = Math.min(requestedPage, totalPages);
 	const records =
 		page === requestedPage ? requestedRecords : await findPage(page);
+	const sites = records.length
+		? await prisma.site.findMany({
+				where: {
+					organizationId,
+					id: {
+						in: [
+							...new Set(
+								records.flatMap((record) =>
+									record.siteId ? [record.siteId] : [],
+								),
+							),
+						],
+					},
+				},
+				select: { id: true, bisCaseId: true, siteDiaryRecordsMap: true },
+			})
+		: [];
+	const actReaders = new Map(
+		sites.map((site) => [
+			site.id,
+			createFimaActCoverageReader(site.siteDiaryRecordsMap, site.bisCaseId),
+		]),
+	);
 	const rows = records.map(
 		({ evalMetadata, Site, User, Worker, ...record }) => {
 			const fimaBisRecords = readFimaBisRecordLinks(evalMetadata, record.BISId);
+			const key = record.siteId ?? "";
+			const readActs = actReaders.get(key);
 			return {
 				...(filters.projectView
 					? mapCommonDiaryListRecord({ ...record, User, Worker })
@@ -123,6 +149,7 @@ export async function loadFimaDiaryPage(
 				bisCaseId: Site?.bisCaseId ?? null,
 				bisCaseNumber: Site?.bisCaseNumber ?? null,
 				fimaBisRecords,
+				fimaActCoverage: readActs?.(fimaBisRecords),
 				hasFimaBisReferences: fimaBisRecords.length > 0,
 				fimaCollaboration: summarizeFimaCollaboration(
 					readFimaCollaboration(evalMetadata),

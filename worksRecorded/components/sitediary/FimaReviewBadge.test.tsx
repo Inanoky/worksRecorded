@@ -53,8 +53,8 @@ it.each([
 	},
 );
 
-it("keeps the unset action badge on one line", () => {
-	const { container } = render(
+it("keeps the unset action and its history accessible", () => {
+	render(
 		<FimaReviewBadge
 			siteId="site"
 			recordId="record"
@@ -62,10 +62,11 @@ it("keeps the unset action badge on one line", () => {
 			onChange={jest.fn()}
 		/>,
 	);
-	expect(container.querySelector('[data-slot="badge"]')).toHaveClass(
-		"whitespace-nowrap",
-	);
 	expect(
 		screen.getByRole("combobox", { name: "Ieraksta rīcība" }),
 	).toHaveAttribute("data-fima-badge");
+	expect(
+		screen.getByRole("combobox", { name: "Ieraksta rīcība" }),
+	).toHaveTextContent("Nav atzīmes");
+	expect(screen.getByRole("button", { name: "Atzīmju vēsture" })).toBeEnabled();
 });

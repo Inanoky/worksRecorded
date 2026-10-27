@@ -23,6 +23,16 @@ it("places the local FIMA number between the date and BIS record number", () => 
 	expect(fimaDiaryColumns[1].order).toBeLessThan(fimaDiaryColumns[2].order);
 });
 
+it("places act coverage immediately after the BIS record number", () => {
+	const index = fimaDiaryColumns.findIndex(
+		(column) => column.field === "FimaBisCase",
+	);
+	expect(fimaDiaryColumns[index + 1]).toMatchObject({
+		field: "FimaAcceptanceActs",
+		label: "Akts",
+	});
+});
+
 it("groups timestamps by Latvian work day and sorts days, preserving each day's input order", () => {
 	const rows = [
 		{ id: "old", Date: "2026-09-01T08:00:00Z" },

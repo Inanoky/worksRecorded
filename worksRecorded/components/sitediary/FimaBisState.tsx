@@ -36,7 +36,8 @@ export function FimaBisState({
 				: "border border-blue-200 bg-blue-50 text-blue-700";
 	return (
 		<Badge
-			className={`inline-flex items-center justify-center rounded-full px-3 py-1 font-medium capitalize ${tone}`}
+			className={`block w-fit max-w-full min-w-0 whitespace-normal [overflow-wrap:anywhere] rounded-xl px-2 py-1 text-center font-medium leading-snug ${tone}`}
+			title={label}
 		>
 			{label}
 		</Badge>

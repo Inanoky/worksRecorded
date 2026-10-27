@@ -363,3 +363,4 @@ it("jumps directly from either pagination bar, retains filters, and returns to t
 	expect(window.location.search).toBe("?page=15");
 	expect(screen.getByText("Still selected")).toBeInTheDocument();
 });
+jest.mock("@/server/actions/fima-acceptance-acts", () => ({ refreshFimaAcceptanceActs: jest.fn() }));

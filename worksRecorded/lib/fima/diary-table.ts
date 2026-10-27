@@ -2,6 +2,7 @@ export const fimaDiaryColumns = [
 	{ field: "Date", label: "Datums", order: 1, width: 120 },
 	{ field: "FimaNumber", label: "FIMA Nr.", order: 1.25, width: 160 },
 	{ field: "FimaBisCase", label: "BIS ieraksta Nr.", order: 1.5, width: 100 },
+	{ field: "FimaAcceptanceActs", label: "Akts", order: 1.75, width: 200 },
 	{ field: "Works", label: "Darba apraksts", order: 2, width: 200 },
 	{ field: "Location", label: "Balsti / posms", order: 3, width: 150 },
 	{ field: "Works_Custom_1", label: "BIS apraksts", order: 4, width: 220 },
@@ -21,7 +22,7 @@ export const fimaDiaryColumnWeights: Record<string, number> = {
 	),
 	select: 52,
 	project: 160,
-	bis: 140,
+	bis: 220,
 	action: 120,
 	source: 60,
 };

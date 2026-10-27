@@ -24,6 +24,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import type { FimaRecordActCoverage } from "@/lib/fima/acceptance-acts";
 import { getFimaBisRecordUrl } from "@/lib/fima/bis-record-links";
 import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
 import { mergeFimaCollaboration } from "@/lib/fima/diary-list-summary";
@@ -66,6 +67,7 @@ export type FimaAllProjectsRecordRow = {
 	fimaCollaboration?: FimaCollaboration;
 	fimaExampleSources?: FimaExampleSources;
 	fimaBisRecords?: { id: string; number: string | null }[];
+	fimaActCoverage?: FimaRecordActCoverage;
 	Site: { name: string } | null;
 };
 type RecordRow = FimaAllProjectsRecordRow;

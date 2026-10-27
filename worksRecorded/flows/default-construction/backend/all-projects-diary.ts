@@ -1,6 +1,7 @@
 import { readFimaBisRecordLinks } from "@/lib/fima/bis-record-links";
 import type { FimaDiaryFilters } from "@/lib/fima/diary-filters";
 import { parseFimaDiaryNumber } from "@/lib/fima/diary-number";
+import { createFimaActCoverageReader } from "@/lib/fima/acceptance-acts";
 import { buildFimaDiaryFilterWhere } from "./fima-diary-filters";
 import { withFimaExampleSources } from "./fima-example-sources";
 import type { Prisma } from "@prisma/client";
@@ -54,7 +55,7 @@ const allProjectsDiaryRecordSelect = {
   evalMetadata: true,
   originalUserComment: true,
   originalAudioUrl: true,
-  Site: { select: { name: true, siteDiaryRecordsMap: true, bisCaseId: true, bisCaseNumber: true } },
+  Site: { select: { name: true, bisCaseId: true, bisCaseNumber: true } },
 } satisfies Prisma.sitediaryrecordsSelect;
 
 type AllProjectsDiaryDatabaseRecord = Prisma.sitediaryrecordsGetPayload<{
@@ -64,7 +65,13 @@ type AllProjectsDiaryDatabaseRecord = Prisma.sitediaryrecordsGetPayload<{
 function addActualCosts(
   records: AllProjectsDiaryDatabaseRecord[],
   organizationId: string,
+  sites: { id: string; siteDiaryRecordsMap: unknown }[],
 ) {
+  const configs = new Map(sites.map((site) => [site.id, site.siteDiaryRecordsMap]));
+  const actReaders = new Map<
+    string,
+    ReturnType<typeof createFimaActCoverageReader>
+  >();
   const calculatorBySite = new Map<
     string,
     ReturnType<typeof createDefaultConstructionRecordCostCalculator>
@@ -81,13 +88,14 @@ function addActualCosts(
       ...record
     }) => {
       const calculatorKey = record.siteId ?? "__default__";
+      const config = configs.get(calculatorKey);
       let calculateCost = calculatorBySite.get(calculatorKey);
       if (!calculateCost) {
         const siteConfig =
-          Site?.siteDiaryRecordsMap &&
-          typeof Site.siteDiaryRecordsMap === "object" &&
-          !Array.isArray(Site.siteDiaryRecordsMap)
-            ? (Site.siteDiaryRecordsMap as Record<string, unknown>)
+          config &&
+          typeof config === "object" &&
+          !Array.isArray(config)
+            ? (config as Record<string, unknown>)
             : (defaultConfig as Record<string, unknown>);
         calculateCost =
           createDefaultConstructionRecordCostCalculator(siteConfig);
@@ -96,19 +104,25 @@ function addActualCosts(
 
       const quantityComparison = getDefaultConstructionQuantityComparison(
         record,
-        Site?.siteDiaryRecordsMap as Record<string, any> | null,
+        config as Record<string, any> | null,
       );
 
       const bisLinks = (evalMetadata as { kuceImport?: { bisLinks?: unknown } } | null)?.kuceImport?.bisLinks;
+      let readActs = actReaders.get(calculatorKey);
+      if (!readActs) {
+        readActs = createFimaActCoverageReader(config, Site?.bisCaseId);
+        actReaders.set(calculatorKey, readActs);
+      }
 
       return {
         ...record,
-        ...(isFimaDiary(Site?.siteDiaryRecordsMap) ? {
+        ...(isFimaDiary(config) ? {
           bisStatus,
           Works_Custom_1,
           Works_Custom_2,
           hasFimaBisReferences: Array.isArray(bisLinks) && bisLinks.length > 0,
           fimaBisRecords: readFimaBisRecordLinks(evalMetadata, record.BISId),
+          fimaActCoverage: readActs(readFimaBisRecordLinks(evalMetadata, record.BISId)),
           fimaCollaboration: readFimaCollaboration(evalMetadata),
           bisCaseId: Site?.bisCaseId ?? null,
           bisCaseNumber: Site?.bisCaseNumber ?? null,
@@ -250,7 +264,7 @@ export async function loadAllProjectsDiary(
   return {
     fimaCollaborationEnabled: projects.some((project) => isFimaDiary(project.siteDiaryRecordsMap)),
     projects: projects.map(({ siteDiaryRecordsMap: _, ...project }) => project),
-    records: await withFimaExampleSources(organizationId, addActualCosts(records, organizationId)),
+    records: await withFimaExampleSources(organizationId, addActualCosts(records, organizationId, projects)),
     photoUrls: normalizeDiaryPhotoUrls(
       photoRecords.flatMap((record) => record.Photos ?? []),
     ).sort(),
@@ -279,5 +293,9 @@ export async function loadAllProjectsDiaryExportRecords(
     select: allProjectsDiaryRecordSelect,
   });
 
-  return addActualCosts(records, organizationId);
+  const sites = records.length ? await prisma.site.findMany({
+    where: { organizationId, id: { in: [...new Set(records.flatMap(record => record.siteId ? [record.siteId] : []))] } },
+    select: { id: true, siteDiaryRecordsMap: true },
+  }) : [];
+  return addActualCosts(records, organizationId, sites);
 }

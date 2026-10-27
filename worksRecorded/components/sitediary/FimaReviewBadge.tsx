@@ -40,7 +40,7 @@ export function FimaReviewBadge(props: Props) {
 	);
 	return (
 		<div aria-busy={saving} className="min-w-0" data-fima-interactive>
-			<div className="flex min-w-0 items-start gap-1">
+			<div className="flex min-w-0 flex-wrap items-start gap-1">
 				<Select
 					value={status ?? "unset"}
 					disabled={recovering}
@@ -53,13 +53,13 @@ export function FimaReviewBadge(props: Props) {
 					<SelectTrigger
 						aria-label="Ieraksta rīcība"
 						data-fima-badge
-						className="h-auto min-h-0 w-fit max-w-full gap-1 border-0 bg-transparent p-0 shadow-none [&>svg]:size-3"
+						className="h-auto min-h-0 w-fit min-w-0 max-w-full items-start gap-1 border-0 bg-transparent p-0 shadow-none data-[size=default]:h-auto [&>svg]:mt-1 [&>svg]:size-3 [&>[data-slot=select-value]]:line-clamp-none"
 						title="Organizācijas iekšējā rīcība. Izmaiņas saglabājas fonā; atzīme pati par sevi nesūta ierakstu uz BIS."
 					>
-						<SelectValue className="min-w-0 max-w-full overflow-hidden">
+						<SelectValue className="min-w-0 max-w-full flex-1">
 							<Badge
 								variant="outline"
-								className={`max-w-full min-w-0 shrink whitespace-nowrap overflow-hidden text-ellipsis px-1.5 text-[11px] text-left ${badgeTones[status ?? "unset"]}`}
+								className={`block max-w-full min-w-0 shrink whitespace-normal [overflow-wrap:anywhere] px-1.5 text-left text-[11px] leading-snug ${badgeTones[status ?? "unset"]}`}
 							>
 								{status ? fimaStatuses[status] : "Nav atzīmes"}
 							</Badge>
@@ -81,7 +81,7 @@ export function FimaReviewBadge(props: Props) {
 			</div>
 			{latestStatus ? (
 				<p
-					className="truncate text-[10px] text-muted-foreground"
+					className="mt-1 truncate text-[10px] leading-snug text-muted-foreground"
 					title={`${latestStatus.actorName} · ${new Date(latestStatus.at).toLocaleString("lv-LV", { timeZone: "Europe/Riga" })}`}
 				>
 					{latestStatus.actorName}

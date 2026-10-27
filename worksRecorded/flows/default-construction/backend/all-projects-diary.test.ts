@@ -165,7 +165,7 @@ describe("all projects diary", () => {
   });
 
   it("adds each record's configured actual cost without exposing site config", async () => {
-    recordsFindManyMock.mockResolvedValueOnce([
+    const records = [
       {
         id: "record-1",
         siteId: "site-1",
@@ -195,7 +195,9 @@ describe("all projects diary", () => {
           },
         },
       },
-    ]);
+    ];
+    recordsFindManyMock.mockResolvedValueOnce(records);
+    siteFindManyMock.mockResolvedValueOnce([{ id: "site-1", ...records[0].Site }]);
 
     const result = await loadAllProjectsDiary("org-1");
 
@@ -207,6 +209,7 @@ describe("all projects diary", () => {
       }),
     ]);
     expect(result.records[0]?.Site).not.toHaveProperty("siteDiaryRecordsMap");
+    expect(recordsFindManyMock.mock.calls[0][0].select.Site.select).not.toHaveProperty("siteDiaryRecordsMap");
   });
 
   it("adds semantic plan/fact values for profiled projects", async () => {

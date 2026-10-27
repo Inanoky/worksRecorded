@@ -21,6 +21,19 @@ it("does not alter other organizations' configuration", () => {
 	};
 	expect(withFimaDiaryColumns(config, "BIS-1")).toBe(config);
 });
+
+it("adds the act column without sending the project-wide BIS index to the client", () => {
+	const config = {
+		otherSettings: {
+			fimaCollaboration: true,
+			fimaBisActCoverage: { caseId: "668714", acts: [] },
+		},
+	};
+	const result = withFimaDiaryColumns(config, null);
+	expect(result.FimaAcceptanceActs.DisplayName).toBe("Akts");
+	expect(result.otherSettings).not.toHaveProperty("fimaBisActCoverage");
+	expect(config.otherSettings).toHaveProperty("fimaBisActCoverage");
+});
 it("fits FIMA columns and hides labour metrics without changing saved configuration", () => {
 	const config = {
 		otherSettings: { fimaCollaboration: true },

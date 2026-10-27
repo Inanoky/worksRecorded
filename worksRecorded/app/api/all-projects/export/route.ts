@@ -1,6 +1,7 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { NextResponse } from "next/server";
 import { readFimaDiaryFilters } from "@/lib/fima/diary-filters";
+import { formatFimaActCoverage } from "@/lib/fima/acceptance-acts";
 
 import {
   type AllProjectsDiaryFilters,
@@ -115,9 +116,11 @@ export async function GET(request: Request) {
   const quantityPlanFactEnabled = records.some(
     (record) => record.quantityPlanFactEnabled,
   );
+  const fimaExport = records.some((record) => Array.isArray(record.fimaBisRecords));
   const exportRows = records.map((record) => ({
     [messages.date]: dateFormatter.format(record.Date ?? record.createdAt),
     [messages.project]: record.Site?.name ?? "",
+    ...(fimaExport ? { Akts: formatFimaActCoverage(record.fimaActCoverage) } : {}),
     ...(isSbStomme
       ? { [SB_PLAN_LABELS.weather]: record.sbPlan?.weather ?? "" }
       : {}),
@@ -167,6 +170,7 @@ export async function GET(request: Request) {
     : [
         { wch: 14 },
         { wch: 28 },
+        ...(fimaExport ? [{ wch: 40 }] : []),
         ...(isSbStomme ? [{ wch: 24 }] : []),
         { wch: 24 },
         ...(isSbStomme ? [{ wch: 36 }] : []),
