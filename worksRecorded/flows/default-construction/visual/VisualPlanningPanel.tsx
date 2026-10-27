@@ -55,10 +55,11 @@ import {
 	visualLayerStyles,
 } from "./layer-settings";
 import { type VisualDrawing, visualLayers } from "./model";
-import type {
-	VisualPlan,
-	VisualPlanArea,
-	VisualPlanInput,
+import {
+	VISUAL_PLAN_MAX_AREAS,
+	type VisualPlan,
+	type VisualPlanArea,
+	type VisualPlanInput,
 } from "./planning-model";
 import { sameVisualPlanningContent } from "./planning-save-queue";
 import { sectionKey } from "./sections";
@@ -581,7 +582,11 @@ export function VisualPlanningPanel({
 		!index ||
 		saving ||
 		areaEditing ||
-		!!(draft && !draft.archivedAt && draft.areas.length >= 50);
+		!!(
+			draft &&
+			!draft.archivedAt &&
+			draft.areas.length >= VISUAL_PLAN_MAX_AREAS
+		);
 	function addZone() {
 		if (zoneAddingDisabled) return;
 		if (!draft || draft.archivedAt) {

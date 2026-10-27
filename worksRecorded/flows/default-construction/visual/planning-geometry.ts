@@ -1,3 +1,4 @@
+import { VISUAL_MAX_POLYGON_POINTS } from "./model";
 import type { VisualPlanArea } from "./planning-model";
 
 export type VisualPlanPoint = VisualPlanArea["polygon"][number];
@@ -26,7 +27,7 @@ export function insertVisualPlanVertex(
 	area: VisualPlanArea,
 	afterIndex: number,
 ): VisualPlanArea {
-	if (area.polygon.length >= 40) return area;
+	if (area.polygon.length >= VISUAL_MAX_POLYGON_POINTS) return area;
 	const current = area.polygon[afterIndex];
 	const next = area.polygon[(afterIndex + 1) % area.polygon.length];
 	const polygon = [...area.polygon];

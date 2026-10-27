@@ -2,9 +2,38 @@ import {
 	compareVisualPlanProgress,
 	findVisualPlanConflict,
 	type VisualPlan,
+	visualPlanAreasSchema,
 	visualPlanInputSchema,
 	visualPlanIntervalsOverlap,
 } from "./planning-model";
+
+it("retains detailed wall boundaries and room-sized areas without reducing them to coarse outlines", () => {
+	const polygon = Array.from({ length: 96 }, (_, index) => {
+		const angle = (index / 96) * Math.PI * 2;
+		return { x: 0.5 + Math.cos(angle) * 0.3, y: 0.5 + Math.sin(angle) * 0.3 };
+	});
+	const geometry = {
+		version: 1,
+		areas: Array.from({ length: 64 }, (_, index) => ({
+			id: `room-${index}`,
+			page: 1,
+			polygon,
+		})),
+	};
+	expect(visualPlanAreasSchema.parse(geometry).areas[0].polygon).toEqual(
+		polygon,
+	);
+	expect(visualPlanAreasSchema.parse(geometry).areas).toHaveLength(64);
+	expect(
+		visualPlanAreasSchema.safeParse({
+			...geometry,
+			areas: Array.from({ length: 257 }, (_, index) => ({
+				...geometry.areas[0],
+				id: `room-${index}`,
+			})),
+		}).success,
+	).toBe(false);
+});
 
 function plan(overrides: Partial<VisualPlan> = {}): VisualPlan {
 	return {

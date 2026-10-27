@@ -3,7 +3,7 @@ import {
 	dateSchema,
 	planMatchKey,
 } from "@/flows/default-construction/planner/model";
-import { isSimplePolygon, polygonArea } from "./model";
+import { isSimplePolygon, polygonArea, visualPolygonSchema } from "./model";
 import {
 	organizationContactReferenceSchema,
 	planningContactReferenceSchema,
@@ -11,29 +11,25 @@ import {
 import { visualSectionSchema } from "./sections";
 
 export const VISUAL_PLAN_TYPE = "visual_milestone";
-
-const visualPlanPointSchema = z.object({
-	x: z.number().min(0).max(1),
-	y: z.number().min(0).max(1),
-});
+export const VISUAL_PLAN_MAX_AREAS = 256;
 
 export const visualPlanAreaSchema = z
 	.object({
 		id: z.string().min(1).max(100),
 		page: z.number().int().positive(),
-		polygon: z.array(visualPlanPointSchema).min(3).max(40),
+		polygon: visualPolygonSchema,
 	})
 	.strict()
 	.refine(
 		(area) =>
-			polygonArea(area.polygon) >= 0.00001 && isSimplePolygon(area.polygon),
+			polygonArea(area.polygon) >= 0.00000001 && isSimplePolygon(area.polygon),
 		"Plānotajai zonai jābūt derīgam, nekrustojošam daudzstūrim.",
 	);
 
 export const visualPlanAreasSchema = z
 	.object({
 		version: z.literal(1),
-		areas: z.array(visualPlanAreaSchema).min(1).max(50),
+		areas: z.array(visualPlanAreaSchema).min(1).max(VISUAL_PLAN_MAX_AREAS),
 		section: visualSectionSchema.nullable().optional(),
 		organizationContact: organizationContactReferenceSchema.optional(),
 		mutationId: z.string().uuid().optional(),

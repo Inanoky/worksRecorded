@@ -42,6 +42,13 @@ export function OriginalSourceContent({
 						{sectionMapping.recordRef} · {sectionMapping.section} ·{" "}
 						{sectionMapping.measuredM2.toLocaleString("lv-LV")} m²
 					</p>
+					{sectionMapping.wallAlignment ? (
+						<p>
+							Robežas piesaistītas rasējuma sienām. Iepriekšējais mērījums:{" "}
+							{sectionMapping.wallAlignment.previousM2.toLocaleString("lv-LV")}{" "}
+							m².
+						</p>
+					) : null}
 					{sectionMapping.boundaryReview ? (
 						<p className="font-medium text-amber-700">Robeža jāpārbauda</p>
 					) : null}

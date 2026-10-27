@@ -82,3 +82,42 @@ it("ignores malformed measurement metadata without affecting normal journal reco
 	])
 		expect(readSectionMappingSource(metadata)).toBeUndefined();
 });
+
+it("keeps WhatsApp sources and previous measurements visible after wall alignment", () => {
+	const metadata = {
+		limeniSectionMapping: {
+			version: 1,
+			recordRef: "R018",
+			section: "PA1.6",
+			measuredM2: 142.71,
+			markupUrl: "https://files.example/aligned.png",
+			wallAlignment: { version: 1, previousM2: 87.84, privateGeometry: true },
+			sources: [
+				{
+					label: "Sienām piesaistītā zona",
+					url: "https://files.example/aligned.png",
+				},
+				{
+					label: "Oriģinālais WhatsApp marķējums",
+					url: "https://files.example/whatsapp.jpg",
+				},
+			],
+		},
+	};
+	const result = readSectionMappingSource(metadata);
+	expect(result?.wallAlignment).toEqual({
+		previousM2: 87.84,
+		measuredM2: 142.71,
+	});
+	expect(result?.sources).toHaveLength(2);
+	expect(result?.sources[1].url).toBe("https://files.example/whatsapp.jpg");
+	expect(
+		sectionMappingAnalysisPhotos(
+			[
+				"https://files.example/aligned.png",
+				"https://files.example/whatsapp.jpg",
+			],
+			metadata,
+		),
+	).toEqual(["https://files.example/aligned.png"]);
+});

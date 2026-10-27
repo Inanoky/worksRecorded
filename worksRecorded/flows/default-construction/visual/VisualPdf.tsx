@@ -34,7 +34,11 @@ import {
 	nextVisualPlanAreaId,
 	replaceVisualPlanArea,
 } from "./planning-geometry";
-import { type VisualPlanArea, visualPlanAreaSchema } from "./planning-model";
+import {
+	VISUAL_PLAN_MAX_AREAS,
+	type VisualPlanArea,
+	visualPlanAreaSchema,
+} from "./planning-model";
 import {
 	type PolygonDelete,
 	type PolygonEdit,
@@ -369,7 +373,7 @@ export function VisualPdf({
 			!planning ||
 			!planningEditable ||
 			planningAreaDraft ||
-			planning.areas.length >= 50
+			planning.areas.length >= VISUAL_PLAN_MAX_AREAS
 		)
 			return;
 		newAreaMethod.current = "rectangle";
@@ -384,7 +388,7 @@ export function VisualPdf({
 			!planning ||
 			!planningEditable ||
 			planningAreaDraft ||
-			planning.areas.length >= 50
+			planning.areas.length >= VISUAL_PLAN_MAX_AREAS
 		)
 			return;
 		navigation.freeze();
@@ -533,7 +537,7 @@ export function VisualPdf({
 			!planningEditable ||
 			planningAreaDraft ||
 			penMode ||
-			planning.areas.length >= 50 ||
+			planning.areas.length >= VISUAL_PLAN_MAX_AREAS ||
 			!ready ||
 			request <= handledAreaRequest.current
 		)
@@ -829,7 +833,7 @@ export function VisualPdf({
 					<Button
 						size="sm"
 						variant="outline"
-						disabled={!ready || planning.areas.length >= 50}
+						disabled={!ready || planning.areas.length >= VISUAL_PLAN_MAX_AREAS}
 						onClick={() => startAreaPen("polygon")}
 					>
 						<Pencil className="h-3.5 w-3.5" /> Zīmēt zonu
@@ -837,7 +841,7 @@ export function VisualPdf({
 					<Button
 						size="sm"
 						variant="outline"
-						disabled={!ready || planning.areas.length >= 50}
+						disabled={!ready || planning.areas.length >= VISUAL_PLAN_MAX_AREAS}
 						onClick={() => startAreaPen("freehand")}
 					>
 						Brīvrokas zona
@@ -845,7 +849,7 @@ export function VisualPdf({
 					<Button
 						size="sm"
 						variant="outline"
-						disabled={!ready || planning.areas.length >= 50}
+						disabled={!ready || planning.areas.length >= VISUAL_PLAN_MAX_AREAS}
 						onClick={addPlanArea}
 					>
 						<MousePointer2 className="h-3.5 w-3.5" />

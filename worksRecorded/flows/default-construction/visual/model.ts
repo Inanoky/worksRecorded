@@ -4,6 +4,7 @@ export const VISUAL_DOCUMENT_TYPE = "limeni-visual-v1";
 export const VISUAL_MAX_PHOTOS = 200;
 export const VISUAL_MAX_BYTES = 16 * 1024 * 1024;
 export const VISUAL_MAX_PAGES = 10;
+export const VISUAL_MAX_POLYGON_POINTS = 2048;
 export const VISUAL_LEASE_MS = 210_000;
 
 export const visualLayers: Record<string, { label: string; color: string }> = {
@@ -34,7 +35,10 @@ const pointSchema = z.object({
 	x: z.number().min(0).max(1),
 	y: z.number().min(0).max(1),
 });
-export const visualPolygonSchema = z.array(pointSchema).min(3).max(2048);
+export const visualPolygonSchema = z
+	.array(pointSchema)
+	.min(3)
+	.max(VISUAL_MAX_POLYGON_POINTS);
 export const visualEvidenceSchema = z.object({
 	id: z.string(),
 	recordId: z.string(),

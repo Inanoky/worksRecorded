@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { dateSchema } from "../planner/model";
-import { visualPlanAreaSchema } from "./planning-model";
+import { VISUAL_PLAN_MAX_AREAS, visualPlanAreaSchema } from "./planning-model";
 
 export const visualRecordInputSchema = z
 	.object({
@@ -10,7 +10,7 @@ export const visualRecordInputSchema = z
 		quantity: z.number().finite().positive().max(1e9),
 		unit: z.string().trim().min(1).max(40),
 		comments: z.string().trim().max(5000),
-		areas: z.array(visualPlanAreaSchema).min(1).max(50),
+		areas: z.array(visualPlanAreaSchema).min(1).max(VISUAL_PLAN_MAX_AREAS),
 	})
 	.strict();
 

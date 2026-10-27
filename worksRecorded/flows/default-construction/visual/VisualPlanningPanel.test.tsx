@@ -856,7 +856,7 @@ it("disables both add-zone buttons at the polygon limit", async () => {
 				...indexedPlan,
 				geometry: {
 					version: 1,
-					areas: Array.from({ length: 50 }, (_, i) => ({
+					areas: Array.from({ length: 256 }, (_, i) => ({
 						...area,
 						id: `area-${i}`,
 					})),

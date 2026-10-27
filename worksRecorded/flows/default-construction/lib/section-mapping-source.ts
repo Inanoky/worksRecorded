@@ -5,6 +5,7 @@ export type SectionMappingSource = {
 	originalQuantity: number | null;
 	measuredM2: number;
 	boundaryReview: boolean;
+	wallAlignment?: { previousM2: number; measuredM2: number };
 	sources: { label: string; url: string }[];
 };
 
@@ -64,6 +65,7 @@ export function readSectionMappingSource(
 				})
 				.slice(0, 30)
 		: [];
+	const alignment = objectValue(raw.wallAlignment);
 	return {
 		recordRef: raw.recordRef,
 		section: raw.section,
@@ -78,6 +80,17 @@ export function readSectionMappingSource(
 				: null,
 		measuredM2: raw.measuredM2,
 		boundaryReview: raw.measurementConfidence === "boundary-review",
+		...(alignment?.version === 1 &&
+		typeof alignment.previousM2 === "number" &&
+		Number.isFinite(alignment.previousM2) &&
+		alignment.previousM2 >= 0
+			? {
+					wallAlignment: {
+						previousM2: alignment.previousM2,
+						measuredM2: raw.measuredM2,
+					},
+				}
+			: {}),
 		sources,
 	};
 }

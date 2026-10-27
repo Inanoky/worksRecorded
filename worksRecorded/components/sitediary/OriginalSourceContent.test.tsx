@@ -13,6 +13,7 @@ describe("OriginalSourceContent", () => {
 					originalQuantity: 117,
 					measuredM2: 113.27,
 					boundaryReview: true,
+					wallAlignment: { previousM2: 104.5, measuredM2: 113.27 },
 					sources: [
 						{
 							label: "Oriģinālais marķējums",
@@ -25,6 +26,9 @@ describe("OriginalSourceContent", () => {
 		);
 		expect(screen.getByText("Original worker report")).toBeInTheDocument();
 		expect(screen.getByText("Robeža jāpārbauda")).toBeInTheDocument();
+		expect(
+			screen.getByText(/Robežas piesaistītas rasējuma sienām/),
+		).toHaveTextContent("104,5 m²");
 		expect(
 			screen.getByRole("link", { name: "Oriģinālais marķējums" }),
 		).toHaveAttribute("href", "https://files.example/original.jpg");
