@@ -7,6 +7,7 @@ const mockLoadTgemAccessScope = jest.fn();
 const mockVisibleTgemSites = jest.fn();
 const mockSiteFindMany = jest.fn();
 const mockOrganizationFindUnique = jest.fn();
+const mockGetOrganizationIdByUserId = jest.fn();
 
 jest.mock("@kinde-oss/kinde-auth-nextjs/components", () => ({
 	LogoutLink: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -106,9 +107,11 @@ jest.mock("@/lib/utils/requireUser", () => ({
 jest.mock("@/server/actions/shared-actions", () => ({
 	getUserEmailByUserId: async () => "user@example.com",
 	getOrganizationLanguageByUserId: async () => "lv",
-	getOrganizationIdByUserId: async () => "org-1",
+	getOrganizationIdByUserId: (...args: unknown[]) =>
+		mockGetOrganizationIdByUserId(...args),
 }));
 
+import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
 import DashboardLayout from "./layout";
 
 const projects = [
@@ -123,6 +126,7 @@ describe("DashboardLayout project visibility", () => {
 		mockIsSuperUserId.mockReturnValue(false);
 		mockSiteFindMany.mockResolvedValue(projects);
 		mockOrganizationFindUnique.mockResolvedValue({ name: "Other company" });
+		mockGetOrganizationIdByUserId.mockResolvedValue("org-1");
 		mockLoadTgemAccessScope.mockResolvedValue({ organizationId: "org-1" });
 		mockVisibleTgemSites.mockReturnValue([projects[0]]);
 	});
@@ -140,6 +144,10 @@ describe("DashboardLayout project visibility", () => {
 				"Hidden project",
 			);
 		}
+		expect(
+			screen.queryByRole("img", { name: "Līmenī" }),
+		).not.toBeInTheDocument();
+		expect(document.documentElement.dataset.limeniSuite).toBeUndefined();
 		expect(mockVisibleTgemSites).toHaveBeenCalledWith(
 			expect.objectContaining({ organizationId: "org-1" }),
 			projects,
@@ -169,6 +177,46 @@ describe("DashboardLayout project visibility", () => {
 		);
 		expect(mockResolveFlowModuleKeyForRuntime).not.toHaveBeenCalled();
 		expect(mockOrganizationFindUnique).not.toHaveBeenCalled();
+		expect(
+			screen.queryByRole("img", { name: "Līmenī" }),
+		).not.toBeInTheDocument();
+		expect(document.documentElement.dataset.limeniSuite).toBeUndefined();
+	});
+
+	it("uses Limeni's own organization for suite branding, rather than visible projects or the company name", async () => {
+		mockGetOrganizationIdByUserId.mockResolvedValue(LIMENI_ORGANIZATION_ID);
+		mockOrganizationFindUnique.mockResolvedValue({ name: "SIA M.S.AQUA" });
+		mockResolveFlowModuleKeyForRuntime.mockResolvedValue(
+			"default-construction",
+		);
+		const { container, unmount } = render(
+			await DashboardLayout({ children: <div>Page</div> }),
+		);
+		expect(
+			screen.getByRole("link", {
+				name: "WorksRecorded — Līmenī business suite",
+			}),
+		).toBeInTheDocument();
+		expect(screen.getByRole("img", { name: "Līmenī" })).toBeInTheDocument();
+		expect(screen.getByText("business suite")).toBeInTheDocument();
+		expect(container.querySelector(".limeni-suite")).not.toBeNull();
+		expect(document.documentElement.dataset.limeniSuite).toBe("true");
+		expect(document.documentElement.dataset.fimaSuite).toBeUndefined();
+		expect(document.documentElement.dataset.prodevSuite).toBeUndefined();
+		unmount();
+		expect(document.documentElement.dataset.limeniSuite).toBeUndefined();
+	});
+
+	it("does not apply Limeni branding to another organization viewing a Limeni project", async () => {
+		mockOrganizationFindUnique.mockResolvedValue({ name: "Līmenī" });
+		mockSiteFindMany.mockResolvedValue([
+			{ ...projects[0], organizationId: LIMENI_ORGANIZATION_ID },
+		]);
+		render(await DashboardLayout({ children: <div>Page</div> }));
+		expect(
+			screen.queryByRole("img", { name: "Līmenī" }),
+		).not.toBeInTheDocument();
+		expect(document.documentElement.dataset.limeniSuite).toBeUndefined();
 	});
 
 	it("shows ProDev business suite branding only for the signed-in organization", async () => {
@@ -188,6 +236,7 @@ describe("DashboardLayout project visibility", () => {
 		expect(container.querySelector(".prodev-suite")).not.toBeNull();
 		expect(document.documentElement.dataset.prodevSuite).toBe("true");
 		expect(screen.queryByAltText("FIMA")).not.toBeInTheDocument();
+		expect(document.documentElement.dataset.limeniSuite).toBeUndefined();
 	});
 
 	it("keeps FIMA branding separate from ProDev", async () => {
@@ -205,5 +254,6 @@ describe("DashboardLayout project visibility", () => {
 		expect(screen.getByAltText("FIMA")).toBeInTheDocument();
 		expect(screen.queryByAltText("PRO DEV")).not.toBeInTheDocument();
 		expect(document.documentElement.dataset.prodevSuite).toBeUndefined();
+		expect(document.documentElement.dataset.limeniSuite).toBeUndefined();
 	});
 });

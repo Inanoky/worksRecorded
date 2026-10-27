@@ -4984,7 +4984,7 @@ export default function SiteDiaryCalendar({
                                   )}
 
                                   {r.originalUserComment ||
-                                  r.originalAudioUrl ? (
+                                  r.originalAudioUrl || r.sectionMapping ? (
                                     <div className="mt-2">
                                       <Popover>
                                         <PopoverTrigger asChild>
@@ -4999,6 +4999,7 @@ export default function SiteDiaryCalendar({
                                           className={sourcePopoverClassName}
                                         >
                                           <OriginalSourceContent
+                                            sectionMapping={r.sectionMapping}
                                             originalUserComment={
                                               r.originalUserComment
                                             }
@@ -6268,7 +6269,7 @@ export default function SiteDiaryCalendar({
                                             style={{ width: 60 }}
                                           >
                                             {row.originalUserComment ||
-                                            row.originalAudioUrl ? (
+                                            row.originalAudioUrl || row.sectionMapping ? (
                                               <Popover>
                                                 <PopoverTrigger asChild>
                                                   <button
@@ -6284,6 +6285,7 @@ export default function SiteDiaryCalendar({
                                                   }
                                                 >
                                                   <OriginalSourceContent
+                                                    sectionMapping={row.sectionMapping}
                                                     originalUserComment={
                                                       row.originalUserComment
                                                     }

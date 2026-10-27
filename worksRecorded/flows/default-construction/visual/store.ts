@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { createPerfTrace } from "@/lib/observability/perf";
 import { prisma } from "@/lib/utils/db";
 import { requireWarehouseImportAccess } from "../backend/warehouse-import-upload";
+import { sectionMappingAnalysisPhotos } from "../lib/section-mapping-source";
 import {
 	LIMENI_ORGANIZATION_ID,
 	normalizeDiaryPhotoUrls,
@@ -193,7 +194,10 @@ async function loadVisualEvidence(
 		)
 		.flatMap((row) =>
 			[
-				...normalizeDiaryPhotoUrls(row.Photos).map((photoUrl) => ({
+				...sectionMappingAnalysisPhotos(
+					normalizeDiaryPhotoUrls(row.Photos),
+					row.evalMetadata,
+				).map((photoUrl) => ({
 					photoUrl,
 					manual: undefined,
 				})),

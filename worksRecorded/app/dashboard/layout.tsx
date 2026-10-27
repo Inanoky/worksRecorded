@@ -10,15 +10,20 @@ import {
 	DashboardProjectNavigation,
 } from "@/components/dashboard/DashboardItems";
 import { LanguageFlagSwitcher } from "@/components/dashboard/LanguageFlagSwitcher";
-import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
+import { LimeniSuiteLogo } from "@/components/dashboard/LimeniSuiteLogo";
+import { LimeniSuiteTheme } from "@/components/dashboard/LimeniSuiteTheme";
 import { ProdevSuiteLogo } from "@/components/dashboard/ProdevSuiteLogo";
 import { ProdevSuiteTheme } from "@/components/dashboard/ProdevSuiteTheme";
-import { isProdevOrganization } from "@/lib/branding/prodev";
+import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
 import { clearUserTourAction } from "@/components/joyride/user-tour-action";
 import { ProjectLoadingProgressProvider } from "@/components/providers/ProjectLoadingProgressProvider";
 import { ProjectProvider } from "@/components/providers/ProjectProvider";
-import { DiarySaveProvider } from "@/flows/default-construction/frontend/DiarySaveProvider";
-import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
+import { FimaSuiteLogo } from "@/components/sitediary/FimaSuiteLogo";
+import { FimaSuiteTheme } from "@/components/sitediary/FimaSuiteTheme";
+import {
+	FimaProjectWarehousePreload,
+	FimaWarehouseProvider,
+} from "@/components/sitediary/FimaWarehouseProvider";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -26,15 +31,12 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DiarySaveProvider } from "@/flows/default-construction/frontend/DiarySaveProvider";
+import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
 import { isAiEvalUiEnabled } from "@/lib/ai-evals/local-gate";
-import { FimaSuiteLogo } from "@/components/sitediary/FimaSuiteLogo";
-import { FimaSuiteTheme } from "@/components/sitediary/FimaSuiteTheme";
-import {
-	FimaProjectWarehousePreload,
-	FimaWarehouseProvider,
-} from "@/components/sitediary/FimaWarehouseProvider";
-import { isFimaDiary } from "@/lib/fima/diary-collaboration";
+import { isProdevOrganization } from "@/lib/branding/prodev";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
+import { isFimaDiary } from "@/lib/fima/diary-collaboration";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { canAccessFlowConfigAdmin } from "@/lib/production-flow/config";
@@ -87,7 +89,27 @@ export default async function DashboardLayout({
 			: Promise.resolve(null),
 	]);
 	const fimaCollaborationEnabled = !isSuperUser && allHeaderProjects.some((project) => isFimaDiary(project.siteDiaryRecordsMap));
-	const prodevSuiteEnabled = !isSuperUser && !fimaCollaborationEnabled && isProdevOrganization(organization?.name);
+	const limeniSuiteEnabled =
+		!isSuperUser &&
+		!fimaCollaborationEnabled &&
+		organizationId === LIMENI_ORGANIZATION_ID;
+	const prodevSuiteEnabled =
+		!isSuperUser &&
+		!fimaCollaborationEnabled &&
+		!limeniSuiteEnabled &&
+		isProdevOrganization(organization?.name);
+	const suiteClassName = fimaCollaborationEnabled
+		? "fima-suite"
+		: limeniSuiteEnabled
+			? "limeni-suite"
+			: prodevSuiteEnabled
+				? "prodev-suite"
+				: "";
+	const suiteLabel = limeniSuiteEnabled
+		? "WorksRecorded — Līmenī business suite"
+		: prodevSuiteEnabled
+			? "WorksRecorded — ProDev business suite"
+			: undefined;
 	let headerProjects = allHeaderProjects.map(({ siteDiaryRecordsMap: _, bisCaseId: _bis, ...project }) => project);
 	if (
 		flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL &&
@@ -113,13 +135,14 @@ export default async function DashboardLayout({
 			<FimaWarehouseProvider key={`${userId}-${organizationId ?? ""}`}>
 				<FimaSuiteTheme enabled={fimaCollaborationEnabled} />
 				<ProdevSuiteTheme enabled={prodevSuiteEnabled} />
+				<LimeniSuiteTheme enabled={limeniSuiteEnabled} />
 				{fimaCollaborationEnabled ? (
 					<FimaProjectWarehousePreload
 						siteIds={allHeaderProjects.filter(project => project.bisCaseId && isFimaDiary(project.siteDiaryRecordsMap)).map(project => project.id)}
 					/>
 				) : null}
 			<DiarySaveProvider key={userId} userId={userId} projects={headerProjects} language={organizationLanguage}>
-			<section className={`${fimaCollaborationEnabled ? "fima-suite " : prodevSuiteEnabled ? "prodev-suite " : ""}min-h-screen w-full flex flex-col`}>
+			<section className={`${suiteClassName} min-h-screen w-full flex flex-col`}>
 				{/* CSS-only modal (hash :target) */}
 				<style>{`
           #contact-modal {
@@ -151,10 +174,16 @@ export default async function DashboardLayout({
 
 							<Link
 								href="/"
-								aria-label={prodevSuiteEnabled ? "WorksRecorded — ProDev business suite" : undefined}
+								aria-label={suiteLabel}
 								className="flex items-center gap-2 font-semibold shrink-0"
 							>
-								{prodevSuiteEnabled ? <ProdevSuiteLogo /> : <FimaSuiteLogo enabled={fimaCollaborationEnabled} />}
+								{limeniSuiteEnabled ? (
+									<LimeniSuiteLogo />
+								) : prodevSuiteEnabled ? (
+									<ProdevSuiteLogo />
+								) : (
+									<FimaSuiteLogo enabled={fimaCollaborationEnabled} />
+								)}
 							</Link>
 
 							<nav className="ml-2 hidden min-w-0 flex-1 items-center lg:flex">

@@ -55,3 +55,33 @@ it("keeps normal construction and Limeni records readable without FIMA metadata"
 	});
 	expect(mapConstructionDiaryListRecord({}).fimaCollaboration).toBeUndefined();
 });
+
+it("passes measured section provenance to the journal without exposing the private audit", () => {
+	const result = mapConstructionDiaryListRecord({
+		id: "measured",
+		evalMetadata: {
+			limeniSectionMapping: {
+				version: 1,
+				recordRef: "R068",
+				section: "PA1.1",
+				measuredM2: 113.27,
+				measurementConfidence: "boundary-review",
+				originalRecord: { privateAudit: true },
+				sources: [
+					{ label: "Original drawing", url: "https://files.example/source.jpg" },
+				],
+			},
+		},
+	});
+	expect(result.sectionMapping).toMatchObject({
+		recordRef: "R068",
+		section: "PA1.1",
+		measuredM2: 113.27,
+		boundaryReview: true,
+		sources: [
+			{ label: "Original drawing", url: "https://files.example/source.jpg" },
+		],
+	});
+	expect(result.sectionMapping).not.toHaveProperty("originalRecord");
+	expect(result).not.toHaveProperty("evalMetadata");
+});

@@ -11,6 +11,8 @@ import {
 	mapCommonDiaryListRecord,
 } from "@/lib/site-diary/list-record";
 
+import { readSectionMappingSource } from "../lib/section-mapping-source";
+
 export const constructionDiaryListSelect = {
 	...commonDiaryListSelect,
 	fimaNumber: true,
@@ -26,6 +28,7 @@ export type ConstructionDiaryListRow = ReturnType<
 	fimaActCoverage?: FimaRecordActCoverage;
 	hasFimaBisReferences?: boolean;
 	fimaCollaboration?: FimaCollaboration;
+	sectionMapping?: ReturnType<typeof readSectionMappingSource>;
 };
 
 export function mapConstructionDiaryListRecord(
@@ -33,6 +36,7 @@ export function mapConstructionDiaryListRecord(
 ): ConstructionDiaryListRow {
 	return {
 		...mapCommonDiaryListRecord(rec),
+		sectionMapping: readSectionMappingSource(rec.evalMetadata),
 		fimaNumber: rec.fimaNumber ?? null,
 		fimaBisRecords: readFimaBisRecordLinks(rec.evalMetadata, rec.BISId),
 		hasFimaBisReferences:
