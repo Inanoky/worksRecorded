@@ -1,6 +1,7 @@
 import {
 	readSectionMappingSource,
 	sectionMappingAnalysisPhotos,
+	sectionMappingOriginalPhotos,
 } from "./section-mapping-source";
 
 it("keeps originals attached while restricting future analysis to the measured child zone", () => {
@@ -28,6 +29,49 @@ it("keeps originals attached while restricting future analysis to the measured c
 			},
 		}),
 	).toBe(photos);
+});
+
+it("selects original WhatsApp markups without measured zones or reference drawings", () => {
+	const mapping = readSectionMappingSource({
+		limeniSectionMapping: {
+			version: 1,
+			recordRef: "R011",
+			section: "PA1.6",
+			measuredM2: 81.68,
+			sources: [
+				{
+					label: "Sienām piesaistītā zona",
+					url: "https://files.example/aligned.png",
+				},
+				{ label: "Izmērītā zona", url: "https://files.example/measured.png" },
+				{
+					label: "Oriģinālais marķējums 1",
+					url: "https://files.example/whatsapp-1.jpg",
+				},
+				{
+					label: "Oriģinālais marķējums 2",
+					url: "https://files.example/whatsapp-2.jpg",
+				},
+				{
+					label: "Oriģinālais WhatsApp marķējums",
+					url: "https://files.example/whatsapp-1.jpg",
+				},
+				{ label: "Rasējums", url: "https://files.example/drawing.pdf" },
+				{ label: "Oriģinālais marķējums", url: "javascript:alert(1)" },
+			],
+		},
+	});
+	if (!mapping) throw new Error("Expected valid section mapping");
+	expect(sectionMappingOriginalPhotos(mapping)).toEqual([
+		"https://files.example/whatsapp-1.jpg",
+		"https://files.example/whatsapp-2.jpg",
+	]);
+	expect(
+		sectionMappingOriginalPhotos({
+			...mapping,
+			sources: mapping.sources.slice(0, 2),
+		}),
+	).toEqual([]);
 });
 
 it("exposes measurement sources without original payroll or geometry metadata", () => {

@@ -17,6 +17,7 @@ export function VisualZoneDetails({
 	siteId,
 	drawingId,
 	source,
+	photos,
 	mark,
 	progressPending,
 	editorLocked,
@@ -33,6 +34,7 @@ export function VisualZoneDetails({
 	siteId: string;
 	drawingId: string;
 	source?: VisualEvidence;
+	photos?: string[];
 	mark?: VisualMark;
 	progressPending: boolean;
 	editorLocked: boolean;
@@ -47,6 +49,7 @@ export function VisualZoneDetails({
 	onLayerChange?: (layerId: string | null) => void;
 }) {
 	const open = !!source && !!mark;
+	const sourcePhotos = photos ?? (source?.photoUrl ? [source.photoUrl] : []);
 	const content = useRef<HTMLDivElement>(null);
 	useEffect(() => {
 		if (mark?.id && content.current) content.current.scrollTop = 0;
@@ -117,21 +120,28 @@ export function VisualZoneDetails({
 			{source && mark ? (
 				<>
 					<div
-						className={source.manual ? "shrink-0 p-3" : "min-h-0 flex-1 p-2"}
+						className={`flex flex-col gap-2 ${source.manual ? "shrink-0 p-3" : "min-h-0 flex-1 p-2"}`}
 						data-testid="zone-source-image"
 					>
-						{source.photoUrl ? (
-							<DiaryRecordPhotos
-								key={source.photoUrl}
-								photos={[source.photoUrl]}
-								language="lv"
-								variant="featured"
-							/>
+						{sourcePhotos.length ? (
+							<>
+								<p className="shrink-0 text-xs text-muted-foreground">
+									Oriģinālais marķējums
+								</p>
+								<div className="min-h-0 flex-1 overflow-y-auto">
+									<DiaryRecordPhotos
+										key={`${source.recordId}:${sourcePhotos.join("|")}`}
+										photos={sourcePhotos}
+										language="lv"
+										variant="featured"
+									/>
+								</div>
+							</>
 						) : (
 							<p className="flex h-full items-center justify-center text-sm text-muted-foreground">
 								{source.manual
 									? "Zona norādīta manuāli un piesaistīta būvdarbu žurnāla ierakstam."
-									: "Avota attēls nav pieejams."}
+									: "Oriģinālais marķējums nav pieejams."}
 							</p>
 						)}
 					</div>

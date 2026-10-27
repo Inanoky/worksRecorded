@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const test = require("node:test");
+const test = typeof it === "function" ? it : require("node:test");
 const { allocateCents } = require("./allocation.cjs");
 
 test("conserves every source cent when room quantities change", () => {

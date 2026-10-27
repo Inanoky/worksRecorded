@@ -1,3 +1,5 @@
+import { normalizeDiaryPhotoUrls } from "./diary-photos";
+
 export type SectionMappingSource = {
 	recordRef: string;
 	section: string;
@@ -13,6 +15,18 @@ function objectValue(value: unknown): Record<string, unknown> | undefined {
 	return value && typeof value === "object" && !Array.isArray(value)
 		? (value as Record<string, unknown>)
 		: undefined;
+}
+
+export function sectionMappingOriginalPhotos(mapping: SectionMappingSource) {
+	return normalizeDiaryPhotoUrls(
+		mapping.sources
+			.filter((source) =>
+				/^oriģinālais (?:whatsapp )?marķējums(?: \d+)?$/i.test(
+					source.label.normalize("NFKC").trim().replace(/\s+/g, " "),
+				),
+			)
+			.map((source) => source.url),
+	);
 }
 
 export function sectionMappingAnalysisPhotos(

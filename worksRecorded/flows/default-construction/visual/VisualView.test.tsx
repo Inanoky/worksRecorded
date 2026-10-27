@@ -8,6 +8,8 @@ import {
 } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DIARY_PHOTO_DELETED } from "@/lib/photos/photo-deleted-event";
+import { useLimeniProjectData } from "../frontend/LimeniProjectData";
+import { readSectionMappingSource } from "../lib/section-mapping-source";
 import {
 	addVisualRecord,
 	deleteVisualDrawing,
@@ -34,6 +36,9 @@ import type { VisualPdfPlanning } from "./VisualPdf";
 import VisualView from "./VisualView";
 
 const mockUpload = jest.fn();
+jest.mock("../frontend/LimeniProjectData", () => ({
+	useLimeniProjectData: jest.fn(),
+}));
 jest.mock("@/lib/utils/UploadthingsComponents", () => ({
 	useUploadThing: () => ({ startUpload: mockUpload }),
 }));
@@ -248,6 +253,12 @@ const complete: VisualDrawing = {
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	jest.mocked(useLimeniProjectData).mockReturnValue({
+		enabled: false,
+		snapshot: null,
+		failed: false,
+		denied: false,
+	});
 	sessionStorage.clear();
 	jest.mocked(getVisualWorkTypes).mockResolvedValue(["Smilts", "XPS"]);
 	jest.mocked(getVisualPlanning).mockResolvedValue({
@@ -525,6 +536,101 @@ async function selectDrawing() {
 	render(<VisualView siteId="site" />);
 	await selectLocation();
 }
+
+it("compares the drawing with cached original WhatsApp markups, including zoom, without fetching record data", async () => {
+	const originals = [
+		"https://example.com/whatsapp-1.jpg",
+		"https://example.com/whatsapp-2.jpg",
+	];
+	const snapshot = {
+		version: "cached-project",
+		index: {
+			userId: "user",
+			locations: ["1. stāvs"],
+			drawings: [
+				{
+					id: complete.id,
+					name: complete.name,
+					location: complete.state.location,
+					createdAt: complete.createdAt,
+					status: "complete",
+				},
+			],
+		},
+		drawings: [
+			{
+				drawing: complete,
+				preview: null,
+				planning: {
+					today: "2026-10-13",
+					location: "1. stāvs",
+					workOptions: [],
+					unitOptions: [],
+					contacts: [],
+					plans: [],
+				},
+			},
+		],
+		diary: {
+			rows: [
+				{
+					id: "record",
+					sectionMapping: readSectionMappingSource({
+						limeniSectionMapping: {
+							version: 1,
+							recordRef: "R011",
+							section: "PA1.6",
+							measuredM2: 81.68,
+							sources: [
+								{
+									label: "Sienām piesaistītā zona",
+									url: complete.state.evidence[0].photoUrl,
+								},
+								...originals.map((url, index) => ({
+									label: `Oriģinālais marķējums ${index + 1}`,
+									url,
+								})),
+							],
+						},
+					}),
+				},
+			],
+			mediaPhotos: [],
+		},
+	} as unknown as NonNullable<
+		ReturnType<typeof useLimeniProjectData>["snapshot"]
+	>;
+	jest
+		.mocked(useLimeniProjectData)
+		.mockReturnValue({ enabled: true, snapshot, failed: false, denied: false });
+	await selectDrawing();
+	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
+	const panel = screen.getByRole("complementary", {
+		name: "Izvēlētās zonas informācija",
+	});
+	expect(within(panel).getByText("Oriģinālais marķējums")).toBeInTheDocument();
+	expect(
+		within(panel).getByRole("img", { name: "Ziņojuma foto 1" }),
+	).toHaveAttribute("src", originals[0]);
+	expect(
+		within(panel).getByRole("button", { name: "+1 foto" }),
+	).toBeInTheDocument();
+	fireEvent.click(
+		within(panel).getByRole("button", { name: "Ziņojuma foto 1" }),
+	);
+	const zoom = screen.getByRole("dialog");
+	expect(
+		within(zoom).getByRole("img", { name: "Ziņojuma foto" }),
+	).toHaveAttribute("src", originals[0]);
+	fireEvent.click(
+		within(zoom).getByRole("button", { name: "Nākamais" }),
+	);
+	expect(
+		within(zoom).getByRole("img", { name: "Ziņojuma foto" }),
+	).toHaveAttribute("src", originals[1]);
+	expect(mockFetch).not.toHaveBeenCalled();
+	expect(refreshVisualDrawing).not.toHaveBeenCalled();
+});
 
 it("selects the first location when navigating to Izpildshēmas", async () => {
 	const view = render(<VisualView siteId="site" active={false} />);

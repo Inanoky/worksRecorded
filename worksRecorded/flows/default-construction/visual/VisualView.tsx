@@ -52,6 +52,7 @@ import {
 import { useUploadThing } from "@/lib/utils/UploadthingsComponents";
 import { DiaryRecordPhotos } from "../frontend/DiaryRecordPhotos";
 import { useLimeniProjectData } from "../frontend/LimeniProjectData";
+import { sectionMappingOriginalPhotos } from "../lib/section-mapping-source";
 import {
 	deleteVisualDrawing,
 	deleteVisualPolygon,
@@ -936,6 +937,14 @@ export default function VisualView({
 	const source = drawing?.state.evidence.find(
 		(item) => item.id === selectedMark?.evidenceId,
 	);
+	const sourceRecord = projectData.snapshot?.diary.rows.find(
+		(row) => row.id === source?.recordId,
+	);
+	const sourcePhotos = sourceRecord?.sectionMapping
+		? sectionMappingOriginalPhotos(sourceRecord.sectionMapping)
+		: !sourceRecord && projectData.enabled
+			? []
+			: undefined;
 	function selectZone(id: string | null) {
 		if (editing || workEditing || savingLayers || managingLayers || recordDraft)
 			return;
@@ -1560,6 +1569,7 @@ export default function VisualView({
 								siteId={siteId}
 								drawingId={drawing.id}
 								source={source}
+								photos={sourcePhotos}
 								mark={selectedMark}
 								progressPending={
 									!!sourceProgress && sourceProgress.status !== "complete"
