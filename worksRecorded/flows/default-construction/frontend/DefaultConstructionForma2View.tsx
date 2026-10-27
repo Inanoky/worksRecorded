@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import {
 	Card,
 	CardContent,
@@ -21,7 +21,6 @@ import { DefaultConstructionForma2CostBreakdown } from "@/flows/default-construc
 import { DefaultConstructionForma2Export } from "@/flows/default-construction/frontend/DefaultConstructionForma2Export";
 import { DefaultConstructionForma2Import } from "@/flows/default-construction/frontend/DefaultConstructionForma2Import";
 import { DefaultConstructionForma2QuantityBreakdown } from "@/flows/default-construction/frontend/DefaultConstructionForma2QuantityBreakdown";
-import { DefaultConstructionForma2Summary } from "@/flows/default-construction/frontend/DefaultConstructionForma2Summary";
 import { DefaultConstructionForma2TableScroll } from "@/flows/default-construction/frontend/DefaultConstructionForma2TableScroll";
 import {
 	calculateForma2MoneyTotals,
@@ -31,7 +30,6 @@ import {
 	getForma2AnalyticsCopy,
 	getForma2AnalyticsLocale,
 } from "@/flows/default-construction/lib/forma2-analytics-copy";
-import { forma2PositionLabel } from "@/flows/default-construction/lib/forma2-section-summary";
 import { cn } from "@/lib/utils/utils";
 
 type Forma2Results = Awaited<
@@ -256,6 +254,7 @@ function Forma2ResultsView({
 					</TableRow>
 				</TableHeader>
 				<TableBody>
+					<Forma2TotalsRow totals={totals} t={t} locale={locale} />
 					{rows.map((row, index) => {
 						const previous = rows[index - 1];
 						const showCategory =
@@ -284,7 +283,8 @@ function Forma2ResultsView({
 										<div className="flex items-start justify-between gap-2">
 											<div className={row.parentId ? "pl-3" : ""}>
 												{row.parentId ? "↳ " : ""}
-												{forma2PositionLabel(row)}
+												{row.code ? `${row.code} ` : ""}
+												{row.name}
 											</div>
 											<DefaultConstructionForma2ContractEditor
 												siteId={siteId}
@@ -420,7 +420,6 @@ export function DefaultConstructionForma2View({
 }) {
 	const t = getForma2AnalyticsCopy(organizationLanguage);
 	const locale = getForma2AnalyticsLocale(organizationLanguage);
-	const [detailsOpen, setDetailsOpen] = useState(false);
 
 	return (
 		<div className="space-y-6">
@@ -451,27 +450,13 @@ export function DefaultConstructionForma2View({
 					/>
 				</CardHeader>
 				<CardContent className="px-0">
-					<DefaultConstructionForma2Summary
+					<Forma2ResultsView
 						siteId={siteId}
 						rows={data.resultRows as Forma2ResultRow[]}
+						t={t}
+						locale={locale}
 						organizationLanguage={organizationLanguage}
 					/>
-					<details
-						onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
-					>
-						<summary className="cursor-pointer border-t px-6 py-4 text-sm font-medium">
-							{t.costDetails}
-						</summary>
-						{detailsOpen || !data.resultRows.length ? (
-							<Forma2ResultsView
-								siteId={siteId}
-								rows={data.resultRows as Forma2ResultRow[]}
-								t={t}
-								locale={locale}
-								organizationLanguage={organizationLanguage}
-							/>
-						) : null}
-					</details>
 				</CardContent>
 			</Card>
 		</div>
