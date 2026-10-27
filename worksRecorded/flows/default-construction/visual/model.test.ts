@@ -155,3 +155,23 @@ describe("Visual geometry and source guards", () => {
 		);
 	});
 });
+
+it("preserves a large measured outline while keeping AI output bounded", () => {
+	const { visualPolygonSchema, visualMatchSchema } = require("./model");
+	const { polygonEditSchema } = require("./polygon-edit");
+	const polygon = Array.from({ length: 120 }, (_, index) => ({
+		x: 0.5 + 0.2 * Math.cos((2 * Math.PI * index) / 120),
+		y: 0.5 + 0.2 * Math.sin((2 * Math.PI * index) / 120),
+	}));
+	expect(visualPolygonSchema.safeParse(polygon).success).toBe(true);
+	expect(
+		polygonEditSchema.safeParse({
+			markId: "zone",
+			expectedPolygon: polygon,
+			polygon,
+		}).success,
+	).toBe(true);
+	expect(visualMatchSchema.safeParse({ ...match, polygon }).success).toBe(
+		false,
+	);
+});

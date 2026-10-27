@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { isSimplePolygon, polygonArea, visualMatchSchema } from "./model";
+import { isSimplePolygon, polygonArea, visualPolygonSchema } from "./model";
 
 export const polygonEditSchema = z.object({
 	markId: z.string().min(1).max(500),
 	mutationId: z.string().uuid().optional(),
-	expectedPolygon: visualMatchSchema.shape.polygon,
-	polygon: visualMatchSchema.shape.polygon.refine(
+	expectedPolygon: visualPolygonSchema,
+	polygon: visualPolygonSchema.refine(
 		(points) => polygonArea(points) >= 0.00001 && isSimplePolygon(points),
 		"Zonas malām nevajadzētu krustoties; zonai jābūt ar laukumu.",
 	),

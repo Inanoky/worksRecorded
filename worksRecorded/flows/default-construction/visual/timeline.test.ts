@@ -11,6 +11,43 @@ const evidence = (id: string, date: string | null) =>
 	({ id, date }) as VisualEvidence;
 const mark = (id: string) => ({ id, evidenceId: id }) as VisualMark;
 
+it("filters to the selected Latvian day without showing earlier or later work", () => {
+	const timeline = buildVisualTimeline([
+		evidence("previous", "2026-09-20"),
+		evidence("selected", "2026-09-21"),
+		evidence("next", "2026-09-22"),
+		evidence("unknown", null),
+	]);
+	const marks = ["previous", "selected", "next", "unknown"].map(mark);
+	expect(
+		cumulativeVisualMarks(
+			marks,
+			timeline.dayByEvidence,
+			visualDiaryDay("2026-09-21"),
+			false,
+			true,
+		),
+	).toEqual([mark("selected")]);
+	expect(
+		cumulativeVisualMarks(
+			marks,
+			timeline.dayByEvidence,
+			visualDiaryDay("2026-09-23"),
+			false,
+			true,
+		),
+	).toEqual([]);
+	expect(
+		cumulativeVisualMarks(
+			marks,
+			timeline.dayByEvidence,
+			visualDiaryDay("2026-09-21"),
+			true,
+			true,
+		),
+	).toEqual([mark("selected"), mark("unknown")]);
+});
+
 it("extends through the latest diary day without inventing a new zone", () => {
 	const timeline = buildVisualTimeline(
 		[evidence("photo", "2026-09-28")],

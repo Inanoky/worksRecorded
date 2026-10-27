@@ -17,6 +17,8 @@ export function VisualTimeline({
 	includeUndated,
 	onIncludeUndated,
 	visibleCount,
+	onlySelectedDay = false,
+	onOnlySelectedDay,
 	compact = false,
 	ariaLabel = "Darbu progress pa dienām",
 	title = "Kumulatīvais darbu progress",
@@ -34,6 +36,8 @@ export function VisualTimeline({
 	includeUndated: boolean;
 	onIncludeUndated: (include: boolean) => void;
 	visibleCount: number;
+	onlySelectedDay?: boolean;
+	onOnlySelectedDay?: (value: boolean) => void;
 	compact?: boolean;
 	ariaLabel?: string;
 	title?: string;
@@ -47,14 +51,16 @@ export function VisualTimeline({
 	if (compact)
 		return (
 			<section
-				className="flex min-w-0 items-center gap-2 border-t bg-background px-3 py-2"
+				className="flex min-w-0 flex-wrap items-center gap-2 border-t bg-background px-3 py-2"
 				aria-label={ariaLabel}
 			>
 				<Label htmlFor={id} className="sr-only">
 					{title}
 				</Label>
 				<output className="shrink-0 text-xs tabular-nums" aria-live="polite">
-					{day === null ? emptyLabel : `${dayPrefix} ${formatVisualDay(day)}`}
+					{day === null
+						? emptyLabel
+						: `${onlySelectedDay ? "Diena" : dayPrefix} ${formatVisualDay(day)}`}
 					<span className="hidden text-muted-foreground md:inline">
 						{" "}
 						· {countLabel(visibleCount)}
@@ -72,7 +78,7 @@ export function VisualTimeline({
 						>
 							<ChevronLeft className="h-4 w-4" />
 						</Button>
-						<div className="min-w-0 flex-1">
+						<div className="min-w-32 flex-1">
 							<Input
 								id={id}
 								type="range"
@@ -114,6 +120,19 @@ export function VisualTimeline({
 						{emptyHint}
 					</span>
 				)}
+				{onOnlySelectedDay && day !== null ? (
+					<label
+						htmlFor={`${id}-day-only`}
+						className="flex shrink-0 cursor-pointer items-center gap-2 text-xs"
+					>
+						<Checkbox
+							id={`${id}-day-only`}
+							checked={onlySelectedDay}
+							onCheckedChange={(value) => onOnlySelectedDay(value === true)}
+						/>
+						Tikai izvēlētā diena
+					</label>
+				) : null}
 				{undatedCount > 0 && day !== null ? (
 					<label
 						htmlFor={`${id}-undated`}

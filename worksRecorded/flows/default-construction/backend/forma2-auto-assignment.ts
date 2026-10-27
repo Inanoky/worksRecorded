@@ -78,7 +78,11 @@ export function getForma2AssignmentCandidates(
 	positions: Forma2Position[],
 ) {
 	const scored = positions
-		.filter((position) => isCompatibleForma2Assignment(source, position))
+		.filter(
+			(position) =>
+				!position.manualAssignmentOnly &&
+				isCompatibleForma2Assignment(source, position),
+		)
 		.map((position) => ({ position, score: lexicalScore(source, position) }))
 		.sort((left, right) => {
 			return (
@@ -248,11 +252,14 @@ export async function automaticallyAssignForma2Sources(args: {
 	}
 	for (let index = 0; index < batches.length; index += LLM_CONCURRENCY) {
 		const results = await Promise.all(
-			batches
-				.slice(index, index + LLM_CONCURRENCY)
-				.map((groups) =>
-					mapBatchWithLlm({ openai, groups, positions: args.positions, feedback: args.feedback }),
-				),
+			batches.slice(index, index + LLM_CONCURRENCY).map((groups) =>
+				mapBatchWithLlm({
+					openai,
+					groups,
+					positions: args.positions,
+					feedback: args.feedback,
+				}),
+			),
 		);
 		allocations.push(...results.flat());
 	}

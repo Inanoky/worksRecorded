@@ -34,6 +34,7 @@ const pointSchema = z.object({
 	x: z.number().min(0).max(1),
 	y: z.number().min(0).max(1),
 });
+export const visualPolygonSchema = z.array(pointSchema).min(3).max(2048);
 export const visualEvidenceSchema = z.object({
 	id: z.string(),
 	recordId: z.string(),
@@ -103,6 +104,7 @@ export const visualStateSchema = z.object({
 	evidence: z.array(visualEvidenceSchema).max(VISUAL_MAX_PHOTOS),
 	marks: z.array(
 		visualMatchSchema.extend({
+			polygon: visualPolygonSchema,
 			id: z.string(),
 			layer: z.string().min(1).max(80),
 			editedAt: z.string().optional(),
@@ -116,7 +118,7 @@ export const visualStateSchema = z.object({
 			z.object({
 				markId: z.string(),
 				evidenceId: z.string(),
-				polygon: visualMatchSchema.shape.polygon,
+				polygon: visualPolygonSchema,
 				deletedAt: z.string(),
 				deletedBy: z.string(),
 			}),

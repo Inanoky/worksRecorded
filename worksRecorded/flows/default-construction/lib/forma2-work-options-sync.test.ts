@@ -208,3 +208,12 @@ describe("Forma 2 Darbi option synchronization", () => {
 		).toBe("1.1 Demontāžas darbi - Sienu demontāža");
 	});
 });
+
+it("does not add estimate-only restored positions to journal work options", () => {
+	const positions = [
+		position({ id: "restored", name: "PA1.4", manualAssignmentOnly: true }),
+	];
+	expect(buildDefaultConstructionForma2LegacyWorkEntries(positions)).toEqual(
+		[],
+	);
+});

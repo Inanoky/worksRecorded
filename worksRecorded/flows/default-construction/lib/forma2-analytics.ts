@@ -27,6 +27,7 @@ export type Forma2Position = {
 	plannedMaterialCost: number;
 	plannedMechanismCost: number;
 	plannedTotalCost: number;
+	manualAssignmentOnly?: boolean;
 };
 
 export type Forma2Document = {
@@ -489,7 +490,8 @@ export function suggestForma2Position(
 ) {
 	const compatibleKind = source.type === "work" ? "work" : "material";
 	const candidates = positions.filter(
-		(position) => position.kind === compatibleKind,
+		(position) =>
+			position.kind === compatibleKind && !position.manualAssignmentOnly,
 	);
 	const code = sourceCode(source.label);
 	let best:

@@ -1577,6 +1577,17 @@ it("slides cumulative dates and applies layer filters without fetching or reanal
 	fireEvent.click(screen.getByRole("button", { name: "Nākamā diena" }));
 	expect(screen.getByTestId("pdf")).toHaveTextContent("2 zones");
 	fireEvent.click(
+		screen.getByRole("checkbox", { name: "Tikai izvēlētā diena" }),
+	);
+	expect(screen.getByTestId("pdf")).toHaveTextContent("1 zones");
+	fireEvent.click(screen.getByRole("button", { name: "Iepriekšējā diena" }));
+	expect(screen.getByTestId("pdf")).toHaveTextContent("0 zones");
+	fireEvent.click(
+		screen.getByRole("checkbox", { name: "Tikai izvēlētā diena" }),
+	);
+	expect(screen.getByTestId("pdf")).toHaveTextContent("1 zones");
+	fireEvent.click(screen.getByRole("button", { name: "Nākamā diena" }));
+	fireEvent.click(
 		screen.getByRole("checkbox", { name: "Rādīt arī zonas bez datuma (1)" }),
 	);
 	expect(screen.getByTestId("pdf")).toHaveTextContent("3 zones");

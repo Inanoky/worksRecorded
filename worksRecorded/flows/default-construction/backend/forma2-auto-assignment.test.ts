@@ -7,6 +7,7 @@ import type {
 	Forma2ActualSource,
 	Forma2Position,
 } from "@/flows/default-construction/lib/forma2-analytics";
+import { suggestForma2Position } from "@/flows/default-construction/lib/forma2-analytics";
 
 const workPosition: Forma2Position = {
 	id: "work-1",
@@ -161,4 +162,16 @@ describe("Forma 2 automatic assignment", () => {
 			method: "automatic",
 		});
 	});
+});
+
+it("keeps restored estimate-only positions out of automatic candidates and suggestions", () => {
+	const position = { ...workPosition, manualAssignmentOnly: true };
+	const source = {
+		...materialSource,
+		type: "work" as const,
+		label: position.name,
+	};
+	expect(getForma2AssignmentCandidates(source, [position])).toEqual([]);
+	expect(suggestForma2Position(source, [position])).toBeNull();
+	expect(isCompatibleForma2Assignment(source, position)).toBe(true);
 });

@@ -23,7 +23,7 @@ beforeEach(() => {
 	jest.mocked(getVisualWorkTypes).mockResolvedValue(["XPS", "Smilts"]);
 });
 
-it("loads configured work types, protects an unsaved edit and saves back to the source record", async () => {
+it("saves a work type immediately after selection and invalidates the journal", async () => {
 	const saved = {
 		id: "drawing",
 		state: { evidence: [{ ...source, work: "Smilts" }] },
@@ -48,7 +48,9 @@ it("loads configured work types, protects an unsaved edit and saves back to the 
 		target: { value: "Smilts" },
 	});
 	expect(onEditingChange).toHaveBeenLastCalledWith(true);
-	fireEvent.click(screen.getByRole("button", { name: "Saglabāt" }));
+	expect(
+		screen.queryByRole("button", { name: "Saglabāt" }),
+	).not.toBeInTheDocument();
 	await waitFor(() => expect(onSaved).toHaveBeenCalledWith(saved));
 	expect(saveVisualWorkType).toHaveBeenCalledWith("site", "drawing", {
 		evidenceId: "photo",
@@ -59,7 +61,7 @@ it("loads configured work types, protects an unsaved edit and saves back to the 
 	window.removeEventListener(DIARY_RECORD_UPDATED, changed);
 });
 
-it("cancel restores the current work and failed saves keep the edit available", async () => {
+it("keeps failed changes visible for retry and lets the user cancel", async () => {
 	jest
 		.mocked(saveVisualWorkType)
 		.mockRejectedValue(new Error("Concurrent edit"));
@@ -77,11 +79,13 @@ it("cancel restores the current work and failed saves keep the edit available", 
 	await screen.findByRole("option", { name: "Smilts" });
 	const select = screen.getByRole("combobox");
 	fireEvent.change(select, { target: { value: "Smilts" } });
+	expect(await screen.findByRole("alert")).toHaveTextContent("Concurrent edit");
 	fireEvent.click(screen.getByRole("button", { name: "Atcelt" }));
 	expect(select).toHaveValue("XPS");
 	fireEvent.change(select, { target: { value: "Smilts" } });
-	fireEvent.click(screen.getByRole("button", { name: "Saglabāt" }));
 	expect(await screen.findByRole("alert")).toHaveTextContent("Concurrent edit");
+	fireEvent.click(screen.getByRole("button", { name: "Mēģināt vēlreiz" }));
+	await waitFor(() => expect(saveVisualWorkType).toHaveBeenCalledTimes(3));
 	expect(select).toHaveValue("Smilts");
 	expect(onSaved).not.toHaveBeenCalled();
 });

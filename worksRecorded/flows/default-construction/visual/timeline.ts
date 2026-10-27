@@ -54,12 +54,14 @@ export function cumulativeVisualMarks(
 	dayByEvidence: Map<string, number | null>,
 	throughDay: number | null,
 	includeUndated: boolean,
+	onlySelectedDay = false,
 ) {
 	return marks.filter((mark) => {
 		const day = dayByEvidence.get(mark.evidenceId);
 		return day == null
 			? includeUndated
-			: throughDay === null || day <= throughDay;
+			: throughDay === null ||
+					(onlySelectedDay ? day === throughDay : day <= throughDay);
 	});
 }
 

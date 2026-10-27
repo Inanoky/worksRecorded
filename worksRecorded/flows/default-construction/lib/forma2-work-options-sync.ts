@@ -70,7 +70,9 @@ export function buildDefaultConstructionForma2LegacyWorkEntries(
 	positions: Forma2Position[],
 ) {
 	const candidates = positions
-		.filter((position) => position.kind === "work")
+		.filter(
+			(position) => position.kind === "work" && !position.manualAssignmentOnly,
+		)
 		.map((position) => ({
 			positionId: position.id,
 			work: buildDefaultConstructionForma2WorkOptionName(position),
@@ -91,7 +93,9 @@ export function buildDefaultConstructionForma2LegacyWorkEntries(
 function workCandidates(positions: Forma2Position[]) {
 	const usedNames = new Set<string>();
 	return positions
-		.filter((position) => position.kind === "work")
+		.filter(
+			(position) => position.kind === "work" && !position.manualAssignmentOnly,
+		)
 		.map((position, index) => {
 			const base =
 				buildDefaultConstructionForma2WorkOptionName(position) ||

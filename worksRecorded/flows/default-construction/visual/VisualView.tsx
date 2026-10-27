@@ -246,6 +246,7 @@ export default function VisualView({
 	const [feedbackRequest, setFeedbackRequest] = useState(0);
 	const [throughDay, setThroughDay] = useState<number | null>(null);
 	const [includeUndated, setIncludeUndated] = useState(false);
+	const [onlySelectedDay, setOnlySelectedDay] = useState(false);
 	const [layers, setLayers] = useState<VisualLayer[]>(allLayers);
 	const [selected, setSelected] = useState<string | null>(null);
 	const epoch = useRef(0);
@@ -921,6 +922,7 @@ export default function VisualView({
 		timeline.dayByEvidence,
 		selectedDay,
 		includeUndated || selectedDay === null,
+		onlySelectedDay,
 	);
 	const visibleMarks = sortVisualMarksChronologically(
 		datedMarks.filter((mark) => layers.includes(mark.layer)),
@@ -1734,6 +1736,11 @@ export default function VisualView({
 							if (!editing) setIncludeUndated(value);
 						}}
 						visibleCount={visibleMarks.length}
+						onlySelectedDay={onlySelectedDay}
+						onOnlySelectedDay={(value) => {
+							setOnlySelectedDay(value);
+							setSelected(null);
+						}}
 					/>
 				</fieldset>
 			) : null}

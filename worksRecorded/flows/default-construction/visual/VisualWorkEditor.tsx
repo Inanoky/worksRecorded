@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { notifyDiaryRecordUpdated } from "../lib/diary-record-updated-event";
 import { getVisualWorkTypes, saveVisualWorkType } from "./actions";
@@ -25,8 +25,10 @@ export function VisualWorkEditor({
 	const [options, setOptions] = useState<string[] | null>(null);
 	const [work, setWork] = useState(source.work);
 	const [saving, setSaving] = useState(false);
+	const savingRef = useRef(false);
+	const [savedWork, setSavedWork] = useState(source.work);
 	const [error, setError] = useState<string | null>(null);
-	const dirty = work !== source.work;
+	const dirty = work !== savedWork;
 	useEffect(() => {
 		let current = true;
 		void getVisualWorkTypes(siteId).then(
@@ -45,16 +47,19 @@ export function VisualWorkEditor({
 		onEditingChange(dirty || saving);
 		return () => onEditingChange(false);
 	}, [dirty, saving, onEditingChange]);
-	async function save() {
-		if (!dirty || saving || disabled) return;
+	async function save(nextWork: string) {
+		if (nextWork === savedWork || savingRef.current || disabled) return;
+		savingRef.current = true;
+		setWork(nextWork);
 		setSaving(true);
 		setError(null);
 		try {
 			const drawing = await saveVisualWorkType(siteId, drawingId, {
 				evidenceId: source.id,
-				expectedWork: source.work,
-				work,
+				expectedWork: savedWork,
+				work: nextWork,
 			});
+			setSavedWork(nextWork);
 			onSaved(drawing);
 			notifyDiaryRecordUpdated(siteId);
 		} catch (issue) {
@@ -64,6 +69,7 @@ export function VisualWorkEditor({
 					: "Neizdevās saglabāt darba tipu.",
 			);
 		} finally {
+			savingRef.current = false;
 			setSaving(false);
 		}
 	}
@@ -76,7 +82,7 @@ export function VisualWorkEditor({
 				id={id}
 				value={work}
 				disabled={disabled || saving || !options}
-				onChange={(event) => setWork(event.target.value)}
+				onChange={(event) => void save(event.target.value)}
 				className="h-9 w-full rounded-md border bg-background px-2 text-sm"
 			>
 				{[...new Set([source.work, ...(options ?? [])])]
@@ -88,22 +94,27 @@ export function VisualWorkEditor({
 					))}
 			</select>
 			<p className="text-xs text-muted-foreground">
-				Mainīs darba tipu žurnāla ierakstam un visām tā zonām.
+				{saving
+					? "Saglabā…"
+					: "Izvēle automātiski saglabājas ierakstam un visām tā zonām."}
 			</p>
-			{dirty || saving ? (
+			{dirty && !saving && error ? (
 				<div className="flex gap-2">
 					<Button
 						size="sm"
 						disabled={disabled || saving}
-						onClick={() => void save()}
+						onClick={() => void save(work)}
 					>
-						{saving ? "Saglabā…" : "Saglabāt"}
+						Mēģināt vēlreiz
 					</Button>
 					<Button
 						size="sm"
 						variant="outline"
 						disabled={saving}
-						onClick={() => setWork(source.work)}
+						onClick={() => {
+							setWork(savedWork);
+							setError(null);
+						}}
 					>
 						Atcelt
 					</Button>
