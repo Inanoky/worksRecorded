@@ -67,6 +67,10 @@ import {
 	zoneGeometryPath,
 	zoneRingPoints,
 } from "./zone-geometry";
+import {
+	measuredZoneGeometry,
+	type VisualZoneMeasurement,
+} from "./zone-measurement";
 import { visualZoneGroups } from "./zone-outline";
 
 type ZoneDraft = PolygonEdit & {
@@ -184,6 +188,8 @@ export function VisualPdf({
 	resourceCache,
 	controlsHost,
 	onDocumentChange,
+	pageScales,
+	onZoneMeasurementChange,
 	onCreateRecord,
 	createRecordBlockedReason,
 }: {
@@ -205,6 +211,8 @@ export function VisualPdf({
 	resourceCache?: VisualClientCache;
 	controlsHost?: HTMLElement | null;
 	onDocumentChange?: (document: PDFDocumentProxy | null) => void;
+	pageScales?: Record<string, number>;
+	onZoneMeasurementChange?: (measurement: VisualZoneMeasurement | null) => void;
 	onCreateRecord?: () => void;
 	createRecordBlockedReason?: string;
 }) {
@@ -257,11 +265,19 @@ export function VisualPdf({
 	const planningEnabled = planning !== undefined;
 	const recordCreation = planning?.purpose === "record";
 	const measurementEnabled = !!planning && !recordCreation;
-	const measurementPages = measurementEnabled
-		? [...new Set([page, ...(planning?.areas ?? []).map((area) => area.page)])]
-				.sort((a, b) => a - b)
-				.join(",")
-		: "";
+	const zoneMeasurementEnabled =
+		!!onZoneMeasurementChange && !!selected && !planning;
+	const measurementPages =
+		measurementEnabled || zoneMeasurementEnabled
+			? [
+					...new Set([
+						page,
+						...(planning?.areas ?? []).map((area) => area.page),
+					]),
+				]
+					.sort((a, b) => a - b)
+					.join(",")
+			: "";
 	const preparedPages = resourceCache?.preparedManifest(url)?.pages.length;
 	useEffect(() => {
 		if (!measurementPages) return;
@@ -456,6 +472,70 @@ export function VisualPdf({
 					: [],
 		[draft],
 	);
+	const zoneMeasurement = useMemo<VisualZoneMeasurement | null>(() => {
+		if (!zoneMeasurementEnabled || !selectedMark) return null;
+		const group = zoneGroups.find((group) => group.key === selectedGroup);
+		if (!group?.geometry.length) return null;
+		const component =
+			draft?.zone?.component ??
+			zoneComponentForPolygon(group.geometry, selectedMark.polygon);
+		const measurement =
+			resourceCache?.preparedMeasurement(url, selectedMark.page) ??
+			(measurementState.url === url
+				? measurementState.pages[selectedMark.page]
+				: undefined);
+		return {
+			url,
+			markId: selectedMark.id,
+			page: selectedMark.page,
+			...measuredZoneGeometry(
+				group.geometry,
+				component,
+				measurement,
+				pageScales?.[selectedMark.page],
+			),
+		};
+	}, [
+		zoneMeasurementEnabled,
+		selectedMark,
+		selectedGroup,
+		zoneGroups,
+		draft?.zone?.component,
+		resourceCache,
+		url,
+		measurementState,
+		pageScales,
+	]);
+	const {
+		url: measuredUrl,
+		markId: measuredMarkId,
+		page: measuredPage,
+		scale: measuredScale,
+		zoneArea,
+		polygonArea: measuredPolygonArea,
+	} = zoneMeasurement ?? {};
+	useEffect(() => {
+		onZoneMeasurementChange?.(
+			measuredUrl && measuredMarkId && measuredPage
+				? {
+						url: measuredUrl,
+						markId: measuredMarkId,
+						page: measuredPage,
+						scale: measuredScale ?? null,
+						zoneArea: zoneArea ?? null,
+						polygonArea: measuredPolygonArea ?? null,
+					}
+				: null,
+		);
+	}, [
+		onZoneMeasurementChange,
+		measuredUrl,
+		measuredMarkId,
+		measuredPage,
+		measuredScale,
+		zoneArea,
+		measuredPolygonArea,
+	]);
 
 	function updateDraftRing(ring: number, polygon: PolygonEdit["polygon"]) {
 		if (!draft) return false;

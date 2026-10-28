@@ -34,6 +34,7 @@ import type { VisualRecordInput } from "./record-model";
 import { visualDiaryDay } from "./timeline";
 import type { VisualPdfPlanning } from "./VisualPdf";
 import VisualView from "./VisualView";
+import type { VisualZoneMeasurement } from "./zone-measurement";
 
 const mockUpload = jest.fn();
 jest.mock("../frontend/LimeniProjectData", () => ({
@@ -75,6 +76,8 @@ jest.mock("./VisualPdf", () => ({
 		onCreateRecord,
 		createRecordBlockedReason,
 		planning,
+		url,
+		onZoneMeasurementChange,
 	}: {
 		marks: VisualMark[];
 		onSelect: (id: string | null) => void;
@@ -85,6 +88,10 @@ jest.mock("./VisualPdf", () => ({
 		onCreateRecord?: () => void;
 		createRecordBlockedReason?: string;
 		planning?: VisualPdfPlanning;
+		url: string;
+		onZoneMeasurementChange?: (
+			measurement: VisualZoneMeasurement | null,
+		) => void;
 	}) => (
 		<div
 			data-testid="pdf"
@@ -92,6 +99,21 @@ jest.mock("./VisualPdf", () => ({
 			data-polygons={JSON.stringify(marks.map((mark) => mark.polygon))}
 		>
 			{marks.length} zones
+			<button
+				type="button"
+				onClick={() =>
+					onZoneMeasurementChange?.({
+						url,
+						markId: selected ?? "",
+						page: 1,
+						scale: 100,
+						zoneArea: 120.25,
+						polygonArea: 20.5,
+					})
+				}
+			>
+				Report zone measurements
+			</button>
 			{onCreateRecord ? (
 				<button
 					type="button"
@@ -805,6 +827,44 @@ it("slides zone details from the right without reopening the left sidebar or rem
 		}),
 	).not.toBeInTheDocument();
 	expect(screen.getByTestId("pdf")).toBe(pdf);
+	expect(mockFetch).toHaveBeenCalledTimes(1);
+});
+
+it("shows measured zone and polygon areas above the original source image and clears them for a different selection", async () => {
+	const drawing = {
+		...complete,
+		state: {
+			...complete.state,
+			marks: [
+				...complete.state.marks,
+				{ ...complete.state.marks[0], id: "second" },
+			],
+		},
+	};
+	mockFetch.mockResolvedValue({ ok: true, json: async () => drawing });
+	await selectDrawing();
+	fireEvent.click(screen.getByRole("button", { name: "Select drawing zone" }));
+	fireEvent.click(
+		screen.getByRole("button", { name: "Report zone measurements" }),
+	);
+	const measurements = screen.getByRole("region", { name: "Zonas mērījumi" });
+	expect(within(measurements).getByText("Zonas laukums")).toBeInTheDocument();
+	expect(within(measurements).getByText("120,25 m²")).toBeInTheDocument();
+	expect(
+		within(measurements).getByText("Poligona laukums"),
+	).toBeInTheDocument();
+	expect(within(measurements).getByText("20,50 m²")).toBeInTheDocument();
+	expect(
+		within(measurements).getByText("Mērogs 1:100 · lapa 1"),
+	).toBeInTheDocument();
+	expect(
+		measurements.compareDocumentPosition(
+			screen.getByTestId("zone-source-image"),
+		) & Node.DOCUMENT_POSITION_FOLLOWING,
+	).toBeTruthy();
+	fireEvent.click(screen.getByRole("button", { name: "Select second zone" }));
+	expect(within(measurements).queryByText("120,25 m²")).not.toBeInTheDocument();
+	expect(within(measurements).getAllByText("—")).toHaveLength(2);
 	expect(mockFetch).toHaveBeenCalledTimes(1);
 });
 

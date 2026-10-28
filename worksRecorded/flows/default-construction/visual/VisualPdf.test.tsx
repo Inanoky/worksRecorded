@@ -1786,3 +1786,119 @@ it("rejects a cut-out moved through the outer boundary without blocking further 
 	).toBe(true);
 	expect(marks.map((item) => item.polygon)).toEqual(pieces);
 });
+
+it("reports scale-aware areas for connected polygons, switches parts while editing, and updates the measurement without more PDF requests", async () => {
+	mockGetPage.mockResolvedValue({
+		getViewport: ({ scale }: { scale: number }) => ({
+			width: 720 * scale,
+			height: 720 * scale,
+		}),
+		getTextContent: async () => ({ items: [{ str: "M 1:100" }] }),
+		render: () => ({ promise: Promise.resolve(), cancel: mockCancel }),
+	});
+	const onZoneMeasurementChange = jest.fn();
+	const props = {
+		url: "/drawing",
+		marks: componentMarks,
+		selected: "left",
+		onSelect: jest.fn(),
+		editable: true,
+		onQueueSave: jest.fn(),
+		onZoneMeasurementChange,
+	};
+	const view = render(<VisualPdf {...props} />);
+	await waitFor(() =>
+		expect(onZoneMeasurementChange).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				markId: "left",
+				scale: 100,
+				zoneArea: expect.closeTo(51.6128, 6),
+				polygonArea: expect.closeTo(25.8064, 6),
+			}),
+		),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	fireEvent.change(
+		screen.getByRole("combobox", { name: "Rediģējamais poligons" }),
+		{ target: { value: "1" } },
+	);
+	fireEvent.keyDown(screen.getByRole("button", { name: "Stūris 1" }), {
+		key: "ArrowRight",
+		shiftKey: true,
+	});
+	await waitFor(() =>
+		expect(onZoneMeasurementChange.mock.calls.at(-1)[0].zoneArea).toBeLessThan(
+			51.6128,
+		),
+	);
+	expect(onZoneMeasurementChange.mock.calls.at(-1)[0].polygonArea).toBeLessThan(
+		25.8064,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Atcelt" }));
+	view.rerender(<VisualPdf {...props} pageScales={{ 1: 50 }} />);
+	await waitFor(() =>
+		expect(onZoneMeasurementChange).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				scale: 50,
+				zoneArea: expect.closeTo(12.9032, 6),
+				polygonArea: expect.closeTo(6.4516, 6),
+			}),
+		),
+	);
+	view.rerender(<VisualPdf {...props} selected={null} />);
+	expect(onZoneMeasurementChange).toHaveBeenLastCalledWith(null);
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+});
+
+it("measures execution zones from cached page dimensions without downloading or parsing the PDF", async () => {
+	const cache = new VisualClientCache("site");
+	const url = `${cache.endpoint("floor")}?pdf=1`;
+	cache.seedProject({
+		index: { locations: [], drawings: [] },
+		drawings: [
+			{
+				drawing: { id: "floor", state: { location: "floor" } },
+				planning: { plans: [] },
+				preview: {
+					version: 1,
+					source: "prepared",
+					pages: [
+						{
+							page: 1,
+							width: 720,
+							height: 720,
+							scales: [100],
+							url: "/overview",
+						},
+					],
+				},
+			},
+		],
+	} as never);
+	const overview = document.createElement("canvas");
+	overview.width = 1600;
+	overview.height = 1600;
+	cache.rememberPreview(url, 1, overview, 1);
+	const onZoneMeasurementChange = jest.fn();
+	render(
+		<VisualPdf
+			url={url}
+			resourceCache={cache}
+			marks={[mark]}
+			selected={mark.id}
+			onSelect={jest.fn()}
+			onZoneMeasurementChange={onZoneMeasurementChange}
+		/>,
+	);
+	await waitFor(() =>
+		expect(onZoneMeasurementChange).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				zoneArea: expect.closeTo(29.0322, 6),
+				polygonArea: expect.closeTo(29.0322, 6),
+				scale: 100,
+			}),
+		),
+	);
+	expect(global.fetch).not.toHaveBeenCalled();
+	expect(mockGetDocument).not.toHaveBeenCalled();
+});

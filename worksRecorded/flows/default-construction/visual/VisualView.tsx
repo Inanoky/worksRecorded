@@ -115,6 +115,7 @@ import {
 	VisualClientCache,
 } from "./visual-client-cache";
 import { fetchVisualIndex, fetchVisualPlanning } from "./visual-read-client";
+import type { VisualZoneMeasurement } from "./zone-measurement";
 
 type Index = Awaited<ReturnType<typeof getVisualDrawings>>;
 function firstAssignedDrawing(index: Index) {
@@ -186,6 +187,8 @@ export default function VisualView({
 	const [file, setFile] = useState<File | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [editing, setEditing] = useState(false);
+	const [zoneMeasurement, setZoneMeasurement] =
+		useState<VisualZoneMeasurement | null>(null);
 	const [workEditing, setWorkEditing] = useState(false);
 	const [recordDraft, setRecordDraft] = useState<{
 		id: string;
@@ -1535,6 +1538,8 @@ export default function VisualView({
 								evidence={drawing.state.evidence}
 								selected={selectedMark?.id ?? null}
 								onSelect={selectZone}
+								pageScales={drawing.state.pageScales}
+								onZoneMeasurementChange={setZoneMeasurement}
 								editable={
 									!busy &&
 									!workEditing &&
@@ -1647,6 +1652,12 @@ export default function VisualView({
 								photos={sourcePhotos}
 								originalMessage={sourceRecord?.originalUserComment}
 								mark={selectedMark}
+								measurement={
+									zoneMeasurement?.markId === selectedMark?.id &&
+									zoneMeasurement?.url === `${endpoint(drawing.id)}?pdf=1`
+										? zoneMeasurement
+										: undefined
+								}
 								progressPending={
 									!!sourceProgress && sourceProgress.status !== "complete"
 								}

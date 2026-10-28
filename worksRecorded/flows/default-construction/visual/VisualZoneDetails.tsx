@@ -12,6 +12,12 @@ import {
 } from "./model";
 import { formatVisualDay, visualDiaryDay } from "./timeline";
 import { VisualWorkEditor } from "./VisualWorkEditor";
+import type { VisualZoneMeasurement } from "./zone-measurement";
+
+const areaFormat = new Intl.NumberFormat("lv-LV", {
+	minimumFractionDigits: 2,
+	maximumFractionDigits: 2,
+});
 
 export function VisualZoneDetails({
 	siteId,
@@ -20,6 +26,7 @@ export function VisualZoneDetails({
 	photos,
 	originalMessage,
 	mark,
+	measurement,
 	progressPending,
 	editorLocked,
 	closeLocked,
@@ -38,6 +45,7 @@ export function VisualZoneDetails({
 	photos?: string[];
 	originalMessage?: string;
 	mark?: VisualMark;
+	measurement?: VisualZoneMeasurement;
 	progressPending: boolean;
 	editorLocked: boolean;
 	closeLocked: boolean;
@@ -121,6 +129,38 @@ export function VisualZoneDetails({
 			</div>
 			{source && mark ? (
 				<>
+					<section
+						className="shrink-0 border-b px-3 py-2"
+						aria-label="Zonas mērījumi"
+					>
+						<dl className="grid grid-cols-2 gap-3">
+							<div>
+								<dt className="text-xs text-muted-foreground">Zonas laukums</dt>
+								<dd className="text-sm font-medium tabular-nums">
+									{measurement?.zoneArea != null
+										? `${areaFormat.format(measurement.zoneArea)} m²`
+										: "—"}
+								</dd>
+							</div>
+							<div>
+								<dt className="text-xs text-muted-foreground">
+									Poligona laukums
+								</dt>
+								<dd className="text-sm font-medium tabular-nums">
+									{measurement?.polygonArea != null
+										? `${areaFormat.format(measurement.polygonArea)} m²`
+										: "—"}
+								</dd>
+							</div>
+						</dl>
+						{measurement ? (
+							<p className="mt-1 text-xs text-muted-foreground">
+								{measurement.scale
+									? `Mērogs 1:${measurement.scale} · lapa ${measurement.page}`
+									: "Rasējuma mērogs nav noteikts."}
+							</p>
+						) : null}
+					</section>
 					<div
 						className={`flex flex-col gap-2 ${source.manual ? "shrink-0 p-3" : "min-h-0 flex-1 p-2"}`}
 						data-testid="zone-source-image"
