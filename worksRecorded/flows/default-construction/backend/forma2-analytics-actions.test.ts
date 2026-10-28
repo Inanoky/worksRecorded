@@ -112,15 +112,46 @@ describe("Forma 2 diary quantity loaders", () => {
 		jest.mocked(prisma.bISmaterialRecords.count).mockResolvedValue(0);
 	});
 
-	it("uses saved drawing measurements in results and quantity details while retaining the original report", async () => {
+	it("includes unassigned invoices in the cached cost sources for project spending", async () => {
 		jest
-			.mocked(prisma.site.findUnique)
-			.mockResolvedValue({
-				name: "Site",
-				siteDiaryRecordsMap: {
-					otherSettings: { forma2Accuracy: { quantitySource: "drawing" } },
+			.mocked(prisma.bISmaterialRecords.findMany)
+			.mockResolvedValue([
+				{
+					id: "unassigned-invoice",
+					name: "Invoice material",
+					cost: 123.45,
+					quantity: 10,
+					measurementUnit: "m2",
+					materialDate: new Date("2026-10-26"),
 				},
-			} as never);
+			] as never);
+		const result = await getDefaultConstructionForma2Results("site");
+		expect(prisma.bISmaterialRecords.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { siteId: "site" } }),
+		);
+		expect(result.clientCosts.sources).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: "unassigned-invoice",
+					type: "material",
+					actualCost: 123.45,
+				}),
+			]),
+		);
+		expect(
+			result.clientCosts.allocations.some(
+				(allocation) => allocation.sourceId === "unassigned-invoice",
+			),
+		).toBe(false);
+	});
+
+	it("uses saved drawing measurements in results and quantity details while retaining the original report", async () => {
+		jest.mocked(prisma.site.findUnique).mockResolvedValue({
+			name: "Site",
+			siteDiaryRecordsMap: {
+				otherSettings: { forma2Accuracy: { quantitySource: "drawing" } },
+			},
+		} as never);
 		jest.mocked(prisma.documents.findMany).mockResolvedValue([]);
 		const measure = jest
 			.spyOn(drawingQuantities, "readForma2DrawingQuantities")

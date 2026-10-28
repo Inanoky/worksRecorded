@@ -605,7 +605,7 @@ export async function getDefaultConstructionForma2Overview(siteId: string) {
 
 export async function getDefaultConstructionForma2Results(siteId: string) {
 	const data = await loadDefaultConstructionForma2Data(siteId, {
-		sourceScope: "allocated",
+		sourceScope: "all",
 	});
 	const positions = data.state.document?.positions ?? [];
 	const view = buildForma2AnalyticsView({

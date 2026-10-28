@@ -200,7 +200,7 @@ export function getProjectNavLinks(
 					{
 						name: "Izmaksu dinamika",
 						description:
-							"Izmaksu un darbu izpildes analītika ar demonstrācijas datiem.",
+							"Projekta izmaksu un izmērītās darbu izpildes analītika.",
 						href: "/dashboard/spending",
 						path: "spending",
 						icon: ChartNoAxesCombined,

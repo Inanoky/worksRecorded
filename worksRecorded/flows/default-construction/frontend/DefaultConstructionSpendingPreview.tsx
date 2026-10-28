@@ -57,6 +57,8 @@ export function DefaultConstructionSpendingPreview({
 	workGroups,
 	positionGroups,
 	demonstration = false,
+	projectData = false,
+	snapshotAt,
 }: {
 	current: Forma2ClientCosts;
 	proposed: Forma2ClientCosts;
@@ -66,6 +68,8 @@ export function DefaultConstructionSpendingPreview({
 	workGroups: SpendingWorkGroup[];
 	positionGroups: Record<string, string>;
 	demonstration?: boolean;
+	projectData?: boolean;
+	snapshotAt?: string;
 }) {
 	const [includeChanges, setIncludeChanges] = useState(true);
 	const [section, setSection] = useState("");
@@ -82,10 +86,12 @@ export function DefaultConstructionSpendingPreview({
 		() => entries.flatMap((row) => (row.date ? [row.date] : [])).sort(),
 		[entries],
 	);
-	const first = dates[0] ?? "2026-01-01";
+	const first = dates[0] ?? new Date().toISOString().slice(0, 10);
 	const last = dates.at(-1) ?? first;
-	const [from, setFrom] = useState(first);
-	const [to, setTo] = useState(last);
+	const [customFrom, setFrom] = useState<string | null>(null);
+	const [customTo, setTo] = useState<string | null>(null);
+	const from = customFrom ?? first;
+	const to = customTo ?? last;
 	const sections = useMemo(
 		() => [
 			...new Map(entries.map((row) => [row.sectionId, row.section])).entries(),
@@ -222,11 +228,19 @@ export function DefaultConstructionSpendingPreview({
 				<span className="rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground">
 					{demonstration
 						? "Demonstrācijas dati · nav projekta faktiskie dati"
-						: "Priekšskatījums · dati netiek mainīti"}
+						: projectData
+							? snapshotAt
+								? `Projekta datu momentuzņēmums · ${new Date(snapshotAt).toLocaleString("lv-LV")}`
+								: "Projekta dati · atjaunojas fonā"
+							: "Priekšskatījums · dati netiek mainīti"}
 				</span>
 			</div>
 
-			<SpendingProjection data={proposed} asOf={last} />
+			<SpendingProjection
+				data={projectData ? current : proposed}
+				asOf={last}
+				projectData={projectData}
+			/>
 
 			<div className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4">
 				<label className="space-y-1.5 text-xs text-muted-foreground">
@@ -298,8 +312,8 @@ export function DefaultConstructionSpendingPreview({
 					variant="ghost"
 					className="h-10"
 					onClick={() => {
-						setFrom(first);
-						setTo(last);
+						setFrom(null);
+						setTo(null);
 						filters();
 					}}
 				>
@@ -623,59 +637,63 @@ export function DefaultConstructionSpendingPreview({
 				</div>
 			</section>
 
-			<details className="rounded-xl border bg-card px-6 py-4">
-				<summary className="cursor-pointer text-sm font-medium">
-					PA1.6 materiālu pārdale{" "}
-					<span className="ml-2 text-muted-foreground">
-						{currency(reassignments.reduce((sum, row) => sum + row.amount, 0))}
-					</span>
-				</summary>
-				<div className="pt-4">
-					<label className="mb-4 flex items-center gap-2 text-sm">
-						<input
-							type="checkbox"
-							checked={includeChanges}
-							onChange={(event) => {
-								setIncludeChanges(event.target.checked);
-								setWork("");
-								filters();
-							}}
-						/>
-						Iekļaut ierosināto pārdali grafikā
-					</label>
-					<table className="w-full text-left text-xs">
-						<thead>
-							<tr className="text-muted-foreground">
-								<th className="py-2 font-normal">No papildu darbiem</th>
-								<th className="py-2 font-normal">Uz PA1.6 pamatdarbu</th>
-								<th className="py-2 text-right font-normal">
-									Materiālu izmaksas
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{reassignments.map((row) => (
-								<tr key={row.from} className="border-t">
-									<td className="py-3 pr-4">{row.from}</td>
-									<td className="py-3 pr-4">{row.to}</td>
-									<td className="py-3 text-right tabular-nums">
-										{currency(row.amount)}
-									</td>
+			{reassignments.length ? (
+				<details className="rounded-xl border bg-card px-6 py-4">
+					<summary className="cursor-pointer text-sm font-medium">
+						PA1.6 materiālu pārdale{" "}
+						<span className="ml-2 text-muted-foreground">
+							{currency(
+								reassignments.reduce((sum, row) => sum + row.amount, 0),
+							)}
+						</span>
+					</summary>
+					<div className="pt-4">
+						<label className="mb-4 flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={includeChanges}
+								onChange={(event) => {
+									setIncludeChanges(event.target.checked);
+									setWork("");
+									filters();
+								}}
+							/>
+							Iekļaut ierosināto pārdali grafikā
+						</label>
+						<table className="w-full text-left text-xs">
+							<thead>
+								<tr className="text-muted-foreground">
+									<th className="py-2 font-normal">No papildu darbiem</th>
+									<th className="py-2 font-normal">Uz PA1.6 pamatdarbu</th>
+									<th className="py-2 text-right font-normal">
+										Materiālu izmaksas
+									</th>
 								</tr>
-							))}
-						</tbody>
-					</table>
-					<p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-						{includeChanges ? (
-							<ArrowUpRight className="size-3" />
-						) : (
-							<ArrowDownRight className="size-3" />
-						)}
-						Kopējās projekta izmaksas nemainās. Darbu daudzumi un Begin darba
-						izmaksas netiek pārdalītas.
-					</p>
-				</div>
-			</details>
+							</thead>
+							<tbody>
+								{reassignments.map((row) => (
+									<tr key={row.from} className="border-t">
+										<td className="py-3 pr-4">{row.from}</td>
+										<td className="py-3 pr-4">{row.to}</td>
+										<td className="py-3 text-right tabular-nums">
+											{currency(row.amount)}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+						<p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+							{includeChanges ? (
+								<ArrowUpRight className="size-3" />
+							) : (
+								<ArrowDownRight className="size-3" />
+							)}
+							Kopējās projekta izmaksas nemainās. Darbu daudzumi un Begin darba
+							izmaksas netiek pārdalītas.
+						</p>
+					</div>
+				</details>
+			) : null}
 			<p className="text-xs text-muted-foreground">
 				Izmaksas attēlotas pēc darba un materiāla/rēķina datuma; tas nav
 				maksājumu plūsmas grafiks.

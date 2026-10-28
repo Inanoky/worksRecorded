@@ -3,7 +3,7 @@ import { getProjectNavLinks } from "@/components/dashboard/NavLinks";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import { LIMENI_ORGANIZATION_ID } from "../lib/diary-photos";
-import { DefaultConstructionSpendingDemo } from "./DefaultConstructionSpendingDemo";
+import { DefaultConstructionSpending } from "./DefaultConstructionSpending";
 
 jest.mock("@/lib/utils/requireUser", () => ({ requireUser: jest.fn() }));
 jest.mock("@/server/actions/shared-actions", () => ({ orgCheck: jest.fn() }));
@@ -12,13 +12,13 @@ jest.mock("next/navigation", () => ({
 		throw new Error("not-found");
 	},
 }));
-jest.mock("./DefaultConstructionSpendingDemo", () => ({
-	DefaultConstructionSpendingDemo: () => null,
+jest.mock("./DefaultConstructionSpending", () => ({
+	DefaultConstructionSpending: () => null,
 }));
 
 beforeEach(() => jest.clearAllMocks());
 
-it("checks project access before serving the Limeni demonstration", async () => {
+it("checks project access before serving the Limeni project analytics", async () => {
 	jest.mocked(requireUser).mockResolvedValue({ id: "user" } as never);
 	jest
 		.mocked(orgCheck)
@@ -27,7 +27,7 @@ it("checks project access before serving the Limeni demonstration", async () => 
 		params: Promise.resolve({ siteId: "site" }),
 	});
 	expect(orgCheck).toHaveBeenCalledWith("user", "site");
-	expect(page.type).toBe(DefaultConstructionSpendingDemo);
+	expect(page.type).toBe(DefaultConstructionSpending);
 });
 
 it("does not expose the Limeni route to another organization", async () => {

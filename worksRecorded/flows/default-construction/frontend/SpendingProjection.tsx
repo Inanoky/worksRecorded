@@ -20,6 +20,13 @@ const money = (value: number) =>
 		currency: "EUR",
 		maximumFractionDigits: 0,
 	}).format(value);
+const exactMoney = (value: number) =>
+	new Intl.NumberFormat("lv-LV", {
+		style: "currency",
+		currency: "EUR",
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2,
+	}).format(value);
 const date = (value: string) =>
 	new Intl.DateTimeFormat("lv-LV", {
 		day: "2-digit",
@@ -36,9 +43,11 @@ const percent = (value: number) =>
 export function SpendingProjection({
 	data,
 	asOf,
+	projectData = false,
 }: {
 	data: Forma2ClientCosts;
 	asOf: string;
+	projectData?: boolean;
 }) {
 	const { forecast, points } = useMemo(
 		() => spendingForecastPoints(data, asOf),
@@ -64,14 +73,44 @@ export function SpendingProjection({
 						Projekta beigu izmaksu prognoze
 					</h2>
 					<p className="mt-1 text-xs text-muted-foreground">
-						Viss projekts · dati līdz {date(asOf)} · ar piedāvāto materiālu
-						piesaisti
+						Viss projekts · dati līdz {date(asOf)} ·{" "}
+						{projectData
+							? "pēc saglabātajām Forma 2 piesaistēm"
+							: "ar piedāvāto materiālu piesaisti"}
 					</p>
 				</div>
 				<span className="h-fit rounded-full bg-muted px-3 py-1.5 text-xs">
 					Aprēķina scenārijs
 				</span>
 			</div>
+			{projectData ? (
+				<div className="grid gap-4 border-b bg-muted/20 px-6 py-5 sm:grid-cols-3">
+					<div>
+						<p className="text-xs text-muted-foreground">Līguma summa</p>
+						<p className="mt-2 text-2xl font-semibold tabular-nums">
+							{exactMoney(forecast.contractValue)}
+						</p>
+					</div>
+					<div>
+						<p className="text-xs text-muted-foreground">
+							Uzskaitītās izmaksas
+						</p>
+						<p className="mt-2 text-2xl font-semibold tabular-nums">
+							{exactMoney(forecast.actual)}
+						</p>
+					</div>
+					<div>
+						<p className="text-xs text-muted-foreground">
+							Izmaksas pret līguma summu
+						</p>
+						<p className="mt-2 text-2xl font-semibold tabular-nums">
+							{forecast.contractValue > 0
+								? percent(forecast.actual / forecast.contractValue)
+								: "—"}
+						</p>
+					</div>
+				</div>
+			) : null}
 			<div className="grid gap-6 px-6 py-6 sm:grid-cols-2 xl:grid-cols-4">
 				<div>
 					<p className="text-xs text-muted-foreground">
@@ -83,7 +122,7 @@ export function SpendingProjection({
 							: money(forecast.finalCost)}
 					</p>
 					<p className="mt-2 text-xs text-muted-foreground">
-						{money(forecast.actual)} jau uzskaitīti
+						{exactMoney(forecast.actual)} jau uzskaitīti
 						{forecast.remainingCost == null
 							? ""
 							: ` + ${money(forecast.remainingCost)} vēl paredzēti`}
@@ -99,8 +138,8 @@ export function SpendingProjection({
 						{gap == null ? "—" : `${gap >= 0 ? "+" : ""}${money(gap)}`}
 					</p>
 					<p className="mt-2 text-xs text-muted-foreground">
-						Līguma summa {money(forecast.contractValue)}. Starpība nav peļņas
-						aprēķins.
+						Līguma summa {exactMoney(forecast.contractValue)}. Starpība nav
+						peļņas aprēķins.
 					</p>
 				</div>
 				<div>
