@@ -918,16 +918,30 @@ export default function VisualView({
 				: [],
 		[optimisticDrawing, layerConfiguration],
 	);
-	const datedMarks = cumulativeVisualMarks(
-		categorizedMarks,
-		timeline.dayByEvidence,
-		selectedDay,
-		includeUndated || selectedDay === null,
-		onlySelectedDay,
+	const datedMarks = useMemo(
+		() =>
+			cumulativeVisualMarks(
+				categorizedMarks,
+				timeline.dayByEvidence,
+				selectedDay,
+				includeUndated || selectedDay === null,
+				onlySelectedDay,
+			),
+		[
+			categorizedMarks,
+			timeline.dayByEvidence,
+			selectedDay,
+			includeUndated,
+			onlySelectedDay,
+		],
 	);
-	const visibleMarks = sortVisualMarksChronologically(
-		datedMarks.filter((mark) => layers.includes(mark.layer)),
-		drawing?.state.evidence ?? [],
+	const visibleMarks = useMemo(
+		() =>
+			sortVisualMarksChronologically(
+				datedMarks.filter((mark) => layers.includes(mark.layer)),
+				drawing?.state.evidence ?? [],
+			),
+		[datedMarks, layers, drawing?.state.evidence],
 	);
 	const undatedCount =
 		drawing?.state.marks.filter(
@@ -1473,6 +1487,7 @@ export default function VisualView({
 								}
 								url={`${endpoint(drawing.id)}?pdf=1`}
 								marks={visibleMarks}
+								evidence={drawing.state.evidence}
 								selected={selectedMark?.id ?? null}
 								onSelect={selectZone}
 								editable={

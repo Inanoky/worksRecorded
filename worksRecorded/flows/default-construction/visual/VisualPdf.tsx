@@ -29,7 +29,7 @@ import {
 	readDrawingPageMeasurement,
 	resolvedDrawingScale,
 } from "./drawing-scale";
-import { type VisualMark, visualLayers } from "./model";
+import { type VisualEvidence, type VisualMark, visualLayers } from "./model";
 import {
 	nextVisualPlanAreaId,
 	replaceVisualPlanArea,
@@ -54,6 +54,9 @@ import { VisualPolygonEditor } from "./VisualPolygonEditor";
 import { VisualZoneTarget } from "./VisualZoneTarget";
 import { MAX_DRAWING_ZOOM, MIN_DRAWING_ZOOM } from "./viewport";
 import type { VisualClientCache } from "./visual-client-cache";
+import { visualZoneGroups } from "./zone-outline";
+
+const emptyEvidence: VisualEvidence[] = [];
 
 export type VisualPlanAreaSelection = {
 	planId: string | null;
@@ -94,6 +97,7 @@ type LayerPickerOption = {
 };
 
 type LayerHitOption = LayerPickerOption & {
+	groupKey?: string;
 	polygon: Array<{ x: number; y: number }>;
 };
 
@@ -143,6 +147,7 @@ export function VisualPdf({
 	active = true,
 	url,
 	marks,
+	evidence = emptyEvidence,
 	selected,
 	onSelect,
 	editable = false,
@@ -163,6 +168,7 @@ export function VisualPdf({
 	active?: boolean;
 	url: string;
 	marks: VisualMark[];
+	evidence?: VisualEvidence[];
 	selected: string | null;
 	onSelect: (id: string | null) => void;
 	editable?: boolean;
@@ -355,9 +361,38 @@ export function VisualPdf({
 		(planning
 			? planningEditable && !!selectedPlanArea
 			: !!selectedMark && (!!onSave || !!onDelete));
-	const shownMarks = marks.map((mark) =>
-		draft?.markId === mark.id ? { ...mark, polygon: draft.polygon } : mark,
+	const shownMarks = useMemo(
+		() =>
+			draft
+				? marks.map((mark) =>
+						draft.markId === mark.id
+							? { ...mark, polygon: draft.polygon }
+							: mark,
+					)
+				: marks,
+		[marks, draft],
 	);
+	const zoneGroups = useMemo(
+		() =>
+			visualZoneGroups(
+				shownMarks.filter((mark) => mark.page === page),
+				evidence,
+			),
+		[shownMarks, page, evidence],
+	);
+	const markGroups = useMemo(
+		() =>
+			new Map(
+				zoneGroups.flatMap((group) =>
+					group.marks.map((mark) => [mark.id, group.key]),
+				),
+			),
+		[zoneGroups],
+	);
+	const selectedGroup = selected ? markGroups.get(selected) : undefined;
+	const highlightedGroup = highlighted
+		? markGroups.get(highlighted)
+		: undefined;
 	const validDraft = draft ? polygonEditSchema.safeParse(draft).success : true;
 	function endEditing() {
 		setDraft(null);
@@ -469,9 +504,14 @@ export function VisualPdf({
 			x: (clientX - surfaceRect.left) / surfaceRect.width,
 			y: (clientY - surfaceRect.top) / surfaceRect.height,
 		};
-		const matches = candidates.filter((candidate) =>
-			visualPointInPolygon(point, candidate.polygon),
-		);
+		const matchedGroups = new Set<string>();
+		const matches = candidates.filter((candidate) => {
+			if (!visualPointInPolygon(point, candidate.polygon)) return false;
+			const key = candidate.groupKey ?? candidate.key;
+			if (matchedGroups.has(key)) return false;
+			matchedGroups.add(key);
+			return true;
+		});
 		if (matches.length <= 1) {
 			fallback.select();
 			return;
@@ -707,6 +747,7 @@ export function VisualPdf({
 		.filter((mark) => mark.page === page)
 		.map((mark) => ({
 			key: mark.id,
+			groupKey: markGroups.get(mark.id),
 			label: `${(layerStyles[mark.layer] ?? visualLayers.other).label}: ${mark.explanation}`,
 			color: (layerStyles[mark.layer] ?? visualLayers.other).color,
 			polygon: mark.polygon,
@@ -1282,43 +1323,66 @@ export function VisualPdf({
 								AI ieteiktās darbu zonas; atveriet avotu sarakstā, lai
 								pārbaudītu.
 							</title>
-							{shownMarks
-								.filter((mark) => mark.page === page)
+							{[...zoneGroups]
 								.sort(
 									(a, b) =>
-										Number(a.id === selected) - Number(b.id === selected),
+										Number(a.key === selectedGroup) -
+										Number(b.key === selectedGroup),
 								)
-								.map((mark) => (
-									<polygon
-										key={mark.id}
-										points={mark.polygon
-											.map((point) => `${point.x},${point.y}`)
-											.join(" ")}
-										fill={(layerStyles[mark.layer] ?? visualLayers.other).color}
-										fillOpacity={
-											selected === mark.id
-												? 0.85
-												: highlighted === mark.id
-													? 0.8
-													: 0.5
-										}
-										stroke={
-											highlighted === mark.id || selected === mark.id
-												? "#0f172a"
-												: (layerStyles[mark.layer] ?? visualLayers.other).color
-										}
-										strokeWidth={
-											selected === mark.id ? 4 : highlighted === mark.id ? 3 : 1
-										}
-										vectorEffect="non-scaling-stroke"
-										className="transition-[fill-opacity,stroke,stroke-width] duration-100 motion-reduce:transition-none"
-									>
-										<title>
-											{(layerStyles[mark.layer] ?? visualLayers.other).label}:{" "}
-											{mark.explanation}
-										</title>
-									</polygon>
-								))}
+								.flatMap((group) => {
+									const mark = group.marks[0];
+									const color = (layerStyles[mark.layer] ?? visualLayers.other)
+										.color;
+									const isSelected = group.key === selectedGroup;
+									const isHighlighted = group.key === highlightedGroup;
+									const Shape = group.marks.length === 1 ? "polygon" : "path";
+									return (group.paths.length ? group.paths : [undefined]).map(
+										(path, index) => (
+											<Shape
+												key={`${group.key}:${index}`}
+												data-zone-group={group.key}
+												d={path}
+												points={
+													path === undefined
+														? mark.polygon
+																.map((point) => `${point.x},${point.y}`)
+																.join(" ")
+														: undefined
+												}
+												fillRule={path === undefined ? "nonzero" : "evenodd"}
+												fill={color}
+												fillOpacity={
+													isSelected ? 0.85 : isHighlighted ? 0.8 : 0.5
+												}
+												stroke={isSelected || isHighlighted ? "#0f172a" : color}
+												strokeWidth={isSelected ? 4 : isHighlighted ? 3 : 1}
+												vectorEffect="non-scaling-stroke"
+												className="transition-[fill-opacity,stroke,stroke-width] duration-100 motion-reduce:transition-none"
+											>
+												<title>
+													{
+														(layerStyles[mark.layer] ?? visualLayers.other)
+															.label
+													}
+													: {mark.explanation}
+												</title>
+											</Shape>
+										),
+									);
+								})}
+							{draft ? (
+								<polygon
+									data-zone-edit-piece={draft.markId}
+									points={draft.polygon
+										.map((point) => `${point.x},${point.y}`)
+										.join(" ")}
+									fill="none"
+									stroke="#0f172a"
+									strokeWidth={2}
+									strokeDasharray="4 3"
+									vectorEffect="non-scaling-stroke"
+								/>
+							) : null}
 						</svg>
 					) : null}
 					{ready && planning ? (
@@ -1406,7 +1470,7 @@ export function VisualPdf({
 										}
 										key={`hit-${mark.id}`}
 										mark={mark}
-										selected={selected === mark.id}
+										selected={markGroups.get(mark.id) === selectedGroup}
 										disabled={interactionLocked}
 										onHighlight={(active) =>
 											setHighlighted((current) =>

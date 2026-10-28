@@ -10,6 +10,7 @@ import type { VisualMark } from "./model";
 import type { VisualPlanArea } from "./planning-model";
 import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
 import { VisualClientCache } from "./visual-client-cache";
+import * as zoneOutline from "./zone-outline";
 
 const mockGetDocument = jest.fn();
 const mockGetPage = jest.fn();
@@ -338,6 +339,96 @@ it("highlights a hovered or focused zone without selecting or saving it", async 
 	expect(polygon).toHaveAttribute("fill-opacity", "0.5");
 	expect(onSelect).not.toHaveBeenCalled();
 	expect(global.fetch).toHaveBeenCalledTimes(1);
+});
+
+it("renders and highlights all pieces of a work record as one outline and keeps piece editing local", async () => {
+	const grouped = jest.spyOn(zoneOutline, "visualZoneGroups");
+	const onSelect = jest.fn();
+	const onSave = jest.fn();
+	const marks = [
+		mark,
+		{
+			...mark,
+			id: "piece-2",
+			polygon: [
+				{ x: 0.1, y: 0.1 },
+				{ x: 0.4, y: 0.4 },
+				{ x: 0.1, y: 0.4 },
+			],
+		},
+	];
+	const props = { url: "/drawing", marks, onSelect, onSave, editable: true };
+	const { container, rerender } = render(
+		<VisualPdf {...props} selected={null} />,
+	);
+	const targets = await screen.findAllByRole("button", { name: "XPS: Sakrīt" });
+	const outline = container.querySelector("[data-zone-group]");
+	expect(container.querySelectorAll("[data-zone-group]")).toHaveLength(1);
+	expect(outline?.tagName).toBe("path");
+	expect(outline).toHaveAttribute("fill-rule", "evenodd");
+	expect(outline).toHaveAttribute(
+		"d",
+		"M0.1,0.1 L0.4,0.1 L0.4,0.4 L0.1,0.4 L0.1,0.1 Z",
+	);
+	const groupingCount = grouped.mock.calls.length;
+	fireEvent.focus(targets[1]);
+	expect(outline).toHaveAttribute("fill-opacity", "0.8");
+	const geometry = outline?.getAttribute("d");
+	fireEvent.click(screen.getByRole("button", { name: "Tuvināt" }));
+	expect(outline).toHaveAttribute("d", geometry);
+	expect(grouped).toHaveBeenCalledTimes(groupingCount);
+	fireEvent.click(targets[1]);
+	expect(onSelect).toHaveBeenCalledWith("piece-2");
+	rerender(<VisualPdf {...props} selected="piece-2" />);
+	expect(outline).toHaveAttribute("stroke-width", "4");
+	for (const target of targets)
+		expect(target).toHaveAttribute("aria-pressed", "true");
+	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	fireEvent.keyDown(screen.getByRole("button", { name: "Stūris 1" }), {
+		key: "ArrowRight",
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
+	await waitFor(() =>
+		expect(onSave).toHaveBeenCalledWith(
+			expect.objectContaining({
+				markId: "piece-2",
+				expectedPolygon: marks[1].polygon,
+			}),
+		),
+	);
+	expect(marks[0].polygon).toEqual(mark.polygon);
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+});
+
+it("does not offer artificial pieces of the same record as overlapping work layers", async () => {
+	const onSelect = jest.fn();
+	const { container } = render(
+		<VisualPdf
+			url="/drawing"
+			marks={[mark, { ...mark, id: "piece-2" }]}
+			selected={null}
+			onSelect={onSelect}
+		/>,
+	);
+	const targets = await screen.findAllByRole("button", { name: "XPS: Sakrīt" });
+	for (const element of [
+		container.querySelector("canvas")?.parentElement,
+		screen.getByTestId("visual-viewport"),
+	]) {
+		jest
+			.spyOn(element as HTMLElement, "getBoundingClientRect")
+			.mockReturnValue({
+				left: 0,
+				top: 0,
+				width: 1000,
+				height: 1000,
+			} as DOMRect);
+	}
+	fireEvent.click(targets[1], { clientX: 300, clientY: 200 });
+	expect(onSelect).toHaveBeenCalledWith("piece-2");
+	expect(
+		screen.queryByText("Izvēlieties zonu šajā vietā"),
+	).not.toBeInTheDocument();
 });
 
 it("uses translucent fills with stronger opacity for the selected zone", async () => {
@@ -1198,7 +1289,12 @@ it("shows other saved plans as non-editable background envelopes", async () => {
 
 it("offers the upper or lower work-log zone when areas overlap", async () => {
 	const onSelect = jest.fn();
-	const upperMark = { ...mark, id: "mark-2", explanation: "Virskārta" };
+	const upperMark = {
+		...mark,
+		id: "mark-2",
+		evidenceId: "other-record-photo",
+		explanation: "Virskārta",
+	};
 	const { container } = render(
 		<VisualPdf
 			url="/drawing"
