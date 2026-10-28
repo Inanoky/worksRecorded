@@ -188,7 +188,13 @@ export function DefaultConstructionForma2QuantityBreakdown({
 										</div>
 									))}
 								</dl>
-								<p className="text-sm text-muted-foreground">{copy.rule}</p>
+								<p className="text-sm text-muted-foreground">
+									{details.usesDrawingQuantities
+										? isLatvian
+											? "Faktiskais daudzums aprēķināts no pašreizējām rasējuma zonām, ievērojot lapas mērogu. Avota ziņojums un oriģinālais marķējums saglabāti salīdzināšanai."
+											: "Factual quantity is measured from the current drawing zones at the page scale. The original message and markup are retained for comparison."
+										: copy.rule}
+								</p>
 								<Table>
 									<TableHeader>
 										<TableRow>

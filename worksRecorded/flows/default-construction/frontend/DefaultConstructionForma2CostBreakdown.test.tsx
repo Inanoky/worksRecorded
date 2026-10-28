@@ -362,3 +362,23 @@ it.each([
 		expect(screen.getByRole("dialog")).toHaveClass("sm:max-w-[1240px]");
 	},
 );
+
+it("shows Begin timer hours independently of the paid amount", async () => {
+	const result = details();
+	jest
+		.mocked(getDefaultConstructionForma2PositionCostDetails)
+		.mockResolvedValue({
+			...result,
+			records: [
+				{
+					...result.records[0],
+					costSource: "begin-report",
+					hours: 125 / 60,
+					actualCost: 6.25,
+				},
+			],
+		});
+	await openDetails();
+	expect(screen.getByText("Worker hours (Begin): 2.08")).toBeInTheDocument();
+	expect(screen.getAllByText(/6.25/).length).toBeGreaterThan(0);
+});

@@ -37,10 +37,12 @@ export function getForma2QuantityExclusion(
 }
 
 export function getForma2ReportedQuantity(source: {
+	quantitySource?: "drawing";
 	quantity: number | null;
 	reportedQuantity?: number | null;
 }) {
-	return source.reportedQuantity === undefined
+	return source.quantitySource === "drawing" ||
+		source.reportedQuantity === undefined
 		? source.quantity
 		: source.reportedQuantity;
 }

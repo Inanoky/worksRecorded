@@ -4,6 +4,49 @@ import {
 } from "./site-diary-summary";
 
 describe("default-construction site diary summaries", () => {
+	it("totals imported costs without estimating missing amounts or changing man-hours", () => {
+		const config = {
+			otherSettings: {
+				beginSalaryAllocation: {
+					costSource: "begin-report",
+					sourceReportId: "report",
+					planSha256: "plan",
+				},
+			},
+		};
+		const rows = [12345, 0, null].map((totalCents) => ({
+			Works: "Floor",
+			Units: "m2",
+			Amounts: 10,
+			WorkersInvolved: 3,
+			TimeInvolved: 8,
+			evalMetadata: {
+				beginSalaryAllocation: {
+					kind: "begin-salary-allocation:v1",
+					currency: "EUR",
+					sourceReportId: "report",
+					planSha256: "plan",
+					totalCents,
+				},
+			},
+		}));
+		const summary = buildDefaultConstructionScopeSummary({
+			scope: "project",
+			value: "project",
+			rows,
+			config,
+			productivitySettings: [
+				{
+					work: "Floor",
+					unit: "m2",
+					hourlyCost: 999,
+					laborNormHoursPerUnit: 1,
+				},
+			],
+		});
+		expect(summary.hours).toBe(72);
+		expect(summary.breakdown[0].actualCost).toBe(123.45);
+	});
   const rows = [
     {
       Date: "2026-07-01T00:00:00.000Z",

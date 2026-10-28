@@ -36,10 +36,18 @@ function numberValue(value: number | null) {
 function fieldsFromRow(row: Forma2ResultRow): ContractFields {
 	return {
 		plannedQuantity: numberValue(row.plannedQuantity),
-		plannedWorkCost: numberValue(row.plannedWorkCost),
-		plannedMaterialCost: numberValue(row.plannedMaterialCost),
-		plannedMechanismCost: numberValue(row.plannedMechanismCost),
-		plannedTotalCost: numberValue(row.plannedTotalCost),
+		plannedWorkCost: numberValue(
+			(row.directPlannedCosts ?? row).plannedWorkCost,
+		),
+		plannedMaterialCost: numberValue(
+			(row.directPlannedCosts ?? row).plannedMaterialCost,
+		),
+		plannedMechanismCost: numberValue(
+			(row.directPlannedCosts ?? row).plannedMechanismCost,
+		),
+		plannedTotalCost: numberValue(
+			(row.directPlannedCosts ?? row).plannedTotalCost,
+		),
 	};
 }
 

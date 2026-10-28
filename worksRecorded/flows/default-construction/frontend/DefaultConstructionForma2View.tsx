@@ -31,6 +31,7 @@ import {
 	getForma2AnalyticsLocale,
 } from "@/flows/default-construction/lib/forma2-analytics-copy";
 import { cn } from "@/lib/utils/utils";
+import { formatForma2PositionLabel } from "../lib/forma2-position-label";
 
 type Forma2Results = Awaited<
 	ReturnType<typeof getDefaultConstructionForma2Results>
@@ -283,8 +284,7 @@ function Forma2ResultsView({
 										<div className="flex items-start justify-between gap-2">
 											<div className={row.parentId ? "pl-3" : ""}>
 												{row.parentId ? "↳ " : ""}
-												{row.code ? `${row.code} ` : ""}
-												{row.name}
+												{row.name.trim() === row.code.trim() ? row.name : formatForma2PositionLabel(row)}
 											</div>
 											<DefaultConstructionForma2ContractEditor
 												siteId={siteId}
@@ -439,7 +439,12 @@ export function DefaultConstructionForma2View({
 					<div>
 						<CardTitle>{t.results}</CardTitle>
 						<CardDescription>
-							{t.resultsDescription} {t.quantitySource}
+							{t.resultsDescription}{" "}
+							{data.quantitySource === "drawing"
+								? locale.startsWith("lv")
+									? "Faktiskie daudzumi aprēķināti no pašreizējām rasējuma zonām, ievērojot lapas mērogu."
+									: "Factual quantities are measured from the current drawing zones at the page scale."
+								: t.quantitySource}
 						</CardDescription>
 					</div>
 					<DefaultConstructionForma2Export

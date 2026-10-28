@@ -4325,7 +4325,7 @@ export default function SiteDiaryCalendar({
                                   </span>
                                 ) : (
                                   <span>
-                                    <span title={beginHours.enabled ? "Dienas darbu summu kopsumma pēc esošā aprēķina." : undefined}>{beginHours.enabled ? "Ieņēmumi" : t.dailyCost}</span>:{" "}
+                                    <span title={defaultMap.otherSettings?.beginSalaryAllocation?.costSource === "begin-report" ? "Begin darba atskaite: Cena kopā (N)." : beginHours.enabled ? "Dienas darbu summu kopsumma pēc esošā aprēķina." : undefined}>{beginHours.enabled && defaultMap.otherSettings?.beginSalaryAllocation?.costSource !== "begin-report" ? "Ieņēmumi" : t.dailyCost}</span>:{" "}
                                     {defaultConstructionDayCost == null
                                       ? "—"
                                       : costFormatter.format(
@@ -4333,7 +4333,7 @@ export default function SiteDiaryCalendar({
                                         )}
                                   </span>
                                 )}
-                                {beginHours.enabled ? <BeginHoursCost day={beginHours.days.find(day => day.date === group.key)} /> : null}
+                                {beginHours.enabled && defaultMap.otherSettings?.beginSalaryAllocation?.costSource !== "begin-report" ? <BeginHoursCost day={beginHours.days.find(day => day.date === group.key)} /> : null}
                               </div>
                             </div>
 

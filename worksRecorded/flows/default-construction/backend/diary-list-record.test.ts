@@ -1,8 +1,17 @@
 import { Prisma } from "@prisma/client";
+import { createDefaultConstructionRecordCostCalculator } from "../lib/site-diary-productivity-settings";
 import {
 	constructionDiaryListSelect,
 	mapConstructionDiaryListRecord,
 } from "./diary-list-record";
+
+it("carries only the imported cost summary into the rendered journal", () => {
+	const record = mapConstructionDiaryListRecord({ id: "diary", WorkersInvolved: 3, TimeInvolved: 8, evalMetadata: { privateSource: "private", beginSalaryAllocation: { kind: "begin-salary-allocation:v1", currency: "EUR", sourceReportId: "report", planSha256: "plan", totalCents: 12345, lines: [{ worker: "private" }] } } });
+	expect(createDefaultConstructionRecordCostCalculator({ otherSettings: { beginSalaryAllocation: { costSource: "begin-report", sourceReportId: "report", planSha256: "plan" } } })(record).actualCost).toBe(123.45);
+	expect(record).not.toHaveProperty("evalMetadata");
+	expect(record.beginSalaryAllocation).not.toHaveProperty("lines");
+	expect(record).toMatchObject({ WorkersInvolved: "3", TimeInvolved: "8" });
+});
 
 it("keeps FIMA metadata selection on the construction model, not ZTC", () => {
 	const fields =

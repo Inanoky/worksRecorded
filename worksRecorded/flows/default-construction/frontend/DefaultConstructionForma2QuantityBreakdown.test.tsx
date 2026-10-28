@@ -22,6 +22,7 @@ const details = {
 		plannedQuantity: 15,
 	},
 	calculatedTotal: 18,
+	usesDrawingQuantities: false,
 	includedRecords: 1,
 	excludedRecords: 1,
 	records: [

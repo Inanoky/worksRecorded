@@ -3,8 +3,8 @@
 import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
-import { automaticallyAssignForma2Sources } from "@/flows/default-construction/backend/forma2-auto-assignment";
 import { getDiaryFeedbackContext } from "@/flows/default-construction/backend/diary-feedback";
+import { automaticallyAssignForma2Sources } from "@/flows/default-construction/backend/forma2-auto-assignment";
 import {
 	buildForma2AnalyticsView,
 	DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY,
@@ -46,12 +46,24 @@ import {
 import {
 	calculateDefaultConstructionWorkCost,
 	getDefaultConstructionProductivitySettings,
+	readDefaultConstructionRecordedCost,
+	readDefaultConstructionRecordedHours,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
+import { forma2UnmatchedBeginSources } from "../lib/forma2-begin-sources";
+import {
+	readForma2DrawingQuantities,
+	usesForma2DrawingQuantities,
+} from "../lib/forma2-drawing-quantities";
+import { normalizeForma2QuantityUnit } from "../lib/forma2-quantities";
+import {
+	readSectionMappingSource,
+	sectionMappingOriginalPhotos,
+} from "../lib/section-mapping-source";
 
 const MAX_POSITIONS = 5000;
 const MAX_ALLOCATIONS_PER_SAVE = 1000;
@@ -275,6 +287,29 @@ function getCurrentForma2WorkSelections(
 	};
 }
 
+async function measuredQuantitiesFor(
+	siteId: string,
+	config: Record<string, any>,
+) {
+	if (!usesForma2DrawingQuantities(config))
+		return new Map<string, { quantity: number | null; drawingIds: string[] }>();
+	const documents = await prisma.documents.findMany({
+		where: {
+			siteId,
+			documentType: { in: ["limeni-visual-v1", "limeni-visual-preview-v1"] },
+		},
+		select: {
+			id: true,
+			documentType: true,
+			documentName: true,
+			description: true,
+			url: true,
+			createdAt: true,
+		},
+	});
+	return readForma2DrawingQuantities(documents);
+}
+
 async function loadDefaultConstructionForma2Data(
 	siteId: string,
 	options: {
@@ -315,8 +350,10 @@ async function loadDefaultConstructionForma2Data(
 				Amounts: true,
 				Comments_Custom_1: true,
 				Comments: options.includeDiaryDetails === true,
+				originalUserComment: options.includeDiaryDetails === true,
 				Photos: options.includeDiaryDetails === true,
 				TimeInvolved: true,
+				evalMetadata: true,
 			},
 		}),
 		prisma.bISmaterialRecords.findMany({
@@ -364,19 +401,30 @@ async function loadDefaultConstructionForma2Data(
 		]),
 	);
 
+	const measured = await measuredQuantitiesFor(siteId, config);
 	const workSources: Forma2ActualSource[] = workRows
 		.filter((row) => text(row.Works))
 		.map((row) => {
 			const work = text(row.Works);
 			const setting = settingsByWork.get(work.toLocaleLowerCase("lv"));
-			const hours = nullableNumber(row.TimeInvolved);
+			const recordedHours = readDefaultConstructionRecordedHours(config, row);
+			const hours =
+				recordedHours === undefined
+					? nullableNumber(row.TimeInvolved)
+					: recordedHours;
 			const unit = text(row.Units, 40);
-			const quantity = getForma2DiaryQuantity(row, config);
+			const drawingQuantity =
+				usesForma2DrawingQuantities(config) &&
+				normalizeForma2QuantityUnit(unit) === "m2";
+			const quantity = drawingQuantity
+				? (measured.get(row.id)?.quantity ?? null)
+				: getForma2DiaryQuantity(row, config);
 			const cost = calculateDefaultConstructionWorkCost({
 				setting,
 				unit,
 				amount: quantity,
 				hours,
+				recordedCost: readDefaultConstructionRecordedCost(config, row),
 			});
 			return {
 				id: row.id,
@@ -389,6 +437,11 @@ async function loadDefaultConstructionForma2Data(
 				unit,
 				quantity,
 				reportedQuantity: parseDefaultConstructionQuantity(row.Amounts),
+				...(drawingQuantity ? { quantitySource: "drawing" as const } : {}),
+				...(config.otherSettings?.beginSalaryAllocation?.costSource ===
+				"begin-report"
+					? { costSource: "begin-report" as const }
+					: {}),
 				hours,
 				hourlyRate: cost.hourlyRate,
 				unitRate: cost.unitRate,
@@ -440,9 +493,14 @@ async function loadDefaultConstructionForma2Data(
 	return {
 		siteName: site.name,
 		state,
-		sources: [...scopedWorkSources, ...materialSources],
+		sources: [
+			...scopedWorkSources,
+			...materialSources,
+			...forma2UnmatchedBeginSources(config),
+		],
 		diaryRecords: options.includeDiaryDetails ? workRows : [],
 		hasQuantityProfile: hasDefaultConstructionQuantityProfile(config),
+		usesDrawingQuantities: usesForma2DrawingQuantities(config),
 	};
 }
 
@@ -560,6 +618,9 @@ export async function getDefaultConstructionForma2Results(siteId: string) {
 		siteName: data.siteName,
 		document: documentMetadata(data.state),
 		resultRows: view.resultRows,
+		...(data.usesDrawingQuantities
+			? { quantitySource: "drawing" as const }
+			: {}),
 	};
 }
 
@@ -591,8 +652,17 @@ export async function getDefaultConstructionForma2PositionQuantityDetails(args: 
 			plannedQuantity: data.hasQuantityProfile
 				? parseDefaultConstructionQuantity(diaryById.get(row.id)?.Amounts)
 				: null,
-			description: diaryById.get(row.id)?.Comments ?? null,
-			photos: diaryById.get(row.id)?.Photos ?? [],
+			description:
+				diaryById.get(row.id)?.originalUserComment ||
+				diaryById.get(row.id)?.Comments ||
+				row.secondaryLabel ||
+				null,
+			photos: (() => {
+				const record = diaryById.get(row.id);
+				const mapping = readSectionMappingSource(record?.evalMetadata);
+				const original = mapping ? sectionMappingOriginalPhotos(mapping) : [];
+				return original.length ? original : (record?.Photos ?? []);
+			})(),
 			date: row.date,
 			unit: row.unit,
 			quantity: row.quantity,
@@ -613,6 +683,7 @@ export async function getDefaultConstructionForma2PositionQuantityDetails(args: 
 			plannedQuantity: position.plannedQuantity,
 		},
 		calculatedTotal: position.actualQuantity,
+		usesDrawingQuantities: data.usesDrawingQuantities,
 		includedRecords: records.filter((row) => !row.exclusion).length,
 		excludedRecords: position.excludedQuantityRecords,
 		records,
@@ -647,6 +718,8 @@ export async function getDefaultConstructionForma2PositionCostDetails(args: {
 		.flatMap((source) => {
 			if (args.costType !== "total" && source.type !== args.costType) return [];
 			const allocation = allocationsBySource.get(`${source.type}:${source.id}`);
+			if (args.costType === "material" && allocation?.costKind === "mechanism")
+				return [];
 			const selectedPositionId =
 				source.selectedPositionId &&
 				positionsById.has(source.selectedPositionId)
@@ -673,10 +746,12 @@ export async function getDefaultConstructionForma2PositionCostDetails(args: {
 							unit: source.unit,
 							quantity: share.quantity,
 							isSplit: Boolean(allocation?.split),
+							...(source.id.startsWith("begin:") ? { readOnly: true } : {}),
 							hours: source.hours,
 							hourlyRate: source.hourlyRate ?? null,
 							unitRate: source.unitRate ?? null,
 							costCalculationMode: source.costCalculationMode ?? "output",
+							...(source.costSource ? { costSource: source.costSource } : {}),
 							actualCost: share.actualCost,
 							assignmentMethod:
 								selectedPositionId && !allocation?.overrideJournalPosition
@@ -898,6 +973,7 @@ export async function getDefaultConstructionForma2MappingPage(args: {
 						Amounts: true,
 						Comments_Custom_1: true,
 						TimeInvolved: true,
+						evalMetadata: true,
 					},
 				})
 			: [],
@@ -933,19 +1009,30 @@ export async function getDefaultConstructionForma2MappingPage(args: {
 			setting,
 		]),
 	);
+	const measured = await measuredQuantitiesFor(args.siteId, config);
 	const workSources: Forma2ActualSource[] = workRows
 		.filter((row) => text(row.Works))
 		.map((row) => {
 			const work = text(row.Works);
 			const setting = settingsByWork.get(work.toLocaleLowerCase("lv"));
-			const hours = nullableNumber(row.TimeInvolved);
+			const recordedHours = readDefaultConstructionRecordedHours(config, row);
+			const hours =
+				recordedHours === undefined
+					? nullableNumber(row.TimeInvolved)
+					: recordedHours;
 			const unit = text(row.Units, 40);
-			const quantity = getForma2DiaryQuantity(row, config);
+			const drawingQuantity =
+				usesForma2DrawingQuantities(config) &&
+				normalizeForma2QuantityUnit(unit) === "m2";
+			const quantity = drawingQuantity
+				? (measured.get(row.id)?.quantity ?? null)
+				: getForma2DiaryQuantity(row, config);
 			const cost = calculateDefaultConstructionWorkCost({
 				setting,
 				unit,
 				amount: quantity,
 				hours,
+				recordedCost: readDefaultConstructionRecordedCost(config, row),
 			});
 			return {
 				id: row.id,
@@ -958,6 +1045,11 @@ export async function getDefaultConstructionForma2MappingPage(args: {
 				unit,
 				quantity,
 				reportedQuantity: parseDefaultConstructionQuantity(row.Amounts),
+				...(drawingQuantity ? { quantitySource: "drawing" as const } : {}),
+				...(config.otherSettings?.beginSalaryAllocation?.costSource ===
+				"begin-report"
+					? { costSource: "begin-report" as const }
+					: {}),
 				hours,
 				hourlyRate: cost.hourlyRate,
 				unitRate: cost.unitRate,
@@ -1029,64 +1121,66 @@ export async function saveDefaultConstructionForma2Import(args: {
 	await requireDefaultConstructionSite(args.siteId);
 	const positions = normalizePositions(args.positions);
 	const documentId = crypto.randomUUID();
-	const syncResult = await prisma.$transaction(async (tx) => {
-		const [analyticsRow, site] = await Promise.all([
-			tx.analytics.findUnique({
-				where: { siteId: args.siteId },
-				select: { currentWeekProgress: true },
-			}),
-			tx.site.findUnique({
-				where: { id: args.siteId },
-				select: { siteDiaryRecordsMap: true },
-			}),
-		]);
-		if (!site) throw new Error("Site not found");
-		const root = analyticsRoot(analyticsRow?.currentWeekProgress);
-		const existing = normalizeDefaultConstructionForma2State(
-			root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY],
-		);
-		const positionIds = new Set(positions.map((position) => position.id));
-		const state: DefaultConstructionForma2State = {
-			version: 1,
-			document: {
-				id: documentId,
-				fileName: text(args.fileName, 240) || "Forma 2.xlsx",
-				sheetName: text(args.sheetName, 120),
-				importedAt: new Date().toISOString(),
+	const syncResult = await prisma.$transaction(
+		async (tx) => {
+			const [analyticsRow, site] = await Promise.all([
+				tx.analytics.findUnique({
+					where: { siteId: args.siteId },
+					select: { currentWeekProgress: true },
+				}),
+				tx.site.findUnique({
+					where: { id: args.siteId },
+					select: { siteDiaryRecordsMap: true },
+				}),
+			]);
+			if (!site) throw new Error("Site not found");
+			const root = analyticsRoot(analyticsRow?.currentWeekProgress);
+			const existing = normalizeDefaultConstructionForma2State(
+				root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY],
+			);
+			const positionIds = new Set(positions.map((position) => position.id));
+			const state: DefaultConstructionForma2State = {
+				version: 1,
+				document: {
+					id: documentId,
+					fileName: text(args.fileName, 240) || "Forma 2.xlsx",
+					sheetName: text(args.sheetName, 120),
+					importedAt: new Date().toISOString(),
+					positions,
+				},
+				allocations: existing.allocations.filter((allocation) =>
+					positionIds.has(allocation.positionId),
+				),
+				materialRules: existing.materialRules.filter((rule) =>
+					positionIds.has(rule.positionId),
+				),
+			};
+			const config =
+				site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
+					? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
+					: structuredClone(defaultConfig as Record<string, any>);
+			const sync = syncDefaultConstructionForma2WorkOptions({
+				config,
+				documentId,
 				positions,
-			},
-			allocations: existing.allocations.filter((allocation) =>
-				positionIds.has(allocation.positionId),
-			),
-			materialRules: existing.materialRules.filter((rule) =>
-				positionIds.has(rule.positionId),
-			),
-		};
-		const config =
-			site.siteDiaryRecordsMap &&
-			typeof site.siteDiaryRecordsMap === "object"
-				? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
-				: structuredClone(defaultConfig as Record<string, any>);
-		const sync = syncDefaultConstructionForma2WorkOptions({
-			config,
-			documentId,
-			positions,
-		});
-		root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY] = state;
-		await tx.analytics.upsert({
-			where: { siteId: args.siteId },
-			create: {
-				siteId: args.siteId,
-				currentWeekProgress: root as Prisma.InputJsonObject,
-			},
-			update: { currentWeekProgress: root as Prisma.InputJsonObject },
-		});
-		await tx.site.update({
-			where: { id: args.siteId },
-			data: { siteDiaryRecordsMap: sync.config as Prisma.InputJsonObject },
-		});
-		return sync;
-	}, { timeout: 15_000 });
+			});
+			root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY] = state;
+			await tx.analytics.upsert({
+				where: { siteId: args.siteId },
+				create: {
+					siteId: args.siteId,
+					currentWeekProgress: root as Prisma.InputJsonObject,
+				},
+				update: { currentWeekProgress: root as Prisma.InputJsonObject },
+			});
+			await tx.site.update({
+				where: { id: args.siteId },
+				data: { siteDiaryRecordsMap: sync.config as Prisma.InputJsonObject },
+			});
+			return sync;
+		},
+		{ timeout: 15_000 },
+	);
 	revalidatePath(`/dashboard/sites/${args.siteId}/analytics`);
 	revalidatePath(`/dashboard/sites/${args.siteId}/BIS`);
 	revalidatePath(`/dashboard/sites/${args.siteId}/dashboard`);
@@ -1123,7 +1217,8 @@ async function loadForma2SplitSource(siteId: string, sourceId: string) {
 	const state = normalizeDefaultConstructionForma2State(
 		root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY],
 	);
-	if (!state.document) throw new Error("Import Forma 2 before assigning records");
+	if (!state.document)
+		throw new Error("Import Forma 2 before assigning records");
 	return {
 		root,
 		state,
@@ -1189,6 +1284,12 @@ export async function saveDefaultConstructionForma2Split(args: {
 			throw new Error("Forma 2 material position was not found");
 	}
 	const allocation: Forma2Allocation = {
+		...(data.allocation?.costKind
+			? { costKind: data.allocation.costKind }
+			: {}),
+		...(data.allocation?.basis
+			? { basis: "Lietotāja mainīts izmaksu sadalījums." }
+			: {}),
 		sourceId: args.sourceId,
 		sourceType: "material",
 		positionId: args.split.parts[0].positionId,
@@ -1317,7 +1418,18 @@ export async function saveDefaultConstructionForma2Allocations(args: {
 				"The factual record is not compatible with this Forma 2 position",
 			);
 		}
+		const previous = state.allocations.find(
+			(item) =>
+				item.sourceType === allocation.sourceType &&
+				item.sourceId === allocation.sourceId,
+		);
 		replacements.set(sourceKey, {
+			...(allocation.sourceType === "material" && previous?.costKind
+				? { costKind: previous.costKind }
+				: {}),
+			...(previous?.basis
+				? { basis: "Lietotāja mainīta pozīcijas piesaiste." }
+				: {}),
 			sourceType: allocation.sourceType,
 			sourceId: text(allocation.sourceId, 180),
 			positionId: position.id,
@@ -1900,43 +2012,45 @@ export async function updateDefaultConstructionForma2ContractPosition(args: {
 
 export async function clearDefaultConstructionForma2Import(siteId: string) {
 	await requireDefaultConstructionSite(siteId);
-	const result = await prisma.$transaction(async (tx) => {
-		const [analyticsRow, site] = await Promise.all([
-			tx.analytics.findUnique({
+	const result = await prisma.$transaction(
+		async (tx) => {
+			const [analyticsRow, site] = await Promise.all([
+				tx.analytics.findUnique({
+					where: { siteId },
+					select: { currentWeekProgress: true },
+				}),
+				tx.site.findUnique({
+					where: { id: siteId },
+					select: { siteDiaryRecordsMap: true },
+				}),
+			]);
+			if (!site) throw new Error("Site not found");
+			const root = analyticsRoot(analyticsRow?.currentWeekProgress);
+			root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY] =
+				emptyDefaultConstructionForma2State();
+			const config =
+				site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
+					? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
+					: structuredClone(defaultConfig as Record<string, any>);
+			const removed = removeDefaultConstructionForma2WorkOptions(config);
+			await tx.analytics.upsert({
 				where: { siteId },
-				select: { currentWeekProgress: true },
-			}),
-			tx.site.findUnique({
+				create: {
+					siteId,
+					currentWeekProgress: root as Prisma.InputJsonObject,
+				},
+				update: { currentWeekProgress: root as Prisma.InputJsonObject },
+			});
+			await tx.site.update({
 				where: { id: siteId },
-				select: { siteDiaryRecordsMap: true },
-			}),
-		]);
-		if (!site) throw new Error("Site not found");
-		const root = analyticsRoot(analyticsRow?.currentWeekProgress);
-		root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY] =
-			emptyDefaultConstructionForma2State();
-		const config =
-			site.siteDiaryRecordsMap &&
-			typeof site.siteDiaryRecordsMap === "object"
-				? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
-				: structuredClone(defaultConfig as Record<string, any>);
-		const removed = removeDefaultConstructionForma2WorkOptions(config);
-		await tx.analytics.upsert({
-			where: { siteId },
-			create: {
-				siteId,
-				currentWeekProgress: root as Prisma.InputJsonObject,
-			},
-			update: { currentWeekProgress: root as Prisma.InputJsonObject },
-		});
-		await tx.site.update({
-			where: { id: siteId },
-			data: {
-				siteDiaryRecordsMap: removed.config as Prisma.InputJsonObject,
-			},
-		});
-		return removed;
-	}, { timeout: 15_000 });
+				data: {
+					siteDiaryRecordsMap: removed.config as Prisma.InputJsonObject,
+				},
+			});
+			return removed;
+		},
+		{ timeout: 15_000 },
+	);
 	revalidatePath(`/dashboard/sites/${siteId}/analytics`);
 	revalidatePath(`/dashboard/sites/${siteId}/BIS`);
 	revalidatePath(`/dashboard/sites/${siteId}/dashboard`);

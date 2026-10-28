@@ -87,6 +87,7 @@ export function DefaultConstructionForma2CostBreakdown({
 				unit: "Mērv.",
 				quantity: "Daudzums",
 				cost: "Izmaksas",
+				hours: "Darba stundas (Begin)",
 				work: "Darbs",
 				unpriced: "Nav aprēķināms",
 				noRecords: "Šajā summā nav iekļautu ierakstu.",
@@ -105,6 +106,7 @@ export function DefaultConstructionForma2CostBreakdown({
 				unit: "Unit",
 				quantity: "Quantity",
 				cost: "Cost",
+				hours: "Worker hours (Begin)",
 				work: "Work",
 				unpriced: "Not calculable",
 				noRecords: "No records are included in this amount.",
@@ -117,6 +119,16 @@ export function DefaultConstructionForma2CostBreakdown({
 	const [invoice, setInvoice] = useState<{ url: string; title: string } | null>(
 		null,
 	);
+	const beginHours = details?.records.some(
+		(record) => record.costSource === "begin-report" && record.hours != null,
+	)
+		? details.records
+				.filter(
+					(record) =>
+						record.type === "work" && record.costSource === "begin-report",
+				)
+				.reduce((sum, record) => sum + (record.hours ?? 0), 0)
+		: null;
 
 	const showDetails = async () => {
 		setOpen(true);
@@ -192,6 +204,11 @@ export function DefaultConstructionForma2CostBreakdown({
 										</span>
 									</div>
 								</div>
+								{beginHours === null ? null : (
+									<p className="mb-3 text-sm text-muted-foreground">
+										{copy.hours}: {formatNumber(beginHours, locale)} h
+									</p>
+								)}
 								<div className="overflow-x-auto rounded-lg border">
 									<Table
 										className={`${invoice ? "min-w-[1200px]" : "min-w-[820px]"} table-fixed text-xs`}
@@ -284,14 +301,24 @@ export function DefaultConstructionForma2CostBreakdown({
 															</div>
 														) : null}
 														{record.type === "work" ? (
-															<Badge variant="outline" className="mt-2">
-																{copy.work}
-															</Badge>
+															<>
+																{record.costSource === "begin-report" ? (
+																	<div className="mt-1 text-muted-foreground">
+																		{copy.hours}:{" "}
+																		{record.hours == null
+																			? "—"
+																			: formatNumber(record.hours, locale)}
+																	</div>
+																) : null}
+																<Badge variant="outline" className="mt-2">
+																	{copy.work}
+																</Badge>
+															</>
 														) : null}
 													</TableCell>
 													<TableCell className="whitespace-normal align-middle">
 														<div className="flex min-w-0 flex-nowrap items-center gap-2">
-															{record.isSplit ? (
+															{record.isSplit || record.readOnly ? (
 																<p
 																	className="min-w-0 flex-1 truncate"
 																	title={formatForma2PositionLabel(

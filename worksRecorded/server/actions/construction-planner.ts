@@ -166,6 +166,7 @@ export async function loadConstructionWeek(siteId: string, date: string) {
 				createdAt: true,
 				WorkersInvolved: true,
 				TimeInvolved: true,
+				evalMetadata: true,
 			},
 			orderBy: { createdAt: "asc" },
 		});

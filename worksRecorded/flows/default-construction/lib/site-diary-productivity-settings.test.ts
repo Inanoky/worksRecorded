@@ -8,6 +8,57 @@ import {
 } from "./site-diary-productivity-settings";
 
 describe("default-construction productivity settings", () => {
+	it.each([36729, 0, null])(
+		"uses imported cents %s without changing time or workers",
+		(cents) => {
+			const config = {
+				otherSettings: {
+					beginSalaryAllocation: {
+						costSource: "begin-report",
+						sourceReportId: "report",
+						planSha256: "plan",
+					},
+				},
+			};
+			const row = {
+				Works: "Floor",
+				WorkersInvolved: 3,
+				TimeInvolved: 8,
+				evalMetadata: {
+					beginSalaryAllocation: {
+						kind: "begin-salary-allocation:v1",
+						currency: "EUR",
+						sourceReportId: "report",
+						planSha256: "plan",
+						totalCents: cents,
+					},
+				},
+			};
+			const before = JSON.stringify(row);
+			expect(
+				createDefaultConstructionRecordCostCalculator(config)(row).actualCost,
+			).toBe(cents === null ? null : cents / 100);
+			expect(
+				createDefaultConstructionRecordCostCalculator(config)({
+					Works: "Floor",
+					WorkersInvolved: 3,
+					TimeInvolved: 8,
+				}).actualCost,
+			).toBeNull();
+			expect(
+				createDefaultConstructionRecordCostCalculator(config)({
+					...row,
+					evalMetadata: {
+						beginSalaryAllocation: {
+							...row.evalMetadata.beginSalaryAllocation,
+							sourceReportId: "other-report",
+						},
+					},
+				}).actualCost,
+			).toBeNull();
+			expect(JSON.stringify(row)).toBe(before);
+		},
+	);
   it("adds default works and blank tracker fields when no settings exist", () => {
     const result = getDefaultConstructionProductivitySettings({
       Works: { DropDownOptions: { Masonry: "Masonry" } },

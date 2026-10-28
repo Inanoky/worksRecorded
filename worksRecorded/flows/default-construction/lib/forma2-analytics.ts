@@ -47,6 +47,8 @@ export type Forma2Allocation = {
 	assignedAt: string;
 	ruleId?: string | null;
 	overrideJournalPosition?: boolean;
+	costKind?: "material" | "mechanism";
+	basis?: string;
 	split?: Forma2Split;
 };
 
@@ -80,6 +82,8 @@ export type Forma2ActualSource = {
 	unit: string;
 	quantity: number | null;
 	reportedQuantity?: number | null;
+	quantitySource?: "drawing";
+	costSource?: "begin-report";
 	hours: number | null;
 	hourlyRate?: number | null;
 	unitRate?: number | null;
@@ -97,6 +101,13 @@ export type Forma2MappingRow = Forma2ActualSource & {
 };
 
 export type Forma2ResultRow = Forma2Position & {
+	directPlannedCosts?: Pick<
+		Forma2Position,
+		| "plannedWorkCost"
+		| "plannedMaterialCost"
+		| "plannedMechanismCost"
+		| "plannedTotalCost"
+	>;
 	actualQuantity: number | null;
 	excludedQuantityRecords: number;
 	actualWorkCost: number;
@@ -157,10 +168,13 @@ export function calculateForma2MoneyTotals(
 ): Forma2MoneyTotals {
 	const plannedTotals = rows.reduce(
 		(current, row) => ({
-			work: current.work + row.plannedWorkCost,
-			material: current.material + row.plannedMaterialCost,
-			mechanism: current.mechanism + row.plannedMechanismCost,
-			total: current.total + row.plannedTotalCost,
+			work: current.work + (row.directPlannedCosts ?? row).plannedWorkCost,
+			material:
+				current.material + (row.directPlannedCosts ?? row).plannedMaterialCost,
+			mechanism:
+				current.mechanism +
+				(row.directPlannedCosts ?? row).plannedMechanismCost,
+			total: current.total + (row.directPlannedCosts ?? row).plannedTotalCost,
 		}),
 		{ work: 0, material: 0, mechanism: 0, total: 0 },
 	);
@@ -693,7 +707,7 @@ export function buildForma2AnalyticsView(args: {
 	for (const source of mappingRows) {
 		if (!source.assignedPositionId || source.type !== "work") continue;
 		const position = positionsById.get(source.assignedPositionId);
-		if (!position) continue;
+		if (!position?.unit) continue;
 		const quantity = quantities.get(position.id) ?? {
 			amount: null,
 			excluded: 0,
@@ -725,7 +739,16 @@ export function buildForma2AnalyticsView(args: {
 				mechanism: 0,
 				records: new Set<string>(),
 			};
-			if (share.actualCost != null) current[source.type] += share.actualCost;
+			if (share.actualCost != null) {
+				const allocation = allocationsBySource.get(
+					`${source.type}:${source.id}`,
+				);
+				const kind =
+					source.type === "material"
+						? (allocation?.costKind ?? "material")
+						: "work";
+				current[kind] += share.actualCost;
+			}
 			current.records.add(`${source.type}:${source.id}`);
 			directTotals.set(share.positionId, current);
 		}
@@ -766,8 +789,28 @@ export function buildForma2AnalyticsView(args: {
 		const actual = totalsFor(position);
 		const quantity = quantities.get(position.id);
 		const actualTotalCost = actual.work + actual.material + actual.mechanism;
+		const descendants = childrenByParent.get(position.id) ?? [];
+		const directPlannedCosts = {
+			plannedWorkCost: position.plannedWorkCost,
+			plannedMaterialCost: position.plannedMaterialCost,
+			plannedMechanismCost: position.plannedMechanismCost,
+			plannedTotalCost: position.plannedTotalCost,
+		};
+		const planned = descendants.reduce(
+			(total, child) => ({
+				plannedWorkCost: total.plannedWorkCost + child.plannedWorkCost,
+				plannedMaterialCost:
+					total.plannedMaterialCost + child.plannedMaterialCost,
+				plannedMechanismCost:
+					total.plannedMechanismCost + child.plannedMechanismCost,
+				plannedTotalCost: total.plannedTotalCost + child.plannedTotalCost,
+			}),
+			{ ...directPlannedCosts },
+		);
 		return {
 			...position,
+			...planned,
+			directPlannedCosts,
 			actualQuantity:
 				quantity?.amount == null ? null : Number(quantity.amount.toFixed(6)),
 			excludedQuantityRecords: quantity?.excluded ?? 0,
@@ -776,9 +819,9 @@ export function buildForma2AnalyticsView(args: {
 			actualMechanismCost: round(actual.mechanism),
 			actualTotalCost: round(actualTotalCost),
 			variance: round(
-				position.plannedWorkCost +
-					position.plannedMaterialCost +
-					position.plannedMechanismCost -
+				planned.plannedWorkCost +
+					planned.plannedMaterialCost +
+					planned.plannedMechanismCost -
 					actualTotalCost,
 			),
 			assignedRecords: actual.records.size,

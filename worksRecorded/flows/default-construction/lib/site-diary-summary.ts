@@ -1,6 +1,8 @@
-import type {
-  DefaultConstructionWorkCostMode,
-  DefaultConstructionWorkProductivitySetting,
+import {
+	type DefaultConstructionCostRecord,
+	type DefaultConstructionWorkCostMode,
+	type DefaultConstructionWorkProductivitySetting,
+	readDefaultConstructionRecordedCost,
 } from "./site-diary-productivity-settings";
 import {
   compareSiteDiaryWorkPrefixes,
@@ -21,6 +23,7 @@ export type DefaultConstructionSummarySourceRow = {
   Amounts?: number | null;
   WorkersInvolved?: number | string | null;
   TimeInvolved?: number | string | null;
+	evalMetadata?: unknown;
 };
 
 export type DefaultConstructionQuantityTotal = {
@@ -152,6 +155,7 @@ export function buildDefaultConstructionScopeSummary(args: {
   value: string;
   rows: DefaultConstructionSummarySourceRow[];
   productivitySettings?: DefaultConstructionWorkProductivitySetting[];
+	config?: Record<string, any>;
 }): DefaultConstructionScopeSummary {
   const summaryRows = args.rows.filter((row) => String(row.Works ?? "").trim());
   const totals = { workers: 0, hours: 0 };
@@ -175,6 +179,8 @@ export function buildDefaultConstructionScopeSummary(args: {
       comparedHours: number;
       comparedRecords: number;
       hoursRecords: number;
+			recordedCostCents: number;
+			recordedCostRecords: number;
     }
   >();
   const dates: Date[] = [];
@@ -206,16 +212,23 @@ export function buildDefaultConstructionScopeSummary(args: {
       comparedHours: 0,
       comparedRecords: 0,
       hoursRecords: 0,
+			recordedCostCents: 0,
+			recordedCostRecords: 0,
     };
     current.records += 1;
+		const recordedCost = readDefaultConstructionRecordedCost(
+			args.config ?? {},
+			row as DefaultConstructionCostRecord,
+		);
+		if (recordedCost != null) {
+			current.recordedCostCents += Math.round(recordedCost * 100);
+			current.recordedCostRecords += 1;
+		}
     current.amount += finiteNumber(row.Amounts);
     current.workers += workers;
     current.hours += hours;
     if (manHours != null) current.hoursRecords += 1;
-    if (
-      isPresentFiniteNumber(row.Amounts) &&
-      manHours != null
-    ) {
+		if (isPresentFiniteNumber(row.Amounts) && manHours != null) {
       current.comparedAmount += Number(row.Amounts);
       current.comparedHours += manHours;
       current.comparedRecords += 1;
@@ -252,13 +265,20 @@ export function buildDefaultConstructionScopeSummary(args: {
         plannedHours != null && hasHourlyCost
           ? plannedHours * hourlyCost
           : null;
-      const actualCost =
-        costCalculationMode === "output"
+			const recorded =
+				args.config?.otherSettings?.beginSalaryAllocation?.costSource ===
+				"begin-report";
+			const actualCost = recorded
+				? row.recordedCostRecords > 0
+					? row.recordedCostCents / 100
+					: null
+				: costCalculationMode === "output"
           ? plannedCost
           : hasHourlyCost && hasActualHours
             ? row.hours * hourlyCost
             : null;
       const outputCostComparable =
+				!recorded &&
         costCalculationMode === "output" &&
         plannedCost != null &&
         actualCost != null;
@@ -296,6 +316,7 @@ export function buildDefaultConstructionScopeSummary(args: {
               ? round(plannedNorm * hourlyCost)
               : null,
           actualUnitCost:
+						!recorded &&
             costCalculationMode === "output" &&
             hasConfiguredPlan &&
             hasHourlyCost
@@ -315,7 +336,9 @@ export function buildDefaultConstructionScopeSummary(args: {
       const comparedPlannedCost = hasHourlyCost
         ? comparedPlannedHours * hourlyCost
         : null;
-      const comparedActualCost = hasHourlyCost
+			const comparedActualCost = recorded
+				? null
+				: hasHourlyCost
         ? costCalculationMode === "output"
           ? comparedPlannedCost
           : row.comparedHours * hourlyCost
@@ -355,7 +378,7 @@ export function buildDefaultConstructionScopeSummary(args: {
           comparedPlannedCost != null && comparedActualCost != null,
         plannedUnitCost: hasHourlyCost ? round(plannedNorm * hourlyCost) : null,
         actualUnitCost:
-          costCalculationMode === "output" && hasHourlyCost
+					!recorded && costCalculationMode === "output" && hasHourlyCost
             ? round(plannedNorm * hourlyCost)
             : actualCost != null && row.amount > 0
               ? round(actualCost / row.amount)

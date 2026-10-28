@@ -553,16 +553,12 @@ describe("Forma 2 analytics", () => {
 		});
 		const parent = view.resultRows[0];
 
-		expect(view.summary.plannedCost).toBe(
-			parent.plannedTotalCost + materialChild.plannedTotalCost,
-		);
+		expect(view.summary.plannedCost).toBe(parent.plannedTotalCost);
 		expect(calculateForma2MoneyTotals(view.resultRows)).toEqual({
 			plannedWorkCost: parent.plannedWorkCost,
-			plannedMaterialCost:
-				parent.plannedMaterialCost + materialChild.plannedMaterialCost,
+			plannedMaterialCost: parent.plannedMaterialCost,
 			plannedMechanismCost: parent.plannedMechanismCost,
-			plannedTotalCost:
-				parent.plannedTotalCost + materialChild.plannedTotalCost,
+			plannedTotalCost: parent.plannedTotalCost,
 			actualWorkCost: parent.actualWorkCost,
 			actualMaterialCost: parent.actualMaterialCost,
 			actualMechanismCost: 0,
@@ -571,10 +567,7 @@ describe("Forma 2 analytics", () => {
 				parent.plannedWorkCost +
 				parent.plannedMaterialCost +
 				parent.plannedMechanismCost +
-				materialChild.plannedWorkCost +
-				materialChild.plannedMaterialCost +
-				materialChild.plannedMechanismCost -
-				parent.actualTotalCost,
+				-parent.actualTotalCost,
 		});
 	});
 });

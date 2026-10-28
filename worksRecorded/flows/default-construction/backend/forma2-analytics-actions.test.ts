@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/utils/db";
 import { orgCheck } from "@/server/actions/shared-actions";
 import type { Forma2Position } from "../lib/forma2-analytics";
+import * as drawingQuantities from "../lib/forma2-drawing-quantities";
 import { enableDefaultConstructionQuantityProfile } from "../lib/quantity-plan-actual";
 import {
 	getDefaultConstructionForma2MappingPage,
@@ -23,6 +24,7 @@ jest.mock("./forma2-auto-assignment", () => ({
 }));
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
+		documents: { findMany: jest.fn() },
 		analytics: {
 			findUnique: jest.fn(),
 			upsert: jest.fn(),
@@ -109,6 +111,113 @@ describe("Forma 2 diary quantity loaders", () => {
 		jest.mocked(prisma.bISmaterialRecords.findMany).mockResolvedValue([]);
 		jest.mocked(prisma.bISmaterialRecords.count).mockResolvedValue(0);
 	});
+
+	it("uses saved drawing measurements in results and quantity details while retaining the original report", async () => {
+		jest
+			.mocked(prisma.site.findUnique)
+			.mockResolvedValue({
+				name: "Site",
+				siteDiaryRecordsMap: {
+					otherSettings: { forma2Accuracy: { quantitySource: "drawing" } },
+				},
+			} as never);
+		jest.mocked(prisma.documents.findMany).mockResolvedValue([]);
+		const measure = jest
+			.spyOn(drawingQuantities, "readForma2DrawingQuantities")
+			.mockReturnValue(
+				new Map([["diary", { quantity: 25.2, drawingIds: ["drawing"] }]]),
+			);
+		try {
+			const result = await getDefaultConstructionForma2Results("site");
+			const detail = await getDefaultConstructionForma2PositionQuantityDetails({
+				siteId: "site",
+				positionId: position.id,
+			});
+			expect(result.resultRows[0].actualQuantity).toBe(25.2);
+			expect(detail.calculatedTotal).toBe(25.2);
+			expect(detail.records[0]).toMatchObject({
+				quantity: 25.2,
+				reportedQuantity: 25.2,
+			});
+			expect(prisma.documents.findMany).toHaveBeenCalledTimes(2);
+		} finally {
+			measure.mockRestore();
+		}
+	});
+
+	it.each([36729, 0, null])(
+		"uses Begin cents %s in Forma 2 results, mapping, and cost details",
+		async (cents) => {
+			jest.mocked(prisma.site.findUnique).mockResolvedValue({
+				name: "Site",
+				siteDiaryRecordsMap: {
+					Works: { DropDownOptions: { Floor: "Floor" } },
+					otherSettings: {
+						beginSalaryAllocation: {
+							costSource: "begin-report",
+							sourceReportId: "report",
+							planSha256: "plan",
+						},
+						defaultConstructionProductivity: {
+							version: 4,
+							works: [
+								{
+									work: "Floor",
+									unit: "m2",
+									laborNormHoursPerUnit: 1,
+									hourlyCost: 999,
+									costCalculationMode: "output",
+								},
+							],
+						},
+					},
+				},
+			} as never);
+			jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([
+				{
+					id: "diary",
+					Works: "Floor",
+					Units: "m2",
+					Amounts: 67,
+					WorkersInvolved: 3,
+					TimeInvolved: 8,
+					evalMetadata: {
+						beginSalaryAllocation: {
+							kind: "begin-salary-allocation:v1",
+							currency: "EUR",
+							sourceReportId: "report",
+							planSha256: "plan",
+							totalCents: cents,
+							totalMinutes: 125,
+						},
+					},
+				},
+			] as never);
+			const cost = cents === null ? null : cents / 100;
+			const results = await getDefaultConstructionForma2Results("site");
+			const mapping = await getDefaultConstructionForma2MappingPage({
+				siteId: "site",
+				assignment: "all",
+				sourceType: "work",
+			});
+			const details = await getDefaultConstructionForma2PositionCostDetails({
+				siteId: "site",
+				positionId: position.id,
+				costType: "work",
+			});
+			expect(results.resultRows[0].actualWorkCost).toBe(cost ?? 0);
+			expect(mapping.rows[0]).toMatchObject({
+				actualCost: cost,
+				hours: 125 / 60,
+				quantity: 67,
+			});
+			expect(details.records[0].actualCost).toBe(cost);
+			expect(details.calculatedTotal).toBe(cost ?? 0);
+			for (const [query] of jest.mocked(prisma.sitediaryrecords.findMany).mock
+				.calls)
+				expect(query).toMatchObject({ select: { evalMetadata: true } });
+		},
+	);
 
 	it.each([
 		{ profile: true, mode: "output", quantity: 74.67, cost: 149.34 },
@@ -220,17 +329,15 @@ describe("Forma 2 diary quantity loaders", () => {
 			.mockResolvedValue([
 				{ id: "diary", Works: thermowhite.name, Units: "m2", Amounts: 420 },
 			] as never);
-		jest
-			.mocked(prisma.bISmaterialRecords.findMany)
-			.mockResolvedValue([
-				{
-					id: "invoice",
-					name: thermowhite.name,
-					measurementUnit: "m2",
-					quantity: 900,
-					cost: 50,
-				},
-			] as never);
+		jest.mocked(prisma.bISmaterialRecords.findMany).mockResolvedValue([
+			{
+				id: "invoice",
+				name: thermowhite.name,
+				measurementUnit: "m2",
+				quantity: 900,
+				cost: 50,
+			},
+		] as never);
 		const results = await getDefaultConstructionForma2Results("site");
 		expect(
 			results.resultRows.find((row) => row.id === thermowhite.id),

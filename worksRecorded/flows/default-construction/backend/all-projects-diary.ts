@@ -132,7 +132,7 @@ function addActualCosts(
             ? readSbPlan({ Works_Custom_1, Works_Custom_2, Comments_Custom_2 })
             : null,
         Site: Site ? { name: Site.name } : null,
-        actualCost: calculateCost(record).actualCost,
+        actualCost: calculateCost({ ...record, evalMetadata }).actualCost,
         quantityPlanFactEnabled: quantityComparison.enabled,
         plannedAmount: quantityComparison.plannedAmount,
         actualAmount: quantityComparison.actualAmount,
