@@ -25,7 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { MoreHorizontal } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRefreshSettings } from "@/components/settings/SettingsRefreshContext";
 import { useActionState } from "react";
 import { toast } from "sonner";
 import { z } from "zod"; // <-- Zod
@@ -190,7 +190,7 @@ export function MembersTable({
   hideStatus = false,
   titleVariant = "default",
 }: MembersTableProps) {
-  const router = useRouter();
+  const refreshSettings = useRefreshSettings();
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSettingsUiMessages(language);
   const toastMessages = getToastMessages(language);
@@ -258,11 +258,11 @@ export function MembersTable({
       setDraftById({});
       setEditRowId(null);
       setAnyChanges(false);
-      router.refresh();
+      refreshSettings();
     } else if (result && result.ok === false) {
       toast.error(result.message ?? t.updateFailed);
     }
-  }, [result, router, t.memberUpdated, t.updateFailed]);
+  }, [result, refreshSettings, t.memberUpdated, t.updateFailed]);
 
   const table = useReactTable({
     data,
@@ -378,7 +378,7 @@ export function MembersTable({
                     toast.success(t.invitationSent);
                     setNewEmail("");
                     setOpenAdd(false);
-                    router.refresh();
+                    refreshSettings();
                   } else {
                     toast.error(res?.message ?? toastMessages.failedSendInvite);
                   }
@@ -691,7 +691,7 @@ export function MembersTable({
                                       return;
                                     }
                                     toast.success(toastMessages.userDeleted);
-                                    router.refresh();
+                                    refreshSettings();
                                   } catch (error: any) {
                                     toast.error(error?.message ?? toastMessages.failedDeleteUser);
                                   }

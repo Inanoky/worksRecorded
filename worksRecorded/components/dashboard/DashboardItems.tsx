@@ -2,7 +2,7 @@
 
 import { Building2, Check, ChevronDown, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useProject } from "@/components/providers/ProjectProvider";
 import {
@@ -26,6 +26,7 @@ import {
 	getTgemWorkspaceNavLinks,
 	type TgemWorkspaceNavLink,
 } from "./NavLinks";
+import { DashboardSettingsLink } from "./DashboardSettingsLink";
 import { useDashboardNavigation } from "./useDashboardNavigation";
 
 export function DashboardItems({
@@ -41,7 +42,7 @@ export function DashboardItems({
 	flowModuleKey?: FlowModuleKey | null;
 }) {
 	const pathname = usePathname();
-	const router = useRouter();
+
 	const globalNavLinks = useMemo(
 		() =>
 			getNavLinks(organizationLanguage, {
@@ -66,12 +67,11 @@ export function DashboardItems({
 			{globalNavLinks.map((item) => (
 				<Tooltip key={item.name}>
 					<TooltipTrigger asChild>
-						<Link
+						<DashboardSettingsLink
 							href={item.href}
 							prefetch={false}
 							aria-label={item.name}
 							title={item.name}
-							onMouseEnter={() => router.prefetch(item.href)}
 							className={cn(
 								item.isActive
 									? "border-green-300 bg-green-50 text-green-700 dark:border-emerald-500/45 dark:bg-emerald-500/12 dark:text-emerald-300"
@@ -83,7 +83,7 @@ export function DashboardItems({
 							<span className="hidden min-w-0 truncate xl:inline-block">
 								{item.name}
 							</span>
-						</Link>
+						</DashboardSettingsLink>
 					</TooltipTrigger>
 					<TooltipContent className="xl:hidden">{item.name}</TooltipContent>
 				</Tooltip>

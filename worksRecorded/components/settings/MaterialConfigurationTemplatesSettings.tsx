@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRefreshSettings } from "@/components/settings/SettingsRefreshContext";
 import { toast } from "sonner";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -91,7 +91,7 @@ export function MaterialConfigurationTemplatesSettings({
   materialTypes,
   organizationLanguage,
 }: Props) {
-  const router = useRouter();
+  const refreshSettings = useRefreshSettings();
   const [isPending, startTransition] = React.useTransition();
   const [drafts, setDrafts] = React.useState<TemplateDraft[]>(() => templates.map(copyTemplate));
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -165,7 +165,7 @@ export function MaterialConfigurationTemplatesSettings({
     const result = await updateOrganizationMaterialConfigurationTemplates(orgId, nextTemplates);
     setDrafts(result.templates.map(copyTemplate));
     toast.success(text.saved);
-    router.refresh();
+    refreshSettings();
   };
 
   const saveFormDraft = () => {

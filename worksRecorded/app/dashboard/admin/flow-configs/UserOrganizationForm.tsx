@@ -5,6 +5,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 
+import { useRefreshSettings } from "@/components/settings/SettingsRefreshContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -42,6 +43,7 @@ export function UserOrganizationForm({
 }) {
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedOrganizationId, setSelectedOrganizationId] = useState("");
+  const refreshSettings = useRefreshSettings();
   const [state, formAction] = useActionState<
     SwitchUserOrganizationState,
     FormData
@@ -52,12 +54,13 @@ export function UserOrganizationForm({
     if (!state) return;
     if (state.ok) {
       toast.success(state.message);
+      refreshSettings();
       setSelectedUserId("");
       setSelectedOrganizationId("");
       return;
     }
     toast.error(state.message);
-  }, [state]);
+  }, [state, refreshSettings]);
 
   return (
     <form action={formAction} className="space-y-4">

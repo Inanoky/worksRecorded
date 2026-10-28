@@ -9,6 +9,10 @@ import {
 	DashboardItems,
 	DashboardProjectNavigation,
 } from "@/components/dashboard/DashboardItems";
+import {
+	DashboardSettingsContent,
+	DashboardSettingsProvider,
+} from "@/components/dashboard/DashboardSettingsProvider";
 import { LanguageFlagSwitcher } from "@/components/dashboard/LanguageFlagSwitcher";
 import { LimeniSuiteLogo } from "@/components/dashboard/LimeniSuiteLogo";
 import { LimeniSuiteTheme } from "@/components/dashboard/LimeniSuiteTheme";
@@ -63,11 +67,12 @@ export default async function DashboardLayout({
 	const user = await requireUser();
 	const userId = user.id;
 	const isSuperUser = isSuperUserId(userId);
-	const [email, organizationLanguage, organizationId] = await Promise.all([
+	const [email, organizationLanguage, accountOrganizationId] = await Promise.all([
 		getUserEmailByUserId(user.id),
 		getOrganizationLanguageByUserId(user.id),
-		isSuperUser ? Promise.resolve(null) : getOrganizationIdByUserId(user.id),
+		getOrganizationIdByUserId(user.id),
 	]);
+	const organizationId = isSuperUser ? null : accountOrganizationId;
 	const t = getDashboardMessages(organizationLanguage);
 	const canAccessAiEvals = hasAiEvalAccess(userId) && isAiEvalUiEnabled();
 	const requestHeaders = await headers();
@@ -142,6 +147,11 @@ export default async function DashboardLayout({
 					/>
 				) : null}
 			<DiarySaveProvider key={userId} userId={userId} projects={headerProjects} language={organizationLanguage}>
+			<DashboardSettingsProvider
+				key={JSON.stringify([userId, accountOrganizationId, organizationLanguage, flowModuleKey, canAccessFlowConfigs])}
+				canAccessFlowConfigs={canAccessFlowConfigs}
+				organizationLanguage={organizationLanguage}
+			>
 			<section className={`${suiteClassName} min-h-screen w-full flex flex-col`}>
 				{/* CSS-only modal (hash :target) */}
 				<style>{`
@@ -326,9 +336,10 @@ export default async function DashboardLayout({
 
 				{/* Main content */}
 				<main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
-					{children}
+					<DashboardSettingsContent>{children}</DashboardSettingsContent>
 				</main>
 			</section>
+			</DashboardSettingsProvider>
 			</DiarySaveProvider>
 			</FimaWarehouseProvider>
 		</ProjectLoadingProgressProvider>

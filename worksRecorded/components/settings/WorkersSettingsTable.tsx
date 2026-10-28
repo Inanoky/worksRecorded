@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
+import { useRefreshSettings } from "@/components/settings/SettingsRefreshContext";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,7 +122,7 @@ function getWorkerValidationMessages(language: string) {
 }
 
 export function WorkersSettingsTable({ orgId, workers, projects, organizationLanguage, hideReminders = false }: Props) {
-  const router = useRouter();
+  const refreshSettings = useRefreshSettings();
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getWorkersUiMessages(language);
   const toastMessages = getToastMessages(language);
@@ -233,7 +233,7 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
         toast.success(toastMessages.workerCreated);
         setAddOpen(false);
         setNewWorker((prev) => ({ ...prev, name: "", surname: "", role: "worker", phone: "", siteId: "none" }));
-        router.refresh();
+        refreshSettings();
       } else {
         toast.error(toastMessages.failedCreateWorker);
       }
@@ -268,7 +268,7 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
       if (res.ok) {
         toast.success(toastMessages.workerUpdated);
         setEditOpen(false);
-        router.refresh();
+        refreshSettings();
       } else {
         toast.error(toastMessages.failedUpdateWorker);
       }
@@ -282,7 +282,7 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
     const res = await deleteOrganizationWorker(workerId);
     if (res.ok) {
       toast.success(toastMessages.workerDeleted);
-      router.refresh();
+      refreshSettings();
     } else {
       toast.error(toastMessages.failedDeleteWorker);
     }

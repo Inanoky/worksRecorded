@@ -1,3 +1,7 @@
+jest.mock("@/components/dashboard/DashboardSettingsProvider", () => ({
+  DashboardSettingsProvider: ({children}: {children: React.ReactNode}) => <>{children}</>,
+  DashboardSettingsContent: ({children}: {children: React.ReactNode}) => <>{children}</>,
+}));
 import { render, screen } from "@testing-library/react";
 
 const mockRequireUser = jest.fn();

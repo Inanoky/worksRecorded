@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useRefreshSettings } from "@/components/settings/SettingsRefreshContext";
 import { Button } from "@/components/ui/button";
 import type { FlowModuleDefinition } from "@/lib/flows/types";
 import {
@@ -28,6 +29,7 @@ export function FlowAssignmentForm({
   organizations: OrganizationOption[];
   modules: FlowModuleDefinition[];
 }) {
+  const refreshSettings = useRefreshSettings();
   const [state, formAction] = useActionState<AssignFlowState, FormData>(
     assignFlowToOrganizationAction,
     null,
@@ -37,10 +39,11 @@ export function FlowAssignmentForm({
     if (!state) return;
     if (state.ok) {
       toast.success(state.message);
+      refreshSettings();
       return;
     }
     toast.error(state.message);
-  }, [state]);
+  }, [state, refreshSettings]);
 
   return (
     <form action={formAction} className="space-y-4">

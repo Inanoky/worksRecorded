@@ -19,6 +19,7 @@ import {
 	getTgemWorkspaceNavLinks,
 	type TgemWorkspaceNavLink,
 } from "./NavLinks";
+import { DashboardSettingsLink } from "./DashboardSettingsLink";
 import { useDashboardNavigation } from "./useDashboardNavigation";
 
 export function MobileMenu({
@@ -163,7 +164,7 @@ export function MobileMenu({
 				))}
 				{globalNavLinks.map((item) => (
 					<DropdownMenuItem key={item.name} asChild>
-						<Link
+						<DashboardSettingsLink
 							href={item.href}
 							prefetch={false}
 							className={cn(
@@ -175,7 +176,7 @@ export function MobileMenu({
 						>
 							<item.icon className="size-4" />
 							<span className="min-w-0 truncate">{item.name}</span>
-						</Link>
+						</DashboardSettingsLink>
 					</DropdownMenuItem>
 				))}
 
