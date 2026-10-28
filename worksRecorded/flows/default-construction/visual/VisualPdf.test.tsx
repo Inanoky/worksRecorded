@@ -13,6 +13,7 @@ import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
 import { VisualClientCache } from "./visual-client-cache";
 import {
 	mergeZoneGeometry,
+	validZoneGeometry,
 	zoneGeometryArea,
 	zoneRingPoints,
 } from "./zone-geometry";
@@ -1731,4 +1732,57 @@ it("cancels only the new polygon pen, keeps earlier draft edits and saves no ext
 	expect(geometry[1]).not.toEqual(
 		mergeZoneGeometry([componentMarks[1].polygon])[0],
 	);
+});
+
+it("rejects a cut-out moved through the outer boundary without blocking further editing or saving", async () => {
+	const pieces = [
+		componentRectangle(0.1, 0.1, 0.8, 0.3),
+		componentRectangle(0.1, 0.6, 0.8, 0.8),
+		componentRectangle(0.1, 0.3, 0.3, 0.6),
+		componentRectangle(0.6, 0.3, 0.8, 0.6),
+	];
+	const marks = pieces.map((polygon, index) => ({
+		...mark,
+		id: `frame-${index}`,
+		polygon,
+	}));
+	const onQueueSave = jest.fn();
+	render(
+		<VisualPdf
+			url="/drawing"
+			marks={marks}
+			selected="frame-0"
+			onSelect={jest.fn()}
+			editable
+			onQueueSave={onQueueSave}
+		/>,
+	);
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Pielāgot zonu" })).toBeEnabled(),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	for (let i = 0; i < 35; i++)
+		fireEvent.keyDown(
+			screen.getByRole("button", { name: "Izgriezums 1 stūris 1" }),
+			{ key: "ArrowLeft", shiftKey: true },
+		);
+	expect(screen.getByText(/Šis labojums krustotu/)).toBeInTheDocument();
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	expect(screen.getByRole("button", { name: "Saglabāt zonu" })).toBeEnabled();
+	expect(
+		screen.getByRole("button", { name: "Pievienot poligonu" }),
+	).toBeEnabled();
+	fireEvent.keyDown(
+		screen.getByRole("button", { name: "Izgriezums 1 stūris 1" }),
+		{ key: "ArrowRight", shiftKey: true },
+	);
+	expect(screen.queryByText(/Šis labojums krustotu/)).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
+	expect(onQueueSave).toHaveBeenCalledTimes(1);
+	expect(
+		validZoneGeometry(
+			mergeZoneGeometry(onQueueSave.mock.calls[0][0].group.polygons),
+		),
+	).toBe(true);
+	expect(marks.map((item) => item.polygon)).toEqual(pieces);
 });

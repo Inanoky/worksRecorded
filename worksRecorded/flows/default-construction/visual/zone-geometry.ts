@@ -20,6 +20,29 @@ export function addZonePolygon(geometry: MultiPolygon, points: Point[]) {
 	]);
 }
 
+export function editableZoneGeometry(geometry: MultiPolygon): MultiPolygon {
+	return geometry.map((polygon) =>
+		polygon.flatMap((ring, index) => {
+			const points = zoneRingPoints(ring);
+			const area = polygonArea(points);
+			if (index && area <= 1e-12) return [];
+			const clean = points.filter((point, i) => {
+				const previous = points[(i + points.length - 1) % points.length];
+				return Math.hypot(point.x - previous.x, point.y - previous.y) > 1e-9;
+			});
+			if (
+				clean.length < 3 ||
+				clean.length === points.length ||
+				!isSimplePolygon(clean) ||
+				Math.abs(polygonArea(clean) - area) > 1e-12
+			)
+				return [ring];
+			const pairs = clean.map(({ x, y }): Pair => [x, y]);
+			return [[...pairs, pairs[0]]];
+		}),
+	);
+}
+
 export function zoneGeometryPath(geometry: MultiPolygon) {
 	return geometry
 		.flatMap((polygon) =>

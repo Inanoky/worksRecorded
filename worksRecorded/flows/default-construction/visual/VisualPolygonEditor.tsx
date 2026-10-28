@@ -22,7 +22,7 @@ export function VisualPolygonEditor({
 	disabled?: boolean;
 	planned?: boolean;
 	labelPrefix?: string;
-	onChange: (area: VisualPlanArea) => void;
+	onChange: (area: VisualPlanArea) => boolean;
 }) {
 	const [cornerIds, setCornerIds] = useState(() =>
 		area.polygon.map((_, index) => `corner-${index}`),
@@ -111,8 +111,8 @@ export function VisualPolygonEditor({
 						if (event.key === "Delete" || event.key === "Backspace") {
 							event.preventDefault();
 							if (area.polygon.length <= 3) return;
-							setCornerIds((ids) => ids.filter((_, i) => i !== index));
-							onChange(removeVisualPlanVertex(area, index));
+							if (onChange(removeVisualPlanVertex(area, index)) !== false)
+								setCornerIds((ids) => ids.filter((_, i) => i !== index));
 						}
 					}}
 				/>
@@ -143,13 +143,14 @@ export function VisualPolygonEditor({
 								}}
 								onClick={() => {
 									if (disabled) return;
+									if (onChange(insertVisualPlanVertex(area, index)) === false)
+										return;
 									const id = `corner-${nextCornerId.current++}`;
 									setCornerIds((ids) => [
 										...ids.slice(0, index + 1),
 										id,
 										...ids.slice(index + 1),
 									]);
-									onChange(insertVisualPlanVertex(area, index));
 								}}
 							>
 								+

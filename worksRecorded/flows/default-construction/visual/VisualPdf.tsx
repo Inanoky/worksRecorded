@@ -57,6 +57,7 @@ import { MAX_DRAWING_ZOOM, MIN_DRAWING_ZOOM } from "./viewport";
 import type { VisualClientCache } from "./visual-client-cache";
 import {
 	addZonePolygon,
+	editableZoneGeometry,
 	mergeZoneGeometry,
 	replaceZoneRing,
 	splitZoneGeometry,
@@ -249,6 +250,7 @@ export function VisualPdf({
 	const [layerPicker, setLayerPicker] = useState<LayerPicker | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
+	const [editWarning, setEditWarning] = useState<string | null>(null);
 	const handledAreaRequest = useRef(planning?.areaRequest ?? 0);
 	const planningInteractionKey = planning?.interactionKey ?? planning?.planId;
 	const previousPlanningInteractionKey = useRef(planningInteractionKey);
@@ -456,49 +458,63 @@ export function VisualPdf({
 	);
 
 	function updateDraftRing(ring: number, polygon: PolygonEdit["polygon"]) {
-		setDraft((current) =>
-			!current
-				? current
-				: current.zone
-					? {
-							...current,
-							zone: {
-								...current.zone,
-								geometry: replaceZoneRing(
-									current.zone.geometry,
-									current.zone.component,
-									ring,
-									polygon,
-								),
-							},
-						}
-					: { ...current, polygon },
+		if (!draft) return false;
+		return acceptDraft(
+			draft.zone
+				? {
+						...draft,
+						zone: {
+							...draft.zone,
+							geometry: replaceZoneRing(
+								draft.zone.geometry,
+								draft.zone.component,
+								ring,
+								polygon,
+							),
+						},
+					}
+				: { ...draft, polygon },
 		);
 	}
 	function moveDraft(polygon: PolygonEdit["polygon"]) {
-		setDraft((current) =>
-			!current
-				? current
-				: current.zone
-					? {
-							...current,
-							zone: {
-								...current.zone,
-								geometry: translateZoneComponent(
-									current.zone.geometry,
-									current.zone.component,
-									polygon,
-								),
-							},
-						}
-					: { ...current, polygon },
+		if (!draft) return;
+		acceptDraft(
+			draft.zone
+				? {
+						...draft,
+						zone: {
+							...draft.zone,
+							geometry: translateZoneComponent(
+								draft.zone.geometry,
+								draft.zone.component,
+								polygon,
+							),
+						},
+					}
+				: { ...draft, polygon },
 		);
+	}
+	function acceptDraft(next: ZoneDraft) {
+		if (
+			!(next.zone
+				? validZoneGeometry(next.zone.geometry)
+				: polygonEditSchema.safeParse(next).success)
+		) {
+			setEditWarning(
+				"Šis labojums krustotu malas vai izgriezuma robežu. Saglabāta iepriekšējā kontūra — pārvietojiet punktu citā vietā.",
+			);
+			return false;
+		}
+		setDraft(next);
+		setEditWarning(null);
+		return true;
 	}
 	function endEditing() {
 		setDraft(null);
 		setPenMode(null);
 		setPenPreview([]);
 		setSaveError(null);
+		setEditWarning(null);
 		onEditingChange?.(false);
 	}
 	function selectDraftComponent(component: number) {
@@ -508,6 +524,7 @@ export function VisualPdf({
 				: current,
 		);
 		setSaveError(null);
+		setEditWarning(null);
 	}
 	function deleteDraftComponent() {
 		setDraft((current) => {
@@ -526,13 +543,16 @@ export function VisualPdf({
 			};
 		});
 		setSaveError(null);
+		setEditWarning(null);
 	}
 	function completeDraftPolygon(polygon: PolygonEdit["polygon"]) {
 		if (!draft) return;
 		try {
-			const geometry = addZonePolygon(
-				draft.zone?.geometry ?? mergeZoneGeometry([draft.polygon]),
-				polygon,
+			const geometry = editableZoneGeometry(
+				addZonePolygon(
+					draft.zone?.geometry ?? mergeZoneGeometry([draft.polygon]),
+					polygon,
+				),
 			);
 			if (geometry.length > 256 || !validZoneGeometry(geometry))
 				throw new Error("Neizdevās pievienot poligonu. Pārbaudiet kontūru.");
@@ -551,6 +571,7 @@ export function VisualPdf({
 			setPenMode(null);
 			setPenPreview([]);
 			setSaveError(null);
+			setEditWarning(null);
 		} catch (error) {
 			setSaveError(
 				error instanceof Error
@@ -560,8 +581,9 @@ export function VisualPdf({
 		}
 	}
 	function updatePlanArea(area: VisualPlanArea) {
-		if (!planningAreaDraft) return;
+		if (!planningAreaDraft) return false;
 		setPlanningAreaDraft({ ...planningAreaDraft, area });
+		return true;
 	}
 	function addPlanArea() {
 		if (
@@ -1162,9 +1184,11 @@ export function VisualPdf({
 					onClick={() => {
 						if (!selectedMark) return;
 						navigation.freeze();
+						setEditWarning(null);
 						const group = zoneGroups.find((group) =>
 							group.marks.some((mark) => mark.id === selectedMark.id),
 						);
+						const geometry = group ? editableZoneGeometry(group.geometry) : [];
 						setDraft({
 							markId: selectedMark.id,
 							expectedPolygon: selectedMark.polygon,
@@ -1173,9 +1197,9 @@ export function VisualPdf({
 								? {
 										mutationId: crypto.randomUUID(),
 										zone: {
-											geometry: group.geometry,
+											geometry,
 											component: zoneComponentForPolygon(
-												group.geometry,
+												geometry,
 												selectedMark.polygon,
 											),
 											expected: group.marks.map((mark) => ({
@@ -1244,6 +1268,7 @@ export function VisualPdf({
 							setPenMode("polygon");
 							setPenPreview([]);
 							setSaveError(null);
+							setEditWarning(null);
 						}}
 					>
 						<Plus className="h-3.5 w-3.5" /> Pievienot poligonu
@@ -1449,6 +1474,11 @@ export function VisualPdf({
 					Zonas malas krustojas vai laukums ir pārāk mazs. Pielāgojiet stūrus
 					pirms saglabāšanas.
 				</p>
+			) : null}
+			{editWarning ? (
+				<output className="pointer-events-none absolute inset-x-3 top-16 z-30 rounded-md border bg-background p-3 text-sm text-amber-800">
+					{editWarning}
+				</output>
 			) : null}
 			{!selectedPlanAreaValid ? (
 				<p

@@ -1,6 +1,7 @@
 import { polygonEditSchema } from "./polygon-edit";
 import {
 	addZonePolygon,
+	editableZoneGeometry,
 	mergeZoneGeometry,
 	replaceZoneRing,
 	splitZoneGeometry,
@@ -22,6 +23,25 @@ const frame = [
 	rectangle(0.1, 0.3, 0.3, 0.6),
 	rectangle(0.6, 0.3, 0.8, 0.6),
 ];
+it("removes numerical cut-out slivers and near-duplicate corners while preserving real room boundaries", () => {
+	const geometry = mergeZoneGeometry(frame);
+	geometry[0][0].splice(1, 0, [0.100000000001, 0.1]);
+	geometry[0].push([
+		[0.2, 0.2],
+		[0.2000001, 0.2],
+		[0.2000001, 0.2000001],
+		[0.2, 0.2000001],
+		[0.2, 0.2],
+	]);
+	const before = JSON.stringify(geometry);
+	const cleaned = editableZoneGeometry(geometry);
+	expect(cleaned[0]).toHaveLength(2);
+	expect(zoneRingPoints(cleaned[0][0])).toHaveLength(4);
+	expect(cleaned[0][1]).toEqual(geometry[0][1]);
+	expect(zoneGeometryArea(cleaned)).toBeCloseTo(zoneGeometryArea(geometry), 12);
+	expect(validZoneGeometry(cleaned)).toBe(true);
+	expect(JSON.stringify(geometry)).toBe(before);
+});
 it("adds disconnected areas and merges overlapping additions without double counting or filling unrelated cut-outs", () => {
 	const original = mergeZoneGeometry(frame);
 	const separate = addZonePolygon(original, rectangle(0.85, 0.1, 0.95, 0.2));
