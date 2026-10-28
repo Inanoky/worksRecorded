@@ -887,6 +887,61 @@ it("automatically checks the retained drawing, pauses when hidden and checks aga
 	expect(screen.getAllByRole("combobox")[0]).toHaveValue("1. stāvs");
 });
 
+it("checks a cached drawing once before treating the current diary revision as synced and retries failures", async () => {
+	jest.useFakeTimers();
+	const snapshot = {
+		version: "cached-project",
+		partVersions: { diary: "diary-with-new-roof-records" },
+		index: {
+			userId: "user",
+			locations: ["1. stāvs"],
+			drawings: [
+				{
+					id: complete.id,
+					name: complete.name,
+					location: complete.state.location,
+					createdAt: complete.createdAt,
+					status: "complete",
+				},
+			],
+		},
+		drawings: [
+			{
+				drawing: complete,
+				preview: null,
+				planning: {
+					today: "2026-10-26",
+					location: "1. stāvs",
+					workOptions: [],
+					unitOptions: [],
+					contacts: [],
+					plans: [],
+				},
+			},
+		],
+		diary: { rows: [], mediaPhotos: [] },
+	} as unknown as NonNullable<
+		ReturnType<typeof useLimeniProjectData>["snapshot"]
+	>;
+	jest
+		.mocked(useLimeniProjectData)
+		.mockReturnValue({ enabled: true, snapshot, failed: false, denied: false });
+	jest
+		.mocked(refreshVisualDrawing)
+		.mockRejectedValueOnce(new Error("Temporary connection failure"));
+	await selectDrawing();
+	const pdf = screen.getByTestId("pdf");
+	mockFetch.mockClear();
+	await act(async () => jest.advanceTimersByTime(1000));
+	expect(refreshVisualDrawing).toHaveBeenCalledTimes(1);
+	await act(async () => jest.advanceTimersByTime(30_000));
+	expect(refreshVisualDrawing).toHaveBeenCalledTimes(2);
+	await act(async () => jest.advanceTimersByTime(30_000));
+	expect(refreshVisualDrawing).toHaveBeenCalledTimes(2);
+	expect(screen.getByTestId("pdf")).toBe(pdf);
+	expect(mockFetch).not.toHaveBeenCalled();
+});
+
 it("runs new-image analysis automatically with inline progress and retains the map after a failed call", async () => {
 	jest.useFakeTimers();
 	const updated: VisualDrawing = {

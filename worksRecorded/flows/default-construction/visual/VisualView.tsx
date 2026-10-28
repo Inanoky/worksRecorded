@@ -678,7 +678,7 @@ export default function VisualView({
 							: "Šai lokācijai nav jaunu vai mainītu žurnāla attēlu. Esošie rezultāti nav mainīti.",
 					);
 				if (!(result.analysisCount ?? result.addedCount + result.updatedCount))
-					return;
+					return true;
 			} else if (mode === "restart" && id)
 				await restartVisualDrawing(siteId, id);
 			if (!id) throw new Error("PDF augšupielāde neizdevās.");
@@ -706,9 +706,11 @@ export default function VisualView({
 			resourceCache.invalidateIndex();
 			const data = await loadIndex(true);
 			if (run === epoch.current) showIndex(data);
+			return true;
 		} catch (issue) {
 			if (run === epoch.current && request === requestId.current)
 				setError(issue instanceof Error ? issue.message : "Analīze neizdevās.");
+			return false;
 		} finally {
 			busyRef.current = false;
 			if (run === epoch.current) {
@@ -718,15 +720,7 @@ export default function VisualView({
 			}
 		}
 	}
-	const diarySyncRevisions = useRef<Map<string, string> | null>(null);
-	if (!diarySyncRevisions.current && projectData.snapshot)
-		diarySyncRevisions.current = new Map(
-			projectData.snapshot.drawings.map((item) => [
-				item.drawing.id,
-				projectData.snapshot?.partVersions?.diary ??
-					projectData.snapshot!.version,
-			]),
-		);
+	const diarySyncRevisions = useRef(new Map<string, string>());
 	useVisualAutoSync({
 		active: active && mode === "actual",
 		scope: drawing ? `${siteId}:${drawing.id}` : null,
@@ -738,12 +732,13 @@ export default function VisualView({
 			if (
 				projectData.enabled &&
 				drawing &&
-				revision === diarySyncRevisions.current?.get(drawing.id)
+				revision &&
+				revision === diarySyncRevisions.current.get(drawing.id)
 			)
 				return;
-			await process("refresh", true);
-			if (drawing && revision)
-				diarySyncRevisions.current?.set(drawing.id, revision);
+			const synced = await process("refresh", true);
+			if (synced && drawing && revision)
+				diarySyncRevisions.current.set(drawing.id, revision);
 		},
 	});
 	async function resolveReview(reanalyze: boolean) {
