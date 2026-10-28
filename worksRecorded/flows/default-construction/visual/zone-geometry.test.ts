@@ -1,5 +1,6 @@
 import { polygonEditSchema } from "./polygon-edit";
 import {
+	addZonePolygon,
 	mergeZoneGeometry,
 	replaceZoneRing,
 	splitZoneGeometry,
@@ -21,6 +22,27 @@ const frame = [
 	rectangle(0.1, 0.3, 0.3, 0.6),
 	rectangle(0.6, 0.3, 0.8, 0.6),
 ];
+it("adds disconnected areas and merges overlapping additions without double counting or filling unrelated cut-outs", () => {
+	const original = mergeZoneGeometry(frame);
+	const separate = addZonePolygon(original, rectangle(0.85, 0.1, 0.95, 0.2));
+	expect(separate).toHaveLength(2);
+	expect(separate.find((polygon) => polygon.length === 2)).toBeDefined();
+	expect(zoneGeometryArea(separate)).toBeCloseTo(
+		zoneGeometryArea(original) + 0.01,
+		12,
+	);
+	const overlap = addZonePolygon(separate, rectangle(0.7, 0.1, 0.9, 0.2));
+	expect(overlap).toHaveLength(1);
+	expect(overlap[0]).toHaveLength(2);
+	expect(zoneGeometryArea(overlap)).toBeCloseTo(
+		zoneGeometryArea(original) + 0.015,
+		12,
+	);
+	expect(
+		zoneGeometryArea(mergeZoneGeometry(splitZoneGeometry(overlap))),
+	).toBeCloseTo(zoneGeometryArea(overlap), 12);
+	expect(original).toEqual(mergeZoneGeometry(frame));
+});
 it("edits real outer and bathroom boundaries and round-trips them without changing area", () => {
 	const geometry = mergeZoneGeometry(frame);
 	expect(geometry).toHaveLength(1);

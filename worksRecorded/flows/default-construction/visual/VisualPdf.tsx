@@ -56,6 +56,8 @@ import { VisualZoneTarget } from "./VisualZoneTarget";
 import { MAX_DRAWING_ZOOM, MIN_DRAWING_ZOOM } from "./viewport";
 import type { VisualClientCache } from "./visual-client-cache";
 import {
+	addZonePolygon,
+	mergeZoneGeometry,
 	replaceZoneRing,
 	splitZoneGeometry,
 	translateZoneComponent,
@@ -70,6 +72,7 @@ type ZoneDraft = PolygonEdit & {
 	zone?: {
 		geometry: MultiPolygon;
 		component: number;
+		revision?: number;
 		expected: { markId: string; polygon: PolygonEdit["polygon"] }[];
 	};
 };
@@ -442,6 +445,15 @@ export function VisualPdf({
 					: [],
 		[draft],
 	);
+	const draftComponents = useMemo(
+		() =>
+			draft?.zone
+				? draft.zone.geometry.map((component) => zoneRingPoints(component[0]))
+				: draft
+					? [draft.polygon]
+					: [],
+		[draft],
+	);
 
 	function updateDraftRing(ring: number, polygon: PolygonEdit["polygon"]) {
 		setDraft((current) =>
@@ -484,8 +496,68 @@ export function VisualPdf({
 	}
 	function endEditing() {
 		setDraft(null);
+		setPenMode(null);
+		setPenPreview([]);
 		setSaveError(null);
 		onEditingChange?.(false);
+	}
+	function selectDraftComponent(component: number) {
+		setDraft((current) =>
+			current?.zone?.geometry[component]
+				? { ...current, zone: { ...current.zone, component } }
+				: current,
+		);
+		setSaveError(null);
+	}
+	function deleteDraftComponent() {
+		setDraft((current) => {
+			if (!current?.zone || current.zone.geometry.length <= 1) return current;
+			const geometry = current.zone.geometry.filter(
+				(_, index) => index !== current.zone?.component,
+			);
+			return {
+				...current,
+				zone: {
+					...current.zone,
+					geometry,
+					component: Math.min(current.zone.component, geometry.length - 1),
+					revision: (current.zone.revision ?? 0) + 1,
+				},
+			};
+		});
+		setSaveError(null);
+	}
+	function completeDraftPolygon(polygon: PolygonEdit["polygon"]) {
+		if (!draft) return;
+		try {
+			const geometry = addZonePolygon(
+				draft.zone?.geometry ?? mergeZoneGeometry([draft.polygon]),
+				polygon,
+			);
+			if (geometry.length > 256 || !validZoneGeometry(geometry))
+				throw new Error("Neizdevās pievienot poligonu. Pārbaudiet kontūru.");
+			setDraft({
+				...draft,
+				mutationId: draft.mutationId ?? crypto.randomUUID(),
+				zone: {
+					geometry,
+					component: zoneComponentForPolygon(geometry, polygon),
+					revision: (draft.zone?.revision ?? 0) + 1,
+					expected: draft.zone?.expected ?? [
+						{ markId: draft.markId, polygon: draft.expectedPolygon },
+					],
+				},
+			});
+			setPenMode(null);
+			setPenPreview([]);
+			setSaveError(null);
+		} catch (error) {
+			setSaveError(
+				error instanceof Error
+					? error.message
+					: "Neizdevās pievienot poligonu.",
+			);
+		}
 	}
 	function updatePlanArea(area: VisualPlanArea) {
 		if (!planningAreaDraft) return;
@@ -624,7 +696,8 @@ export function VisualPdf({
 		});
 	}
 	async function save() {
-		if (!draft || (!onSave && !onQueueSave) || !validDraft || saving) return;
+		if (!draft || (!onSave && !onQueueSave) || !validDraft || saving || penMode)
+			return;
 		let edit: PolygonEdit;
 		try {
 			if (draft.zone) {
@@ -1141,8 +1214,56 @@ export function VisualPdf({
 					<Trash2 className="h-4 w-4" />
 				</Button>
 			) : null}
-			{draft ? (
+			{draft && !penMode ? (
 				<>
+					{draft.zone ? (
+						<select
+							aria-label="Rediģējamais poligons"
+							className="h-8 max-w-40 rounded-md border bg-background px-2 text-xs"
+							value={draft.zone.component}
+							disabled={saving}
+							onChange={(event) =>
+								selectDraftComponent(Number(event.target.value))
+							}
+						>
+							{draft.zone.geometry.map((_, index) => (
+								<option key={`${draft.markId}:polygon:${index}`} value={index}>
+									Poligons {index + 1} / {draft.zone?.geometry.length}
+								</option>
+							))}
+						</select>
+					) : null}
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={
+							saving || !validDraft || (draft.zone?.geometry.length ?? 1) >= 256
+						}
+						onClick={() => {
+							navigation.freeze();
+							setPenMode("polygon");
+							setPenPreview([]);
+							setSaveError(null);
+						}}
+					>
+						<Plus className="h-3.5 w-3.5" /> Pievienot poligonu
+					</Button>
+					<Button
+						size="sm"
+						variant="outline"
+						aria-label="Dzēst izvēlēto poligonu"
+						title={
+							(draft.zone?.geometry.length ?? 1) <= 1
+								? "Zonā jāsaglabā vismaz viens poligons."
+								: "Dzēst izvēlēto poligonu"
+						}
+						disabled={
+							saving || !deletable || (draft.zone?.geometry.length ?? 1) <= 1
+						}
+						onClick={deleteDraftComponent}
+					>
+						<Trash2 className="h-3.5 w-3.5" /> Dzēst poligonu
+					</Button>
 					<Button
 						size="sm"
 						disabled={saving || !validDraft}
@@ -1465,7 +1586,7 @@ export function VisualPdf({
 									const editingGroup =
 										!!draft?.zone &&
 										group.marks.some((mark) => mark.id === draft.markId);
-									const Shape = group.marks.length === 1 ? "polygon" : "path";
+									const Shape = group.paths.length ? "path" : "polygon";
 									return (group.paths.length ? group.paths : [undefined]).map(
 										(path, index) => (
 											<Shape
@@ -1687,20 +1808,31 @@ export function VisualPdf({
 								);
 							})
 						: null}
-					{ready && draft ? (
+					{ready && draft && !penMode ? (
 						<>
-							<VisualPlanAreaTarget
-								area={{ id: draft.markId, page, polygon: draftRings[0] }}
-								label="Pārvietot zonu"
-								disabled={saving}
-								selected
-								surface={surface.current}
-								onSelect={() => {}}
-								onMove={(area) => moveDraft(area.polygon)}
-							/>
+							{draftComponents.map((polygon, index) => {
+								const selected = index === (draft.zone?.component ?? 0);
+								return (
+									<VisualPlanAreaTarget
+										key={`${draft.markId}:component:${index}`}
+										area={{ id: `${draft.markId}:${index}`, page, polygon }}
+										label={
+											selected
+												? "Pārvietot zonu"
+												: `Atlasīt poligonu ${index + 1}`
+										}
+										disabled={saving}
+										selected={selected}
+										movable={selected}
+										surface={surface.current}
+										onSelect={() => selectDraftComponent(index)}
+										onMove={(area) => moveDraft(area.polygon)}
+									/>
+								);
+							})}
 							{draftRings.map((polygon, index) => (
 								<VisualPolygonEditor
-									key={`${draft.markId}:${index}`}
+									key={`${draft.markId}:${draft.zone?.revision ?? 0}:${draft.zone?.component ?? 0}:${index}`}
 									area={{ id: `${draft.markId}:${index}`, page, polygon }}
 									labelPrefix={index ? `Izgriezums ${index}` : undefined}
 									surface={surface}
@@ -1709,6 +1841,26 @@ export function VisualPdf({
 								/>
 							))}
 						</>
+					) : null}
+					{ready && draft && penMode ? (
+						<VisualAreaPen
+							key={`zone:${draft.markId}:${penMode}`}
+							mode={penMode}
+							surface={surface}
+							viewport={navigation.viewport}
+							color={
+								(
+									layerStyles[selectedMark?.layer ?? "other"] ??
+									visualLayers.other
+								).color
+							}
+							onComplete={completeDraftPolygon}
+							onCancel={() => {
+								setPenMode(null);
+								setPenPreview([]);
+								setSaveError(null);
+							}}
+						/>
 					) : null}
 					{ready && planningAreaDraft && selectedPlanArea?.page === page ? (
 						<VisualPolygonEditor

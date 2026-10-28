@@ -14,6 +14,12 @@ export function mergeZoneGeometry(polygons: Point[][]): MultiPolygon {
 	return shapes.length ? polygonClipping.union(shapes) : [];
 }
 
+export function addZonePolygon(geometry: MultiPolygon, points: Point[]) {
+	return polygonClipping.union(geometry, [
+		points.map(({ x, y }): Pair => [x, y]),
+	]);
+}
+
 export function zoneGeometryPath(geometry: MultiPolygon) {
 	return geometry
 		.flatMap((polygon) =>

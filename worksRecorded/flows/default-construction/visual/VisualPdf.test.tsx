@@ -11,7 +11,11 @@ import type { VisualPlanArea } from "./planning-model";
 import { polygonEditReplacements } from "./polygon-edit";
 import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
 import { VisualClientCache } from "./visual-client-cache";
-import { mergeZoneGeometry, zoneRingPoints } from "./zone-geometry";
+import {
+	mergeZoneGeometry,
+	zoneGeometryArea,
+	zoneRingPoints,
+} from "./zone-geometry";
 import * as zoneOutline from "./zone-outline";
 
 const mockGetDocument = jest.fn();
@@ -1533,4 +1537,198 @@ it("edits only real outside and cut-out corners, then saves and reopens the unif
 	fireEvent.click(screen.getByRole("button", { name: "Atcelt" }));
 	expect(onQueueSave).toHaveBeenCalledTimes(1);
 	expect(marks.map((mark) => mark.polygon)).toEqual(pieces);
+});
+
+const componentRectangle = (x: number, y: number, r: number, b: number) => [
+	{ x, y },
+	{ x: r, y },
+	{ x: r, y: b },
+	{ x, y: b },
+];
+const componentMarks = [
+	{ ...mark, id: "left", polygon: componentRectangle(0.1, 0.1, 0.3, 0.3) },
+	{ ...mark, id: "right", polygon: componentRectangle(0.6, 0.1, 0.8, 0.3) },
+];
+
+it("selects a disconnected polygon on the drawing and removes only that polygon in the local draft before saving", async () => {
+	const onQueueSave = jest.fn();
+	const onDelete = jest.fn();
+	const { container } = render(
+		<VisualPdf
+			url="/drawing"
+			marks={componentMarks}
+			selected="left"
+			onSelect={jest.fn()}
+			editable
+			onQueueSave={onQueueSave}
+			onDelete={onDelete}
+		/>,
+	);
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Pielāgot zonu" })).toBeEnabled(),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	fireEvent.click(screen.getByRole("button", { name: "Atlasīt poligonu 2" }));
+	expect(
+		screen.getByRole("combobox", { name: "Rediģējamais poligons" }),
+	).toHaveValue("1");
+	fireEvent.click(
+		screen.getByRole("button", { name: "Dzēst izvēlēto poligonu" }),
+	);
+	expect(onQueueSave).not.toHaveBeenCalled();
+	expect(onDelete).not.toHaveBeenCalled();
+	expect(
+		screen.getByRole("button", { name: "Dzēst izvēlēto poligonu" }),
+	).toBeDisabled();
+	expect(container.querySelector("[data-zone-edit-piece]")).toHaveAttribute(
+		"d",
+		"M0.1,0.1 L0.3,0.1 L0.3,0.3 L0.1,0.3 L0.1,0.1 Z",
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
+	const edit = onQueueSave.mock.calls[0][0];
+	expect(
+		edit.group.expected.map((item: { markId: string }) => item.markId),
+	).toEqual(["left", "right"]);
+	expect(mergeZoneGeometry(edit.group.polygons)).toEqual(
+		mergeZoneGeometry([componentMarks[0].polygon]),
+	);
+	expect(componentMarks).toHaveLength(2);
+});
+
+it("cancels polygon deletion without changing marks or saving and resets the corner editor after removing a component", async () => {
+	const onQueueSave = jest.fn();
+	const { container } = render(
+		<VisualPdf
+			url="/drawing"
+			marks={componentMarks}
+			selected="left"
+			onSelect={jest.fn()}
+			editable
+			onQueueSave={onQueueSave}
+		/>,
+	);
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Pielāgot zonu" })).toBeEnabled(),
+	);
+	const original = container
+		.querySelector("[data-zone-group]")
+		?.getAttribute("d");
+	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	fireEvent.click(
+		screen.getByRole("button", { name: "Pievienot stūri pie malas 1" }),
+	);
+	expect(screen.getAllByRole("button", { name: /^Stūris \d+$/ })).toHaveLength(
+		5,
+	);
+	fireEvent.click(
+		screen.getByRole("button", { name: "Dzēst izvēlēto poligonu" }),
+	);
+	expect(screen.getAllByRole("button", { name: /^Stūris \d+$/ })).toHaveLength(
+		4,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Atcelt" }));
+	expect(container.querySelector("[data-zone-group]")).toHaveAttribute(
+		"d",
+		original,
+	);
+	expect(onQueueSave).not.toHaveBeenCalled();
+});
+
+it("adds a polygon to an existing single-piece zone and saves both with the original record and evidence", async () => {
+	const onQueueSave = jest.fn();
+	const { container } = render(
+		<VisualPdf
+			url="/drawing"
+			marks={[mark]}
+			selected={mark.id}
+			onSelect={jest.fn()}
+			editable
+			onQueueSave={onQueueSave}
+		/>,
+	);
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Pielāgot zonu" })).toBeEnabled(),
+	);
+	const surface = container.querySelector("canvas")
+		?.parentElement as HTMLElement;
+	jest
+		.spyOn(surface, "getBoundingClientRect")
+		.mockReturnValue({ left: 0, top: 0, width: 1000, height: 1000 } as DOMRect);
+	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	fireEvent.click(screen.getByRole("button", { name: "Pievienot poligonu" }));
+	expect(
+		screen.queryByRole("button", { name: "Saglabāt zonu" }),
+	).not.toBeInTheDocument();
+	const pen = screen.getByRole("application", {
+		name: "Zonas daudzstūra pildspalva",
+	});
+	for (const point of componentRectangle(0.6, 0.6, 0.8, 0.8))
+		fireEvent.click(pen, {
+			clientX: point.x * 1000,
+			clientY: point.y * 1000,
+			detail: 1,
+		});
+	fireEvent.click(screen.getByRole("button", { name: "Pabeigt kontūru" }));
+	expect(
+		screen.getByRole("combobox", { name: "Rediģējamais poligons" }),
+	).toHaveValue("1");
+	expect(container.querySelector("[data-zone-group]")?.tagName).toBe("path");
+	expect(onQueueSave).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
+	const edit = onQueueSave.mock.calls[0][0];
+	expect(edit.group.expected).toEqual([
+		{ markId: mark.id, polygon: mark.polygon },
+	]);
+	expect(mergeZoneGeometry(edit.group.polygons)).toHaveLength(2);
+	expect(zoneGeometryArea(mergeZoneGeometry(edit.group.polygons))).toBeCloseTo(
+		0.085,
+		12,
+	);
+	const replacements = polygonEditReplacements([mark], edit);
+	expect(
+		replacements.every((item) => item.evidenceId === mark.evidenceId),
+	).toBe(true);
+	expect(replacements[0].id).toBe(mark.id);
+});
+
+it("cancels only the new polygon pen, keeps earlier draft edits and saves no extra area", async () => {
+	const onQueueSave = jest.fn();
+	render(
+		<VisualPdf
+			url="/drawing"
+			marks={componentMarks}
+			selected="left"
+			onSelect={jest.fn()}
+			editable
+			onQueueSave={onQueueSave}
+		/>,
+	);
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Pielāgot zonu" })).toBeEnabled(),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	fireEvent.change(
+		screen.getByRole("combobox", { name: "Rediģējamais poligons" }),
+		{ target: { value: "1" } },
+	);
+	fireEvent.keyDown(screen.getByRole("button", { name: "Stūris 1" }), {
+		key: "ArrowRight",
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Pievienot poligonu" }));
+	fireEvent.keyDown(window, { key: "Escape" });
+	expect(
+		screen.getByRole("combobox", { name: "Rediģējamais poligons" }),
+	).toHaveValue("1");
+	expect(screen.queryByRole("application")).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
+	const geometry = mergeZoneGeometry(
+		onQueueSave.mock.calls[0][0].group.polygons,
+	);
+	expect(geometry).toHaveLength(2);
+	expect(geometry[0]).toEqual(
+		mergeZoneGeometry([componentMarks[0].polygon])[0],
+	);
+	expect(geometry[1]).not.toEqual(
+		mergeZoneGeometry([componentMarks[1].polygon])[0],
+	);
 });
