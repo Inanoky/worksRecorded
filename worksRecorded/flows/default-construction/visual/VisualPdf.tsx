@@ -12,6 +12,7 @@ import {
 	X,
 } from "lucide-react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
+import type { MultiPolygon } from "polygon-clipping";
 import {
 	useCallback,
 	useEffect,
@@ -54,7 +55,24 @@ import { VisualPolygonEditor } from "./VisualPolygonEditor";
 import { VisualZoneTarget } from "./VisualZoneTarget";
 import { MAX_DRAWING_ZOOM, MIN_DRAWING_ZOOM } from "./viewport";
 import type { VisualClientCache } from "./visual-client-cache";
+import {
+	replaceZoneRing,
+	splitZoneGeometry,
+	translateZoneComponent,
+	validZoneGeometry,
+	zoneComponentForPolygon,
+	zoneGeometryPath,
+	zoneRingPoints,
+} from "./zone-geometry";
 import { visualZoneGroups } from "./zone-outline";
+
+type ZoneDraft = PolygonEdit & {
+	zone?: {
+		geometry: MultiPolygon;
+		component: number;
+		expected: { markId: string; polygon: PolygonEdit["polygon"] }[];
+	};
+};
 
 const emptyEvidence: VisualEvidence[] = [];
 
@@ -209,7 +227,7 @@ export function VisualPdf({
 	const [ready, setReady] = useState(false);
 	const [highlighted, setHighlighted] = useState<string | null>(null);
 	const canvas = useRef<HTMLCanvasElement>(null);
-	const [draft, setDraft] = useState<PolygonEdit | null>(null);
+	const [draft, setDraft] = useState<ZoneDraft | null>(null);
 	const [planningAreaDraft, setPlanningAreaDraft] =
 		useState<PlanningAreaDraft | null>(null);
 	const [penMode, setPenMode] = useState<AreaPenMode | null>(null);
@@ -363,7 +381,7 @@ export function VisualPdf({
 			: !!selectedMark && (!!onSave || !!onDelete));
 	const shownMarks = useMemo(
 		() =>
-			draft
+			draft && !draft.zone
 				? marks.map((mark) =>
 						draft.markId === mark.id
 							? { ...mark, polygon: draft.polygon }
@@ -372,13 +390,26 @@ export function VisualPdf({
 				: marks,
 		[marks, draft],
 	);
-	const zoneGroups = useMemo(
+	const baseZoneGroups = useMemo(
 		() =>
 			visualZoneGroups(
 				shownMarks.filter((mark) => mark.page === page),
 				evidence,
 			),
 		[shownMarks, page, evidence],
+	);
+	const zoneGroups = useMemo(
+		() =>
+			baseZoneGroups.map((group) =>
+				draft?.zone && group.marks.some((mark) => mark.id === draft.markId)
+					? {
+							...group,
+							geometry: draft.zone.geometry,
+							paths: [zoneGeometryPath(draft.zone.geometry)],
+						}
+					: group,
+			),
+		[baseZoneGroups, draft?.zone, draft?.markId],
 	);
 	const markGroups = useMemo(
 		() =>
@@ -393,7 +424,64 @@ export function VisualPdf({
 	const highlightedGroup = highlighted
 		? markGroups.get(highlighted)
 		: undefined;
-	const validDraft = draft ? polygonEditSchema.safeParse(draft).success : true;
+	const validDraft = useMemo(
+		() =>
+			draft?.zone
+				? validZoneGeometry(draft.zone.geometry)
+				: draft
+					? polygonEditSchema.safeParse(draft).success
+					: true,
+		[draft],
+	);
+	const draftRings = useMemo(
+		() =>
+			draft?.zone
+				? draft.zone.geometry[draft.zone.component].map(zoneRingPoints)
+				: draft
+					? [draft.polygon]
+					: [],
+		[draft],
+	);
+
+	function updateDraftRing(ring: number, polygon: PolygonEdit["polygon"]) {
+		setDraft((current) =>
+			!current
+				? current
+				: current.zone
+					? {
+							...current,
+							zone: {
+								...current.zone,
+								geometry: replaceZoneRing(
+									current.zone.geometry,
+									current.zone.component,
+									ring,
+									polygon,
+								),
+							},
+						}
+					: { ...current, polygon },
+		);
+	}
+	function moveDraft(polygon: PolygonEdit["polygon"]) {
+		setDraft((current) =>
+			!current
+				? current
+				: current.zone
+					? {
+							...current,
+							zone: {
+								...current.zone,
+								geometry: translateZoneComponent(
+									current.zone.geometry,
+									current.zone.component,
+									polygon,
+								),
+							},
+						}
+					: { ...current, polygon },
+		);
+	}
 	function endEditing() {
 		setDraft(null);
 		setSaveError(null);
@@ -537,9 +625,29 @@ export function VisualPdf({
 	}
 	async function save() {
 		if (!draft || (!onSave && !onQueueSave) || !validDraft || saving) return;
+		let edit: PolygonEdit;
+		try {
+			if (draft.zone) {
+				const polygons = splitZoneGeometry(draft.zone.geometry, [
+					draft.zone.geometry[draft.zone.component],
+				]);
+				edit = polygonEditSchema.parse({
+					...draft,
+					polygon: polygons[0],
+					group: { expected: draft.zone.expected, polygons },
+				});
+			} else edit = draft;
+		} catch (error) {
+			setSaveError(
+				error instanceof Error
+					? error.message
+					: "Neizdevās sagatavot zonas robežas.",
+			);
+			return;
+		}
 		if (onQueueSave) {
 			try {
-				onQueueSave(draft);
+				onQueueSave(edit);
 				endEditing();
 			} catch (error) {
 				setSaveError(
@@ -552,7 +660,7 @@ export function VisualPdf({
 		setSaving(true);
 		setSaveError(null);
 		try {
-			await onSave(draft);
+			await onSave(edit);
 			endEditing();
 		} catch {
 			setSaveError(
@@ -981,10 +1089,29 @@ export function VisualPdf({
 					onClick={() => {
 						if (!selectedMark) return;
 						navigation.freeze();
+						const group = zoneGroups.find((group) =>
+							group.marks.some((mark) => mark.id === selectedMark.id),
+						);
 						setDraft({
 							markId: selectedMark.id,
 							expectedPolygon: selectedMark.polygon,
 							polygon: selectedMark.polygon.map((point) => ({ ...point })),
+							...(group && group.marks.length > 1 && group.geometry.length > 0
+								? {
+										mutationId: crypto.randomUUID(),
+										zone: {
+											geometry: group.geometry,
+											component: zoneComponentForPolygon(
+												group.geometry,
+												selectedMark.polygon,
+											),
+											expected: group.marks.map((mark) => ({
+												markId: mark.id,
+												polygon: mark.polygon,
+											})),
+										},
+									}
+								: {}),
 						});
 						onEditingChange?.(true);
 					}}
@@ -1335,6 +1462,9 @@ export function VisualPdf({
 										.color;
 									const isSelected = group.key === selectedGroup;
 									const isHighlighted = group.key === highlightedGroup;
+									const editingGroup =
+										!!draft?.zone &&
+										group.marks.some((mark) => mark.id === draft.markId);
 									const Shape = group.marks.length === 1 ? "polygon" : "path";
 									return (group.paths.length ? group.paths : [undefined]).map(
 										(path, index) => (
@@ -1352,10 +1482,28 @@ export function VisualPdf({
 												fillRule={path === undefined ? "nonzero" : "evenodd"}
 												fill={color}
 												fillOpacity={
-													isSelected ? 0.85 : isHighlighted ? 0.8 : 0.5
+													editingGroup
+														? 0.5
+														: isSelected
+															? 0.85
+															: isHighlighted
+																? 0.8
+																: 0.5
 												}
-												stroke={isSelected || isHighlighted ? "#0f172a" : color}
-												strokeWidth={isSelected ? 4 : isHighlighted ? 3 : 1}
+												stroke={
+													!editingGroup && (isSelected || isHighlighted)
+														? "#0f172a"
+														: color
+												}
+												strokeWidth={
+													editingGroup
+														? 1
+														: isSelected
+															? 4
+															: isHighlighted
+																? 3
+																: 1
+												}
 												vectorEffect="non-scaling-stroke"
 												className="transition-[fill-opacity,stroke,stroke-width] duration-100 motion-reduce:transition-none"
 											>
@@ -1370,7 +1518,19 @@ export function VisualPdf({
 										),
 									);
 								})}
-							{draft ? (
+							{draft?.zone ? (
+								<path
+									data-zone-edit-piece={draft.markId}
+									d={zoneGeometryPath([
+										draft.zone.geometry[draft.zone.component],
+									])}
+									fill="none"
+									stroke="#0f172a"
+									strokeWidth={2}
+									strokeDasharray="4 3"
+									vectorEffect="non-scaling-stroke"
+								/>
+							) : draft ? (
 								<polygon
 									data-zone-edit-piece={draft.markId}
 									points={draft.polygon
@@ -1530,29 +1690,24 @@ export function VisualPdf({
 					{ready && draft ? (
 						<>
 							<VisualPlanAreaTarget
-								area={{ id: draft.markId, page, polygon: draft.polygon }}
+								area={{ id: draft.markId, page, polygon: draftRings[0] }}
 								label="Pārvietot zonu"
 								disabled={saving}
 								selected
 								surface={surface.current}
 								onSelect={() => {}}
-								onMove={(area) =>
-									setDraft((current) =>
-										current ? { ...current, polygon: area.polygon } : current,
-									)
-								}
+								onMove={(area) => moveDraft(area.polygon)}
 							/>
-							<VisualPolygonEditor
-								key={draft.markId}
-								area={{ id: draft.markId, page, polygon: draft.polygon }}
-								surface={surface}
-								disabled={saving}
-								onChange={(area) =>
-									setDraft((current) =>
-										current ? { ...current, polygon: area.polygon } : current,
-									)
-								}
-							/>
+							{draftRings.map((polygon, index) => (
+								<VisualPolygonEditor
+									key={`${draft.markId}:${index}`}
+									area={{ id: `${draft.markId}:${index}`, page, polygon }}
+									labelPrefix={index ? `Izgriezums ${index}` : undefined}
+									surface={surface}
+									disabled={saving}
+									onChange={(area) => updateDraftRing(index, area.polygon)}
+								/>
+							))}
 						</>
 					) : null}
 					{ready && planningAreaDraft && selectedPlanArea?.page === page ? (

@@ -15,3 +15,21 @@ export const visualRecordInputSchema = z
 	.strict();
 
 export type VisualRecordInput = z.infer<typeof visualRecordInputSchema>;
+
+export const visualRecordAttachmentSchema = z
+	.object({
+		id: z.string().uuid(),
+		recordId: z.string().min(1).max(200),
+		areas: z.array(visualPlanAreaSchema).min(1).max(VISUAL_PLAN_MAX_AREAS),
+	})
+	.strict();
+export type VisualRecordChoice = {
+	id: string;
+	date: string | null;
+	work: string;
+	location: string;
+	amount: string;
+	unit: string;
+	hasDrawing: boolean;
+	originalMessage: string;
+};

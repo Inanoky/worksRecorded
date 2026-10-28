@@ -1,3 +1,4 @@
+import polygonClipping from "polygon-clipping";
 import type { VisualMark } from "./model";
 import { visualZoneGroups, zoneOutlinePaths } from "./zone-outline";
 
@@ -116,4 +117,17 @@ it("groups source pieces before record metadata is available and handles empty d
 	);
 	expect(visualZoneGroups([], [])).toEqual([]);
 	expect(zoneOutlinePaths([])).toEqual([]);
+});
+
+it("keeps source areas visible if an unusually complex union cannot be rendered", () => {
+	const union = jest
+		.spyOn(polygonClipping, "union")
+		.mockImplementationOnce(() => {
+			throw new Error("Complex geometry");
+		});
+	const groups = visualZoneGroups([mark, { ...mark, id: "second" }], []);
+	expect(groups).toHaveLength(1);
+	expect(groups[0].paths).toHaveLength(2);
+	expect(groups[0].marks).toHaveLength(2);
+	union.mockRestore();
 });

@@ -3,11 +3,11 @@ import { z } from "zod";
 import type { createPerfTrace } from "@/lib/observability/perf";
 import { prisma } from "@/lib/utils/db";
 import { requireWarehouseImportAccess } from "../backend/warehouse-import-upload";
-import { sectionMappingAnalysisPhotos } from "../lib/section-mapping-source";
 import {
 	LIMENI_ORGANIZATION_ID,
 	normalizeDiaryPhotoUrls,
 } from "../lib/diary-photos";
+import { sectionMappingAnalysisPhotos } from "../lib/section-mapping-source";
 import {
 	getDefaultConstructionOptionValues,
 	withDefaultConstructionSystemWorks,
@@ -34,7 +34,9 @@ import {
 	PolygonSaveConflictError,
 	type PolygonSaveResult,
 	polygonDeleteSchema,
+	polygonEditReplacements,
 	polygonEditSchema,
+	replaceEditedZone,
 } from "./polygon-edit";
 import { syncVisualEvidence } from "./sync-evidence";
 
@@ -190,7 +192,8 @@ async function loadVisualEvidence(
 		.filter(
 			(row) =>
 				normalizeVisualLocation(row.Location || "") ===
-				normalizeVisualLocation(location),
+					normalizeVisualLocation(location) ||
+				(manualRecordIds.includes(row.id) && !row.Location?.trim()),
 		)
 		.flatMap((row) =>
 			[
@@ -791,6 +794,93 @@ export async function editVisualPolygon(
 		throw new PolygonSaveConflictError(
 			"Zona nav atrasta. Atjaunojiet rasējumu.",
 		);
+	if (edit.group) {
+		const group = edit.group;
+		const expectedIds = group.expected.map((item) => item.markId);
+		const recordId = state.evidence.find(
+			(item) => item.id === mark.evidenceId,
+		)?.recordId;
+		const repeated = mark.geometryMutationId === edit.mutationId;
+		let replacements: typeof state.marks;
+		if (repeated) {
+			replacements = state.marks.filter(
+				(item) => item.geometryMutationId === edit.mutationId,
+			);
+			if (
+				JSON.stringify(replacements.map((item) => item.polygon)) !==
+				JSON.stringify(group.polygons)
+			)
+				throw new PolygonSaveConflictError(
+					"Šis labojums jau saglabāts ar citu ģeometriju.",
+				);
+		} else {
+			if (
+				!recordId ||
+				group.expected.some((expected) => {
+					const current = state.marks.find(
+						(item) => item.id === expected.markId,
+					);
+					return (
+						!current ||
+						current.page !== mark.page ||
+						state.evidence.find((source) => source.id === current.evidenceId)
+							?.recordId !== recordId ||
+						JSON.stringify(current.polygon) !== JSON.stringify(expected.polygon)
+					);
+				})
+			)
+				throw new PolygonSaveConflictError(
+					"Darba zonas daļas jau ir mainītas. Atjaunojiet rasējumu pirms rediģēšanas.",
+				);
+			replacements = polygonEditReplacements(
+				state.marks,
+				edit,
+				new Date().toISOString(),
+				userId,
+			);
+			const expectedSet = new Set(expectedIds);
+			const replacementIds = new Set(replacements.map((mark) => mark.id));
+			if (
+				state.marks.some(
+					(mark) => !expectedSet.has(mark.id) && replacementIds.has(mark.id),
+				)
+			)
+				throw new PolygonSaveConflictError(
+					"Zonas identifikators jau izmantots citā ierakstā. Atjaunojiet skatu.",
+				);
+			state.marks = replaceEditedZone(state.marks, expectedIds, replacements);
+			const changed = await measure("write", () =>
+				prisma.documents.updateMany({
+					where: {
+						id: row.id,
+						siteId,
+						organizationId: access.organizationId,
+						documentType: VISUAL_DOCUMENT_TYPE,
+						description: row.description,
+					},
+					data: { description: JSON.stringify(visualStateSchema.parse(state)) },
+				}),
+			);
+			if (changed.count !== 1)
+				throw new PolygonSaveConflictError(
+					"Rasējums jau ir mainīts. Atjaunojiet skatu pirms atkārtotas saglabāšanas.",
+				);
+		}
+		const saved = replacements.find((item) => item.id === edit.markId);
+		if (!saved)
+			throw new PolygonSaveConflictError("Zonas labojums nav atrasts.");
+		return {
+			drawingId,
+			markId: saved.id,
+			polygon: saved.polygon,
+			editedAt: saved.editedAt ?? null,
+			editedBy: saved.editedBy ?? null,
+			mutationId: edit.mutationId ?? null,
+			geometryMutationId: saved.geometryMutationId ?? null,
+			replacedMarkIds: expectedIds,
+			replacements,
+		} satisfies PolygonSaveResult;
+	}
 	const samePolygon =
 		JSON.stringify(mark.polygon) === JSON.stringify(edit.polygon);
 	const repeatedMutation =

@@ -1,9 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { notifyDiaryRecordUpdated } from "../lib/diary-record-updated-event";
-import { addVisualRecord } from "./actions";
+import { addVisualRecord, attachVisualRecord } from "./actions";
 import { VisualRecordForm } from "./VisualRecordForm";
 
-jest.mock("./actions", () => ({ addVisualRecord: jest.fn() }));
+jest.mock("./actions", () => ({
+	addVisualRecord: jest.fn(),
+	attachVisualRecord: jest.fn(),
+}));
 jest.mock("../lib/diary-record-updated-event", () => ({
 	notifyDiaryRecordUpdated: jest.fn(),
 }));
@@ -105,4 +108,79 @@ it("invalidates the retained diary and hands the saved zone back to the workspac
 	fireEvent.click(screen.getByRole("button", { name: "Saglabāt ierakstu" }));
 	await waitFor(() => expect(props.onSaved).toHaveBeenCalledWith(result));
 	expect(notifyDiaryRecordUpdated).toHaveBeenCalledWith("site");
+});
+
+it("attaches the polygon to an existing record without requiring or resending work, quantity or costs", async () => {
+	jest.mocked(attachVisualRecord).mockResolvedValue({
+		ok: true,
+		drawing: { id: "drawing" },
+		recordId: "existing",
+		markId: "attached",
+	} as never);
+	render(
+		<VisualRecordForm
+			{...props}
+			records={[
+				{
+					id: "existing",
+					date: "2026-10-20",
+					work: "PA1.3 - ThermoWhite",
+					location: "1. stāvs",
+					amount: "420",
+					unit: "m2",
+					hasDrawing: false,
+					originalMessage: "Oriģinālā WhatsApp ziņa",
+				},
+			]}
+		/>,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Esošs ieraksts" }));
+	expect(screen.queryByLabelText("Daudzums")).not.toBeInTheDocument();
+	fireEvent.change(screen.getByLabelText("Žurnāla ieraksts"), {
+		target: { value: "existing" },
+	});
+	expect(screen.getByText("Oriģinālā WhatsApp ziņa")).toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Piesaistīt zonu" }));
+	await waitFor(() => expect(props.onSaved).toHaveBeenCalled());
+	expect(attachVisualRecord).toHaveBeenCalledWith("site", "drawing", {
+		id: props.recordId,
+		recordId: "existing",
+		areas: props.areas,
+	});
+	expect(addVisualRecord).not.toHaveBeenCalled();
+	expect(notifyDiaryRecordUpdated).not.toHaveBeenCalled();
+});
+it("keeps the chosen record and drawn boundary when attachment fails and retries with the same identity", async () => {
+	jest
+		.mocked(attachVisualRecord)
+		.mockResolvedValue({ ok: false, error: "Atkārtojiet." });
+	render(
+		<VisualRecordForm
+			{...props}
+			records={[
+				{
+					id: "existing",
+					date: "2026-10-20",
+					work: "XPS",
+					location: "1. stāvs",
+					amount: "420",
+					unit: "m2",
+					hasDrawing: false,
+					originalMessage: "XPS pabeigts",
+				},
+			]}
+		/>,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Esošs ieraksts" }));
+	fireEvent.change(screen.getByLabelText("Žurnāla ieraksts"), {
+		target: { value: "existing" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Piesaistīt zonu" }));
+	await screen.findByRole("alert");
+	expect(screen.getByLabelText("Žurnāla ieraksts")).toHaveValue("existing");
+	fireEvent.click(screen.getByRole("button", { name: "Piesaistīt zonu" }));
+	await waitFor(() => expect(attachVisualRecord).toHaveBeenCalledTimes(2));
+	expect(jest.mocked(attachVisualRecord).mock.calls[0]).toEqual(
+		jest.mocked(attachVisualRecord).mock.calls[1],
+	);
 });

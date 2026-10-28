@@ -1005,9 +1005,14 @@ it("restarts the same drawing from the first image without changing its sources"
 	);
 });
 
-it.each([appendVisualDiaryEvidence, resetVisualDrawing])(
-	"keeps manual zones from photo-free diary entries when refreshing or restarting",
-	async (mutate) => {
+it.each([
+	{ mutate: appendVisualDiaryEvidence, location: "1. stāvs" },
+	{ mutate: appendVisualDiaryEvidence, location: "" },
+	{ mutate: resetVisualDrawing, location: "1. stāvs" },
+	{ mutate: resetVisualDrawing, location: "" },
+])(
+	"keeps manual zones from photo-free diary entries with location '$location' when refreshing or restarting",
+	async ({ mutate, location }) => {
 		const { row, state } = await mockSavedDrawing();
 		const source = {
 			...state.evidence[0],
@@ -1042,7 +1047,7 @@ it.each([appendVisualDiaryEvidence, resetVisualDrawing])(
 		jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([
 			{
 				id: source.recordId,
-				Location: source.location,
+				Location: location,
 				Works: source.work,
 				Comments: source.description,
 				Date: null,
@@ -1221,4 +1226,100 @@ it("uses compare-and-swap to prevent concurrent results overwriting one another"
 			}),
 		}),
 	);
+});
+
+it("saves all joined pieces atomically, keeps sources and other records, and accepts a retry without another write", async () => {
+	const { row, state, edit } = await mockEditableDrawing();
+	const sibling = { ...state.marks[0], id: "sibling" };
+	const other = { ...state.marks[0], id: "other", evidenceId: "other-source" };
+	state.evidence.push({
+		...state.evidence[0],
+		id: "other-source",
+		recordId: "other-record",
+	});
+	state.marks.push(sibling, other);
+	row.description = JSON.stringify(state);
+	const input = {
+		...edit,
+		mutationId: "11111111-1111-4111-8111-111111111111",
+		group: {
+			expected: [
+				{ markId: edit.markId, polygon: edit.expectedPolygon },
+				{ markId: "sibling", polygon: sibling.polygon },
+			],
+			polygons: [edit.polygon],
+		},
+	};
+	const result = await editVisualPolygon("user", "site", "drawing", input);
+	expect(result.replacedMarkIds).toEqual(["zone", "sibling"]);
+	expect(result.replacements).toHaveLength(1);
+	const saved = JSON.parse(
+		jest.mocked(prisma.documents.updateMany).mock.calls[0][0].data
+			.description as string,
+	) as VisualState;
+	expect(saved.evidence).toEqual(state.evidence);
+	expect(saved.marks.map((mark) => mark.id)).toEqual(["zone", "other"]);
+	expect(saved.marks[1]).toEqual(other);
+	expect(prisma.sitediaryrecords.updateMany).not.toHaveBeenCalled();
+	row.description = JSON.stringify(saved);
+	expect(await editVisualPolygon("user", "site", "drawing", input)).toEqual(
+		result,
+	);
+	expect(prisma.documents.updateMany).toHaveBeenCalledTimes(1);
+});
+it("rejects changed or unrelated pieces instead of partially saving a joined zone", async () => {
+	const { row, state, edit } = await mockEditableDrawing();
+	state.evidence.push({
+		...state.evidence[0],
+		id: "other-source",
+		recordId: "other-record",
+	});
+	state.marks.push({
+		...state.marks[0],
+		id: "other",
+		evidenceId: "other-source",
+	});
+	row.description = JSON.stringify(state);
+	const input = {
+		...edit,
+		mutationId: "11111111-1111-4111-8111-111111111111",
+		group: {
+			expected: [
+				{ markId: edit.markId, polygon: edit.expectedPolygon },
+				{ markId: "other", polygon: edit.expectedPolygon },
+			],
+			polygons: [edit.polygon],
+		},
+	};
+	await expect(
+		editVisualPolygon("user", "site", "drawing", input),
+	).rejects.toThrow("Darba zonas daļas");
+	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
+});
+
+it("does not overwrite another record when a client reuses a geometry mutation identity", async () => {
+	const { row, state, edit } = await mockEditableDrawing();
+	const mutationId = "11111111-1111-4111-8111-111111111111";
+	state.evidence.push({
+		...state.evidence[0],
+		id: "other-source",
+		recordId: "other-record",
+	});
+	state.marks.push({
+		...state.marks[0],
+		id: `${mutationId}:zone:1`,
+		evidenceId: "other-source",
+	});
+	row.description = JSON.stringify(state);
+	await expect(
+		editVisualPolygon("user", "site", "drawing", {
+			...edit,
+			mutationId,
+			group: {
+				expected: [{ markId: edit.markId, polygon: edit.expectedPolygon }],
+				polygons: [edit.polygon, edit.polygon],
+			},
+		}),
+	).rejects.toThrow("citā ierakstā");
+	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
 });

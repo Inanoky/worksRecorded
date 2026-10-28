@@ -52,6 +52,7 @@ import {
 import { useUploadThing } from "@/lib/utils/UploadthingsComponents";
 import { DiaryRecordPhotos } from "../frontend/DiaryRecordPhotos";
 import { useLimeniProjectData } from "../frontend/LimeniProjectData";
+import { normalizeDiaryPhotoUrls } from "../lib/diary-photos";
 import { sectionMappingOriginalPhotos } from "../lib/section-mapping-source";
 import {
 	deleteVisualDrawing,
@@ -84,10 +85,12 @@ import type { VisualPlanArea } from "./planning-model";
 import type { PolygonDelete, PolygonSaveResult } from "./polygon-edit";
 import { applyPolygonSave, projectPolygonSaves } from "./polygon-save-queue";
 import { pruneVisualEvidence } from "./prune-evidence";
+import type { VisualRecordChoice } from "./record-model";
 import {
 	buildVisualTimeline,
 	cumulativeVisualMarks,
 	sortVisualMarksChronologically,
+	visualDiaryDay,
 } from "./timeline";
 import { usePlanningSaveQueue } from "./usePlanningSaveQueue";
 import { usePolygonSaveQueue } from "./usePolygonSaveQueue";
@@ -956,9 +959,51 @@ export default function VisualView({
 	);
 	const sourcePhotos = sourceRecord?.sectionMapping
 		? sectionMappingOriginalPhotos(sourceRecord.sectionMapping)
-		: !sourceRecord && projectData.enabled
-			? []
-			: undefined;
+		: source?.manual && sourceRecord
+			? normalizeDiaryPhotoUrls(sourceRecord.Photos)
+			: !sourceRecord && projectData.enabled
+				? []
+				: undefined;
+	const recordChoices = useMemo<VisualRecordChoice[]>(() => {
+		const snapshot = projectData.snapshot;
+		if (!snapshot || !drawing) return [];
+		const linked = new Set(
+			[
+				drawing,
+				...snapshot.drawings
+					.filter((item) => item.drawing.id !== drawing.id)
+					.map((item) => item.drawing),
+			].flatMap((item) =>
+				item.state.marks.map(
+					(mark) =>
+						item.state.evidence.find((source) => source.id === mark.evidenceId)
+							?.recordId,
+				),
+			),
+		);
+		return snapshot.diary.rows
+			.filter(
+				(row) =>
+					!row.Location?.trim() ||
+					normalizeVisualLocation(row.Location) ===
+						normalizeVisualLocation(drawing.state.location),
+			)
+			.map((row) => ({
+				id: row.id,
+				date: row.Date ? new Date(row.Date).toISOString() : null,
+				work: row.Works,
+				location: row.Location,
+				amount: row.Amounts,
+				unit: row.Units,
+				hasDrawing: linked.has(row.id),
+				originalMessage: row.originalUserComment,
+			}))
+			.sort(
+				(a, b) =>
+					Number(a.hasDrawing) - Number(b.hasDrawing) ||
+					(b.date ?? "").localeCompare(a.date ?? ""),
+			);
+	}, [projectData.snapshot, drawing]);
 	function selectZone(id: string | null) {
 		if (editing || workEditing || savingLayers || managingLayers || recordDraft)
 			return;
@@ -1498,7 +1543,10 @@ export default function VisualView({
 									!polygonSaveState.items.some(
 										(item) =>
 											item.drawingId === drawing.id &&
-											item.edit.markId === selectedMark?.id,
+											(item.edit.markId === selectedMark?.id ||
+												item.edit.group?.expected.some(
+													(part) => part.markId === selectedMark?.id,
+												)),
 									) &&
 									drawing.state.status !== "running"
 								}
@@ -1526,7 +1574,7 @@ export default function VisualView({
 										disabled={recordSaving}
 										onClick={cancelRecord}
 									>
-										Atcelt jauno ierakstu
+										Atcelt zonas pievienošanu
 									</Button>
 									<VisualRecordForm
 										key={recordDraft.id}
@@ -1536,11 +1584,21 @@ export default function VisualView({
 										location={drawing.state.location}
 										areas={recordDraft.areas}
 										workOptions={layerConfiguration.workOptions}
+										records={recordChoices}
 										hidden={editing || !recordDraft.areas.length}
 										onSavingChange={setRecordSaving}
 										onCancel={cancelRecord}
 										onSaved={(result) => {
 											if (currentCache.current !== resourceCache) return;
+											const savedMark = result.drawing.state.marks.find(
+												(mark) => mark.id === result.markId,
+											);
+											const savedSource = result.drawing.state.evidence.find(
+												(source) => source.id === savedMark?.evidenceId,
+											);
+											const savedDay = visualDiaryDay(
+												savedSource?.date ?? null,
+											);
 											showDrawing({
 												...result.drawing,
 												latestDiaryDate: drawing.latestDiaryDate,
@@ -1548,14 +1606,16 @@ export default function VisualView({
 											setRecordDraft(null);
 											setRecordArea(null);
 											setEditing(false);
-											setThroughDay(null);
+											setThroughDay(savedDay);
+											if (savedDay === null) {
+												setIncludeUndated(true);
+												setOnlySelectedDay(false);
+											}
 											setLayers((current) => [
 												...new Set([
 													...current,
 													resolveVisualWorkLayer(
-														result.drawing.state.evidence.find(
-															(item) => item.recordId === recordDraft.id,
-														)?.work ?? "",
+														savedSource?.work ?? "",
 														layerConfiguration.settings,
 														layerConfiguration.positionIds,
 													),
@@ -1565,7 +1625,7 @@ export default function VisualView({
 											resourceCache.invalidatePlanning();
 											setNotice(
 												result.assignmentWarning ??
-													"Ieraksts un tā zona pievienoti būvdarbu žurnālam.",
+													"Zona saglabāta un piesaistīta žurnāla ierakstam.",
 											);
 										}}
 									/>
@@ -1585,6 +1645,7 @@ export default function VisualView({
 								drawingId={drawing.id}
 								source={source}
 								photos={sourcePhotos}
+								originalMessage={sourceRecord?.originalUserComment}
 								mark={selectedMark}
 								progressPending={
 									!!sourceProgress && sourceProgress.status !== "complete"

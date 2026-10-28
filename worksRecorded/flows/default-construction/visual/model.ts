@@ -117,6 +117,17 @@ export const visualStateSchema = z.object({
 		}),
 	),
 	unlocated: visualAnalysisSchema.shape.unlocated,
+	recordAttachments: z
+		.array(
+			z.object({
+				id: z.string().uuid(),
+				recordId: z.string(),
+				requestHash: z.string(),
+				markIds: z.array(z.string()).max(256),
+			}),
+		)
+		.max(2000)
+		.optional(),
 	deletedPolygons: z
 		.array(
 			z.object({

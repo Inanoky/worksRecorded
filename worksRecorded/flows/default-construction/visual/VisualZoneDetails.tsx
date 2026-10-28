@@ -18,6 +18,7 @@ export function VisualZoneDetails({
 	drawingId,
 	source,
 	photos,
+	originalMessage,
 	mark,
 	progressPending,
 	editorLocked,
@@ -35,6 +36,7 @@ export function VisualZoneDetails({
 	drawingId: string;
 	source?: VisualEvidence;
 	photos?: string[];
+	originalMessage?: string;
 	mark?: VisualMark;
 	progressPending: boolean;
 	editorLocked: boolean;
@@ -149,16 +151,25 @@ export function VisualZoneDetails({
 						ref={content}
 						className={`${source.manual ? "min-h-0 flex-1" : "max-h-[35%] shrink-0"} space-y-3 overflow-y-auto overscroll-contain border-t px-3 py-2 text-sm`}
 					>
-						<details>
+						<details key={source.recordId} open={!!originalMessage?.trim()}>
 							<summary className="cursor-pointer text-xs font-medium text-muted-foreground">
 								Darba apraksts
 							</summary>
+							{originalMessage?.trim() ? (
+								<p className="mt-2 text-xs text-muted-foreground">
+									Oriģinālais WhatsApp ziņojums
+								</p>
+							) : null}
 							<p className="mt-2 whitespace-pre-wrap [overflow-wrap:anywhere]">
-								{source.description}
+								{originalMessage?.trim()
+									? originalMessage
+									: source.manual
+										? source.description || "Komentārs nav norādīts."
+										: "Oriģinālais WhatsApp ziņojums nav saglabāts."}
 							</p>
 							{source.amount != null ? (
 								<p className="mt-2 text-xs text-muted-foreground">
-									Daudzums: {source.amount} {source.unit}
+									Žurnāla daudzums: {source.amount} {source.unit}
 								</p>
 							) : null}
 						</details>

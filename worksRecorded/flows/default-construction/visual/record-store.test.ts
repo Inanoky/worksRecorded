@@ -1,14 +1,19 @@
 import { prisma } from "@/lib/utils/db";
 import { syncDefaultConstructionForma2WorkAssignments } from "../backend/forma2-analytics-actions";
 import { VISUAL_DOCUMENT_TYPE, type VisualState } from "./model";
-import { createVisualRecord } from "./record-store";
+import { attachVisualRecordAreas, createVisualRecord } from "./record-store";
 import { requireVisualAccess } from "./store";
 
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
 		$transaction: jest.fn(),
 		documents: { findFirst: jest.fn(), updateMany: jest.fn() },
-		sitediaryrecords: { findUnique: jest.fn(), create: jest.fn() },
+		sitediaryrecords: {
+			findFirst: jest.fn(),
+			findUnique: jest.fn(),
+			create: jest.fn(),
+			updateMany: jest.fn(),
+		},
 	},
 }));
 jest.mock("./store", () => ({ requireVisualAccess: jest.fn() }));
@@ -194,4 +199,105 @@ it("validates dates and polygon geometry and requires access before opening a tr
 		createVisualRecord("user", "site", "drawing", record),
 	).rejects.toThrow("Forbidden");
 	expect(prisma.$transaction).not.toHaveBeenCalled();
+});
+
+it("attaches to an accessible existing journal record atomically without modifying its quantities, costs, message or photos", async () => {
+	const original = {
+		id: "existing",
+		Works: "PA1.3 - ThermoWhite",
+		Location: "1. stāvs",
+		Date: new Date("2026-10-20"),
+		Amounts: 420,
+		Units: "m2",
+		Comments: "Apstrādāts",
+		originalUserComment: "WhatsApp oriģināls",
+		Photos: ["https://example.com/original.jpg"],
+	};
+	jest
+		.mocked(prisma.sitediaryrecords.findFirst)
+		.mockResolvedValue(original as never);
+	const input = { id: record.id, recordId: "existing", areas: record.areas };
+	const first = await attachVisualRecordAreas("user", "site", "drawing", input);
+	expect(prisma.sitediaryrecords.findFirst).toHaveBeenCalledWith({
+		where: {
+			id: "existing",
+			siteId: "site",
+			organizationId: "org",
+			archivedAt: null,
+		},
+	});
+	expect(first.drawing.state.marks[0].evidenceId).toBe("existing:manual");
+	expect(first.drawing.state.evidence[0]).toMatchObject({
+		work: original.Works,
+		amount: 420,
+		date: original.Date.toISOString(),
+	});
+	expect(prisma.sitediaryrecords.create).not.toHaveBeenCalled();
+	expect(prisma.sitediaryrecords.updateMany).not.toHaveBeenCalled();
+	expect(syncDefaultConstructionForma2WorkAssignments).not.toHaveBeenCalled();
+	jest.mocked(prisma.documents.findFirst).mockResolvedValue({
+		...row,
+		description: JSON.stringify(first.drawing.state),
+	} as never);
+	const again = await attachVisualRecordAreas("user", "site", "drawing", input);
+	expect(again).toEqual(first);
+	expect(prisma.documents.updateMany).toHaveBeenCalledTimes(1);
+});
+it("rejects inaccessible, archived or wrong-floor record attachments before changing geometry", async () => {
+	jest.mocked(prisma.sitediaryrecords.findFirst).mockResolvedValue(null);
+	await expect(
+		attachVisualRecordAreas("user", "site", "drawing", {
+			id: record.id,
+			recordId: "private",
+			areas: record.areas,
+		}),
+	).rejects.toThrow("nav pieejams");
+	jest
+		.mocked(prisma.sitediaryrecords.findFirst)
+		.mockResolvedValue({ id: "other-floor", Location: "2. stāvs" } as never);
+	await expect(
+		attachVisualRecordAreas("user", "site", "drawing", {
+			id: record.id,
+			recordId: "other-floor",
+			areas: record.areas,
+		}),
+	).rejects.toThrow("šīs lokācijas");
+	expect(prisma.documents.updateMany).not.toHaveBeenCalled();
+});
+
+it("remembers an attachment after its geometry changes and does not recreate it after deletion", async () => {
+	jest.mocked(prisma.sitediaryrecords.findFirst).mockResolvedValue({
+		id: "existing",
+		Works: "XPS",
+		Location: "",
+		Date: null,
+		Amounts: 10,
+		Units: "m2",
+		Comments: "",
+		Photos: [],
+	} as never);
+	const input = { id: record.id, recordId: "existing", areas: record.areas };
+	const first = await attachVisualRecordAreas("user", "site", "drawing", input);
+	first.drawing.state.marks[0].polygon = [
+		{ x: 0.2, y: 0.1 },
+		{ x: 0.5, y: 0.1 },
+		{ x: 0.5, y: 0.4 },
+	];
+	jest.mocked(prisma.documents.findFirst).mockResolvedValue({
+		...row,
+		description: JSON.stringify(first.drawing.state),
+	} as never);
+	expect(
+		(await attachVisualRecordAreas("user", "site", "drawing", input)).drawing
+			.state.marks,
+	).toEqual(first.drawing.state.marks);
+	first.drawing.state.marks = [];
+	jest.mocked(prisma.documents.findFirst).mockResolvedValue({
+		...row,
+		description: JSON.stringify(first.drawing.state),
+	} as never);
+	await expect(
+		attachVisualRecordAreas("user", "site", "drawing", input),
+	).rejects.toThrow("dzēsta");
+	expect(prisma.documents.updateMany).toHaveBeenCalledTimes(1);
 });

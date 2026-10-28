@@ -44,6 +44,7 @@ jest.mock("@/lib/utils/UploadthingsComponents", () => ({
 }));
 jest.mock("./actions", () => ({
 	addVisualRecord: jest.fn(),
+	attachVisualRecord: jest.fn(),
 	getVisualDrawings: jest.fn(),
 	getVisualPlanning: jest.fn(),
 	refreshVisualDrawing: jest.fn(),
@@ -302,22 +303,34 @@ afterEach(() => {
 });
 
 it("adds a diary record from a new polygon and selects its saved execution zone", async () => {
+	const datedDrawing = {
+		...complete,
+		state: {
+			...complete.state,
+			evidence: complete.state.evidence.map((source) => ({
+				...source,
+				date: "2026-09-23T12:00:00.000Z",
+			})),
+		},
+	};
+	mockFetch.mockResolvedValue({ ok: true, json: async () => datedDrawing });
 	jest
 		.mocked(addVisualRecord)
 		.mockImplementation(async (_siteId, _drawingId, input) => {
 			const record = input as VisualRecordInput;
 			return {
 				ok: true,
+				recordId: record.id,
 				markId: "created-mark",
 				assignmentWarning: undefined,
 				drawing: {
-					...complete,
+					...datedDrawing,
 					state: {
-						...complete.state,
+						...datedDrawing.state,
 						evidence: [
-							...complete.state.evidence,
+							...datedDrawing.state.evidence,
 							{
-								...complete.state.evidence[0],
+								...datedDrawing.state.evidence[0],
 								id: "created-source",
 								recordId: record.id,
 								manual: true,
@@ -329,9 +342,9 @@ it("adds a diary record from a new polygon and selects its saved execution zone"
 							},
 						],
 						marks: [
-							...complete.state.marks,
+							...datedDrawing.state.marks,
 							{
-								...complete.state.marks[0],
+								...datedDrawing.state.marks[0],
 								id: "created-mark",
 								evidenceId: "created-source",
 								polygon: record.areas[0].polygon,
@@ -342,9 +355,11 @@ it("adds a diary record from a new polygon and selects its saved execution zone"
 			};
 		});
 	render(<VisualView siteId="site" />);
+	const add = await screen.findByRole("button", { name: "Pievienot ierakstu" });
 	fireEvent.click(
-		await screen.findByRole("button", { name: "Pievienot ierakstu" }),
+		await screen.findByRole("checkbox", { name: "Tikai izvēlētā diena" }),
 	);
+	fireEvent.click(add);
 	expect(screen.getByRole("button", { name: "Plānošana" })).toBeDisabled();
 	fireEvent.click(
 		screen.getByRole("button", { name: "Save new record polygon" }),
@@ -354,6 +369,9 @@ it("adds a diary record from a new polygon and selects its saved execution zone"
 	});
 	fireEvent.change(screen.getByLabelText("Daudzums"), {
 		target: { value: "85" },
+	});
+	fireEvent.change(screen.getByLabelText("Izpildes datums"), {
+		target: { value: "2026-09-01" },
 	});
 	fireEvent.click(screen.getByRole("button", { name: "Saglabāt ierakstu" }));
 	await waitFor(() =>
@@ -368,7 +386,11 @@ it("adds a diary record from a new polygon and selects its saved execution zone"
 			quantity: 85,
 			work: "XPS",
 			areas: [
-				{ id: "new-area", page: 1, polygon: complete.state.marks[0].polygon },
+				{
+					id: "new-area",
+					page: 1,
+					polygon: datedDrawing.state.marks[0].polygon,
+				},
 			],
 		}),
 	);
@@ -379,6 +401,9 @@ it("adds a diary record from a new polygon and selects its saved execution zone"
 		screen.getByRole("complementary", { name: "Izvēlētās zonas informācija" }),
 	).toHaveTextContent("Zona norādīta manuāli");
 	expect(screen.getByRole("button", { name: "Plānošana" })).toBeEnabled();
+	expect(
+		screen.getByRole("slider", { name: "Progresa datums" }),
+	).toHaveAttribute("aria-valuetext", "01.09.2026");
 });
 
 it("cancels a new record polygon without writing to the diary", async () => {
@@ -387,7 +412,7 @@ it("cancels a new record polygon without writing to the diary", async () => {
 		await screen.findByRole("button", { name: "Pievienot ierakstu" }),
 	);
 	fireEvent.click(
-		screen.getByRole("button", { name: "Atcelt jauno ierakstu" }),
+		screen.getByRole("button", { name: "Atcelt zonas pievienošanu" }),
 	);
 	expect(
 		screen.queryByRole("button", { name: "Save new record polygon" }),
@@ -575,6 +600,8 @@ it("compares the drawing with cached original WhatsApp markups, including zoom, 
 			rows: [
 				{
 					id: "record",
+					originalUserComment:
+						"WhatsApp oriģināls: 24.09. smilts 1. stāvā\nPlatība 100 m2.",
 					sectionMapping: readSectionMappingSource({
 						limeniSectionMapping: {
 							version: 1,
@@ -610,6 +637,10 @@ it("compares the drawing with cached original WhatsApp markups, including zoom, 
 	});
 	expect(within(panel).getByText("Oriģinālais marķējums")).toBeInTheDocument();
 	expect(
+		within(panel).getByText(/WhatsApp oriģināls: 24.09. smilts 1. stāvā/),
+	).toHaveTextContent("Platība 100 m2.");
+	expect(within(panel).queryByText("Pabeigts")).not.toBeInTheDocument();
+	expect(
 		within(panel).getByRole("img", { name: "Ziņojuma foto 1" }),
 	).toHaveAttribute("src", originals[0]);
 	expect(
@@ -622,9 +653,7 @@ it("compares the drawing with cached original WhatsApp markups, including zoom, 
 	expect(
 		within(zoom).getByRole("img", { name: "Ziņojuma foto" }),
 	).toHaveAttribute("src", originals[0]);
-	fireEvent.click(
-		within(zoom).getByRole("button", { name: "Nākamais" }),
-	);
+	fireEvent.click(within(zoom).getByRole("button", { name: "Nākamais" }));
 	expect(
 		within(zoom).getByRole("img", { name: "Ziņojuma foto" }),
 	).toHaveAttribute("src", originals[1]);
@@ -1526,7 +1555,10 @@ it("places layer toggles and dated sources in the sidebar in chronological order
 	const panel = screen.getByRole("complementary", {
 		name: "Izvēlētās zonas informācija",
 	});
-	expect(within(panel).getByText("Pabeigts")).toBeInTheDocument();
+	expect(
+		within(panel).getByText("Oriģinālais WhatsApp ziņojums nav saglabāts."),
+	).toBeInTheDocument();
+	expect(within(panel).queryByText("Pabeigts")).not.toBeInTheDocument();
 	expect(within(sidebar).queryByText("Pabeigts")).not.toBeInTheDocument();
 	expect(within(sidebar).queryByText("Sakrīt")).not.toBeInTheDocument();
 	expect(within(sidebar).queryByText("A; B")).not.toBeInTheDocument();

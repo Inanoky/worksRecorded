@@ -4,7 +4,9 @@ import {
 	type PolygonEdit,
 	type PolygonSaveResponse,
 	type PolygonSaveResult,
+	polygonEditReplacements,
 	polygonEditSchema,
+	replaceEditedZone,
 } from "./polygon-edit";
 
 export type PolygonSaveItem = {
@@ -24,7 +26,7 @@ const savedQueueSchema = z.object({
 		.array(
 			z.object({
 				drawingId: z.string().min(1),
-				edit: polygonEditSchema.extend({ mutationId: z.string().uuid() }),
+				edit: polygonEditSchema.refine((edit) => !!edit.mutationId),
 			}),
 		)
 		.max(200),
@@ -37,6 +39,18 @@ export function applyPolygonSave(
 	result: PolygonSaveResult,
 ): VisualDrawing {
 	if (drawing.id !== result.drawingId) return drawing;
+	if (result.replacedMarkIds && result.replacements)
+		return {
+			...drawing,
+			state: {
+				...drawing.state,
+				marks: replaceEditedZone(
+					drawing.state.marks,
+					result.replacedMarkIds,
+					result.replacements,
+				),
+			},
+		};
 	return {
 		...drawing,
 		state: {
@@ -63,23 +77,20 @@ export function projectPolygonSaves(
 	items: PolygonSaveItem[],
 ) {
 	if (!drawing) return null;
-	const edits = new Map(
-		items
-			.filter((item) => item.drawingId === drawing.id)
-			.map((item) => [item.edit.markId, item.edit.polygon]),
-	);
-	if (!edits.size) return drawing;
-	return {
-		...drawing,
-		state: {
-			...drawing.state,
-			marks: drawing.state.marks.map((mark) =>
-				edits.has(mark.id)
-					? { ...mark, polygon: edits.get(mark.id) as PolygonEdit["polygon"] }
-					: mark,
-			),
-		},
-	};
+	let marks = drawing.state.marks;
+	for (const item of items.filter((item) => item.drawingId === drawing.id)) {
+		const ids = item.edit.group?.expected.map((item) => item.markId) ?? [
+			item.edit.markId,
+		];
+		marks = replaceEditedZone(
+			marks,
+			ids,
+			polygonEditReplacements(marks, item.edit),
+		);
+	}
+	return marks === drawing.state.marks
+		? drawing
+		: { ...drawing, state: { ...drawing.state, marks } };
 }
 
 export class PolygonSaveQueue {
@@ -112,7 +123,20 @@ export class PolygonSaveQueue {
 			mutationId: input.mutationId ?? crypto.randomUUID(),
 		});
 		const key = keyFor(drawingId, edit.markId);
-		if (this.items.has(key))
+		const affected = new Set(
+			edit.group?.expected.map((item) => item.markId) ?? [edit.markId],
+		);
+		if (
+			[...this.items.values()].some(
+				(item) =>
+					item.drawingId === drawingId &&
+					(
+						item.edit.group?.expected.map((item) => item.markId) ?? [
+							item.edit.markId,
+						]
+					).some((id) => affected.has(id)),
+			)
+		)
 			throw new Error(
 				"Šīs zonas labojums vēl nav saglabāts. Vispirms atkārtojiet vai atceliet saglabāšanu.",
 			);
@@ -225,7 +249,15 @@ export class PolygonSaveQueue {
 					if (
 						result.drawingId !== drawingId ||
 						result.markId !== item.edit.markId ||
-						result.mutationId !== item.edit.mutationId
+						result.mutationId !== item.edit.mutationId ||
+						(item.edit.group &&
+							(JSON.stringify(result.replacedMarkIds) !==
+								JSON.stringify(
+									item.edit.group.expected.map((part) => part.markId),
+								) ||
+								JSON.stringify(
+									result.replacements?.map((mark) => mark.polygon),
+								) !== JSON.stringify(item.edit.group.polygons)))
 					)
 						throw new Error("Invalid save response");
 					this.onSaved(result);

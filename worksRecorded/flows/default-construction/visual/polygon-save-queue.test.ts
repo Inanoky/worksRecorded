@@ -211,3 +211,44 @@ it("rejects mismatched confirmations and survives unavailable session storage", 
 	expect(queue.getSnapshot().items[0].status).toBe("failed");
 	expect(onSaved).not.toHaveBeenCalled();
 });
+
+it("projects and acknowledges the whole zone together and blocks overlapping piece edits", async () => {
+	let finish: (response: PolygonSaveResponse) => void = () => {};
+	const save = jest.fn(
+		() =>
+			new Promise<PolygonSaveResponse>((resolve) => {
+				finish = resolve;
+			}),
+	);
+	const onSaved = jest.fn();
+	const queue = new PolygonSaveQueue(save, onSaved);
+	const joined = {
+		...edit,
+		group: {
+			expected: drawing.state.marks.map((mark) => ({
+				markId: mark.id,
+				polygon: mark.polygon,
+			})),
+			polygons: [edit.polygon],
+		},
+	};
+	queue.enqueue("drawing", joined);
+	expect(() => queue.enqueue("drawing", second)).toThrow("vēl nav saglabāts");
+	const projected = projectPolygonSaves(drawing, queue.getSnapshot().items);
+	expect(projected?.state.marks).toHaveLength(1);
+	expect(projected?.state.marks[0]).toMatchObject({
+		id: "one",
+		polygon: edit.polygon,
+	});
+	const response = success("drawing", joined);
+	if (!response.ok) throw new Error("Expected success");
+	response.result.replacedMarkIds = ["one", "two"];
+	response.result.replacements = projected?.state.marks;
+	finish(response);
+	await tick();
+	expect(queue.hasPending()).toBe(false);
+	expect(onSaved).toHaveBeenCalledTimes(1);
+	expect(applyPolygonSave(drawing, response.result).state.marks).toEqual(
+		projected?.state.marks,
+	);
+});

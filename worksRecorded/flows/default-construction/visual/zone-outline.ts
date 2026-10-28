@@ -3,6 +3,7 @@ import polygonClipping, {
 	type Pair,
 } from "polygon-clipping";
 import type { VisualEvidence, VisualMark } from "./model";
+import { mergeZoneGeometry, zoneGeometryPath } from "./zone-geometry";
 
 type Point = { x: number; y: number };
 
@@ -43,12 +44,25 @@ export function visualZoneGroups(
 		if (group) group.push(mark);
 		else grouped.set(key, [mark]);
 	}
-	return Array.from(grouped, ([key, pieces]) => ({
-		key,
-		marks: pieces,
-		paths:
-			pieces.length > 1
-				? zoneOutlinePaths(pieces.map((mark) => mark.polygon))
-				: [],
-	}));
+	return Array.from(grouped, ([key, pieces]) => {
+		let geometry: MultiPolygon;
+		try {
+			geometry = mergeZoneGeometry(pieces.map((mark) => mark.polygon));
+		} catch {
+			return {
+				key,
+				marks: pieces,
+				geometry: [],
+				paths: pieces.map((mark) =>
+					zoneGeometryPath([[mark.polygon.map(({ x, y }): Pair => [x, y])]]),
+				),
+			};
+		}
+		return {
+			key,
+			marks: pieces,
+			geometry,
+			paths: pieces.length > 1 ? [zoneGeometryPath(geometry)] : [],
+		};
+	});
 }

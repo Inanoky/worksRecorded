@@ -8,8 +8,10 @@ import {
 import { useState } from "react";
 import type { VisualMark } from "./model";
 import type { VisualPlanArea } from "./planning-model";
+import { polygonEditReplacements } from "./polygon-edit";
 import { VisualPdf, type VisualPlanAreaSelection } from "./VisualPdf";
 import { VisualClientCache } from "./visual-client-cache";
+import { mergeZoneGeometry, zoneRingPoints } from "./zone-geometry";
 import * as zoneOutline from "./zone-outline";
 
 const mockGetDocument = jest.fn();
@@ -341,7 +343,7 @@ it("highlights a hovered or focused zone without selecting or saving it", async 
 	expect(global.fetch).toHaveBeenCalledTimes(1);
 });
 
-it("renders and highlights all pieces of a work record as one outline and keeps piece editing local", async () => {
+it("renders and highlights a whole record and saves its connected boundary together", async () => {
 	const grouped = jest.spyOn(zoneOutline, "visualZoneGroups");
 	const onSelect = jest.fn();
 	const onSave = jest.fn();
@@ -1466,4 +1468,69 @@ it("zooms tiled drawings without downloading or parsing a PDF and preserves reco
 		URL.createObjectURL = originalCreate;
 		URL.revokeObjectURL = originalRevoke;
 	}
+});
+
+it("edits only real outside and cut-out corners, then saves and reopens the unified boundary", async () => {
+	const rectangle = (x: number, y: number, r: number, b: number) => [
+		{ x, y },
+		{ x: r, y },
+		{ x: r, y: b },
+		{ x, y: b },
+	];
+	const pieces = [
+		rectangle(0.1, 0.1, 0.8, 0.3),
+		rectangle(0.1, 0.6, 0.8, 0.8),
+		rectangle(0.1, 0.3, 0.3, 0.6),
+		rectangle(0.6, 0.3, 0.8, 0.6),
+	];
+	const marks = pieces.map((polygon, index) => ({
+		...mark,
+		id: `part-${index}`,
+		polygon,
+	}));
+	const onQueueSave = jest.fn();
+	const props = {
+		url: "/drawing",
+		marks,
+		selected: "part-0",
+		onSelect: jest.fn(),
+		editable: true,
+		onQueueSave,
+	};
+	const view = render(<VisualPdf {...props} />);
+	await screen.findAllByRole("button", { name: "XPS: Sakrīt" });
+	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	expect(screen.getAllByRole("button", { name: /^Stūris \d+$/ })).toHaveLength(
+		4,
+	);
+	expect(
+		screen.getAllByRole("button", { name: /^Izgriezums 1 stūris/ }),
+	).toHaveLength(4);
+	fireEvent.keyDown(
+		screen.getByRole("button", { name: "Izgriezums 1 stūris 1" }),
+		{ key: "ArrowRight" },
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt zonu" }));
+	expect(onQueueSave).toHaveBeenCalledTimes(1);
+	const edit = onQueueSave.mock.calls[0][0];
+	expect(
+		edit.group.expected.map((part: { markId: string }) => part.markId),
+	).toEqual(marks.map((mark) => mark.id));
+	const geometry = mergeZoneGeometry(edit.group.polygons);
+	expect(geometry).toHaveLength(1);
+	expect(geometry[0]).toHaveLength(2);
+	expect(zoneRingPoints(geometry[0][0])).toHaveLength(4);
+	view.rerender(
+		<VisualPdf {...props} marks={polygonEditReplacements(marks, edit)} />,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Pielāgot zonu" }));
+	expect(screen.getAllByRole("button", { name: /^Stūris \d+$/ })).toHaveLength(
+		4,
+	);
+	expect(
+		screen.getAllByRole("button", { name: /^Izgriezums 1 stūris/ }),
+	).toHaveLength(4);
+	fireEvent.click(screen.getByRole("button", { name: "Atcelt" }));
+	expect(onQueueSave).toHaveBeenCalledTimes(1);
+	expect(marks.map((mark) => mark.polygon)).toEqual(pieces);
 });

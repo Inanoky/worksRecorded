@@ -14,12 +14,14 @@ export function VisualPolygonEditor({
 	surface,
 	disabled = false,
 	planned = false,
+	labelPrefix,
 	onChange,
 }: {
 	area: VisualPlanArea;
 	surface: RefObject<HTMLDivElement | null>;
 	disabled?: boolean;
 	planned?: boolean;
+	labelPrefix?: string;
 	onChange: (area: VisualPlanArea) => void;
 }) {
 	const [cornerIds, setCornerIds] = useState(() =>
@@ -38,9 +40,11 @@ export function VisualPolygonEditor({
 					data-drawing-control
 					disabled={disabled}
 					aria-label={
-						planned
-							? `Plānotās zonas stūris ${index + 1}`
-							: `Stūris ${index + 1}`
+						labelPrefix
+							? `${labelPrefix} stūris ${index + 1}`
+							: planned
+								? `Plānotās zonas stūris ${index + 1}`
+								: `Stūris ${index + 1}`
 					}
 					className="absolute z-20 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none rounded-sm border-2 border-teal-700 bg-teal-50"
 					style={{
@@ -125,9 +129,11 @@ export function VisualPolygonEditor({
 								data-drawing-control
 								disabled={disabled}
 								aria-label={
-									planned
-										? `Pievienot plānotās zonas stūri pie malas ${index + 1}`
-										: `Pievienot stūri pie malas ${index + 1}`
+									labelPrefix
+										? `${labelPrefix}: pievienot stūri pie malas ${index + 1}`
+										: planned
+											? `Pievienot plānotās zonas stūri pie malas ${index + 1}`
+											: `Pievienot stūri pie malas ${index + 1}`
 								}
 								className="absolute z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-sm border-teal-700 bg-teal-50 text-xs text-teal-900"
 								style={{
