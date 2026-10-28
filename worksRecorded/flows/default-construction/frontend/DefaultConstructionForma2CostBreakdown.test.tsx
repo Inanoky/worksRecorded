@@ -10,7 +10,9 @@ import {
 	getDefaultConstructionForma2PositionCostDetails,
 	saveDefaultConstructionForma2Allocations,
 } from "../backend/forma2-analytics-actions";
+import type { Forma2ClientCosts } from "../lib/forma2-client-costs";
 import { DefaultConstructionForma2CostBreakdown } from "./DefaultConstructionForma2CostBreakdown";
+import { Forma2ClientCostsContext } from "./forma2-client-costs-context";
 
 const mockRefresh = jest.fn();
 jest.mock("./DefaultConstructionForma2PdfPreview", () => ({
@@ -123,6 +125,65 @@ function openDetails() {
 		.findAllByRole("combobox", { name: "Assigned position" })
 		.then((items) => items[0]);
 }
+
+it("opens immediately from cached project data without a server call", () => {
+	const option = details().positionOptions[0];
+	const snapshot: Forma2ClientCosts = {
+		positions: [
+			{
+				...option,
+				categoryCode: "",
+				sourceRow: 1,
+				plannedQuantity: null,
+				laborNormHoursPerUnit: null,
+				hourlyRate: null,
+				plannedWorkCost: 0,
+				plannedMaterialCost: 0,
+				plannedMechanismCost: 0,
+				plannedTotalCost: 0,
+			},
+		],
+		sources: [
+			{
+				id: "record",
+				type: "work",
+				selectedPositionId: "old",
+				label: "Cached labour",
+				secondaryLabel: "Floor 1",
+				date: null,
+				unit: "m2",
+				quantity: 10,
+				hours: 7,
+				costSource: "begin-report",
+				actualCost: 120,
+			},
+		],
+		allocations: [],
+	};
+	render(
+		<Forma2ClientCostsContext.Provider value={snapshot}>
+			<DefaultConstructionForma2CostBreakdown
+				siteId="site"
+				positionId="old"
+				costType="work"
+				amount={120}
+				organizationLanguage="en"
+			/>
+		</Forma2ClientCostsContext.Provider>,
+	);
+	fireEvent.click(screen.getByRole("button"));
+	expect(screen.getByText("Cached labour")).toBeInTheDocument();
+	expect(screen.getByText("Worker hours (Begin): 7")).toBeInTheDocument();
+	expect(
+		getDefaultConstructionForma2PositionCostDetails,
+	).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Close" }));
+	fireEvent.click(screen.getByRole("button"));
+	expect(screen.getByText("Cached labour")).toBeInTheDocument();
+	expect(
+		getDefaultConstructionForma2PositionCostDetails,
+	).not.toHaveBeenCalled();
+});
 
 it.each(["work", "material"] as const)(
 	"moves a %s cost from the breakdown and refreshes report totals",

@@ -1,7 +1,7 @@
 "use client";
 
 import { FileText, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,10 +21,12 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { getDefaultConstructionForma2PositionCostDetails } from "@/flows/default-construction/backend/forma2-analytics-actions";
+import { getForma2ClientCostDetails } from "../lib/forma2-client-costs";
 import { formatForma2PositionLabel } from "../lib/forma2-position-label";
 import { DefaultConstructionForma2AssignmentSelect } from "./DefaultConstructionForma2AssignmentSelect";
 import { DefaultConstructionForma2InvoicePreview } from "./DefaultConstructionForma2InvoicePreview";
 import { DefaultConstructionForma2SplitEditor } from "./DefaultConstructionForma2SplitEditor";
+import { Forma2ClientCostsContext } from "./forma2-client-costs-context";
 import { useForma2Refresh } from "./forma2-client-refresh";
 
 type CostType = "work" | "material" | "total";
@@ -69,6 +71,7 @@ export function DefaultConstructionForma2CostBreakdown({
 	organizationLanguage?: string | null;
 }) {
 	const refreshForma2 = useForma2Refresh(siteId);
+	const clientCosts = useContext(Forma2ClientCostsContext);
 	const isLatvian = String(organizationLanguage ?? "")
 		.toLowerCase()
 		.startsWith("lv");
@@ -130,8 +133,21 @@ export function DefaultConstructionForma2CostBreakdown({
 				.reduce((sum, record) => sum + (record.hours ?? 0), 0)
 		: null;
 
-	const showDetails = async () => {
+	useEffect(() => {
+		if (open && clientCosts)
+			setDetails(
+				getForma2ClientCostDetails(clientCosts, { positionId, costType }),
+			);
+	}, [open, clientCosts, positionId, costType]);
+
+	const showDetails = async (reload = false) => {
 		setOpen(true);
+		if (!reload && clientCosts) {
+			setDetails(
+				getForma2ClientCostDetails(clientCosts, { positionId, costType }),
+			);
+			return;
+		}
 		if (loading) return;
 		setLoading(true);
 		try {
@@ -150,7 +166,7 @@ export function DefaultConstructionForma2CostBreakdown({
 		}
 	};
 	const refreshAfterAssignment = async () => {
-		await showDetails();
+		await showDetails(true);
 		refreshForma2();
 	};
 

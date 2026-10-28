@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useMemo } from "react";
 import {
 	Card,
 	CardContent,
@@ -23,6 +23,7 @@ import { DefaultConstructionForma2Import } from "@/flows/default-construction/fr
 import { DefaultConstructionForma2QuantityBreakdown } from "@/flows/default-construction/frontend/DefaultConstructionForma2QuantityBreakdown";
 import { DefaultConstructionForma2TableScroll } from "@/flows/default-construction/frontend/DefaultConstructionForma2TableScroll";
 import {
+	buildForma2AnalyticsView,
 	calculateForma2MoneyTotals,
 	type Forma2MoneyTotals,
 } from "@/flows/default-construction/lib/forma2-analytics";
@@ -32,6 +33,7 @@ import {
 } from "@/flows/default-construction/lib/forma2-analytics-copy";
 import { cn } from "@/lib/utils/utils";
 import { formatForma2PositionLabel } from "../lib/forma2-position-label";
+import { Forma2ClientCostsContext } from "./forma2-client-costs-context";
 
 type Forma2Results = Awaited<
 	ReturnType<typeof getDefaultConstructionForma2Results>
@@ -284,7 +286,9 @@ function Forma2ResultsView({
 										<div className="flex items-start justify-between gap-2">
 											<div className={row.parentId ? "pl-3" : ""}>
 												{row.parentId ? "↳ " : ""}
-												{row.name.trim() === row.code.trim() ? row.name : formatForma2PositionLabel(row)}
+												{row.name.trim() === row.code.trim()
+													? row.name
+													: formatForma2PositionLabel(row)}
 											</div>
 											<DefaultConstructionForma2ContractEditor
 												siteId={siteId}
@@ -420,50 +424,69 @@ export function DefaultConstructionForma2View({
 }) {
 	const t = getForma2AnalyticsCopy(organizationLanguage);
 	const locale = getForma2AnalyticsLocale(organizationLanguage);
+	const rows = useMemo(
+		() =>
+			data.clientCosts
+				? buildForma2AnalyticsView({
+						...data.clientCosts,
+						includeSuggestions: false,
+					}).resultRows
+				: data.resultRows,
+		[data.clientCosts, data.resultRows],
+	);
+	const totals = calculateForma2MoneyTotals(rows);
 
 	return (
-		<div className="space-y-6">
-			<div>
-				<h1 className="text-2xl font-semibold tracking-tight">{t.title}</h1>
-				<p className="mt-1 text-sm text-muted-foreground">{t.description}</p>
+		<Forma2ClientCostsContext.Provider value={data.clientCosts ?? null}>
+			<div className="space-y-6">
+				<div>
+					<h1 className="text-2xl font-semibold tracking-tight">{t.title}</h1>
+					<p className="mt-1 text-sm text-muted-foreground">{t.description}</p>
+				</div>
+
+				<DefaultConstructionForma2Import
+					siteId={siteId}
+					organizationLanguage={organizationLanguage}
+					document={data.document}
+				/>
+
+				<Card>
+					<CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+						<div>
+							<CardTitle>{t.results}</CardTitle>
+							<p className="mt-2 text-sm font-medium tabular-nums">
+								{locale.startsWith("lv")
+									? "Darba izmaksas kopā"
+									: "Total labour cost"}
+								: {formatCurrency(totals.actualWorkCost, locale)}
+							</p>
+							<CardDescription>
+								{t.resultsDescription}{" "}
+								{data.quantitySource === "drawing"
+									? locale.startsWith("lv")
+										? "Faktiskie daudzumi aprēķināti no pašreizējām rasējuma zonām, ievērojot lapas mērogu."
+										: "Factual quantities are measured from the current drawing zones at the page scale."
+									: t.quantitySource}
+							</CardDescription>
+						</div>
+						<DefaultConstructionForma2Export
+							siteName={data.siteName}
+							document={data.document}
+							rows={rows}
+							organizationLanguage={organizationLanguage}
+						/>
+					</CardHeader>
+					<CardContent className="px-0">
+						<Forma2ResultsView
+							siteId={siteId}
+							rows={rows}
+							t={t}
+							locale={locale}
+							organizationLanguage={organizationLanguage}
+						/>
+					</CardContent>
+				</Card>
 			</div>
-
-			<DefaultConstructionForma2Import
-				siteId={siteId}
-				organizationLanguage={organizationLanguage}
-				document={data.document}
-			/>
-
-			<Card>
-				<CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-					<div>
-						<CardTitle>{t.results}</CardTitle>
-						<CardDescription>
-							{t.resultsDescription}{" "}
-							{data.quantitySource === "drawing"
-								? locale.startsWith("lv")
-									? "Faktiskie daudzumi aprēķināti no pašreizējām rasējuma zonām, ievērojot lapas mērogu."
-									: "Factual quantities are measured from the current drawing zones at the page scale."
-								: t.quantitySource}
-						</CardDescription>
-					</div>
-					<DefaultConstructionForma2Export
-						siteName={data.siteName}
-						document={data.document}
-						rows={data.resultRows as Forma2ResultRow[]}
-						organizationLanguage={organizationLanguage}
-					/>
-				</CardHeader>
-				<CardContent className="px-0">
-					<Forma2ResultsView
-						siteId={siteId}
-						rows={data.resultRows as Forma2ResultRow[]}
-						t={t}
-						locale={locale}
-						organizationLanguage={organizationLanguage}
-					/>
-				</CardContent>
-			</Card>
-		</div>
+		</Forma2ClientCostsContext.Provider>
 	);
 }
