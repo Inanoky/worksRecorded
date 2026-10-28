@@ -57,6 +57,43 @@ function SourceWork({
 	);
 }
 
+function SourceWorks({
+	sources,
+	onOpen,
+}: {
+	sources: FimaExampleSource[];
+	onOpen: (source: FimaExampleSource) => void;
+}) {
+	const [expanded, setExpanded] = useState(false);
+	const visible = expanded ? sources : sources.slice(0, 2);
+	return (
+		<>
+			{visible.map((source) => (
+				<SourceWork
+					key={source.id}
+					source={source}
+					onOpen={() => onOpen(source)}
+				/>
+			))}
+			{sources.length > 2 ? (
+				<button
+					type="button"
+					aria-expanded={expanded}
+					onClick={(event) => {
+						event.stopPropagation();
+						setExpanded((value) => !value);
+					}}
+					className="text-left text-primary underline underline-offset-2"
+				>
+					{expanded
+						? "Rādīt mazāk avotu"
+						: `Visi KUCE avoti (${sources.length})`}
+				</button>
+			) : null}
+		</>
+	);
+}
+
 export function FimaExamplesCell({
 	siteId,
 	recordId,
@@ -96,13 +133,10 @@ export function FimaExamplesCell({
 								{entry.label}
 							</a>
 							{sources?.[entry.id]?.length ? (
-								sources[entry.id].map((source) => (
-									<SourceWork
-										key={source.id}
-										source={source}
-										onOpen={() => setSelected({ bisId: entry.id, source })}
-									/>
-								))
+								<SourceWorks
+									sources={sources[entry.id]}
+									onOpen={(source) => setSelected({ bisId: entry.id, source })}
+								/>
 							) : (
 								<p className="text-muted-foreground">
 									KUCE avots nav pieejams.

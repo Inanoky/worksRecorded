@@ -94,6 +94,50 @@ it("expands long work descriptions and preserves BIS navigation without opening 
 	fireEvent.click(link);
 	expect(onRowClick).not.toHaveBeenCalled();
 });
+it("keeps long source lists compact and opens an expanded source by its exact ID", async () => {
+	const onRowClick = jest.fn();
+	const sources = Array.from({ length: 6 }, (_, index) => ({
+		...source,
+		id: `source-${index}`,
+		fimaNumber: 42 + index,
+	}));
+	render(
+		<table>
+			<tbody>
+				<tr onClick={onRowClick}>
+					<td>
+						<FimaExamplesCell
+							siteId="project"
+							recordId="record"
+							examples={{ entries: [entries[0]] }}
+							sources={{ "123": sources }}
+						/>
+					</td>
+				</tr>
+			</tbody>
+		</table>,
+	);
+	expect(screen.getAllByRole("button", { name: /Skatīt avotu/ })).toHaveLength(
+		2,
+	);
+	expect(getFimaExampleSource).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Visi KUCE avoti (6)" }));
+	expect(screen.getAllByRole("button", { name: /Skatīt avotu/ })).toHaveLength(
+		6,
+	);
+	expect(onRowClick).not.toHaveBeenCalled();
+	fireEvent.click(
+		screen.getByRole("button", { name: "FIMA-000047 · Skatīt avotu" }),
+	);
+	await waitFor(() =>
+		expect(getFimaExampleSource).toHaveBeenCalledWith({
+			siteId: "project",
+			recordId: "record",
+			bisId: "123",
+			sourceRecordId: "source-5",
+		}),
+	);
+});
 it("opens the exact source record in a side panel and returns to the same table on close", async () => {
 	const onRowClick = jest.fn();
 	mount(source.work, onRowClick);

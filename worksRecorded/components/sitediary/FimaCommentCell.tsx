@@ -85,29 +85,42 @@ export function FimaCommentCell({
 					</div>
 				</div>
 			) : (
-				<div className="flex items-start gap-1">
-					<span
-						className="min-h-8 min-w-0 flex-1 cursor-text select-text whitespace-pre-wrap break-words py-1 text-xs"
-						title={latest ? `${latest.actorName} · ${latest.at}` : undefined}
-					>
-						{latest?.text}
-					</span>
-					<button
-						type="button"
-						aria-label="Komentāri"
-						className="mt-1 shrink-0 rounded p-1 text-muted-foreground hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring"
-						onClick={onOpenRecord}
-					>
-						<MessageSquare className="size-3" aria-hidden="true" />
-					</button>
-					<button
-						type="button"
-						aria-label="Pievienot komentāru rindā"
-						className="mt-1 shrink-0 rounded p-1 text-muted-foreground opacity-60 hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 group-focus-within:opacity-100"
-						onClick={() => setEditing(true)}
-					>
-						<Pencil className="size-3" />
-					</button>
+				<div className="min-w-0 space-y-2">
+					{latest ? (
+						<div className="min-w-0 rounded-md border bg-muted/20 px-2 py-1.5">
+							<p className="cursor-text select-text whitespace-pre-wrap text-xs leading-relaxed [overflow-wrap:anywhere]">
+								{latest.text}
+							</p>
+							<p
+								className="mt-1 truncate text-[10px] text-muted-foreground"
+								title={`${latest.actorName} · ${latest.at}`}
+							>
+								{latest.actorName}
+							</p>
+						</div>
+					) : null}
+					<div className="flex flex-wrap items-center gap-1">
+						<button
+							type="button"
+							aria-label="Komentāri"
+							title="Atvērt visus komentārus"
+							className="inline-flex items-center gap-1 rounded p-1 text-[11px] text-muted-foreground hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring"
+							onClick={onOpenRecord}
+						>
+							<MessageSquare className="size-3" aria-hidden="true" />
+							{latest ? <span>Visi</span> : null}
+						</button>
+						<button
+							type="button"
+							aria-label="Pievienot komentāru rindā"
+							title="Pievienot komentāru rindā"
+							className="inline-flex items-center gap-1 rounded p-1 text-[11px] text-muted-foreground hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring"
+							onClick={() => setEditing(true)}
+						>
+							<Pencil className="size-3" aria-hidden="true" />
+							<span>Pievienot</span>
+						</button>
+					</div>
 				</div>
 			)}
 		</div>
