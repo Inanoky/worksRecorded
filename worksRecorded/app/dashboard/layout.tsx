@@ -5,6 +5,8 @@ import { BadgeQuestionMark, CircleUser, X } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BbbuveSuiteLogo } from "@/components/dashboard/BbbuveSuiteLogo";
+import { BbbuveSuiteTheme } from "@/components/dashboard/BbbuveSuiteTheme";
 import {
 	DashboardItems,
 	DashboardProjectNavigation,
@@ -38,6 +40,7 @@ import {
 import { DiarySaveProvider } from "@/flows/default-construction/frontend/DiarySaveProvider";
 import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
 import { isAiEvalUiEnabled } from "@/lib/ai-evals/local-gate";
+import { isBbbuveOrganization } from "@/lib/branding/bbbuve";
 import { isProdevOrganization } from "@/lib/branding/prodev";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
 import { isFimaDiary } from "@/lib/fima/diary-collaboration";
@@ -103,18 +106,28 @@ export default async function DashboardLayout({
 		!fimaCollaborationEnabled &&
 		!limeniSuiteEnabled &&
 		isProdevOrganization(organization?.name);
+	const bbbuveSuiteEnabled =
+		!isSuperUser &&
+		!fimaCollaborationEnabled &&
+		!limeniSuiteEnabled &&
+		!prodevSuiteEnabled &&
+		isBbbuveOrganization(organization?.name);
 	const suiteClassName = fimaCollaborationEnabled
 		? "fima-suite"
 		: limeniSuiteEnabled
 			? "limeni-suite"
 			: prodevSuiteEnabled
 				? "prodev-suite"
-				: "";
+				: bbbuveSuiteEnabled
+					? "bbbuve-suite"
+					: "";
 	const suiteLabel = limeniSuiteEnabled
 		? "WorksRecorded — Līmenī business suite"
 		: prodevSuiteEnabled
 			? "WorksRecorded — ProDev business suite"
-			: undefined;
+			: bbbuveSuiteEnabled
+				? "WorksRecorded — BB BŪVE business suite"
+				: undefined;
 	let headerProjects = allHeaderProjects.map(({ siteDiaryRecordsMap: _, bisCaseId: _bis, ...project }) => project);
 	if (
 		flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL &&
@@ -141,6 +154,7 @@ export default async function DashboardLayout({
 				<FimaSuiteTheme enabled={fimaCollaborationEnabled} />
 				<ProdevSuiteTheme enabled={prodevSuiteEnabled} />
 				<LimeniSuiteTheme enabled={limeniSuiteEnabled} />
+				<BbbuveSuiteTheme enabled={bbbuveSuiteEnabled} />
 				{fimaCollaborationEnabled ? (
 					<FimaProjectWarehousePreload
 						siteIds={allHeaderProjects.filter(project => project.bisCaseId && isFimaDiary(project.siteDiaryRecordsMap)).map(project => project.id)}
@@ -191,6 +205,8 @@ export default async function DashboardLayout({
 									<LimeniSuiteLogo />
 								) : prodevSuiteEnabled ? (
 									<ProdevSuiteLogo />
+								) : bbbuveSuiteEnabled ? (
+									<BbbuveSuiteLogo />
 								) : (
 									<FimaSuiteLogo enabled={fimaCollaborationEnabled} />
 								)}
