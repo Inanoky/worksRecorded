@@ -25,7 +25,10 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import type { FimaRecordActCoverage } from "@/lib/fima/acceptance-acts";
-import { getFimaBisRecordUrl } from "@/lib/fima/bis-record-links";
+import {
+	type FimaBisRecordLink,
+	getFimaBisRecordUrl,
+} from "@/lib/fima/bis-record-links";
 import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
 import { mergeFimaCollaboration } from "@/lib/fima/diary-list-summary";
 import {
@@ -66,7 +69,7 @@ export type FimaAllProjectsRecordRow = {
 	hasFimaBisReferences?: boolean;
 	fimaCollaboration?: FimaCollaboration;
 	fimaExampleSources?: FimaExampleSources;
-	fimaBisRecords?: { id: string; number: string | null }[];
+	fimaBisRecords?: FimaBisRecordLink[];
 	fimaActCoverage?: FimaRecordActCoverage;
 	Site: { name: string } | null;
 };
@@ -258,18 +261,24 @@ export function FimaAllProjectsDiary({
 							Atvērt projekta žurnālu
 						</Link>
 					</DropdownMenuItem>
-					{row.BISId ? (
-						<DropdownMenuItem asChild>
+					{(
+						row.fimaBisRecords ??
+						(row.BISId ? [{ id: row.BISId, number: null }] : [])
+					).map((link) => (
+						<DropdownMenuItem
+							asChild
+							key={`${link.type ?? "performed_work"}:${link.id}`}
+						>
 							<a
-								href={getFimaBisRecordUrl(row.BISId) ?? undefined}
+								href={getFimaBisRecordUrl(link.id, link.type) ?? undefined}
 								target="_blank"
 								rel="noopener noreferrer"
 							>
 								<ExternalLink className="mr-2 h-3.5 w-3.5" />
-								Atvērt BIS
+								Atvērt BIS{link.number ? ` ${link.number}` : ""}
 							</a>
 						</DropdownMenuItem>
-					) : null}
+					))}
 				</DropdownMenuContent>
 			</DropdownMenu>
 		</div>

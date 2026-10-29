@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useCallback, useState } from "react";
+import { mapConstructionDiaryListRecord } from "@/flows/default-construction/backend/diary-list-record";
 import { PlanTableColumns } from "@/flows/default-construction/planner/DayPlan";
 import {
 	type FimaCollaboration,
@@ -420,6 +421,62 @@ it("leaves an unlinked BIS record cell blank instead of showing the project case
 	);
 	expect(screen.queryByRole("link")).not.toBeInTheDocument();
 	expect(screen.queryByText("BIS-BL-668714")).not.toBeInTheDocument();
+});
+
+it.each([
+	[{ id: "7900422", number: "713" }],
+	[
+		{ id: "7895558", number: "705" },
+		{ id: "7895578", number: "706" },
+	],
+])(
+	"renders created receipt links from the construction server projection: %j",
+	(...records) => {
+		const row = mapConstructionDiaryListRecord({
+			id: "material-record",
+			BISId: null,
+			evalMetadata: {
+				fimaMaterialReceiptPlan: { bisRecords: records },
+				fimaBisDraftCreation: {
+					records: records.map((record) => ({
+						...record,
+						type: "received_construction_product",
+					})),
+				},
+			},
+		});
+		render(
+			<FimaDiaryCell
+				field="FimaBisCase"
+				siteId={siteId}
+				row={row}
+				onChange={jest.fn()}
+			/>,
+		);
+		expect(row.hasFimaBisReferences).toBe(true);
+		expect(screen.getAllByRole("link")).toHaveLength(records.length);
+		for (const record of records) {
+			expect(screen.getByRole("link", { name: record.number })).toHaveAttribute(
+				"href",
+				`https://bis.gov.lv/bisp/lv/portal/logbooks/received_construction_products/${record.id}/edit`,
+			);
+		}
+	},
+);
+
+it("keeps a created BIS record clickable before its document number is refreshed", () => {
+	render(
+		<FimaDiaryCell
+			field="FimaBisCase"
+			siteId={siteId}
+			row={{ id: "record", BISId: "123" }}
+			onChange={jest.fn()}
+		/>,
+	);
+	expect(screen.getByRole("link", { name: "BIS 123" })).toHaveAttribute(
+		"href",
+		expect.stringContaining("performed_works/123/"),
+	);
 });
 
 it("renders each BIS example as its own clickable bullet without opening the row", () => {

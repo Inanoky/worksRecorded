@@ -1,5 +1,8 @@
 import type { Prisma } from "@prisma/client";
-import { readFimaBisRecordLinks } from "@/lib/fima/bis-record-links";
+import {
+	isFimaBisWorkRecordLink,
+	readFimaBisRecordLinks,
+} from "@/lib/fima/bis-record-links";
 import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
 import type {
 	FimaExampleSource,
@@ -84,7 +87,9 @@ export async function withFimaExampleSources<
 			work: record.Works ?? "",
 		};
 		const linkedIds = new Set([
-			...readFimaBisRecordLinks(record.evalMetadata).map((link) => link.id),
+			...readFimaBisRecordLinks(record.evalMetadata)
+				.filter(isFimaBisWorkRecordLink)
+				.map((link) => link.id),
 			...(record.BISId ? [record.BISId] : []),
 		]);
 		for (const id of linkedIds) if (sources[id]) sources[id].push(source);

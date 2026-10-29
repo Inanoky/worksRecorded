@@ -87,6 +87,49 @@ const tableFor = (work: string) => {
 	if (!table) throw new Error(`No table for ${work}`);
 	return table;
 };
+it("opens every receipt from the row menu without requiring a performed-work ID", async () => {
+	const user = userEvent.setup();
+	render(
+		<FimaAllProjectsDiary
+			records={[
+				{
+					id: "receipt",
+					siteId: "site-1",
+					Date: "2026-10-28",
+					Site: { name: "Olaine" },
+					fimaBisRecords: [
+						{
+							id: "7895558",
+							number: "705",
+							type: "received_construction_product",
+						},
+						{
+							id: "7895578",
+							number: "706",
+							type: "received_construction_product",
+						},
+					],
+				},
+			]}
+		/>,
+	);
+	await user.click(
+		within(screen.getByRole("table")).getByRole("button", {
+			name: "Ieraksta darbības",
+		}),
+	);
+	for (const [number, id] of [
+		["705", "7895558"],
+		["706", "7895578"],
+	]) {
+		expect(
+			screen.getByRole("menuitem", { name: `Atvērt BIS ${number}` }),
+		).toHaveAttribute(
+			"href",
+			`https://bis.gov.lv/bisp/lv/portal/logbooks/received_construction_products/${id}/edit`,
+		);
+	}
+});
 it("uses each record's actual project for collaboration and opens its right panel", () => {
 	render(<FimaAllProjectsDiary records={records} />);
 	const first = within(tableFor("KUCE one")).getAllByRole("row")[1];

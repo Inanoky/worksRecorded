@@ -13,6 +13,29 @@ jest.mock("@/server/actions/fima-diary-collaboration", () => ({
 	refreshFimaBisMaterials: jest.fn(),
 }));
 beforeEach(() => jest.resetAllMocks());
+it("does not request work materials for linked material receipts", () => {
+	render(
+		<FimaMaterialRefresh
+			siteId="project"
+			records={[
+				{
+					id: "receipt",
+					hasFimaBisReferences: true,
+					fimaBisRecords: [
+						{
+							id: "7900422",
+							number: "713",
+							type: "received_construction_product",
+						},
+					],
+				},
+			]}
+			onChange={jest.fn()}
+		/>,
+	);
+	expect(refreshFimaBisMaterials).not.toHaveBeenCalled();
+	expect(screen.queryByRole("button")).not.toBeInTheDocument();
+});
 it("does not call BIS when navigating pages in manual refresh mode", async () => {
 	jest
 		.mocked(refreshFimaBisMaterials)

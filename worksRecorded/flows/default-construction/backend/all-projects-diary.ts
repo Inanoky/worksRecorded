@@ -107,7 +107,7 @@ function addActualCosts(
         config as Record<string, any> | null,
       );
 
-      const bisLinks = (evalMetadata as { kuceImport?: { bisLinks?: unknown } } | null)?.kuceImport?.bisLinks;
+      const fimaBisRecords = readFimaBisRecordLinks(evalMetadata, record.BISId);
       let readActs = actReaders.get(calculatorKey);
       if (!readActs) {
         readActs = createFimaActCoverageReader(config, Site?.bisCaseId);
@@ -120,9 +120,9 @@ function addActualCosts(
           bisStatus,
           Works_Custom_1,
           Works_Custom_2,
-          hasFimaBisReferences: Array.isArray(bisLinks) && bisLinks.length > 0,
-          fimaBisRecords: readFimaBisRecordLinks(evalMetadata, record.BISId),
-          fimaActCoverage: readActs(readFimaBisRecordLinks(evalMetadata, record.BISId)),
+          hasFimaBisReferences: fimaBisRecords.length > 0,
+          fimaBisRecords,
+          fimaActCoverage: readActs(fimaBisRecords),
           fimaCollaboration: readFimaCollaboration(evalMetadata),
           bisCaseId: Site?.bisCaseId ?? null,
           bisCaseNumber: Site?.bisCaseNumber ?? null,

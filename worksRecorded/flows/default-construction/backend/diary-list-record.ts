@@ -36,15 +36,14 @@ export function mapConstructionDiaryListRecord(
 	rec: Record<string, any>,
 ): ConstructionDiaryListRow {
 	const cost = rec.evalMetadata?.beginSalaryAllocation;
+	const fimaBisRecords = readFimaBisRecordLinks(rec.evalMetadata, rec.BISId);
 	return {
 		...mapCommonDiaryListRecord(rec),
 		sectionMapping: readSectionMappingSource(rec.evalMetadata),
 		...(cost ? { beginSalaryAllocation: { kind: cost.kind, currency: cost.currency, sourceReportId: cost.sourceReportId, planSha256: cost.planSha256, totalCents: cost.totalCents } } : {}),
 		fimaNumber: rec.fimaNumber ?? null,
-		fimaBisRecords: readFimaBisRecordLinks(rec.evalMetadata, rec.BISId),
-		hasFimaBisReferences:
-			Array.isArray(rec.evalMetadata?.kuceImport?.bisLinks) &&
-			rec.evalMetadata.kuceImport.bisLinks.length > 0,
+		fimaBisRecords,
+		hasFimaBisReferences: fimaBisRecords.length > 0,
 		fimaCollaboration: rec.evalMetadata?.fimaCollaboration
 			? readFimaCollaboration(rec.evalMetadata)
 			: undefined,

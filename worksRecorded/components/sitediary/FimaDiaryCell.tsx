@@ -13,7 +13,9 @@ import {
 import type { FimaRecordActCoverage } from "@/lib/fima/acceptance-acts";
 import { readFimaBisExamples } from "@/lib/fima/bis-examples";
 import {
+	type FimaBisRecordLink,
 	getFimaBisRecordUrl,
+	isFimaBisWorkRecordLink,
 	readFimaBisRecordLinks,
 } from "@/lib/fima/bis-record-links";
 import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
@@ -32,6 +34,7 @@ type Props = {
 	row: {
 		id?: string;
 		BISId?: string | null;
+		fimaBisRecords?: FimaBisRecordLink[];
 		fimaCollaboration?: FimaCollaboration;
 		fimaExampleSources?: FimaExampleSources;
 		[key: string]: unknown;
@@ -69,7 +72,7 @@ export function FimaDiaryCell({
 				coverage={row.fimaActCoverage as FimaRecordActCoverage | undefined}
 				hasBisRecord={
 					Boolean(row.BISId) ||
-					(Array.isArray(row.fimaBisRecords) && row.fimaBisRecords.length > 0)
+					Boolean(row.fimaBisRecords?.some(isFimaBisWorkRecordLink))
 				}
 			/>
 		);
@@ -96,20 +99,18 @@ export function FimaDiaryCell({
 		);
 		return (
 			<span className="flex flex-wrap gap-x-2 gap-y-1">
-				{links
-					.filter((link) => link.number)
-					.map((link) => (
-						<a
-							key={link.id}
-							href={getFimaBisRecordUrl(link.id) ?? undefined}
-							target="_blank"
-							rel="noopener noreferrer"
-							className="text-primary underline underline-offset-2 tabular-nums"
-							onClick={(event) => event.stopPropagation()}
-						>
-							{link.number}
-						</a>
-					))}
+				{links.map((link) => (
+					<a
+						key={`${link.type ?? "performed_work"}:${link.id}`}
+						href={getFimaBisRecordUrl(link.id, link.type) ?? undefined}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="text-primary underline underline-offset-2 tabular-nums"
+						onClick={(event) => event.stopPropagation()}
+					>
+						{link.number ?? `BIS ${link.id}`}
+					</a>
+				))}
 			</span>
 		);
 	}

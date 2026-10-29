@@ -34,6 +34,16 @@ const index: FimaActCoverageIndex = {
 };
 const config = { otherSettings: { fimaBisActCoverage: index } };
 
+it("does not match a material receipt to a performed-work act with the same numeric ID", () => {
+	expect(
+		createFimaActCoverageReader(
+			config,
+			"668714",
+		)([{ id: "587", number: "713", type: "received_construction_product" }])
+			?.acts,
+	).toEqual([]);
+});
+
 it("matches exact work IDs, returns multiple acts, and preserves included quantities and actual statuses", () => {
 	const read = createFimaActCoverageReader(config, "668714");
 	const result = read([{ id: "587", number: "32" }]);

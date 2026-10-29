@@ -1,4 +1,7 @@
-import type { FimaBisRecordLink } from "./bis-record-links";
+import {
+	type FimaBisRecordLink,
+	isFimaBisWorkRecordLink,
+} from "./bis-record-links";
 
 export const fimaActCoverageKey = "fimaBisActCoverage";
 
@@ -79,6 +82,7 @@ export function createFimaActCoverageReader(config: unknown, caseId: unknown) {
 		if (!valid) return undefined;
 		const matched = new Map<string, FimaRecordActCoverage["acts"][number]>();
 		for (const link of links) {
+			if (!isFimaBisWorkRecordLink(link)) continue;
 			for (const act of byWork.get(link.id) ?? []) {
 				const key = `${act.collection}/${act.id}`;
 				let result = matched.get(key);

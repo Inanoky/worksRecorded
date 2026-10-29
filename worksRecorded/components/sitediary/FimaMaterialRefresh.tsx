@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+	type FimaBisRecordLink,
+	isFimaBisWorkRecordLink,
+} from "@/lib/fima/bis-record-links";
 import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
 import { refreshFimaBisMaterials } from "@/server/actions/fima-diary-collaboration";
 
@@ -10,7 +14,7 @@ type Row = {
 	siteId?: string | null;
 	BISId?: string | null;
 	hasFimaBisReferences?: boolean;
-	fimaBisRecords?: { id: string; number: string | null }[];
+	fimaBisRecords?: FimaBisRecordLink[];
 	fimaCollaboration?: FimaCollaboration;
 };
 type Props = {
@@ -20,6 +24,10 @@ type Props = {
 	autoRefresh?: boolean;
 };
 const freshFor = 10 * 60 * 1000;
+const hasWork = (row: Row) =>
+	row.fimaBisRecords?.length
+		? row.fimaBisRecords.some(isFimaBisWorkRecordLink)
+		: Boolean(row.BISId || row.hasFimaBisReferences);
 
 export function FimaMaterialRefresh({
 	records,
@@ -37,10 +45,7 @@ export function FimaMaterialRefresh({
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 	const linked = records.filter(
-		(row) =>
-			row.id &&
-			(row.siteId || siteId) &&
-			(row.BISId || row.hasFimaBisReferences),
+		(row) => row.id && (row.siteId || siteId) && hasWork(row),
 	);
 	const scopeKey = linked
 		.map((row) => `${row.siteId || siteId}:${row.id}:${row.BISId ?? ""}`)
@@ -59,12 +64,7 @@ export function FimaMaterialRefresh({
 		let active = true;
 		let stopped = false;
 		const candidates = latest.current.filter((row) => {
-			if (
-				!row.id ||
-				!(row.siteId || siteId) ||
-				!(row.BISId || row.hasFimaBisReferences)
-			)
-				return false;
+			if (!row.id || !(row.siteId || siteId) || !hasWork(row)) return false;
 			const key = `${row.siteId || siteId}:${row.id}:${row.BISId ?? ""}`;
 			if (!forced && (attempted.current.get(key) ?? 0) > Date.now())
 				return false;
@@ -74,6 +74,7 @@ export function FimaMaterialRefresh({
 				Boolean(
 					row.fimaBisRecords?.some(
 						(record) =>
+							isFimaBisWorkRecordLink(record) &&
 							!record.number &&
 							!snapshot?.entries.some(
 								(entry) => entry.bisId === record.id && entry.number,
