@@ -578,6 +578,12 @@ export function VisualPlanningPanel({
 		return true;
 	}
 
+	const taskAddingDisabled = !index || saving || areaEditing;
+	function addTask() {
+		if (taskAddingDisabled || !startNewPlan()) return;
+		setAreaRequest((value) => value + 1);
+	}
+
 	const zoneAddingDisabled =
 		!index ||
 		saving ||
@@ -986,11 +992,11 @@ export function VisualPlanningPanel({
 							<Button
 								size="sm"
 								variant="outline"
-								disabled={zoneAddingDisabled}
-								onClick={addZone}
+								disabled={taskAddingDisabled}
+								onClick={addTask}
 							>
 								<Plus className="h-4 w-4" />
-								Pievienot zonu
+								Pievienot uzdevumu
 							</Button>
 						</div>
 
@@ -1142,7 +1148,7 @@ export function VisualPlanningPanel({
 									? "Arhivētais plāns"
 									: draft?.id
 										? "Plāna detaļas"
-										: "Jauns plāns"}
+										: "Jauns uzdevums"}
 							</p>
 							<p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
 								<span
