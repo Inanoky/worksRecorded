@@ -1,7 +1,9 @@
 const mockFindMany = jest.fn();
 const mockFeedback = jest.fn().mockResolvedValue("");
 
-jest.mock("../diary-feedback", () => ({ getDiaryFeedbackContext: (...args: unknown[]) => mockFeedback(...args) }));
+jest.mock("../diary-feedback", () => ({
+	getDiaryFeedbackContext: (...args: unknown[]) => mockFeedback(...args),
+}));
 
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
@@ -77,12 +79,19 @@ describe("buildSiteDiaryExtractionContext", () => {
 	});
 	it("adds project feedback without dropping schema or numeric safeguards", async () => {
 		mockFeedback.mockResolvedValue("Project guidance: " + "x".repeat(12_000));
-		const result = await buildSiteDiaryExtractionContext({ siteId: "site-1", userId: "user-1", sourceText: "Betonēšana", config: baseConfig });
+		const result = await buildSiteDiaryExtractionContext({
+			siteId: "site-1",
+			userId: "user-1",
+			sourceText: "Betonēšana",
+			config: baseConfig,
+		});
 		expect(mockFeedback).toHaveBeenCalledWith("site-1");
 		expect(result.text).toContain("Project guidance");
 		expect(result.text).toContain("Concrete works");
 		expect(result.text).toContain("Never copy workers, hours, amounts");
-		expect(result.text).toContain("If CurrentMessageHasExplicitContextReference=false");
+		expect(result.text).toContain(
+			"If CurrentMessageHasExplicitContextReference=false",
+		);
 	});
 
 	it("includes schema dropdown options and numeric field guidance", async () => {
@@ -102,6 +111,25 @@ describe("buildSiteDiaryExtractionContext", () => {
 		expect(result.text).toContain("Leave null if the worker count is unknown");
 		expect(result.text).not.toContain("Hidden option");
 		expect(result.metadata.schemaOptionCount).toBe(6);
+	});
+
+	it("supplies the configured estimate unit alongside the work name", async () => {
+		const result = await buildSiteDiaryExtractionContext({
+			siteId: "site-1",
+			userId: "user-1",
+			sourceText: "440m2",
+			config: {
+				...baseConfig,
+				otherSettings: {
+					Type: "noRender",
+					defaultConstructionProductivity: {
+						works: [{ work: "Concrete works", unit: "m3" }],
+					},
+				},
+			} as ConfigMap,
+		});
+		expect(result.text).toContain("Configured estimate work units");
+		expect(result.text).toContain("Concrete works → m3");
 	});
 
 	it("queries only same site/user non-archived recent diary rows", async () => {

@@ -5,6 +5,7 @@ import {
 	invokeSiteManagerModel,
 	SITE_MANAGER_AI_BUDGET_MS,
 } from "./aiDeadline";
+import { DIARY_SOURCE_POLICY } from "./diarySourcePolicy";
 import type { SupportedReplyLanguage } from "./fastPath";
 
 export const siteDiaryExtractionCheckerModel = "gpt-5.6-terra";
@@ -90,6 +91,8 @@ export function buildSiteDiaryExtractionCheckerMessages(args: {
 	return [
 		new SystemMessage(
 			`You are a strict construction site diary extraction checker.
+${DIARY_SOURCE_POLICY}
+Coverage is mandatory: compare ALL source clauses with the proposed rows. Missing explicit completed quantities, cleaning work, worker groups or labour durations requires needs_model_repair; an ambiguous delivery must not erase the other supported facts. For unequal durations demand separate labour notes with each duration group, never an invented uniform duration or duplicated hours. Check corrected rows just as strictly as new rows.
 Judge whether the proposed rows represent real separate diary events/jobs from the original WhatsApp message.
 The original message may explicitly refer to trusted reference items from the extraction context, for example same work, same place, yesterday, previous report, or continue. In that case, Works and Location may be supported by those reference items.
 If trusted extraction context says CurrentMessageHasExplicitContextReference=true and contains matching recent reference items, do not mark a row unsafe merely because Works or Location came from that context.
@@ -113,7 +116,7 @@ repairActions are only for safe nulling: rowIndex is zero-based and field must b
 Do not reject merely because there are many rows. Full-day reports can legitimately create many rows when each row has distinct source evidence.
 A row can be a site-diary-relevant note, weather entry, material delivery, machinery note, or work item when it is a real diary event.
 Site-related factual reports without a specific construction task are valid diary notes by default. Missing a specific task, location, quantity, or worker count is not a reason to reject such a note. Return verdict=accept for "strādājam no 7.00 - 18.00" represented as one Notes/Piezīmes row with the working-time interval in Comments, null Location/Amounts/Units/WorkersInvolved, and TimeInvolved=11 or null. A complete start-end interval supports elapsed duration; a start time alone does not. If the report has an invented construction category or incorrect interval duration, use needs_model_repair to request one source-backed note. Questions, greetings, and commands without a diary fact are not diary events and must not become notes.
-Do not judge enum/category wording harshly unless it caused a wrong split.
+Check category and configured measurement-unit compatibility as well as splitting. Do not accept a measurable completed work classified as Notes merely because the material is omitted: request clarification if context cannot safely resolve it. Do not guess a different material, category or unit to force a match.
 If model repair is needed, write concrete repairInstructions for the extractor. The instruction must say which rows should be split into specific separate jobs, merged, dropped, or preserved, and why.
 Use language=${args.language} for reason and repairInstructions when practical.`,
 		),

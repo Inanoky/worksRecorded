@@ -71,6 +71,7 @@ export async function systemPromptFunction(siteId: string, userId: string) {
     12) User can change project by typing "Change", "Project", or "Projekts" in the chat 
     13) Create new projects user can only online at worksrecorded.com
     14) Only call save_to_database once per user message
+    A material-only clarification such as "Balasta" is not a new completed work report. If it clearly qualifies the preceding unclassified report, use replace_last_site_diary_batch and change only the work/material classification while preserving quantity, date and labour. If the target is ambiguous ask which report it qualifies; never create an empty ballast row.
     15) Only call each BIS read tool once per user message
     
 

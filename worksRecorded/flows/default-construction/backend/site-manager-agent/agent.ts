@@ -1,9 +1,9 @@
 "use server"
-import {Annotation, END, START, StateGraph, messagesStateReducer} from "@langchain/langgraph";
-import { ChatOpenAI } from "@langchain/openai";
 import {AIMessage, BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
-import { RunnableLambda, type RunnableConfig } from "@langchain/core/runnables";
+import { type RunnableConfig, RunnableLambda } from "@langchain/core/runnables";
+import {Annotation, END, messagesStateReducer, START, StateGraph } from "@langchain/langgraph";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
+import { ChatOpenAI } from "@langchain/openai";
 import { systemPromptFunction} from "@/flows/default-construction/backend/site-manager-agent/prompts"
 import {
     extractAndSaveSiteDiary,
@@ -12,16 +12,17 @@ import {
     toolNode,
     tools,
 } from "@/flows/default-construction/backend/site-manager-agent/tools";
-import {
-    siteManagerAgentForSiteManagerRouteModelModel,
-    siteManagerAgentForSiteManagerRouteModelReasoningEffort,
-} from "@/server/ai-flows/ai-models-settings";
+import { getPendingSiteDiaryCorrection, getSiteDiaryCorrectionTarget } from "@/server/actions/site-diary-actions";
 import { getUserFullNameById } from "@/server/actions/whatsapp-actions";
-import { getPendingSiteDiaryCorrection } from "@/server/actions/site-diary-actions";
 import {
     getSiteManagerSavedConfirmationRecords,
     runWithSiteManagerToolContext,
 } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/siteDiaryToolContext";
+import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import {
+    siteManagerAgentForSiteManagerRouteModelModel,
+    siteManagerAgentForSiteManagerRouteModelReasoningEffort,
+} from "@/server/ai-flows/ai-models-settings";
 import {
     buildAiRunContext,
     getSiteManagerThreadId,
@@ -33,37 +34,6 @@ import {
     prepareControlledModelMessages,
 } from "@/server/ai-flows/controlled-memory";
 import {
-    getSiteManagerAgentRunContext,
-    getSiteManagerMetricsSnapshot,
-    getSiteManagerSenderTraceMetadata,
-    getSiteManagerSenderTraceTags,
-    buildSiteManagerWorkflowTraceContext,
-    formatSiteManagerWorkflowRunName,
-    recordSiteManagerModelCall,
-    recordSiteManagerTiming,
-    runWithSiteManagerAgentEvalContext,
-    setSiteManagerExecutionPath,
-    fastPathTraceConfig,
-    type FastPathFallbackReason,
-    type FastPathOutcome,
-    type SiteManagerAgentRunDetails,
-} from "./runContext";
-import {
-    detectReplyLanguage,
-    formatDeterministicSaveReply,
-    formatDeterministicCorrectionReply,
-    getFastPathMode,
-    isCorrectionOnlyToolRound,
-    isSiteDiaryFastPathCandidate,
-    isSaveOnlyToolRound,
-    parseCorrectionToolResult,
-    parseSaveToolOutcome,
-    shouldAcceptFastPathCorrectionIntent,
-} from "./fastPath";
-import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
-import { getUserAddressName, shouldSampleUserAddress } from "./nameAddressing";
-import { getFinalAssistantResponse } from "./responseContent";
-import {
     getSiteManagerAiTimeout,
     getSiteManagerTimeoutReply,
     invokeSiteManagerModel,
@@ -72,6 +42,37 @@ import {
     SiteManagerAiTimeoutError,
     withSiteManagerAiBudget,
 } from "./aiDeadline";
+import { canClarifyPreviousDiaryReport, isMaterialOnlyDiaryClarification } from "./diarySourcePolicy";
+import {
+    detectReplyLanguage,
+    formatDeterministicCorrectionReply,
+    formatDeterministicSaveReply,
+    getFastPathMode,
+    isCorrectionOnlyToolRound,
+    isSaveOnlyToolRound,
+    isSiteDiaryFastPathCandidate,
+    parseCorrectionToolResult,
+    parseSaveToolOutcome,
+    shouldAcceptFastPathCorrectionIntent,
+} from "./fastPath";
+import { getUserAddressName, shouldSampleUserAddress } from "./nameAddressing";
+import { getFinalAssistantResponse } from "./responseContent";
+import {
+    buildSiteManagerWorkflowTraceContext,
+    type FastPathFallbackReason,
+    type FastPathOutcome,
+    fastPathTraceConfig,
+    formatSiteManagerWorkflowRunName,
+    getSiteManagerAgentRunContext,
+    getSiteManagerMetricsSnapshot,
+    getSiteManagerSenderTraceMetadata,
+    getSiteManagerSenderTraceTags,
+    recordSiteManagerModelCall,
+    recordSiteManagerTiming,
+    runWithSiteManagerAgentEvalContext,
+    type SiteManagerAgentRunDetails,
+    setSiteManagerExecutionPath,
+} from "./runContext";
 
 export { runWithSiteManagerAgentEvalContext };
 export type { SiteManagerAgentRunDetails };
@@ -258,6 +259,22 @@ async function talkToWhatsappAgentCore(
             ...metrics,
         };
     };
+
+    if (isMaterialOnlyDiaryClarification(normalizedQuestion)) {
+        const target = await getSiteDiaryCorrectionTarget({ siteId, userId, replyToMessageId });
+        if (!canClarifyPreviousDiaryReport(target)) {
+            const content = "Kuru iepriekšējo ierakstu šis materiāla precizējums papildina? Lūdzu, atbildiet uz konkrēto ziņojumu vai norādiet datumu un apjomu.";
+            completeRunDetails(content, "material-clarification-required");
+            return content;
+        }
+        const result = await runWithSiteManagerToolContext(
+            { userId, siteId, originalUserComment: sourceComment, originalMessage: question },
+            () => replaceLastSiteDiaryBatchOperation({ correction: `Precizējums iepriekšējā ziņojuma materiālam: ${normalizedQuestion}. Maini tikai darba/materiāla klasifikāciju; saglabā iepriekš norādīto datumu, apjomu, mērvienību un darba laiku.`, language: "lv" }),
+        );
+        const content = formatDeterministicCorrectionReply(result);
+        completeRunDetails(content, "material-clarification-correction");
+        return content;
+    }
 
     const state = Annotation.Root({
         messages: Annotation<BaseMessage[]>({

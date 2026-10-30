@@ -238,9 +238,30 @@ describe("diary feedback refresh", () => {
 			),
 		).toBe(true);
 	});
+	it("does not teach fallback notes, unclassified quantities or future intentions as matching rules", async () => {
+		mockRecords.mockResolvedValue([
+			record,
+			{
+				...record,
+				id: "fallback",
+				evalMetadata: { diaryQuality: { status: "needs_review" } },
+			},
+			{ ...record, id: "unclassified", Works: "Piezīmes", Amounts: 200 },
+			{ ...record, id: "planned", originalUserComment: "Rīt jāizplanē 60m3." },
+			{
+				...record,
+				id: "reviewed",
+				evalMetadata: { diaryQuality: { status: "reviewed" } },
+				originalUserComment: "precizēts XPS",
+			},
+		]);
+		const result = await readDiaryFeedbackDataset("site-a");
+		expect(result.examples).toHaveLength(2);
+		expect(result.examples[1]).toMatchObject({ reviewed: true });
+	});
 	it("keeps manual guidance while appending generated history", async () => {
 		expect(await refreshDiaryFeedback("site-a")).toBe("updated");
-		expect(mockInvoke.mock.calls[0][0][1].content).toContain(
+		expect(mockInvoke.mock.calls[0][0].at(-1).content).toContain(
 			state.userInstructions,
 		);
 		expect(mockVersion).toHaveBeenCalledWith({

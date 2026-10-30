@@ -274,11 +274,27 @@ export async function buildSiteDiaryExtractionContext({
 	});
 	const schemaDigest = formatSchemaDigest(config);
 	const feedbackContext = await getDiaryFeedbackContext(siteId);
+	const settings = config.otherSettings as unknown as {
+		defaultConstructionProductivity?: {
+			works?: Array<{ work: string; unit: string }>;
+		};
+	};
+	const workUnits =
+		settings?.defaultConstructionProductivity?.works
+			?.filter((item) => item.unit)
+			.map((item) => `${compact(item.work, 180)} → ${compact(item.unit, 30)}`)
+			.slice(0, 300) ?? [];
 	const rawText = [
 		"Trusted extraction context:",
 		`Current message preview: ${compact(sourceText, 500) || "(empty)"}`,
 		`CurrentMessageHasExplicitContextReference: ${explicitContextReference}`,
 		schemaDigest.text,
+		...(workUnits.length
+			? [
+					"Configured estimate work units (do not convert incompatible dimensions):",
+					...workUnits,
+				]
+			: []),
 		"Recent trusted reference items for this site/user:",
 		recentRecords.length
 			? recentRecords

@@ -105,6 +105,32 @@ jest.mock("./structuredSaveTrace", () => ({
 import { normalizeUnknownNumericFields } from "./tools";
 
 describe("normalizeUnknownNumericFields", () => {
+	it("does not save temperature or a copied ordinal as a work amount", () => {
+		const source =
+			"Iestrādāts balasts 240m3, 6.perona 2.pamatnes sagatavošana, strādāja 10h trīs cilvēki, laikapstākļi +12";
+		expect(
+			normalizeUnknownNumericFields(
+				{
+					Works: "Piezīmes",
+					Comments: "Laikapstākļi: +12 °C.",
+					Amounts: 12,
+					Units: null,
+				},
+				source,
+			),
+		).toMatchObject({ Amounts: null, Units: null });
+		expect(
+			normalizeUnknownNumericFields(
+				{
+					Works: "Piezīmes",
+					Comments: "10 stundas strādāja trīs cilvēki.",
+					Amounts: 2,
+					Units: null,
+				},
+				source,
+			),
+		).toMatchObject({ Amounts: null, Units: null });
+	});
 	it("preserves implicit completed-object counts as pieces", () => {
 		expect(
 			normalizeUnknownNumericFields(
@@ -223,6 +249,31 @@ describe("normalizeUnknownNumericFields", () => {
 			).toMatchObject({ Amounts: 10, Units: "pcs" });
 		},
 	);
+
+	it("does not turn a temperature into hours mentioned in another clause", () => {
+		expect(
+			normalizeUnknownNumericFields(
+				{
+					Works: "Piezīmes",
+					Comments: "Laikapstākļi: +12 °C",
+					Amounts: 12,
+					Units: null,
+				},
+				"Strādāja 12h. Laikapstākļi: +12 °C",
+			),
+		).toMatchObject({ Amounts: null, Units: null });
+		expect(
+			normalizeUnknownNumericFields(
+				{
+					Works: "Piezīmes",
+					Comments: "Laikapstākļi: +12 °C",
+					Amounts: 12,
+					Units: null,
+				},
+				"Strādāja 12h. Laikapstākļi: +12 °C",
+			).TimeInvolved ?? null,
+		).toBeNull();
+	});
 
 	it.each([
 		["Reģipsis 2 kārtās", "amount is a layer count"],

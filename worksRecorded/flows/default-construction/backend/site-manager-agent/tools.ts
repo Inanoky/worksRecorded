@@ -46,6 +46,7 @@ import {
 	SiteManagerAiTimeoutError,
 	withSiteManagerAiBudget,
 } from "./aiDeadline";
+import { DIARY_SOURCE_POLICY, isContextOnlyDiaryAmount, normalizeDiarySourceRows } from "./diarySourcePolicy";
 import {
 	detectReplyLanguage,
 	type SiteDiaryCorrectionResult,
@@ -556,6 +557,9 @@ function classifyAmountEvidence(
 	if (typeof row.Amounts !== "number") {
 		return { status: "supported", reason: "no numeric amount" };
 	}
+	if (isContextOnlyDiaryAmount(row, source)) {
+		return { status: "known_invalid", reason: "amount belongs to weather, labour or ordinal context" };
+	}
 	const unitFamily = normalizeAmountUnitFamily(row.Units);
 	if (
 		unitFamily &&
@@ -720,6 +724,7 @@ function normalizeUnknownNumericFieldsWithAmountEvidence(
 		} else if (amountEvidence.status !== "supported") {
 			if (
 				typeof normalized.TimeInvolved !== "number" &&
+				!isContextOnlyDiaryAmount(normalized, source) &&
 				hasNumberWithUnit(source, normalized.Amounts, timeUnitPattern)
 			) {
 				normalized.TimeInvolved =
@@ -953,7 +958,7 @@ function buildStructuredExtractionMessages(args: {
 
 	return [
 		new SystemMessage(
-			`${args.systemPrompt}\ntoday is : ${args.date}\n${args.siteId}${fallbackInstructions}${repairInstructions}`,
+			`${args.systemPrompt}\n${DIARY_SOURCE_POLICY}\ntoday is : ${args.date}\n${args.siteId}${fallbackInstructions}${repairInstructions}`,
 		),
 		new SystemMessage(args.extractionContextText),
 		new HumanMessage(`${args.question} Date is : ${args.date}`),
@@ -966,6 +971,7 @@ type ExtractAndSaveSiteDiaryArgs = {
 	allowFallback?: boolean;
 	persist?: boolean;
 	runExtractionChecker?: boolean;
+	validateBeforeReturning?: boolean;
 	repairInstructions?: string;
 	fastPathTrace?: FastPathTraceMetadata;
 	intentContext?: { hasReplyContext: boolean; hasPendingCorrection: boolean };
@@ -1118,7 +1124,7 @@ async function extractAndSaveSiteDiaryCore(
 				siteId,
 				originalUserComment,
 				sourceMessageId: whatsappSourceContext.messageId,
-				evalMetadata: runContext?.evalRecordMetadata,
+				evalMetadata: { ...runContext?.evalRecordMetadata, diaryQuality: { status: "needs_review", reason, sourceMessageId: whatsappSourceContext.messageId ?? null } },
 			});
 		} catch (error) {
 			console.warn("site diary note fallback persistence failed", error);
@@ -1415,14 +1421,14 @@ async function extractAndSaveSiteDiaryCore(
 	const rows =
 		clientPrompt === "NoSorting"
 			? normalizedRows.rows
-			: normalizeWorkdayNoteRows(normalizedRows.rows, args.question, mapToUse);
+			: normalizeDiarySourceRows(normalizeWorkdayNoteRows(normalizedRows.rows, args.question, mapToUse), args.question, mapToUse);
 	let amountEvidenceWarnings = normalizedRows.amountEvidenceWarnings;
 	if (amountEvidenceWarnings.length > 0) {
 		Object.assign(aiContext.runnableConfig.metadata, {
 			amountEvidenceWarningCount: amountEvidenceWarnings.length,
 		});
 	}
-	if (args.persist === false) {
+	if (args.persist === false && !args.validateBeforeReturning) {
 		updateTraceOutcome("save");
 		recordSiteManagerToolCall({
 			name: "shadow_save_to_database",
@@ -1800,6 +1806,9 @@ async function extractAndSaveSiteDiaryCore(
 			siteDiaryCheckerPersistedAfterRepair: false,
 		});
 	}
+	if (args.persist === false) {
+		return { action: "save_new_report", correctionMode: "not_applicable", language, content: "", ok: true, count: rowsToSave.length, rows: rowsToSave, rawRecords: rawRecordsToTrace, amountEvidenceWarnings };
+	}
 	const persistenceStarted = Date.now();
 	let result: Awaited<ReturnType<typeof saveSiteDiaryRecord>> | undefined;
 	try {
@@ -2077,6 +2086,7 @@ export async function replaceLastSiteDiaryBatchOperation(args: {
 			question: `ORIGINAL REPORT (trusted):\n${target.batch.originalText}\n\nUSER CORRECTION (takes precedence):\n${args.correction}\n\nReturn the complete corrected diary batch.`,
 			requestedDate: targetDiaryDateForPrompt,
 			persist: false,
+			validateBeforeReturning: true,
 		});
 		if (!extraction.ok || !extraction.rows?.length) {
 			markSiteManagerSideEffectsStarted();

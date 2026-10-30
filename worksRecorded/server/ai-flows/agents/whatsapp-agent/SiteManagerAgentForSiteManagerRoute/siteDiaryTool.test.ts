@@ -2441,9 +2441,9 @@ describe("replace_last_site_diary_batch correction operation", () => {
 			},
 		});
 		getSiteDiaryCorrectionTargetMock.mockResolvedValue(correctionTarget);
-		structuredInvokeMock.mockResolvedValue({
-			records: [{ Area: "2 stāvs", Activity: "Repair works", Quantity: 10 }],
-		});
+		structuredInvokeMock.mockReset().mockImplementation(async (messages) => String(messages[0].content).includes("strict construction site diary extraction checker")
+			? { parsed: { verdict: "accept", reason: "Supported correction", repairActions: [], repairInstructions: "", expectedRecordCount: 1 }, raw: {} }
+			: { records: [{ Area: "2 stāvs", Activity: "Repair works", Quantity: 10 }] });
 		archiveAndReplaceSiteDiaryBatchMock.mockResolvedValue({
 			ok: true,
 			idempotent: false,
@@ -2484,8 +2484,54 @@ describe("replace_last_site_diary_batch correction operation", () => {
 		expect(messages[2].content).toContain("Date is : 20-06-2026");
 	});
 
+	it("checks corrected rows before replacing the existing batch", async () => {
+		await replaceLastSiteDiaryBatchOperation({
+			correction: "Izmaini daudzumu uz 10 gab.",
+			language: "lv",
+		});
+		expect(
+			structuredInvokeMock.mock.calls.some(([messages]) =>
+				String(messages[0].content).includes(
+					"strict construction site diary extraction checker",
+				),
+			),
+		).toBe(true);
+		expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+		expect(archiveAndReplaceSiteDiaryBatchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it("preserves the old batch when the corrected extraction cannot pass validation", async () => {
+		structuredInvokeMock.mockImplementation(async (messages) =>
+			String(messages[0].content).includes(
+				"strict construction site diary extraction checker",
+			)
+				? {
+						parsed: {
+							verdict: "unsafe",
+							reason: "The correction contains unsupported quantities",
+							repairActions: [],
+							repairInstructions: "",
+							expectedRecordCount: 1,
+						},
+						raw: {},
+					}
+				: {
+						records: [
+							{ Area: "2 stāvs", Activity: "Repair works", Quantity: 10 },
+						],
+					},
+		);
+		const result = await replaceLastSiteDiaryBatchOperation({
+			correction: "Izmaini daudzumu uz 10 gab.",
+			language: "lv",
+		});
+		expect(result.status).toBe("needs_clarification");
+		expect(archiveAndReplaceSiteDiaryBatchMock).not.toHaveBeenCalled();
+		expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+	});
+
 	it("forces replacement rows to keep the target record date", async () => {
-		structuredInvokeMock.mockResolvedValue({
+		structuredInvokeMock.mockResolvedValueOnce({
 			records: [
 				{
 					Area: "2 stāvs",
