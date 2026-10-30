@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { FimaProjectContent } from "@/components/fima/FimaProjectProvider";
 import { LimeniProjectData } from "@/flows/default-construction/frontend/LimeniProjectData";
 import { RetainedLimeniDiary } from "@/flows/default-construction/frontend/RetainedLimeniDiary";
 import { RetainedLimeniForma2 } from "@/flows/default-construction/frontend/RetainedLimeniForma2";
@@ -13,13 +14,15 @@ export default async function ProjectLayout({
 }) {
 	const { siteId } = await params;
 	return (
-		<LimeniProjectData key={siteId} siteId={siteId}>
-			<VisualProjectView key={siteId} siteId={siteId}>
-				<RetainedLimeniDiary key={siteId} siteId={siteId}>
-					{children}
-					<RetainedLimeniForma2 key={siteId} siteId={siteId} />
-				</RetainedLimeniDiary>
-			</VisualProjectView>
-		</LimeniProjectData>
+		<FimaProjectContent key={siteId} siteId={siteId}>
+			<LimeniProjectData key={siteId} siteId={siteId}>
+				<VisualProjectView key={siteId} siteId={siteId}>
+					<RetainedLimeniDiary key={siteId} siteId={siteId}>
+						{children}
+						<RetainedLimeniForma2 key={siteId} siteId={siteId} />
+					</RetainedLimeniDiary>
+				</VisualProjectView>
+			</LimeniProjectData>
+		</FimaProjectContent>
 	);
 }

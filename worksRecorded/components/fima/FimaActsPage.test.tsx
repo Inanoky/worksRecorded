@@ -139,6 +139,16 @@ it("saves only an explicitly chosen approved or approving source Act and compare
 		siteId: sourceId,
 		number: "KT-SOURCE-21",
 	});
+	data.references = [
+		{
+			...data.rows[1],
+			siteId: sourceId,
+			caseId: "668708",
+			id: "200",
+			collection,
+		},
+	];
+	data.rows = [target];
 	render(<FimaActsPage initial={data} />);
 	fireEvent.click(
 		screen.getByRole("button", {
@@ -170,13 +180,14 @@ it("saves only an explicitly chosen approved or approving source Act and compare
 	fireEvent.click(
 		within(row).getByRole("button", { name: "Salīdzināt ar paraugu" }),
 	);
-	await waitFor(() => expect(getFimaActReferenceDetail).toHaveBeenCalled());
+	expect(getFimaActReferenceDetail).not.toHaveBeenCalled();
 	expect(
 		await screen.findByRole("heading", { name: "Parauga akts" }),
 	).toBeInTheDocument();
 });
 it("saves a human Act comment separately and filters by BIS status and example presence", async () => {
 	const target = data.rows[0];
+	data.rows = [target];
 	jest.mocked(saveFimaActSettings).mockResolvedValue({
 		...target.setting,
 		revision: 1,
@@ -209,7 +220,9 @@ it("saves a human Act comment separately and filters by BIS status and example p
 		target: { value: "Pārbaudīt rasējumu" },
 	});
 	fireEvent.click(screen.getByRole("button", { name: "Pievienot komentāru" }));
-	expect(await screen.findByText("Pārbaudīt rasējumu")).toBeInTheDocument();
+	expect(
+		(await screen.findAllByText("Pārbaudīt rasējumu")).length,
+	).toBeGreaterThan(0);
 	expect(saveFimaActSettings).toHaveBeenCalledWith(
 		expect.objectContaining({
 			kind: "comment",
@@ -217,4 +230,32 @@ it("saves a human Act comment separately and filters by BIS status and example p
 			id: target.id,
 		}),
 	);
+});
+it("uses the diary's coloured badges and shows the latest human comment directly in the row", () => {
+	const row = data.rows[0];
+	data.rows = [row];
+	row.setting.status = "ai_prepared";
+	row.setting.history = [
+		{
+			id: "human",
+			requestId: "test",
+			kind: "comment",
+			text: "Cilvēka komentārs ir redzams rindā",
+			actorId: "ieva",
+			actorName: "Ieva",
+			at: "2026-10-30T09:00:00Z",
+		},
+	];
+	render(<FimaActsPage initial={data} />);
+	const article = screen.getByRole("article", { name: row.localNumber });
+	expect(within(article).getByText("AI sagatavots")).toHaveClass(
+		"bg-yellow-50",
+	);
+	expect(article.querySelector(".bg-blue-50")).toBeInTheDocument();
+	expect(
+		within(article).getByText("Cilvēka komentārs ir redzams rindā"),
+	).toBeVisible();
+	expect(
+		within(article).getByRole("button", { name: "Pievienot komentāru rindā" }),
+	).toBeVisible();
 });

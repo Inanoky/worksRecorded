@@ -4,7 +4,6 @@ import AiWidgetRag from "@/components/ai/AiChatLazy";
 import { ClientFlowDashboard } from "@/components/client-flows/ClientFlowDashboard";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import TourRunner from "@/components/joyride/TourRunner";
-import { loadFimaProjectDiary } from "@/flows/default-construction/backend/fima-project-diary";
 import {
 	ClearRetainedDiary,
 	RegisterLimeniDiary,
@@ -17,6 +16,7 @@ import {
 } from "@/lib/flows/registry";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
+import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { isSuperUserId } from "@/lib/utils/super-user";
 import {
@@ -61,16 +61,21 @@ export default async function InvoiceRoute({
 	if (flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL) {
 		redirect(`/dashboard/invoices?project=${encodeURIComponent(siteId)}`);
 	}
-	const [bisStatus, initialFimaDiary] = await Promise.all([
-		getDashboardBisStatus(
-			user.id,
-			siteId,
-			!getFlowModuleUi(flowModuleKey).hideBisSettings,
-		),
-		flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION && siteOrganizationId
-			? loadFimaProjectDiary(siteOrganizationId, siteId)
-			: null,
-	]);
+	const fimaProject = await (flowModuleKey ===
+		FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION && siteOrganizationId
+		? prisma.site.findFirst({
+				where: {
+					id: siteId,
+					bisCaseId: { not: "" },
+					organizationId: siteOrganizationId,
+					siteDiaryRecordsMap: {
+						path: ["otherSettings", "fimaCollaboration"],
+						equals: true,
+					},
+				},
+				select: { id: true },
+			})
+		: null);
 
 	if (onboardingProjectName) {
 		after(async () => {
@@ -88,6 +93,12 @@ export default async function InvoiceRoute({
 			}
 		});
 	}
+	if (fimaProject) return null;
+	const bisStatus = await getDashboardBisStatus(
+		user.id,
+		siteId,
+		!getFlowModuleUi(flowModuleKey).hideBisSettings,
+	);
 
 	return (
 		<>
@@ -127,7 +138,6 @@ export default async function InvoiceRoute({
 						siteId={siteId}
 						bisEnabled={bisStatus.enabled}
 						organizationLanguage={organizationLanguage}
-						initialFimaDiary={initialFimaDiary}
 					/>
 				</>
 			)}

@@ -52,6 +52,7 @@ export async function withFimaExampleSources<
 >(
 	organizationId: string,
 	rows: T[],
+	db: Pick<typeof prisma, "sitediaryrecords"> = prisma,
 ): Promise<(T & { fimaExampleSources?: FimaExampleSources })[]> {
 	const ids = [
 		...new Set(
@@ -63,7 +64,7 @@ export async function withFimaExampleSources<
 		),
 	].filter((id) => /^\d+$/.test(id));
 	if (!ids.length) return rows;
-	const records = await prisma.sitediaryrecords.findMany({
+	const records = await db.sitediaryrecords.findMany({
 		where: buildFimaExampleSourceWhere(organizationId, ids),
 		select: {
 			id: true,

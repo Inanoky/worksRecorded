@@ -238,3 +238,50 @@ it("rejects failed scoped updates", async () => {
 		),
 	).rejects.toThrow("Neizdevās");
 });
+it("prepares the complete comparison catalogue in the project payload", async () => {
+	const data = await getFimaActsForSite(siteId);
+	expect(data.rows.map((row) => row.id)).toEqual(["100"]);
+	expect(data.references).toEqual([
+		expect.objectContaining({
+			siteId: sourceId,
+			caseId: "668708",
+			id: "200",
+			collection,
+			works: [],
+			records: [],
+		}),
+	]);
+	expect(JSON.stringify(data.references)).not.toContain("fimaCollaboration");
+});
+it.each([
+	"updated",
+	"ai_prepared",
+	"coordinate_with_fima",
+	"bis_draft",
+	"ready_for_approval",
+	"approved",
+	"do_not_create",
+	"needs_changes",
+	null,
+] as const)(
+	"saves the Act workflow badge %s independently of the BIS status",
+	async (status) => {
+		const next = await saveFimaActSettings({
+			...scope,
+			kind: "status",
+			status,
+		});
+		expect(next.status).toBe(status);
+		expect(next.history[0]).toMatchObject({
+			kind: "status",
+			actorName: "Ieva Test",
+		});
+		expect(next.history[0].text).toContain("Nav atzīmes →");
+		expect(config.otherSettings.fimaBisActCoverage).toMatchObject({
+			acts: [{ status: "draft" }],
+		});
+		expect(next.history.filter((event) => event.kind === "comment")).toEqual(
+			[],
+		);
+	},
+);

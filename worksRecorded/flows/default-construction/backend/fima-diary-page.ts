@@ -83,7 +83,13 @@ export function buildFimaDiaryPageWhere(
 export async function loadFimaDiaryPage(
 	organizationId: string,
 	filters: FimaPageFilters,
+	options: {
+		snapshot?: boolean;
+		ids?: string[];
+		db?: Pick<typeof prisma, "site" | "sitediaryrecords">;
+	} = {},
 ) {
+	const db = options.db ?? prisma;
 	const pageSize = filters.projectView ? 75 : 50;
 	const requestedPage =
 		Number.isSafeInteger(filters.page) && Number(filters.page) > 0
@@ -94,11 +100,15 @@ export async function loadFimaDiaryPage(
 		filters.keyword,
 		filters.projectId,
 	);
-	const where = buildFimaDiaryPageWhere(
+	const baseWhere = buildFimaDiaryPageWhere(
 		organizationId,
 		filters,
 		documentRecordIds,
 	);
+	const where = {
+		...baseWhere,
+		...(options.ids ? { id: { in: options.ids } } : {}),
+	};
 	const orderBy: Prisma.sitediaryrecordsOrderByWithRelationInput[] = [
 		filters.projectView
 			? { Date: "desc" }
@@ -107,11 +117,12 @@ export async function loadFimaDiaryPage(
 		{ id: "desc" },
 	];
 	const findPage = (page: number) =>
-		prisma.sitediaryrecords.findMany({
+		db.sitediaryrecords.findMany({
 			where,
 			orderBy,
-			skip: (page - 1) * pageSize,
-			take: pageSize,
+			...(options.snapshot
+				? {}
+				: { skip: (page - 1) * pageSize, take: pageSize }),
 			select: {
 				...commonDiaryListSelect,
 				fimaNumber: true,
@@ -122,14 +133,14 @@ export async function loadFimaDiaryPage(
 		});
 	const [requestedRecords, totalCount] = await Promise.all([
 		findPage(requestedPage),
-		prisma.sitediaryrecords.count({ where }),
+		db.sitediaryrecords.count({ where }),
 	]);
 	const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 	const page = Math.min(requestedPage, totalPages);
 	const records =
 		page === requestedPage ? requestedRecords : await findPage(page);
 	const sites = records.length
-		? await prisma.site.findMany({
+		? await db.site.findMany({
 				where: {
 					organizationId,
 					id: {
@@ -176,7 +187,7 @@ export async function loadFimaDiaryPage(
 		},
 	);
 	return {
-		rows: await withFimaExampleSources(organizationId, rows),
+		rows: await withFimaExampleSources(organizationId, rows, db),
 		page,
 		pageSize,
 		totalCount,

@@ -1,8 +1,8 @@
 "use client";
 
 import { Building2, Check, Menu } from "lucide-react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -101,20 +101,22 @@ export function MobileMenu({
 				{fimaCollaborationEnabled ? (
 					<>
 						<DropdownMenuItem asChild>
-							<Link
+							<FimaProjectNavigationLink
 								href="/dashboard/all-projects"
 								aria-current={
 									pathname === "/dashboard/all-projects" ? "page" : undefined
 								}
 							>
 								Visi projekti
-							</Link>
+							</FimaProjectNavigationLink>
 						</DropdownMenuItem>
 						{availableProjects.map((project) => (
 							<DropdownMenuItem key={project.id} asChild>
-								<Link href={`/dashboard/sites/${project.id}/dashboard`}>
+								<FimaProjectNavigationLink
+									href={`/dashboard/sites/${project.id}/dashboard`}
+								>
 									{project.name}
-								</Link>
+								</FimaProjectNavigationLink>
 							</DropdownMenuItem>
 						))}
 						<DropdownMenuSeparator />
@@ -132,7 +134,7 @@ export function MobileMenu({
 							const isSelected = (activeProjectFilter ?? null) === project.id;
 							return (
 								<DropdownMenuItem key={project.id ?? "all"} asChild>
-									<Link href={href} prefetch={false}>
+									<FimaProjectNavigationLink href={href} prefetch={false}>
 										<Check
 											className={cn(
 												"size-4",
@@ -140,22 +142,25 @@ export function MobileMenu({
 											)}
 										/>
 										<span className="min-w-0 truncate">{project.name}</span>
-									</Link>
+									</FimaProjectNavigationLink>
 								</DropdownMenuItem>
 							);
 						})}
 						<DropdownMenuItem asChild>
-							<Link href="/dashboard/sites" prefetch={false}>
+							<FimaProjectNavigationLink
+								href="/dashboard/sites"
+								prefetch={false}
+							>
 								<Building2 className="size-4" />
 								{tgemProjectLabels.manageProjects}
-							</Link>
+							</FimaProjectNavigationLink>
 						</DropdownMenuItem>
 						<DropdownMenuSeparator />
 					</>
 				) : null}
 				{tgemWorkspaceLinks.map((item) => (
 					<DropdownMenuItem key={item.view} asChild>
-						<Link
+						<FimaProjectNavigationLink
 							href={item.href}
 							prefetch={false}
 							className={cn(
@@ -167,7 +172,7 @@ export function MobileMenu({
 						>
 							<item.icon className="size-4" />
 							<span className="min-w-0 truncate">{item.name}</span>
-						</Link>
+						</FimaProjectNavigationLink>
 					</DropdownMenuItem>
 				))}
 				{globalNavLinks.map((item) => (
@@ -196,7 +201,7 @@ export function MobileMenu({
 						</DropdownMenuLabel>
 						{projectNavLinks.map((item) => (
 							<DropdownMenuItem key={item.path} asChild>
-								<Link
+								<FimaProjectNavigationLink
 									href={item.href}
 									prefetch={false}
 									data-tour={item.dataTour}
@@ -209,7 +214,7 @@ export function MobileMenu({
 								>
 									<item.icon className="size-4" />
 									<span className="min-w-0 truncate">{item.displayName}</span>
-								</Link>
+								</FimaProjectNavigationLink>
 							</DropdownMenuItem>
 						))}
 					</>

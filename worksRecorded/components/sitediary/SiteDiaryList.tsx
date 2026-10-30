@@ -54,6 +54,8 @@ import {
 } from "lucide-react";
 import React from "react";
 import type { FimaProjectDiary } from "@/lib/fima/project-diary";
+import { selectFimaDiaryPage, type FimaDiaryWorkspace } from "@/lib/fima/diary-workspace";
+import type { ConstructionDiaryListRow } from "@/flows/default-construction/backend/diary-list-record";
 import { BeginHoursCost, BeginHoursImport, useBeginHours } from "@/components/sitediary/BeginHours";
 import { BeginRecordHours } from "@/components/sitediary/BeginRecordHours";
 import { toast } from "sonner";
@@ -700,6 +702,9 @@ export default function SiteDiaryCalendar({
   batchEditing = false,
   initialFimaDiary,
   initialLimeniProject,
+  fimaClientData,
+  onFimaRowsChange,
+  onFimaSync,
 }: {
   siteId: string | null;
   bisEnabled?: boolean;
@@ -710,8 +715,11 @@ export default function SiteDiaryCalendar({
   batchEditing?: boolean;
   initialFimaDiary?: FimaProjectDiary | null;
   initialLimeniProject?: LimeniProjectSnapshot;
+  fimaClientData?: FimaDiaryWorkspace;
+  onFimaRowsChange?: (rows: (Partial<ConstructionDiaryListRow> & {id: string})[], removed?: string[]) => void;
+  onFimaSync?: () => Promise<FimaDiaryWorkspace | null>;
 }) {
-  const initialDiary = initialFimaDiary?.siteId === siteId && !isZtcFlow ? initialFimaDiary : null;
+  const initialDiary = React.useMemo(() => fimaClientData?.siteId === siteId ? { siteId, config: fimaClientData.config, page: selectFimaDiaryPage(fimaClientData, {}) } : initialFimaDiary?.siteId === siteId && !isZtcFlow ? initialFimaDiary : null, [fimaClientData, initialFimaDiary, siteId, isZtcFlow]);
   const initialFimaPage = React.useRef(initialDiary);
   const limeniProjectSeed = React.useRef(initialLimeniProject);
   const today = new Date();
@@ -867,7 +875,7 @@ export default function SiteDiaryCalendar({
     setKeywordFilter(query);
     if (keywordInputRef.current) keywordInputRef.current.value = query;
   }, [fimaDiary, siteId]);
-  const fimaFilterOptions = useFimaDiaryFilterOptions(siteId, fimaDiary, optionsRevision);
+  const fimaFilterOptions = useFimaDiaryFilterOptions(siteId, fimaDiary, optionsRevision, fimaClientData?.rows);
   const ancillaryDiaryEnabled = configSiteId === siteId && hasLoadedRowsOnce && !fimaDiary;
   const planner = useConstructionPlanner(siteId, !isZtcFlow && ancillaryDiaryEnabled, rows);
   const beginHours = useBeginHours(ancillaryDiaryEnabled ? siteId : null, rows);
@@ -883,12 +891,14 @@ export default function SiteDiaryCalendar({
       if (row.id !== id || (row.fimaCollaboration?.version ?? 0) > state.version) return row;
       return { ...row, fimaCollaboration: mergeFimaCollaboration(row.fimaCollaboration, state) };
     }));
-  }, [fimaPages]);
+    onFimaRowsChange?.([{ id, fimaCollaboration: state }]);
+  }, [fimaPages, onFimaRowsChange]);
   const updateFimaField = React.useCallback((id: string, field: FimaInlineField, value: string | number | null) => {
     fimaPages.clear();
     setFimaSelectedRow(row => row?.id === id ? { ...row, [field]: value } : row);
     setRows(previous => previous.map(row => row.id === id ? { ...row, [field]: value } : row));
-  }, [fimaPages]);
+    onFimaRowsChange?.([{ id, [field]: value }]);
+  }, [fimaPages, onFimaRowsChange]);
   const fitDiaryTable = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.fitDiaryTableToWidth === true;
   const calculateDefaultConstructionRecordCost = React.useMemo(
     () => createDefaultConstructionRecordCostCalculator(defaultMap),
@@ -1301,13 +1311,20 @@ export default function SiteDiaryCalendar({
       setFilledDays([]);
       return;
     }
+    if (fimaClientData) {
+      setFilledDays([...new Set(fimaClientData.rows.flatMap(row => {
+        const date = row.Date ? new Date(row.Date) : null;
+        return date && date.getFullYear() === currentYear && date.getMonth() === currentMonth ? [date.getDate()] : [];
+      }))]);
+      return;
+    }
     getFilledDays({
       siteId,
       year: currentYear,
       month: currentMonth,
       flowId: siteDiaryFlowId,
     }).then(setFilledDays);
-  }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode]);
+  }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode, fimaClientData]);
 
   const fimaFilterKey = JSON.stringify({
     dateFrom: dateFrom ? toLocalDateKey(dateFrom) : null,
@@ -1337,6 +1354,19 @@ export default function SiteDiaryCalendar({
       if (!siteId) {
         setMediaOnlyDays([]);
         return [];
+      }
+      if (fimaClientData) {
+        const snapshot = !options?.useCache && onFimaSync ? (await onFimaSync()) ?? fimaClientData : fimaClientData;
+        const filters = JSON.parse(remoteQueryKey);
+        const page = selectFimaDiaryPage(snapshot, filters);
+        setRows(page.rows);
+        setListTotalCount(page.totalCount);
+        setListTotalPages(page.totalPages);
+        if (page.page !== filters.page) setListPage(page.page);
+        setBisApprovalStatusByRowId(Object.fromEntries(page.rows.map(row => [row.id,row.bisStatus ?? ""])));
+        setLoadedFimaQuery(`${siteId}:${remoteQueryKey}`);
+        setMediaOnlyDays([]);
+        return page.rows;
       }
       const isFima = !isZtcSite && fimaConfig.current?.key === `${siteId}:${siteDiaryFlowId}:${optionsRevision}` && fimaConfig.current.enabled;
       if (bisUiEnabled && !options?.skipSync && !isFima) {
@@ -1448,6 +1478,8 @@ export default function SiteDiaryCalendar({
       siteId,
       optionsRevision,
       fimaPages,
+      fimaClientData,
+      onFimaSync,
     ],
   );
 
@@ -1468,9 +1500,10 @@ export default function SiteDiaryCalendar({
     ++diaryRowsRequestRef.current;
     diaryLastLoaded.current = Date.now();
     setRows(current => mergeDiaryEditChanges(current, acknowledged));
+    onFimaRowsChange?.(acknowledged.rows as unknown as ConstructionDiaryListRow[], acknowledged.deletedIds);
     reloadFilledDays();
-    if (!clientDiary) void refreshRowsWithBisSync({ skipSync: true }).catch(() => {});
-  }, [diarySaveSnapshot.revision, diarySaveSnapshot.confirmed, diarySaveSnapshot.confirmedRevisions, clientDiary, reloadFilledDays, refreshRowsWithBisSync]);
+    if (!clientDiary && !fimaClientData) void refreshRowsWithBisSync({ skipSync: true }).catch(() => {});
+  }, [diarySaveSnapshot.revision, diarySaveSnapshot.confirmed, diarySaveSnapshot.confirmedRevisions, clientDiary, reloadFilledDays, refreshRowsWithBisSync, onFimaRowsChange, fimaClientData]);
   React.useEffect(() => {
     const reload = () => { void refreshRowsWithBisSync({ skipSync: true }).catch(() => {}); };
     window.addEventListener("construction-diary-queue-discarded", reload);
@@ -1550,6 +1583,10 @@ export default function SiteDiaryCalendar({
         setFilledDays([]);
         return;
       }
+      if (fimaClientData) {
+        reloadFilledDays();
+        return;
+      }
       const days = await getFilledDays({
         siteId,
         year: currentYear,
@@ -1562,7 +1599,7 @@ export default function SiteDiaryCalendar({
     return () => {
       cancelled = true;
     };
-  }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode]);
+  }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode, fimaClientData, reloadFilledDays]);
 
   // Load list rows once
   React.useEffect(() => {
@@ -1576,7 +1613,7 @@ export default function SiteDiaryCalendar({
         setShowDelayedListSkeleton(false);
         return;
       }
-      setLoading(true);
+      setLoading(!fimaClientData);
       setError(null);
       try {
         function getRenderableFieldsOrdered(
@@ -1605,6 +1642,7 @@ export default function SiteDiaryCalendar({
         // Load the display configuration and the first page together. BIS cleanup
         // is intentionally not on the critical path for the initial screen.
         const configKey = `${siteId}:${siteDiaryFlowId}:${optionsRevision}`;
+        if (fimaClientData) fimaConfig.current = { key: configKey, enabled: true, promise: Promise.resolve(fimaClientData.config) };
         if (fimaConfig.current?.key !== configKey) {
           const bootstrap = limeniProjectSeed.current ? { siteId: limeniProjectSeed.current.settings.siteId, config: limeniProjectSeed.current.config } : initialFimaPage.current;
           const useInitialConfig = bootstrap?.siteId === siteId && optionsRevision === 0 && !isZtcSite;
@@ -1694,7 +1732,7 @@ export default function SiteDiaryCalendar({
     };
   }, [bisUiEnabled, optionsRevision, refreshRowsWithBisSync, siteId, siteDiaryFlowId, isZtcSite]);
 
-  const backgroundRefresh = React.useCallback(() => refreshRowsWithBisSync({ skipSync: true }), [refreshRowsWithBisSync]);
+  const backgroundRefresh = React.useCallback(() => fimaClientData && onFimaSync ? onFimaSync() : refreshRowsWithBisSync({ skipSync: true }), [refreshRowsWithBisSync, fimaClientData, onFimaSync]);
   const revalidationFailed = useDiaryRevalidation({
     siteId: siteId ?? undefined,
     enabled: limeniClientDiary && hasLoadedRowsOnce && !initialLimeniProject,
@@ -2366,6 +2404,7 @@ export default function SiteDiaryCalendar({
 
   const loadAllFilteredRowsForExport = React.useCallback(async () => {
     if (!siteId) return [];
+    if (fimaClientData) return selectFimaDiaryPage(fimaClientData, JSON.parse(remoteQueryKey), true).rows as DiaryRow[];
     const allRows = (await getSitediaryRecordsBySiteIdForExcel(siteId, {
       ...(fimaDiary ? fimaFilters : {}),
       flowId: siteDiaryFlowId,
@@ -2415,6 +2454,8 @@ export default function SiteDiaryCalendar({
     workerFilter,
     fimaDiary,
     fimaFilters,
+    fimaClientData,
+    remoteQueryKey,
   ]);
 
   const runExcelExport = React.useCallback(
@@ -3297,13 +3338,13 @@ export default function SiteDiaryCalendar({
                     <PlannerControls
                       planner={planner}
                       organizationLanguage={organizationLanguage}
-                      onCatalogChanged={() => setOptionsRevision((revision) => revision + 1)}
+                      onCatalogChanged={() => { setOptionsRevision((revision) => revision + 1); void onFimaSync?.(); }}
                       onShow={() => setViewMode("list")}
                     />
                     <SiteDiaryOptionsManager
                       siteId={siteId}
                       organizationLanguage={organizationLanguage}
-                      onSaved={() => setOptionsRevision((revision) => revision + 1)}
+                      onSaved={() => { setOptionsRevision((revision) => revision + 1); void onFimaSync?.(); }}
                     />
                   </>
                 ) : null}
@@ -6362,9 +6403,10 @@ export default function SiteDiaryCalendar({
                   ++diaryRowsRequestRef.current;
                   diaryLastLoaded.current = Date.now();
                   setRows(current => mergeDiaryEditChanges(current, changes));
+                  onFimaRowsChange?.(changes.rows as unknown as ConstructionDiaryListRow[], changes.deletedIds);
                   setListTotalCount(count => count + changes.createdIds.length);
                   if (viewMode === "calendar") reloadFilledDays();
-                  if (!clientDiary) void refreshRowsWithBisSync({ skipSync: true }).catch(() => {
+                  if (!clientDiary && !fimaClientData) void refreshRowsWithBisSync({ skipSync: true }).catch(() => {
                     console.warn("[site-diary] post-save refresh unavailable");
                   });
                   return;

@@ -60,3 +60,21 @@ it("does not load options for other flows", () => {
 	expect(result.current).toBeNull();
 	expect(getFimaDiaryFilterOptions).not.toHaveBeenCalled();
 });
+
+it("derives options from every cached row without a server call, including after edits", () => {
+	const { result, rerender } = renderHook(
+		({ rows }) => useFimaDiaryFilterOptions("project", true, 0, rows),
+		{
+			initialProps: {
+				rows: [
+					{ Works: "First page", Location: "21-18" },
+					{ Works: "Later page", Location: "21-20" },
+				],
+			},
+		},
+	);
+	expect(result.current?.works).toEqual(["First page", "Later page"]);
+	rerender({ rows: [{ Works: "Edited", Location: "21-18" }] });
+	expect(result.current?.works).toEqual(["Edited"]);
+	expect(getFimaDiaryFilterOptions).not.toHaveBeenCalled();
+});

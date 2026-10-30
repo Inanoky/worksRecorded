@@ -130,6 +130,17 @@ it("shows Limeni loading stages to an administrator without enabling them for ot
 	expect(screen.getByRole("progressbar")).toHaveAttribute("value", "0");
 	expect(screen.queryByText(/Izpildes zonas/)).not.toBeInTheDocument();
 });
+it("includes Acts preparation only in FIMA project progress", () => {
+	const content = (siteId: string) => (
+		<ProjectLoadingProgressProvider enabled fimaActPreloadSites={["fima"]}>
+			<ProjectOpeningOverlay label="Loading" siteId={siteId} />
+		</ProjectLoadingProgressProvider>
+	);
+	const view = render(content("fima"));
+	expect(screen.getByText(/Akti un paraugi/)).toBeInTheDocument();
+	view.rerender(content("ordinary"));
+	expect(screen.queryByText(/Akti un paraugi/)).not.toBeInTheDocument();
+});
 
 it("reports partial floor preparation without marking the whole stage ready", () => {
 	function Floors() {

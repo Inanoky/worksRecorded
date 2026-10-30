@@ -17,7 +17,11 @@ import {
 	readFimaActRegister,
 	readTrackedFimaActs,
 } from "@/lib/fima/act-register";
-import { isFimaDiary } from "@/lib/fima/diary-collaboration";
+import {
+	fimaStatuses,
+	fimaStatusSchema,
+	isFimaDiary,
+} from "@/lib/fima/diary-collaboration";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
@@ -39,6 +43,10 @@ const mutationSchema = scopeSchema
 			z.object({
 				kind: z.literal("comment"),
 				text: z.string().trim().min(1).max(4000),
+			}),
+			z.object({
+				kind: z.literal("status"),
+				status: fimaStatusSchema.nullable(),
 			}),
 		]),
 	);
@@ -134,6 +142,8 @@ export async function saveFimaActSettings(
 			);
 		let examples = current.examples;
 		let text = input.kind === "comment" ? input.text : "";
+		if (input.kind === "status")
+			text = `${current.status ? fimaStatuses[current.status] : "Nav atzīmes"} → ${input.status ? fimaStatuses[input.status] : "Nav atzīmes"}`;
 		if (input.kind === "examples") {
 			const sites = await loadFimaActSites(db, scope.organizationId);
 			const choices = sites.flatMap((source) =>
@@ -180,6 +190,7 @@ export async function saveFimaActSettings(
 		}
 		const next = {
 			...current,
+			...(input.kind === "status" ? { status: input.status } : {}),
 			revision: current.revision + 1,
 			examples,
 			history: [

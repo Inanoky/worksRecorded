@@ -1,9 +1,9 @@
 "use client";
 
 import { Building2, Check, ChevronDown, MoreHorizontal } from "lucide-react";
-import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
 import { useProject } from "@/components/providers/ProjectProvider";
 import {
 	DropdownMenu,
@@ -153,7 +153,7 @@ export function DashboardProjectNavigation({
 					onPrefetch={(href) => router.prefetch(href)}
 				/>
 				{getTgemWorkspaceNavLinks(organizationLanguage).map((item) => (
-					<Link
+					<FimaProjectNavigationLink
 						key={item.view}
 						href={getTgemWorkspaceHref(item.view, activeProjectFilter)}
 						prefetch={false}
@@ -173,7 +173,7 @@ export function DashboardProjectNavigation({
 					>
 						<item.icon className={projectNavIconClasses} />
 						<span className={projectNavLabelClasses}>{item.name}</span>
-					</Link>
+					</FimaProjectNavigationLink>
 				))}
 			</div>
 		);
@@ -303,7 +303,7 @@ function TgemProjectSwitcher({
 					const href = getTgemWorkspaceHref(workspaceView, project.id);
 					return (
 						<DropdownMenuItem key={project.id ?? "all"} asChild>
-							<Link
+							<FimaProjectNavigationLink
 								href={href}
 								prefetch={false}
 								onMouseEnter={() => onPrefetch(href)}
@@ -316,20 +316,20 @@ function TgemProjectSwitcher({
 									)}
 								/>
 								<span className="min-w-0 truncate">{project.name}</span>
-							</Link>
+							</FimaProjectNavigationLink>
 						</DropdownMenuItem>
 					);
 				})}
 				<DropdownMenuSeparator />
 				<DropdownMenuItem asChild>
-					<Link
+					<FimaProjectNavigationLink
 						href="/dashboard/sites"
 						prefetch={false}
 						onMouseEnter={() => onPrefetch("/dashboard/sites")}
 					>
 						<Building2 className="size-4" />
 						{labels.manageProjects}
-					</Link>
+					</FimaProjectNavigationLink>
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
@@ -451,7 +451,7 @@ function ProjectSwitcher({
 							: getProjectSwitchHref(project.id, pathname);
 					return (
 						<DropdownMenuItem key={project.id} asChild>
-							<Link
+							<FimaProjectNavigationLink
 								href={href}
 								prefetch={false}
 								aria-current={
@@ -471,7 +471,7 @@ function ProjectSwitcher({
 							>
 								<Building2 className="size-4 shrink-0" />
 								<span className="min-w-0 truncate">{project.name}</span>
-							</Link>
+							</FimaProjectNavigationLink>
 						</DropdownMenuItem>
 					);
 				})}
@@ -492,7 +492,7 @@ function ProjectNavLink({
 	return (
 		<Tooltip delayDuration={700}>
 			<TooltipTrigger asChild>
-				<Link
+				<FimaProjectNavigationLink
 					href={item.href}
 					prefetch={false}
 					aria-label={item.displayName}
@@ -511,7 +511,7 @@ function ProjectNavLink({
 				>
 					<item.icon className={projectNavIconClasses} />
 					<span className={projectNavLabelClasses}>{item.displayName}</span>
-				</Link>
+				</FimaProjectNavigationLink>
 			</TooltipTrigger>
 			<TooltipContent
 				side="bottom"
@@ -556,7 +556,7 @@ function ProjectMoreMenu({
 				<DropdownMenuSeparator />
 				{links.map((item) => (
 					<DropdownMenuItem key={item.path} asChild>
-						<Link
+						<FimaProjectNavigationLink
 							href={item.href}
 							prefetch={false}
 							onMouseEnter={() => onPrefetch(item.href)}
@@ -569,7 +569,7 @@ function ProjectMoreMenu({
 						>
 							<item.icon className="size-4" />
 							<span className="min-w-0 truncate">{item.displayName}</span>
-						</Link>
+						</FimaProjectNavigationLink>
 					</DropdownMenuItem>
 				))}
 			</DropdownMenuContent>

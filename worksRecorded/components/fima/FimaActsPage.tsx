@@ -1,15 +1,9 @@
 "use client";
 
-import {
-	Copy,
-	ExternalLink,
-	FileCheck2,
-	MessageSquare,
-	Pencil,
-	Search,
-} from "lucide-react";
+import { Copy, ExternalLink, FileCheck2, Pencil, Search } from "lucide-react";
 import {
 	Fragment,
+	useEffect,
 	useId,
 	useLayoutEffect,
 	useMemo,
@@ -18,9 +12,10 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { FimaActsRefreshButton } from "@/components/sitediary/FimaActsRefreshButton";
+import { FimaBisState } from "@/components/sitediary/FimaBisState";
+import { FimaCommentControl } from "@/components/sitediary/FimaCommentControl";
 import { FimaPagination } from "@/components/sitediary/FimaPagination";
 import { useFimaFilterReturn } from "@/components/sitediary/useFimaFilterReturn";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -34,9 +29,13 @@ import {
 	type FimaActsData,
 } from "@/lib/fima/act-register";
 import { formatFimaDiaryNumber } from "@/lib/fima/diary-number";
-import { getFimaActsForSite } from "@/server/actions/fima-acts";
+import {
+	getFimaActsForSite,
+	saveFimaActSettings,
+} from "@/server/actions/fima-acts";
 import { FimaActDetail, type FimaActDetailTab } from "./FimaActDetail";
 import { FimaActExamplesDialog } from "./FimaActExamplesDialog";
+import { FimaActReviewBadge } from "./FimaActReviewBadge";
 
 type Filters = { query: string; status: string; examples: string };
 const emptyFilters: Filters = { query: "", status: "", examples: "" };
@@ -66,9 +65,16 @@ const dateLabel = (date: string | null) =>
 		? new Date(date).toLocaleDateString("lv-LV", { timeZone: "Europe/Riga" })
 		: "Datums nav norādīts";
 
-export function FimaActsPage({ initial }: { initial: FimaActsData }) {
+export function FimaActsPage({
+	initial,
+	onDataChange,
+}: {
+	initial: FimaActsData;
+	onDataChange?: (data: FimaActsData) => void;
+}) {
 	const searchId = useId();
 	const [data, setData] = useState(initial);
+	useEffect(() => onDataChange?.(data), [onDataChange, data]);
 	const [filters, setFilters] = useState<Filters>(emptyFilters);
 	const [page, setPage] = useState(1);
 	const [opened, setOpened] = useState<{
@@ -266,13 +272,18 @@ export function FimaActsPage({ initial }: { initial: FimaActsData }) {
 				onPageChange={setPage}
 				label="Aktu lapas"
 			/>
-			<div className="overflow-hidden rounded-lg border bg-card">
-				<div className="hidden grid-cols-[minmax(180px,1fr)_minmax(220px,1.5fr)_minmax(150px,0.9fr)_minmax(220px,1.3fr)_minmax(180px,1fr)] gap-5 border-b bg-muted/40 px-5 py-3 text-xs font-medium text-muted-foreground xl:grid">
+			<div
+				data-slot="table-container"
+				className="overflow-x-auto rounded-lg border border-slate-200 bg-card shadow-sm"
+			>
+				<div className="hidden lg:min-w-[1420px] grid-cols-[minmax(150px,1fr)_minmax(210px,1.5fr)_minmax(140px,0.9fr)_minmax(180px,1.2fr)_minmax(210px,1.25fr)_minmax(160px,1fr)_minmax(170px,1fr)] gap-5 border-b bg-slate-50/80 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
 					<span>Akts / datums</span>
 					<span>Darbs / tvērums</span>
 					<span>Ikdienas darbi</span>
 					<span>Paraugs</span>
-					<span>Statuss / nākamais solis</span>
+					<span>Komentāri</span>
+					<span>BIS statuss / darbība</span>
+					<span>Rīcība</span>
 				</div>
 				{visible.map((row) => {
 					const titles = workTitles(row);
@@ -286,7 +297,7 @@ export function FimaActsPage({ initial }: { initial: FimaActsData }) {
 						<Fragment key={row.key}>
 							<article
 								aria-label={row.localNumber}
-								className="grid min-w-0 gap-5 border-b px-4 py-5 last:border-b-0 sm:grid-cols-2 xl:grid-cols-[minmax(180px,1fr)_minmax(220px,1.5fr)_minmax(150px,0.9fr)_minmax(220px,1.3fr)_minmax(180px,1fr)] xl:px-5"
+								className="grid min-w-0 lg:min-w-[1420px] gap-4 border-b border-slate-200 bg-muted/10 px-4 py-4 last:border-b-0 sm:grid-cols-2 lg:grid-cols-[minmax(150px,1fr)_minmax(210px,1.5fr)_minmax(140px,0.9fr)_minmax(180px,1.2fr)_minmax(210px,1.25fr)_minmax(160px,1fr)_minmax(170px,1fr)] lg:px-5"
 							>
 								<div className="min-w-0 space-y-2">
 									<div className="flex items-center gap-1">
@@ -326,7 +337,7 @@ export function FimaActsPage({ initial }: { initial: FimaActsData }) {
 									</p>
 								</div>
 								<div className="min-w-0 space-y-2">
-									<p className="text-xs text-muted-foreground xl:hidden">
+									<p className="text-xs text-muted-foreground lg:hidden">
 										Darbs / tvērums
 									</p>
 									{row.title ? (
@@ -354,7 +365,7 @@ export function FimaActsPage({ initial }: { initial: FimaActsData }) {
 									</p>
 								</div>
 								<div className="space-y-2">
-									<p className="text-xs text-muted-foreground xl:hidden">
+									<p className="text-xs text-muted-foreground lg:hidden">
 										Ikdienas darbi
 									</p>
 									<button
@@ -375,7 +386,7 @@ export function FimaActsPage({ initial }: { initial: FimaActsData }) {
 								</div>
 								<div className="min-w-0 space-y-2">
 									<div className="flex items-center justify-between gap-2">
-										<p className="text-xs text-muted-foreground xl:hidden">
+										<p className="text-xs text-muted-foreground lg:hidden">
 											Paraugs
 										</p>
 										<Button
@@ -432,13 +443,39 @@ export function FimaActsPage({ initial }: { initial: FimaActsData }) {
 										</button>
 									) : null}
 								</div>
-								<div className="space-y-3">
-									<Badge
-										variant="outline"
-										className="h-auto whitespace-normal py-1"
-									>
-										{getFimaActStatusLabel(row.status)}
-									</Badge>
+								<div className="min-w-0 space-y-2">
+									<p className="text-xs text-muted-foreground lg:hidden">
+										Komentāri
+									</p>
+									<FimaCommentControl
+										label={`Komentāri ${row.localNumber}`}
+										history={row.setting.history}
+										onOpenRecord={() => open(row, "comments")}
+										onSave={async (text, requestId) =>
+											update(
+												row.key,
+												await saveFimaActSettings({
+													siteId: data.siteId,
+													collection: row.collection,
+													id: row.id,
+													expectedRevision: row.setting.revision,
+													requestId,
+													kind: "comment",
+													text,
+												}),
+											)
+										}
+									/>
+								</div>
+								<div className="min-w-0 space-y-3">
+									<FimaBisState
+										status={row.status}
+										label={
+											["approved", "approving", "draft"].includes(row.status)
+												? undefined
+												: getFimaActStatusLabel(row.status)
+										}
+									/>
 									<p className="text-xs text-muted-foreground">
 										{nextStep(row)}
 									</p>
@@ -449,17 +486,6 @@ export function FimaActsPage({ initial }: { initial: FimaActsData }) {
 											onClick={() => open(row, "works")}
 										>
 											Atvērt
-										</Button>
-										<Button
-											variant="ghost"
-											size="sm"
-											aria-label={`Komentāri ${row.localNumber}`}
-											onClick={() => open(row, "comments")}
-										>
-											<MessageSquare className="size-4" />
-											{row.setting.history.filter(
-												(event) => event.kind === "comment",
-											).length || null}
 										</Button>
 										<a
 											href={
@@ -475,12 +501,23 @@ export function FimaActsPage({ initial }: { initial: FimaActsData }) {
 										</a>
 									</div>
 								</div>
+								<div className="min-w-0 space-y-2">
+									<p className="text-xs text-muted-foreground lg:hidden">
+										Rīcība
+									</p>
+									<FimaActReviewBadge
+										row={row}
+										onSaved={(setting) => update(row.key, setting)}
+										onHistory={() => open(row, "comments")}
+									/>
+								</div>
 							</article>
 							{opened?.key === row.key ? (
 								<FimaActDetail
 									key={row.key}
 									siteId={data.siteId}
 									row={row}
+									references={data.references ?? []}
 									tab={opened.tab}
 									onTabChange={(tab) => setOpened({ key: row.key, tab })}
 									onClose={() => setOpened(null)}

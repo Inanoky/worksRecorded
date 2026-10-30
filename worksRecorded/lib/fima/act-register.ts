@@ -8,6 +8,7 @@ import {
 	isFimaBisWorkRecordLink,
 	readFimaBisRecordLinks,
 } from "./bis-record-links";
+import { fimaStatusSchema } from "./diary-collaboration";
 
 export const fimaActReferenceSchema = z.object({
 	siteId: z.string().uuid(),
@@ -19,7 +20,7 @@ export type FimaActReference = z.infer<typeof fimaActReferenceSchema>;
 const eventSchema = z.object({
 	id: z.string(),
 	requestId: z.string(),
-	kind: z.enum(["examples", "comment"]),
+	kind: z.enum(["examples", "comment", "status"]),
 	text: z.string(),
 	at: z.string(),
 	actorId: z.string(),
@@ -28,6 +29,7 @@ const eventSchema = z.object({
 const settingSchema = z.object({
 	number: z.number().int().positive(),
 	revision: z.number().int().nonnegative(),
+	status: fimaStatusSchema.nullable().optional(),
 	examples: z.array(fimaActReferenceSchema),
 	history: z.array(eventSchema),
 });
@@ -93,7 +95,31 @@ export type FimaActsData = {
 	checkedAt: string | null;
 	rows: FimaActRow[];
 	choices: FimaActChoice[];
+	references?: FimaActSource[];
 };
+export type FimaActWorkScope = Pick<
+	FimaActRow,
+	"siteId" | "works" | "plannedWorks" | "records"
+>;
+export type FimaActSource = FimaActWorkScope & FimaActReference;
+export function fimaActWorkScope(
+	siteId: string,
+	act: FimaTrackedAct,
+): FimaActWorkScope {
+	return {
+		siteId,
+		works: act.works,
+		plannedWorks: act.plannedWorks,
+		records: act.records.map(({ metadata, drafts: _drafts, ...record }) => ({
+			...record,
+			fimaBisRecords: readFimaActWorkLinks({
+				...record,
+				metadata,
+				drafts: null,
+			}),
+		})),
+	};
+}
 
 export function actKey(collection: string, id: string) {
 	return `${collection}/${id}`;
@@ -332,14 +358,7 @@ export function makeFimaActRows(
 						`${reference.siteId}:${reference.caseId}:${actKey(reference.collection, reference.id)}`,
 					) ?? { ...reference, unavailable: true as const },
 			),
-			records: act.records.map(({ metadata, drafts: _drafts, ...record }) => ({
-				...record,
-				fimaBisRecords: readFimaActWorkLinks({
-					...record,
-					metadata,
-					drafts: null,
-				}),
-			})),
+			records: fimaActWorkScope(siteId, act).records,
 		};
 	});
 }

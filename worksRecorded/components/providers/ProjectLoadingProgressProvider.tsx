@@ -25,6 +25,7 @@ type PreparationReport = {
 const Preparation = createContext<{
 	visual: boolean;
 	visualSites: readonly string[];
+	fimaActSites: readonly string[];
 	reports: Record<string, Record<string, PreparationReport>>;
 	report: (
 		siteId: string,
@@ -41,6 +42,7 @@ const steps = [
 	["project", "Projekta atvēršana"],
 	["settings", "Projekta iestatījumi"],
 	["diary", "Būvdarbu žurnāls"],
+	["acts", "Akti un paraugi"],
 	["visual-module", "Izpildshēmu rīki"],
 	["visual-index", "Stāvi un rasējumi"],
 	["visual-drawing", "Izpildes zonas (visi stāvi)"],
@@ -53,12 +55,14 @@ export function ProjectLoadingProgressProvider({
 	enabled,
 	visualPreloadEnabled = false,
 	visualPreloadSites = noSites,
+	fimaActPreloadSites = noSites,
 	cacheScope,
 	children,
 }: {
 	enabled: boolean;
 	visualPreloadEnabled?: boolean;
 	visualPreloadSites?: readonly string[];
+	fimaActPreloadSites?: readonly string[];
 	cacheScope?: string;
 	children: ReactNode;
 }) {
@@ -113,11 +117,19 @@ export function ProjectLoadingProgressProvider({
 		() => ({
 			visual: visualPreloadEnabled,
 			visualSites: visualPreloadSites,
+			fimaActSites: fimaActPreloadSites,
 			reports,
 			report,
 			reset,
 		}),
-		[visualPreloadEnabled, visualPreloadSites, reports, report, reset],
+		[
+			visualPreloadEnabled,
+			visualPreloadSites,
+			fimaActPreloadSites,
+			reports,
+			report,
+			reset,
+		],
 	);
 	return (
 		<CacheScope.Provider value={cacheScope}>
@@ -170,11 +182,12 @@ export function useProjectPreparation(
 	const id = siteId ?? scope;
 	if (!preparation || !id) return null;
 	const reports = preparation.reports[id] ?? {};
-	const visible = steps.filter(
-		([key]) =>
-			preparation.visual ||
-			preparation.visualSites.includes(id) ||
-			(!key.startsWith("visual-") && key !== "forma2"),
+	const visible = steps.filter(([key]) =>
+		key === "acts"
+			? preparation.fimaActSites.includes(id)
+			: preparation.visual ||
+				preparation.visualSites.includes(id) ||
+				(!key.startsWith("visual-") && key !== "forma2"),
 	);
 	return {
 		total: visible.length,

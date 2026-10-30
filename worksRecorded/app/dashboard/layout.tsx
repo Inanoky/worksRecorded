@@ -1,3 +1,4 @@
+import { FimaProjectProvider } from "@/components/fima/FimaProjectProvider";
 // worksRecorded\app\dashboard\layout.tsx
 
 import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs/components";
@@ -140,12 +141,19 @@ export default async function DashboardLayout({
 		headerProjects = access ? visibleTgemSites(access, headerProjects) : [];
 	}
 
+	const fimaActProjectIds = headerProjects.filter(project => project.fimaActsEnabled).map(project => project.id);
+	const fimaActCacheScope = JSON.stringify([
+		userId, organizationId,
+		allHeaderProjects.filter(project => fimaActProjectIds.includes(project.id)).map(project => [project.id, project.bisCaseId]),
+	]);
+
 	return (
 		<ProjectProvider userId={userId}>
 			<ProjectLoadingProgressProvider
 				key={`${userId}:${organizationId}`}
 				enabled={flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}
 				cacheScope={`${userId}:${organizationId ?? "admin"}`}
+				fimaActPreloadSites={fimaActProjectIds}
 				visualPreloadSites={allHeaderProjects
 					.filter((project) => project.organizationId === LIMENI_ORGANIZATION_ID)
 					.map((project) => project.id)}
@@ -160,6 +168,7 @@ export default async function DashboardLayout({
 						siteIds={allHeaderProjects.filter(project => project.bisCaseId && isFimaDiary(project.siteDiaryRecordsMap)).map(project => project.id)}
 					/>
 				) : null}
+			<FimaProjectProvider key={fimaActCacheScope} siteIds={fimaActProjectIds}>
 			<DiarySaveProvider key={userId} userId={userId} projects={headerProjects} language={organizationLanguage}>
 			<DashboardSettingsProvider
 				key={JSON.stringify([userId, accountOrganizationId, organizationLanguage, flowModuleKey, canAccessFlowConfigs])}
@@ -357,6 +366,7 @@ export default async function DashboardLayout({
 			</section>
 			</DashboardSettingsProvider>
 			</DiarySaveProvider>
+			</FimaProjectProvider>
 			</FimaWarehouseProvider>
 		</ProjectLoadingProgressProvider>
 		</ProjectProvider>

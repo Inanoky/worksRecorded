@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,20 +8,22 @@ import {
 	getFimaAcceptanceActUrl,
 	getFimaActStatusLabel,
 } from "@/lib/fima/acceptance-acts";
-import type { FimaActRow, FimaActSetting } from "@/lib/fima/act-register";
+import type {
+	FimaActRow,
+	FimaActSetting,
+	FimaActSource,
+	FimaActWorkScope,
+} from "@/lib/fima/act-register";
 import { getFimaBisRecordUrl } from "@/lib/fima/bis-record-links";
 import { formatFimaDiaryNumber } from "@/lib/fima/diary-number";
-import {
-	getFimaActReferenceDetail,
-	saveFimaActSettings,
-} from "@/server/actions/fima-acts";
+import { saveFimaActSettings } from "@/server/actions/fima-acts";
 
 export type FimaActDetailTab =
 	| "works"
 	| "examples"
 	| "attachments"
 	| "comments";
-export function FimaActWorkList({ row }: { row: FimaActRow }) {
+export function FimaActWorkList({ row }: { row: FimaActWorkScope }) {
 	const works = new Map<
 		string,
 		{ native: number | null | undefined; planned: number | null | undefined }
@@ -135,37 +137,22 @@ export function FimaActWorkList({ row }: { row: FimaActRow }) {
 		</div>
 	);
 }
-function ActComparison({ siteId, row }: { siteId: string; row: FimaActRow }) {
+function ActComparison({
+	row,
+	references,
+}: {
+	row: FimaActRow;
+	references: FimaActSource[];
+}) {
 	const [selected, setSelected] = useState(0);
-	const [source, setSource] = useState<FimaActRow | null>(null);
-	const [error, setError] = useState("");
-	const [retry, setRetry] = useState(0);
 	const reference = row.examples[Math.min(selected, row.examples.length - 1)];
-	const request = useMemo(
-		() => (reference ? { siteId, reference, retry } : null),
-		[siteId, reference, retry],
+	const source = references.find(
+		(value) =>
+			value.siteId === reference?.siteId &&
+			value.caseId === reference.caseId &&
+			value.collection === reference.collection &&
+			value.id === reference.id,
 	);
-	useEffect(() => {
-		setSource(null);
-		setError("");
-		if (!request) return;
-		let active = true;
-		void getFimaActReferenceDetail(request)
-			.then((value) => {
-				if (active) setSource(value);
-			})
-			.catch((cause) => {
-				if (active)
-					setError(
-						cause instanceof Error
-							? cause.message
-							: "Neizdevās ielādēt paraugu.",
-					);
-			});
-		return () => {
-			active = false;
-		};
-	}, [request]);
 	return (
 		<div className="space-y-4">
 			{row.examples.length > 1 ? (
@@ -227,24 +214,11 @@ function ActComparison({ siteId, row }: { siteId: string; row: FimaActRow }) {
 							) : null}
 							{source ? (
 								<FimaActWorkList row={source} />
-							) : error ? (
-								<div
-									role="alert"
-									className="space-y-2 text-sm text-destructive"
-								>
-									<p>{error}</p>
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={() => setRetry((value) => value + 1)}
-									>
-										Mēģināt vēlreiz
-									</Button>
-								</div>
 							) : (
-								<output className="text-sm text-muted-foreground">
-									Ielādē parauga darbus...
-								</output>
+								<p className="text-sm text-muted-foreground">
+									Parauga darbi nav pieejami sagatavotajos projekta datos.
+									Atjaunojiet aktu datus.
+								</p>
 							)}
 						</>
 					)}
@@ -260,6 +234,7 @@ export function FimaActDetail({
 	onTabChange,
 	onClose,
 	onSaved,
+	references = [],
 }: {
 	siteId: string;
 	row: FimaActRow;
@@ -267,6 +242,7 @@ export function FimaActDetail({
 	onTabChange: (tab: FimaActDetailTab) => void;
 	onClose: () => void;
 	onSaved: (setting: FimaActSetting) => void;
+	references?: FimaActSource[];
 }) {
 	const [draft, setDraft] = useState("");
 	const [saving, setSaving] = useState(false);
@@ -298,9 +274,7 @@ export function FimaActDetail({
 			setSaving(false);
 		}
 	};
-	const comments = row.setting.history.filter(
-		(event) => event.kind === "comment",
-	);
+	const comments = row.setting.history;
 	return (
 		<section
 			aria-label={`Akta ${row.localNumber} detaļas`}
@@ -341,7 +315,9 @@ export function FimaActDetail({
 				))}
 			</fieldset>
 			{tab === "works" ? <FimaActWorkList row={row} /> : null}
-			{tab === "examples" ? <ActComparison siteId={siteId} row={row} /> : null}
+			{tab === "examples" ? (
+				<ActComparison row={row} references={references} />
+			) : null}
 			{tab === "attachments" ? (
 				<div className="space-y-3">
 					<p className="text-sm text-muted-foreground">
@@ -381,67 +357,74 @@ export function FimaActDetail({
 				</div>
 			) : null}
 			{tab === "comments" ? (
-				<div className="space-y-5">
-					<div className="space-y-2">
+				<section
+					aria-label="Komentāri un izmaiņu vēsture"
+					className="flex min-h-0 flex-1 flex-col gap-4"
+				>
+					<h3 className="font-semibold">Komentāri un izmaiņu vēsture</h3>
+					<div className="space-y-3" aria-live="polite">
+						{comments.length ? (
+							comments.map((event) => (
+								<article
+									key={event.id}
+									className="rounded-lg border bg-muted/20 p-3"
+								>
+									<p className="text-xs text-muted-foreground">
+										{event.actorName} ·{" "}
+										{new Date(event.at).toLocaleString("lv-LV", {
+											timeZone: "Europe/Riga",
+										})}
+										{event.kind === "status"
+											? " · Atzīme"
+											: event.kind === "examples"
+												? " · Izmaiņa"
+												: ""}
+									</p>
+									<p className="mt-1 whitespace-pre-wrap break-words text-sm">
+										{event.text}
+									</p>
+								</article>
+							))
+						) : (
+							<p className="text-sm text-muted-foreground">
+								Komentāru vēl nav.
+							</p>
+						)}
+					</div>
+					<form
+						className="space-y-2 border-t pt-4"
+						onSubmit={(event) => {
+							event.preventDefault();
+							void save();
+						}}
+					>
 						<label
-							className="block text-sm font-medium"
+							className="text-sm font-medium"
 							htmlFor={`act-comment-${row.id}`}
 						>
 							Jauns komentārs
 						</label>
 						<Textarea
 							id={`act-comment-${row.id}`}
-							value={draft}
+							rows={4}
+							maxLength={4000}
 							disabled={saving}
+							value={draft}
 							onChange={(event) => {
 								setDraft(event.target.value);
 								requestId.current = null;
 							}}
-							rows={3}
-							maxLength={4000}
 						/>
-						<Button
-							size="sm"
-							disabled={saving || !draft.trim()}
-							onClick={() => void save()}
-						>
-							Pievienot komentāru
-						</Button>
-					</div>
-					{comments.map((event) => (
-						<div key={event.id} className="rounded border bg-background p-3">
-							<p className="whitespace-pre-wrap text-sm">{event.text}</p>
-							<p className="mt-2 text-xs text-muted-foreground">
-								{event.actorName} ·{" "}
-								{new Date(event.at).toLocaleString("lv-LV", {
-									timeZone: "Europe/Riga",
-								})}
-							</p>
+						<div className="flex items-center justify-between gap-2">
+							<span className="text-xs text-muted-foreground">
+								{draft.length}/4000
+							</span>
+							<Button type="submit" disabled={saving || !draft.trim()}>
+								{saving ? "Saglabā..." : "Pievienot komentāru"}
+							</Button>
 						</div>
-					))}
-					<details>
-						<summary className="cursor-pointer text-sm font-medium">
-							Paraugu izmaiņu vēsture
-						</summary>
-						<ol className="mt-3 space-y-3">
-							{row.setting.history
-								.filter((event) => event.kind === "examples")
-								.slice()
-								.reverse()
-								.map((event) => (
-									<li key={event.id} className="text-sm">
-										<p>{event.text}</p>
-										<p className="text-xs text-muted-foreground">
-											{event.actorName} ·{" "}
-											{new Date(event.at).toLocaleString("lv-LV", {
-												timeZone: "Europe/Riga",
-											})}
-										</p>
-									</li>
-								))}
-						</ol>
-					</details>
-				</div>
+					</form>
+				</section>
 			) : null}
 		</section>
 	);

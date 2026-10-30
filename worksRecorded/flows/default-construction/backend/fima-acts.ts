@@ -6,6 +6,7 @@ import {
 	type FimaActRegister,
 	type FimaActSite,
 	type FimaActsData,
+	fimaActWorkScope,
 	makeFimaActRows,
 	readFimaActRegister,
 	readTrackedFimaActs,
@@ -113,16 +114,28 @@ export async function loadFimaActs(
 				readFimaActRegister(current.config),
 				acts.map((act) => act.key),
 			);
-	const choices = sites.flatMap((source) =>
-		actChoices(
-			source,
+	const sources = sites.map((source) => ({
+		site: source,
+		acts:
 			source.id === siteId
 				? acts
 				: readTrackedFimaActs(
 						source,
 						allRecords.filter((record) => record.siteId === source.id),
 					),
-		),
+	}));
+	const choices = sources.flatMap((source) =>
+		actChoices(source.site, source.acts),
+	);
+	const references = sources.flatMap((source) =>
+		source.site.bisCaseId
+			? source.acts.map((act) => ({
+					...fimaActWorkScope(source.site.id, act),
+					caseId: source.site.bisCaseId as string,
+					collection: act.collection,
+					id: act.id,
+				}))
+			: [],
 	);
 	const index = (
 		site.siteDiaryRecordsMap as {
@@ -139,5 +152,6 @@ export async function loadFimaActs(
 			index?.caseId === site.bisCaseId ? (index.fetchedAt ?? null) : null,
 		rows: makeFimaActRows(siteId, acts, register, choices),
 		choices,
+		references,
 	};
 }

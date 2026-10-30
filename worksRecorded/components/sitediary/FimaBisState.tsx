@@ -5,21 +5,24 @@ import { getFimaBisStatus } from "@/lib/fima/bis-status";
 export function FimaBisState({
 	status,
 	language = "lv",
+	label: customLabel,
 }: {
 	status?: string | null;
 	language?: string;
+	label?: string;
 }) {
 	const t = getSiteDiaryListMessages(language);
 	const value = getFimaBisStatus(status);
 	const pending = value === "pending";
 	const label =
-		value === "works_recorded"
+		customLabel ??
+		(value === "works_recorded"
 			? "WorksRecorded"
 			: value === "approved"
 				? t.bisApproved
 				: pending
 					? t.bisPending
-					: t.bisDraft;
+					: t.bisDraft);
 	const tone =
 		value === "works_recorded"
 			? "border border-slate-200 bg-slate-50 text-slate-700"
