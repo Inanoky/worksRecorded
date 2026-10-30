@@ -200,6 +200,31 @@ it("combines FIMA filters, preserves them across pages and export, then clears t
 	);
 });
 
+it("keeps Act search and BIS status in pagination, export and clear-filter state", async () => {
+	mount();
+	fireEvent.change(screen.getByRole("textbox", { name: "Meklēt" }), {
+		target: { value: "KT-668714-2026-00021" },
+	});
+	fireEvent.change(screen.getByRole("combobox", { name: "BIS statuss" }), {
+		target: { value: "pending" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Filtrēt" }));
+	await waitFor(() =>
+		expect(window.location.search).toBe(
+			"?q=KT-668714-2026-00021&bisStatus=pending",
+		),
+	);
+	next();
+	await waitFor(() => expect(window.location.search).toContain("page=2"));
+	expect(screen.getByRole("link", { name: "Eksportēt" })).toHaveAttribute(
+		"href",
+		"/api/all-projects/export?q=KT-668714-2026-00021&bisStatus=pending&page=2",
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Notīrīt" }));
+	await waitFor(() => expect(window.location.search).toBe(""));
+	expect(screen.getByRole("combobox", { name: "BIS statuss" })).toHaveValue("");
+});
+
 it("restores the original page after changing filters and navigating filtered pages", async () => {
 	mount();
 	next();
@@ -363,4 +388,6 @@ it("jumps directly from either pagination bar, retains filters, and returns to t
 	expect(window.location.search).toBe("?page=15");
 	expect(screen.getByText("Still selected")).toBeInTheDocument();
 });
-jest.mock("@/server/actions/fima-acceptance-acts", () => ({ refreshFimaAcceptanceActs: jest.fn() }));
+jest.mock("@/server/actions/fima-acceptance-acts", () => ({
+	refreshFimaAcceptanceActs: jest.fn(),
+}));

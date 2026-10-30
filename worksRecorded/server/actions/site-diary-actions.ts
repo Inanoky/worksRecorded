@@ -4,6 +4,7 @@ import { buildDefaultConstructionDiaryConfig } from "@/flows/default-constructio
 import { withFimaExampleSources } from "@/flows/default-construction/backend/fima-example-sources";
 import type { FimaDiaryFilters } from "@/lib/fima/diary-filters";
 import { buildFimaDiaryFilterWhere } from "@/flows/default-construction/backend/fima-diary-filters";
+import { buildFimaDocumentKeywordWhere, findFimaDocumentRecordIds } from "@/flows/default-construction/backend/fima-document-search";
 import { parseFimaDiaryNumber } from "@/lib/fima/diary-number";
 import {
   constructionDiaryListSelect,
@@ -2364,6 +2365,7 @@ function buildSiteDiaryListWhere(
   siteId: string,
   options: SiteDiaryRecordsPageOptions,
   useZtcRecords: boolean,
+  documentRecordIds: string[] = [],
 ) {
   const andFilters: any[] = useZtcRecords ? [] : buildFimaDiaryFilterWhere(options);
   const dateFilter = buildSiteDiaryListDateFilter(options);
@@ -2416,6 +2418,7 @@ function buildSiteDiaryListWhere(
     const fimaNumber = useZtcRecords ? null : parseFimaDiaryNumber(keyword);
     andFilters.push({
       OR: [
+        ...(!useZtcRecords ? buildFimaDocumentKeywordWhere(keyword, documentRecordIds) : []),
         ...(fimaNumber !== null ? [{ fimaNumber }] : []),
         { Works: containsKeyword },
         { Works_Custom_1: containsKeyword },
@@ -2795,10 +2798,17 @@ export async function getSitediaryRecordsBySiteIdForExcel(
   const ztcWorkFilter = useZtcRecords
     ? compactFilterValue(options.workFilter)
     : null;
+  const searchSite = !useZtcRecords && options.keyword?.trim()
+    ? await prisma.site.findUnique({ where: { id: siteId }, select: { organizationId: true } })
+    : null;
+  const documentRecordIds = searchSite?.organizationId
+    ? await findFimaDocumentRecordIds(searchSite.organizationId, options.keyword, siteId)
+    : [];
   const where = buildSiteDiaryListWhere(
     siteId,
     ztcWorkFilter ? withoutWorkFilter(options) : options,
     useZtcRecords,
+    documentRecordIds,
   );
   const select = useZtcRecords
     ? {

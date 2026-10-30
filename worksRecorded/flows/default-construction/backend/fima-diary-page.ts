@@ -13,6 +13,10 @@ import {
 	type AllProjectsDiaryFilters,
 	buildAllProjectsDiaryWhere,
 } from "./all-projects-diary";
+import {
+	buildFimaDocumentKeywordWhere,
+	findFimaDocumentRecordIds,
+} from "./fima-document-search";
 import { withFimaExampleSources } from "./fima-example-sources";
 
 export type FimaPageFilters = AllProjectsDiaryFilters & {
@@ -24,9 +28,10 @@ export type FimaPageFilters = AllProjectsDiaryFilters & {
 export function buildFimaDiaryPageWhere(
 	organizationId: string,
 	filters: FimaPageFilters,
+	documentRecordIds: string[] = [],
 ): Prisma.sitediaryrecordsWhereInput {
 	const where: Prisma.sitediaryrecordsWhereInput = {
-		...buildAllProjectsDiaryWhere(organizationId, filters),
+		...buildAllProjectsDiaryWhere(organizationId, filters, documentRecordIds),
 		Site: {
 			organizationId,
 			siteDiaryRecordsMap: {
@@ -48,6 +53,10 @@ export function buildFimaDiaryPageWhere(
 		};
 		const fimaNumber = parseFimaDiaryNumber(filters.keyword);
 		where.OR = [
+			...buildFimaDocumentKeywordWhere(
+				filters.keyword.trim(),
+				documentRecordIds,
+			),
 			...(fimaNumber !== null ? [{ fimaNumber }] : []),
 			...[
 				"Works",
@@ -80,7 +89,16 @@ export async function loadFimaDiaryPage(
 		Number.isSafeInteger(filters.page) && Number(filters.page) > 0
 			? Number(filters.page)
 			: 1;
-	const where = buildFimaDiaryPageWhere(organizationId, filters);
+	const documentRecordIds = await findFimaDocumentRecordIds(
+		organizationId,
+		filters.keyword,
+		filters.projectId,
+	);
+	const where = buildFimaDiaryPageWhere(
+		organizationId,
+		filters,
+		documentRecordIds,
+	);
 	const orderBy: Prisma.sitediaryrecordsOrderByWithRelationInput[] = [
 		filters.projectView
 			? { Date: "desc" }

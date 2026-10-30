@@ -60,9 +60,27 @@ it.each([
 	"materials=all",
 	"examples=unknown",
 	"bis=approved",
+	"bisStatus=approving",
 ])("rejects malformed queries: %s", async (query) => {
 	expect((await GET(request(query))).status).toBe(400);
 	expect(loadPage).not.toHaveBeenCalled();
+});
+
+it("forwards Act search and the actual BIS status alongside the human workflow badge", async () => {
+	await GET(
+		request(
+			"q=KT-668714-2026-00021&bisStatus=pending&review=coordinate_with_fima&page=2",
+		),
+	);
+	expect(loadPage).toHaveBeenCalledWith(
+		"signed-in-organization",
+		expect.objectContaining({
+			keyword: "KT-668714-2026-00021",
+			bisStatus: "pending",
+			review: "coordinate_with_fima",
+			page: 2,
+		}),
+	);
 });
 it("takes the organization from the session, never the request, and prevents HTTP caching", async () => {
 	const result = await GET(request("page=2&q=walls&organizationId=other"));

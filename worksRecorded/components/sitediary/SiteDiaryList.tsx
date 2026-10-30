@@ -858,6 +858,15 @@ export default function SiteDiaryCalendar({
   const clientDiary = !isZtcFlow && (limeniClientDiary || (configSiteId === siteId && defaultMap?.otherSettings?.inlineDiaryPhotos === true));
   const fimaPanelRow = rows.find((row) => row.id === fimaRecordId) ?? (fimaRecordId ? fimaSelectedRow : null);
   const fimaDiary = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.fimaCollaboration === true;
+  const linkedFimaSearch = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!fimaDiary || linkedFimaSearch.current === siteId) return;
+    linkedFimaSearch.current = siteId ?? null;
+    const query = new URLSearchParams(window.location.search).get("q")?.trim();
+    if (!query) return;
+    setKeywordFilter(query);
+    if (keywordInputRef.current) keywordInputRef.current.value = query;
+  }, [fimaDiary, siteId]);
   const fimaFilterOptions = useFimaDiaryFilterOptions(siteId, fimaDiary, optionsRevision);
   const ancillaryDiaryEnabled = configSiteId === siteId && hasLoadedRowsOnce && !fimaDiary;
   const planner = useConstructionPlanner(siteId, !isZtcFlow && ancillaryDiaryEnabled, rows);
@@ -1368,13 +1377,13 @@ export default function SiteDiaryCalendar({
       const bootstrap = initialFimaPage.current;
       if (bootstrap) {
         initialFimaPage.current = null;
-        if (isFima && options?.useCache && optionsRevision === 0 && bootstrap.siteId === siteId && remoteFilters.page === 1 && !remoteFilters.dateFrom && !remoteFilters.dateTo && !remoteFilters.keyword && remoteFilters.workFilter === "__ALL__" && remoteFilters.floorFilter === "__ALL__" && !remoteFilters.review && !remoteFilters.bis && !remoteFilters.materials && !remoteFilters.examples) {
+        if (isFima && options?.useCache && optionsRevision === 0 && bootstrap.siteId === siteId && remoteFilters.page === 1 && !remoteFilters.dateFrom && !remoteFilters.dateTo && !remoteFilters.keyword && remoteFilters.workFilter === "__ALL__" && remoteFilters.floorFilter === "__ALL__" && !remoteFilters.review && !remoteFilters.bis && !remoteFilters.bisStatus && !remoteFilters.materials && !remoteFilters.examples) {
           fimaPages.seed(pageKey, bootstrap.page);
         }
       }
       const fimaParams = (page: number) => {
         const params = new URLSearchParams({ project: siteId, view: "project", page: String(page) });
-        for (const [key, value] of Object.entries({ q: remoteFilters.keyword, from: remoteFilters.dateFrom, to: remoteFilters.dateTo, work: remoteFilters.workFilter, floor: remoteFilters.floorFilter, review: remoteFilters.review, bis: remoteFilters.bis, materials: remoteFilters.materials, examples: remoteFilters.examples })) {
+        for (const [key, value] of Object.entries({ q: remoteFilters.keyword, from: remoteFilters.dateFrom, to: remoteFilters.dateTo, work: remoteFilters.workFilter, floor: remoteFilters.floorFilter, review: remoteFilters.review, bis: remoteFilters.bis, bisStatus: remoteFilters.bisStatus, materials: remoteFilters.materials, examples: remoteFilters.examples })) {
           if (typeof value === "string" && value && value !== "__ALL__") params.set(key, value);
         }
         return params;
@@ -2004,7 +2013,7 @@ export default function SiteDiaryCalendar({
 
   const allKeywordMatchedDayGroups: DayGroup[] = React.useMemo(() => {
     const normalizedKeyword = keywordFilter.trim().toLowerCase();
-    const recordGroups = !normalizedKeyword
+    const recordGroups = !normalizedKeyword || fimaDiary
       ? dayGroups
       : dayGroups
           .map((group) => ({
@@ -2040,7 +2049,7 @@ export default function SiteDiaryCalendar({
     return combinedGroups.sort(
       (a, b) => b.date.getTime() - a.date.getTime(),
     );
-  }, [dayGroups, keywordFilter, mediaOnlyDayGroups, beginHours.enabled, beginHours.days, beginHours.diaryDates, listPage, workFilter, floorFilter, dateFrom, dateTo, isZtcSite, planner.show, visiblePlanRows]);
+  }, [dayGroups, keywordFilter, mediaOnlyDayGroups, beginHours.enabled, beginHours.days, beginHours.diaryDates, listPage, workFilter, floorFilter, dateFrom, dateTo, isZtcSite, fimaDiary, planner.show, visiblePlanRows]);
 
   const clientPagination = useDiaryDayPagination(allKeywordMatchedDayGroups, JSON.stringify([siteId, dateFrom, dateTo, workFilter, floorFilter, keywordFilter, planner.show]));
   const keywordMatchedDayGroups = clientDiary ? clientPagination.groups : allKeywordMatchedDayGroups;
@@ -2389,7 +2398,7 @@ export default function SiteDiaryCalendar({
         row.createdBy !== workerFilter
       )
         return false;
-      if (!normalizedKeyword) return true;
+      if (!normalizedKeyword || fimaDiary) return true;
       return diaryRowMatchesKeyword(row, normalizedKeyword);
     });
   }, [
@@ -3665,8 +3674,9 @@ export default function SiteDiaryCalendar({
                       <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         ref={keywordInputRef}
+                        defaultValue={keywordFilter}
                         onChange={handleKeywordInputChange}
-                        placeholder={t.keywordSearchPlaceholder}
+                        placeholder={fimaDiary ? "Meklēt: FIMA, BIS, akta Nr., teksts..." : t.keywordSearchPlaceholder}
                         className="h-9 pl-8"
                       />
                     </div>

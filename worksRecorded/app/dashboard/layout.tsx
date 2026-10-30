@@ -128,7 +128,7 @@ export default async function DashboardLayout({
 			: bbbuveSuiteEnabled
 				? "WorksRecorded — BB BŪVE business suite"
 				: undefined;
-	let headerProjects = allHeaderProjects.map(({ siteDiaryRecordsMap: _, bisCaseId: _bis, ...project }) => project);
+	let headerProjects = allHeaderProjects.map(({ siteDiaryRecordsMap, bisCaseId, ...project }) => ({...project, fimaActsEnabled: Boolean(bisCaseId && isFimaDiary(siteDiaryRecordsMap))}));
 	if (
 		flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL &&
 		organizationId

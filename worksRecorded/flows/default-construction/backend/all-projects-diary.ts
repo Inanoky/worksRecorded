@@ -3,6 +3,7 @@ import type { FimaDiaryFilters } from "@/lib/fima/diary-filters";
 import { parseFimaDiaryNumber } from "@/lib/fima/diary-number";
 import { createFimaActCoverageReader } from "@/lib/fima/acceptance-acts";
 import { buildFimaDiaryFilterWhere } from "./fima-diary-filters";
+import { buildFimaDocumentKeywordWhere, findFimaDocumentRecordIds } from "./fima-document-search";
 import { withFimaExampleSources } from "./fima-example-sources";
 import type { Prisma } from "@prisma/client";
 
@@ -174,6 +175,7 @@ function nextUtcDay(value: Date) {
 export function buildAllProjectsDiaryWhere(
   organizationId: string,
   filters: AllProjectsDiaryFilters,
+  documentRecordIds: string[] = [],
 ): Prisma.sitediaryrecordsWhereInput {
   const projectId = normalizedText(filters.projectId);
   const keyword = normalizedText(filters.keyword);
@@ -195,6 +197,7 @@ export function buildAllProjectsDiaryWhere(
     ...(keyword
       ? {
           OR: [
+            ...buildFimaDocumentKeywordWhere(keyword, documentRecordIds),
             ...(fimaNumber !== null ? [{ fimaNumber }] : []),
             ...(organizationId === SB_STOMME_ORGANIZATION_ID
               ? [
@@ -234,7 +237,8 @@ export async function loadAllProjectsDiary(
 ) {
   const page = normalizedPage(filters.page);
   const pageSize = hasInlineDiaryPhotos(organizationId) ? 30 : ALL_PROJECTS_DIARY_PAGE_SIZE;
-  const where = buildAllProjectsDiaryWhere(organizationId, filters);
+  const documentRecordIds = await findFimaDocumentRecordIds(organizationId, filters.keyword, filters.projectId);
+  const where = buildAllProjectsDiaryWhere(organizationId, filters, documentRecordIds);
   const skip = (page - 1) * pageSize;
 
   const [projects, records, totalCount, photoRecords] = await Promise.all([
@@ -287,8 +291,9 @@ export async function loadAllProjectsDiaryExportRecords(
   organizationId: string,
   filters: AllProjectsDiaryFilters = {},
 ) {
+  const documentRecordIds = await findFimaDocumentRecordIds(organizationId, filters.keyword, filters.projectId);
   const records = await prisma.sitediaryrecords.findMany({
-    where: buildAllProjectsDiaryWhere(organizationId, filters),
+    where: buildAllProjectsDiaryWhere(organizationId, filters, documentRecordIds),
     orderBy: allProjectsDiaryOrderBy,
     select: allProjectsDiaryRecordSelect,
   });

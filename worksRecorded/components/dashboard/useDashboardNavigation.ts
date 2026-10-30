@@ -34,6 +34,8 @@ type ResolvedProjectNavLink = ProjectNavLink & {
 };
 
 type DashboardNavigationOptions = {
+	fimaCollaborationEnabled?: boolean;
+	fimaActProjectIds?: string[];
 	organizationLanguage?: string | null;
 	canAccessAiEvals?: boolean;
 	canAccessFlowConfigAdmin?: boolean;
@@ -50,6 +52,8 @@ const projectNavigationRuntimeCache = new Map<
 >();
 
 export function useDashboardNavigation({
+	fimaCollaborationEnabled = false,
+	fimaActProjectIds,
 	organizationLanguage,
 	canAccessAiEvals = false,
 	canAccessFlowConfigAdmin = false,
@@ -98,8 +102,18 @@ export function useDashboardNavigation({
 			getProjectNavLinks(organizationLanguage, {
 				showAnalytics,
 				showVisual,
+				showFimaActs:
+					fimaCollaborationEnabled &&
+					(fimaActProjectIds?.includes(activeProjectId) ?? false),
 			}),
-		[organizationLanguage, showAnalytics, showVisual],
+		[
+			organizationLanguage,
+			showAnalytics,
+			showVisual,
+			fimaCollaborationEnabled,
+			fimaActProjectIds,
+			activeProjectId,
+		],
 	);
 
 	useEffect(() => {

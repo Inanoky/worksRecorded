@@ -20,13 +20,13 @@ import {
 } from "@/components/ui/tooltip";
 import { FLOW_MODULE_KEYS, type FlowModuleKey } from "@/lib/flows/types";
 import { cn } from "@/lib/utils/utils";
+import { DashboardSettingsLink } from "./DashboardSettingsLink";
 import {
 	getNavLinks,
 	getTgemProjectNavigationLabels,
 	getTgemWorkspaceNavLinks,
 	type TgemWorkspaceNavLink,
 } from "./NavLinks";
-import { DashboardSettingsLink } from "./DashboardSettingsLink";
 import { useDashboardNavigation } from "./useDashboardNavigation";
 
 export function DashboardItems({
@@ -116,6 +116,10 @@ export function DashboardProjectNavigation({
 		router,
 		utilityProjectNavLinks,
 	} = useDashboardNavigation({
+		fimaCollaborationEnabled,
+		fimaActProjectIds: availableProjects
+			.filter((project) => project.fimaActsEnabled)
+			.map((project) => project.id),
 		organizationLanguage,
 		canAccessAiEvals,
 		canAccessFlowConfigAdmin,
@@ -354,6 +358,7 @@ type ResolvedProjectLink = ReturnType<
 type ProjectSwitcherOption = {
 	id: string;
 	name: string;
+	fimaActsEnabled?: boolean;
 };
 
 const projectNavItemClasses =

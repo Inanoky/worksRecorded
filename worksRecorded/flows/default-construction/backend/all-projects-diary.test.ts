@@ -1,6 +1,10 @@
 const siteFindManyMock = jest.fn();
 const recordsFindManyMock = jest.fn();
 const recordsCountMock = jest.fn();
+jest.mock("./fima-document-search", () => ({
+  ...jest.requireActual("./fima-document-search"),
+  findFimaDocumentRecordIds: jest.fn().mockResolvedValue([]),
+}));
 
 jest.mock("@/lib/utils/db", () => ({
   prisma: {

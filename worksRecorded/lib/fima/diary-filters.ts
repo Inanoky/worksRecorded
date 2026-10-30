@@ -5,6 +5,9 @@ const presence = z.enum(["present", "missing"]);
 export const fimaDiaryFilterSchema = z.object({
 	review: fimaStatusSchema.or(z.literal("unassigned")).optional(),
 	bis: presence.optional(),
+	bisStatus: z
+		.enum(["works_recorded", "draft", "pending", "approved"])
+		.optional(),
 	materials: presence.optional(),
 	examples: presence.optional(),
 });
@@ -12,6 +15,7 @@ export type FimaDiaryFilters = z.infer<typeof fimaDiaryFilterSchema>;
 export const fimaDiaryFilterKeys = [
 	"review",
 	"bis",
+	"bisStatus",
 	"materials",
 	"examples",
 ] as const;
@@ -47,6 +51,17 @@ export const fimaDiaryFilterOptions = [
 		options: [
 			{ value: "present", label: "Ar BIS ierakstu" },
 			{ value: "missing", label: "Bez BIS ieraksta" },
+		],
+	},
+	{
+		key: "bisStatus",
+		label: "BIS statuss",
+		allLabel: "Visi statusi",
+		options: [
+			{ value: "works_recorded", label: "WorksRecorded" },
+			{ value: "draft", label: "BIS sagatave" },
+			{ value: "pending", label: "BIS gaida apstiprinājumu" },
+			{ value: "approved", label: "BIS apstiprināts" },
 		],
 	},
 	{

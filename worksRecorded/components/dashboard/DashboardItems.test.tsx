@@ -568,6 +568,21 @@ function seedProject(userId: string, id: string, name: string) {
 	);
 }
 
+it("shows Acts for the enabled FIMA project and preserves the Acts route when switching projects", async () => {
+  mockPathname = "/dashboard/sites/fima-acts/acts";
+  seedProject("acts-nav", "fima-acts", "Olaine");
+  render(<ProjectProvider userId="acts-nav"><DashboardProjectNavigation fimaCollaborationEnabled availableProjects={[{id:"fima-acts",name:"Olaine",fimaActsEnabled:true},{id:"fima-main",name:"Main",fimaActsEnabled:true}]} organizationLanguage="lv" /></ProjectProvider>);
+  expect(await screen.findByRole("link",{name:"Akti"})).toHaveAttribute("href","/dashboard/sites/fima-acts/acts");
+  await userEvent.setup().click(screen.getByRole("button",{name:"Mainīt projektu"}));
+  expect(screen.getByRole("menuitem",{name:"Main"})).toHaveAttribute("href","/dashboard/sites/fima-main/acts");
+});
+it("hides Acts in a non-FIMA project within a FIMA organization",()=>{
+  mockPathname = "/dashboard/sites/ordinary/dashboard";
+  seedProject("ordinary-nav", "ordinary", "Ordinary");
+  render(<ProjectProvider userId="ordinary-nav"><DashboardProjectNavigation fimaCollaborationEnabled availableProjects={[{id:"ordinary",name:"Ordinary",fimaActsEnabled:false}]} organizationLanguage="lv" /></ProjectProvider>);
+  expect(screen.queryByRole("link",{name:"Akti"})).not.toBeInTheDocument();
+});
+
 it("adds Visi projekti to FIMA's project switcher and preserves the real project selection", async () => {
   mockPathname = "/dashboard/sites/fima-site/dashboard";
   seedProject("fima-nav", "fima-site", "Olaine");

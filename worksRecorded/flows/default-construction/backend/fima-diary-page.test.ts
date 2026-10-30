@@ -1,6 +1,10 @@
 const findMany = jest.fn();
 const count = jest.fn();
 const sitesFindMany = jest.fn();
+jest.mock("./fima-document-search", () => ({
+	...jest.requireActual("./fima-document-search"),
+	findFimaDocumentRecordIds: jest.fn().mockResolvedValue([]),
+}));
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
 		sitediaryrecords: { findMany, count },
@@ -10,13 +14,42 @@ jest.mock("@/lib/utils/db", () => ({
 
 import { buildFimaDiaryFilterWhere } from "./fima-diary-filters";
 import { buildFimaDiaryPageWhere, loadFimaDiaryPage } from "./fima-diary-page";
+import { findFimaDocumentRecordIds } from "./fima-document-search";
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	jest.mocked(findFimaDocumentRecordIds).mockResolvedValue([]);
 	findMany.mockResolvedValue([]);
 	count.mockResolvedValue(200);
 	sitesFindMany.mockResolvedValue([]);
 });
+
+it.each([true, false])(
+	"applies Act matches and BIS status before counting and pagination (project: %s)",
+	async (projectView) => {
+		jest
+			.mocked(findFimaDocumentRecordIds)
+			.mockResolvedValue(["matched-bis-record"]);
+		const filters = {
+			projectView,
+			page: 2,
+			keyword: "KT-668714-2026-00021",
+			projectId: "project",
+			bisStatus: "pending",
+			review: "coordinate_with_fima",
+		} as const;
+		await loadFimaDiaryPage("org", filters);
+		const { where, skip } = findMany.mock.calls[0][0];
+		expect(where.OR).toContainEqual({ id: { in: ["matched-bis-record"] } });
+		expect(where.AND).toEqual(buildFimaDiaryFilterWhere(filters));
+		expect(where).toMatchObject({
+			siteId: "project",
+			Site: { organizationId: "org" },
+		});
+		expect(skip).toBe(projectView ? 75 : 50);
+		expect(count).toHaveBeenCalledWith({ where });
+	},
+);
 
 it("loads act indexes once per project and returns only coverage for the row's current BIS link", async () => {
 	findMany.mockResolvedValue([

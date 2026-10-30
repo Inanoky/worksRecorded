@@ -3,6 +3,7 @@ const createManyAndReturnMock = jest.fn();
 const createMock = jest.fn();
 const updateMock = jest.fn();
 const transactionMock = jest.fn();
+const queryRawMock = jest.fn();
 const updateManyMock = jest.fn();
 const siteFindManyMock = jest.fn();
 const siteFindUniqueMock = jest.fn();
@@ -39,6 +40,7 @@ jest.mock("next/cache", () => ({
 jest.mock("@/lib/utils/db", () => ({
   prisma: {
     $transaction: transactionMock,
+    $queryRaw: queryRawMock,
     site: {
       findMany: siteFindManyMock,
       findUnique: siteFindUniqueMock,
@@ -178,6 +180,16 @@ function expectSuccessfulSave(result: unknown, count: number) {
 }
 
 describe("saveSiteDiaryRecord originalAudioUrl", () => {
+	it("uses actual Act matches and BIS status in project Excel exports", async () => {
+		queryRawMock.mockResolvedValueOnce([{ id: "site-1", bisCaseId: "668714", coverage: { version: 1, caseId: "668714", fetchedAt: "2026-10-29T10:00:00Z", acts: [{ id: "900", collection: "other_acceptance_acts", number: "KT-668714-2026-00021", status: "approved", works: [{ id: "100", quantity: 1 }] }] } }]);
+		queryRawMock.mockResolvedValueOnce([{ id: "matched-record", siteId: "site-1", BISId: "100", metadata: null }]);
+		siteDiaryFindManyMock.mockResolvedValue([{ id: "matched-record", fimaNumber: 3383 }]);
+		await getSitediaryRecordsBySiteIdForExcel("site-1", { flowId: "default", keyword: "KT-668714-2026-00021", bisStatus: "approved" });
+		const { where } = siteDiaryFindManyMock.mock.calls[0][0];
+		expect(where).toMatchObject({ siteId: "site-1", archivedAt: null });
+		expect(where.AND).toContainEqual({ bisStatus: { equals: "approved", mode: "insensitive" } });
+		expect(where.AND).toContainEqual(expect.objectContaining({ OR: expect.arrayContaining([{ id: { in: ["matched-record"] } }]) }));
+	});
 	it("finds FIMA numbers in project page and Excel queries and retains the number in export rows", async () => {
 		siteDiaryCountMock.mockResolvedValue(1);
 		siteDiaryFindManyMock.mockResolvedValue([

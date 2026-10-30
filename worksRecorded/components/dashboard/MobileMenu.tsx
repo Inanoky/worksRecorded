@@ -14,12 +14,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FLOW_MODULE_KEYS, type FlowModuleKey } from "@/lib/flows/types";
 import { cn } from "@/lib/utils/utils";
+import { DashboardSettingsLink } from "./DashboardSettingsLink";
 import {
 	getTgemProjectNavigationLabels,
 	getTgemWorkspaceNavLinks,
 	type TgemWorkspaceNavLink,
 } from "./NavLinks";
-import { DashboardSettingsLink } from "./DashboardSettingsLink";
 import { useDashboardNavigation } from "./useDashboardNavigation";
 
 export function MobileMenu({
@@ -35,7 +35,11 @@ export function MobileMenu({
 	canAccessAiEvals?: boolean;
 	canAccessFlowConfigAdmin?: boolean;
 	flowModuleKey?: FlowModuleKey | null;
-	availableProjects?: Array<{ id: string; name: string }>;
+	availableProjects?: Array<{
+		id: string;
+		name: string;
+		fimaActsEnabled?: boolean;
+	}>;
 }) {
 	const {
 		globalNavLinks,
@@ -45,6 +49,10 @@ export function MobileMenu({
 		projectName,
 		projectNavLinks,
 	} = useDashboardNavigation({
+		fimaCollaborationEnabled,
+		fimaActProjectIds: availableProjects
+			.filter((project) => project.fimaActsEnabled)
+			.map((project) => project.id),
 		organizationLanguage,
 		canAccessAiEvals,
 		canAccessFlowConfigAdmin,

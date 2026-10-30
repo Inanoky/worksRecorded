@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { fimaBisPendingStatuses } from "@/lib/fima/bis-status";
 import { readFimaDiaryFilters } from "@/lib/fima/diary-filters";
 
 type Where = Prisma.sitediaryrecordsWhereInput;
@@ -14,6 +15,29 @@ function arrayPresence(path: string[], array: Prisma.InputJsonValue = [{}]) {
 export function buildFimaDiaryFilterWhere(input: unknown): Where[] {
 	const filters = readFimaDiaryFilters(input);
 	const conditions: Where[] = [];
+	if (filters.bisStatus) {
+		const absent: Where = { OR: [{ bisStatus: null }, { bisStatus: "" }] };
+		const known: Where = {
+			bisStatus: {
+				in: ["approved", ...fimaBisPendingStatuses],
+				mode: "insensitive",
+			},
+		};
+		conditions.push(
+			filters.bisStatus === "works_recorded"
+				? absent
+				: filters.bisStatus === "approved"
+					? { bisStatus: { equals: "approved", mode: "insensitive" } }
+					: filters.bisStatus === "pending"
+						? {
+								bisStatus: {
+									in: [...fimaBisPendingStatuses],
+									mode: "insensitive",
+								},
+							}
+						: { AND: [{ NOT: absent }, { NOT: known }] },
+		);
+	}
 	if (filters.review) {
 		conditions.push({
 			evalMetadata: {

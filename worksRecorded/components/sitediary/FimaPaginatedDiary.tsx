@@ -262,7 +262,11 @@ export function FimaPaginatedDiary({
 							onChange={(event) =>
 								setDraft((value) => ({ ...value, q: event.target.value }))
 							}
-							placeholder={messages.keyword}
+							placeholder={
+								language === "lv"
+									? "Meklēt: FIMA, BIS, akta Nr., teksts..."
+									: "Search: FIMA, BIS, Act number, text..."
+							}
 							aria-label={messages.keyword}
 						/>
 						<select

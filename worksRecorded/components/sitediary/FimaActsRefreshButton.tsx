@@ -8,9 +8,11 @@ import { refreshFimaAcceptanceActs } from "@/server/actions/fima-acceptance-acts
 export function FimaActsRefreshButton({
 	siteId,
 	onRefreshed,
+	label = "Atjaunot aktus",
 }: {
 	siteId?: string | null;
 	onRefreshed: () => unknown;
+	label?: string;
 }) {
 	const [loading, setLoading] = useState(false);
 	if (!siteId) return null;
@@ -38,7 +40,7 @@ export function FimaActsRefreshButton({
 			disabled={loading}
 			onClick={() => void refresh()}
 		>
-			{loading ? "Pārbauda aktus..." : "Atjaunot aktus"}
+			{loading ? "Pārbauda aktus..." : label}
 		</Button>
 	);
 }

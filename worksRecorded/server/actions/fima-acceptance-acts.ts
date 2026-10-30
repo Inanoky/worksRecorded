@@ -65,6 +65,7 @@ export async function refreshFimaAcceptanceActs(siteId: string) {
 			"Projekts ir mainīts. Atjaunojiet datus un mēģiniet vēlreiz.",
 		);
 	revalidatePath(`/dashboard/sites/${siteId}/dashboard`);
+	revalidatePath(`/dashboard/sites/${siteId}/acts`);
 	revalidatePath("/dashboard/all-projects");
 	return { checkedAt: index.fetchedAt, actCount: index.acts.length };
 }

@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
 	ChartNoAxesCombined,
 	Clock8,
+	FileCheck2,
 	HardHat,
 	Layers,
 	ListChecks,
@@ -167,7 +168,11 @@ function getTgemLanguageKey(language?: string | null) {
 
 export function getProjectNavLinks(
 	language?: string | null,
-	options?: { showAnalytics?: boolean; showVisual?: boolean },
+	options?: {
+		showAnalytics?: boolean;
+		showVisual?: boolean;
+		showFimaActs?: boolean;
+	},
 ): ProjectNavLink[] {
 	const organizationLanguage = normalizeOrganizationLanguage(language);
 	const t = getNavigationMessages(organizationLanguage);
@@ -183,6 +188,21 @@ export function getProjectNavLinks(
 			priority: "primary",
 			dataTour: "nav-site-diary",
 		},
+		...(options?.showFimaActs
+			? [
+					{
+						name: organizationLanguage === "lv" ? "Akti" : "Acts",
+						description:
+							organizationLanguage === "lv"
+								? "BIS akti, izmantotie paraugi un ikdienas ieraksti."
+								: "BIS Acts, reference Acts and daily work records.",
+						href: "/dashboard/acts",
+						path: "acts",
+						icon: FileCheck2,
+						priority: "primary" as const,
+					},
+				]
+			: []),
 		...(options?.showVisual
 			? [
 					{
