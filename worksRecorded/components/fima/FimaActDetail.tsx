@@ -1,22 +1,18 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import {
 	getFimaAcceptanceActUrl,
 	getFimaActStatusLabel,
 } from "@/lib/fima/acceptance-acts";
 import type {
 	FimaActRow,
-	FimaActSetting,
 	FimaActSource,
 	FimaActWorkScope,
 } from "@/lib/fima/act-register";
 import { getFimaBisRecordUrl } from "@/lib/fima/bis-record-links";
 import { formatFimaDiaryNumber } from "@/lib/fima/diary-number";
-import { saveFimaActSettings } from "@/server/actions/fima-acts";
 
 export type FimaActDetailTab =
 	| "works"
@@ -228,53 +224,18 @@ function ActComparison({
 	);
 }
 export function FimaActDetail({
-	siteId,
 	row,
 	tab,
 	onTabChange,
 	onClose,
-	onSaved,
 	references = [],
 }: {
-	siteId: string;
 	row: FimaActRow;
 	tab: FimaActDetailTab;
 	onTabChange: (tab: FimaActDetailTab) => void;
 	onClose: () => void;
-	onSaved: (setting: FimaActSetting) => void;
 	references?: FimaActSource[];
 }) {
-	const [draft, setDraft] = useState("");
-	const [saving, setSaving] = useState(false);
-	const requestId = useRef<string | null>(null);
-	const save = async () => {
-		if (!draft.trim() || saving) return;
-		requestId.current ??= crypto.randomUUID();
-		setSaving(true);
-		try {
-			const setting = await saveFimaActSettings({
-				siteId,
-				collection: row.collection,
-				id: row.id,
-				expectedRevision: row.setting.revision,
-				requestId: requestId.current,
-				kind: "comment",
-				text: draft,
-			});
-			onSaved(setting);
-			setDraft("");
-			requestId.current = null;
-		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: "Neizdevās saglabāt komentāru.",
-			);
-		} finally {
-			setSaving(false);
-		}
-	};
-	const comments = row.setting.history;
 	return (
 		<section
 			aria-label={`Akta ${row.localNumber} detaļas`}
@@ -355,76 +316,6 @@ export function FimaActDetail({
 						Atvērt akta pielikumus BIS
 					</a>
 				</div>
-			) : null}
-			{tab === "comments" ? (
-				<section
-					aria-label="Komentāri un izmaiņu vēsture"
-					className="flex min-h-0 flex-1 flex-col gap-4"
-				>
-					<h3 className="font-semibold">Komentāri un izmaiņu vēsture</h3>
-					<div className="space-y-3" aria-live="polite">
-						{comments.length ? (
-							comments.map((event) => (
-								<article
-									key={event.id}
-									className="rounded-lg border bg-muted/20 p-3"
-								>
-									<p className="text-xs text-muted-foreground">
-										{event.actorName} ·{" "}
-										{new Date(event.at).toLocaleString("lv-LV", {
-											timeZone: "Europe/Riga",
-										})}
-										{event.kind === "status"
-											? " · Atzīme"
-											: event.kind === "examples"
-												? " · Izmaiņa"
-												: ""}
-									</p>
-									<p className="mt-1 whitespace-pre-wrap break-words text-sm">
-										{event.text}
-									</p>
-								</article>
-							))
-						) : (
-							<p className="text-sm text-muted-foreground">
-								Komentāru vēl nav.
-							</p>
-						)}
-					</div>
-					<form
-						className="space-y-2 border-t pt-4"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void save();
-						}}
-					>
-						<label
-							className="text-sm font-medium"
-							htmlFor={`act-comment-${row.id}`}
-						>
-							Jauns komentārs
-						</label>
-						<Textarea
-							id={`act-comment-${row.id}`}
-							rows={4}
-							maxLength={4000}
-							disabled={saving}
-							value={draft}
-							onChange={(event) => {
-								setDraft(event.target.value);
-								requestId.current = null;
-							}}
-						/>
-						<div className="flex items-center justify-between gap-2">
-							<span className="text-xs text-muted-foreground">
-								{draft.length}/4000
-							</span>
-							<Button type="submit" disabled={saving || !draft.trim()}>
-								{saving ? "Saglabā..." : "Pievienot komentāru"}
-							</Button>
-						</div>
-					</form>
-				</section>
 			) : null}
 		</section>
 	);

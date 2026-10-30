@@ -65,6 +65,7 @@ async function requireScope(siteId: string) {
 		user,
 		organizationId: allowed.organizationId,
 		caseId: site.bisCaseId,
+		config: site.siteDiaryRecordsMap,
 	};
 }
 export async function getFimaActsForSite(siteId: string) {
@@ -75,6 +76,24 @@ export async function getFimaActsForSite(siteId: string) {
 	});
 	if (!data) throw new Error("FIMA akti šajā projektā nav pieejami.");
 	return data;
+}
+export async function getFimaActSetting(args: {
+	siteId: string;
+	collection: string;
+	id: string;
+}) {
+	const input = scopeSchema
+		.extend({
+			collection: z.string().regex(/^[a-z][a-z_]*_acts$/),
+			id: z.string().regex(/^\d+$/),
+		})
+		.parse(args);
+	const scope = await requireScope(input.siteId);
+	const setting = readFimaActRegister(scope.config).entries[
+		actKey(input.collection, input.id)
+	];
+	if (!setting) throw new Error("Akts nav pieejams.");
+	return setting;
 }
 export async function getFimaActReferenceDetail(args: {
 	siteId: string;

@@ -16,12 +16,14 @@ import {
 } from "@/lib/fima/act-register";
 import {
 	getFimaActReferenceDetail,
+	getFimaActSetting,
 	saveFimaActSettings,
 } from "@/server/actions/fima-acts";
 import { FimaActsPage } from "./FimaActsPage";
 
 jest.mock("@/server/actions/fima-acts", () => ({
 	getFimaActsForSite: jest.fn(),
+	getFimaActSetting: jest.fn(),
 	saveFimaActSettings: jest.fn(),
 	getFimaActReferenceDetail: jest.fn(),
 }));
@@ -34,6 +36,11 @@ const collection = "other_acceptance_acts";
 let data: FimaActsData;
 beforeEach(() => {
 	jest.clearAllMocks();
+	jest.mocked(getFimaActSetting).mockImplementation(async ({ id }) => {
+		const row = data.rows.find((row) => row.id === id);
+		if (!row) throw new Error("Missing Act");
+		return row.setting;
+	});
 	jest.spyOn(window, "scrollTo").mockImplementation(() => {});
 	const site: FimaActSite = {
 		id: siteId,
@@ -258,4 +265,58 @@ it("uses the diary's coloured badges and shows the latest human comment directly
 	expect(
 		within(article).getByRole("button", { name: "Pievienot komentāru rindā" }),
 	).toBeVisible();
+});
+
+it("opens comments in the journal-style side panel and retains a draft after closing", async () => {
+	data.rows = [data.rows[0]];
+	const row = data.rows[0];
+	render(<FimaActsPage initial={data} />);
+	const trigger = screen.getByRole("button", {
+		name: `Komentāri ${row.localNumber}`,
+	});
+	fireEvent.click(trigger);
+	const panel = screen.getByRole("dialog", { name: "Akta pārskats" });
+	expect(panel).toHaveClass("right-0", "h-dvh");
+	expect(panel).not.toHaveAttribute("aria-modal", "true");
+	await waitFor(() => expect(panel).toHaveFocus());
+	expect(getFimaActSetting).toHaveBeenCalledWith({
+		siteId,
+		collection,
+		id: row.id,
+	});
+	fireEvent.change(
+		within(panel).getByRole("textbox", { name: "Jauns komentārs" }),
+		{ target: { value: "Unsaved human draft" } },
+	);
+	fireEvent.click(
+		within(panel).getByRole("button", { name: "Aizvērt ieraksta paneli" }),
+	);
+	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	fireEvent.click(trigger);
+	expect(screen.getByRole("textbox", { name: "Jauns komentārs" })).toHaveValue(
+		"Unsaved human draft",
+	);
+	expect(saveFimaActSettings).not.toHaveBeenCalled();
+});
+
+it("closes the comments portal when navigating away while retaining the draft", async () => {
+	data.rows = [data.rows[0]];
+	const row = data.rows[0];
+	const view = render(<FimaActsPage initial={data} />);
+	fireEvent.click(
+		screen.getByRole("button", { name: `Komentāri ${row.localNumber}` }),
+	);
+	fireEvent.change(screen.getByRole("textbox", { name: "Jauns komentārs" }), {
+		target: { value: "Keep this draft" },
+	});
+	view.rerender(<FimaActsPage initial={data} active={false} />);
+	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	view.rerender(<FimaActsPage initial={data} active />);
+	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	fireEvent.click(
+		screen.getByRole("button", { name: `Komentāri ${row.localNumber}` }),
+	);
+	expect(screen.getByRole("textbox", { name: "Jauns komentārs" })).toHaveValue(
+		"Keep this draft",
+	);
 });

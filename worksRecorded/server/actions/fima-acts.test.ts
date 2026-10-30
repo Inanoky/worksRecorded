@@ -31,6 +31,7 @@ import {
 import { readFimaActRegister } from "@/lib/fima/act-register";
 import {
 	getFimaActReferenceDetail,
+	getFimaActSetting,
 	getFimaActsForSite,
 	saveFimaActSettings,
 } from "./fima-acts";
@@ -285,3 +286,25 @@ it.each([
 		);
 	},
 );
+
+it("loads just the scoped Act settings for comment history without writes", async () => {
+	const setting = { number: 1, revision: 4, examples: [], history: [] };
+	config.otherSettings.fimaActRegister = {
+		version: 1,
+		nextNumber: 2,
+		entries: { [`${collection}/100`]: setting },
+	};
+	expect(await getFimaActSetting({ siteId, collection, id: "100" })).toEqual(
+		setting,
+	);
+	expect(transaction).not.toHaveBeenCalled();
+	expect(query).not.toHaveBeenCalled();
+	expect(execute).not.toHaveBeenCalled();
+});
+it("rejects history access outside the user's organization", async () => {
+	orgCheckMock.mockResolvedValue(null);
+	await expect(
+		getFimaActSetting({ siteId, collection, id: "100" }),
+	).rejects.toThrow("Nav piekļuves");
+	expect(query).not.toHaveBeenCalled();
+});

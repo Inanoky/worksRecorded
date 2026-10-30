@@ -3,6 +3,7 @@
 import { Copy, ExternalLink, FileCheck2, Pencil, Search } from "lucide-react";
 import {
 	Fragment,
+	useCallback,
 	useEffect,
 	useId,
 	useLayoutEffect,
@@ -33,6 +34,7 @@ import {
 	getFimaActsForSite,
 	saveFimaActSettings,
 } from "@/server/actions/fima-acts";
+import { FimaActCommentsPanel } from "./FimaActCommentsPanel";
 import { FimaActDetail, type FimaActDetailTab } from "./FimaActDetail";
 import { FimaActExamplesDialog } from "./FimaActExamplesDialog";
 import { FimaActReviewBadge } from "./FimaActReviewBadge";
@@ -66,10 +68,12 @@ const dateLabel = (date: string | null) =>
 		: "Datums nav norādīts";
 
 export function FimaActsPage({
+	active = true,
 	initial,
 	onDataChange,
 }: {
 	initial: FimaActsData;
+	active?: boolean;
 	onDataChange?: (data: FimaActsData) => void;
 }) {
 	const searchId = useId();
@@ -81,6 +85,21 @@ export function FimaActsPage({
 		key: string;
 		tab: FimaActDetailTab;
 	} | null>(null);
+	const [commentKey, setCommentKey] = useState<string | null>(null);
+	useEffect(() => {
+		if (!active) setCommentKey(null);
+	}, [active]);
+	const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>(
+		{},
+	);
+	const commentTrigger = useRef<HTMLElement | null>(null);
+	const openComments = (row: FimaActRow) => {
+		commentTrigger.current =
+			document.activeElement instanceof HTMLElement
+				? document.activeElement
+				: null;
+		setCommentKey(row.key);
+	};
 	const [editing, setEditing] = useState<string | null>(null);
 	const container = useRef<HTMLDivElement>(null);
 	const position = useFimaFilterReturn(`acts:${data.siteId}`, container);
@@ -128,28 +147,31 @@ export function FimaActsPage({
 		);
 		setFilters(next);
 	};
-	const update = (key: string, setting: FimaActSetting) =>
-		setData((value) => ({
-			...value,
-			rows: value.rows.map((row) =>
-				row.key === key
-					? {
-							...row,
-							setting,
-							examples: setting.examples.map(
-								(reference) =>
-									value.choices.find(
-										(choice) =>
-											choice.siteId === reference.siteId &&
-											choice.caseId === reference.caseId &&
-											actKey(choice.collection, choice.id) ===
-												actKey(reference.collection, reference.id),
-									) ?? { ...reference, unavailable: true as const },
-							),
-						}
-					: row,
-			),
-		}));
+	const update = useCallback(
+		(key: string, setting: FimaActSetting) =>
+			setData((value) => ({
+				...value,
+				rows: value.rows.map((row) =>
+					row.key === key && setting.revision >= row.setting.revision
+						? {
+								...row,
+								setting,
+								examples: setting.examples.map(
+									(reference) =>
+										value.choices.find(
+											(choice) =>
+												choice.siteId === reference.siteId &&
+												choice.caseId === reference.caseId &&
+												actKey(choice.collection, choice.id) ===
+													actKey(reference.collection, reference.id),
+										) ?? { ...reference, unavailable: true as const },
+								),
+							}
+						: row,
+				),
+			})),
+		[],
+	);
 	const open = (row: FimaActRow, tab: FimaActDetailTab) =>
 		setOpened({ key: row.key, tab });
 	const editRow = data.rows.find((row) => row.key === editing);
@@ -450,7 +472,7 @@ export function FimaActsPage({
 									<FimaCommentControl
 										label={`Komentāri ${row.localNumber}`}
 										history={row.setting.history}
-										onOpenRecord={() => open(row, "comments")}
+										onOpenRecord={() => openComments(row)}
 										onSave={async (text, requestId) =>
 											update(
 												row.key,
@@ -508,20 +530,22 @@ export function FimaActsPage({
 									<FimaActReviewBadge
 										row={row}
 										onSaved={(setting) => update(row.key, setting)}
-										onHistory={() => open(row, "comments")}
+										onHistory={() => openComments(row)}
 									/>
 								</div>
 							</article>
 							{opened?.key === row.key ? (
 								<FimaActDetail
 									key={row.key}
-									siteId={data.siteId}
 									row={row}
 									references={data.references ?? []}
 									tab={opened.tab}
-									onTabChange={(tab) => setOpened({ key: row.key, tab })}
+									onTabChange={(tab) =>
+										tab === "comments"
+											? openComments(row)
+											: setOpened({ key: row.key, tab })
+									}
 									onClose={() => setOpened(null)}
-									onSaved={(setting) => update(row.key, setting)}
 								/>
 							) : null}
 						</Fragment>
@@ -551,6 +575,27 @@ export function FimaActsPage({
 					label="Aktu lapas apakšā"
 				/>
 			) : null}
+			<FimaActCommentsPanel
+				row={
+					active
+						? (data.rows.find((row) => row.key === commentKey) ?? null)
+						: null
+				}
+				onClose={() => setCommentKey(null)}
+				onRestoreFocus={() =>
+					commentTrigger.current?.focus({ preventScroll: true })
+				}
+				onSaved={update}
+				draft={commentKey ? (commentDrafts[commentKey] ?? "") : ""}
+				onDraftChange={(value) => {
+					if (commentKey)
+						setCommentDrafts((current) => ({
+							...current,
+							[commentKey]: value,
+						}));
+				}}
+			/>
+
 			{editRow ? (
 				<FimaActExamplesDialog
 					key={editRow.key}

@@ -285,6 +285,7 @@ function PreparedProject({
 				<Suspense fallback={null}>
 					{state.data ? (
 						<View
+							active={active}
 							key={siteId}
 							initial={state.data}
 							onDataChange={resource.update}
