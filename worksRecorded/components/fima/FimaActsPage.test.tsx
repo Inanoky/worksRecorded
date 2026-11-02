@@ -320,3 +320,35 @@ it("closes the comments portal when navigating away while retaining the draft", 
 		"Keep this draft",
 	);
 });
+
+it("retains newer human comment history when a stale background snapshot arrives", () => {
+	const row = data.rows[0];
+	row.setting = {
+		...row.setting,
+		revision: 2,
+		history: [
+			{
+				id: "new",
+				requestId: "r",
+				kind: "comment",
+				actorId: "person",
+				actorName: "Ieva",
+				at: "2026-11-02T12:00:00Z",
+				text: "Newest human comment",
+			},
+		],
+	};
+	data.rows = [row];
+	const view = render(<FimaActsPage initial={data} />);
+	view.rerender(
+		<FimaActsPage
+			initial={{
+				...data,
+				rows: [
+					{ ...row, setting: { ...row.setting, revision: 1, history: [] } },
+				],
+			}}
+		/>,
+	);
+	expect(screen.getByText("Newest human comment")).toBeInTheDocument();
+});

@@ -168,7 +168,7 @@ export default async function DashboardLayout({
 						siteIds={allHeaderProjects.filter(project => project.bisCaseId && isFimaDiary(project.siteDiaryRecordsMap)).map(project => project.id)}
 					/>
 				) : null}
-			<FimaProjectProvider key={fimaActCacheScope} siteIds={fimaActProjectIds}>
+			<FimaProjectProvider key={fimaActCacheScope} siteIds={fimaActProjectIds} cacheScope={`${userId}:${organizationId ?? "admin"}`} projectCases={Object.fromEntries(allHeaderProjects.map(project => [project.id, project.bisCaseId]))}>
 			<DiarySaveProvider key={userId} userId={userId} projects={headerProjects} language={organizationLanguage}>
 			<DashboardSettingsProvider
 				key={JSON.stringify([userId, accountOrganizationId, organizationLanguage, flowModuleKey, canAccessFlowConfigs])}

@@ -133,3 +133,88 @@ it("retains data after a temporary outage but clears it if project access is rev
 	await resource.load("a", true);
 	expect(resource.get("a").data).toBeNull();
 });
+
+it("restores saved rows before checking changes and never redownloads an unchanged project", async () => {
+	const saved = { ...delta(), config: delta().config };
+	const cache = {
+		read: jest.fn().mockResolvedValue(saved),
+		write: jest.fn().mockResolvedValue(undefined),
+	};
+	let finish!: (value: Response) => void;
+	const request = jest.fn().mockImplementation(
+		() =>
+			new Promise((done) => {
+				finish = done;
+			}),
+	);
+	const resource = createFimaDiaryResource(
+		async () => {},
+		request,
+		() => cache,
+	);
+	const work = resource.load("a");
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	expect(resource.get("a")).toMatchObject({
+		status: "ready",
+		data: { rows: [{ id: "one" }, { id: "two" }] },
+	});
+	expect(request.mock.calls[0][1].method).toBeUndefined();
+	finish(response(null, 304));
+	await work;
+	expect(request).toHaveBeenCalledTimes(1);
+	expect(resource.get("a").data?.rows[0].Date).toBeInstanceOf(Date);
+});
+it("uses saved versions for the first delta after a browser restart", async () => {
+	const saved = { ...delta(), config: delta().config };
+	const cache = {
+		read: jest.fn().mockResolvedValue(saved),
+		write: jest.fn().mockResolvedValue(undefined),
+	};
+	const request = jest
+		.fn()
+		.mockResolvedValueOnce(response({ revision: "v2" }))
+		.mockResolvedValueOnce(
+			response({
+				...delta(),
+				revision: "v2",
+				config: undefined,
+				rows: [{ ...row("one"), Works: "Changed only" }],
+				removed: ["two"],
+				versions: { one: "h3" },
+			}),
+		);
+	const resource = createFimaDiaryResource(
+		async () => {},
+		request,
+		() => cache,
+	);
+	await resource.load("a");
+	expect(JSON.parse(request.mock.calls[1][1].body).known.versions).toEqual(
+		saved.versions,
+	);
+	expect(resource.get("a").data?.rows).toHaveLength(1);
+	expect(resource.get("a").data?.rows[0].Works).toBe("Changed only");
+	expect(cache.write).toHaveBeenLastCalledWith(
+		expect.objectContaining({ revision: "v2" }),
+	);
+});
+it("discards a cache from another project and clears a persisted cache after access denial", async () => {
+	const cache = {
+		read: jest
+			.fn()
+			.mockResolvedValue({ ...delta("b"), config: delta().config }),
+		write: jest.fn().mockResolvedValue(undefined),
+	};
+	const request = jest.fn().mockResolvedValue(response(delta()));
+	const resource = createFimaDiaryResource(
+		async () => {},
+		request,
+		() => cache,
+	);
+	await resource.load("a");
+	expect(request.mock.calls[0][1].method).toBe("POST");
+	request.mockResolvedValue(response(null, 403));
+	await resource.load("a", true);
+	expect(resource.get("a").data).toBeNull();
+	expect(cache.write).toHaveBeenLastCalledWith(null);
+});

@@ -19,7 +19,10 @@ import { useProjectPreparationReporter } from "@/components/providers/ProjectLoa
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import { Button } from "@/components/ui/button";
 import { DIARY_RECORD_UPDATED } from "@/flows/default-construction/lib/diary-record-updated-event";
-import { getFimaActsForSite } from "@/server/actions/fima-acts";
+import {
+	getFimaActsDelta,
+	getFimaActsForSite,
+} from "@/server/actions/fima-acts";
 import { createFimaActsResource } from "./acts-resource";
 import { createFimaDiaryResource } from "./diary-resource";
 import { FimaProjectNavigationContext } from "./FimaProjectNavigationLink";
@@ -29,6 +32,12 @@ const loadView = () =>
 const View = lazy(loadView);
 const loadDiary = () => import("@/components/sitediary/SiteDiaryList");
 const Diary = lazy(loadDiary);
+
+import type { FimaActsData } from "@/lib/fima/act-register";
+import type { FimaDiaryWorkspace } from "@/lib/fima/diary-workspace";
+import { fimaResourcePersistence } from "./persistent-resource";
+
+const noCases: Record<string, string | null> = {};
 const beforeNavigation = "fima:before-navigation";
 type ProjectContext = {
 	resource: ReturnType<typeof createFimaActsResource>;
@@ -43,23 +52,44 @@ function isDiaryPath(path: string, siteId: string) {
 	);
 }
 export function FimaProjectProvider({
+	cacheScope,
+	projectCases = noCases,
 	siteIds,
 	children,
 }: {
 	siteIds: readonly string[];
+	cacheScope?: string;
+	projectCases?: Record<string, string | null>;
 	children: ReactNode;
 }) {
 	const [resource] = useState(() =>
-		createFimaActsResource(getFimaActsForSite, loadView),
+		createFimaActsResource(getFimaActsForSite, loadView, {
+			loadDelta: getFimaActsDelta,
+			persistence: fimaResourcePersistence<FimaActsData>(
+				cacheScope,
+				projectCases,
+				"acts",
+			),
+		}),
 	);
-	const [diary] = useState(() => createFimaDiaryResource(loadDiary));
+	const [diary] = useState(() =>
+		createFimaDiaryResource(
+			loadDiary,
+			undefined,
+			fimaResourcePersistence<FimaDiaryWorkspace>(
+				cacheScope,
+				projectCases,
+				"diary",
+			),
+		),
+	);
 	const pathname = usePathname();
 	const siteId = /^\/dashboard\/sites\/([^/]+)/.exec(pathname)?.[1];
 	const enabled = !!siteId && siteIds.includes(siteId);
 	useEffect(() => {
 		if (!enabled) return;
-		void resource.load(siteId);
-		void diary.load(siteId);
+		void resource.load(siteId, resource.get(siteId).data !== null);
+		void diary.load(siteId, diary.get(siteId).data !== null);
 		let checked = Date.now();
 		let debounce: ReturnType<typeof setTimeout> | undefined;
 		const sync = (forced = false) => {
@@ -70,6 +100,7 @@ export function FimaProjectProvider({
 				return;
 			checked = Date.now();
 			void diary.load(siteId, true);
+			void resource.load(siteId, true);
 		};
 		const focus = () => sync();
 		const changed = (event: Event) => {
@@ -221,21 +252,19 @@ function PreparedProject({
 	useEffect(() => {
 		report(
 			"acts",
-			state.status === "ready"
-				? "done"
-				: state.status === "error"
-					? "error"
-					: "pending",
+			state.data ? "done" : state.status === "error" ? "error" : "pending",
 		);
-	}, [report, state.status]);
+	}, [report, state.status, state.data]);
 	useEffect(() => {
-		if (diaryState.status === "error") {
+		if (diaryState.status === "error" && !diaryState.data) {
 			report("settings", "error");
 			report("diary", "error");
 		}
-	}, [report, diaryState.status]);
+	}, [report, diaryState.status, diaryState.data]);
 	const pending = [state.status, diaryState.status].some(
-		(status) => status === "loading" || status === "idle",
+		(status, index) =>
+			![state.data, diaryState.data][index] &&
+			(status === "loading" || status === "idle"),
 	);
 	return (
 		<>

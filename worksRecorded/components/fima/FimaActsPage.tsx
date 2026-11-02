@@ -78,6 +78,24 @@ export function FimaActsPage({
 }) {
 	const searchId = useId();
 	const [data, setData] = useState(initial);
+	useEffect(
+		() =>
+			setData((current) => {
+				if (current === initial) return current;
+				const local = new Map(current.rows.map((row) => [row.key, row]));
+				let newer = false;
+				const rows = initial.rows.map((row) => {
+					const saved = local.get(row.key);
+					if (saved && saved.setting.revision > row.setting.revision) {
+						newer = true;
+						return { ...row, setting: saved.setting, examples: saved.examples };
+					}
+					return row;
+				});
+				return newer ? { ...initial, rows } : initial;
+			}),
+		[initial],
+	);
 	useEffect(() => onDataChange?.(data), [onDataChange, data]);
 	const [filters, setFilters] = useState<Filters>(emptyFilters);
 	const [page, setPage] = useState(1);

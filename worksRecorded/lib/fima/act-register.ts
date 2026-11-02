@@ -88,7 +88,15 @@ export type FimaActRow = Omit<FimaTrackedAct, "records"> & {
 		fimaBisRecords: FimaBisRecordLink[];
 	})[];
 };
+export type FimaActsVersions = {
+	revision: string;
+	meta: string;
+	rows: Record<string, string>;
+	choices: Record<string, string>;
+	references: Record<string, string>;
+};
 export type FimaActsData = {
+	cache?: FimaActsVersions;
 	siteId: string;
 	siteName: string;
 	caseId: string;

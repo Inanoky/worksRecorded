@@ -10,6 +10,11 @@ import {
 	saveFimaActRegister,
 } from "@/flows/default-construction/backend/fima-acts";
 import {
+	diffFimaActs,
+	versionFimaActs,
+} from "@/flows/default-construction/backend/fima-acts-sync";
+import type { FimaActsData, FimaActsVersions } from "@/lib/fima/act-register";
+import {
 	actChoices,
 	actKey,
 	allocateFimaActNumbers,
@@ -17,6 +22,7 @@ import {
 	readFimaActRegister,
 	readTrackedFimaActs,
 } from "@/lib/fima/act-register";
+import type { FimaActsDelta } from "@/lib/fima/acts-sync";
 import {
 	fimaStatuses,
 	fimaStatusSchema,
@@ -26,6 +32,7 @@ import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 
+class FimaActsAccessError extends Error {}
 const scopeSchema = z.object({ siteId: z.string().uuid() });
 const mutationSchema = scopeSchema
 	.extend({
@@ -54,13 +61,13 @@ async function requireScope(siteId: string) {
 	const user = await requireUser();
 	const allowed = await orgCheck(user.id, siteId);
 	if (!allowed || !allowed.organizationId)
-		throw new Error("Nav piekļuves projektam.");
+		throw new FimaActsAccessError("Nav piekļuves projektam.");
 	const site = await prisma.site.findFirst({
 		where: { id: siteId, organizationId: allowed.organizationId },
 		select: { bisCaseId: true, siteDiaryRecordsMap: true },
 	});
 	if (!site?.bisCaseId || !isFimaDiary(site.siteDiaryRecordsMap))
-		throw new Error("FIMA akti šajā projektā nav pieejami.");
+		throw new FimaActsAccessError("FIMA akti šajā projektā nav pieejami.");
 	return {
 		user,
 		organizationId: allowed.organizationId,
@@ -68,14 +75,44 @@ async function requireScope(siteId: string) {
 		config: site.siteDiaryRecordsMap,
 	};
 }
-export async function getFimaActsForSite(siteId: string) {
+export async function getFimaActsForSite(
+	siteId: string,
+): Promise<FimaActsData> {
 	scopeSchema.parse({ siteId });
 	const scope = await requireScope(siteId);
 	const data = await loadFimaActs(scope.organizationId, siteId, {
 		assignNumbers: true,
 	});
 	if (!data) throw new Error("FIMA akti šajā projektā nav pieejami.");
-	return data;
+	return versionFimaActs(data);
+}
+export async function getFimaActsDelta(
+	siteId: string,
+	known: FimaActsVersions,
+): Promise<FimaActsDelta> {
+	scopeSchema.parse({ siteId });
+	const digest = z.string().regex(/^[0-9a-f]{64}$/);
+	const versions = z
+		.record(z.string().max(250), digest)
+		.refine((value) => Object.keys(value).length <= 30000);
+	z.object({
+		revision: digest,
+		meta: digest,
+		rows: versions,
+		choices: versions,
+		references: versions,
+	}).parse(known);
+	try {
+		const scope = await requireScope(siteId);
+		const data = await loadFimaActs(scope.organizationId, siteId, {
+			assignNumbers: true,
+		});
+		if (!data) return { kind: "denied" };
+		return diffFimaActs(versionFimaActs(data), known);
+	} catch (error) {
+		if (error instanceof FimaActsAccessError) return { kind: "denied" };
+		throw error;
+	}
 }
 export async function getFimaActSetting(args: {
 	siteId: string;

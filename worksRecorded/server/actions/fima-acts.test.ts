@@ -32,6 +32,7 @@ import { readFimaActRegister } from "@/lib/fima/act-register";
 import {
 	getFimaActReferenceDetail,
 	getFimaActSetting,
+	getFimaActsDelta,
 	getFimaActsForSite,
 	saveFimaActSettings,
 } from "./fima-acts";
@@ -307,4 +308,37 @@ it("rejects history access outside the user's organization", async () => {
 		getFimaActSetting({ siteId, collection, id: "100" }),
 	).rejects.toThrow("Nav piekļuves");
 	expect(query).not.toHaveBeenCalled();
+});
+
+it("returns an empty delta for an unchanged cached Acts register without writing data", async () => {
+	const initial = await getFimaActsForSite(siteId);
+	if (!initial.cache) throw new Error("Missing versions");
+	execute.mockClear();
+	expect(await getFimaActsDelta(siteId, initial.cache)).toEqual({
+		kind: "unchanged",
+	});
+	expect(execute).not.toHaveBeenCalled();
+});
+it("returns only the new Act comment to a cached client", async () => {
+	const initial = await getFimaActsForSite(siteId);
+	if (!initial.cache) throw new Error("Missing versions");
+	await saveFimaActSettings({
+		...scope,
+		kind: "comment",
+		text: "Human comment",
+	});
+	const delta = await getFimaActsDelta(siteId, initial.cache);
+	if (delta.kind !== "delta") throw new Error("Expected delta");
+	expect(delta.rows).toHaveLength(1);
+	expect(delta.rows[0].setting.history[0].text).toBe("Human comment");
+	expect(delta.choices).toEqual([]);
+	expect(delta.references).toEqual([]);
+});
+it("explicitly rejects a revoked project's cached data", async () => {
+	const initial = await getFimaActsForSite(siteId);
+	if (!initial.cache) throw new Error("Missing versions");
+	orgCheckMock.mockResolvedValue(null);
+	expect(await getFimaActsDelta(siteId, initial.cache)).toEqual({
+		kind: "denied",
+	});
 });

@@ -7,9 +7,12 @@ import {
 	mergeFimaDiaryDelta,
 } from "@/lib/fima/diary-workspace";
 
+import type { FimaResourcePersistence } from "./persistent-resource";
+
 export function createFimaDiaryResource(
 	loadView: () => Promise<unknown>,
 	request: typeof fetch = (...args) => fetch(...args),
+	persistence?: (siteId: string) => FimaResourcePersistence<FimaDiaryWorkspace>,
 ) {
 	type State = {
 		status: "idle" | "loading" | "ready" | "error";
@@ -24,6 +27,10 @@ export function createFimaDiaryResource(
 	const publish = (id: string, state: State) => {
 		entries.set(id, state);
 		for (const notify of listeners) notify();
+		if (state.data)
+			void persistence?.(id)
+				.write(state.data)
+				.catch(() => {});
 	};
 	class AccessError extends Error {}
 	const check = (response: Response) => {
@@ -83,10 +90,25 @@ export function createFimaDiaryResource(
 			if (pending.has(siteId)) return pending.get(siteId) as Promise<void>;
 			const state = entries.get(siteId) ?? empty;
 			if (!force && state.status !== "idle") return Promise.resolve();
-			const current = state.data;
+			let current = state.data;
 			const before = new Map(edits);
 			if (!current) publish(siteId, { ...state, status: "loading", error: "" });
 			const work = (async () => {
+				if (!current && persistence) {
+					const cached = await persistence(siteId)
+						.read()
+						.catch(() => undefined);
+					if (
+						cached?.siteId === siteId &&
+						cached.config &&
+						cached.versions &&
+						Array.isArray(cached.rows)
+					) {
+						current = { ...cached, rows: hydrateFimaDiaryRows(cached.rows) };
+						publish(siteId, { status: "ready", data: current, error: "" });
+						await loadView();
+					}
+				}
 				if (current) {
 					const response = await request(
 						`/api/fima/project-diary?project=${encodeURIComponent(siteId)}`,
@@ -96,8 +118,12 @@ export function createFimaDiaryResource(
 						},
 					);
 					if (response.status === 304) {
-						if (state.status !== "ready")
-							publish(siteId, { ...state, status: "ready", error: "" });
+						if (entries.get(siteId)?.status !== "ready")
+							publish(siteId, {
+								status: "ready",
+								data: entries.get(siteId)?.data ?? current,
+								error: "",
+							});
 						return;
 					}
 					check(response);
@@ -157,7 +183,11 @@ export function createFimaDiaryResource(
 				}
 				publish(siteId, { status: "ready", data: next, error: "" });
 			})()
-				.catch((error) =>
+				.catch((error) => {
+					if (error instanceof AccessError)
+						void persistence?.(siteId)
+							.write(null)
+							.catch(() => {});
 					publish(siteId, {
 						status: "error",
 						data:
@@ -168,8 +198,8 @@ export function createFimaDiaryResource(
 							error instanceof Error
 								? error.message
 								: "Neizdevās atjaunot projektu.",
-					}),
-				)
+					});
+				})
 				.finally(() => pending.delete(siteId));
 			pending.set(siteId, work);
 			return work;
