@@ -1,0 +1,297 @@
+{
+	"id": "raudas-16",
+	"projectName": "Raudas iela, Tukums",
+	"projectAliases": ["Raudas iela 16", "Raudas iela 16, Tukums"],
+	"sources": [
+		{
+			"file": "PT-01-PT-04.pdf",
+			"sha256": "886a9fbd0ea15d3d026000c699a2a63ca71085eb8464aae3c73e167ff0132581",
+			"page": 1,
+			"fieldwireUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/b5bd1bc6-7804-4d02-a773-ae7bed5773cb",
+			"url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ6OlBPKJDBMN1cdwnqIXzU3yl4mrVWSuo92AY",
+			"documentId": "raudas-section-source:b9ca0bed-1b11-4fc9-84e6-0f67709810ac:886a9fbd0ea15d3d026000c699a2a63ca71085eb8464aae3c73e167ff0132581"
+		},
+		{
+			"file": "PT-05-PT-09.pdf",
+			"sha256": "ac7a0e7938aeff6a59e9455170edcb81062eb3cd61a89c9717d19f43aacc0b10",
+			"page": 1,
+			"fieldwireUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/105f941a-7d3c-456b-acad-372715288d6f",
+			"url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJXI4OcwbUDKufW9A4YCPc0HwFBse2xoNMlIiJ",
+			"documentId": "raudas-section-source:b9ca0bed-1b11-4fc9-84e6-0f67709810ac:ac7a0e7938aeff6a59e9455170edcb81062eb3cd61a89c9717d19f43aacc0b10"
+		},
+		{
+			"file": "PT-10-PT-15.pdf",
+			"sha256": "bc221c7653d2bf438011e07327881492ea023b12a66dd9c84229b73f50f82e0a",
+			"page": 1,
+			"fieldwireUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/fc98a5de-04ea-404b-8221-71406ce2f66c",
+			"url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJWVYIm7Cm9s0IfTOkw5EqMgyCdFUYbLncADj6",
+			"documentId": "raudas-section-source:b9ca0bed-1b11-4fc9-84e6-0f67709810ac:bc221c7653d2bf438011e07327881492ea023b12a66dd9c84229b73f50f82e0a"
+		}
+	],
+	"sections": [
+		{
+			"code": "PT-01*",
+			"title": "Linoleja grīda pirmā stāva koplietošanas telpās",
+			"bounds": [0.030884, 0.00672, 0.242427, 0.500622],
+			"file": "PT-01-star.png",
+			"source": "PT-01-PT-04.pdf",
+			"sourceSha256": "886a9fbd0ea15d3d026000c699a2a63ca71085eb8464aae3c73e167ff0132581",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/b5bd1bc6-7804-4d02-a773-ae7bed5773cb",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ6OlBPKJDBMN1cdwnqIXzU3yl4mrVWSuo92AY"
+		},
+		{
+			"code": "PT-02*",
+			"title": "Linoleja grīda pirmā stāva ģērbtuvēs",
+			"bounds": [0.23964, 0.00672, 0.451184, 0.500622],
+			"file": "PT-02-star.png",
+			"source": "PT-01-PT-04.pdf",
+			"sourceSha256": "886a9fbd0ea15d3d026000c699a2a63ca71085eb8464aae3c73e167ff0132581",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/b5bd1bc6-7804-4d02-a773-ae7bed5773cb",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ6OlBPKJDBMN1cdwnqIXzU3yl4mrVWSuo92AY"
+		},
+		{
+			"code": "PT-03-1",
+			"title": "Linoleja segums pirmā stāva darbinieku telpās",
+			"bounds": [0.448396, 0.00672, 0.65994, 0.500622],
+			"file": "PT-03-1.png",
+			"source": "PT-01-PT-04.pdf",
+			"sourceSha256": "886a9fbd0ea15d3d026000c699a2a63ca71085eb8464aae3c73e167ff0132581",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/b5bd1bc6-7804-4d02-a773-ae7bed5773cb",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ6OlBPKJDBMN1cdwnqIXzU3yl4mrVWSuo92AY"
+		},
+		{
+			"code": "PT-03-2",
+			"title": "Kaučuka segums pirmā stāva manēžā un gaitenī",
+			"bounds": [0.657153, 0.00672, 0.868696, 0.500622],
+			"file": "PT-03-2.png",
+			"source": "PT-01-PT-04.pdf",
+			"sourceSha256": "886a9fbd0ea15d3d026000c699a2a63ca71085eb8464aae3c73e167ff0132581",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/b5bd1bc6-7804-4d02-a773-ae7bed5773cb",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ6OlBPKJDBMN1cdwnqIXzU3yl4mrVWSuo92AY"
+		},
+		{
+			"code": "PT-03-3",
+			"title": "Betona grīda pirmā stāva noliktavu telpās",
+			"bounds": [0.030884, 0.499782, 0.242427, 0.989484],
+			"file": "PT-03-3.png",
+			"source": "PT-01-PT-04.pdf",
+			"sourceSha256": "886a9fbd0ea15d3d026000c699a2a63ca71085eb8464aae3c73e167ff0132581",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/b5bd1bc6-7804-4d02-a773-ae7bed5773cb",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ6OlBPKJDBMN1cdwnqIXzU3yl4mrVWSuo92AY"
+		},
+		{
+			"code": "PT-04-1",
+			"title": "Linoleja grīda pirmā stāva WC telpās",
+			"bounds": [0.23964, 0.499782, 0.451184, 0.989484],
+			"file": "PT-04-1.png",
+			"source": "PT-01-PT-04.pdf",
+			"sourceSha256": "886a9fbd0ea15d3d026000c699a2a63ca71085eb8464aae3c73e167ff0132581",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/b5bd1bc6-7804-4d02-a773-ae7bed5773cb",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ6OlBPKJDBMN1cdwnqIXzU3yl4mrVWSuo92AY"
+		},
+		{
+			"code": "PT-04-2",
+			"title": "Flīžu grīda pirmā stāva pirts telpās",
+			"bounds": [0.448396, 0.499782, 0.65994, 0.989484],
+			"file": "PT-04-2.png",
+			"source": "PT-01-PT-04.pdf",
+			"sourceSha256": "886a9fbd0ea15d3d026000c699a2a63ca71085eb8464aae3c73e167ff0132581",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/b5bd1bc6-7804-4d02-a773-ae7bed5773cb",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ6OlBPKJDBMN1cdwnqIXzU3yl4mrVWSuo92AY"
+		},
+		{
+			"code": "PT-04-3",
+			"title": "Eksponēta betona grīda pirmā stāva tehniskajās telpās",
+			"bounds": [0.657153, 0.499782, 0.868696, 0.989484],
+			"file": "PT-04-3.png",
+			"source": "PT-01-PT-04.pdf",
+			"sourceSha256": "886a9fbd0ea15d3d026000c699a2a63ca71085eb8464aae3c73e167ff0132581",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/b5bd1bc6-7804-4d02-a773-ae7bed5773cb",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ6OlBPKJDBMN1cdwnqIXzU3yl4mrVWSuo92AY"
+		},
+		{
+			"code": "PT-05-1",
+			"title": "Linoleja grīda otrā stāva koplietošanas telpās",
+			"bounds": [0.030884, 0.00672, 0.242427, 0.500622],
+			"file": "PT-05-1.png",
+			"source": "PT-05-PT-09.pdf",
+			"sourceSha256": "ac7a0e7938aeff6a59e9455170edcb81062eb3cd61a89c9717d19f43aacc0b10",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/105f941a-7d3c-456b-acad-372715288d6f",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJXI4OcwbUDKufW9A4YCPc0HwFBse2xoNMlIiJ"
+		},
+		{
+			"code": "PT-05-2",
+			"title": "Eksponēta betona grīda otrā stāva ugunsdrošajā kāpņutelpā",
+			"bounds": [0.23964, 0.00672, 0.451184, 0.500622],
+			"file": "PT-05-2.png",
+			"source": "PT-05-PT-09.pdf",
+			"sourceSha256": "ac7a0e7938aeff6a59e9455170edcb81062eb3cd61a89c9717d19f43aacc0b10",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/105f941a-7d3c-456b-acad-372715288d6f",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJXI4OcwbUDKufW9A4YCPc0HwFBse2xoNMlIiJ"
+		},
+		{
+			"code": "PT-06*",
+			"title": "Linoleja grīda otrā stāva WC telpās",
+			"bounds": [0.448396, 0.00672, 0.65994, 0.500622],
+			"file": "PT-06-star.png",
+			"source": "PT-05-PT-09.pdf",
+			"sourceSha256": "ac7a0e7938aeff6a59e9455170edcb81062eb3cd61a89c9717d19f43aacc0b10",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/105f941a-7d3c-456b-acad-372715288d6f",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJXI4OcwbUDKufW9A4YCPc0HwFBse2xoNMlIiJ"
+		},
+		{
+			"code": "PT-07-1",
+			"title": "Linoleja grīda otrā stāva manēžas izbūves koplietošanas telpās",
+			"bounds": [0.657153, 0.00672, 0.868696, 0.500622],
+			"file": "PT-07-1.png",
+			"source": "PT-05-PT-09.pdf",
+			"sourceSha256": "ac7a0e7938aeff6a59e9455170edcb81062eb3cd61a89c9717d19f43aacc0b10",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/105f941a-7d3c-456b-acad-372715288d6f",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJXI4OcwbUDKufW9A4YCPc0HwFBse2xoNMlIiJ"
+		},
+		{
+			"code": "PT-07-2",
+			"title": "Eksponēta betona grīda otrā stāva tehniskajā telpā",
+			"bounds": [0.030884, 0.499782, 0.242427, 0.989484],
+			"file": "PT-07-2.png",
+			"source": "PT-05-PT-09.pdf",
+			"sourceSha256": "ac7a0e7938aeff6a59e9455170edcb81062eb3cd61a89c9717d19f43aacc0b10",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/105f941a-7d3c-456b-acad-372715288d6f",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJXI4OcwbUDKufW9A4YCPc0HwFBse2xoNMlIiJ"
+		},
+		{
+			"code": "PT-08*",
+			"title": "Cīņu sportam piemērota grīda otrajā stāvā",
+			"bounds": [0.23964, 0.499782, 0.451184, 0.989484],
+			"file": "PT-08-star.png",
+			"source": "PT-05-PT-09.pdf",
+			"sourceSha256": "ac7a0e7938aeff6a59e9455170edcb81062eb3cd61a89c9717d19f43aacc0b10",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/105f941a-7d3c-456b-acad-372715288d6f",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJXI4OcwbUDKufW9A4YCPc0HwFBse2xoNMlIiJ"
+		},
+		{
+			"code": "PT-09-1",
+			"title": "Linoleja grīda otrā stāva trenažieru zālē",
+			"bounds": [0.448396, 0.499782, 0.65994, 0.989484],
+			"file": "PT-09-1.png",
+			"source": "PT-05-PT-09.pdf",
+			"sourceSha256": "ac7a0e7938aeff6a59e9455170edcb81062eb3cd61a89c9717d19f43aacc0b10",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/105f941a-7d3c-456b-acad-372715288d6f",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJXI4OcwbUDKufW9A4YCPc0HwFBse2xoNMlIiJ"
+		},
+		{
+			"code": "PT-09-2",
+			"title": "Betona grīda otrā stāva trenažieru zāles balkonā",
+			"bounds": [0.657153, 0.499782, 0.868696, 0.989484],
+			"file": "PT-09-2.png",
+			"source": "PT-05-PT-09.pdf",
+			"sourceSha256": "ac7a0e7938aeff6a59e9455170edcb81062eb3cd61a89c9717d19f43aacc0b10",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/105f941a-7d3c-456b-acad-372715288d6f",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJXI4OcwbUDKufW9A4YCPc0HwFBse2xoNMlIiJ"
+		},
+		{
+			"code": "PT-10-1",
+			"title": "Eksponēta betona grīda otrā stāva tehniskajā telpā",
+			"bounds": [0.030884, 0.00672, 0.242427, 0.500622],
+			"file": "PT-10-1.png",
+			"source": "PT-10-PT-15.pdf",
+			"sourceSha256": "bc221c7653d2bf438011e07327881492ea023b12a66dd9c84229b73f50f82e0a",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/fc98a5de-04ea-404b-8221-71406ce2f66c",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJWVYIm7Cm9s0IfTOkw5EqMgyCdFUYbLncADj6"
+		},
+		{
+			"code": "PT-10-2",
+			"title": "Eksponēta betona grīda otrā stāva tehniskās telpas balkonā",
+			"bounds": [0.23964, 0.00672, 0.451184, 0.500622],
+			"file": "PT-10-2.png",
+			"source": "PT-10-PT-15.pdf",
+			"sourceSha256": "bc221c7653d2bf438011e07327881492ea023b12a66dd9c84229b73f50f82e0a",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/fc98a5de-04ea-404b-8221-71406ce2f66c",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJWVYIm7Cm9s0IfTOkw5EqMgyCdFUYbLncADj6"
+		},
+		{
+			"code": "PT-11-1",
+			"title": "Betona grīda trešā stāva darbinieku telpās",
+			"bounds": [0.448396, 0.00672, 0.65994, 0.500622],
+			"file": "PT-11-1.png",
+			"source": "PT-10-PT-15.pdf",
+			"sourceSha256": "bc221c7653d2bf438011e07327881492ea023b12a66dd9c84229b73f50f82e0a",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/fc98a5de-04ea-404b-8221-71406ce2f66c",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJWVYIm7Cm9s0IfTOkw5EqMgyCdFUYbLncADj6"
+		},
+		{
+			"code": "PT-11-2",
+			"title": "Betona grīda trešā stāva tehniskajā telpā",
+			"bounds": [0.657153, 0.00672, 0.868696, 0.500622],
+			"file": "PT-11-2.png",
+			"source": "PT-10-PT-15.pdf",
+			"sourceSha256": "bc221c7653d2bf438011e07327881492ea023b12a66dd9c84229b73f50f82e0a",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/fc98a5de-04ea-404b-8221-71406ce2f66c",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJWVYIm7Cm9s0IfTOkw5EqMgyCdFUYbLncADj6"
+		},
+		{
+			"code": "PT-12*",
+			"title": "Lifta šahtas padziļinājuma pamatu plātne",
+			"bounds": [0.030884, 0.499782, 0.242427, 0.989484],
+			"file": "PT-12-star.png",
+			"source": "PT-10-PT-15.pdf",
+			"sourceSha256": "bc221c7653d2bf438011e07327881492ea023b12a66dd9c84229b73f50f82e0a",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/fc98a5de-04ea-404b-8221-71406ce2f66c",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJWVYIm7Cm9s0IfTOkw5EqMgyCdFUYbLncADj6"
+		},
+		{
+			"code": "PT-13*",
+			"title": "Linoleja segums savienojuma galerijā ar Tukuma 2. vidusskolu",
+			"bounds": [0.23964, 0.499782, 0.451184, 0.989484],
+			"file": "PT-13-star.png",
+			"source": "PT-10-PT-15.pdf",
+			"sourceSha256": "bc221c7653d2bf438011e07327881492ea023b12a66dd9c84229b73f50f82e0a",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/fc98a5de-04ea-404b-8221-71406ce2f66c",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJWVYIm7Cm9s0IfTOkw5EqMgyCdFUYbLncADj6"
+		},
+		{
+			"code": "PT-14",
+			"title": "Kaučuka grīda virs pagraba telpām",
+			"bounds": [0.448396, 0.499782, 0.65994, 0.989484],
+			"file": "PT-14.png",
+			"source": "PT-10-PT-15.pdf",
+			"sourceSha256": "bc221c7653d2bf438011e07327881492ea023b12a66dd9c84229b73f50f82e0a",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/fc98a5de-04ea-404b-8221-71406ce2f66c",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJWVYIm7Cm9s0IfTOkw5EqMgyCdFUYbLncADj6"
+		},
+		{
+			"code": "PT-15",
+			"title": "Eksponēta betona grīda noliktavas ēkā",
+			"bounds": [0.657153, 0.499782, 0.868696, 0.989484],
+			"file": "PT-15.png",
+			"source": "PT-10-PT-15.pdf",
+			"sourceSha256": "bc221c7653d2bf438011e07327881492ea023b12a66dd9c84229b73f50f82e0a",
+			"sourcePage": 1,
+			"sourceUrl": "https://app.fieldwire.com/projects/9504975c-5121-4c26-b1d9-181477ccc72d/plans/fc98a5de-04ea-404b-8221-71406ce2f66c",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJWVYIm7Cm9s0IfTOkw5EqMgyCdFUYbLncADj6"
+		}
+	]
+}
