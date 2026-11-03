@@ -34,11 +34,27 @@ const workspace = (): FimaDiaryWorkspace => ({
 it("filters the entire project before paginating and exports all matching rows", () => {
 	const data = workspace();
 	data.rows[0].Works = "Unique work";
+	for (const [index, status] of [
+		[0, "needs_changes"],
+		[150, "ready_for_approval"],
+	] as const) {
+		data.rows[index] = {
+			...data.rows[index],
+			fimaCollaboration: readFimaCollaboration({
+				fimaCollaboration: { status },
+			}),
+		};
+	}
 	expect(selectFimaDiaryPage(data, { page: 2 }).rows).toHaveLength(75);
 	expect(
 		selectFimaDiaryPage(data, { page: 15, workFilter: "Unique work" }),
 	).toMatchObject({ page: 1, totalCount: 1, rows: [{ id: "000" }] });
 	expect(selectFimaDiaryPage(data, {}, true).rows).toHaveLength(151);
+	expect(
+		selectFimaDiaryPage(data, { review: "needs_changes,ready_for_approval" })
+			.rows.map(({ id }) => id)
+			.sort(),
+	).toEqual(["000", "150"]);
 	expect(data.rows[0].id).toBe("000");
 });
 it.each([

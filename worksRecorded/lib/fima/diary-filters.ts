@@ -2,8 +2,17 @@ import { z } from "zod";
 import { fimaStatuses, fimaStatusSchema } from "./diary-collaboration";
 
 const presence = z.enum(["present", "missing"]);
+const reviewStatus = fimaStatusSchema.or(z.literal("unassigned"));
 export const fimaDiaryFilterSchema = z.object({
-	review: fimaStatusSchema.or(z.literal("unassigned")).optional(),
+	review: z
+		.string()
+		.max(256)
+		.refine((value) =>
+			value
+				.split(",")
+				.every((status) => reviewStatus.safeParse(status).success),
+		)
+		.optional(),
 	bis: presence.optional(),
 	bisStatus: z
 		.enum(["works_recorded", "draft", "pending", "approved"])
@@ -31,19 +40,12 @@ export function readFimaDiaryFilters(value: unknown): FimaDiaryFilters {
 	return result.success ? result.data : {};
 }
 
+export const fimaReviewFilterOptions = [
+	...Object.entries(fimaStatuses).map(([value, label]) => ({ value, label })),
+	{ value: "unassigned", label: "Bez rīcības" },
+];
+
 export const fimaDiaryFilterOptions = [
-	{
-		key: "review",
-		label: "Rīcība",
-		allLabel: "Visas rīcības",
-		options: [
-			...Object.entries(fimaStatuses).map(([value, label]) => ({
-				value,
-				label,
-			})),
-			{ value: "unassigned", label: "Bez rīcības" },
-		],
-	},
 	{
 		key: "bis",
 		label: "BIS ieraksts",

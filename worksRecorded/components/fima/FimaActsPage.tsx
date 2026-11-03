@@ -16,6 +16,7 @@ import { FimaActsRefreshButton } from "@/components/sitediary/FimaActsRefreshBut
 import { FimaBisState } from "@/components/sitediary/FimaBisState";
 import { FimaCommentControl } from "@/components/sitediary/FimaCommentControl";
 import { FimaPagination } from "@/components/sitediary/FimaPagination";
+import { FimaReviewFilter } from "@/components/sitediary/FimaReviewFilter";
 import { useFimaFilterReturn } from "@/components/sitediary/useFimaFilterReturn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,10 +40,16 @@ import { FimaActDetail, type FimaActDetailTab } from "./FimaActDetail";
 import { FimaActExamplesDialog } from "./FimaActExamplesDialog";
 import { FimaActReviewBadge } from "./FimaActReviewBadge";
 
-type Filters = { query: string; status: string; examples: string };
+type Filters = {
+	query: string;
+	status: string;
+	examples: string;
+	review?: string;
+};
 const emptyFilters: Filters = { query: "", status: "", examples: "" };
+type ReviewStatus = NonNullable<FimaActSetting["status"]> | null;
 const isFiltered = (value: Filters) =>
-	Boolean(value.query.trim() || value.status || value.examples);
+	Boolean(value.query.trim() || value.status || value.examples || value.review);
 function workTitles(row: FimaActRow) {
 	return [
 		...new Set(
@@ -98,6 +105,12 @@ export function FimaActsPage({
 	);
 	useEffect(() => onDataChange?.(data), [onDataChange, data]);
 	const [filters, setFilters] = useState<Filters>(emptyFilters);
+	const [pendingStatuses, setPendingStatuses] = useState(
+		() => new Map<string, ReviewStatus>(),
+	);
+	const statusRequests = useRef(
+		new Map<string, { status: ReviewStatus; id: string; saving: boolean }>(),
+	);
 	const [page, setPage] = useState(1);
 	const [opened, setOpened] = useState<{
 		key: string;
@@ -122,39 +135,42 @@ export function FimaActsPage({
 	const container = useRef<HTMLDivElement>(null);
 	const position = useFimaFilterReturn(`acts:${data.siteId}`, container);
 	const statuses = [...new Set(data.rows.map((row) => row.status))].sort();
-	const filtered = useMemo(
-		() =>
-			data.rows.filter((row) => {
-				if (filters.status && row.status !== filters.status) return false;
-				if (
-					(filters.examples === "with" && !row.examples.length) ||
-					(filters.examples === "without" && row.examples.length)
-				)
-					return false;
-				const search = [
-					row.localNumber,
-					row.number,
-					row.id,
-					row.title,
-					data.caseId,
-					...workTitles(row),
-					...row.records.flatMap((record) => [
-						formatFimaDiaryNumber(record.fimaNumber),
-						record.Location,
-						...record.fimaBisRecords.map((link) => link.number ?? link.id),
-					]),
-					...row.examples.flatMap((example) => [
-						example.id,
-						"number" in example ? example.number : null,
-						"siteName" in example ? example.siteName : null,
-					]),
-				]
-					.join(" ")
-					.toLocaleLowerCase("lv-LV");
-				return search.includes(filters.query.trim().toLocaleLowerCase("lv-LV"));
-			}),
-		[data, filters],
-	);
+	const filtered = useMemo(() => {
+		const review = new Set(filters.review?.split(","));
+		return data.rows.filter((row) => {
+			if (filters.status && row.status !== filters.status) return false;
+			const pendingStatus = pendingStatuses.get(row.key);
+			const status =
+				pendingStatus === undefined ? row.setting.status : pendingStatus;
+			if (review.size && !review.has(status ?? "unassigned")) return false;
+			if (
+				(filters.examples === "with" && !row.examples.length) ||
+				(filters.examples === "without" && row.examples.length)
+			)
+				return false;
+			const search = [
+				row.localNumber,
+				row.number,
+				row.id,
+				row.title,
+				data.caseId,
+				...workTitles(row),
+				...row.records.flatMap((record) => [
+					formatFimaDiaryNumber(record.fimaNumber),
+					record.Location,
+					...record.fimaBisRecords.map((link) => link.number ?? link.id),
+				]),
+				...row.examples.flatMap((example) => [
+					example.id,
+					"number" in example ? example.number : null,
+					"siteName" in example ? example.siteName : null,
+				]),
+			]
+				.join(" ")
+				.toLocaleLowerCase("lv-LV");
+			return search.includes(filters.query.trim().toLocaleLowerCase("lv-LV"));
+		});
+	}, [data, filters, pendingStatuses]);
 	const totalPages = Math.max(1, Math.ceil(filtered.length / 25));
 	const currentPage = Math.min(page, totalPages);
 	const visible = filtered.slice((currentPage - 1) * 25, currentPage * 25);
@@ -192,6 +208,41 @@ export function FimaActsPage({
 	);
 	const open = (row: FimaActRow, tab: FimaActDetailTab) =>
 		setOpened({ key: row.key, tab });
+	const saveStatus = async (row: FimaActRow, status: ReviewStatus) => {
+		const previous = statusRequests.current.get(row.key);
+		if (previous?.saving || status === (row.setting.status ?? null)) return;
+		const request = {
+			status,
+			id: previous?.status === status ? previous.id : crypto.randomUUID(),
+			saving: true,
+		};
+		statusRequests.current.set(row.key, request);
+		setPendingStatuses((current) => new Map(current).set(row.key, status));
+		try {
+			const setting = await saveFimaActSettings({
+				siteId: row.siteId,
+				collection: row.collection,
+				id: row.id,
+				expectedRevision: row.setting.revision,
+				requestId: request.id,
+				kind: "status",
+				status,
+			});
+			update(row.key, setting);
+			statusRequests.current.delete(row.key);
+		} catch (error) {
+			request.saving = false;
+			toast.error(
+				error instanceof Error ? error.message : "Neizdevās saglabāt atzīmi.",
+			);
+		} finally {
+			setPendingStatuses((current) => {
+				const next = new Map(current);
+				next.delete(row.key);
+				return next;
+			});
+		}
+	};
 	const editRow = data.rows.find((row) => row.key === editing);
 	const counts = {
 		draft: data.rows.filter((row) => row.status === "draft").length,
@@ -297,6 +348,10 @@ export function FimaActsPage({
 						<option value="without">Bez parauga</option>
 					</select>
 				</label>
+				<FimaReviewFilter
+					value={filters.review}
+					onChange={(review) => changeFilters({ ...filters, review })}
+				/>
 				<Button
 					variant="ghost"
 					disabled={!isFiltered(filters)}
@@ -326,6 +381,7 @@ export function FimaActsPage({
 					<span>Rīcība</span>
 				</div>
 				{visible.map((row) => {
+					const pendingStatus = pendingStatuses.get(row.key);
 					const titles = workTitles(row);
 					const native = new Set(row.works.map((work) => work.id));
 					const pending = new Set(
@@ -547,7 +603,13 @@ export function FimaActsPage({
 									</p>
 									<FimaActReviewBadge
 										row={row}
-										onSaved={(setting) => update(row.key, setting)}
+										status={
+											pendingStatus === undefined
+												? (row.setting.status ?? null)
+												: pendingStatus
+										}
+										saving={pendingStatus !== undefined}
+										onSelectStatus={(status) => void saveStatus(row, status)}
 										onHistory={() => openComments(row)}
 									/>
 								</div>

@@ -133,6 +133,81 @@ it("keeps row text selectable and shows planned coverage separately from native 
 		within(details).getByRole("link", { name: "BIS 401" }),
 	).toHaveAttribute("href", expect.stringContaining("performed_works/401/"));
 });
+it("finds acts with either selected workflow badge across pages", () => {
+	const first = data.rows[0];
+	const last = data.rows.at(-1);
+	if (!last) throw new Error("Expected acts");
+	first.setting.status = "needs_changes";
+	last.setting.status = "ready_for_approval";
+	render(<FimaActsPage initial={data} />);
+	fireEvent.keyDown(screen.getByRole("button", { name: "Rīcība" }), {
+		key: "Enter",
+	});
+	fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Labot" }));
+	fireEvent.click(
+		screen.getByRole("menuitemcheckbox", { name: "Sūtīt uz apstiprināšanu" }),
+	);
+	fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+	expect(screen.getAllByRole("article")).toHaveLength(2);
+	expect(
+		screen.getByRole("article", { name: first.localNumber }),
+	).toBeVisible();
+	expect(screen.getByRole("article", { name: last.localNumber })).toBeVisible();
+});
+it.each([true, false])(
+	"updates the badge and its filter before saving (success: %s)",
+	async (success) => {
+		const row = data.rows[0];
+		row.setting.status = "needs_changes";
+		data.rows = [row];
+		let complete: (() => void) | undefined;
+		jest.mocked(saveFimaActSettings).mockImplementationOnce(
+			() =>
+				new Promise((resolve, reject) => {
+					complete = () => {
+						if (success)
+							resolve({
+								...row.setting,
+								revision: 1,
+								status: "ready_for_approval",
+							});
+						else reject(new Error("Offline"));
+					};
+				}),
+		);
+		const onDataChange = jest.fn();
+		render(<FimaActsPage initial={data} onDataChange={onDataChange} />);
+		fireEvent.keyDown(screen.getByRole("button", { name: "Rīcība" }), {
+			key: "Enter",
+		});
+		fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Labot" }));
+		fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+		const badgeName = `Akta rīcība ${row.localNumber}`;
+		fireEvent.keyDown(screen.getByRole("combobox", { name: badgeName }), {
+			key: "Enter",
+		});
+		fireEvent.click(
+			screen.getByRole("option", { name: "Sūtīt uz apstiprināšanu" }),
+		);
+		expect(
+			screen.queryByRole("article", { name: row.localNumber }),
+		).not.toBeInTheDocument();
+		expect(saveFimaActSettings).toHaveBeenCalledTimes(1);
+		expect(onDataChange).toHaveBeenCalledTimes(1);
+		fireEvent.click(screen.getByRole("button", { name: "Notīrīt filtrus" }));
+		expect(screen.getByRole("combobox", { name: badgeName })).toHaveTextContent(
+			"Sūtīt uz apstiprināšanu",
+		);
+		complete?.();
+		await waitFor(() =>
+			expect(screen.getByRole("combobox", { name: badgeName })).toBeEnabled(),
+		);
+		expect(screen.getByRole("combobox", { name: badgeName })).toHaveTextContent(
+			success ? "Sūtīt uz apstiprināšanu" : "Labot",
+		);
+		expect(onDataChange).toHaveBeenCalledTimes(success ? 2 : 1);
+	},
+);
 it("saves only an explicitly chosen approved or approving source Act and compares its works", async () => {
 	const target = data.rows[0];
 	jest.mocked(saveFimaActSettings).mockImplementation(async (input) => ({
@@ -351,4 +426,89 @@ it("retains newer human comment history when a stale background snapshot arrives
 		/>,
 	);
 	expect(screen.getByText("Newest human comment")).toBeInTheDocument();
+});
+
+it("keeps inline comments selectable and supports cancel and save just like the journal", async () => {
+	const row = data.rows[0];
+	data.rows = [row];
+	const history = {
+		id: "human-inline",
+		requestId: "inline-request",
+		kind: "comment" as const,
+		actorId: "ieva",
+		actorName: "Ieva",
+		at: "2026-11-02T12:00:00Z",
+		text: "Rasējums pārbaudīts",
+	};
+	jest.mocked(saveFimaActSettings).mockResolvedValue({
+		...row.setting,
+		revision: 1,
+		history: [history],
+	});
+	render(<FimaActsPage initial={data} />);
+	const article = screen.getByRole("article", { name: row.localNumber });
+	const add = () =>
+		fireEvent.click(
+			within(article).getByRole("button", {
+				name: "Pievienot komentāru rindā",
+			}),
+		);
+	add();
+	fireEvent.change(
+		screen.getByRole("textbox", { name: "Jauns komentārs rindā" }),
+		{ target: { value: history.text } },
+	);
+	fireEvent.click(within(article).getByRole("button", { name: "Atcelt" }));
+	expect(saveFimaActSettings).not.toHaveBeenCalled();
+	add();
+	expect(
+		screen.getByRole("textbox", { name: "Jauns komentārs rindā" }),
+	).toHaveValue(history.text);
+	fireEvent.click(within(article).getByRole("button", { name: "Saglabāt" }));
+	await waitFor(() =>
+		expect(
+			screen.queryByRole("textbox", { name: "Jauns komentārs rindā" }),
+		).not.toBeInTheDocument(),
+	);
+	const preview = await within(article).findByText(history.text);
+	expect(preview).toHaveClass("select-text", "whitespace-pre-wrap");
+	fireEvent.click(preview);
+	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	expect(within(article).getByText("Ieva")).toBeVisible();
+	expect(saveFimaActSettings).toHaveBeenCalledWith(
+		expect.objectContaining({
+			kind: "comment",
+			text: history.text,
+			requestId: expect.any(String),
+		}),
+	);
+});
+
+it("preserves separate drafts when switching acts from the open comments panel", async () => {
+	data.rows = data.rows.slice(0, 2);
+	const [first, second] = data.rows;
+	render(<FimaActsPage initial={data} />);
+	fireEvent.click(
+		screen.getByRole("button", { name: `Komentāri ${first.localNumber}` }),
+	);
+	fireEvent.change(screen.getByRole("textbox", { name: "Jauns komentārs" }), {
+		target: { value: "Pirmā akta melnraksts" },
+	});
+	fireEvent.click(
+		screen.getByRole("button", { name: `Komentāri ${second.localNumber}` }),
+	);
+	expect(screen.getByRole("textbox", { name: "Jauns komentārs" })).toHaveValue(
+		"",
+	);
+	fireEvent.click(
+		screen.getByRole("button", { name: `Komentāri ${first.localNumber}` }),
+	);
+	expect(screen.getByRole("textbox", { name: "Jauns komentārs" })).toHaveValue(
+		"Pirmā akta melnraksts",
+	);
+	fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+	await waitFor(() =>
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+	);
+	expect(saveFimaActSettings).not.toHaveBeenCalled();
 });

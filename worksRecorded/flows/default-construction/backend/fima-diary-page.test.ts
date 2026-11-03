@@ -36,12 +36,17 @@ it.each([true, false])(
 			keyword: "KT-668714-2026-00021",
 			projectId: "project",
 			bisStatus: "pending",
-			review: "coordinate_with_fima",
+			review: "needs_changes,ready_for_approval",
 		} as const;
 		await loadFimaDiaryPage("org", filters);
 		const { where, skip } = findMany.mock.calls[0][0];
 		expect(where.OR).toContainEqual({ id: { in: ["matched-bis-record"] } });
 		expect(where.AND).toEqual(buildFimaDiaryFilterWhere(filters));
+		expect(where.AND).toContainEqual({
+			OR: ["needs_changes", "ready_for_approval"].map((equals) => ({
+				evalMetadata: { path: ["fimaCollaboration", "status"], equals },
+			})),
+		});
 		expect(where).toMatchObject({
 			siteId: "project",
 			Site: { organizationId: "org" },

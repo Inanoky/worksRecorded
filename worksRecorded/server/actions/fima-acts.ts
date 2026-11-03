@@ -266,6 +266,7 @@ export async function saveFimaActSettings(
 		await saveFimaActRegister(db, scope.organizationId, input.siteId, register);
 		return next;
 	});
-	revalidatePath(`/dashboard/sites/${input.siteId}/acts`);
+	if (input.kind !== "status")
+		revalidatePath(`/dashboard/sites/${input.siteId}/acts`);
 	return result;
 }

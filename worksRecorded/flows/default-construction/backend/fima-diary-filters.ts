@@ -39,13 +39,19 @@ export function buildFimaDiaryFilterWhere(input: unknown): Where[] {
 		);
 	}
 	if (filters.review) {
-		conditions.push({
-			evalMetadata: {
-				path: ["fimaCollaboration", "status"],
-				equals:
-					filters.review === "unassigned" ? Prisma.AnyNull : filters.review,
-			},
-		});
+		const reviewConditions: Where[] = filters.review
+			.split(",")
+			.map((status) => ({
+				evalMetadata: {
+					path: ["fimaCollaboration", "status"],
+					equals: status === "unassigned" ? Prisma.AnyNull : status,
+				},
+			}));
+		conditions.push(
+			reviewConditions.length === 1
+				? reviewConditions[0]
+				: { OR: reviewConditions },
+		);
 	}
 	if (filters.bis) {
 		const imported = arrayPresence(["kuceImport", "bisLinks"]);

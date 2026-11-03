@@ -65,9 +65,7 @@ export function fimaDiaryRowMatches(
 	const state = row.fimaCollaboration;
 	if (
 		filters.review &&
-		(filters.review === "unassigned"
-			? !!state?.status
-			: state?.status !== filters.review)
+		!filters.review.split(",").includes(state?.status ?? "unassigned")
 	)
 		return false;
 	if (

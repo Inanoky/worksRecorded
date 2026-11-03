@@ -163,9 +163,14 @@ it("keeps the initial page cached through Strict Mode effect replay", async () =
 
 it("combines FIMA filters, preserves them across pages and export, then clears them", async () => {
 	mount();
-	fireEvent.change(screen.getByRole("combobox", { name: "Rīcība" }), {
-		target: { value: "needs_changes" },
-	});
+	const review = screen.getByRole("button", { name: "Rīcība" });
+	fireEvent.keyDown(review, { key: "Enter" });
+	fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Labot" }));
+	fireEvent.click(
+		screen.getByRole("menuitemcheckbox", { name: "Sūtīt uz apstiprināšanu" }),
+	);
+	expect(review).toHaveTextContent("Atlasītas 2 rīcības");
+	fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
 	fireEvent.change(screen.getByRole("combobox", { name: "BIS ieraksts" }), {
 		target: { value: "missing" },
 	});
@@ -178,7 +183,7 @@ it("combines FIMA filters, preserves them across pages and export, then clears t
 	fireEvent.click(screen.getByRole("button", { name: "Filtrēt" }));
 	await waitFor(() =>
 		expect(window.location.search).toBe(
-			"?review=needs_changes&bis=missing&materials=missing&examples=present",
+			"?review=needs_changes%2Cready_for_approval&bis=missing&materials=missing&examples=present",
 		),
 	);
 	expect(screen.getByRole("combobox", { name: "Materiāli" })).toHaveValue(
@@ -188,12 +193,13 @@ it("combines FIMA filters, preserves them across pages and export, then clears t
 	await waitFor(() => expect(window.location.search).toContain("page=2"));
 	expect(screen.getByRole("link", { name: "Eksportēt" })).toHaveAttribute(
 		"href",
-		"/api/all-projects/export?review=needs_changes&bis=missing&materials=missing&examples=present&page=2",
+		"/api/all-projects/export?review=needs_changes%2Cready_for_approval&bis=missing&materials=missing&examples=present&page=2",
 	);
 	fireEvent.click(screen.getByRole("button", { name: "Notīrīt" }));
 	await waitFor(() => expect(window.location.search).toBe(""));
 	expect(screen.getAllByText("1 / 3")).toHaveLength(2);
 	expect(screen.getByRole("combobox", { name: "Paraugas" })).toHaveValue("");
+	expect(review).toHaveTextContent("Visas rīcības");
 	expect(screen.getByRole("link", { name: "Eksportēt" })).toHaveAttribute(
 		"href",
 		"/api/all-projects/export?",

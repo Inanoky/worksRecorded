@@ -24,6 +24,7 @@ jest.mock("@/lib/utils/db", () => ({
 	},
 }));
 
+import { revalidatePath } from "next/cache";
 import {
 	ensureFimaActNumbers,
 	saveFimaActRegister,
@@ -274,6 +275,7 @@ it.each([
 			status,
 		});
 		expect(next.status).toBe(status);
+		expect(revalidatePath).not.toHaveBeenCalled();
 		expect(next.history[0]).toMatchObject({
 			kind: "status",
 			actorName: "Ieva Test",

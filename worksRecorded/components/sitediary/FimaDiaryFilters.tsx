@@ -4,6 +4,7 @@ import {
 	type FimaDiaryFilters as Filters,
 	fimaDiaryFilterOptions,
 } from "@/lib/fima/diary-filters";
+import { FimaReviewFilter } from "./FimaReviewFilter";
 
 export function FimaDiaryFilters({
 	value,
@@ -14,6 +15,10 @@ export function FimaDiaryFilters({
 }) {
 	return (
 		<div className="grid w-full grid-cols-2 gap-2 xl:flex xl:flex-wrap">
+			<FimaReviewFilter
+				value={value.review}
+				onChange={(review) => onChange({ ...value, review })}
+			/>
 			{fimaDiaryFilterOptions.map((filter) => (
 				<label
 					key={filter.key}
