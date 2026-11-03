@@ -22,6 +22,7 @@ const badgeTones = {
 	bis_draft: "border-teal-200 bg-teal-50 text-teal-700",
 	approved: "border-emerald-200 bg-emerald-100 text-emerald-800",
 	ready_for_approval: "border-[#B8E0C6] bg-[#ECF8F0] text-[#159447]",
+	waiting_for_materials: "border-orange-200 bg-orange-50 text-orange-800",
 	unset: "border-[#E1E6ED] bg-slate-50 text-slate-600",
 };
 export function FimaStatusSelect({

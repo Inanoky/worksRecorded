@@ -11,6 +11,7 @@ export const fimaStatuses = {
 	ai_prepared: "AI sagatavots",
 	bis_draft: "BIS sagatave",
 	ready_for_approval: "Sūtīt uz apstiprināšanu",
+	waiting_for_materials: "Gaida materiālus",
 	approved: "Apstiprināts",
 } as const;
 export const fimaStatusSchema = z.enum([
@@ -21,6 +22,7 @@ export const fimaStatusSchema = z.enum([
 	"ai_prepared",
 	"bis_draft",
 	"ready_for_approval",
+	"waiting_for_materials",
 	"approved",
 ]);
 export const fimaMaterialSchema = z.object({
