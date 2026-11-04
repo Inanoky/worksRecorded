@@ -17,7 +17,7 @@ import {
 import { Archivo, Barlow_Condensed } from "next/font/google";
 import type { StaticImageData } from "next/image";
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/landing/navigation/LandingLink";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";

@@ -8,7 +8,7 @@ import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Instrument_Serif, Inter, Inter_Tight } from "next/font/google";
 import type { StaticImageData } from "next/image";
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/landing/navigation/LandingLink";
 import { useLocale, useTranslations } from "next-intl";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import TgemLogo from "@/lib/images/tgem-logo.png";

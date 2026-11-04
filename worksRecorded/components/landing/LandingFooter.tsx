@@ -1,7 +1,8 @@
 import { ArrowRight, Mail, MapPin, Phone } from "lucide-react";
 import { Inter, Inter_Tight } from "next/font/google";
-import Link from "next/link";
+import Link from "@/components/landing/navigation/LandingLink";
 import { useLocale, useTranslations } from "next-intl";
+import { AGENTS, DEMO_URL } from "./agents/catalog";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-landing-footer" });
 const interTight = Inter_Tight({
@@ -9,23 +10,32 @@ const interTight = Inter_Tight({
 	variable: "--font-landing-footer-display",
 });
 
-const CALENDLY_URL =
-	"https://calendly.com/vjaceslavs-worksrecorded/30min?month=2026-05";
-
 export default function LandingFooter() {
 	const locale = useLocale();
 	const footer = useTranslations("Footer");
 	const landing = useTranslations("LandingPageDesktop");
+	const agents = useTranslations("AgentLanding");
 
 	const dataLinks = [
-		{ label: footer("siteDiary"), href: `/${locale}/Landing/SiteDiary` },
-		{ label: footer("timesheets"), href: `/${locale}/Landing/Timesheets` },
-		{ label: footer("analytics"), href: `/${locale}/Landing/Analytics` },
+		...AGENTS.map(({ id }) => ({
+			label: agents(`agents.${id}.title`),
+			href: `/${locale}/Landing/Agents#${id}`,
+		})),
 	];
 	const companyLinks = [
-		{ label: footer("custom"), href: `/${locale}/Landing/Custom` },
+		{ label: agents("nav.services"), href: `/${locale}/Landing/Services` },
+		{
+			label: agents("nav.caseStudies"),
+			href: `/${locale}/Landing/CaseStudies`,
+		},
+		{ label: agents("nav.custom"), href: `/${locale}/Landing/Custom` },
 		{ label: footer("pricing"), href: `/${locale}/Landing/Pricing` },
 		{ label: footer("about"), href: `/${locale}/Landing/About` },
+		{
+			label: agents("nav.manufacturing"),
+			href: `/${locale}/Landing/Manufacturing`,
+		},
+		{ label: agents("nav.news"), href: `/${locale}/Landing/News` },
 		{ label: footer("privacy"), href: `/${locale}/Landing/Privacy` },
 	];
 
@@ -47,13 +57,13 @@ export default function LandingFooter() {
 							Works<span className="text-[#56eb9f]">Recorded</span>
 						</Link>
 						<p className="mt-5 max-w-xl text-base leading-7 text-[#cfeede] sm:text-lg">
-							{footer("contactHelp")}
+							{agents("description")}
 						</p>
 					</div>
 
 					<div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
 						<Link
-							href={CALENDLY_URL}
+							href={DEMO_URL}
 							target="_blank"
 							rel="noopener noreferrer"
 							className="inline-flex h-12 items-center justify-center rounded-full bg-[#1769ff] px-7 text-sm font-semibold text-white shadow-xl shadow-blue-950/30 transition hover:bg-[#0f5de8]"
@@ -71,8 +81,8 @@ export default function LandingFooter() {
 				</div>
 
 				<div className="grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-[0.9fr_0.9fr_1.2fr] lg:gap-16">
-					<FooterLinks heading={footer("data")} links={dataLinks} />
-					<FooterLinks heading={footer("features")} links={companyLinks} />
+					<FooterLinks heading={agents("nav.agents")} links={dataLinks} />
+					<FooterLinks heading={agents("nav.company")} links={companyLinks} />
 
 					<div className="sm:col-span-2 lg:col-span-1">
 						<h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-[#8abda2]">

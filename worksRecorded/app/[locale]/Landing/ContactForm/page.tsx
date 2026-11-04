@@ -8,6 +8,7 @@ import {
 	MarketingPageShell,
 	PageEyebrow,
 } from "@/components/landing/MarketingPagePrimitives";
+import { useLandingNavigation } from "@/components/landing/navigation/LandingNavigationContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +19,7 @@ export default function ContactForm() {
 	const t = useTranslations("Contact");
 	const locale = useLocale();
 	const router = useRouter();
+	const landingNavigation = useLandingNavigation();
 	const submissionInFlight = useRef(false);
 	const [pending, setPending] = useState(false);
 	const [status, setStatus] = useState<null | { ok: boolean; msg: string }>(
@@ -57,7 +59,9 @@ export default function ContactForm() {
 			if (response.ok) {
 				if (data.accepted === true && typeof data.id === "string")
 					trackGenerateLeadOnce(data.id);
-				router.push(`/${locale}/Landing/ThankYou`);
+				if (landingNavigation)
+					await landingNavigation.navigate(`/${locale}/Landing/ThankYou`);
+				else router.push(`/${locale}/Landing/ThankYou`);
 				return;
 			}
 

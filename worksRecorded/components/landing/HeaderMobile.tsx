@@ -1,7 +1,7 @@
 "use client";
 
 import { Inter, Inter_Tight } from "next/font/google";
-import Link from "next/link";
+import Link from "@/components/landing/navigation/LandingLink";
 import { useLocale } from "next-intl";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { NavigationMenuMobile } from "./NavigationMenuMobile";

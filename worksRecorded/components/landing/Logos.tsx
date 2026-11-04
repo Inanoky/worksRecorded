@@ -2,7 +2,7 @@
 
 import type { StaticImageData } from "next/image";
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/landing/navigation/LandingLink";
 import { useTranslations } from "next-intl";
 import TgemLogo from "@/lib/images/tgem-logo.png";
 import DepromLogo from "@/public/logos/deprom.webp";
@@ -127,10 +127,6 @@ export function Logos() {
 						}
 					}
 				`}</style>
-
-				<p className="mt-5 text-center text-xs font-medium leading-5 text-slate-500/80 dark:text-slate-400/80">
-					{t("clientsSubheading")}
-				</p>
 
 				<div className="hidden mt-6 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
 					{CLIENTS.map((client) => {

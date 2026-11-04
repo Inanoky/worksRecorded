@@ -1,5 +1,5 @@
 import { ArrowRight, Check } from "lucide-react";
-import Link from "next/link";
+import Link from "@/components/landing/navigation/LandingLink";
 import type { ReactNode } from "react";
 
 export function MarketingPageShell({ children }: { children: ReactNode }) {

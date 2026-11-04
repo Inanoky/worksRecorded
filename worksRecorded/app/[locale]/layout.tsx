@@ -16,9 +16,9 @@ export async function generateMetadata({
   return buildLandingMetadata({
     locale,
     path: "/Landing",
-    title: "Construction Site Records and Cost Control | WorksRecorded",
+    title: "AI Agents for Builders | WorksRecorded",
     description:
-      "WorksRecorded turns WhatsApp updates into structured construction records, timesheets, production data, and cost control.",
+      "AI agents for construction work records, financial analytics, WhatsApp automation, estimating and materials. EUR 150 per agent per month.",
     keywords: [
       "construction site records",
       "construction software",

@@ -1,31 +1,17 @@
-//C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\app\layout.tsx
 import "@/app/globals.css";
+import LandingClientShell from "@/components/landing/navigation/LandingClientShell";
+import { getLandingNavigationMetadata } from "@/server/landing/navigation-metadata";
 
-import FooterDesktop from "@/components/landing/FooterDesktop";
-import FooterMobile from "@/components/landing/FooterMobile";
-import HeaderDesktop from "@/components/landing/HeaderDesktop";
-import HeaderMobile from "@/components/landing/HeaderMobile";
-
-export default function LandingLayout({
+export default async function LandingLayout({
 	children,
+	params,
 }: Readonly<{
 	children: React.ReactNode;
+	params: Promise<{ locale: string }>;
 }>) {
+	const { locale } = await params;
+	const metadata = await getLandingNavigationMetadata(locale);
 	return (
-		<div className="landing-tactile overflow-x-hidden antialiased">
-			<div className="md:hidden">
-				<HeaderMobile />
-			</div>
-			<div className="hidden md:block">
-				<HeaderDesktop />
-			</div>
-			{children}
-			<div className="md:hidden">
-				<FooterMobile />
-			</div>
-			<div className="hidden md:block">
-				<FooterDesktop />
-			</div>
-		</div>
+		<LandingClientShell metadata={metadata}>{children}</LandingClientShell>
 	);
 }
