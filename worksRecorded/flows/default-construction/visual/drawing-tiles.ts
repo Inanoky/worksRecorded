@@ -41,18 +41,28 @@ export function visibleDrawingTiles(
 		) {
 			const ordinal = y * columns + x;
 			if (!image.urls[ordinal]) continue;
+			const tileLeft = (x * tiles.size) / image.width;
+			const tileTop = (y * tiles.size) / image.height;
+			const width =
+				Math.min(tiles.size, image.width - x * tiles.size) / image.width;
+			const height =
+				Math.min(tiles.size, image.height - y * tiles.size) / image.height;
 			result.push({
 				key: `${index}:${ordinal}`,
 				level: index,
 				ordinal,
 				url: image.urls[ordinal],
-				left: (x * tiles.size) / image.width,
-				top: (y * tiles.size) / image.height,
-				width: Math.min(tiles.size, image.width - x * tiles.size) / image.width,
-				height:
-					Math.min(tiles.size, image.height - y * tiles.size) / image.height,
+				left: tileLeft,
+				top: tileTop,
+				width,
+				height,
+				inViewport:
+					tileLeft < right &&
+					tileLeft + width > left &&
+					tileTop < bottom &&
+					tileTop + height > top,
 			});
 		}
 	}
-	return result;
+	return result.sort((a, b) => Number(b.inViewport) - Number(a.inViewport));
 }
