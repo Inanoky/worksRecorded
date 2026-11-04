@@ -52,6 +52,7 @@ type PdfEntry = {
 	references: number;
 };
 type LoadOptions = { force?: boolean };
+type TilePriority = { background: boolean };
 
 export class VisualClientCache {
 	private planningImages = new PlanningImageCache();
@@ -104,10 +105,14 @@ export class VisualClientCache {
 	}
 	private managed = false;
 	private seeding = false;
-	private tileRequests = new Map<string, Promise<Blob>>();
+	private tileRequests = new Map<
+		string,
+		{ promise: Promise<Blob>; priority: TilePriority }
+	>();
 	private tileBlobs = new Map<string, Blob>();
 	private tilesActive = 0;
-	private tilesWaiting: Array<() => void> = [];
+	private tilesWaiting: Array<{ resolve: () => void; priority: TilePriority }> =
+		[];
 	private tileAbort = new AbortController();
 	private prepared = new Map<
 		string,
@@ -146,6 +151,7 @@ export class VisualClientCache {
 		page: number,
 		level: number,
 		ordinal: number,
+		{ background = false }: { background?: boolean } = {},
 	): Promise<Blob> {
 		const prepared = this.prepared.get(url);
 		const tileUrl = prepared?.manifest.pages.find((item) => item.page === page)
@@ -159,18 +165,28 @@ export class VisualClientCache {
 			return cached;
 		}
 		const pending = this.tileRequests.get(key);
-		if (pending) return pending;
+		if (pending) {
+			if (!background) pending.priority.background = false;
+			return pending.promise;
+		}
+		const priority = { background };
 		const signal = this.tileAbort.signal;
 		const work = (async () => {
 			if (this.tilesActive >= 6)
-				await new Promise<void>((resolve) => this.tilesWaiting.push(resolve));
+				await new Promise<void>((resolve) =>
+					this.tilesWaiting.push({ resolve, priority }),
+				);
 			else this.tilesActive++;
 			try {
 				if (signal.aborted)
 					throw new DOMException("Tile cancelled", "AbortError");
 				let blob = await prepared.persistence?.read<Blob>(key);
 				if (!blob || !blob.type.startsWith("image/")) {
-					const response = await fetch(tileUrl, { cache: "no-store", signal });
+					const response = await fetch(tileUrl, {
+						cache: "no-store",
+						signal,
+						priority: priority.background ? "low" : "high",
+					});
 					if (!response.ok) throw new Error("Tile unavailable");
 					blob = await response.blob();
 					if (!blob.type.startsWith("image/") || blob.size > 4_000_000)
@@ -184,16 +200,20 @@ export class VisualClientCache {
 					this.tileBlobs.delete(this.tileBlobs.keys().next().value as string);
 				return blob;
 			} finally {
-				const next = this.tilesWaiting.shift();
-				if (next) next();
+				const foreground = this.tilesWaiting.findIndex(
+					({ priority }) => !priority.background,
+				);
+				const [next] = this.tilesWaiting.splice(Math.max(0, foreground), 1);
+				if (next) next.resolve();
 				else this.tilesActive--;
 			}
 		})();
-		this.tileRequests.set(key, work);
+		this.tileRequests.set(key, { promise: work, priority });
 		try {
 			return await work;
 		} finally {
-			if (this.tileRequests.get(key) === work) this.tileRequests.delete(key);
+			if (this.tileRequests.get(key)?.promise === work)
+				this.tileRequests.delete(key);
 		}
 	}
 	preparedManifest(url: string) {
@@ -811,7 +831,9 @@ export class VisualClientCache {
 							for (let tile = 0; tile < image.urls.length; tile++) {
 								if (signal.aborted) return;
 								try {
-									await this.loadDrawingTile(url, page.page, level, tile);
+									await this.loadDrawingTile(url, page.page, level, tile, {
+										background: true,
+									});
 								} catch {
 									if (signal.aborted) return;
 								}

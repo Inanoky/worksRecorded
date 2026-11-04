@@ -605,3 +605,53 @@ it("persists tiles across viewer instances, shares requests and invalidates only
 	expect(global.fetch).toHaveBeenCalledTimes(2);
 	reopened.clear();
 });
+
+it("loads visible tiles before queued prefetches and promotes a shared request", async () => {
+	const project = preparedProject();
+	project.drawings[0].preview!.pages[0].tiles = {
+		version: 1,
+		size: 1024,
+		levels: [
+			{
+				width: 9216,
+				height: 1024,
+				urls: Array.from({ length: 9 }, (_, ordinal) => `/tile-${ordinal}`),
+			},
+		],
+	};
+	const finish = new Map<string, () => void>();
+	const fetch = jest.fn((url: string) =>
+		new Promise((resolve) => {
+			finish.set(url, () =>
+				resolve({
+					ok: true,
+					blob: async () => new Blob(["tile"], { type: "image/png" }),
+				}),
+			);
+		}),
+	);
+	global.fetch = fetch as unknown as typeof global.fetch;
+	const cache = new VisualClientCache("site");
+	cache.seedProject(project);
+	const url = `${cache.endpoint("floor-1")}?pdf=1`;
+	const loading = Array.from({ length: 8 }, (_, ordinal) =>
+		cache.loadDrawingTile(url, 1, 0, ordinal, { background: true }),
+	);
+	const promoted = cache.loadDrawingTile(url, 1, 0, 7);
+	const visible = cache.loadDrawingTile(url, 1, 0, 8);
+	await Promise.resolve();
+	expect(fetch).toHaveBeenCalledTimes(6);
+	finish.get("/tile-0")?.();
+	await loading[0];
+	expect(fetch.mock.calls.at(-1)?.[0]).toBe("/tile-7");
+	finish.get("/tile-1")?.();
+	await loading[1];
+	expect(fetch.mock.calls.at(-1)?.[0]).toBe("/tile-8");
+	finish.get("/tile-7")?.();
+	await expect(promoted).resolves.toBe(await loading[7]);
+	expect(fetch.mock.calls.at(-1)?.[0]).toBe("/tile-6");
+	for (const complete of finish.values()) complete();
+	await Promise.all([...loading, visible]);
+	expect(fetch.mock.calls.filter(([url]) => url === "/tile-7")).toHaveLength(1);
+	cache.clear();
+});
