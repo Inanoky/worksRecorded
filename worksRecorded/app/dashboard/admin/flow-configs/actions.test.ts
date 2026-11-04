@@ -79,7 +79,7 @@ describe("switchUserOrganizationAction", () => {
 		} as never);
 	});
 
-	it("allows this admin to switch and refreshes the dashboard layout and pages", async () => {
+	it("refreshes the dashboard when the signed-in admin changes their own organization", async () => {
 		await expect(
 			switchUserOrganizationAction(null, switchForm()),
 		).resolves.toMatchObject({ ok: true });
@@ -106,9 +106,28 @@ describe("switchUserOrganizationAction", () => {
 			}),
 		);
 		expect(revalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
-		expect(revalidatePath).toHaveBeenCalledWith(
-			"/dashboard/admin/flow-configs",
+	});
+
+	it("moves another user without invalidating the signed-in admin's project routes", async () => {
+		const selectedUserId = "another-user";
+		const form = switchForm();
+		form.set("userId", selectedUserId);
+		jest.mocked(prisma.user.findUnique).mockResolvedValue({
+			id: selectedUserId,
+			email: "member@example.com",
+			organizationId: "old-org",
+			organization: { name: "Old organization" },
+		} as never);
+
+		await expect(
+			switchUserOrganizationAction(null, form),
+		).resolves.toMatchObject({
+			ok: true,
+		});
+		expect(prisma.user.update).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { id: selectedUserId } }),
 		);
+		expect(revalidatePath).not.toHaveBeenCalled();
 	});
 
 	it("assigns the TGEM flow and provisions defaults in one transaction", async () => {
