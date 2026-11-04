@@ -2198,7 +2198,7 @@ export default async function MaterialsPage({
       {flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION ? (
         <WarehouseInvoiceImport key={siteId} siteId={siteId} organizationLanguage={organizationLanguage} />
       ) : null}
-      <div data-tour="warehouse-table"><MaterialsTableClient
+      <div data-tour="warehouse-table" data-performance-ready="warehouse"><MaterialsTableClient
         siteId={siteId}
         organizationLanguage={organizationLanguage}
         showSpendInsights={showSpendInsights}

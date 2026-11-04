@@ -3274,6 +3274,9 @@ export default function SiteDiaryCalendar({
       ) : null}
       <div
         ref={fimaTableContainer}
+        data-performance-ready={
+          hasLoadedRowsOnce && !imagesPreloading ? "project-diary" : undefined
+        }
         className={cn("w-full mx-auto px-2 sm:px-4 py-4", fimaDiary && "select-text")}
         style={{ maxWidth: fimaDiary ? "none" : `${screenWidth}rem`, minWidth: 0 }}
       >

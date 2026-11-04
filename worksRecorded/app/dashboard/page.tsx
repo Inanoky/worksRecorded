@@ -126,7 +126,7 @@ export default async function DashboardIndexPage() {
 				</div>
 			) : null}
 
-			<div>
+			<div data-performance-ready="projects-list">
 				<h1 className="text-2xl font-semibold mb-5">{t.yourSites}</h1>
 
 				{sites.length > 0 ? (
