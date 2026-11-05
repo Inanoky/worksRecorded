@@ -23,6 +23,7 @@ export const fimaActTypes = {
 		"Vakuuma atvienotājslēdža vadības sadalnes UMPlus uzstādīšana",
 	lighting: "ELT 0,4 kV kabeļu līnija un apgaismojums",
 	scada: "SCADA sistēmas izbūve",
+	demolition: "Esošā kontakttīkla un konsoļu demontāža",
 } as const;
 
 export type FimaActType = keyof typeof fimaActTypes;
@@ -35,6 +36,7 @@ export function formatFimaActType(type: FimaActType | null | undefined) {
 }
 
 const shortActTypeLabels: Partial<Record<FimaActType, string>> = {
+	demolition: "Demontāža",
 	foundations: "Balstu un enkuru pamati",
 	console_brackets: "Konsoļu stiprinājumi",
 	consoles: "Kontakttīkla konsoles",
@@ -72,6 +74,7 @@ const actTitleRules: [FimaActType, RegExp][] = [
 	["disconnector_controls", /^vakuuma.*umplus/],
 	["lighting", /^elt 0[,.]4 kv/],
 	["scada", /^scada sistēmas izbūv/],
+	["demolition", /^esošā kontakttīkla un konsoļu demontāž/],
 ];
 
 export function inferFimaActType(title: string | null | undefined) {

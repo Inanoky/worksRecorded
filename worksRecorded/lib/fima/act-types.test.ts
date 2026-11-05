@@ -1,4 +1,9 @@
-import { inferFimaActType, inferLinkedFimaActType } from "./act-types";
+import {
+	fimaActTypeSchema,
+	fimaActTypes,
+	inferFimaActType,
+	inferLinkedFimaActType,
+} from "./act-types";
 
 it("keeps installation components and wire operations in their actual act types", () => {
 	expect(
@@ -41,4 +46,30 @@ it("requires every linked act to establish the same category", () => {
 	).toBeNull();
 	expect(inferLinkedFimaActType({ acts: [{ title: "Cits akts" }] })).toBeNull();
 	expect(inferLinkedFimaActType({ acts: [] })).toBeNull();
+});
+
+it("accepts the demolition category and recognizes the completed demolition act wording", () => {
+	expect(fimaActTypeSchema.parse("demolition")).toBe("demolition");
+	expect(fimaActTypes.demolition).toBe(
+		"Esošā kontakttīkla un konsoļu demontāža",
+	);
+	expect(
+		inferFimaActType(
+			"Esošā kontakttīkla un konsoļu demontāža gar B (pāra) sliežu ceļu posmā Torņakalns - Olaine",
+		),
+	).toBe("demolition");
+	expect(
+		inferLinkedFimaActType({
+			acts: [
+				{
+					title:
+						"Esošā kontakttīkla un konsoļu demontāža gar A (nepāra) sliežu ceļu",
+				},
+				{
+					title:
+						"Esošā kontakttīkla un konsoļu demontāža gar B (pāra) sliežu ceļu",
+				},
+			],
+		}),
+	).toBe("demolition");
 });
