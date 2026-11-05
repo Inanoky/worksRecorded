@@ -4,8 +4,16 @@ import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { buildFimaExampleSourceWhere } from "@/flows/default-construction/backend/fima-example-sources";
-import { fimaActTypeSchema, formatFimaActType } from "@/lib/fima/act-types";
-import { fimaBisRecordNumber } from "@/lib/fima/bis-record-links";
+import { createFimaActCoverageReader } from "@/lib/fima/acceptance-acts";
+import {
+	fimaActTypeSchema,
+	formatFimaActType,
+	inferLinkedFimaActType,
+} from "@/lib/fima/act-types";
+import {
+	fimaBisRecordNumber,
+	readFimaBisRecordLinks,
+} from "@/lib/fima/bis-record-links";
 import {
 	appendFimaEvent,
 	fimaMaterialSchema,
@@ -170,7 +178,7 @@ export async function saveFimaDiaryCollaboration(
 		const current = readFimaCollaboration(metadata);
 		if (
 			input.kind === "act_type" &&
-			(input.actType === (current.actType ?? null) ||
+			((current.actType !== undefined && input.actType === current.actType) ||
 				current.history.some((event) => event.id === input.requestId))
 		)
 			return current;
@@ -195,7 +203,15 @@ export async function saveFimaDiaryCollaboration(
 					? { previousStatus: current.status, status: input.status }
 					: input.kind === "act_type"
 						? {
-								previousActType: current.actType ?? null,
+								previousActType:
+									current.actType === undefined
+										? inferLinkedFimaActType(
+												createFimaActCoverageReader(
+													scope.site.siteDiaryRecordsMap,
+													scope.site.bisCaseId,
+												)(readFimaBisRecordLinks(metadata, scope.record.BISId)),
+											)
+										: current.actType,
 								actType: input.actType,
 							}
 						: {}),
@@ -220,7 +236,8 @@ export async function saveFimaDiaryCollaboration(
 		});
 		return next;
 	});
-	revalidatePath(`/dashboard/sites/${input.siteId}/dashboard`);
+	if (input.kind !== "act_type")
+		revalidatePath(`/dashboard/sites/${input.siteId}/dashboard`);
 	return state;
 }
 export async function refreshFimaBisMaterials(

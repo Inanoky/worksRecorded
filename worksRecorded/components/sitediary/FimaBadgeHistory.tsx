@@ -19,13 +19,24 @@ import { mergeFimaCollaboration } from "@/lib/fima/diary-list-summary";
 import { getFimaDiaryCollaboration } from "@/server/actions/fima-diary-collaboration";
 
 type Props = {
+	kind?: "status" | "act_type";
 	siteId: string;
 	recordId: string;
 	state: FimaCollaboration;
 	onChange: (id: string, state: FimaCollaboration) => void;
 };
 
-export function FimaBadgeHistory({ siteId, recordId, state, onChange }: Props) {
+export function FimaBadgeHistory({
+	siteId,
+	recordId,
+	state,
+	onChange,
+	kind = "status",
+}: Props) {
+	const title = kind === "act_type" ? "Akta veida vēsture" : "Atzīmju vēsture";
+	const historyLabel =
+		kind === "act_type" ? "Akta veida izmaiņas" : "Atzīmju izmaiņas";
+
 	const [open, setOpen] = useState(false);
 	const [snapshot, setSnapshot] = useState<FimaCollaboration | null>(null);
 	const [loading, setLoading] = useState(false);
@@ -62,7 +73,7 @@ export function FimaBadgeHistory({ siteId, recordId, state, onChange }: Props) {
 		};
 	}, [request]);
 	const history = mergeFimaCollaboration(snapshot ?? undefined, state)
-		.history.filter((event) => event.kind === "status")
+		.history.filter((event) => event.kind === kind)
 		.toReversed();
 	return (
 		<Dialog
@@ -75,8 +86,8 @@ export function FimaBadgeHistory({ siteId, recordId, state, onChange }: Props) {
 			<DialogTrigger asChild>
 				<button
 					type="button"
-					aria-label="Atzīmju vēsture"
-					title="Atzīmju vēsture"
+					aria-label={title}
+					title={title}
 					className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				>
 					<History className="size-3" />
@@ -84,9 +95,11 @@ export function FimaBadgeHistory({ siteId, recordId, state, onChange }: Props) {
 			</DialogTrigger>
 			<DialogContent className="max-h-[80dvh] overflow-y-auto sm:max-w-lg">
 				<DialogHeader>
-					<DialogTitle>Atzīmju vēsture</DialogTitle>
+					<DialogTitle>{title}</DialogTitle>
 					<DialogDescription>
-						Kas, kad un kā mainīja ieraksta rīcības atzīmi.
+						{kind === "act_type"
+							? "Kas, kad un kā mainīja ieraksta akta veidu."
+							: "Kas, kad un kā mainīja ieraksta rīcības atzīmi."}
 					</DialogDescription>
 				</DialogHeader>
 				{loading ? (
@@ -107,7 +120,7 @@ export function FimaBadgeHistory({ siteId, recordId, state, onChange }: Props) {
 					</div>
 				) : null}
 				{!loading && !error ? (
-					<ol className="space-y-3" aria-label="Atzīmju izmaiņas">
+					<ol className="space-y-3" aria-label={historyLabel}>
 						{history.map((event) => (
 							<li key={event.id} className="rounded-lg border p-3">
 								<p className="text-sm font-medium">{event.actorName}</p>
@@ -124,7 +137,9 @@ export function FimaBadgeHistory({ siteId, recordId, state, onChange }: Props) {
 						))}
 						{!history.length ? (
 							<li className="text-sm text-muted-foreground">
-								Atzīmju izmaiņu vēl nav.
+								{kind === "act_type"
+									? "Akta veida izmaiņu vēl nav."
+									: "Atzīmju izmaiņu vēl nav."}
 							</li>
 						) : null}
 					</ol>

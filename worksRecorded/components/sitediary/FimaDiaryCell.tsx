@@ -11,6 +11,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import type { FimaRecordActCoverage } from "@/lib/fima/acceptance-acts";
+import { inferLinkedFimaActType } from "@/lib/fima/act-types";
 import { readFimaBisExamples } from "@/lib/fima/bis-examples";
 import {
 	type FimaBisRecordLink,
@@ -124,6 +125,9 @@ export function FimaDiaryCell({
 				siteId={siteId}
 				recordId={recordId}
 				state={state}
+				linkedActType={inferLinkedFimaActType(
+					row.fimaActCoverage as FimaRecordActCoverage | undefined,
+				)}
 				onChange={onChange}
 			/>
 		);

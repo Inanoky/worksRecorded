@@ -187,6 +187,7 @@ it("versions act type changes with authenticated attribution and preserves comme
 		expectedVersion: 1,
 	};
 	const assigned = await saveFimaDiaryCollaboration(args);
+	expect(revalidatePath).not.toHaveBeenCalled();
 	expect(assigned).toMatchObject({
 		version: 2,
 		actType: "contact_wire",
@@ -227,6 +228,22 @@ it("versions act type changes with authenticated attribution and preserves comme
 	await expect(
 		saveFimaDiaryCollaboration({ ...args, actType: "__proto__" as never }),
 	).rejects.toThrow();
+});
+
+it("persists an explicit clear on a legacy row without an act type", async () => {
+	const cleared = await saveFimaDiaryCollaboration({
+		...scope,
+		requestId,
+		kind: "act_type",
+		actType: null,
+		expectedVersion: 0,
+	});
+	expect(cleared).toMatchObject({ version: 1, actType: null });
+	expect(cleared.history.at(-1)).toMatchObject({
+		kind: "act_type",
+		actType: null,
+	});
+	expect(revalidatePath).not.toHaveBeenCalled();
 });
 
 it("appends authenticated comments without replacing KUCE provenance and retries safely", async () => {
