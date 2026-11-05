@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowRight, Check, ChevronRight } from "lucide-react";
-import Link from "@/components/landing/navigation/LandingLink";
 import { useLocale, useTranslations } from "next-intl";
+import Link from "@/components/landing/navigation/LandingLink";
 import styles from "./Agents.module.css";
 import {
 	AGENT_MONTHLY_PRICE,
