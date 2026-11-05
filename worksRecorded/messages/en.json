@@ -36,8 +36,8 @@
 			},
 			{
 				"title": "Work costs",
-				"amount": "15% higher",
-				"label": "productivity",
+				"amount": "15% lower",
+				"label": "work costs",
 				"description": "AI connects working hours with completed tasks, helping identify wasted time and improve work organization."
 			}
 		],

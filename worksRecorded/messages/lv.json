@@ -36,8 +36,8 @@
 			},
 			{
 				"title": "Darbu izmaksas",
-				"amount": "15% augstāka",
-				"label": "produktivitāte",
+				"amount": "15% zemākas",
+				"label": "darbu izmaksas",
 				"description": "MI sasaista darba stundas ar paveikto, palīdzot pamanīt neefektīvi izmantotu laiku un uzlabot darba organizāciju."
 			}
 		],
