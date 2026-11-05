@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const fimaActTypes = {
+	not_required: "Akts Nevajag",
 	setting_out: "Galveno būvasu nospraušana",
 	foundations: "Kontakttīkla balstu pamatu un enkurpamatu iegremdēšana",
 	supports: "Kontakttīkla balstu uzstādīšana",
