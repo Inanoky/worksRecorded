@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { buildFimaExampleSourceWhere } from "@/flows/default-construction/backend/fima-example-sources";
+import { fimaActTypeSchema, formatFimaActType } from "@/lib/fima/act-types";
 import { fimaBisRecordNumber } from "@/lib/fima/bis-record-links";
 import {
 	appendFimaEvent,
@@ -37,6 +38,11 @@ const mutationSchema = scopeSchema.extend({ requestId: z.string().uuid() }).and(
 		z.object({
 			kind: z.literal("status"),
 			status: fimaStatusSchema.nullable(),
+			expectedVersion: z.number().int().nonnegative(),
+		}),
+		z.object({
+			kind: z.literal("act_type"),
+			actType: fimaActTypeSchema.nullable(),
 			expectedVersion: z.number().int().nonnegative(),
 		}),
 		z.object({
@@ -162,12 +168,20 @@ export async function saveFimaDiaryCollaboration(
 		if (rows.length !== 1) throw new Error("Ieraksts vairs nav pieejams.");
 		const metadata = (rows[0].evalMetadata ?? {}) as Prisma.JsonObject;
 		const current = readFimaCollaboration(metadata);
+		if (
+			input.kind === "act_type" &&
+			(input.actType === (current.actType ?? null) ||
+				current.history.some((event) => event.id === input.requestId))
+		)
+			return current;
 		const text =
 			input.kind === "comment"
 				? input.text
 				: input.kind === "status"
 					? `Rīcība: ${input.status ? fimaStatuses[input.status] : "Nav atzīmes"}`
-					: `Sagatavotie materiāli: ${input.materials.map((m) => `${m.label} — ${m.quantity} ${m.unit}`).join("; ") || "nav"}`;
+					: input.kind === "act_type"
+						? `Akta veids: ${formatFimaActType(input.actType)}`
+						: `Sagatavotie materiāli: ${input.materials.map((m) => `${m.label} — ${m.quantity} ${m.unit}`).join("; ") || "nav"}`;
 		const next = appendFimaEvent(
 			current,
 			{
@@ -179,13 +193,20 @@ export async function saveFimaDiaryCollaboration(
 				text,
 				...(input.kind === "status"
 					? { previousStatus: current.status, status: input.status }
-					: {}),
+					: input.kind === "act_type"
+						? {
+								previousActType: current.actType ?? null,
+								actType: input.actType,
+							}
+						: {}),
 			},
 			input.kind === "status"
 				? { status: input.status }
 				: input.kind === "materials"
 					? { materials: input.materials, materialsNote: null }
-					: {},
+					: input.kind === "act_type"
+						? { actType: input.actType }
+						: {},
 			input.kind === "comment" ? undefined : input.expectedVersion,
 		);
 		await tx.sitediaryrecords.update({

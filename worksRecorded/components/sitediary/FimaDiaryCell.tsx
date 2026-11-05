@@ -21,6 +21,7 @@ import {
 import type { FimaCollaboration } from "@/lib/fima/diary-collaboration";
 import type { FimaExampleSources } from "@/lib/fima/example-sources";
 import { FimaAcceptanceActsCell } from "./FimaAcceptanceActsCell";
+import { FimaActTypeCell } from "./FimaActTypeCell";
 import { FimaCommentCell } from "./FimaCommentCell";
 import { FimaExamplesCell } from "./FimaExamplesCell";
 import { FimaMaterialPicker } from "./FimaMaterialPicker";
@@ -116,6 +117,17 @@ export function FimaDiaryCell({
 	}
 	if (!row.id) return <span>—</span>;
 	const recordId = row.id;
+	if (field === "FimaActType") {
+		return (
+			<FimaActTypeCell
+				key={`${siteId}:${recordId}`}
+				siteId={siteId}
+				recordId={recordId}
+				state={state}
+				onChange={onChange}
+			/>
+		);
+	}
 	if (field === "FimaConfidence") {
 		const approved =
 			row.bisStatus === "approved" &&

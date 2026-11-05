@@ -1,8 +1,9 @@
 export const fimaDiaryColumns = [
-	{ field: "Date", label: "Datums", order: 1, width: 120 },
+	{ field: "Date", label: "Datums", order: 1, width: 200 },
 	{ field: "FimaNumber", label: "FIMA Nr.", order: 1.25, width: 160 },
-	{ field: "FimaBisCase", label: "BIS ieraksta Nr.", order: 1.5, width: 100 },
+	{ field: "FimaBisCase", label: "BIS ieraksta Nr.", order: 1.5, width: 135 },
 	{ field: "FimaAcceptanceActs", label: "Akts", order: 1.75, width: 160 },
+	{ field: "FimaActType", label: "Akta veids", order: 1.8, width: 235 },
 	{ field: "Works", label: "Darba apraksts", order: 2, width: 200 },
 	{ field: "Location", label: "Balsti / posms", order: 3, width: 150 },
 	{ field: "Works_Custom_1", label: "BIS apraksts", order: 4, width: 220 },
@@ -11,7 +12,7 @@ export const fimaDiaryColumns = [
 	{ field: "FimaExamples", label: "Paraugas", order: 9, width: 260 },
 	{ field: "FimaComments", label: "Komentāri", order: 9.5, width: 360 },
 	{ field: "Amounts", label: "Daudzums", order: 11, width: 110 },
-	{ field: "Units", label: "Mērv.", order: 12, width: 110 },
+	{ field: "Units", label: "Mērv.", order: 12, width: 130 },
 	{ field: "FimaReviewStatus", label: "Rīcība", order: 1000, width: 220 },
 	{ field: "FimaConfidence", label: "Confidence", order: 1001, width: 100 },
 ] as const;
@@ -20,15 +21,15 @@ export const fimaDiaryColumnWeights: Record<string, number> = {
 	...Object.fromEntries(
 		fimaDiaryColumns.map(({ field, width }) => [field, width]),
 	),
-	select: 52,
+	select: 64,
 	project: 160,
 	bis: 220,
 	action: 120,
-	source: 60,
+	source: 76,
 };
 
 export const fimaDiaryTableClassName =
-	"w-full min-w-0 table-fixed rounded-lg border border-slate-200/80 text-xs [&_th]:!w-auto [&_td]:!w-auto [&_th]:!px-1.5 [&_td]:!px-1.5 [&_th]:!whitespace-normal [&_td]:!whitespace-normal [&_th]:[overflow-wrap:anywhere] [&_td]:[overflow-wrap:anywhere] [&_button]:max-w-full [&_thead]:bg-slate-50/80 [&_th]:!py-3 [&_th]:font-semibold [&_td]:!py-3 [&_td]:align-top [&_td]:leading-relaxed [&_tbody_tr:nth-child(even)]:bg-muted/20 dark:border-slate-700 dark:[&_thead]:bg-slate-900";
+	"w-full min-w-[1900px] table-fixed rounded-lg border border-slate-200/80 text-xs [&_th]:!w-auto [&_td]:!w-auto [&_th]:!px-1.5 [&_td]:!px-1.5 [&_th]:!whitespace-normal [&_td]:!whitespace-normal [&_th]:[overflow-wrap:anywhere] [&_td]:[overflow-wrap:anywhere] [&_button]:max-w-full [&_thead]:bg-slate-50/80 [&_th]:!py-3 [&_th]:font-semibold [&_td]:!py-3 [&_td]:align-top [&_td]:leading-relaxed [&_tbody_tr:nth-child(even)]:bg-muted/20 dark:border-slate-700 dark:[&_thead]:bg-slate-900";
 
 export function groupFimaDiaryRows<T extends { Date: Date | string | null }>(
 	rows: T[],

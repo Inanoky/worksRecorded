@@ -468,6 +468,7 @@ export function FimaAllProjectsDiary({
 															[
 																"Works",
 																"Works_Custom_1",
+																"FimaActType",
 																"FimaMaterials",
 																"FimaExamples",
 																"FimaComments",

@@ -169,6 +169,66 @@ it("rejects a source record that does not satisfy the authorized BIS association
 		}),
 	).rejects.toThrow("KUCE avots vairs nav pieejams");
 });
+it("versions act type changes with authenticated attribution and preserves comments", async () => {
+	const comment = {
+		id: "existing-comment",
+		kind: "comment",
+		actorId: "reviewer",
+		actorName: "Ieva",
+		at: "2026-11-04T09:00:00.000Z",
+		text: "Pārbaudīts",
+	};
+	metadata.fimaCollaboration = { version: 1, history: [comment] };
+	const args = {
+		...scope,
+		requestId,
+		kind: "act_type" as const,
+		actType: "contact_wire" as const,
+		expectedVersion: 1,
+	};
+	const assigned = await saveFimaDiaryCollaboration(args);
+	expect(assigned).toMatchObject({
+		version: 2,
+		actType: "contact_wire",
+		history: [
+			comment,
+			{
+				kind: "act_type",
+				actorId: "member",
+				actorName: "Anna Bērziņa",
+				at: expect.any(String),
+				previousActType: null,
+				actType: "contact_wire",
+			},
+		],
+	});
+	expect(await saveFimaDiaryCollaboration(args)).toEqual(assigned);
+	expect(tx.sitediaryrecords.update).toHaveBeenCalledTimes(1);
+	const clear = {
+		...args,
+		requestId: "94175035-8291-4d47-8fbe-6f4d47e7fb57",
+		actType: null,
+	};
+	await expect(saveFimaDiaryCollaboration(clear)).rejects.toThrow(
+		"Ieraksts ir mainīts",
+	);
+	const cleared = await saveFimaDiaryCollaboration({
+		...clear,
+		expectedVersion: 2,
+	});
+	expect(cleared).toMatchObject({ version: 3, actType: null });
+	expect(cleared.history.at(-1)).toMatchObject({
+		kind: "act_type",
+		previousActType: "contact_wire",
+		actType: null,
+	});
+	expect(cleared.history[0]).toEqual(comment);
+	expect(metadata.kuceImport).toEqual({ key: "preserve-original-source" });
+	await expect(
+		saveFimaDiaryCollaboration({ ...args, actType: "__proto__" as never }),
+	).rejects.toThrow();
+});
+
 it("appends authenticated comments without replacing KUCE provenance and retries safely", async () => {
 	const args = {
 		...scope,

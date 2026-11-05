@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { type FimaActType, formatFimaActType } from "./act-types";
 import { type FimaBisExamples, readFimaBisExamples } from "./bis-examples";
 import { type FimaConfidence, readFimaConfidence } from "./confidence";
 import { fimaDiaryColumns } from "./diary-table";
@@ -34,16 +35,19 @@ export const fimaMaterialSchema = z.object({
 export type FimaMaterial = z.infer<typeof fimaMaterialSchema>;
 export type FimaEvent = {
 	id: string;
-	kind: "comment" | "status" | "materials";
+	kind: "comment" | "status" | "materials" | "act_type";
 	actorId: string;
 	actorName: string;
 	at: string;
 	text: string;
+	previousActType?: FimaActType | null;
+	actType?: FimaActType | null;
 	previousStatus?: keyof typeof fimaStatuses | null;
 	status?: keyof typeof fimaStatuses | null;
 };
 export type FimaCollaboration = {
 	version: number;
+	actType?: FimaActType | null;
 	status: keyof typeof fimaStatuses | null;
 	materials: FimaMaterial[];
 	materialsNote?: string | null;
@@ -61,6 +65,8 @@ export type FimaCollaboration = {
 	};
 };
 export function formatFimaEventText(event: FimaEvent) {
+	if (event.kind === "act_type" && event.actType !== undefined)
+		return `Akta veids: ${formatFimaActType(event.previousActType)} → ${formatFimaActType(event.actType)}`;
 	if (event.kind !== "status" || event.status === undefined) return event.text;
 	const label = (status: keyof typeof fimaStatuses | null) =>
 		status ? fimaStatuses[status] : "Nav atzīmes";
@@ -71,6 +77,7 @@ export const fimaVirtualFields = [
 	"FimaComments",
 	"FimaBisCase",
 	"FimaAcceptanceActs",
+	"FimaActType",
 	"FimaMaterials",
 	"FimaExamples",
 	"FimaReviewStatus",
@@ -156,7 +163,10 @@ export function appendFimaEvent(
 	state: FimaCollaboration,
 	event: FimaEvent,
 	patch: Partial<
-		Pick<FimaCollaboration, "status" | "materials" | "materialsNote">
+		Pick<
+			FimaCollaboration,
+			"status" | "materials" | "materialsNote" | "actType"
+		>
 	>,
 	expectedVersion?: number,
 ) {

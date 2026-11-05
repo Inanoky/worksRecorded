@@ -7,10 +7,14 @@ export function summarizeFimaCollaboration(
 	const latestStatus = state.history.findLast(
 		(event) => event.kind === "status",
 	);
+	const latestActType = state.history.findLast(
+		(event) => event.kind === "act_type",
+	);
 	return {
 		...state,
 		history: state.history.filter(
-			(event) => event === latest || event === latestStatus,
+			(event) =>
+				event === latest || event === latestStatus || event === latestActType,
 		),
 	};
 }
