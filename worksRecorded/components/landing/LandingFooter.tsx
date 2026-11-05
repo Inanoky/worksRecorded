@@ -1,7 +1,7 @@
 import { ArrowRight, Mail, MapPin, Phone } from "lucide-react";
 import { Inter, Inter_Tight } from "next/font/google";
-import Link from "@/components/landing/navigation/LandingLink";
 import { useLocale, useTranslations } from "next-intl";
+import Link from "@/components/landing/navigation/LandingLink";
 import { AGENTS, DEMO_URL } from "./agents/catalog";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-landing-footer" });
@@ -45,7 +45,10 @@ export default function LandingFooter() {
 			style={{ fontFamily: "var(--font-landing-footer), sans-serif" }}
 		>
 			<div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-10 xl:px-14">
-				<div className="grid gap-10 border-b border-white/10 py-14 lg:grid-cols-[1.25fr_0.75fr] lg:items-end lg:py-18">
+				<div
+					data-footer-intro
+					className="grid gap-10 border-b border-white/10 py-14 lg:grid-cols-[1.25fr_0.75fr] lg:items-end lg:py-18"
+				>
 					<div className="max-w-3xl">
 						<Link
 							href={`/${locale}/Landing`}
@@ -80,7 +83,10 @@ export default function LandingFooter() {
 					</div>
 				</div>
 
-				<div className="grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-[0.9fr_0.9fr_1.2fr] lg:gap-16">
+				<div
+					data-footer-links
+					className="grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-[0.9fr_0.9fr_1.2fr] lg:gap-16"
+				>
 					<FooterLinks heading={agents("nav.agents")} links={dataLinks} />
 					<FooterLinks heading={agents("nav.company")} links={companyLinks} />
 
@@ -113,7 +119,10 @@ export default function LandingFooter() {
 					</div>
 				</div>
 
-				<div className="grid gap-6 border-t border-white/10 py-8 text-xs leading-5 text-[#8abda2] md:grid-cols-[1fr_auto] md:items-end">
+				<div
+					data-footer-legal
+					className="grid gap-6 border-t border-white/10 py-8 text-xs leading-5 text-[#8abda2] md:grid-cols-[1fr_auto] md:items-end"
+				>
 					<div className="space-y-1">
 						<p className="font-semibold text-[#cfeede]">Buvconsult SIA</p>
 						<p>LV40203643527 · 23.04.2025</p>

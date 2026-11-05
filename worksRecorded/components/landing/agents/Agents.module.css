@@ -8,6 +8,55 @@
 	background: #fcfdfb;
 }
 
+html:has(.scrollSnap) {
+	scroll-snap-type: y mandatory;
+	scroll-behavior: auto;
+}
+
+html:has(.scrollSnap[data-landing-slideshow]) {
+	scroll-snap-type: none;
+}
+
+html:has(.scrollSnap) [class~="landing-tactile"] {
+	--landing-header-height: 73px;
+	overflow-x: clip;
+}
+
+html:has(.scrollSnap) [data-landing-scroll-start] {
+	position: sticky;
+	top: 0;
+	z-index: 50;
+}
+
+.slide,
+html:has(.scrollSnap) :where([class~="landing-tactile"] > footer) {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	block-size: calc(100svh - var(--landing-header-height, 73px));
+	padding-block: 32px;
+	overflow: hidden;
+	scroll-snap-align: start;
+	scroll-snap-stop: always;
+	scroll-margin-block-start: var(--landing-header-height, 73px);
+}
+
+.slideContent,
+html:has(.scrollSnap) :where([class~="landing-tactile"] > footer > div) {
+	flex: 0 1 auto;
+	min-block-size: 0;
+	max-block-size: 100%;
+	overflow-y: auto;
+	overscroll-behavior-y: contain;
+	scrollbar-width: thin;
+}
+
+@media (max-width: 1023px) {
+	html:has(.scrollSnap) [class~="landing-tactile"] {
+		--landing-header-height: 65px;
+	}
+}
+
 [class~="dark"] .page {
 	--ink: #edf5ef;
 	--muted: #a9b9b0;
@@ -382,7 +431,6 @@
 	gap: 70px;
 	margin-top: 65px;
 	padding-top: 42px;
-	border-top: 1px solid var(--line);
 }
 .moreIntro h3 {
 	max-width: 350px;
@@ -838,5 +886,169 @@
 	}
 	.pricingInfo {
 		gap: 35px;
+	}
+}
+
+:where(.scrollSnap) :is(.section, section[id="team"]) {
+	padding-block: 0;
+}
+
+:where(.scrollSnap) :is(.moreAgents, .pricePanel) {
+	align-items: center;
+}
+
+:where(.scrollSnap) .moreAgents {
+	margin-block: 0;
+}
+
+:where(.scrollSnap) .hero {
+	padding-block: 0 24px;
+}
+
+:where(.scrollSnap) .heroPortrait {
+	width: auto;
+	max-block-size: clamp(240px, calc(100svh - 320px), 520px);
+	object-fit: contain;
+}
+
+html:has(.scrollSnap) [class~="landing-tactile"] > footer > div {
+	inline-size: 100%;
+}
+
+html:has(.scrollSnap) [class~="landing-tactile"] > footer {
+	padding-block: clamp(12px, 2.5svh, 24px);
+}
+
+html:has(.scrollSnap)
+	footer
+	:is([data-footer-intro], [data-footer-links], [data-footer-legal]) {
+	padding-block: clamp(12px, 2.5svh, 24px);
+}
+
+html:has(.scrollSnap) footer nav ul {
+	display: grid;
+	gap: 6px;
+	margin-block-start: 12px;
+}
+
+html:has(.scrollSnap) footer nav li {
+	margin-block: 0;
+}
+
+@media (max-width: 1023px) {
+	html:has(.scrollSnap) footer [data-footer-intro] {
+		gap: 16px;
+	}
+
+	html:has(.scrollSnap)
+		footer
+		:is([data-footer-intro], [data-footer-links], [data-footer-legal]) {
+		padding-block: 12px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-intro] > div:first-child > a {
+		font-size: 28px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-intro] p {
+		margin-block-start: 12px;
+		font-size: 14px;
+		line-height: 21px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-intro] > div:last-child {
+		flex-direction: row;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-intro] > div:last-child > a {
+		height: 40px;
+		padding-inline: 20px;
+		font-size: 12px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-links] {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 20px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-links] > div {
+		grid-column: 1 / -1;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-links] > div > div {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 12px;
+		margin-block-start: 12px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-links] :is(ul, a) {
+		font-size: 12px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-links] a {
+		gap: 8px;
+	}
+
+	html:has(.scrollSnap) footer nav ul {
+		gap: 4px;
+		margin-block-start: 8px;
+		line-height: 16px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-links] a > span:first-child {
+		width: 28px;
+		height: 28px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-legal] {
+		gap: 8px;
+		font-size: 11px;
+		line-height: 16px;
+	}
+}
+
+@media (max-width: 600px) and (max-height: 760px) {
+	html:has(.scrollSnap) [class~="landing-tactile"] > footer {
+		padding-block: 12px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-intro] {
+		gap: 12px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-intro] p {
+		margin-block-start: 8px;
+		font-size: 12px;
+		line-height: 18px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-intro] > div:last-child > a {
+		height: 36px;
+		padding-inline: 16px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-links] {
+		gap: 12px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-links] h2 {
+		font-size: 11px;
+		line-height: 16px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-links] nav :is(ul, a) {
+		font-size: 11px;
+		line-height: 14px;
+	}
+
+	html:has(.scrollSnap) footer nav ul {
+		gap: 2px;
+	}
+
+	html:has(.scrollSnap) footer [data-footer-legal] {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 12px;
+		font-size: 10px;
+		line-height: 14px;
 	}
 }

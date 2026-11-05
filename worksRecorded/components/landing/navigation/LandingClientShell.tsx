@@ -11,6 +11,7 @@ import {
 	useState,
 } from "react";
 import { toast } from "sonner";
+import { LANDING_SLIDE_REQUEST } from "../agents/landing-slideshow-events";
 import HeaderDesktop from "../HeaderDesktop";
 import HeaderMobile from "../HeaderMobile";
 import LandingFooter from "../LandingFooter";
@@ -212,7 +213,11 @@ export default function LandingClientShell({
 		content.current?.focus({ preventScroll: true });
 		const frame = window.requestAnimationFrame(() => {
 			if (target.position) {
-				window.scrollTo(...target.position);
+				window.scrollTo({
+					left: target.position[0],
+					top: target.position[1],
+					behavior: "instant",
+				});
 				return;
 			}
 			let anchor = new URL(target.href).hash.slice(1);
@@ -220,8 +225,16 @@ export default function LandingClientShell({
 				anchor = decodeURIComponent(anchor);
 			} catch {}
 			const element = anchor ? document.getElementById(anchor) : null;
-			if (element) element.scrollIntoView();
-			else window.scrollTo(0, 0);
+			if (element) {
+				const slideshow = element.closest<HTMLElement>(
+					"[data-landing-slideshow]",
+				);
+				if (slideshow)
+					slideshow.dispatchEvent(
+						new CustomEvent(LANDING_SLIDE_REQUEST, { detail: element }),
+					);
+				else element.scrollIntoView();
+			} else window.scrollTo({ left: 0, top: 0, behavior: "instant" });
 		});
 		return () => window.cancelAnimationFrame(frame);
 	}, [revision]);
@@ -241,10 +254,10 @@ export default function LandingClientShell({
 							</span>
 						</output>
 					) : null}
-					<div className="lg:hidden">
+					<div className="lg:hidden" data-landing-scroll-start>
 						<HeaderMobile />
 					</div>
-					<div className="hidden lg:block">
+					<div className="hidden lg:block" data-landing-scroll-start>
 						<HeaderDesktop />
 					</div>
 					<div
