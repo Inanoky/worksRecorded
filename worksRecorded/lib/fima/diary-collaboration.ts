@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { type FimaActType, formatFimaActType } from "./act-types";
+import {
+	type FimaActType,
+	formatFimaActType,
+	formatFimaHistoricalActType,
+} from "./act-types";
 import { type FimaBisExamples, readFimaBisExamples } from "./bis-examples";
 import { type FimaConfidence, readFimaConfidence } from "./confidence";
 import { fimaDiaryColumns } from "./diary-table";
@@ -41,6 +45,8 @@ export type FimaEvent = {
 	at: string;
 	text: string;
 	previousActType?: FimaActType | null;
+	previousActTypeLabel?: string;
+	actTypeLabel?: string;
 	actType?: FimaActType | null;
 	previousStatus?: keyof typeof fimaStatuses | null;
 	status?: keyof typeof fimaStatuses | null;
@@ -66,7 +72,7 @@ export type FimaCollaboration = {
 };
 export function formatFimaEventText(event: FimaEvent) {
 	if (event.kind === "act_type" && event.actType !== undefined)
-		return `Akta veids: ${formatFimaActType(event.previousActType)} → ${formatFimaActType(event.actType)}`;
+		return `Akta veids: ${event.previousActTypeLabel ?? formatFimaHistoricalActType(event.previousActType)} → ${event.actTypeLabel ?? formatFimaHistoricalActType(event.actType)}`;
 	if (event.kind !== "status" || event.status === undefined) return event.text;
 	const label = (status: keyof typeof fimaStatuses | null) =>
 		status ? fimaStatuses[status] : "Nav atzīmes";
@@ -179,7 +185,19 @@ export function appendFimaEvent(
 		...state,
 		...patch,
 		version: state.version + 1,
-		history: [...state.history, event],
+		history: [
+			...state.history,
+			event.kind === "act_type"
+				? {
+						...event,
+						previousActTypeLabel:
+							event.previousActTypeLabel ??
+							formatFimaActType(event.previousActType),
+						actTypeLabel:
+							event.actTypeLabel ?? formatFimaActType(event.actType),
+					}
+				: event,
+		],
 	};
 }
 export function parseBisRecordMaterials(

@@ -73,3 +73,34 @@ it("accepts the demolition category and recognizes the completed demolition act 
 		}),
 	).toBe("demolition");
 });
+
+it("maps old and broadened act titles into the same category families", () => {
+	expect(
+		inferFimaActType("Konsoļu 6-10kV (ar stiprinājumiem) montāžas akts"),
+	).toBe("voltage_consoles");
+	expect(inferFimaActType("6–10 kV līnijas un konsoļu darbi")).toBe(
+		"voltage_consoles",
+	);
+	expect(
+		inferLinkedFimaActType({
+			acts: [
+				{ title: "Nesējtroses vada (viduspunktiem) montāžas akts" },
+				{ title: "Viduspunkta enkuru sistēmas montāžas akts" },
+			],
+		}),
+	).toBe("midpoint_carrying_wire");
+	expect(inferFimaActType("Viļņvada kronšteinu uzstādīšanas akts")).toBe(
+		"waveguide",
+	);
+	expect(inferFimaActType("Viļņvada līnijas demontāžas akts")).toBe(
+		"waveguide",
+	);
+	expect(
+		inferFimaActType(
+			"Pārsprieguma novadīšanas sistēmas elementu montāžas akts",
+		),
+	).toBe("surge_protection");
+	expect(inferFimaActType("Gaisvadu līnijas regulēšanas akts")).toBe(
+		"overhead_line_regulation",
+	);
+});

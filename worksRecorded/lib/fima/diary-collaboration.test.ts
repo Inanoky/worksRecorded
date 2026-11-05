@@ -2,6 +2,7 @@ import {
 	appendFimaEvent,
 	type FimaEvent,
 	fimaMaterialSchema,
+	formatFimaEventText,
 	parseBisRecordMaterials,
 	readFimaCollaboration,
 	withFimaDiaryColumns,
@@ -185,4 +186,50 @@ it("labels the FIMA link column as a BIS record number", () => {
 			"BIS-BL-123",
 		).FimaBisCase.DisplayName,
 	).toBe("BIS ieraksta Nr.");
+});
+
+it("preserves historical type names while recording the broadened category label on new changes", () => {
+	const legacy: FimaEvent = {
+		...event,
+		id: "old-type",
+		kind: "act_type",
+		text: "",
+		previousActType: null,
+		actType: "voltage_consoles",
+	};
+	const state = readFimaCollaboration({
+		fimaCollaboration: {
+			version: 1,
+			status: null,
+			materials: [],
+			history: [legacy],
+			actType: "voltage_consoles",
+		},
+	});
+	const next = appendFimaEvent(
+		state,
+		{
+			...event,
+			id: "new-type",
+			kind: "act_type",
+			text: "",
+			previousActType: "voltage_consoles",
+			actType: "midpoint_carrying_wire",
+		},
+		{ actType: "midpoint_carrying_wire" },
+		1,
+	);
+	expect(next.history[0]).toEqual(legacy);
+	expect(formatFimaEventText(next.history[0])).toContain(
+		"6–10 kV konsoļu montāža ar stiprinājumiem",
+	);
+	expect(next.history[1]).toMatchObject({
+		previousActTypeLabel: "6–10 kV līnijas un konsoļu darbi",
+		actTypeLabel: "Nesējtroses viduspunkta montāža",
+		actorName: event.actorName,
+		at: event.at,
+	});
+	expect(formatFimaEventText(next.history[1])).toContain(
+		"Nesējtroses viduspunkta montāža",
+	);
 });
