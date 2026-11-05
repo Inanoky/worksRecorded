@@ -79,7 +79,6 @@ export function MoreAgents() {
 	return (
 		<div className={styles.moreAgents}>
 			<div className={styles.moreIntro}>
-				<p className={styles.eyebrow}>{t("moreEyebrow")}</p>
 				<h3>{t("moreTitle")}</h3>
 				<p className={styles.muted}>{t("moreDescription")}</p>
 				<Link className={styles.textLink} href={`/${locale}/Landing/Agents`}>
@@ -230,7 +229,7 @@ export function WorkflowSection() {
 				{steps.map((step, index) => (
 					<li key={step.title}>
 						<div>
-							<span>{String(index + 1).padStart(2, "0")}</span>
+							<span>{t("stepLabel", { number: index + 1 })}</span>
 							<ArrowDown size={18} aria-hidden="true" />
 						</div>
 						<h3>{step.title}</h3>

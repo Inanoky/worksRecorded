@@ -14,7 +14,9 @@
 		"team": {
 			"eyebrow": "Komanda",
 			"title": "Satieciet mūsu komandu.",
-			"description": "Mēs izstrādājam MI aģentus un palīdzam tos ieviest jūsu uzņēmuma ikdienā."
+			"description": "Mēs izstrādājam MI aģentus un palīdzam tos ieviest jūsu uzņēmuma ikdienā.",
+			"deividsExperience": "Pieredzējis React un TypeScript izstrādātājs.",
+			"vjaceslavsExperience": "Starptautisku būvniecības projektu vadības pieredze."
 		},
 		"agentsEyebrow": "Ietaupījums ar MI aģentiem",
 		"agentsTitle": "Kā MI palīdz ietaupīt naudu",
@@ -22,28 +24,27 @@
 		"savings": [
 			{
 				"title": "Administrēšanas izmaksas",
-				"amount": "Līdz 50%",
-				"label": "mazākas administrēšanas izmaksas",
+				"amount": "50% zemākas",
+				"label": "administrēšanas izmaksas",
 				"description": "MI ievada datus un sagatavo dokumentus un atskaites, samazinot manuālo darbu."
 			},
 			{
 				"title": "Projektu vadības izmaksas",
-				"amount": "Līdz 25%",
-				"label": "mazākas projektu vadības izmaksas",
+				"amount": "25% zemākas",
+				"label": "projektu vadības izmaksas",
 				"description": "MI apkopo informāciju par objektu, lai vadītājs mazāk laika tērētu datu meklēšanai un apkopošanai."
 			},
 			{
 				"title": "Darbu izmaksas",
-				"amount": "Līdz 15%",
-				"label": "augstāka produktivitāte",
+				"amount": "15% augstāka",
+				"label": "produktivitāte",
 				"description": "MI sasaista darba stundas ar paveikto, palīdzot pamanīt neefektīvi izmantotu laiku un uzlabot darba organizāciju."
 			}
 		],
 		"potential": "Ietaupījums",
 		"enquire": "Pieteikt",
 		"enquireAgent": "Pieteikt konsultāciju par risinājumu {agent}",
-		"moreEyebrow": "No tāmes līdz pēdējai darba dienai",
-		"moreTitle": "Aģents katram projekta posmam",
+		"moreTitle": "Kvalitatīvi aģenti būvniecības biznesam",
 		"moreDescription": "Pieslēdziet to, kas jūsu komandai vajadzīgs šobrīd. Arī materiāliem, darba stundām un instrumentiem ir savs aģents.",
 		"allAgents": "Visi 8 aģenti",
 		"learnMore": "Uzzināt vairāk",
@@ -52,21 +53,21 @@
 		"workflowDescription": "Sākam ar jūsu komandas ikdienu un pieslēdzam aģentu konkrētam uzdevumam.",
 		"steps": [
 			{
-				"title": "Pieslēdzam datu avotus",
-				"description": "Esošās WhatsApp sarunas, rasējumi, balss ziņas, foto, video, rēķini un tāmes kļūst par aģenta darba materiālu."
+				"title": "Izpētām jūsu darba procesus",
+				"description": "Noskaidrojam, kā jūs šobrīd strādājat, un piedāvājam jūsu vajadzībām atbilstošu MI aģentu."
 			},
 			{
-				"title": "Aģents apstrādā informāciju",
-				"description": "Tas apkopo ierakstus, sasaista izmaksas ar budžetu un atrod novirzes savā atbildības jomā."
+				"title": "Testējam un uzlabojam aģentu",
+				"description": "Pārbaudām aģentu reālos darba uzdevumos un pilnveidojam to kopā ar jūsu komandu."
 			},
 			{
-				"title": "Komanda redz un rīkojas",
-				"description": "Rezultāti ir pārskatāmi WorksRecorded platformā un eksportējami Excel formātā. Lēmumus pieņemat jūs."
+				"title": "Ieviešam un uzraugām",
+				"description": "Ieviešam aģentu un pastāvīgi uzraugām tā darbību. Uzņemamies atbildību par tā rīcību."
 			}
 		],
 		"pricingEyebrow": "Vienkārša cena",
 		"pricingTitle": "Sāciet ar vienu aģentu.",
-		"pricingDescription": "Salieciet savu MI komandu no uzdevumiem, kuros šobrīd vajadzīga palīdzība.",
+		"pricingDescription": "Samaksa pēc aģenta pieņemšanas no jūsu puses.",
 		"chooseAgent": "Pārrunāt aģenta ieviešanu",
 		"servicesEyebrow": "Pakalpojumi jūsu komandai",
 		"servicesTitle": "Vajadzīgs arī praktisks atbalsts?",
@@ -224,11 +225,12 @@
 					"Ekonomista pakalpojumi iekļauti bez papildu maksas.",
 					"Finanšu dati, kas palīdz saprast uzņēmuma un projektu rezultātus."
 				],
-				"saving": "50%",
-				"savingLabel": "zemākas grāmatvedības izmaksas"
+				"saving": "50% zemākas",
+				"savingLabel": "grāmatvedības izmaksas"
 			}
 		},
-		"discussSavings": "Pārrunāt ietaupījumu"
+		"discussSavings": "Pārrunāt ietaupījumu",
+		"stepLabel": "{number}. solis"
 	},
 	"LandingPageDesktop": {
 		"topPill": "Izstrādāts būvniecības apakšuzņēmējiem",

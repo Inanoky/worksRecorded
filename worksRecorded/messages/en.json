@@ -14,7 +14,9 @@
 		"team": {
 			"eyebrow": "The team",
 			"title": "Meet our team.",
-			"description": "We build AI agents and help put them to work in your business."
+			"description": "We build AI agents and help put them to work in your business.",
+			"deividsExperience": "Experienced React and TypeScript developer.",
+			"vjaceslavsExperience": "International experience managing construction projects."
 		},
 		"agentsEyebrow": "Savings with AI agents",
 		"agentsTitle": "How AI saves money",
@@ -22,28 +24,27 @@
 		"savings": [
 			{
 				"title": "Administration costs",
-				"amount": "Up to 50%",
-				"label": "lower administration costs",
+				"amount": "50% lower",
+				"label": "administration costs",
 				"description": "AI enters data and prepares documents and reports, reducing manual work."
 			},
 			{
 				"title": "Management costs",
-				"amount": "Up to 25%",
-				"label": "lower management costs",
+				"amount": "25% lower",
+				"label": "management costs",
 				"description": "AI brings site information together so managers spend less time finding and compiling data."
 			},
 			{
 				"title": "Work costs",
-				"amount": "Up to 15%",
-				"label": "higher productivity",
+				"amount": "15% higher",
+				"label": "productivity",
 				"description": "AI connects working hours with completed tasks, helping identify wasted time and improve work organization."
 			}
 		],
 		"potential": "Savings",
 		"enquire": "Get in touch",
 		"enquireAgent": "Enquire about {agent}",
-		"moreEyebrow": "From estimate to final handover",
-		"moreTitle": "An agent for every project stage",
+		"moreTitle": "Quality agents for construction businesses",
 		"moreDescription": "Connect the support your team needs today. Materials, working hours and tools each have their own agent.",
 		"allAgents": "All 8 agents",
 		"learnMore": "Learn more",
@@ -52,21 +53,21 @@
 		"workflowDescription": "We start with your team's daily work and connect an agent to a specific task.",
 		"steps": [
 			{
-				"title": "Connect your data sources",
-				"description": "Existing WhatsApp conversations, drawings, voice notes, photos, videos, invoices and estimates become the agent's working material."
+				"title": "Understand how you work",
+				"description": "We review your current processes and propose an AI agent suited to your needs."
 			},
 			{
-				"title": "Your agent processes the information",
-				"description": "It organizes records, maps costs to the budget and finds deviations within its area of responsibility."
+				"title": "Test and improve the agent",
+				"description": "We test the agent on real tasks and refine it together with your team."
 			},
 			{
-				"title": "Your team sees and acts",
-				"description": "Results are available in WorksRecorded and can be exported to Excel. Your team makes the decisions."
+				"title": "Deploy and monitor",
+				"description": "We deploy the agent and continuously monitor its performance. We take responsibility for its actions."
 			}
 		],
 		"pricingEyebrow": "Straightforward pricing",
 		"pricingTitle": "Start with one agent.",
-		"pricingDescription": "Build your AI team around the tasks where you need support today.",
+		"pricingDescription": "Payment after you accept the agent.",
 		"chooseAgent": "Discuss your first agent",
 		"servicesEyebrow": "Services for your team",
 		"servicesTitle": "Need practical support too?",
@@ -224,11 +225,12 @@
 					"Economist services included at no additional charge.",
 					"Financial data that helps you understand business and project results."
 				],
-				"saving": "50%",
-				"savingLabel": "lower bookkeeping costs"
+				"saving": "50% lower",
+				"savingLabel": "bookkeeping costs"
 			}
 		},
-		"discussSavings": "Discuss your savings"
+		"discussSavings": "Discuss your savings",
+		"stepLabel": "Step {number}"
 	},
 	"LandingPageDesktop": {
 		"topPill": "Built for trade contractors & site managers",

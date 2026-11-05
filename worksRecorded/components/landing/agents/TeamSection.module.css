@@ -65,6 +65,12 @@
 	line-height: 20px;
 	color: var(--muted);
 }
+.teamMembers figcaption .experience {
+	max-width: 240px;
+	margin-top: 12px;
+	margin-inline: auto;
+	text-wrap: balance;
+}
 
 @media (max-width: 800px) {
 	.teamSection {

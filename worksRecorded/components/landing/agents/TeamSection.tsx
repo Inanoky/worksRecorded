@@ -34,6 +34,7 @@ export function TeamSection() {
 					<figcaption>
 						<h3>Deivids Berkolds</h3>
 						<p>CTO</p>
+						<p className={styles.experience}>{t("deividsExperience")}</p>
 					</figcaption>
 				</figure>
 				<figure>
@@ -47,6 +48,7 @@ export function TeamSection() {
 					<figcaption>
 						<h3>Vjaceslavs Gromatovics</h3>
 						<p>CEO</p>
+						<p className={styles.experience}>{t("vjaceslavsExperience")}</p>
 					</figcaption>
 				</figure>
 			</div>
