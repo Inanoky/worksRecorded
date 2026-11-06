@@ -1,8 +1,7 @@
 import { ArrowRight, Mail, MapPin, Phone } from "lucide-react";
 import { Inter, Inter_Tight } from "next/font/google";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import Link from "@/components/landing/navigation/LandingLink";
-import { AGENTS, DEMO_URL } from "./agents/catalog";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-landing-footer" });
 const interTight = Inter_Tight({
@@ -10,32 +9,23 @@ const interTight = Inter_Tight({
 	variable: "--font-landing-footer-display",
 });
 
+const CALENDLY_URL =
+	"https://calendly.com/vjaceslavs-worksrecorded/30min?month=2026-05";
+
 export default function LandingFooter() {
 	const locale = useLocale();
 	const footer = useTranslations("Footer");
 	const landing = useTranslations("LandingPageDesktop");
-	const agents = useTranslations("AgentLanding");
 
 	const dataLinks = [
-		...AGENTS.map(({ id }) => ({
-			label: agents(`agents.${id}.title`),
-			href: `/${locale}/Landing/Agents#${id}`,
-		})),
+		{ label: footer("siteDiary"), href: `/${locale}/Landing/SiteDiary` },
+		{ label: footer("timesheets"), href: `/${locale}/Landing/Timesheets` },
+		{ label: footer("analytics"), href: `/${locale}/Landing/Analytics` },
 	];
 	const companyLinks = [
-		{ label: agents("nav.services"), href: `/${locale}/Landing/Services` },
-		{
-			label: agents("nav.caseStudies"),
-			href: `/${locale}/Landing/CaseStudies`,
-		},
-		{ label: agents("nav.custom"), href: `/${locale}/Landing/Custom` },
+		{ label: footer("custom"), href: `/${locale}/Landing/Custom` },
 		{ label: footer("pricing"), href: `/${locale}/Landing/Pricing` },
 		{ label: footer("about"), href: `/${locale}/Landing/About` },
-		{
-			label: agents("nav.manufacturing"),
-			href: `/${locale}/Landing/Manufacturing`,
-		},
-		{ label: agents("nav.news"), href: `/${locale}/Landing/News` },
 		{ label: footer("privacy"), href: `/${locale}/Landing/Privacy` },
 	];
 
@@ -45,10 +35,7 @@ export default function LandingFooter() {
 			style={{ fontFamily: "var(--font-landing-footer), sans-serif" }}
 		>
 			<div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-10 xl:px-14">
-				<div
-					data-footer-intro
-					className="grid gap-10 border-b border-white/10 py-14 lg:grid-cols-[1.25fr_0.75fr] lg:items-end lg:py-18"
-				>
+				<div className="grid gap-10 border-b border-white/10 py-14 lg:grid-cols-[1.25fr_0.75fr] lg:items-end lg:py-18">
 					<div className="max-w-3xl">
 						<Link
 							href={`/${locale}/Landing`}
@@ -60,13 +47,13 @@ export default function LandingFooter() {
 							Works<span className="text-[#56eb9f]">Recorded</span>
 						</Link>
 						<p className="mt-5 max-w-xl text-base leading-7 text-[#cfeede] sm:text-lg">
-							{agents("description")}
+							{footer("contactHelp")}
 						</p>
 					</div>
 
 					<div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
 						<Link
-							href={DEMO_URL}
+							href={CALENDLY_URL}
 							target="_blank"
 							rel="noopener noreferrer"
 							className="inline-flex h-12 items-center justify-center rounded-full bg-[#1769ff] px-7 text-sm font-semibold text-white shadow-xl shadow-blue-950/30 transition hover:bg-[#0f5de8]"
@@ -83,12 +70,9 @@ export default function LandingFooter() {
 					</div>
 				</div>
 
-				<div
-					data-footer-links
-					className="grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-[0.9fr_0.9fr_1.2fr] lg:gap-16"
-				>
-					<FooterLinks heading={agents("nav.agents")} links={dataLinks} />
-					<FooterLinks heading={agents("nav.company")} links={companyLinks} />
+				<div className="grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-[0.9fr_0.9fr_1.2fr] lg:gap-16">
+					<FooterLinks heading={footer("data")} links={dataLinks} />
+					<FooterLinks heading={footer("features")} links={companyLinks} />
 
 					<div className="sm:col-span-2 lg:col-span-1">
 						<h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-[#8abda2]">
@@ -119,10 +103,7 @@ export default function LandingFooter() {
 					</div>
 				</div>
 
-				<div
-					data-footer-legal
-					className="grid gap-6 border-t border-white/10 py-8 text-xs leading-5 text-[#8abda2] md:grid-cols-[1fr_auto] md:items-end"
-				>
+				<div className="grid gap-6 border-t border-white/10 py-8 text-xs leading-5 text-[#8abda2] md:grid-cols-[1fr_auto] md:items-end">
 					<div className="space-y-1">
 						<p className="font-semibold text-[#cfeede]">Buvconsult SIA</p>
 						<p>LV40203643527 · 23.04.2025</p>

@@ -1,16 +1,96 @@
-import { LANDING_SECTIONS } from "./agents/catalog";
+// components/landing/NavigationLinks.ts
 
-export const MAIN_LINKS = [
-	{ href: "/Landing/Services", labelKey: "services" },
-	{ href: `/Landing#${LANDING_SECTIONS.workflow}`, labelKey: "howItWorks" },
-	{ href: "/Landing/Pricing", labelKey: "pricing" },
-	{ href: "/Landing/CaseStudies", labelKey: "caseStudies" },
+export const DATA_LINKS = [
+  {
+    id: "Whatsapp",
+    href: "/Landing/SiteDiary",
+    titleKey: "data.whatsapp.title",
+    descriptionKey: "data.whatsapp.description",
+  },
+  {
+    id: "Manufacturing",
+    href: "/Landing/Manufacturing",
+    titleKey: "data.manufacturing.title",
+    descriptionKey: "data.manufacturing.description",
+  },
+  {
+    id: "Timesheets",
+    href: "/Landing/Timesheets",
+    titleKey: "data.timesheets.title",
+    descriptionKey: "data.timesheets.description",
+  },
+  {
+    id: "Analytics",
+    href: "/Landing/Analytics",
+    titleKey: "data.analytics.title",
+    descriptionKey: "data.analytics.description",
+  },
 ] as const;
 
-export const COMPANY_LINKS = [
-	{ href: "/Landing/About", labelKey: "about" },
-	{ href: "/Landing/Manufacturing", labelKey: "manufacturing" },
-	{ href: "/Landing/Custom", labelKey: "custom" },
-	{ href: "/Landing/News", labelKey: "news" },
-	{ href: "/Landing/ContactForm", labelKey: "contacts" },
+export const MAIN_LINKS = [
+     { href:"/Landing/CaseStudies", labelKey: "main.caseStudies" },
+  { href: "/Landing/Custom", labelKey: "main.custom" },
+  { href: "/Landing/Pricing", labelKey: "main.pricing" },
+  { href: "/Landing/About", labelKey: "main.about" },
+  { href: "/Landing/News", labelKey: "main.news" },
+  { href: "/Landing/ContactForm", labelKey: "main.contacts" },
+] as const;
+
+export const COMBINED_LINKS = [
+
+
+    {
+    id: "Projects",
+    href: "/Landing/CaseStudies",
+    titleKey: "main.caseStudies",
+    descriptionKey: "combined.generic",
+  },
+  {
+    id: "Whatsapp",
+    href: "/Landing/SiteDiary",
+    titleKey: "data.whatsapp.title",
+    descriptionKey: "data.whatsapp.description",
+  },
+  {
+    id: "Manufacturing",
+    href: "/Landing/Manufacturing",
+    titleKey: "data.manufacturing.title",
+    descriptionKey: "data.manufacturing.description",
+  },
+  {
+    id: "Timesheets",
+    href: "/Landing/Timesheets",
+    titleKey: "data.timesheets.title",
+    descriptionKey: "data.timesheets.description",
+  },
+  {
+    id: "Analytics",
+    href: "/Landing/Analytics",
+    titleKey: "data.analytics.title",
+    descriptionKey: "data.analytics.description",
+  },
+  {
+    id: "Custom",
+    href: "/Landing/Custom",
+    titleKey: "main.custom",
+    descriptionKey: "combined.generic",
+  },
+  {
+    id: "Pricing",
+    href: "/Landing/Pricing",
+    titleKey: "main.pricing",
+    descriptionKey: "combined.generic",
+  },
+  {
+    id: "About",
+    href: "/Landing/About",
+    titleKey: "main.about",
+    descriptionKey: "combined.generic",
+  },
+  {
+    id: "News",
+    href: "/Landing/News",
+    titleKey: "main.news",
+    descriptionKey: "combined.generic",
+  },
 ] as const;

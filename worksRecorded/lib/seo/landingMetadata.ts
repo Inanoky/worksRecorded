@@ -19,9 +19,9 @@ const localeConfig: Record<SupportedLocale, { ogLocale: string; language: string
 
 const latvianLandingSeo: Record<string, SeoContent> = {
   "/Landing": {
-    title: "Mākslīgā intelekta aģenti būvniekiem | WorksRecorded",
+    title: "Būvniecības datu analītika | WorksRecorded",
     description:
-      "MI aģenti darbu uzskaitei, finanšu analītikai, WhatsApp automatizācijai, tāmēšanai un materiālu kontrolei. 150 EUR par aģentu mēnesī.",
+      "WorksRecorded palīdz Latvijas būvniecības uzņēmumiem veidot būvdarbu žurnālu, darba laika uzskaiti un BIS ierakstus no WhatsApp ziņām ar MI automatizāciju.",
     keywords: [
       "būvdarbu žurnāls",
       "būvniecības programmatūra Latvijā",
@@ -33,9 +33,9 @@ const latvianLandingSeo: Record<string, SeoContent> = {
     ],
   },
   "/Landing/SiteDiary": {
-    title: "Darbu uzskaites MI aģents | WorksRecorded",
+    title: "Būvdarbu žurnāls no WhatsApp ziņām | WorksRecorded",
     description:
-      "Darbu uzskaites aģents analizē WhatsApp sarunas, rasējumus, balss ziņas, attēlus un video. Pārskatāmi projekta dati platformā un Excel. 150 EUR mēnesī.",
+      "Automātiski sagatavojiet ikdienas būvdarbu žurnāla ierakstus no WhatsApp balss ziņām, fotoattēliem un e-pastiem Latvijas būvobjektiem.",
     keywords: [
       "būvdarbu žurnāls",
       "būvdienasgrāmata",
@@ -45,7 +45,7 @@ const latvianLandingSeo: Record<string, SeoContent> = {
     ],
   },
   "/Landing/Timesheets": {
-    title: "Darba laika uzskaites MI aģents | WorksRecorded",
+    title: "Darba laika uzskaite būvniecībā ar WhatsApp | WorksRecorded",
     description:
       "Digitalizējiet brigāžu darba laika uzskaiti, clock-in un rēķinu sagatavošanu būvniecības projektiem ar WhatsApp un lokācijas kontroli.",
     keywords: [
@@ -57,7 +57,7 @@ const latvianLandingSeo: Record<string, SeoContent> = {
     ],
   },
   "/Landing/BIS-integracija": {
-    title: "BIS dokumentācijas pārvaldības pakalpojums | WorksRecorded",
+    title: "BIS integrācija un automātiska būvdarbu ierakstu aizpilde | WorksRecorded",
     description:
       "Samaziniet manuālu BIS aizpildīšanu — WorksRecorded pārvērš būvobjekta WhatsApp ziņas un pavadzīmju foto strukturētos BIS ierakstos.",
     keywords: [
@@ -69,7 +69,7 @@ const latvianLandingSeo: Record<string, SeoContent> = {
     ],
   },
   "/Landing/Analytics": {
-    title: "Finanšu analītikas MI aģents būvniecībai | WorksRecorded",
+    title: "Būvniecības analītika un projektu KPI | WorksRecorded",
     description:
       "Iegūstiet analītiku no būvdarbu žurnāla, darba stundām un projekta datiem, lai kontrolētu izmaksas, progresu un produktivitāti.",
     keywords: [
@@ -81,7 +81,7 @@ const latvianLandingSeo: Record<string, SeoContent> = {
     ],
   },
   "/Landing/Custom": {
-    title: "Pielāgoti MI aģenti būvniecībai | WorksRecorded",
+    title: "Pielāgoti digitālie risinājumi būvniecībai Latvijā | WorksRecorded",
     description:
       "Izstrādājam praktiskus MI un automatizācijas risinājumus būvniecības uzņēmumiem — atskaitēm, dokumentiem, procesiem un datu analītikai.",
     keywords: [
@@ -95,7 +95,7 @@ const latvianLandingSeo: Record<string, SeoContent> = {
   "/Landing/CaseStudies": {
     title: "Būvniecības digitalizācijas piemēri Latvijā | WorksRecorded",
     description:
-      "Līmenī, FIMA, TGEM un Stone & Tree pieredze ar WorksRecorded. Uzņēmumu vajadzībām pielāgoti digitāli risinājumi un MI atbalsts ikdienas darbam.",
+      "Apskatiet, kā WorksRecorded palīdz būvniecības komandām sakārtot objektu pierakstus, darba stundas, foto un atskaites vienā sistēmā.",
     keywords: [
       "būvniecības digitalizācija",
       "būvniecības piemēri",
@@ -104,9 +104,9 @@ const latvianLandingSeo: Record<string, SeoContent> = {
     ],
   },
   "/Landing/Pricing": {
-    title: "MI aģenti par 150 EUR mēnesī | WorksRecorded cenas",
+    title: "WorksRecorded cena būvniecības komandām Latvijā",
     description:
-      "Izvēlieties MI aģentus būvniecības uzdevumiem. 150 EUR mēnesī par katru aģentu. BIS dokumentācija un grāmatvedība pieejami kā pakalpojumi.",
+      "Pārskatāma cena būvdarbu žurnālam, darba laika uzskaitei un BIS automatizācijai. Izmēģiniet WorksRecorded bez bankas kartes.",
     keywords: [
       "būvniecības programmatūras cena",
       "būvdarbu žurnāla cena",
@@ -115,7 +115,7 @@ const latvianLandingSeo: Record<string, SeoContent> = {
     ],
   },
   "/Landing/About": {
-    title: "Par WorksRecorded — MI aģenti būvniekiem",
+    title: "Par WorksRecorded — būvniecības dokumentācijas automatizācija",
     description:
       "WorksRecorded ir Latvijā veidots rīks būvniecības komandām, kas pārvērš ikdienas saziņu strukturētos datos, atskaitēs un lēmumu pieņemšanā.",
     keywords: [
@@ -158,9 +158,9 @@ const latvianLandingSeo: Record<string, SeoContent> = {
 
 const russianLandingSeo: Record<string, SeoContent> = {
   "/Landing": {
-    title: "ИИ-агенты для строителей | WorksRecorded",
+    title: "Учёт строительных работ и интеграция с BIS",
     description:
-      "ИИ-агенты для учёта работ, финансовой аналитики, автоматизации WhatsApp, составления смет и контроля материалов. 150 EUR за агента в месяц.",
+      "WorksRecorded помогает строительным компаниям вести журнал работ, учитывать рабочее время и создавать записи BIS из сообщений WhatsApp с помощью ИИ.",
     keywords: [
       "журнал строительных работ",
       "программное обеспечение для строительства",
@@ -171,7 +171,7 @@ const russianLandingSeo: Record<string, SeoContent> = {
     ],
   },
   "/Landing/SiteDiary": {
-    title: "ИИ-агент учёта строительных работ | WorksRecorded",
+    title: "Журнал строительных работ из сообщений WhatsApp",
     description:
       "Автоматически создавайте точные ежедневные записи о строительных работах из голосовых сообщений и фотографий WhatsApp.",
     keywords: [
@@ -182,7 +182,7 @@ const russianLandingSeo: Record<string, SeoContent> = {
     ],
   },
   "/Landing/Timesheets": {
-    title: "ИИ-агент учёта рабочего времени | WorksRecorded",
+    title: "Учёт рабочего времени в строительстве через WhatsApp",
     description:
       "Автоматизируйте учёт рабочего времени бригад через WhatsApp с контролем местоположения на строительной площадке.",
     keywords: [
@@ -193,7 +193,7 @@ const russianLandingSeo: Record<string, SeoContent> = {
     ],
   },
   "/Landing/Analytics": {
-    title: "ИИ-агент финансовой аналитики | WorksRecorded",
+    title: "Аналитика строительных проектов и KPI",
     description:
       "Контролируйте затраты, ход работ и производительность с помощью аналитики строительных данных на базе ИИ.",
     keywords: [
@@ -215,7 +215,7 @@ const russianLandingSeo: Record<string, SeoContent> = {
     ],
   },
   "/Landing/Custom": {
-    title: "Индивидуальные ИИ-агенты для строительства",
+    title: "Индивидуальные цифровые решения для строительства",
     description:
       "Создаём практичные решения на базе ИИ для автоматизации строительных отчётов, документов, процессов и аналитики.",
     keywords: [
@@ -228,7 +228,7 @@ const russianLandingSeo: Record<string, SeoContent> = {
   "/Landing/CaseStudies": {
     title: "Примеры цифровизации строительных процессов",
     description:
-      "Опыт Līmenī, FIMA, TGEM и Stone & Tree с WorksRecorded. Цифровые решения под задачи компаний и поддержка ИИ в повседневной работе.",
+      "Узнайте, как строительные команды используют WorksRecorded для учёта работ, фотографий, рабочего времени и отчётности.",
     keywords: [
       "цифровизация строительства",
       "примеры строительных проектов",
@@ -237,9 +237,9 @@ const russianLandingSeo: Record<string, SeoContent> = {
     ],
   },
   "/Landing/Pricing": {
-    title: "ИИ-агенты за 150 EUR в месяц | WorksRecorded",
+    title: "Цены WorksRecorded для строительных команд",
     description:
-      "150 EUR в месяц за каждого выбранного ИИ-агента. Ведение документации BIS и бухгалтерия доступны как услуги.",
+      "Прозрачная цена на журнал строительных работ, учёт рабочего времени, производственный учёт и аналитику.",
     keywords: [
       "цена строительного программного обеспечения",
       "цена журнала строительных работ",
@@ -248,7 +248,7 @@ const russianLandingSeo: Record<string, SeoContent> = {
     ],
   },
   "/Landing/About": {
-    title: "О WorksRecorded — ИИ-агенты для строителей",
+    title: "О WorksRecorded - автоматизация строительной документации",
     description:
       "WorksRecorded превращает ежедневные сообщения строительных команд в структурированные данные, отчёты и полезную аналитику.",
     keywords: [
@@ -415,7 +415,7 @@ export function buildLandingJsonLd(locale: string) {
           height: 512,
         },
         description:
-          "WorksRecorded provides AI agents for construction work records, financial analytics, cost control, estimating, materials, and tool tracking, with BIS and bookkeeping services.",
+          "WorksRecorded turns construction-site messages, voice notes, photos, and documents into structured site diaries, timesheets, BIS records, and project data.",
         telephone: "+37124885690",
         email: "vjaceslavs@worksrecorded.com",
         vatID: "LV40203643527",
@@ -453,10 +453,10 @@ export function buildLandingJsonLd(locale: string) {
         url: homeUrl,
         inLanguage: localeConfig[normalizedLocale].language,
         description: isLatvian
-          ? "Mākslīgā intelekta aģenti būvniekiem. Darbu uzskaite, finanšu analītika, izmaksu kontrole un tāmēšana par 150 EUR mēnesī par aģentu."
+          ? "Būvdarbu žurnāls, darba laika uzskaite un BIS automatizācija Latvijas būvniecības komandām."
           : isRussian
-            ? "ИИ-агенты для строителей. Учёт работ, финансовая аналитика, контроль затрат и составление смет за 150 EUR в месяц за агента."
-            : "AI agents for construction work records, financial analytics, cost control and estimating. EUR 150 per agent per month.",
+            ? "Журнал строительных работ, учёт рабочего времени и автоматизация отчётности для строительных команд."
+            : "Site diary, timesheets, and reporting automation for construction teams.",
         offers: {
           "@type": "Offer",
           priceCurrency: "EUR",

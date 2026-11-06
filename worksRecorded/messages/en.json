@@ -1,256 +1,24 @@
 {
-	"AgentLanding": {
-		"eyebrow": "WorksRecorded · AI agents for construction",
-		"title": "Artificial intelligence agents",
-		"titleHighlight": "for builders",
-		"description": "WorksRecorded takes responsibility for the performance of its AI agents.",
-		"bookDemo": "Book a demonstration",
-		"exploreAgents": "Meet the agents",
-		"perAgentMonth": "per agent per month",
-		"pricingDetails": "View pricing",
-		"heroImageAlt": "WorksRecorded AI agent in a hard hat holding a tablet",
-		"agentLabel": "AI agent",
-		"serviceLabel": "Service",
-		"team": {
-			"eyebrow": "The team",
-			"title": "Meet our team.",
-			"description": "We build AI agents and help put them to work in your business.",
-			"deividsExperience": "Experienced React and TypeScript developer.",
-			"vjaceslavsExperience": "International experience managing construction projects."
-		},
-		"agentsEyebrow": "Savings with AI agents",
-		"agentsTitle": "How AI saves money",
-		"agentsDescription": "Choose agents for the problems your team faces every day. Each works with your project data and delivers a clear result.",
-		"savings": [
-			{
-				"title": "Administration costs",
-				"amount": "50% lower",
-				"label": "administration costs",
-				"description": "AI enters data and prepares documents and reports, reducing manual work."
-			},
-			{
-				"title": "Management costs",
-				"amount": "25% lower",
-				"label": "management costs",
-				"description": "AI brings site information together so managers spend less time finding and compiling data."
-			},
-			{
-				"title": "Work costs",
-				"amount": "15% lower",
-				"label": "work costs",
-				"description": "AI connects working hours with completed tasks, helping identify wasted time and improve work organization."
-			}
-		],
-		"potential": "Savings",
-		"enquire": "Get in touch",
-		"enquireAgent": "Enquire about {agent}",
-		"moreTitle": "Quality agents for construction businesses",
-		"moreDescription": "Connect the support your team needs today. Materials, working hours and tools each have their own agent.",
-		"allAgents": "All 8 agents",
-		"learnMore": "Learn more",
-		"workflowEyebrow": "How it works",
-		"workflowTitle": "Your data. An agent at work. A clear result.",
-		"workflowDescription": "We start with your team's daily work and connect an agent to a specific task.",
-		"steps": [
-			{
-				"title": "Understand how you work",
-				"description": "We review your current processes and propose an AI agent suited to your needs."
-			},
-			{
-				"title": "Test and improve the agent",
-				"description": "We test the agent on real tasks and refine it together with your team."
-			},
-			{
-				"title": "Deploy and monitor",
-				"description": "We deploy the agent and continuously monitor its performance. We take responsibility for its actions."
-			}
-		],
-		"pricingEyebrow": "Straightforward pricing",
-		"pricingTitle": "Start with one agent.",
-		"pricingDescription": "Payment after you accept the agent.",
-		"chooseAgent": "Discuss your first agent",
-		"servicesEyebrow": "Services for your team",
-		"servicesTitle": "Need practical support too?",
-		"discussService": "Discuss the scope of service",
-		"catalogTitle": "Choose your AI team.",
-		"catalogDescription": "Eight specialist agents for everyday construction work. Each with a specific task and a clear result.",
-		"servicesPageTitle": "We take responsibility.",
-		"servicesPageDescription": "Let us handle BIS documentation and bookkeeping so your team can focus on construction.",
-		"pricingPageTitle": "AI agent pricing",
-		"pricingIncludesTitle": "What you receive",
-		"pricingIncludes": [
-			"Your selected AI agent for a specific task",
-			"Project data collection and analysis within the agent's remit",
-			"Clear results in the WorksRecorded platform",
-			"Excel data exports"
-		],
-		"pricingExampleTitle": "You choose how many agents",
-		"pricingExample": "Two agents cost EUR {two} per month. Three cost EUR {three} per month. We agree which tasks to start with during a consultation.",
-		"pricingServicesNote": "For BIS and bookkeeping services, we discuss the work required.",
-		"detailEyebrow": "WorksRecorded AI agent",
-		"detailPrice": "EUR 150 per agent per month",
-		"nav": {
-			"agents": "AI agents",
-			"services": "Services",
-			"howItWorks": "How it works",
-			"pricing": "Pricing",
-			"caseStudies": "Case studies",
-			"about": "About us",
-			"contacts": "Contact",
-			"allAgents": "Explore all agents",
-			"allServices": "All services",
-			"menu": "Open navigation",
-			"company": "Company",
-			"manufacturing": "Manufacturing solutions",
-			"custom": "Custom agents",
-			"news": "News"
-		},
-		"agents": {
-			"workRecords": {
-				"title": "Work records agent",
-				"question": "Where did 10,000 working hours go? We know.",
-				"description": "Your agent analyzes existing WhatsApp conversations and turns them into a structured history of work.",
-				"points": [
-					"Analyzes drawings, voice notes, images and videos.",
-					"Organizes completed work by task and project.",
-					"Keeps clear records in the platform and Excel."
-				],
-				"saving": "Up to 10%",
-				"savingLabel": "lower project labour costs"
-			},
-			"financialAnalytics": {
-				"title": "Financial analytics agent",
-				"question": "Which contract items are over budget?",
-				"description": "Every cent has a spending category and a link to your estimate items.",
-				"points": [
-					"Maps costs to your budget structure.",
-					"Provides detailed cost breakdowns.",
-					"Forecasts the cost of completing the project."
-				],
-				"saving": "Up to 15%",
-				"savingLabel": "better project financial performance"
-			},
-			"whatsapp": {
-				"title": "WhatsApp automation agent",
-				"question": "All the information in your chats, organized.",
-				"description": "Your agent analyzes daily communication to give project managers an up-to-date view of the site.",
-				"points": [
-					"Collects information from existing WhatsApp chats.",
-					"Analyzes messages and attached materials.",
-					"Turns information into clear records and reports."
-				],
-				"saving": "Up to €1,000",
-				"savingLabel": "per month in project management costs"
-			},
-			"financialControl": {
-				"title": "Financial control agent",
-				"question": "What did each m² cost today?",
-				"description": "Daily cost control helps managers act on overspending while work is still underway.",
-				"points": [
-					"Shows daily costs per m².",
-					"Compares actual spending with the plan.",
-					"Helps managers spot deviations early."
-				],
-				"saving": "Up to 10%",
-				"savingLabel": "lower project costs"
-			},
-			"estimation": {
-				"title": "Estimating agent",
-				"question": "Your next estimate starts with your experience.",
-				"description": "Your agent prepares estimates for new projects using data from your previous work.",
-				"points": [
-					"Uses actual work and resource costs.",
-					"Compiles data for new project estimates.",
-					"Reduces manual estimating work."
-				],
-				"saving": "Up to €2,000",
-				"savingLabel": "per month in estimating costs"
-			},
-			"materials": {
-				"title": "Materials tracking agent",
-				"question": "Spot overconsumption while you can act.",
-				"description": "Track deliveries and consumption against your project plan.",
-				"points": [
-					"Records received and consumed materials.",
-					"Connects consumption to project tasks.",
-					"Highlights excess consumption for action on site."
-				],
-				"saving": "Up to 15%",
-				"savingLabel": "lower material costs"
-			},
-			"timesheets": {
-				"title": "Timesheet agent",
-				"question": "Every hour connected to the work.",
-				"description": "Precise employee time tracking linked to your budget items.",
-				"points": [
-					"Collects employee working hours.",
-					"Maps hours to tasks and estimate items.",
-					"Compares planned and actual labour costs."
-				],
-				"saving": "Up to 10%",
-				"savingLabel": "lower labour costs"
-			},
-			"tools": {
-				"title": "Tool tracking agent",
-				"question": "Where are your tools and what are you renting?",
-				"description": "Control tool movements and equipment rental costs in one place.",
-				"points": [
-					"Tracks tool locations and movements.",
-					"Collects tool and rental costs.",
-					"Helps identify unnecessary rental days and idle tools."
-				],
-				"saving": "Up to 20%",
-				"savingLabel": "lower tool and rental costs"
-			}
-		},
-		"services": {
-			"bis": {
-				"title": "BIS documentation management",
-				"question": "Tell us what is done. We handle BIS.",
-				"description": "You report completed work. We prepare and maintain the BIS documentation.",
-				"points": [
-					"Review drawings, material documents and declarations.",
-					"Prepare daily works, materials and construction products.",
-					"Prepare the required work acceptance acts."
-				],
-				"saving": "Up to €1,000",
-				"savingLabel": "per month in BIS administration costs"
-			},
-			"accounting": {
-				"title": "Bookkeeping service",
-				"question": "Bookkeeping with a view of project performance.",
-				"description": "We hold an outsourced bookkeeping service provider licence. We provide bookkeeping and economist support for construction businesses.",
-				"points": [
-					"Bookkeeping at 50% lower cost than a standard outsourced agency.",
-					"Economist services included at no additional charge.",
-					"Financial data that helps you understand business and project results."
-				],
-				"saving": "50% lower",
-				"savingLabel": "bookkeeping costs"
-			}
-		},
-		"discussSavings": "Discuss your savings",
-		"stepLabel": "Step {number}"
-	},
 	"LandingPageDesktop": {
 		"topPill": "Built for trade contractors & site managers",
-		"heroTitle": "Artificial intelligence agents for builders",
+		"heroTitle": "WhatsApp as your work tracking tool",
 		"heroRotatingTitles": [
 			"Site records",
 			"Production records",
 			"Cost control"
 		],
-		"smallDescription": "Put AI agents to work on your everyday project data. From WhatsApp conversations to work records, cost control and better estimates.",
-		"heroDescription": "EUR 150 per month for each selected AI agent. Build your team around the tasks where you need support today.",
+		"smallDescription": "Structured work records, cost control and clear reports — all through WhatsApp.",
+		"heroDescription": "WorksRecorded helps construction and manufacturing teams capture completed work, track labour costs and keep every important detail in one place.",
 		"heroRating": "4.8 / 5 customer rating",
 		"heroSetup": "Quick to implement",
 		"contactUs": "Contact us",
-		"startFreeTrial": "Sign up",
+		"startFreeTrial": "Try now",
 		"signIn": "Talk to a live person",
-		"noCardNote": "",
+		"noCardNote": "No credit card",
 		"heroImageAlt": "worksRecorded hero preview",
 		"videoTitle": "WorksRecorded demo",
 		"videoCaption": "1-minute walkthrough - how WhatsApp updates become a structured site diary.",
+
 		"section2Pill": "For building contractors, MEP, energy and utilities",
 		"section2Title": "Send voice notes through WhatsApp — AI organizes them",
 		"section2Description": "No more excuses, there is always time for a voice message",
@@ -352,33 +120,24 @@
 			"Līmenī is a cement screed and concrete flooring specialist with more than 20 years of experience in Latvia’s construction industry."
 		]
 	},
+
 	"LandingText": {
 		"whatDoWeDo": {
 			"heading": "Features",
 			"items": [
-				{
-					"title": "Fully customizible to fit your operations"
-				},
-				{
-					"title": "Fields from your existing forms"
-				},
-				{
-					"title": "Upload photos with comments"
-				},
-				{
-					"title": "Sorted by cost codes and locations"
-				},
-				{
-					"title": "24/7 live technical support"
-				},
+				{ "title": "Fully customizible to fit your operations" },
+				{ "title": "Fields from your existing forms" },
+				{ "title": "Upload photos with comments" },
+				{ "title": "Sorted by cost codes and locations" },
+				{ "title": "24/7 live technical support" },
+
 				{
 					"title": "Intelligent sorting set up according to your trade specifics"
 				},
-				{
-					"title": "Built to reduce admin time for site teams and managers"
-				}
+				{ "title": "Built to reduce admin time for site teams and managers" }
 			]
 		},
+
 		"howDoWeDoThat": {
 			"heading": "Who is it for?",
 			"items": [
@@ -412,22 +171,24 @@
 				}
 			]
 		},
+
 		"why": {
 			"heading": "Why WorksRecorded?",
 			"description": "WhatsApp is the most widely used messenger for construction",
 			"bullets": [
 				"No integration, you are already using WhatsApp",
-				"EUR 150 per month for each selected AI agent. Build your team around the tasks where you need support today.",
+				"Cost: 30 EUR per user/month, saves up to 20 admin hours a month",
 				"Integration with Procore and other popular software",
 				"Personal touch - we will tweak according to your needs, talk to us!"
 			]
 		}
 	},
+
 	"SiteDiary": {
 		"hero": {
-			"titlePrefix": "Work records agent",
-			"titleHighlight": "",
-			"description": "Your agent analyzes existing WhatsApp conversations and turns them into a structured history of work. Analyzes drawings, voice notes, images and videos.",
+			"titlePrefix": "Built for",
+			"titleHighlight": "contractors",
+			"description": "Capture what happens on site, control project costs and keep reliable evidence — without adding more software or administration for your team.",
 			"cta": "Talk to us",
 			"photoCaption": "WhatsApp updates become structured project data.",
 			"photoAlt": "Construction team reviewing an active building site"
@@ -497,10 +258,12 @@
 			]
 		},
 		"title": "Construction site records",
+
 		"block1": {
 			"title": "How do we do that",
 			"text": "Just send a voice message to WorksRecorded WhatsApp describing what happened today. Our AI will transform your words into a structured site diary record."
 		},
+
 		"block2": {
 			"title": "What is your benefit",
 			"p1": "Everything that happens on site during the project is stored and easily accessible.",
@@ -515,18 +278,22 @@
 			"p4": "Estimation? You know exactly how much time you’ve spent.",
 			"p5": "Your project recorded."
 		},
+
 		"images": {
 			"siteDiaryAlt": "Site diary",
 			"whatsappAlt": "WhatsApp",
 			"galleryAlt": "Site diary gallery"
 		}
 	},
+
 	"Timesheets": {
-		"title": "Timesheet agent",
+		"title": "Timesheets",
+
 		"block1": {
 			"title": "How do we do that",
-			"text": "Precise employee time tracking linked to your budget items. Collects employee working hours. Maps hours to tasks and estimate items. Compares planned and actual labour costs."
+			"text": "Workers use WhatsApp to chat with WorksRecorded to clock in and out of work. Before clocking out, the AI asks them to describe what was achieved during the day. The information is structured and stored in the database automatically. Geofence functionality is also included — the site manager marks the site area on a map, and workers can only clock in when they are physically inside that area."
 		},
+
 		"block2": {
 			"title": "What is your benefit",
 			"li1": "Get every work hour accounted for.",
@@ -534,6 +301,7 @@
 			"li3": "Identify waste, set targets, and measure KPIs for labor.",
 			"li4": "Geofence control ensures workers can clock in only on-site."
 		},
+
 		"images": {
 			"dashboardAlt": "Timesheets dashboard",
 			"whatsappAlt": "WhatsApp",
@@ -542,12 +310,15 @@
 			"geofenceAreaAlt": "Site area geofence setup on map"
 		}
 	},
+
 	"Analytics": {
-		"title": "Financial analytics agent",
+		"title": "Analytics",
+
 		"block1": {
 			"title": "How do we do that",
-			"text": "Every cent has a spending category and a link to your estimate items. Maps costs to your budget structure. Provides detailed cost breakdowns. Forecasts the cost of completing the project."
+			"text": "We combine data science with AI and construction industry expertise to automatically extract analytics from your data. We’ll provide the insights you need—bill of quantities, progress statistics, hindrances, delays, average performance, cost per category and period, areas of waste and improvement, and more."
 		},
+
 		"block2": {
 			"title": "What is your benefit",
 			"li1": "Advanced pre-made analytics for immediate results.",
@@ -555,11 +326,13 @@
 			"li3": "Fully dynamic — updates as the project progresses.",
 			"li4": "Forecast finances, cash flow, and work progress."
 		},
+
 		"images": {
 			"overviewAlt": "Analytics overview",
 			"detailsAlt": "Analytics details"
 		}
 	},
+
 	"Manufacturing": {
 		"hero": {
 			"titlePrefix": "Built for",
@@ -645,8 +418,10 @@
 			"teamTraining": "Team onboarding"
 		}
 	},
+
 	"CustomSolutions": {
-		"title": "Custom agents",
+		"title": "Custom digital solutions",
+
 		"block1": {
 			"title": "How do we do that",
 			"p1": {
@@ -657,79 +432,92 @@
 			"p2": "Once a custom system is designed and implemented, it keeps paying off—clean records, less manual work, and analytics that support decisions.",
 			"p3": "Email us the process you want to digitalize and automate, and we’ll propose an effective, pragmatic solution."
 		},
+
 		"block2": {
 			"title": "What is your benefit",
 			"p1": "Construction is one of the last under-digitalized frontiers. Get ahead and leverage the AI wave to improve margins, bids, and day-to-day processes.",
 			"p2": "From construction professionals to construction professionals. Practical tools, minimal friction, real outcomes."
 		},
+
 		"images": {
 			"siteAlt": "On-site digital solutions",
 			"developmentAlt": "Custom development"
 		}
 	},
+
 	"Pricing": {
 		"title": {
-			"prefix": "EUR 150 per agent per month.",
-			"highlight": "Start with one agent."
+			"prefix": "30 EUR /",
+			"highlight": "user"
 		},
-		"description": "EUR 150 per month for each selected AI agent. Build your team around the tasks where you need support today.",
+		"description": "Transparent monthly pricing per user, designed to scale with your project’s size and complexity. We also offer per-project pricing options, depending on how your company operates and discounts if you have many operatives. Contact us for a custom quote.",
 		"warehouseService": {
-			"title": "Materials tracking agent",
-			"price": "150 EUR",
-			"period": "per agent per month"
+			"title": "Warehouse functionality",
+			"price": "20 EUR",
+			"period": "per month"
 		},
 		"bisService": {
 			"title": "BIS documentation management",
-			"price": "Discuss the scope of service",
-			"period": "Service"
+			"price": "€150",
+			"period": "per BIS case per month"
 		}
 	},
+
 	"About": {
 		"title": "About",
-		"p1": "Put AI agents to work on your everyday project data. From WhatsApp conversations to work records, cost control and better estimates.",
+		"p1": "Do you know what is happening on your construction site? Tracking construction works is not easy.",
 		"p2": "Site management is often overloaded and reluctant to take up additional admin burden to keep records.",
 		"p3": "Even if they exist, records are often scattered, unorganized, and need large effort to be sorted to become useful.",
 		"p4": "When records are missing, it is hard to improve processes, track metrics, argue claims/additional works, account for lost time, or generally understand why things are where they are.",
 		"p5": "Current digital tools are complex, take time and effort to integrate, and are often met with resistance from overloaded site teams.",
 		"p6": {
-			"prefix": "Combining construction experience with AI, I created",
+			"prefix": "To help, I created a small tool called",
 			"bold": "WorksRecorded.com"
 		},
-		"p7": "Your agent analyzes existing WhatsApp conversations and turns them into a structured history of work. Every cent has a spending category and a link to your estimate items.",
+		"p7": "Site managers use WhatsApp to take voice/text notes of site activities. The system then automatically sorts and stores records, which can be viewed from a browser.",
 		"p8": "This allows site management to spend more time on site, overseeing works, and less time in the office doing admin.",
 		"p9": "Simultaneously, this also lets project management better understand the project so they can analyze, act, and argue their position confidently to the GC/Client.",
 		"p10": "I have used this tool myself and find it simple yet powerful during complicated construction projects.",
-		"p11": "EUR 150 per month for each selected AI agent. Build your team around the tasks where you need support today. WorksRecorded is a product of Buvconsult SIA, Latvia.",
+		"p11": "I will be happy if it helps you too. It is free for one project for everyone while in beta, and I will be happy to discuss and help if you have any questions. WorksRecorded is a product of Buvconsult SIA, Latvia",
 		"images": {
 			"selfieAlt": "Vjaceslavs Gromatovičs"
 		}
 	},
+
 	"Contact": {
-		"heroTitle": "Discuss your first agent",
-		"heroDescription": "EUR 150 per month for each selected AI agent. Build your team around the tasks where you need support today. Alongside AI agents, we offer BIS documentation and bookkeeping services.",
+		"heroTitle": "Let's Connect! 🚀",
+		"heroDescription": "Call us, send an email, write on WhatsApp, or fill out the form. We guarantee to get in touch with you **the same day**!",
+
 		"quickDetailsTitle": "Quick Details",
 		"phoneLabel": "Phone:",
 		"emailLabel": "Email:",
 		"webLabel": "Web:",
+
 		"formTitle": "Send us a Message",
+
 		"firstNameLabel": "First Name",
 		"lastNameLabel": "Last Name",
 		"emailFieldLabel": "Email",
 		"subjectLabel": "Subject",
 		"messageLabel": "Message",
+
 		"firstNamePlaceholder": "First Name",
 		"lastNamePlaceholder": "Last Name",
 		"emailPlaceholder": "Your best email",
 		"subjectPlaceholder": "Project Inquiry, Consultation, etc.",
 		"messagePlaceholder": "Tell us about your project or inquiry...",
+
 		"sending": "Sending…",
 		"sendMessage": "Send Message",
+
 		"status": {
 			"errorDefault": "Something went wrong. Please try again."
 		}
 	},
+
 	"Navigation": {
 		"features": "Features",
+
 		"data": {
 			"whatsapp": {
 				"title": "Site records",
@@ -752,6 +540,7 @@
 				"description": "Case studies"
 			}
 		},
+
 		"main": {
 			"custom": "Custom solutions",
 			"pricing": "Pricing",
@@ -760,18 +549,22 @@
 			"contacts": "Contacts",
 			"caseStudies": "Projects"
 		},
+
 		"combined": {
 			"generic": "Get live custom analytics"
 		}
 	},
+
 	"AuthButtons": {
 		"signIn": "Sign in",
 		"signUp": "Sign up",
-		"tryForFree": "Sign up"
+		"tryForFree": "Try for free"
 	},
+
 	"Header": {
 		"bisIntegrated": "Integrated with"
 	},
+
 	"Footer": {
 		"data": "Data",
 		"siteDiary": "Site diary",

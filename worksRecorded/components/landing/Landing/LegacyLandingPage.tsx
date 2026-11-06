@@ -18,7 +18,7 @@ import {
 	type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
-import Link from "@/components/landing/navigation/LandingLink";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import HowItWorksDiagram from "@/public/frontend/pages/Home/HowItWorksDiagram.png";
@@ -66,21 +66,15 @@ export default function LegacyLandingPage() {
 				<div className="relative mx-auto grid w-full max-w-[1440px] items-center gap-8 px-5 py-12 sm:px-8 sm:py-16 lg:min-h-[650px] lg:grid-cols-[0.9fr_1.1fr] lg:gap-14 lg:px-10 lg:py-12 xl:gap-20 xl:px-14">
 					<div className="relative z-10 mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
 						<h1 className="text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.75rem] xl:text-[4.25rem] dark:text-white">
-							{heroTitle.startsWith("WhatsApp") ? (
-								<>
-									<span className="inline-flex items-center gap-[0.16em] whitespace-nowrap">
-										WhatsApp
-										<IconBrandWhatsapp
-											className="size-[0.86em] shrink-0 translate-y-[0.05em] text-[#087a49]"
-											stroke={1.9}
-											aria-hidden="true"
-										/>
-									</span>{" "}
-									<span>{heroTitleAfterWhatsApp}</span>
-								</>
-							) : (
-								heroTitle
-							)}
+							<span className="inline-flex items-center gap-[0.16em] whitespace-nowrap">
+								WhatsApp
+								<IconBrandWhatsapp
+									className="size-[0.86em] shrink-0 translate-y-[0.05em] text-[#087a49]"
+									stroke={1.9}
+									aria-hidden="true"
+								/>
+							</span>{" "}
+							<span>{heroTitleAfterWhatsApp}</span>
 						</h1>
 
 						<p className="mx-auto mt-6 max-w-xl text-balance text-lg font-medium leading-8 text-slate-700 sm:text-xl lg:mx-0 dark:text-slate-200">

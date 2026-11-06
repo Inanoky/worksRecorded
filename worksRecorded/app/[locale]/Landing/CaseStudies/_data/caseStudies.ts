@@ -1,10 +1,3 @@
-import type { StaticImageData } from "next/image";
-import {
-  guideSlug,
-  progressGuide,
-} from "../how-to-track-construction-site-progress/content";
-import { getCustomerExperiences } from "./customerExperiences";
-
 export type CaseStudyMeta = {
   slug: string;
   title: string;
@@ -12,8 +5,7 @@ export type CaseStudyMeta = {
   location?: string;
   industry?: string;
   excerpt: string;
-  coverImage?: string | StaticImageData;
-  logoCover?: boolean;
+  coverImage?: string;
   tags?: string[];
   date?: string;
 };
@@ -26,33 +18,11 @@ type LocalizedCaseStudy = Omit<
 > & {
   translations: Record<
     CaseStudyLocale,
-    Pick<
-      CaseStudyMeta,
-      "title" | "company" | "location" | "industry" | "excerpt" | "tags"
-    >
+    Pick<CaseStudyMeta, "title" | "company" | "location" | "industry" | "excerpt" | "tags">
   >;
 };
 
 const localizedCaseStudies: LocalizedCaseStudy[] = [
-  {
-    slug: guideSlug,
-    coverImage: "/frontend/pages/SiteDiary/hero-construction-site-scott-blake.jpg",
-    date: "2026-11-04",
-    translations: {
-      en: {
-        title: progressGuide.en.title,
-        company: "Practical guide",
-        excerpt: progressGuide.en.description,
-        tags: ["Site progress", "Work management", "Labour cost control"],
-      },
-      lv: {
-        title: progressGuide.lv.title,
-        company: "Praktisks ceļvedis",
-        excerpt: progressGuide.lv.description,
-        tags: ["Būvdarbu progress", "Darbu vadība", "Darbaspēka izmaksas"],
-      },
-    },
-  },
   {
     slug: "Deprom",
     coverImage: "/pictures/deprom.jpeg",
@@ -114,7 +84,7 @@ const localizedCaseStudies: LocalizedCaseStudy[] = [
         location: "Remote job sites",
         industry: "Construction / Infrastructure",
         excerpt:
-          "Daily reports from site managers help project managers understand progress, improve control, and react faster to events on remote projects.",
+          "Daily reports from site managers help project managers understand progress, improve control, and react faster to events on remote 3-4 month projects.",
         tags: ["Site diary", "Remote sites", "Reporting"],
       },
       lv: {
@@ -187,27 +157,10 @@ function normalizeLocale(locale: string): CaseStudyLocale {
 export function getCaseStudies(locale: string): CaseStudyMeta[] {
   const normalizedLocale = normalizeLocale(locale);
 
-  const existingStudies = localizedCaseStudies
-    .filter(
-      (study) => study.slug !== guideSlug || locale === "lv" || locale === "en",
-    )
-    .map(({ translations, ...caseStudy }) => ({
-      ...caseStudy,
-      ...translations[normalizedLocale],
-    }));
-
-  return [
-    ...getCustomerExperiences(locale).map((experience) => ({
-      slug: experience.slug,
-      title: experience.title,
-      company: experience.company,
-      excerpt: experience.excerpt,
-      coverImage: experience.logo,
-      logoCover: true,
-      tags: experience.tags,
-    })),
-    ...existingStudies,
-  ];
+  return localizedCaseStudies.map(({ translations, ...caseStudy }) => ({
+    ...caseStudy,
+    ...translations[normalizedLocale],
+  }));
 }
 
 export const caseStudies: CaseStudyMeta[] = getCaseStudies("en");

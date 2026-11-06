@@ -1,256 +1,24 @@
 {
-	"AgentLanding": {
-		"eyebrow": "WorksRecorded · MI aģenti būvniecībai",
-		"title": "Mākslīgā intelekta aģenti",
-		"titleHighlight": "būvniekiem",
-		"description": "WorksRecorded uzņemas atbildību par MI aģentu darba rezultātiem.",
-		"bookDemo": "Pieteikt demonstrāciju",
-		"exploreAgents": "Iepazīt aģentus",
-		"perAgentMonth": "par aģentu mēnesī",
-		"pricingDetails": "Par cenu",
-		"heroImageAlt": "WorksRecorded MI aģente aizsargķiverē ar planšetdatoru",
-		"agentLabel": "AI aģents",
-		"serviceLabel": "Pakalpojums",
-		"team": {
-			"eyebrow": "Komanda",
-			"title": "Satieciet mūsu komandu.",
-			"description": "Mēs izstrādājam MI aģentus un palīdzam tos ieviest jūsu uzņēmuma ikdienā.",
-			"deividsExperience": "Pieredzējis React un TypeScript izstrādātājs.",
-			"vjaceslavsExperience": "Starptautisku būvniecības projektu vadības pieredze."
-		},
-		"agentsEyebrow": "Ietaupījums ar MI aģentiem",
-		"agentsTitle": "Kā MI palīdz ietaupīt naudu",
-		"agentsDescription": "Izvēlieties aģentus savām ikdienas problēmām. Katrs strādā ar jūsu projekta datiem un nodod pārskatāmu rezultātu.",
-		"savings": [
-			{
-				"title": "Administrēšanas izmaksas",
-				"amount": "50% zemākas",
-				"label": "administrēšanas izmaksas",
-				"description": "MI ievada datus un sagatavo dokumentus un atskaites, samazinot manuālo darbu."
-			},
-			{
-				"title": "Projektu vadības izmaksas",
-				"amount": "25% zemākas",
-				"label": "projektu vadības izmaksas",
-				"description": "MI apkopo informāciju par objektu, lai vadītājs mazāk laika tērētu datu meklēšanai un apkopošanai."
-			},
-			{
-				"title": "Darbu izmaksas",
-				"amount": "15% zemākas",
-				"label": "darbu izmaksas",
-				"description": "MI sasaista darba stundas ar paveikto, palīdzot pamanīt neefektīvi izmantotu laiku un uzlabot darba organizāciju."
-			}
-		],
-		"potential": "Ietaupījums",
-		"enquire": "Pieteikt",
-		"enquireAgent": "Pieteikt konsultāciju par risinājumu {agent}",
-		"moreTitle": "Kvalitatīvi aģenti būvniecības biznesam",
-		"moreDescription": "Pieslēdziet to, kas jūsu komandai vajadzīgs šobrīd. Arī materiāliem, darba stundām un instrumentiem ir savs aģents.",
-		"allAgents": "Visi 8 aģenti",
-		"learnMore": "Uzzināt vairāk",
-		"workflowEyebrow": "Kā tas darbojas",
-		"workflowTitle": "Jūsu dati. Aģenta darbs. Skaidrs rezultāts.",
-		"workflowDescription": "Sākam ar jūsu komandas ikdienu un pieslēdzam aģentu konkrētam uzdevumam.",
-		"steps": [
-			{
-				"title": "Izpētām jūsu darba procesus",
-				"description": "Noskaidrojam, kā jūs šobrīd strādājat, un piedāvājam jūsu vajadzībām atbilstošu MI aģentu."
-			},
-			{
-				"title": "Testējam un uzlabojam aģentu",
-				"description": "Pārbaudām aģentu reālos darba uzdevumos un pilnveidojam to kopā ar jūsu komandu."
-			},
-			{
-				"title": "Ieviešam un uzraugām",
-				"description": "Ieviešam aģentu un pastāvīgi uzraugām tā darbību. Uzņemamies atbildību par tā rīcību."
-			}
-		],
-		"pricingEyebrow": "Vienkārša cena",
-		"pricingTitle": "Sāciet ar vienu aģentu.",
-		"pricingDescription": "Samaksa pēc aģenta pieņemšanas no jūsu puses.",
-		"chooseAgent": "Pārrunāt aģenta ieviešanu",
-		"servicesEyebrow": "Pakalpojumi jūsu komandai",
-		"servicesTitle": "Vajadzīgs arī praktisks atbalsts?",
-		"discussService": "Pārrunāt pakalpojuma apjomu",
-		"catalogTitle": "Izvēlieties savu MI komandu.",
-		"catalogDescription": "Astoņi specializēti aģenti būvniecības ikdienai. Katrs ar konkrētu uzdevumu un pārskatāmu rezultātu.",
-		"servicesPageTitle": "Mēs uzņemamies atbildību.",
-		"servicesPageDescription": "Uzticiet mums BIS dokumentācijas un grāmatvedības ikdienu, lai jūsu komanda var koncentrēties uz būvniecību.",
-		"pricingPageTitle": "MI aģentu cenas",
-		"pricingIncludesTitle": "Ko saņemat",
-		"pricingIncludes": [
-			"Izvēlēto MI aģentu konkrētam darba uzdevumam",
-			"Projekta datu apkopošanu un analīzi aģenta atbildības jomā",
-			"Pārskatāmus rezultātus WorksRecorded platformā",
-			"Datu eksportu Excel formātā"
-		],
-		"pricingExampleTitle": "Jūs izvēlaties aģentu skaitu",
-		"pricingExample": "Divi aģenti — {two} EUR mēnesī. Trīs aģenti — {three} EUR mēnesī. Konsultācijā vienojamies, ar kuriem uzdevumiem sākt.",
-		"pricingServicesNote": "BIS un grāmatvedības pakalpojumiem pārrunājam nepieciešamo darba apjomu.",
-		"detailEyebrow": "WorksRecorded MI aģents",
-		"detailPrice": "150 EUR mēnesī par aģentu",
-		"nav": {
-			"agents": "AI aģenti",
-			"services": "Pakalpojumi",
-			"howItWorks": "Kā tas darbojas",
-			"pricing": "Cenas",
-			"caseStudies": "Pieredze",
-			"about": "Par mums",
-			"contacts": "Kontakti",
-			"allAgents": "Apskatīt visus aģentus",
-			"allServices": "Visi pakalpojumi",
-			"menu": "Atvērt navigāciju",
-			"company": "Uzņēmums",
-			"manufacturing": "Ražošanas risinājumi",
-			"custom": "Pielāgoti aģenti",
-			"news": "Ziņas"
-		},
-		"agents": {
-			"workRecords": {
-				"title": "Darbu uzskaites aģents",
-				"question": "Kur palika 10 000 darba stundu? Mēs zinām.",
-				"description": "Aģents analizē jūsu esošās WhatsApp sarunas un pārvērš tās strukturētā darbu vēsturē.",
-				"points": [
-					"Analizē rasējumus, balss ziņas, attēlus un video.",
-					"Sakārto paveikto pēc darbiem un projektiem.",
-					"Saglabā pārskatāmus datus platformā un Excel formātā."
-				],
-				"saving": "Līdz 10%",
-				"savingLabel": "mazākas projekta darbaspēka izmaksas"
-			},
-			"financialAnalytics": {
-				"title": "Finanšu analītikas aģents",
-				"question": "Kuras līguma pozīcijas pārsniedz budžetu?",
-				"description": "Katram centam sava izmaksu kategorija un saikne ar jūsu tāmes pozīcijām.",
-				"points": [
-					"Piesaista izmaksas jūsu budžeta struktūrai.",
-					"Sniedz detalizētu izmaksu sadalījumu.",
-					"Prognozē, cik izmaksās projekta pabeigšana."
-				],
-				"saving": "Līdz 15%",
-				"savingLabel": "labāki projekta finanšu rezultāti"
-			},
-			"whatsapp": {
-				"title": "WhatsApp automatizācijas aģents",
-				"question": "Visa informācija no sarunām jau sakārtota.",
-				"description": "Aģents analizē ikdienas saziņu, lai projektu vadībai būtu aktuāls pārskats par objektu.",
-				"points": [
-					"Apkopo informāciju no esošajām WhatsApp sarunām.",
-					"Analizē ziņas un pievienotos materiālus.",
-					"Pārvērš informāciju pārskatāmos ierakstos un atskaitēs."
-				],
-				"saving": "Līdz 1 000 €",
-				"savingLabel": "mēnesī projektu vadības izmaksās"
-			},
-			"financialControl": {
-				"title": "Finanšu kontroles aģents",
-				"question": "Cik šodien izmaksāja katrs m²?",
-				"description": "Ikdienas izmaksu kontrole palīdz reaģēt uz pārtēriņu, kamēr darbi vēl notiek.",
-				"points": [
-					"Parāda ikdienas izmaksas uz m².",
-					"Salīdzina faktisko patēriņu ar plānu.",
-					"Palīdz vadītājam savlaicīgi pamanīt novirzes."
-				],
-				"saving": "Līdz 10%",
-				"savingLabel": "mazākas projekta izmaksas"
-			},
-			"estimation": {
-				"title": "Tāmēšanas aģents",
-				"question": "Nākamā tāme sākas ar jūsu pieredzi.",
-				"description": "Aģents sagatavo jaunu projektu tāmes, izmantojot jūsu iepriekšējo projektu datus.",
-				"points": [
-					"Izmanto faktiskās darbu un resursu izmaksas.",
-					"Apkopo datus jauna projekta tāmei.",
-					"Palīdz samazināt manuālo darbu tāmēšanā."
-				],
-				"saving": "Līdz 2 000 €",
-				"savingLabel": "mēnesī tāmēšanas izmaksās"
-			},
-			"materials": {
-				"title": "Materiālu uzskaites aģents",
-				"question": "Pamaniet pārtēriņu, kamēr varat rīkoties.",
-				"description": "Sekojiet materiālu piegādēm un patēriņam, salīdzinot tos ar projekta plānu.",
-				"points": [
-					"Uzskaita saņemtos un izlietotos materiālus.",
-					"Sasaista patēriņu ar projekta darbiem.",
-					"Parāda pārtēriņu savlaicīgai rīcībai objektā."
-				],
-				"saving": "Līdz 15%",
-				"savingLabel": "mazākas materiālu izmaksas"
-			},
-			"timesheets": {
-				"title": "Darba laika uzskaites aģents",
-				"question": "Katra stunda piesaistīta paveiktajam.",
-				"description": "Precīza darbinieku stundu uzskaite ar saikni uz jūsu budžeta pozīcijām.",
-				"points": [
-					"Apkopo darbinieku darba laiku.",
-					"Piesaista stundas darbiem un tāmes pozīcijām.",
-					"Salīdzina plānotās un faktiskās darbaspēka izmaksas."
-				],
-				"saving": "Līdz 10%",
-				"savingLabel": "mazākas darbaspēka izmaksas"
-			},
-			"tools": {
-				"title": "Instrumentu uzskaites aģents",
-				"question": "Kur ir instrumenti un par ko maksājat nomu?",
-				"description": "Kontrolējiet instrumentu apriti un tehnikas nomas izmaksas vienuviet.",
-				"points": [
-					"Seko instrumentu atrašanās vietai un apritei.",
-					"Apkopo instrumentu un nomas izmaksas.",
-					"Palīdz pamanīt liekas nomas dienas un neizmantotus rīkus."
-				],
-				"saving": "Līdz 20%",
-				"savingLabel": "mazākas instrumentu un nomas izmaksas"
-			}
-		},
-		"services": {
-			"bis": {
-				"title": "BIS dokumentācijas pārvaldība",
-				"question": "Pastāstiet, kas paveikts. BIS sakārtosim mēs.",
-				"description": "Jūs ziņojat par paveikto, mēs parūpējamies par BIS dokumentācijas sagatavošanu un uzturēšanu.",
-				"points": [
-					"Izskatām rasējumus, materiālu dokumentus un deklarācijas.",
-					"Sagatavojam ikdienas darbus, materiālus un būvizstrādājumus.",
-					"Sagatavojam nepieciešamos darbu pieņemšanas aktus."
-				],
-				"saving": "Līdz 1 000 €",
-				"savingLabel": "mēnesī BIS administrēšanas izmaksās"
-			},
-			"accounting": {
-				"title": "Grāmatvedības pakalpojums",
-				"question": "Grāmatvedība ar skatu uz projekta rezultātu.",
-				"description": "Mums ir grāmatvedības ārpakalpojuma sniedzēja licence. Būvniecības uzņēmumiem nodrošinām grāmatvedību un ekonomista atbalstu.",
-				"points": [
-					"Grāmatvedība par 50% zemākām izmaksām nekā standarta ārpakalpojumā.",
-					"Ekonomista pakalpojumi iekļauti bez papildu maksas.",
-					"Finanšu dati, kas palīdz saprast uzņēmuma un projektu rezultātus."
-				],
-				"saving": "50% zemākas",
-				"savingLabel": "grāmatvedības izmaksas"
-			}
-		},
-		"discussSavings": "Pārrunāt ietaupījumu",
-		"stepLabel": "{number}. solis"
-	},
 	"LandingPageDesktop": {
 		"topPill": "Izstrādāts būvniecības apakšuzņēmējiem",
-		"heroTitle": "Mākslīgā intelekta aģenti būvniekiem",
+		"heroTitle": "WhatsApp kā darbu uzskaites rīks",
 		"heroRotatingTitles": [
 			"Būvdarbu uzskaite",
 			"Ražošanas uzskaite",
 			"Izmaksu kontrole"
 		],
-		"smallDescription": "Uzticiet ikdienas datu darbu MI aģentiem. No WhatsApp sarunām līdz darba uzskaitei, izmaksu kontrolei un precīzākām tāmēm.",
-		"heroDescription": "150 EUR mēnesī par katru izvēlēto MI aģentu. Salieciet savu komandu no uzdevumiem, kuros šobrīd vajadzīga palīdzība.",
+		"smallDescription": "Strukturēti darba ieraksti, izmaksu kontrole un pārskatāmas atskaites — viss caur WhatsApp.",
+		"heroDescription": "WorksRecorded palīdz būvniecības un ražošanas komandām viegli fiksēt paveikto, sekot līdzi darba izmaksām un saglabāt visu svarīgo vienuviet.",
 		"heroRating": "4.8 / 5 klientu vērtējums",
 		"heroSetup": "Ātri ieviešams",
 		"contactUs": "Sazināties",
-		"startFreeTrial": "Reģistrēties",
+		"startFreeTrial": "Pamēģināt bezmaksas",
 		"signIn": "Uzdot jautājumu",
 		"noCardNote": "",
 		"heroImageAlt": "worksRecorded galvenais priekšskatījums",
 		"videoTitle": "WorksRecorded demonstrācija",
 		"videoCaption": "Vienas minūtes apskats - kā WhatsApp ziņas kļūst par strukturētu būvdarbu žurnālu.",
+
 		"section2Pill": "Būvlaukuma pieraksti, kas patiešām tiek veikti",
 		"section2Title": "Sūti balss ziņas caur WhatsApp — MI sakārto",
 		"section2Description": "Atvieglojiet vadītājiem un meistariem reģistrēt to, kas patiesībā notika būvlaukumā — bez papildu lietotnēm, formām vai vēla vakara dokumentēšanas.",
@@ -352,6 +120,7 @@
 			"Līmenī ir cementa klona un betona grīdu speciālists ar vairāk nekā 20 gadu pieredzi Latvijas būvniecības nozarē."
 		]
 	},
+
 	"LandingText": {
 		"whatDoWeDo": {
 			"heading": "Mēs risinām būvdarbu un darba laika uzskaites problēmas mazajiem un vidējiem būvniecības apakšuzņēmējiem:",
@@ -374,11 +143,10 @@
 				{
 					"title": "Darba vadītājs pavada pārāk daudz laika birojā, nevis objektā?"
 				},
-				{
-					"title": "BIS aizpildīšanai nepieciešami papildu resursi?"
-				}
+				{ "title": "BIS aizpildīšanai nepieciešami papildu resursi?" }
 			]
 		},
+
 		"howDoWeDoThat": {
 			"heading": "Risinājums — moderns, inteliģents būvdarbu žurnāls ar BIS integrāciju un iebūvētu MI, pielāgots Latvijas vajadzībām",
 			"items": [
@@ -412,6 +180,7 @@
 				}
 			]
 		},
+
 		"why": {
 			"heading": "Kāpēc WorksRecorded?",
 			"description": "Praktisks risinājums būvniecībai Latvijā, kas samazina administratīvo slogu un dubulto darbu.",
@@ -423,11 +192,12 @@
 			]
 		}
 	},
+
 	"SiteDiary": {
 		"hero": {
-			"titlePrefix": "Darbu uzskaites aģents",
-			"titleHighlight": "",
-			"description": "Aģents analizē jūsu esošās WhatsApp sarunas un pārvērš tās strukturētā darbu vēsturē. Analizē rasējumus, balss ziņas, attēlus un video.",
+			"titlePrefix": "Radīts",
+			"titleHighlight": "būvuzņēmējiem",
+			"description": "Fiksējiet būvlaukumā notiekošo, kontrolējiet projekta izmaksas un saglabājiet uzticamus pierādījumus — bez jaunas programmatūras un papildu administrēšanas.",
 			"cta": "Sazināties",
 			"photoCaption": "WhatsApp ziņas pārtop pārskatāmos projekta datos.",
 			"photoAlt": "Būvniecības komanda aktīvā būvlaukumā"
@@ -497,10 +267,12 @@
 			]
 		},
 		"title": "Būvdarbu žurnāls",
+
 		"block1": {
 			"title": "Kā tas darbojas",
 			"text": "Vienkārši nosūtiet balss ziņu uz WorksRecorded WhatsApp, aprakstot, kas šodien notika. Mūsu AI pārvērtīs jūsu teikto strukturētā būvdienasgrāmatas ierakstā."
 		},
+
 		"block2": {
 			"title": "Kāds ir ieguvums",
 			"p1": "Viss, kas notiek būvlaukumā projekta laikā, tiek saglabāts un ir viegli pieejams.",
@@ -515,18 +287,22 @@
 			"p4": "Tāme? Jūs precīzi zināt, cik daudz laika ir patērēts.",
 			"p5": "Jūsu projekts ir pierakstīts."
 		},
+
 		"images": {
 			"siteDiaryAlt": "Būvdienasgrāmata",
 			"whatsappAlt": "WhatsApp",
 			"galleryAlt": "Būvdienasgrāmatas galerija"
 		}
 	},
+
 	"Timesheets": {
-		"title": "Darba laika uzskaites aģents",
+		"title": "Darba laika uzskaite",
+
 		"block1": {
 			"title": "Kā tas darbojas",
-			"text": "Precīza darbinieku stundu uzskaite ar saikni uz jūsu budžeta pozīcijām. Apkopo darbinieku darba laiku. Piesaista stundas darbiem un tāmes pozīcijām. Salīdzina plānotās un faktiskās darbaspēka izmaksas."
+			"text": "Darbinieki izmanto WhatsApp saraksti ar WorksRecorded, lai reģistrētu darba sākumu un beigas. Pirms darba beigām AI viņiem palūdz aprakstīt, kas dienas laikā tika paveikts. Informācija tiek strukturēta un automātiski saglabāta datubāzē. Pieejama arī geofence funkcionalitāte — objekta vadītājs atzīmē objekta teritoriju kartē, un iereģistrēšanās ir iespējama tikai atrodoties šajā zonā."
 		},
+
 		"block2": {
 			"title": "Kāds ir ieguvums",
 			"li1": "Katru darba stundu var uzskaitīt.",
@@ -534,6 +310,7 @@
 			"li3": "Iespējams identificēt izšķērdēšanu, uzstādīt mērķus un mērīt darba KPI.",
 			"li4": "Geofence kontrole nodrošina, ka clock-in ir iespējams tikai objektā."
 		},
+
 		"images": {
 			"dashboardAlt": "Darba laika uzskaites panelis",
 			"whatsappAlt": "WhatsApp",
@@ -542,12 +319,15 @@
 			"geofenceAreaAlt": "Objekta teritorijas geofence iestatīšana kartē"
 		}
 	},
+
 	"Analytics": {
-		"title": "Finanšu analītikas aģents",
+		"title": "Analītika",
+
 		"block1": {
 			"title": "Kā tas darbojas",
-			"text": "Katram centam sava izmaksu kategorija un saikne ar jūsu tāmes pozīcijām. Piesaista izmaksas jūsu budžeta struktūrai. Sniedz detalizētu izmaksu sadalījumu. Prognozē, cik izmaksās projekta pabeigšana."
+			"text": "Mēs apvienojam datu zinātni, mākslīgo intelektu un būvniecības nozares pieredzi, lai automātiski iegūtu analītiku no jūsu datiem. Nodrošinām nepieciešamos ieskatus — apjomu tāmes, progresa statistiku, šķēršļus, kavējumus, vidējo veiktspēju, izmaksas pa kategorijām un periodiem, izšķērdēšanas un uzlabošanas iespējas, un vairāk."
 		},
+
 		"block2": {
 			"title": "Kāds ir ieguvums",
 			"li1": "Gatava, uzlabota analītika tūlītējiem rezultātiem.",
@@ -555,11 +335,13 @@
 			"li3": "Pilnībā dinamiska — atjaunojas projekta gaitā.",
 			"li4": "Finanšu, naudas plūsmas un darbu progresa prognozēšana."
 		},
+
 		"images": {
 			"overviewAlt": "Analītikas pārskats",
 			"detailsAlt": "Analītikas detaļas"
 		}
 	},
+
 	"Manufacturing": {
 		"hero": {
 			"titlePrefix": "Radīts",
@@ -645,8 +427,10 @@
 			"teamTraining": "Komandas ieviešana"
 		}
 	},
+
 	"CustomSolutions": {
-		"title": "Pielāgoti aģenti",
+		"title": "Pielāgoti digitālie risinājumi",
+
 		"block1": {
 			"title": "Kā tas darbojas",
 			"p1": {
@@ -657,79 +441,92 @@
 			"p2": "Kad pielāgota sistēma ir izstrādāta un ieviesta, tā turpina nest rezultātu — sakārtoti pieraksti, mazāk manuāla darba un analītika, kas palīdz pieņemt lēmumus.",
 			"p3": "Nosūtiet mums e-pastā procesu, ko vēlaties digitalizēt un automatizēt, un mēs piedāvāsim efektīvu, pragmatisku risinājumu."
 		},
+
 		"block2": {
 			"title": "Kāds ir ieguvums",
 			"p1": "Būvniecība ir viena no pēdējām maz digitalizētajām nozarēm. Esiet soli priekšā un izmantojiet AI vilni, lai uzlabotu peļņas maržas, piedāvājumus un ikdienas procesus.",
 			"p2": "No būvniecības profesionāļiem būvniecības profesionāļiem. Praktiski rīki, minimāla berze, reāli rezultāti."
 		},
+
 		"images": {
 			"siteAlt": "Digitālie risinājumi būvlaukumā",
 			"developmentAlt": "Pielāgota izstrāde"
 		}
 	},
+
 	"Pricing": {
 		"title": {
-			"prefix": "150 EUR mēnesī par aģentu.",
-			"highlight": "Sāciet ar vienu aģentu."
+			"prefix": "30 EUR mēnesī par lietotāju.",
+			"highlight": "Pirmās 2 nedēļas bez maksas!"
 		},
-		"description": "150 EUR mēnesī par katru izvēlēto MI aģentu. Salieciet savu komandu no uzdevumiem, kuros šobrīd vajadzīga palīdzība.",
+		"description": "Caurspīdīga mēneša maksa, pielāgota projekta apjomam un sarežģītībai. Piedāvājam arī cenu modeli par lietotāju vai par projektu — atkarībā no jūsu uzņēmuma darbības. Komandām ar vairāk nekā 5 lietotājiem pieejamas atlaides, kā arī piedāvājam individuālu cenu lieliem projektiem. Par pielāgotu izstrādi sazinieties: vjaceslavs@worksrecorded.com.",
 		"warehouseService": {
-			"title": "Materiālu uzskaites aģents",
-			"price": "150 EUR",
-			"period": "par aģentu mēnesī"
+			"title": "Noliktavas funkcionalitāte",
+			"price": "20 EUR",
+			"period": "mēnesī"
 		},
 		"bisService": {
-			"title": "BIS dokumentācijas pārvaldība",
-			"price": "Pārrunāt pakalpojuma apjomu",
-			"period": "Pakalpojums"
+			"title": "BIS aizpildīšana",
+			"price": "150 €",
+			"period": "par BIS lietu mēnesī"
 		}
 	},
+
 	"About": {
 		"title": "Par mums",
-		"p1": "Uzticiet ikdienas datu darbu MI aģentiem. No WhatsApp sarunām līdz darba uzskaitei, izmaksu kontrolei un precīzākām tāmēm.",
+		"p1": "Vai jūs zināt, kas notiek jūsu būvlaukumā? Būvdarbu uzskaite nav vienkārša.",
 		"p2": "Būvlaukuma vadība bieži ir pārslogota un nevēlas uzņemties papildu administratīvo slogu pierakstu veikšanai.",
 		"p3": "Pat ja pieraksti pastāv, tie bieži ir izkaisīti, nesakārtoti un prasa lielu darbu, lai tos sakārtotu un padarītu noderīgus.",
 		"p4": "Kad pierakstu trūkst, ir grūti uzlabot procesus, sekot līdzi rādītājiem, pamatot prasības/papildu darbus, uzskaitīt zaudēto laiku vai kopumā saprast, kāpēc situācija ir tāda, kāda tā ir.",
 		"p5": "Esošie digitālie rīki ir sarežģīti, prasa laiku un piepūli ieviešanai, un bieži saskaras ar pretestību no pārslogotām būvlaukuma komandām.",
 		"p6": {
-			"prefix": "Apvienojot būvniecības pieredzi ar MI, es izveidoju",
+			"prefix": "Lai palīdzētu, es izveidoju nelielu rīku ar nosaukumu",
 			"bold": "WorksRecorded.com"
 		},
-		"p7": "Aģents analizē jūsu esošās WhatsApp sarunas un pārvērš tās strukturētā darbu vēsturē. Katram centam sava izmaksu kategorija un saikne ar jūsu tāmes pozīcijām.",
+		"p7": "Būvlaukuma vadītājs izmanto WhatsApp, lai veiktu balss/teksta pierakstus par būvlaukuma aktivitātēm. Sistēma pēc tam automātiski sakārto un saglabā ierakstus, kurus var apskatīt pārlūkā.",
 		"p8": "Tas ļauj būvlaukuma vadībai vairāk laika pavadīt objektā, uzraugot darbus, un mazāk laika birojā, veicot administratīvus darbus.",
 		"p9": "Vienlaikus tas arī ļauj projekta vadībai labāk saprast projektu, lai varētu analizēt, rīkoties un pārliecinoši pamatot savu pozīciju ģenerāluzņēmējam/klientam.",
 		"p10": "Es pats esmu izmantojis šo rīku un uzskatu, ka tas ir vienkāršs, bet jaudīgs sarežģītos būvniecības projektos.",
-		"p11": "150 EUR mēnesī par katru izvēlēto MI aģentu. Salieciet savu komandu no uzdevumiem, kuros šobrīd vajadzīga palīdzība. WorksRecorded ir Buvconsult SIA produkts, Latvija.",
+		"p11": "Būšu priecīgs, ja tas palīdzēs arī jums — beta versijā tas ir bez maksas vienam projektam ikvienam, un es labprāt pārrunāšu un palīdzēšu, ja jums ir kādi jautājumi. WorksRecorded is a product of Buvconsult SIA, Latvia",
 		"images": {
 			"selfieAlt": "Vjaceslavs Gromatovičs"
 		}
 	},
+
 	"Contact": {
-		"heroTitle": "Pārrunāt aģenta ieviešanu",
-		"heroDescription": "150 EUR mēnesī par katru izvēlēto MI aģentu. Salieciet savu komandu no uzdevumiem, kuros šobrīd vajadzīga palīdzība. Līdzās MI aģentiem piedāvājam BIS dokumentācijas un grāmatvedības pakalpojumus.",
+		"heroTitle": "Sazināmies! 🚀",
+		"heroDescription": "Piezvaniet, atsūtiet e-pastu, rakstiet WhatsApp vai aizpildiet formu. Mēs garantējam, ka sazināsimies ar jums **tajā pašā dienā**!",
+
 		"quickDetailsTitle": "Ātra informācija",
 		"phoneLabel": "Tālrunis:",
 		"emailLabel": "E-pasts:",
 		"webLabel": "Mājaslapa:",
+
 		"formTitle": "Nosūtiet mums ziņu",
+
 		"firstNameLabel": "Vārds",
 		"lastNameLabel": "Uzvārds",
 		"emailFieldLabel": "E-pasts",
 		"subjectLabel": "Temats",
 		"messageLabel": "Ziņa",
+
 		"firstNamePlaceholder": "Vārds",
 		"lastNamePlaceholder": "Uzvārds",
 		"emailPlaceholder": "Jūsu e-pasts",
 		"subjectPlaceholder": "Projekta jautājums, konsultācija u.c.",
 		"messagePlaceholder": "Pastāstiet par savu projektu vai jautājumu...",
+
 		"sending": "Sūta…",
 		"sendMessage": "Sūtīt ziņu",
+
 		"status": {
 			"errorDefault": "Kaut kas nogāja greizi. Lūdzu, mēģiniet vēlreiz."
 		}
 	},
+
 	"Navigation": {
 		"features": "Funkcijas",
+
 		"data": {
 			"whatsapp": {
 				"title": "Būvdarbu žurnāls",
@@ -752,6 +549,7 @@
 				"description": "BIS automatizācija no WhatsApp ziņām un balss"
 			}
 		},
+
 		"main": {
 			"custom": "Pielāgoti risinājumi",
 			"pricing": "Cenas",
@@ -760,18 +558,22 @@
 			"news": "Ziņas",
 			"contacts": "Kontakti"
 		},
+
 		"combined": {
 			"generic": "Tiešsaistes pielāgota analītika"
 		}
 	},
+
 	"AuthButtons": {
 		"signIn": "Pierakstīties",
 		"signUp": "Reģistrēties",
-		"tryForFree": "Reģistrēties"
+		"tryForFree": "Izmēģināt bez maksas"
 	},
+
 	"Header": {
 		"bisIntegrated": "Integrēts ar"
 	},
+
 	"Footer": {
 		"data": "Dati",
 		"siteDiary": "Būvdarbu žurnāls",

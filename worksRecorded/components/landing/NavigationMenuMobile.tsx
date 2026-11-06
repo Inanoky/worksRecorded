@@ -2,77 +2,76 @@
 
 import { LoginLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { Menu } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { AGENTS, SERVICES } from "@/components/landing/agents/catalog";
-import {
-	COMPANY_LINKS,
-	MAIN_LINKS,
-} from "@/components/landing/NavigationLinks";
-import Link from "@/components/landing/navigation/LandingLink";
+import { COMBINED_LINKS } from "@/components/landing/NavigationLinks";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
-	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils/utils";
 
 export function NavigationMenuMobile() {
-	const t = useTranslations("AgentLanding");
-	const auth = useTranslations("AuthButtons");
+	const pathname = usePathname();
 	const locale = useLocale();
-	const menuId = "landing-mobile-navigation-trigger";
+	const t = useTranslations("Navigation");
+	const auth = useTranslations("AuthButtons");
+	const menuLinks =
+		locale === "lv"
+			? [
+					...COMBINED_LINKS,
+					{
+						id: "BISIntegration",
+						href: "/Landing/BIS-integracija",
+						titleKey: "data.bisIntegration.title",
+						descriptionKey: "data.bisIntegration.description",
+					} as const,
+				]
+			: COMBINED_LINKS;
+
+	const withLocale = (href: string) => {
+		if (/^https?:\/\//.test(href)) return href;
+		if (/^\/(en|lv|ru)(\/|$)/.test(href)) return href;
+		return `/${locale}${href.startsWith("/") ? href : `/${href}`}`;
+	};
+
 	return (
-		<DropdownMenu modal>
-			<DropdownMenuTrigger asChild id={menuId}>
-				<Button
-					variant="ghost"
-					size="icon"
-					className="rounded-full"
-					aria-label={t("nav.menu")}
-				>
-					<Menu size={23} aria-hidden="true" />
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button variant="ghost" size="icon" className="rounded-full">
+					<Menu className="h-10 w-10" />
 				</Button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent
-				aria-labelledby={menuId}
-				align="end"
-				className="max-h-[80dvh] w-[min(340px,calc(100vw-2rem))] overflow-y-auto overscroll-contain p-2"
-			>
-				<DropdownMenuLabel>{t("nav.agents")}</DropdownMenuLabel>
-				<DropdownMenuItem asChild>
-					<Link href={`/${locale}/Landing/Agents`} className="font-semibold">
-						{t("nav.allAgents")}
-					</Link>
-				</DropdownMenuItem>
-				{AGENTS.map(({ id, icon: Icon }) => (
-					<DropdownMenuItem key={id} asChild>
-						<Link href={`/${locale}/Landing/Agents#${id}`}>
-							<Icon size={16} aria-hidden="true" />
-							{t(`agents.${id}.title`)}
-						</Link>
-					</DropdownMenuItem>
-				))}
-				<DropdownMenuSeparator />
-				<DropdownMenuLabel>{t("nav.services")}</DropdownMenuLabel>
-				{SERVICES.map(({ id }) => (
-					<DropdownMenuItem asChild key={id}>
-						<Link href={`/${locale}/Landing/Services#${id}`}>
-							{t(`services.${id}.title`)}
-						</Link>
-					</DropdownMenuItem>
-				))}
-				<DropdownMenuSeparator />
-				{[...MAIN_LINKS, ...COMPANY_LINKS].map(({ href, labelKey }) => (
-					<DropdownMenuItem key={href} asChild>
-						<Link href={`/${locale}${href}`}>{t(`nav.${labelKey}`)}</Link>
-					</DropdownMenuItem>
-				))}
+
+			<DropdownMenuContent align="start">
+				{menuLinks.map((item) => {
+					const href = withLocale(item.href);
+					const active = pathname === href || pathname.startsWith(`${href}/`);
+
+					return (
+						<DropdownMenuItem key={item.id} asChild>
+							<Link
+								href={href}
+								className={cn(
+									"flex items-center gap-2 w-full",
+									active ? "text-primary" : "text-muted-foreground",
+								)}
+							>
+								{t(item.titleKey)}
+							</Link>
+						</DropdownMenuItem>
+					);
+				})}
 				<DropdownMenuSeparator />
 				<DropdownMenuItem asChild>
-					<LoginLink className="w-full font-medium">{auth("signIn")}</LoginLink>
+					<LoginLink className="w-full font-medium text-foreground">
+						{auth("signIn")}
+					</LoginLink>
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>

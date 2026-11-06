@@ -1,24 +1,21 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { useLandingNavigation } from "@/components/landing/navigation/LandingNavigationContext";
+import { useRouter } from "next/navigation";
 
 type NewsPrefetcherProps = {
-	locale: string;
-	ids: number[];
+  locale: string;
+  ids: number[];
 };
 
 export default function NewsPrefetcher({ locale, ids }: NewsPrefetcherProps) {
-	const router = useRouter();
-	const navigation = useLandingNavigation();
+  const router = useRouter();
 
-	useEffect(() => {
-		for (const id of ids) {
-			if (navigation) navigation.prefetch(`/${locale}/Landing/News/${id}`);
-			else router.prefetch(`/${locale}/Landing/News/${id}`);
-		}
-	}, [router, locale, ids, navigation]);
+  useEffect(() => {
+    for (const id of ids) {
+      router.prefetch(`/${locale}/Landing/News/${id}`);
+    }
+  }, [router, locale, ids]);
 
-	return null;
+  return null;
 }

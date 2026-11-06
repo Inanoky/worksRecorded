@@ -1,7 +1,7 @@
 // app/(marketing)/page.tsx — Mobile-first, responsive landing page
 
 import Image from "next/image";
-import Link from "@/components/landing/navigation/LandingLink";
+import Link from "next/link";
 import { RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";

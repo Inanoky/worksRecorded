@@ -2,7 +2,7 @@
 
 "use client";
 
-import Link from "@/components/landing/navigation/LandingLink";
+import Link from "next/link";
 import Image from "next/image";
 import { RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { Button } from "@/components/ui/button";

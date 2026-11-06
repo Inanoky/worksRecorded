@@ -1,15 +1,19 @@
 "use client";
 
-import { LoginLink } from "@kinde-oss/kinde-auth-nextjs/components";
+import {
+	LoginLink,
+	RegisterLink,
+} from "@kinde-oss/kinde-auth-nextjs/components";
 import { Inter, Inter_Tight } from "next/font/google";
-import Link from "@/components/landing/navigation/LandingLink";
+import Image from "next/image";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
 import { NavigationMenuDesktop } from "@/components/landing/NavigationMenuDesktop";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
+import BisLogo from "@/public/logos/bislogo.png";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-landing-nav" });
-const THEME_TRIGGER_ID = "landing-theme-trigger";
 const interTight = Inter_Tight({
 	subsets: ["latin"],
 	variable: "--font-landing-nav-display",
@@ -17,7 +21,7 @@ const interTight = Inter_Tight({
 
 export default function HeaderDesktop() {
 	const auth = useTranslations("AuthButtons");
-	const landing = useTranslations("AgentLanding");
+	const landing = useTranslations("LandingPageDesktop");
 	const locale = useLocale();
 
 	return (
@@ -40,6 +44,19 @@ export default function HeaderDesktop() {
 							</span>
 						</span>
 					</Link>
+
+					<Link
+						href="/lv/Landing/BIS-integracija"
+						className="hidden items-center gap-2 rounded-full border border-[#dbe7de] px-3 py-1.5 text-xs font-medium text-[#66736b] transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-[#087a49] xl:flex dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+					>
+						<Image
+							src={BisLogo}
+							alt={landing("bisLogoAlt")}
+							className="h-4 w-auto"
+							priority
+						/>
+						{landing("bisLogoLabel")}
+					</Link>
 				</div>
 
 				<div className="flex min-w-0 flex-1 justify-center">
@@ -48,7 +65,7 @@ export default function HeaderDesktop() {
 
 				<div className="flex shrink-0 items-center gap-1.5">
 					<LanguageSwitcher />
-					<ThemeToggle id={THEME_TRIGGER_ID} />
+					<ThemeToggle />
 
 					<LoginLink>
 						<button
@@ -59,12 +76,14 @@ export default function HeaderDesktop() {
 						</button>
 					</LoginLink>
 
-					<Link
-						href={`/${locale}/Landing/ContactForm`}
-						className="inline-flex h-10 items-center rounded-full bg-[#0a4426] px-5 text-sm font-semibold text-white transition hover:bg-[#072616]"
-					>
-						{landing("nav.contacts")}
-					</Link>
+					<RegisterLink>
+						<button
+							type="button"
+							className="inline-flex h-10 items-center rounded-full bg-[#0a4426] px-5 text-sm font-semibold text-white transition hover:bg-[#072616]"
+						>
+							{auth("signUp")}
+						</button>
+					</RegisterLink>
 				</div>
 			</div>
 		</header>
