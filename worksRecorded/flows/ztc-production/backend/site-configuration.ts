@@ -1,8 +1,11 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/utils/db";
 
-export function loadZtcSiteConfiguration(siteId: string) {
-	return prisma.ztcSiteConfiguration.findUnique({ where: { siteId } });
+export function loadZtcSiteConfiguration(
+	siteId: string,
+	db: Prisma.TransactionClient = prisma,
+) {
+	return db.ztcSiteConfiguration.findUnique({ where: { siteId } });
 }
 
 export function saveZtcSiteConfiguration(

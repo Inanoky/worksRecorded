@@ -1,4 +1,5 @@
 "use client"
+import { RetainedViewPortal } from "@/components/providers/RetainedView";
 
 import * as React from "react"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
@@ -16,7 +17,7 @@ function DropdownMenuPortal({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Portal>) {
   return (
-    <DropdownMenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />
+    <RetainedViewPortal><DropdownMenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} /></RetainedViewPortal>
   )
 }
 
@@ -37,7 +38,7 @@ function DropdownMenuContent({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
   return (
-    <DropdownMenuPrimitive.Portal>
+    <RetainedViewPortal><DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
@@ -47,7 +48,7 @@ function DropdownMenuContent({
         )}
         {...props}
       />
-    </DropdownMenuPrimitive.Portal>
+    </DropdownMenuPrimitive.Portal></RetainedViewPortal>
   )
 }
 

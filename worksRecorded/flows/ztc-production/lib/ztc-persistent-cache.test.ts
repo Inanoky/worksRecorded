@@ -37,6 +37,23 @@ it("restores all data across instances and preserves dates", async () => {
 	);
 });
 
+it("persists incremental sync metadata alongside rows so a new login only needs a change check", async () => {
+	const synced: ZtcWorkspaceData = {
+		...data,
+		sync: {
+			version: 1,
+			siteId: "site-a",
+			revisions: { rows: "rows", config: "config", media: "media" },
+			rows: { row: "revision" },
+			media: {},
+		},
+	};
+	await new ZtcPersistentCache("user:org", "site-a").write(synced);
+	const restored = await new ZtcPersistentCache("user:org", "site-a").read();
+	expect(restored?.sync).toEqual(synced.sync);
+	expect(restored?.rows).toEqual(synced.rows);
+});
+
 it("isolates users, organizations and sites and never stores anonymous data", async () => {
 	await new ZtcPersistentCache("user:org", "site-a").write(data);
 	for (const [scope, site] of [

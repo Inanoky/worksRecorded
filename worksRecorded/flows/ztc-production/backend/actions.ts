@@ -42,7 +42,11 @@ import { auditZtcMutation } from "@/flows/ztc-production/lib/ztc-record-audit";
 import { buildZtcScopeSummary } from "@/flows/ztc-production/lib/ztc-scope-summary";
 import { buildZtcNotCancelledWhere } from "@/flows/ztc-production/lib/ztc-session-markers";
 import type { ZtcDiaryRow } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
-import type { ZtcWorkspaceResult } from "@/flows/ztc-production/lib/ztc-workspace-data";
+import type {
+  ZtcWorkspaceActivity,
+  ZtcWorkspaceResult,
+  ZtcWorkspaceSync,
+} from "@/flows/ztc-production/lib/ztc-workspace-data";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 import { createPerfTrace } from "@/lib/observability/perf";
 import { resolveAdvancedProductionWorkflowContextForSite } from "@/lib/production-flow/runtime-server";
@@ -50,6 +54,7 @@ import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import { loadZtcSiteConfiguration, saveZtcSiteConfiguration } from "./site-configuration";
+import { loadZtcSyncMetadata, loadZtcWorkspaceSync } from "./workspace-sync";
 
 const ZTC_DEFAULT_TASK_RATES_KEY = "ztcDefaultTaskRates";
 const ZTC_RATE_CATEGORIES = [
@@ -820,8 +825,11 @@ function mapZtcRecord(rec: any) {
   };
 }
 
-async function loadZtcSiteDiaryConfig(siteId: string) {
-  const site = await loadZtcSiteConfiguration(siteId);
+async function loadZtcSiteDiaryConfig(
+  siteId: string,
+  db: Prisma.TransactionClient = prisma,
+) {
+  const site = await loadZtcSiteConfiguration(siteId, db);
 
   const baseMap = structuredClone(
     ztcSiteDiaryRecordsMap as Record<string, any>,
@@ -857,11 +865,15 @@ async function loadZtcSiteDiaryConfig(siteId: string) {
   return baseMap;
 }
 
-async function loadZtcSiteDiaryRecords(args: {
-  siteId: string;
-  organizationId: string;
-  date?: string;
-}) {
+async function loadZtcSiteDiaryRecords(
+  args: {
+    siteId: string;
+    organizationId: string;
+    date?: string;
+    ids?: string[];
+  },
+  db: Prisma.TransactionClient = prisma,
+) {
   const dateWhere: Prisma.ZtcRecordsWhereInput = {};
   if (args.date) {
     const start = new Date(args.date);
@@ -874,7 +886,7 @@ async function loadZtcSiteDiaryRecords(args: {
     ];
   }
 
-  const records = await prisma.ztcRecords.findMany({
+  const records = await db.ztcRecords.findMany({
     where: {
       siteId: args.siteId,
       organizationId: args.organizationId,
@@ -882,11 +894,13 @@ async function loadZtcSiteDiaryRecords(args: {
       NOT: [{ Date: null }, { Works: null }, { Works: "" }],
       AND: [buildZtcNotCancelledWhere()],
       ...dateWhere,
+      ...(args.ids ? { id: { in: args.ids } } : {}),
     },
     orderBy: [
       { Date: "desc" },
       { Date_Custom_1: "desc" },
       { createdAt: "desc" },
+      { id: "desc" },
     ],
     select: {
       id: true,
@@ -1102,6 +1116,44 @@ export async function getZtcWorkspaceSnapshot(args: { siteId: string }): Promise
       rates: getDefaultTaskRatesFromConfig(config),
       projectOptions,
     } };
+  } catch (error) {
+    if (error instanceof ZtcAccessError) return { status: "denied" };
+    throw error;
+  }
+}
+
+export async function getZtcWorkspaceActivity(args: {
+  siteId: string;
+}): Promise<ZtcWorkspaceActivity> {
+  try {
+    const context = await requireZtcAccess(args.siteId);
+    return await prisma.$transaction(
+      async (tx) => {
+        const metadata = await loadZtcSyncMetadata(tx, context);
+        return { status: "ok" as const, siteId: context.siteId, revisions: metadata.revisions };
+      },
+      { isolationLevel: "RepeatableRead", timeout: 15000 },
+    );
+  } catch (error) {
+    if (error instanceof ZtcAccessError) return { status: "denied" };
+    throw error;
+  }
+}
+
+export async function syncZtcWorkspace(args: {
+  siteId: string;
+  known?: ZtcWorkspaceSync;
+}): Promise<ZtcWorkspaceResult> {
+  try {
+    const context = await requireZtcAccess(args.siteId);
+    return await prisma.$transaction(
+      (tx) => loadZtcWorkspaceSync(tx, context, args.known, {
+        rows: (db, scope, ids) => loadZtcSiteDiaryRecords({ ...scope, ids }, db),
+        config: (db, siteId) => loadZtcSiteDiaryConfig(siteId, db),
+        rates: getDefaultTaskRatesFromConfig,
+      }),
+      { isolationLevel: "RepeatableRead", timeout: 30000 },
+    );
   } catch (error) {
     if (error instanceof ZtcAccessError) return { status: "denied" };
     throw error;

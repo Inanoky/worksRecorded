@@ -150,6 +150,7 @@ import { useZtcWorkspaceData } from "@/flows/ztc-production/frontend/useZtcWorks
 import { useZtcSiteDiaryFlow } from "@/flows/ztc-production/frontend/useZtcSiteDiaryFlow";
 import { ZtcCommentPopoverContent } from "@/flows/ztc-production/frontend/ZtcCommentPopoverContent";
 import { createZtcDiaryView } from "@/flows/ztc-production/lib/ztc-diary-view";
+import { getZtcWorkspaceFilledDays } from "@/flows/ztc-production/lib/ztc-workspace-sync";
 import { exportZtcElementsToExcel } from "@/flows/ztc-production/lib/ztc-element-export";
 import {
   applyZtcExcelNumberFormats,
@@ -1368,6 +1369,10 @@ export default function SiteDiaryCalendar({
       setFilledDays([]);
       return;
     }
+    if (isZtcSite) {
+      setFilledDays(getZtcWorkspaceFilledDays(ztcWorkspace.data, currentYear, currentMonth));
+      return;
+    }
     if (fimaClientData) {
       setFilledDays([...new Set(fimaClientData.rows.flatMap(row => {
         const date = row.Date ? new Date(row.Date) : null;
@@ -1381,7 +1386,7 @@ export default function SiteDiaryCalendar({
       month: currentMonth,
       flowId: siteDiaryFlowId,
     }).then(setFilledDays);
-  }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode, fimaClientData]);
+  }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode, fimaClientData, isZtcSite, ztcWorkspace.data]);
 
   const fimaFilterKey = JSON.stringify({
     dateFrom: dateFrom ? toLocalDateKey(dateFrom) : null,
@@ -1649,7 +1654,7 @@ export default function SiteDiaryCalendar({
         setFilledDays([]);
         return;
       }
-      if (fimaClientData) {
+      if (fimaClientData || isZtcSite) {
         reloadFilledDays();
         return;
       }
@@ -1665,7 +1670,7 @@ export default function SiteDiaryCalendar({
     return () => {
       cancelled = true;
     };
-  }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode, fimaClientData, reloadFilledDays]);
+  }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode, fimaClientData, reloadFilledDays, isZtcSite]);
 
   React.useEffect(() => {
     if (!isZtcSite) return;

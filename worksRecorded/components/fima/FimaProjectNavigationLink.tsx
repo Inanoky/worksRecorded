@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { type ComponentProps, createContext, useContext } from "react";
+import { useZtcNavigation } from "@/flows/ztc-production/frontend/ZtcNavigationContext";
 
 export const FimaProjectNavigationContext = createContext<{
 	local: (href: string) => boolean;
@@ -18,7 +19,10 @@ export function FimaProjectNavigationLink({
 	...props
 }: Omit<ComponentProps<typeof Link>, "href"> & { href: string }) {
 	const navigation = useContext(FimaProjectNavigationContext);
-	const local = navigation?.local(href) ?? false;
+	const ztc = useZtcNavigation();
+	const local =
+		(ztc?.canNavigate(href) ?? false) ||
+		(navigation?.local(href) ?? false);
 	return (
 		<Link
 			{...props}
@@ -43,6 +47,7 @@ export function FimaProjectNavigationLink({
 				});
 				if (cancelled || !local) return;
 				event.preventDefault();
+				if (ztc?.navigate(href, props)) return;
 				if (navigation?.navigate) {
 					navigation.navigate(href, props);
 					return;

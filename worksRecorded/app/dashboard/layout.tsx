@@ -39,6 +39,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DiarySaveProvider } from "@/flows/default-construction/frontend/DiarySaveProvider";
+import { ZtcNavigationProvider, ZtcNavigationViewport } from "@/flows/ztc-production/frontend/ZtcNavigation";
 import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
 import { isAiEvalUiEnabled } from "@/lib/ai-evals/local-gate";
 import { isBbbuveOrganization } from "@/lib/branding/bbbuve";
@@ -87,7 +88,7 @@ export default async function DashboardLayout({
 	const [allHeaderProjects, flowModuleKey, organization] = await Promise.all([
 		prisma.site.findMany({
 			where: isSuperUser ? {} : { organizationId: organizationId ?? "" },
-				select: { id: true, name: true, organizationId: true, siteDiaryRecordsMap: true, bisCaseId: true },
+				select: { id: true, name: true, description: true, imageUrl: true, organizationId: true, siteDiaryRecordsMap: true, bisCaseId: true },
 			orderBy: { createdAt: "desc" },
 		}),
 		isSuperUser
@@ -158,6 +159,7 @@ export default async function DashboardLayout({
 					.filter((project) => project.organizationId === LIMENI_ORGANIZATION_ID)
 					.map((project) => project.id)}
 			>
+			<ZtcNavigationProvider enabled={flowModuleKey === FLOW_MODULE_KEYS.ZTC_PRODUCTION} userId={userId} organizationId={organizationId} projects={allHeaderProjects.map(({ id, name, description, imageUrl }) => ({ id, name, description, imageUrl }))} language={organizationLanguage}>
 			<FimaWarehouseProvider key={`${userId}-${organizationId ?? ""}`}>
 				<FimaSuiteTheme enabled={fimaCollaborationEnabled} />
 				<ProdevSuiteTheme enabled={prodevSuiteEnabled} />
@@ -361,13 +363,14 @@ export default async function DashboardLayout({
 
 				{/* Main content */}
 				<main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
-					<DashboardSettingsContent>{children}</DashboardSettingsContent>
+					<ZtcNavigationViewport><DashboardSettingsContent>{children}</DashboardSettingsContent></ZtcNavigationViewport>
 				</main>
 			</section>
 			</DashboardSettingsProvider>
 			</DiarySaveProvider>
 			</FimaProjectProvider>
 			</FimaWarehouseProvider>
+			</ZtcNavigationProvider>
 		</ProjectLoadingProgressProvider>
 		</ProjectProvider>
 	);

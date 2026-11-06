@@ -3,10 +3,12 @@ import { deserialize, serialize } from "node:v8";
 const mockFindMany = jest.fn();
 const mockOrgCheck = jest.fn();
 const mockLoadConfiguration = jest.fn();
+const mockTransaction = jest.fn();
 const originalStructuredClone = global.structuredClone;
 
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
+		$transaction: (...args: unknown[]) => mockTransaction(...args),
 		ztcRecords: { findMany: (...args: unknown[]) => mockFindMany(...args) },
 	},
 }));
@@ -31,7 +33,9 @@ jest.mock("./site-configuration", () => ({
 import {
 	getZtcDiarySnapshot,
 	getZtcSiteDiaryRecords,
+	getZtcWorkspaceActivity,
 	getZtcWorkspaceSnapshot,
+	syncZtcWorkspace,
 } from "./actions";
 
 describe("ZTC diary snapshot", () => {
@@ -151,6 +155,62 @@ describe("ZTC diary snapshot", () => {
 		mockFindMany.mockRejectedValueOnce(new Error("Database unavailable"));
 		await expect(getZtcWorkspaceSnapshot({ siteId: "site-a" })).rejects.toThrow(
 			"Database unavailable",
+		);
+	});
+
+	it("rejects revoked access before either incremental endpoint reads data", async () => {
+		mockOrgCheck.mockResolvedValue({ organizationId: "other" });
+		await expect(
+			getZtcWorkspaceActivity({ siteId: "site-a" }),
+		).resolves.toEqual({ status: "denied" });
+		await expect(syncZtcWorkspace({ siteId: "site-a" })).resolves.toEqual({
+			status: "denied",
+		});
+		expect(mockTransaction).not.toHaveBeenCalled();
+	});
+
+	it("uses one consistent transaction and restricts full row reads to the requested delta IDs", async () => {
+		const query = jest
+			.fn()
+			.mockImplementation((strings: TemplateStringsArray) =>
+				Promise.resolve(
+					strings.join("").includes('FROM "ZTCrecords"')
+						? [
+								{
+									id: "one",
+									revision: "100",
+									Date: new Date("2026-11-06"),
+									Date_Custom_1: null,
+									Location: "A",
+								},
+							]
+						: [{ config: "one", media: "one" }],
+				),
+			);
+		const tx = {
+			$queryRaw: query,
+			ztcPhoto: { findMany: jest.fn().mockResolvedValue([]) },
+			ztcRecords: { findMany: mockFindMany },
+		};
+		mockTransaction.mockImplementation((run) => run(tx));
+		mockFindMany.mockResolvedValue([
+			{ id: "one", Date: new Date("2026-11-06"), Works: "Work" },
+		]);
+		const result = await syncZtcWorkspace({ siteId: "site-a" });
+		expect(result.status).toBe("ok");
+		expect(mockOrgCheck).toHaveBeenCalledTimes(1);
+		expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function), {
+			isolationLevel: "RepeatableRead",
+			timeout: 30000,
+		});
+		expect(mockFindMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({
+					siteId: "site-a",
+					organizationId: "org-a",
+					id: { in: ["one"] },
+				}),
+			}),
 		);
 	});
 });

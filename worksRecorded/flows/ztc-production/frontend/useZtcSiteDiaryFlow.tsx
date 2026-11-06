@@ -4,6 +4,7 @@ import * as React from "react";
 import { toast } from "sonner";
 
 import { Input } from "@/components/ui/input";
+import { RetainedViewPortal } from "@/components/providers/RetainedView";
 import { cn } from "@/lib/utils/utils";
 import {
   getZtcRatesDialogData,
@@ -285,12 +286,14 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
       />
 
       {imageDialog ? (
+        <RetainedViewPortal>
         <ZtcRelatedImageGallery
           title={imageDialog.title}
           subtitle={imageDialog.subtitle}
           photos={imageDialog.photos}
           onClose={() => setImageDialog(null)}
         />
+        </RetainedViewPortal>
       ) : null}
     </>
   ) : null;

@@ -65,7 +65,8 @@ jest.mock("@/flows/ztc-production/backend/actions", () => ({
 	getZtcFilterOptions: (...args: unknown[]) => mockOptions(...args),
 	getZtcScopeSummary: (...args: unknown[]) => mockSummary(...args),
 	getZtcRatesDialogData: (...args: unknown[]) => mockRates(...args),
-	getZtcWorkspaceSnapshot: (...args: unknown[]) => mockWorkspace(...args),
+	syncZtcWorkspace: (...args: unknown[]) => mockWorkspace(...args),
+	getZtcWorkspaceActivity: jest.fn(),
 }));
 jest.mock("@/server/actions/site-diary-actions", () => ({
 	getConfig: (...args: unknown[]) => mockGetConfig(...args),
@@ -74,17 +75,6 @@ jest.mock("@/server/actions/site-diary-actions", () => ({
 }));
 jest.mock("@/server/actions/pdfBuilderForFrontend", () => ({}));
 jest.mock("@/server/actions/fima-diary-collaboration", () => ({}));
-jest.mock(
-	"@/components/projects/WorkspaceActivity",
-	() => ({
-		useWorkspaceVisible: () => true,
-		useWorkspaceManaged: () => false,
-		useWorkspaceProtection: () => undefined,
-		WorkspacePortalActivity: ({ children }: { children: React.ReactNode }) =>
-			children,
-	}),
-	{ virtual: true },
-);
 jest.mock("@/components/providers/ProjectLoadingProgressProvider", () => ({
 	useProjectPreparationStep: () => undefined,
 	useProjectCacheScope: () => mockScope,
@@ -256,7 +246,7 @@ describe("ZTC diary filter requests", () => {
 			"",
 		);
 		expect(mockSnapshot).toHaveBeenCalledTimes(1);
-		expect(mockMedia).toHaveBeenCalledTimes(1);
+		expect(mockMedia).not.toHaveBeenCalled();
 		expect(mockGetConfig).not.toHaveBeenCalled();
 		expect(mockRates).not.toHaveBeenCalled();
 		expect(mockPage).not.toHaveBeenCalled();

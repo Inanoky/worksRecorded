@@ -2,9 +2,15 @@ import type { ZtcProjectTaskRates } from "@/flows/ztc-production/backend/actions
 import type { ZtcPersistentCache } from "@/flows/ztc-production/lib/ztc-persistent-cache";
 import type { ZtcDiaryRow } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
 import type {
+	ZtcWorkspaceActivity,
 	ZtcWorkspaceData,
 	ZtcWorkspaceResult,
+	ZtcWorkspaceSync,
 } from "@/flows/ztc-production/lib/ztc-workspace-data";
+import {
+	applyZtcWorkspaceDelta,
+	ztcRevisionsEqual,
+} from "@/flows/ztc-production/lib/ztc-workspace-sync";
 
 type State = {
 	data: ZtcWorkspaceData | null;
@@ -25,6 +31,7 @@ export class ZtcWorkspaceResource {
 	private listeners = new Set<() => void>();
 	private generation = 0;
 	private hydrated = false;
+	private hydration: Promise<void> | null = null;
 	private request: Promise<ZtcWorkspaceData> | null = null;
 	private writes = Promise.resolve();
 
@@ -34,10 +41,13 @@ export class ZtcWorkspaceResource {
 			ZtcPersistentCache,
 			"read" | "write" | "clear"
 		>,
-		private readonly load: () => Promise<ZtcWorkspaceResult>,
+		private readonly load: (
+			known?: ZtcWorkspaceSync,
+		) => Promise<ZtcWorkspaceResult>,
 		private readonly loadMedia: () => Promise<
 			ZtcWorkspaceData["mediaOnlyDays"]
 		>,
+		private readonly check?: () => Promise<ZtcWorkspaceActivity>,
 	) {}
 
 	getSnapshot = () => this.state;
@@ -60,10 +70,18 @@ export class ZtcWorkspaceResource {
 			.catch(() => {});
 	}
 
-	async hydrate() {
-		if (this.hydrated) return;
+	hydrate(): Promise<void> {
+		if (this.hydration) return this.hydration;
+		if (this.hydrated) return Promise.resolve();
 		this.hydrated = true;
 		const generation = this.generation;
+		this.hydration = this.readCache(generation).finally(() => {
+			if (generation === this.generation) this.hydration = null;
+		});
+		return this.hydration;
+	}
+
+	private async readCache(generation: number) {
 		try {
 			const data = await this.storage.read();
 			if (
@@ -86,7 +104,33 @@ export class ZtcWorkspaceResource {
 		const request: Promise<ZtcWorkspaceData> = Promise.resolve().then(
 			async () => {
 				try {
-					const result = await this.load();
+					if (this.check) await this.hydrate().catch(() => {});
+					if (generation !== this.generation && this.state.data)
+						return this.state.data;
+					const base = this.state.data;
+					const known =
+						base?.sync?.version === 1 && base.sync.siteId === this.siteId
+							? base.sync
+							: undefined;
+					if (this.check && known) {
+						const activity = await this.check();
+						if (activity.status === "denied") {
+							if (generation === this.generation) {
+								this.invalidate();
+								this.publish({ data: null, denied: true });
+							}
+							throw new Error("Jums nav piekļuves ražošanas žurnālam.");
+						}
+						if (activity.siteId !== this.siteId)
+							throw new Error("Neatbilstošs ražošanas objekts.");
+						if (generation !== this.generation && this.state.data)
+							return this.state.data;
+						if (base && ztcRevisionsEqual(known.revisions, activity.revisions))
+							return base;
+					}
+					const result = await this.load(known);
+					if (generation !== this.generation && this.state.data)
+						return this.state.data;
 					if (result.status === "denied") {
 						if (generation === this.generation) {
 							this.invalidate();
@@ -94,24 +138,43 @@ export class ZtcWorkspaceResource {
 						}
 						throw new Error("Jums nav piekļuves ražošanas žurnālam.");
 					}
-					const data: ZtcWorkspaceData = {
-						...result.data,
-						mediaOnlyDays: this.state.data?.mediaOnlyDays ?? [],
-					};
+					if (result.status === "unchanged") {
+						if (!base || result.siteId !== this.siteId)
+							throw new Error("Nepilnīgs ražošanas žurnāla atjauninājums.");
+						return base;
+					}
+					const data: ZtcWorkspaceData =
+						result.status === "delta"
+							? base
+								? applyZtcWorkspaceDelta(base, result)
+								: (() => {
+										throw new Error("Nav kešatmiņas atjauninājumam.");
+									})()
+							: {
+									...result.data,
+									mediaOnlyDays:
+										result.data.mediaOnlyDays ??
+										this.state.data?.mediaOnlyDays ??
+										[],
+								};
 					if (data.siteId !== this.siteId)
 						throw new Error("Neatbilstošs ražošanas objekts.");
 					if (generation === this.generation) {
 						this.publish({ data, error: null, denied: false });
 						this.persist(data);
-						void this.loadMedia()
-							.then((mediaOnlyDays) => {
-								if (generation !== this.generation || this.state.data !== data)
-									return;
-								const updated = { ...data, mediaOnlyDays };
-								this.publish({ data: updated });
-								this.persist(updated);
-							})
-							.catch(() => {});
+						if (!data.sync)
+							void this.loadMedia()
+								.then((mediaOnlyDays) => {
+									if (
+										generation !== this.generation ||
+										this.state.data !== data
+									)
+										return;
+									const updated = { ...data, mediaOnlyDays };
+									this.publish({ data: updated });
+									this.persist(updated);
+								})
+								.catch(() => {});
 					}
 					return data;
 				} catch (error) {
@@ -146,6 +209,7 @@ export class ZtcWorkspaceResource {
 		this.generation++;
 		this.request = null;
 		this.hydrated = false;
+		this.hydration = null;
 		this.publish({ refreshing: false });
 	};
 

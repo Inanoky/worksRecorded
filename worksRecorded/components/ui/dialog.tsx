@@ -1,4 +1,5 @@
 "use client"
+import { RetainedViewPortal } from "@/components/providers/RetainedView";
 
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
@@ -21,7 +22,7 @@ function DialogTrigger({
 function DialogPortal({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Portal>) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+  return <RetainedViewPortal><DialogPrimitive.Portal data-slot="dialog-portal" {...props} /></RetainedViewPortal>
 }
 
 function DialogClose({
