@@ -19,8 +19,11 @@ import {
   type ZtcDiaryRow,
   type ZtcImageDialogState,
 } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
+import type { ZtcWorkspaceData } from "@/flows/ztc-production/lib/ztc-workspace-data";
 
 type ZtcPayrollField = "rate" | "coefficient" | "complexity";
+const EMPTY_RATES: ZtcProjectTaskRates[] = [];
+const EMPTY_PROJECTS: string[] = [];
 
 type UseZtcSiteDiaryFlowArgs<Row extends ZtcDiaryRow> = {
   enabled: boolean;
@@ -31,6 +34,10 @@ type UseZtcSiteDiaryFlowArgs<Row extends ZtcDiaryRow> = {
   setProjectFilter: (value: string) => void;
   setElementFilter: (value: string) => void;
   setWorkerFilter?: (value: string) => void;
+  managedRates?: boolean;
+  ratesData?: Pick<ZtcWorkspaceData, "rates" | "projectOptions"> | null;
+  onRatesSaved?: (rates: ZtcProjectTaskRates[]) => void;
+  onPayrollSaved?: (id: string, values: Pick<ZtcDiaryRow, "Location_Custom_2" | "Works_Custom_2" | "WorkersInvolved">) => void;
 };
 
 export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
@@ -42,15 +49,42 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
   setProjectFilter,
   setElementFilter,
   setWorkerFilter,
+  managedRates = false,
+  ratesData,
+  onRatesSaved,
+  onPayrollSaved,
 }: UseZtcSiteDiaryFlowArgs<Row>) {
   const [payrollSavingRowId, setPayrollSavingRowId] = React.useState<string | null>(null);
   const [payrollDirtyRowIds, setPayrollDirtyRowIds] = React.useState<Set<string>>(new Set());
   const [imageDialog, setImageDialog] = React.useState<ZtcImageDialogState>(null);
   const [rateDialogOpen, setRateDialogOpen] = React.useState(false);
-  const [defaultRates, setDefaultRates] = React.useState<ZtcProjectTaskRates[]>([]);
-  const [rateProjectOptions, setRateProjectOptions] = React.useState<string[]>([]);
+  const [fallbackRates, setDefaultRates] = React.useState<ZtcProjectTaskRates[]>([]);
+  const [fallbackProjectOptions, setRateProjectOptions] = React.useState<string[]>([]);
+  const defaultRates = managedRates ? ratesData?.rates ?? EMPTY_RATES : fallbackRates;
+  const rateProjectOptions = managedRates ? ratesData?.projectOptions ?? EMPTY_PROJECTS : fallbackProjectOptions;
+  const rateDialogData = React.useRef({ rates: defaultRates, projectOptions: rateProjectOptions });
+  const dirtyRows = React.useRef(new Set<string>());
 
   React.useEffect(() => {
+    dirtyRows.current = new Set();
+    setPayrollDirtyRowIds(new Set());
+  }, [siteId]);
+
+  const applyLoadedRows = React.useCallback((loaded: Row[]) => {
+    setRows((current) => {
+      const drafts = new Map(current.filter((row) => row.id && dirtyRows.current.has(row.id)).map((row) => [row.id, row]));
+      if (!drafts.size) return loaded;
+      const next = loaded.map((row) => {
+        const draft = drafts.get(row.id);
+        drafts.delete(row.id);
+        return draft ? { ...row, Location_Custom_2: draft.Location_Custom_2, Works_Custom_2: draft.Works_Custom_2, WorkersInvolved: draft.WorkersInvolved } : row;
+      });
+      return [...next, ...drafts.values()];
+    });
+  }, [setRows]);
+
+  React.useEffect(() => {
+    if (managedRates) return;
     if (!enabled || !siteId) {
       setDefaultRates([]);
       setRateProjectOptions([]);
@@ -73,7 +107,7 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
     return () => {
       cancelled = true;
     };
-  }, [enabled, siteId]);
+  }, [enabled, managedRates, siteId]);
 
   const updatePayrollDraft = React.useCallback(
     (recordId: string, field: ZtcPayrollField, value: string) => {
@@ -84,6 +118,7 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
             ? "Works_Custom_2"
             : "WorkersInvolved";
 
+      dirtyRows.current.add(recordId);
       setRows((prev) =>
         prev.map((row) =>
           row.id === recordId
@@ -141,6 +176,12 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
         if (!result?.ok) {
           toast.error(result?.message ?? "Neizdevās saglabāt algas laukus.");
         } else {
+          dirtyRows.current.delete(row.id);
+          onPayrollSaved?.(row.id, {
+            Location_Custom_2: rateValue,
+            Works_Custom_2: coefficientValue,
+            WorkersInvolved: complexityValue,
+          });
           setPayrollDirtyRowIds((prev) => {
             const next = new Set(prev);
             next.delete(row.id as string);
@@ -153,7 +194,7 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
         setPayrollSavingRowId(null);
       }
     },
-    [enabled, siteId],
+    [enabled, onPayrollSaved, siteId],
   );
 
   const renderPayrollInput = React.useCallback(
@@ -234,10 +275,13 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
       <ZtcDefaultRatesDialog
         open={rateDialogOpen}
         siteId={siteId ?? null}
-        rates={defaultRates}
-        projectOptions={rateProjectOptions}
+        rates={rateDialogOpen ? rateDialogData.current.rates : defaultRates}
+        projectOptions={rateDialogOpen ? rateDialogData.current.projectOptions : rateProjectOptions}
         onOpenChange={setRateDialogOpen}
-        onSaved={setDefaultRates}
+        onSaved={(rates) => {
+          setDefaultRates(rates);
+          onRatesSaved?.(rates);
+        }}
       />
 
       {imageDialog ? (
@@ -253,12 +297,16 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
 
   return {
     defaultRates,
+    applyLoadedRows,
     payrollSavingRowId,
     payrollDirtyRowIds,
     savePayrollDraft,
     renderPayrollInput,
     handlePayrollExcelExport,
-    openRateDialog: () => setRateDialogOpen(true),
+    openRateDialog: () => {
+      rateDialogData.current = { rates: defaultRates, projectOptions: rateProjectOptions };
+      setRateDialogOpen(true);
+    },
     openRowImages,
     openElementDetails,
     openProjectDetails,

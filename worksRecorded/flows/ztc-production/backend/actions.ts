@@ -42,6 +42,7 @@ import { auditZtcMutation } from "@/flows/ztc-production/lib/ztc-record-audit";
 import { buildZtcScopeSummary } from "@/flows/ztc-production/lib/ztc-scope-summary";
 import { buildZtcNotCancelledWhere } from "@/flows/ztc-production/lib/ztc-session-markers";
 import type { ZtcDiaryRow } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
+import type { ZtcWorkspaceResult } from "@/flows/ztc-production/lib/ztc-workspace-data";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 import { createPerfTrace } from "@/lib/observability/perf";
 import { resolveAdvancedProductionWorkflowContextForSite } from "@/lib/production-flow/runtime-server";
@@ -76,10 +77,12 @@ export type ZtcProjectTaskRates = {
   additionalWorks: ZtcDefaultTaskRate[];
 };
 
+class ZtcAccessError extends Error {}
+
 async function requireZtcAccess(siteId: string) {
   const context = await resolveAdvancedProductionWorkflowContextForSite(siteId);
   if (!context) {
-    throw new Error(
+    throw new ZtcAccessError(
       "Ražošanas darbības var izmantot tikai ražošanas plūsmas objektam.",
     );
   }
@@ -88,7 +91,7 @@ async function requireZtcAccess(siteId: string) {
   const site = await orgCheck(user.id, siteId);
 
   if (!site || site.organizationId !== context.organizationId) {
-    throw new Error("Jums nav piekļuves ražošanas žurnālam.");
+    throw new ZtcAccessError("Jums nav piekļuves ražošanas žurnālam.");
   }
 
   return { user, ...context };
@@ -1079,6 +1082,30 @@ export async function getZtcSiteDiaryRecords(args: {
 export async function getZtcDiarySnapshot(args: { siteId: string }) {
   const context = await requireZtcAccess(args.siteId);
   return loadZtcSiteDiaryRecords(context);
+}
+
+export async function getZtcWorkspaceSnapshot(args: { siteId: string }): Promise<ZtcWorkspaceResult> {
+  try {
+    const context = await requireZtcAccess(args.siteId);
+    const [config, rows] = await Promise.all([
+      loadZtcSiteDiaryConfig(context.siteId),
+      loadZtcSiteDiaryRecords(context),
+    ]);
+    const projectOptions = Array.from(new Set(rows
+      .map((row) => String(row.Location ?? "").trim())
+      .filter((name) => name && name !== "Papilddarbi"),
+    )).sort((a, b) => a.localeCompare(b, "lv"));
+    return { status: "ok", data: {
+      siteId: context.siteId,
+      config,
+      rows,
+      rates: getDefaultTaskRatesFromConfig(config),
+      projectOptions,
+    } };
+  } catch (error) {
+    if (error instanceof ZtcAccessError) return { status: "denied" };
+    throw error;
+  }
 }
 
 export async function getZtcRecordHistory(args: {

@@ -145,8 +145,8 @@ import {
 } from "@/flows/default-construction/lib/site-diary-work-order";
 import {
   getZtcDefaultTaskRates,
-  getZtcDiarySnapshot,
 } from "@/flows/ztc-production/backend/actions";
+import { useZtcWorkspaceData } from "@/flows/ztc-production/frontend/useZtcWorkspaceData";
 import { useZtcSiteDiaryFlow } from "@/flows/ztc-production/frontend/useZtcSiteDiaryFlow";
 import { ZtcCommentPopoverContent } from "@/flows/ztc-production/frontend/ZtcCommentPopoverContent";
 import { createZtcDiaryView } from "@/flows/ztc-production/lib/ztc-diary-view";
@@ -241,6 +241,7 @@ const WhatsAppIcon = ({ size = 22 }) => (
 );
 
 const SITE_DIARY_LIST_PAGE_SIZE = 75;
+const EMPTY_ZTC_ROWS: DiaryRow[] = [];
 const EMPTY_ZTC_FILTER_OPTIONS = {
   projects: [], elements: [], works: [], workers: [],
 };
@@ -657,6 +658,30 @@ function getCalendarGrid(year: number, month: number) {
   return weeks;
 }
 
+function getRenderableFieldsOrdered(
+  map: Record<string, any>,
+): string[] {
+  return Object.entries(map)
+    .filter(([_, cfg]) => {
+      return cfg?.customSettings?.displayinSiteList === "yes";
+    })
+    .sort((a, b) => {
+      const ao = a[1]?.customSettings?.displayinSiteListOrder;
+      const bo = b[1]?.customSettings?.displayinSiteListOrder;
+
+      const aOrder =
+        typeof ao === "number" ? ao : Number.POSITIVE_INFINITY;
+      const bOrder =
+        typeof bo === "number" ? bo : Number.POSITIVE_INFINITY;
+
+      if (aOrder !== bOrder) return aOrder - bOrder;
+
+      return a[0].localeCompare(b[0]);
+    })
+    .map(([key]) => key.trim());
+}
+
+
 function toLocalDateKey(d: Date) {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -718,6 +743,9 @@ export default function SiteDiaryCalendar({
   onFimaRowsChange?: (rows: (Partial<ConstructionDiaryListRow> & {id: string})[], removed?: string[]) => void;
   onFimaSync?: () => Promise<FimaDiaryWorkspace | null>;
 }) {
+  const ztcWorkspace = useZtcWorkspaceData(siteId, isZtcFlow, active);
+  const ztcRowsScope = React.useRef<string | null>(null);
+  const appliedZtcSnapshot = React.useRef(ztcWorkspace.data);
   const initialDiary = React.useMemo(() => fimaClientData?.siteId === siteId ? { siteId, config: fimaClientData.config, page: selectFimaDiaryPage(fimaClientData, {}) } : initialFimaDiary?.siteId === siteId && !isZtcFlow ? initialFimaDiary : null, [fimaClientData, initialFimaDiary, siteId, isZtcFlow]);
   const initialFimaPage = React.useRef(initialDiary);
   const limeniProjectSeed = React.useRef(initialLimeniProject);
@@ -795,7 +823,8 @@ export default function SiteDiaryCalendar({
   // List view state
   const [confirmedRows, setRows] = React.useState<DiaryRow[]>([]);
   const { queue: diarySaveQueue, snapshot: diarySaveSnapshot } = useDiarySaveQueue(siteId, batchEditing && !isZtcFlow);
-  const rows = React.useMemo(() => diarySaveQueue ? diarySaveQueue.project(confirmedRows) : confirmedRows, [confirmedRows, diarySaveQueue, diarySaveSnapshot.items]);
+  const projectedRows = React.useMemo(() => diarySaveQueue ? diarySaveQueue.project(confirmedRows) : confirmedRows, [confirmedRows, diarySaveQueue, diarySaveSnapshot.items]);
+  const rows = isZtcFlow && ztcRowsScope.current !== ztcWorkspace.key ? EMPTY_ZTC_ROWS : projectedRows;
   const [serverMediaOnlyDays, setMediaOnlyDays] = React.useState<
     MediaOnlyDaySummary[]
   >([]);
@@ -832,11 +861,6 @@ export default function SiteDiaryCalendar({
   const mediaOnlyRequestRef = React.useRef(0);
   const diaryRowsRequestRef = React.useRef(0);
   const diaryLastLoaded = React.useRef(0);
-  const ztcSnapshot = React.useRef<{
-    siteId: string;
-    revision: number;
-    rows: DiaryRow[];
-  } | null>(null);
   const [fimaPages] = React.useState(() => createFimaPageCache<Awaited<ReturnType<typeof getSiteDiaryRecordsPage>>>());
   const fimaPageScope = React.useRef<string | null>(null);
   const fimaPrefetchTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1248,6 +1272,10 @@ export default function SiteDiaryCalendar({
   }, [isZtcSite]);
   const ztc = useZtcSiteDiaryFlow({
     enabled: isZtcSite,
+    managedRates: isZtcSite,
+    ratesData: ztcWorkspace.data,
+    onRatesSaved: ztcWorkspace.resource?.updateRates,
+    onPayrollSaved: ztcWorkspace.resource?.updatePayroll,
     siteId,
     rows,
     setRows,
@@ -1256,11 +1284,7 @@ export default function SiteDiaryCalendar({
     setElementFilter,
     setWorkerFilter,
   });
-  React.useEffect(() => {
-    if (isZtcSite && ztcSnapshot.current?.siteId === siteId) {
-      ztcSnapshot.current.rows = rows;
-    }
-  }, [isZtcSite, rows, siteId]);
+
   const ztcFilters = React.useMemo(() => ({
     projectName: floorFilter,
     elementName: elementFilter,
@@ -1381,7 +1405,7 @@ export default function SiteDiaryCalendar({
     ...(fimaDiary ? fimaFilters : {}),
   });
   const refreshRowsWithBisSync = React.useCallback(
-    async (options?: { skipSync?: boolean; useCache?: boolean }) => {
+    async (options?: { skipSync?: boolean; useCache?: boolean; invalidateCache?: boolean }) => {
       const requestId = ++diaryRowsRequestRef.current;
       ++mediaOnlyRequestRef.current;
       if (!siteId) {
@@ -1402,25 +1426,12 @@ export default function SiteDiaryCalendar({
         return page.rows;
       }
       if (isZtcSite) {
-        const cached = ztcSnapshot.current;
-        const useCachedSnapshot = options?.useCache &&
-          cached?.siteId === siteId && cached.revision === optionsRevision;
-        const data = useCachedSnapshot
-          ? cached.rows
-          : await getZtcDiarySnapshot({ siteId });
-        if (diaryRowsRequestRef.current !== requestId) return data;
-        ztcSnapshot.current = { siteId, revision: optionsRevision, rows: data };
-        setRows(data);
-        if (!useCachedSnapshot) {
-          setMediaOnlyDays([]);
-          const mediaRequestId = ++mediaOnlyRequestRef.current;
-          void getSiteDiaryMediaOnlyDays(siteId, { flowId: siteDiaryFlowId })
-            .then((days) => {
-              if (mediaOnlyRequestRef.current === mediaRequestId) setMediaOnlyDays(days);
-            })
-            .catch(() => {});
-        }
-        return data;
+        const resource = ztcWorkspace.resource;
+        if (!resource) return [];
+        if (options?.invalidateCache) resource.invalidate();
+        const cached = resource.getSnapshot().data;
+        const snapshot = options?.useCache && cached ? cached : await resource.refresh();
+        return snapshot.rows as DiaryRow[];
       }
       const isFima = !isZtcSite && fimaConfig.current?.key === `${siteId}:${siteDiaryFlowId}:${optionsRevision}` && fimaConfig.current.enabled;
       if (bisUiEnabled && !options?.skipSync && !isFima) {
@@ -1534,6 +1545,7 @@ export default function SiteDiaryCalendar({
       fimaPages,
       fimaClientData,
       onFimaSync,
+      ztcWorkspace.resource,
     ],
   );
 
@@ -1655,10 +1667,51 @@ export default function SiteDiaryCalendar({
     };
   }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode, fimaClientData, reloadFilledDays]);
 
+  React.useEffect(() => {
+    if (!isZtcSite) return;
+    const snapshot = ztcWorkspace.data;
+    if (!snapshot) {
+      ztcRowsScope.current = null;
+      appliedZtcSnapshot.current = null;
+      setRows([]);
+      setMediaOnlyDays([]);
+      setHasLoadedRowsOnce(false);
+      setLoading(ztcWorkspace.hydrating || ztcWorkspace.refreshing);
+      setError(ztcWorkspace.error);
+      return;
+    }
+    setLoading(false);
+    setError(null);
+    if (dialogOpen || appliedZtcSnapshot.current === snapshot) return;
+    appliedZtcSnapshot.current = snapshot;
+    ztcRowsScope.current = ztcWorkspace.key;
+    ztc.applyLoadedRows(snapshot.rows as DiaryRow[]);
+    const cfg = snapshot.config;
+    setMap(cfg);
+    setConfigSiteId(siteId);
+    setScreenWidth((cfg.otherSettings as Record<string, number>)?.displaySiteListWidth ?? 140);
+    const fields = getRenderableFieldsOrdered(cfg);
+    const settings = cfg.otherSettings as Record<string, unknown> | undefined;
+    setTableHeads(settings?.hideCreatedAtInSiteList === true ? fields : ["createdAt", ...fields]);
+    setMediaOnlyDays(snapshot.mediaOnlyDays);
+    setHasLoadedRowsOnce(true);
+  }, [isZtcSite, siteId, ztcWorkspace.key, ztcWorkspace.data, ztcWorkspace.hydrating, ztcWorkspace.refreshing, ztcWorkspace.error, dialogOpen, ztc.applyLoadedRows]);
+
+  const ztcOptionsRevision = React.useRef({ resource: ztcWorkspace.resource, revision: optionsRevision });
+  React.useEffect(() => {
+    const previous = ztcOptionsRevision.current;
+    ztcOptionsRevision.current = { resource: ztcWorkspace.resource, revision: optionsRevision };
+    if (previous.resource === ztcWorkspace.resource && previous.revision !== optionsRevision && ztcWorkspace.resource) {
+      ztcWorkspace.resource.invalidate();
+      void ztcWorkspace.resource.refresh().catch(() => {});
+    }
+  }, [optionsRevision, ztcWorkspace.resource]);
+
   // Load list rows once
   React.useEffect(() => {
     let cancelled = false;
     async function run() {
+      if (isZtcSite) return;
       if (!siteId) {
         setRows([]);
         setListTotalCount(0);
@@ -1670,29 +1723,6 @@ export default function SiteDiaryCalendar({
       setLoading(!fimaClientData);
       setError(null);
       try {
-        function getRenderableFieldsOrdered(
-          map: Record<string, any>,
-        ): string[] {
-          return Object.entries(map)
-            .filter(([_, cfg]) => {
-              return cfg?.customSettings?.displayinSiteList === "yes";
-            })
-            .sort((a, b) => {
-              const ao = a[1]?.customSettings?.displayinSiteListOrder;
-              const bo = b[1]?.customSettings?.displayinSiteListOrder;
-
-              const aOrder =
-                typeof ao === "number" ? ao : Number.POSITIVE_INFINITY;
-              const bOrder =
-                typeof bo === "number" ? bo : Number.POSITIVE_INFINITY;
-
-              if (aOrder !== bOrder) return aOrder - bOrder;
-
-              return a[0].localeCompare(b[0]);
-            })
-            .map(([key]) => key.trim());
-        }
-
         // Load the display configuration and the first page together. BIS cleanup
         // is intentionally not on the critical path for the initial screen.
         const configKey = `${siteId}:${siteDiaryFlowId}:${optionsRevision}`;
@@ -1991,12 +2021,12 @@ export default function SiteDiaryCalendar({
   }, [isZtcSite, listPage, listTotalPages]);
   const mediaOnlyDays = React.useMemo(() => isZtcSite
     ? (workFilter === "__ALL__" && floorFilter === "__ALL__" && elementFilter === "__ALL__" && workerFilter === "__ALL__"
-      ? serverMediaOnlyDays.filter(day => (!dateFrom || day.key >= toLocalDateKey(dateFrom)) && (!dateTo || day.key <= toLocalDateKey(dateTo)))
+      ? (ztcWorkspace.data?.mediaOnlyDays ?? []).filter(day => (!dateFrom || day.key >= toLocalDateKey(dateFrom)) && (!dateTo || day.key <= toLocalDateKey(dateTo)))
       : [])
     : clientDiary
     ? getClientDiaryMediaDays(clientMediaPhotos, filteredRows.filter(row => diaryRowMatchesKeyword(row, keywordFilter)).map(row => row.Date), { dateFrom, dateTo, work: workFilter, location: floorFilter, keyword: keywordFilter })
     : serverMediaOnlyDays,
-    [isZtcSite, elementFilter, workerFilter, clientDiary, clientMediaPhotos, filteredRows, keywordFilter, dateFrom, dateTo, workFilter, floorFilter, serverMediaOnlyDays]);
+    [isZtcSite, ztcWorkspace.data, elementFilter, workerFilter, clientDiary, clientMediaPhotos, filteredRows, keywordFilter, dateFrom, dateTo, workFilter, floorFilter, serverMediaOnlyDays]);
 
   // Group filtered rows by day
   const dayGroups: DayGroup[] = React.useMemo(() => {
@@ -2270,7 +2300,7 @@ export default function SiteDiaryCalendar({
         });
       }
 
-      await refreshRowsWithBisSync();
+      await refreshRowsWithBisSync({ invalidateCache: isZtcSite });
       reloadFilledDays();
 
       if (deletedIds.length > 0 && failedCount === 0) {
@@ -2965,7 +2995,7 @@ export default function SiteDiaryCalendar({
         { flowId: siteDiaryFlowId },
       );
       if (!siteId) return;
-      await refreshRowsWithBisSync();
+      await refreshRowsWithBisSync({ invalidateCache: isZtcSite });
       reloadFilledDays();
       toast.success(toastMessages.recordCopiedLocally);
       setCopyDialogOpen(false);
@@ -3002,7 +3032,7 @@ export default function SiteDiaryCalendar({
         next.delete(row.id as string);
         return next;
       });
-      await refreshRowsWithBisSync({ skipSync: true });
+      await refreshRowsWithBisSync({ skipSync: true, invalidateCache: isZtcSite });
       reloadFilledDays();
       toast.success(toastMessages.recordDeleted);
     } catch (e: any) {
@@ -3154,7 +3184,7 @@ export default function SiteDiaryCalendar({
           toast.info("Ieraksts izveidots BIS. Materiālu sarakstu var atjaunot kolonnā ‘Materiāli’.");
         }
       }
-      await refreshRowsWithBisSync();
+      await refreshRowsWithBisSync({ invalidateCache: isZtcSite });
       setBisPickerOpen(false);
       toast.success(toastMessages.siteDiarySentToBis);
     } catch (e: any) {
@@ -3475,6 +3505,11 @@ export default function SiteDiaryCalendar({
             </div>
           </TabsContent>
 
+          {isZtcSite && ztcWorkspace.data && ztcWorkspace.error ? (
+            <p role="status" className="mb-3 text-sm text-muted-foreground">
+              {language === "lv" ? "Neizdevās atjaunot ražošanas žurnālu. Redzami saglabātie dati; mēģiniet ‘Atjaunot ierakstus’." : "Could not refresh the production diary. Cached data is shown; try Refresh records."}
+            </p>
+          ) : null}
           {revalidationFailed ? <p role="status" className="mb-3 text-sm text-muted-foreground">{language === "lv" ? "Neizdevās pārbaudīt jaunākos ierakstus. Redzami iepriekš ielādētie dati; mēģiniet ‘Atjaunot ierakstus’." : "Could not check for new records. Previously loaded data is shown; try Refresh records."}</p> : null}
           {/* LIST VIEW */}
           <TabsContent value="list" className="mt-0">
@@ -6347,6 +6382,7 @@ export default function SiteDiaryCalendar({
               focusedRecordId={dialogRecordId}
               initialTab={dialogInitialTab}
               onSaved={async (changes?: DiaryEditChanges) => {
+                if (isZtcSite) ztcWorkspace.resource?.invalidate();
                 if (batchEditing && changes) {
                   ++diaryRowsRequestRef.current;
                   diaryLastLoaded.current = Date.now();
