@@ -1,24 +1,19 @@
+import { withRetainedProjectPage } from "@/components/projects/withRetainedProjectPage";
+import { getWorkspaceAccess } from "@/components/projects/workspace-access";
 import { getDefaultConstructionForma2Results } from "@/flows/default-construction/backend/forma2-analytics-actions";
 import { DefaultConstructionForma2View } from "@/flows/default-construction/frontend/DefaultConstructionForma2View";
-import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
-import { requireUser } from "@/lib/utils/requireUser";
-import {
-	getOrganizationLanguageByUserId,
-	orgCheck,
-} from "@/server/actions/shared-actions";
+import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 
-export default async function AnalyticsPage({
+async function AnalyticsPage({
 	params,
 }: {
 	params: Promise<{ siteId: string }>;
 }) {
 	const { siteId } = await params;
-	const user = await requireUser();
-	const site = await orgCheck(user.id, siteId);
-	if (!site) throw new Error("Site not found");
-	if (site.organizationId === LIMENI_ORGANIZATION_ID) return null;
+	const workspace = await getWorkspaceAccess(siteId);
+	if (workspace.visualPreload || workspace.constructionWorkspace) return null;
 	const [organizationLanguage, data] = await Promise.all([
-		getOrganizationLanguageByUserId(user.id),
+		getOrganizationLanguageByUserId(workspace.userId),
 		getDefaultConstructionForma2Results(siteId),
 	]);
 	return (
@@ -29,3 +24,5 @@ export default async function AnalyticsPage({
 		/>
 	);
 }
+
+export default withRetainedProjectPage(AnalyticsPage, "analytics");

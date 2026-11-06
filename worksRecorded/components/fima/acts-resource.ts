@@ -5,6 +5,10 @@ export function createFimaActsResource(
 	loadData: (siteId: string) => Promise<FimaActsData>,
 	loadView: () => Promise<unknown>,
 	options: {
+		check?: (
+			siteId: string,
+			sourceRevision: string,
+		) => Promise<{ kind: "changed" | "unchanged" | "denied" }>;
 		persistence?: (siteId: string) => FimaResourcePersistence<FimaActsData>;
 		loadDelta?: (
 			siteId: string,
@@ -68,6 +72,32 @@ export function createFimaActsResource(
 					}
 				}
 				const view = loadView();
+				if (current?.cache?.sourceRevision && options.check) {
+					const [activity] = await Promise.all([
+						options.check(siteId, current.cache.sourceRevision),
+						view,
+					]);
+					if (activity.kind === "denied") {
+						await options.persistence?.(siteId).write(null);
+						publish(siteId, {
+							status: "error",
+							data: null,
+							error:
+								"Piekļuve projektam ir mainīta. Atveriet projektu no jauna.",
+						});
+						return;
+					}
+					if (activity.kind === "unchanged") {
+						await view;
+						if (entries.get(siteId)?.status !== "ready")
+							publish(siteId, {
+								status: "ready",
+								data: entries.get(siteId)?.data ?? current,
+								error: "",
+							});
+						return;
+					}
+				}
 				if (current?.cache && options.loadDelta) {
 					const [delta] = await Promise.all([
 						options.loadDelta(siteId, current.cache),

@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import {
 	createContext,
 	lazy,
+	memo,
 	type ReactNode,
 	Suspense,
 	useContext,
@@ -13,6 +14,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { WorkspaceView } from "@/components/projects/WorkspaceActivity";
 import {
 	useProjectPreparationReporter,
 	useVisualProjectPreload,
@@ -20,7 +22,11 @@ import {
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import { useLimeniProjectData } from "./LimeniProjectData";
 
-const Diary = lazy(() => import("@/components/sitediary/SiteDiaryList"));
+const Diary = lazy(() =>
+	import("@/components/sitediary/SiteDiaryList").then((module) => ({
+		default: memo(module.default),
+	})),
+);
 
 type DiarySettings = {
 	siteId: string;
@@ -44,7 +50,8 @@ export function RetainedLimeniDiary({
 }) {
 	const [settings, setSettings] = useState<DiarySettings | null>(null);
 	const projectData = useLimeniProjectData();
-	const preload = useVisualProjectPreload(siteId);
+	const visualPreload = useVisualProjectPreload(siteId);
+	const preload = visualPreload || projectData.enabled;
 	const report = useProjectPreparationReporter(siteId);
 	useEffect(() => {
 		if (!preload) return;
@@ -137,17 +144,28 @@ export function RetainedLimeniDiary({
 							) : null
 						}
 					>
-						<Diary
-							key={scope}
-							siteId={siteId}
-							bisEnabled={settings.bisEnabled}
-							organizationLanguage={settings.organizationLanguage}
-							limeniClientDiary
-							initialLimeniProject={projectData.snapshot ?? undefined}
-							active={active}
-							batchEditing
-						/>
+						<WorkspaceView active={active}>
+							<Diary
+								key={scope}
+								siteId={siteId}
+								bisEnabled={settings.bisEnabled}
+								organizationLanguage={settings.organizationLanguage}
+								limeniClientDiary
+								initialLimeniProject={projectData.snapshot ?? undefined}
+								active={active}
+								batchEditing
+							/>
+						</WorkspaceView>
 					</Suspense>
+				) : active && projectData.enabled ? (
+					projectData.failed ? (
+						<p role="alert">
+							Neizdevās ielādēt būvdarbu žurnālu. Savienojums tiks pārbaudīts
+							atkārtoti.
+						</p>
+					) : (
+						<ProjectOpeningOverlay label="Ielādē būvdarbu žurnālu…" />
+					)
 				) : null}
 			</section>
 		</DiaryContext.Provider>

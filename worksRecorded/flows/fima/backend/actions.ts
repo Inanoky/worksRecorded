@@ -14,8 +14,42 @@ import {
 	readiness,
 	type Source,
 } from "../lib/records";
-import { fimaAccess } from "./access";
+import type { FimaWorkspaceVersions } from "../lib/workspace-sync";
+import { FimaAccessError, fimaAccess } from "./access";
 import { fimaBisClient } from "./bis-client";
+import { checkFimaWorkspace, syncFimaWorkspace } from "./workspace-sync";
+
+export async function getFimaWorkspaceActivity(
+	siteId: string | undefined,
+	revision: string,
+) {
+	try {
+		return await checkFimaWorkspace(siteId, revision);
+	} catch (error) {
+		if (
+			error instanceof FimaAccessError ||
+			(error instanceof Error && error.message.startsWith("NEXT_REDIRECT"))
+		)
+			return { kind: "denied" as const };
+		throw error;
+	}
+}
+
+export async function getFimaWorkspaceSync(
+	siteId?: string,
+	known?: FimaWorkspaceVersions,
+) {
+	try {
+		return await syncFimaWorkspace(siteId, known);
+	} catch (error) {
+		if (
+			error instanceof FimaAccessError ||
+			(error instanceof Error && error.message.startsWith("NEXT_REDIRECT"))
+		)
+			return { kind: "denied" as const };
+		throw error;
+	}
+}
 
 const json = (v: unknown) =>
 	JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue;

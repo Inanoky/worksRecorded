@@ -1,6 +1,8 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
+import { useWorkspaceNavigation } from "@/components/projects/WorkspaceNavigation";
 import { type MouseEvent, useEffect, useState } from "react";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import { useProject } from "@/components/providers/ProjectProvider";
@@ -36,9 +38,12 @@ export default function OpenProjectButton({
 	const { setProject, projectId: currentProjectId } = useProject();
 	const resetProgress = useProjectPreparationReset(projectId ?? "");
 	const [opening, setOpening] = useState(false);
-	const href =
+	const workspace = useWorkspaceNavigation();
+	const fallbackHref =
 		destination ??
 		(projectId ? `/dashboard/sites/${projectId}/dashboard` : "/dashboard");
+	const href = !destination && projectId ? workspace?.store.preferredHref(projectId, fallbackHref) ?? fallbackHref : fallbackHref;
+	const cached = workspace?.store.hasRoute(href) ?? false;
 
 	useEffect(() => {
 		if (!opening) return;
@@ -47,12 +52,13 @@ export default function OpenProjectButton({
 	}, [opening]);
 
 	const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+		if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
 		if (opening) {
 			event.preventDefault();
 			return;
 		}
-		setOpening(true);
-		if (projectId && currentProjectId !== projectId) resetProgress();
+		if (!cached) setOpening(true);
+		if (!cached && projectId && currentProjectId !== projectId) resetProgress();
 		if (projectId && projectName) {
 			setProject(projectId, projectName);
 			try {
@@ -68,7 +74,7 @@ export default function OpenProjectButton({
 				className="w-full active:scale-95 active:bg-muted transition-transform"
 				aria-disabled={opening}
 			>
-				<a href={href} onClick={handleClick}>
+				<FimaProjectNavigationLink href={href} onClick={handleClick}>
 					{opening ? (
 						<span className="inline-flex items-center gap-2">
 							<Loader2 className="size-4 animate-spin" />
@@ -77,7 +83,7 @@ export default function OpenProjectButton({
 					) : (
 						label
 					)}
-				</a>
+				</FimaProjectNavigationLink>
 			</Button>
 			{opening ? (
 				<ProjectOpeningOverlay label={loadingLabel} siteId={projectId} />

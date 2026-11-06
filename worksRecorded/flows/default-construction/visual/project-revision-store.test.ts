@@ -12,7 +12,9 @@ jest.mock("./project-snapshot-store", () => ({
 
 beforeEach(() => {
 	jest.clearAllMocks();
-	jest.mocked(prisma.$queryRaw).mockResolvedValue([{ revision: "same-data" }]);
+	jest
+		.mocked(prisma.$queryRaw)
+		.mockResolvedValue([{ sources: { site: "same-data" }, rows: [] }]);
 	jest
 		.mocked(requireVisualAccess)
 		.mockResolvedValue({ organizationId: "org" } as never);

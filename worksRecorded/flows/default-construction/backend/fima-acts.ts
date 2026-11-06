@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import {
 	actChoices,
@@ -16,6 +17,22 @@ import { prisma } from "@/lib/utils/db";
 import { fimaBisLinkMetadataSql } from "./fima-bis-link-projection";
 
 type Database = Pick<Prisma.TransactionClient, "$queryRaw" | "$executeRaw">;
+export async function loadFimaActsSourceRevision(organizationId: string) {
+	const rows = await prisma.$queryRaw<Array<{ revision: string }>>`
+    SELECT md5(concat_ws(':',
+      (SELECT COALESCE(string_agg(md5(to_jsonb(s)::text),':' ORDER BY s.id),'') FROM public."Site" s WHERE s."organizationId"=${organizationId} AND s."siteDiaryRecordsMap" #> '{otherSettings,fimaCollaboration}'='true'::jsonb),
+      (SELECT COALESCE(string_agg(md5(to_jsonb(r)::text),':' ORDER BY r.id),'') FROM public.sitediaryrecords r JOIN public."Site" s ON s.id=r."siteId" WHERE s."organizationId"=${organizationId} AND s."siteDiaryRecordsMap" #> '{otherSettings,fimaCollaboration}'='true'::jsonb AND r."archivedAt" IS NULL)
+    )) AS revision
+  `;
+	return createHash("sha256")
+		.update(
+			JSON.stringify([
+				rows[0].revision,
+				process.env.VERCEL_GIT_COMMIT_SHA || "local",
+			]),
+		)
+		.digest("hex");
+}
 export async function loadFimaActRecords(
 	db: Database,
 	organizationId: string,

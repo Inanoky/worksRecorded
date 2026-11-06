@@ -1,3 +1,4 @@
+import { withRetainedProjectPage } from "@/components/projects/withRetainedProjectPage";
 import { FimaWarehouse } from "@/components/sitediary/FimaWarehouse";
 import { isFimaDiary } from "@/lib/fima/diary-collaboration";
 import { prisma } from "@/lib/utils/db";
@@ -2123,7 +2124,7 @@ export async function exportWarehouseMaterials(siteId: string, input: WarehouseM
     : forma2.materials;
 }
 
-export default async function MaterialsPage({
+async function MaterialsPage({
   params,
 }: {
   params: Promise<{ siteId: string }>;
@@ -2273,3 +2274,5 @@ export default async function MaterialsPage({
     throw error;
   }
 }
+
+export default withRetainedProjectPage(MaterialsPage, "BIS");

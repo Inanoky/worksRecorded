@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 import { FimaProjectContent } from "@/components/fima/FimaProjectProvider";
+import { RegisterProjectWorkspace } from "@/components/projects/ProjectRegistration";
+import { getWorkspaceAccess } from "@/components/projects/workspace-access";
+import { retainProjectFlow } from "@/components/projects/workspace-store";
 import { LimeniProjectData } from "@/flows/default-construction/frontend/LimeniProjectData";
 import { RetainedLimeniDiary } from "@/flows/default-construction/frontend/RetainedLimeniDiary";
 import { RetainedLimeniForma2 } from "@/flows/default-construction/frontend/RetainedLimeniForma2";
@@ -13,6 +16,10 @@ export default async function ProjectLayout({
 	params: Promise<{ siteId: string }>;
 }) {
 	const { siteId } = await params;
+	const descriptor = await getWorkspaceAccess(siteId);
+	if (retainProjectFlow(descriptor.flowModuleKey)) {
+		return <RegisterProjectWorkspace descriptor={descriptor}>{children}</RegisterProjectWorkspace>;
+	}
 	return (
 		<FimaProjectContent key={siteId} siteId={siteId}>
 			<LimeniProjectData key={siteId} siteId={siteId}>

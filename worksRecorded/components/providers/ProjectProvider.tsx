@@ -123,3 +123,8 @@ export function useProject() {
   if (!ctx) throw new Error("useProject must be used within ProjectProvider");
   return ctx;
 }
+
+export function ProjectScope({ id, name, children }: { id: string; name: string; children: ReactNode }) {
+  const project = useProject();
+  return <ProjectContext.Provider value={{ ...project, projectId: id, projectName: name }}>{children}</ProjectContext.Provider>;
+}

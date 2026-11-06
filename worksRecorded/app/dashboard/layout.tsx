@@ -1,4 +1,5 @@
 import { FimaProjectProvider } from "@/components/fima/FimaProjectProvider";
+import { ProjectWorkspaceProvider, ProjectWorkspaceViewport } from "@/components/projects/ProjectWorkspaces";
 // worksRecorded\app\dashboard\layout.tsx
 
 import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs/components";
@@ -177,6 +178,7 @@ export default async function DashboardLayout({
 				canAccessFlowConfigs={canAccessFlowConfigs}
 				organizationLanguage={organizationLanguage}
 			>
+			<ProjectWorkspaceProvider key={`${userId}:${organizationId ?? "admin"}`} userId={userId} organizationId={organizationId}>
 			<section className={`${suiteClassName} min-h-screen w-full flex flex-col`}>
 				{/* CSS-only modal (hash :target) */}
 				<style>{`
@@ -363,9 +365,10 @@ export default async function DashboardLayout({
 
 				{/* Main content */}
 				<main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
-					<ZtcNavigationViewport><DashboardSettingsContent>{children}</DashboardSettingsContent></ZtcNavigationViewport>
+					<ZtcNavigationViewport><ProjectWorkspaceViewport><DashboardSettingsContent>{children}</DashboardSettingsContent></ProjectWorkspaceViewport></ZtcNavigationViewport>
 				</main>
 			</section>
+			</ProjectWorkspaceProvider>
 			</DashboardSettingsProvider>
 			</DiarySaveProvider>
 			</FimaProjectProvider>

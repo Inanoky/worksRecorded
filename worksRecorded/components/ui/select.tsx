@@ -1,5 +1,6 @@
 "use client"
 import { RetainedViewPortal } from "@/components/providers/RetainedView";
+import { WorkspacePortalActivity } from "@/components/projects/WorkspaceActivity";
 
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
@@ -58,7 +59,7 @@ function SelectContent({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
-    <RetainedViewPortal><SelectPrimitive.Portal>
+    <RetainedViewPortal><WorkspacePortalActivity><SelectPrimitive.Portal>
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
@@ -82,7 +83,7 @@ function SelectContent({
         </SelectPrimitive.Viewport>
         <SelectScrollDownButton />
       </SelectPrimitive.Content>
-    </SelectPrimitive.Portal></RetainedViewPortal>
+    </SelectPrimitive.Portal></WorkspacePortalActivity></RetainedViewPortal>
   )
 }
 

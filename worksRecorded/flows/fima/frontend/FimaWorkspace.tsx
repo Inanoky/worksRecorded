@@ -1,13 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react";
+import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
+import {
+	useWorkspaceActive,
+	useWorkspaceProtection,
+} from "@/components/projects/WorkspaceActivity";
+import { useProjectCacheScope } from "@/components/providers/ProjectLoadingProgressProvider";
+import { PersistentProjectCache } from "@/flows/default-construction/visual/project-persistent-cache";
 import {
 	addFimaRecord,
 	copyFimaCommonFields,
 	executeFimaBis,
 	getFimaCaseResources,
 	getFimaHistory,
-	getFimaWorkspace,
+	getFimaWorkspaceActivity,
+	getFimaWorkspaceSync,
 	importFimaRows,
 	inspectFimaBis,
 	linkFimaBis,
@@ -30,6 +45,7 @@ import {
 } from "../lib/records";
 import type { ImportRow } from "../lib/workbook";
 import styles from "./fima-live.module.css";
+import { createFimaWorkspaceResource } from "./workspace-resource";
 
 const stages: Record<string, string> = {
 	draft: "Sagatavojams",
@@ -51,11 +67,39 @@ const label = (x: any) =>
 			x.attributes?.name_with_role ??
 			x.id,
 	);
-type Workspace = Awaited<ReturnType<typeof getFimaWorkspace>>;
 export function FimaWorkspace({ siteId }: { siteId?: string }) {
-	const [data, setData] = useState<Workspace | null>(null),
-		[error, setError] = useState(""),
+	const [error, setError] = useState(""),
 		[busy, setBusy] = useState(false);
+	const cacheScope = useProjectCacheScope();
+	const workspaceActive = useWorkspaceActive();
+	const resource = useMemo(() => {
+		const scope = JSON.stringify([cacheScope, siteId ?? null]);
+		const cache = new PersistentProjectCache(
+			cacheScope ?? "unscoped",
+			siteId ?? "fima-register",
+		);
+		return createFimaWorkspaceResource(
+			scope,
+			(known) => getFimaWorkspaceSync(siteId, known),
+			{
+				read: () =>
+					cacheScope
+						? cache.read("fima-register:v1")
+						: Promise.resolve(undefined),
+				write: (value) =>
+					cacheScope
+						? cache.write("fima-register:v1", value)
+						: Promise.resolve(),
+			},
+			(revision) => getFimaWorkspaceActivity(siteId, revision),
+		);
+	}, [cacheScope, siteId]);
+	const state = useSyncExternalStore(
+		resource.subscribe,
+		resource.get,
+		resource.empty,
+	);
+	const data = state.data;
 	const [project, setProject] = useState(siteId ?? ""),
 		[month, setMonth] = useState(""),
 		[query, setQuery] = useState(""),
@@ -91,21 +135,70 @@ export function FimaWorkspace({ siteId }: { siteId?: string }) {
 	);
 	const importCases = [...new Set(importRows.map((r) => r.caseName ?? ""))];
 	const cancel = useRef(false);
-	const mounted = useRef(true);
 	const reload = useCallback(async () => {
-		const value = await getFimaWorkspace(siteId);
-		if (mounted.current) setData(value);
+		const value = await resource.refresh(true);
+		if (!value) throw new Error("Reģistrs nav pieejams.");
 		return value;
-	}, [siteId]);
+	}, [resource]);
 	useEffect(() => {
-		mounted.current = true;
-		reload().catch((e) => setError(message(e)));
-		return () => {
-			mounted.current = false;
-			cancel.current = true;
+		if (!workspaceActive) return;
+		const refresh = () => {
+			if (document.visibilityState !== "hidden" && navigator.onLine !== false)
+				void resource.refresh().catch(() => {});
 		};
-	}, [reload]);
-	const current = data?.records.find((r) => r.id === active);
+		refresh();
+		const interval = setInterval(refresh, 15000);
+		window.addEventListener("focus", refresh);
+		window.addEventListener("online", refresh);
+		document.addEventListener("visibilitychange", refresh);
+		return () => {
+			clearInterval(interval);
+			window.removeEventListener("focus", refresh);
+			window.removeEventListener("online", refresh);
+			document.removeEventListener("visibilitychange", refresh);
+		};
+	}, [resource, workspaceActive]);
+	useEffect(
+		() => () => {
+			cancel.current = true;
+		},
+		[],
+	);
+	const [editingRow, setEditingRow] = useState<FimaRow | null>(null);
+	useWorkspaceProtection(
+		Boolean(
+			busy ||
+				importRows.length ||
+				(editingRow &&
+					draft &&
+					JSON.stringify(draft) !== JSON.stringify(editingRow.proposal)),
+		),
+	);
+	const current =
+		state.error && !data
+			? undefined
+			: editingRow?.id === active
+				? editingRow
+				: data?.records.find((r) => r.id === active);
+	useEffect(() => {
+		if (
+			!active ||
+			!editingRow ||
+			!draft ||
+			busy ||
+			JSON.stringify(draft) !== JSON.stringify(editingRow.proposal)
+		)
+			return;
+		const latest = data?.records.find((r) => r.id === active);
+		if (!latest) {
+			setActive(null);
+			setEditingRow(null);
+			setDraft(null);
+		} else if (latest !== editingRow) {
+			setEditingRow(latest);
+			setDraft(structuredClone(latest.proposal));
+		}
+	}, [data, active, editingRow, draft, busy]);
 	const visible = useMemo(
 		() =>
 			data?.records.filter(
@@ -141,6 +234,7 @@ export function FimaWorkspace({ siteId }: { siteId?: string }) {
 		)
 			return;
 		setActive(r.id);
+		setEditingRow(r);
 		setDraft(structuredClone(r.proposal));
 		setAudit([]);
 		setHistory([]);
@@ -231,7 +325,7 @@ export function FimaWorkspace({ siteId }: { siteId?: string }) {
 		return (
 			<section className={styles.app}>
 				<h1>FIMA · BIS darbu uzskaite</h1>
-				<output>{error || "Ielādē reģistru…"}</output>
+				<output>{error || state.error || "Ielādē reģistru…"}</output>
 				{error && (
 					<button type="button" onClick={() => act(reload)}>
 						Mēģināt vēlreiz
@@ -269,9 +363,11 @@ export function FimaWorkspace({ siteId }: { siteId?: string }) {
 					</button>
 					<a href="/dashboard/sites/new">Pievienot projektu</a>
 					{project && (
-						<a href={`/dashboard/sites/${project}/settings`}>
+						<FimaProjectNavigationLink
+							href={`/dashboard/sites/${project}/settings`}
+						>
 							BIS savienojums un projekta iestatījumi
-						</a>
+						</FimaProjectNavigationLink>
 					)}
 					<button
 						type="button"
@@ -853,9 +949,11 @@ export function FimaWorkspace({ siteId }: { siteId?: string }) {
 							{caseSite?.name} ·{" "}
 							{caseSite?.bisCaseName ?? "BIS lieta nav piesaistīta"}
 						</p>
-						<a href={`/dashboard/sites/${current.siteId}/settings`}>
+						<FimaProjectNavigationLink
+							href={`/dashboard/sites/${current.siteId}/settings`}
+						>
 							Projekta un BIS iestatījumi ↗
-						</a>
+						</FimaProjectNavigationLink>
 						{protectedRow && (
 							<p className={styles.notice}>
 								Šī rinda ir aizsargāta. Esošus ārējos un apstiprināšanai nodotos

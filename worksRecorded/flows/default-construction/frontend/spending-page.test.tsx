@@ -27,7 +27,9 @@ it("checks project access before serving the Limeni project analytics", async ()
 		params: Promise.resolve({ siteId: "site" }),
 	});
 	expect(orgCheck).toHaveBeenCalledWith("user", "site");
-	expect(page.type).toBe(DefaultConstructionSpending);
+	expect(page.props.siteId).toBe("site");
+	expect(page.props.href).toBe("/dashboard/sites/site/spending");
+	expect(page.props.children.type).toBe(DefaultConstructionSpending);
 });
 
 it("does not expose the Limeni route to another organization", async () => {

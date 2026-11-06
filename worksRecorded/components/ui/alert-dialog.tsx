@@ -1,5 +1,6 @@
 "use client"
 import { RetainedViewPortal } from "@/components/providers/RetainedView";
+import { WorkspacePortalActivity } from "@/components/projects/WorkspaceActivity";
 
 import * as React from "react"
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
@@ -25,7 +26,7 @@ function AlertDialogPortal({
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Portal>) {
   return (
-    <RetainedViewPortal><AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" {...props} /></RetainedViewPortal>
+    <RetainedViewPortal><WorkspacePortalActivity><AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" {...props} /></WorkspacePortalActivity></RetainedViewPortal>
   )
 }
 

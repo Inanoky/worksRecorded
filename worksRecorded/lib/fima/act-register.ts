@@ -89,6 +89,7 @@ export type FimaActRow = Omit<FimaTrackedAct, "records"> & {
 	})[];
 };
 export type FimaActsVersions = {
+	sourceRevision?: string;
 	revision: string;
 	meta: string;
 	rows: Record<string, string>;

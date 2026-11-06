@@ -1,4 +1,6 @@
 "use client";
+import { useWorkspaceVisible, useWorkspaceProtection, useWorkspaceManaged } from "@/components/projects/WorkspaceActivity";
+import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
 import type { LimeniProjectSnapshot } from "@/flows/default-construction/visual/project-snapshot-store";
 import { DiaryFilterCard } from "./DiaryFilterCard";
 import { FimaDiaryFilters } from "./FimaDiaryFilters";
@@ -198,6 +200,7 @@ import {
   getSiteDiaryRecordBisUrl,
   getSiteDiaryRecordsPage,
   getLimeniDiarySnapshot,
+  getConstructionDiarySnapshot,
   getSitediaryRecordsBySiteIdForExcel,
   getSiteGalleryAttachments,
   sendSiteDiaryRecordToBis,
@@ -723,7 +726,7 @@ export default function SiteDiaryCalendar({
   organizationLanguage,
   isZtcFlow = false,
   limeniClientDiary = false,
-  active = true,
+  active: viewActive = true,
   batchEditing = false,
   initialFimaDiary,
   initialLimeniProject,
@@ -744,6 +747,8 @@ export default function SiteDiaryCalendar({
   onFimaRowsChange?: (rows: (Partial<ConstructionDiaryListRow> & {id: string})[], removed?: string[]) => void;
   onFimaSync?: () => Promise<FimaDiaryWorkspace | null>;
 }) {
+  const active = useWorkspaceVisible() && viewActive;
+  const workspaceManaged = useWorkspaceManaged();
   const ztcWorkspace = useZtcWorkspaceData(siteId, isZtcFlow, active);
   const ztcRowsScope = React.useRef<string | null>(null);
   const appliedZtcSnapshot = React.useRef(ztcWorkspace.data);
@@ -783,6 +788,7 @@ export default function SiteDiaryCalendar({
   }, []);
   React.useEffect(() => { setFimaRecordId(null); setFimaSelectedRow(null); }, [siteId]);
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  useWorkspaceProtection(dialogOpen);
   const [dialogDate, setDialogDate] = React.useState<Date | null>(null);
   const [dialogInitialRows, setDialogInitialRows] = React.useState<
     DiaryRow[] | null
@@ -1317,7 +1323,9 @@ export default function SiteDiaryCalendar({
     () => ztcDiaryView?.summary(JSON.parse(ztcSummaryFilterKey)) ?? null,
     [ztcDiaryView, ztcSummaryFilterKey],
   );
+  const clientSummaryData=React.useMemo(() => clientDiary && defaultMap ? {rows,config:defaultMap as Record<string,unknown>} : undefined,[clientDiary,rows,defaultMap]);
   const defaultConstructionSummary = useDefaultConstructionSiteDiarySummary({
+    clientData:clientSummaryData,
     enabled: !isZtcSite && ancillaryDiaryEnabled,
     siteId,
     organizationLanguage,
@@ -1369,6 +1377,14 @@ export default function SiteDiaryCalendar({
       setFilledDays([]);
       return;
     }
+    if (clientDiary) {
+      const cachedRows = limeniProjectSeed.current?.diary.rows ?? rows;
+      setFilledDays([...new Set(cachedRows.flatMap(row => {
+        const date = row.Date ? new Date(row.Date) : null;
+        return date && date.getFullYear() === currentYear && date.getMonth() === currentMonth ? [date.getDate()] : [];
+      }))]);
+      return;
+    }
     if (isZtcSite) {
       setFilledDays(getZtcWorkspaceFilledDays(ztcWorkspace.data, currentYear, currentMonth));
       return;
@@ -1386,7 +1402,7 @@ export default function SiteDiaryCalendar({
       month: currentMonth,
       flowId: siteDiaryFlowId,
     }).then(setFilledDays);
-  }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode, fimaClientData, isZtcSite, ztcWorkspace.data]);
+  }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode, fimaClientData, isZtcSite, ztcWorkspace.data,clientDiary,rows,initialLimeniProject]);
 
   const fimaFilterKey = JSON.stringify({
     dateFrom: dateFrom ? toLocalDateKey(dateFrom) : null,
@@ -1444,7 +1460,8 @@ export default function SiteDiaryCalendar({
       }
       if (clientDiary) {
         const seed = limeniProjectSeed.current;
-        const result = options?.useCache && seed?.settings.siteId === siteId ? seed.diary : await getLimeniDiarySnapshot(siteId);
+        const readSnapshot = seed && seed.settings.organizationId !== LIMENI_ORGANIZATION_ID ? getConstructionDiarySnapshot : getLimeniDiarySnapshot;
+        const result = options?.useCache && seed?.settings.siteId === siteId ? seed.diary : await readSnapshot(siteId);
         if (diaryRowsRequestRef.current !== requestId) return result.rows;
         diaryLastLoaded.current = Date.now();
         setRows(result.rows);
@@ -1654,7 +1671,7 @@ export default function SiteDiaryCalendar({
         setFilledDays([]);
         return;
       }
-      if (fimaClientData || isZtcSite) {
+      if (fimaClientData || isZtcSite || clientDiary) {
         reloadFilledDays();
         return;
       }
@@ -1670,7 +1687,7 @@ export default function SiteDiaryCalendar({
     return () => {
       cancelled = true;
     };
-  }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode, fimaClientData, reloadFilledDays, isZtcSite]);
+  }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode, fimaClientData, reloadFilledDays, isZtcSite,clientDiary]);
 
   React.useEffect(() => {
     if (!isZtcSite) return;
@@ -1791,7 +1808,7 @@ export default function SiteDiaryCalendar({
 
         if (cancelled) return;
 
-        if (bisUiEnabled && !cfg.otherSettings?.fimaCollaboration && initialBisSyncSiteRef.current !== siteId) {
+        if (bisUiEnabled && !limeniProjectSeed.current && !cfg.otherSettings?.fimaCollaboration && initialBisSyncSiteRef.current !== siteId) {
           initialBisSyncSiteRef.current = siteId;
           void syncDeletedSiteDiaryBisRecords(siteId)
             .then(async () => {
@@ -1824,7 +1841,7 @@ export default function SiteDiaryCalendar({
   const backgroundRefresh = React.useCallback(() => fimaClientData && onFimaSync ? onFimaSync() : refreshRowsWithBisSync({ skipSync: true }), [refreshRowsWithBisSync, fimaClientData, onFimaSync]);
   const revalidationFailed = useDiaryRevalidation({
     siteId: siteId ?? undefined,
-    enabled: limeniClientDiary && hasLoadedRowsOnce && !initialLimeniProject,
+    enabled: (limeniClientDiary || workspaceManaged) && !isZtcFlow && hasLoadedRowsOnce && !initialLimeniProject && !fimaClientData,
     active,
     blocked: loading || dialogOpen,
     lastLoaded: diaryLastLoaded,
@@ -6382,6 +6399,7 @@ export default function SiteDiaryCalendar({
               isZtcFlow={isZtcSite}
               batchEditing={batchEditing && !isZtcSite}
               initialRows={dialogInitialRows}
+              cachedWorkspace={!!initialLimeniProject}
               initialConfig={defaultMap}
               initialRates={isZtcSite ? ztc.defaultRates : null}
               focusedRecordId={dialogRecordId}

@@ -1,5 +1,6 @@
 "use client"
 import { RetainedViewPortal } from "@/components/providers/RetainedView";
+import { WorkspacePortalActivity } from "@/components/projects/WorkspaceActivity";
 
 import * as React from "react"
 import * as TooltipPrimitive from "@radix-ui/react-tooltip"
@@ -42,7 +43,7 @@ function TooltipContent({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Content>) {
   return (
-    <RetainedViewPortal><TooltipPrimitive.Portal>
+    <RetainedViewPortal><WorkspacePortalActivity><TooltipPrimitive.Portal>
       <TooltipPrimitive.Content
         data-slot="tooltip-content"
         sideOffset={sideOffset}
@@ -55,7 +56,7 @@ function TooltipContent({
         {children}
         <TooltipPrimitive.Arrow className="bg-foreground fill-foreground z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px]" />
       </TooltipPrimitive.Content>
-    </TooltipPrimitive.Portal></RetainedViewPortal>
+    </TooltipPrimitive.Portal></WorkspacePortalActivity></RetainedViewPortal>
   )
 }
 

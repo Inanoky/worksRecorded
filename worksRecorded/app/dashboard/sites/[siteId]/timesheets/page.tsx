@@ -1,3 +1,4 @@
+import { withRetainedProjectPage } from "@/components/projects/withRetainedProjectPage";
 
 import { FrontendTable } from "@/components/timesheets/FrontendTable";
 import {
@@ -24,7 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export default async function AddWorkerPage({
+async function AddWorkerPage({
   params,
 }: {
   params: { siteId: string };
@@ -118,3 +119,5 @@ export default async function AddWorkerPage({
     </SiteSchemaProvider>
   );
 }
+
+export default withRetainedProjectPage(AddWorkerPage, "timesheets");

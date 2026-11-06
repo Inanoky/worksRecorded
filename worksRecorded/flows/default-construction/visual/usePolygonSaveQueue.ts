@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useWorkspaceManaged } from "@/components/projects/WorkspaceActivity";
 import { saveVisualPolygonPatch } from "./actions";
 import type { PolygonSaveResult } from "./polygon-edit";
 import { PolygonSaveQueue } from "./polygon-save-queue";
@@ -10,6 +11,7 @@ export function usePolygonSaveQueue(
 	userId: string | undefined,
 	onSaved: (result: PolygonSaveResult) => void,
 ) {
+	const retained = useWorkspaceManaged();
 	const queue = useMemo(
 		() =>
 			new PolygonSaveQueue(
@@ -56,6 +58,7 @@ export function usePolygonSaveQueue(
 			)
 				return;
 			const target = new URL(anchor.href, window.location.href);
+			if (retained && target.origin === window.location.origin && target.pathname.startsWith("/dashboard")) return;
 			if (
 				target.origin === window.location.origin &&
 				(target.pathname === `/dashboard/sites/${siteId}` ||
@@ -77,6 +80,6 @@ export function usePolygonSaveQueue(
 			window.removeEventListener("beforeunload", beforeUnload);
 			document.removeEventListener("click", leaving, true);
 		};
-	}, [siteId, state.items.length]);
+	}, [siteId, state.items.length, retained]);
 	return { queue, state };
 }

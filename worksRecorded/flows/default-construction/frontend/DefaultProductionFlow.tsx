@@ -2,6 +2,7 @@
 
 import type { FlowDashboardProps } from "@/components/client-flows/flow-frontend-registry";
 import SiteDiaryList from "@/components/sitediary/SiteDiaryList";
+import { useLimeniProjectData } from "./LimeniProjectData";
 
 export function DefaultProductionFlow({
 	siteId,
@@ -9,6 +10,8 @@ export function DefaultProductionFlow({
 	organizationLanguage,
 	initialFimaDiary,
 }: FlowDashboardProps) {
+	const workspace = useLimeniProjectData();
+	if (workspace.enabled) return null;
 	return (
 		<SiteDiaryList
 			siteId={siteId}

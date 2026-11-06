@@ -8,6 +8,10 @@ import {
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { saveDefaultConstructionDiaryEdits } from "@/flows/default-construction/backend/diary-edit-actions";
+import {
+	DiarySaveProvider,
+	useDiarySaveQueue,
+} from "@/flows/default-construction/frontend/DiarySaveProvider";
 import { getSiteDiaryDialogMessages } from "@/lib/dashboard-i18n";
 import {
 	getSiteDiaryRecord,
@@ -15,10 +19,6 @@ import {
 	updateSiteDiaryRecord,
 } from "@/server/actions/site-diary-actions";
 import { DialogTable } from "./DiealogueTable";
-import {
-	DiarySaveProvider,
-	useDiarySaveQueue,
-} from "@/flows/default-construction/frontend/DiarySaveProvider";
 import { useMediaQuery } from "./Use-media-querty";
 
 jest.mock("@/flows/default-construction/backend/diary-edit-actions", () => ({
@@ -91,6 +91,24 @@ beforeEach(() => {
 	jest.spyOn(console, "log").mockImplementation(() => {});
 	jest.spyOn(console, "dir").mockImplementation(() => {});
 });
+it.each([false, true])(
+	"opens an authoritative cached day without refetching records (empty: %s)",
+	(empty) => {
+		render(
+			<DialogTable
+				date={date}
+				siteId="site"
+				initialConfig={config}
+				initialRows={
+					empty ? [] : [{ id: hashId, Date: date, Location: "1. stāvs" }]
+				}
+				cachedWorkspace
+			/>,
+		);
+		expect(screen.getByRole("combobox")).toBeInTheDocument();
+		expect(getSiteDiaryRecord).not.toHaveBeenCalled();
+	},
+);
 
 it("queues edits, closes immediately, projects changes and reports saved only after acknowledgement", async () => {
 	const siteId = "c39cb04c-8ce5-477d-acd0-99586a82d850";

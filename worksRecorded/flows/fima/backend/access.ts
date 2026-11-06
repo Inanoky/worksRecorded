@@ -2,6 +2,8 @@ import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 
+export class FimaAccessError extends Error {}
+
 export async function fimaAccess(siteId?: string) {
 	const user = await requireUser();
 	const account = await prisma.user.findUnique({
@@ -13,7 +15,7 @@ export async function fimaAccess(siteId?: string) {
 		!organizationId ||
 		(await resolveFlowModuleKeyForRuntime({ organizationId })) !== "fima"
 	)
-		throw new Error("FIMA organizācijas piekļuve nav pieejama");
+		throw new FimaAccessError("FIMA organizācijas piekļuve nav pieejama");
 	if (
 		siteId &&
 		!(await prisma.site.findFirst({
@@ -21,6 +23,6 @@ export async function fimaAccess(siteId?: string) {
 			select: { id: true },
 		}))
 	)
-		throw new Error("Projekts nav šajā organizācijā");
+		throw new FimaAccessError("Projekts nav šajā organizācijā");
 	return { userId: user.id, organizationId };
 }

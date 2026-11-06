@@ -14,6 +14,12 @@ async function call<K extends keyof Actions>(
 export const getFimaWorkspace = (
 	...args: Parameters<Actions["getFimaWorkspace"]>
 ) => call("getFimaWorkspace", args);
+export const getFimaWorkspaceSync = (
+	...args: Parameters<Actions["getFimaWorkspaceSync"]>
+) => call("getFimaWorkspaceSync", args);
+export const getFimaWorkspaceActivity = (
+	...args: Parameters<Actions["getFimaWorkspaceActivity"]>
+) => call("getFimaWorkspaceActivity", args);
 export const importFimaRows = (
 	...args: Parameters<Actions["importFimaRows"]>
 ) => call("importFimaRows", args);

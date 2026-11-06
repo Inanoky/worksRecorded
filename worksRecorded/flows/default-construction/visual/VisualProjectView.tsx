@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import {
 	lazy,
+	memo,
 	type ReactNode,
 	Suspense,
 	useEffect,
@@ -20,8 +21,9 @@ import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOver
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLimeniProjectData } from "../frontend/LimeniProjectData";
+import { WorkspaceView } from "@/components/projects/WorkspaceActivity";
 
-const VisualView = lazy(() => import("./VisualView"));
+const VisualView = lazy(() => import("./VisualView").then(module => ({ default: memo(module.default) })));
 
 export function VisualProjectView({
 	siteId,
@@ -95,12 +97,13 @@ export function VisualProjectView({
 			>
 				{visited || active ? (
 					<Suspense fallback={<Skeleton className="h-64 w-full" />}>
-						<VisualView
+						<WorkspaceView active={active}><VisualView
 							key={siteId}
 							siteId={siteId}
 							active={active && !preparing}
 							preload={preload}
 						/>
+						</WorkspaceView>
 					</Suspense>
 				) : null}
 			</section>

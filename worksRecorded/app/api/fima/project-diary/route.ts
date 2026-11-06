@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { z } from "zod";
 import {
@@ -16,6 +17,14 @@ export const maxDuration = 60;
 const headers = { "Cache-Control": "private, no-store" };
 const projectSchema = z.string().uuid();
 const digest = z.string().regex(/^[0-9a-f]{64}$/);
+const settingsRevision = (
+	revision: string,
+	language: string | null,
+	bisEnabled: boolean,
+) =>
+	createHash("sha256")
+		.update(JSON.stringify([revision, language, bisEnabled]))
+		.digest("hex");
 const bodySchema = z.object({
 	project: projectSchema,
 	known: z
@@ -53,18 +62,27 @@ export async function GET(request: Request) {
 	const allowed = await scope(parsed.data);
 	if (allowed.error) return allowed.error;
 	try {
-		const revision = await getFimaDiaryRevision(
-			allowed.organizationId,
-			parsed.data,
-		);
+		const [base, language, bis] = await Promise.all([
+			getFimaDiaryRevision(allowed.organizationId, parsed.data),
+			getOrganizationLanguageByUserId(allowed.user.id),
+			getDashboardBisStatus(allowed.user.id, parsed.data, true),
+		]);
+		const revision = settingsRevision(base, language, bis.enabled);
 		const etag = `"${revision}"`;
 		return request.headers.get("if-none-match") === etag
 			? new Response(null, { status: 304, headers: { ...headers, ETag: etag } })
 			: Response.json({ revision }, { headers: { ...headers, ETag: etag } });
-	} catch {
+	} catch (error) {
 		return Response.json(
 			{ error: "Neizdevās pārbaudīt projekta izmaiņas." },
-			{ status: 503, headers },
+			{
+				status:
+					error instanceof Error &&
+					error.message === "Nav piekļuves FIMA projektam."
+						? 403
+						: 503,
+				headers,
+			},
 		);
 	}
 }
@@ -84,22 +102,15 @@ export async function POST(request: Request) {
 				parsed.data.project,
 				parsed.data.known,
 			),
-			parsed.data.known
-				? null
-				: getOrganizationLanguageByUserId(allowed.user.id),
-			parsed.data.known
-				? null
-				: getDashboardBisStatus(allowed.user.id, parsed.data.project, true),
+			getOrganizationLanguageByUserId(allowed.user.id),
+			getDashboardBisStatus(allowed.user.id, parsed.data.project, true),
 		]);
 		return new Response(
 			createFimaDiaryStream({
 				...delta,
-				...(parsed.data.known
-					? {}
-					: {
-							organizationLanguage: language,
-							bisEnabled: bis?.enabled ?? false,
-						}),
+				revision: settingsRevision(delta.revision, language, bis.enabled),
+				organizationLanguage: language,
+				bisEnabled: bis.enabled,
 			}),
 			{
 				headers: {
@@ -108,10 +119,17 @@ export async function POST(request: Request) {
 				},
 			},
 		);
-	} catch {
+	} catch (error) {
 		return Response.json(
 			{ error: "Neizdevās ielādēt projekta izmaiņas." },
-			{ status: 503, headers },
+			{
+				status:
+					error instanceof Error &&
+					error.message === "Nav piekļuves FIMA projektam."
+						? 403
+						: 503,
+				headers,
+			},
 		);
 	}
 }

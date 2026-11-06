@@ -79,6 +79,9 @@ jest.mock("@/components/joyride/TourRunner", () => ({
 	__esModule: true,
 	default: () => null,
 }));
+jest.mock("@/components/projects/WorkspaceNavigation", () => ({
+	useWorkspaceNavigation: () => null,
+}));
 jest.mock("@/components/providers/ProjectLoadingProgressProvider", () => ({
 	useProjectCacheScope: () => "user:org",
 }));
@@ -297,19 +300,20 @@ it("keeps project state separate and restores it through browser history", async
 	});
 	await act(async () => {
 		window.history.back();
-		await new Promise((resolve) => setTimeout(resolve, 20));
 	});
-	expect(screen.getByText("Your Sites")).toBeVisible();
+	await waitFor(() => expect(screen.getByText("Your Sites")).toBeVisible());
 	await act(async () => {
 		window.history.back();
-		await new Promise((resolve) => setTimeout(resolve, 20));
 	});
-	expect(screen.getByRole("textbox", { name: "filter" })).toHaveValue("A only");
+	await waitFor(() =>
+		expect(screen.getByRole("textbox", { name: "filter" })).toHaveValue(
+			"A only",
+		),
+	);
 	await act(async () => {
 		window.history.forward();
-		await new Promise((resolve) => setTimeout(resolve, 20));
 	});
-	expect(screen.getByText("Your Sites")).toBeVisible();
+	await waitFor(() => expect(screen.getByText("Your Sites")).toBeVisible());
 });
 
 it("removes a revoked project when the background catalog check finishes", async () => {

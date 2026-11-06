@@ -1,5 +1,6 @@
 "use client"
 import { RetainedViewPortal } from "@/components/providers/RetainedView";
+import { WorkspacePortalActivity } from "@/components/projects/WorkspaceActivity";
 
 import * as React from "react"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
@@ -17,7 +18,7 @@ function DropdownMenuPortal({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Portal>) {
   return (
-    <RetainedViewPortal><DropdownMenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} /></RetainedViewPortal>
+    <RetainedViewPortal><WorkspacePortalActivity><DropdownMenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} /></WorkspacePortalActivity></RetainedViewPortal>
   )
 }
 
@@ -38,7 +39,7 @@ function DropdownMenuContent({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
   return (
-    <RetainedViewPortal><DropdownMenuPrimitive.Portal>
+    <RetainedViewPortal><WorkspacePortalActivity><DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
@@ -48,7 +49,7 @@ function DropdownMenuContent({
         )}
         {...props}
       />
-    </DropdownMenuPrimitive.Portal></RetainedViewPortal>
+    </DropdownMenuPrimitive.Portal></WorkspacePortalActivity></RetainedViewPortal>
   )
 }
 

@@ -7,6 +7,9 @@ import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import TourRunner from "@/components/joyride/TourRunner";
+import { RegisterWorkspaceRoot } from "@/components/projects/ProjectRegistration";
+import { WorkspaceCatalogRefresh } from "@/components/projects/WorkspaceCatalogRefresh";
+import { workspaceCatalogRevision } from "@/components/projects/workspace-catalog";
 import OpenProjectButton from "@/components/providers/ButtonClient";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,7 +36,7 @@ async function getData(orgId: string | null, isSuperUser: boolean) {
 	const [sites] = await Promise.all([
 		prisma.site.findMany({
 			where: isSuperUser ? {} : { organizationId: orgId ?? "" },
-			orderBy: { createdAt: "desc" },
+			orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 		}),
 	]);
 
@@ -111,7 +114,15 @@ export default async function DashboardIndexPage() {
 			: "steps_dashboard_create_project_cta";
 
 	return (
-		<>
+		<RegisterWorkspaceRoot
+			href="/dashboard"
+			enabled={flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}
+		>
+			{flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION ? (
+				<WorkspaceCatalogRefresh
+					revision={workspaceCatalogRevision(sites, organizationLanguage)}
+				/>
+			) : null}
 			{tourSteps.length ? (
 				<TourRunner steps={tourSteps} stepName={tourStepName} />
 			) : null}
@@ -210,6 +221,6 @@ export default async function DashboardIndexPage() {
 					/>
 				)}
 			</div>
-		</>
+		</RegisterWorkspaceRoot>
 	);
 }

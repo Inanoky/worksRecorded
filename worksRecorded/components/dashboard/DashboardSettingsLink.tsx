@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ComponentProps, createContext, useContext } from "react";
+import { useWorkspaceNavigation } from "@/components/projects/WorkspaceNavigation";
 import { useZtcNavigation } from "@/flows/ztc-production/frontend/ZtcNavigationContext";
 
 export const ORGANIZATION_SETTINGS_PATH = "/dashboard/settings";
@@ -28,10 +29,12 @@ export function DashboardSettingsLink({
 }: Omit<ComponentProps<typeof Link>, "href"> & { href: string }) {
 	const settings = useContext(DashboardSettingsNavigationContext);
 	const ztc = useZtcNavigation();
+	const workspace = useWorkspaceNavigation();
 	const router = useRouter();
 	const clientNavigation = settings && isDashboardSettingsPath(href);
 	const preload = () => {
 		if (ztc?.canNavigate(href)) return;
+		if (workspace?.store.hasRoute(href)) return;
 		if (clientNavigation) settings.preload(href);
 		else router.prefetch(href);
 	};
@@ -62,6 +65,10 @@ export function DashboardSettingsLink({
 					},
 				});
 				if (cancelled) return;
+				if (workspace?.navigate(href, props)) {
+					event.preventDefault();
+					return;
+				}
 				if (ztc?.canNavigate(href)) {
 					event.preventDefault();
 					ztc.navigate(href, props);

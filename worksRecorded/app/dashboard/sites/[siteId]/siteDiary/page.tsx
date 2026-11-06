@@ -1,3 +1,4 @@
+import { withRetainedProjectPage } from "@/components/projects/withRetainedProjectPage";
 // app/[...]/page.tsx  (Server Component)
 
 import { notFound } from "next/navigation";
@@ -11,7 +12,7 @@ import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 
-export default async function Home({ params }: { params: { siteId: string } }) {
+async function Home({ params }: { params: { siteId: string } }) {
 	const { siteId } = await params;
 	const user = await requireUser();
 	const siteCheck = await orgCheck(user.id, siteId);
@@ -37,3 +38,5 @@ export default async function Home({ params }: { params: { siteId: string } }) {
 		</div>
 	);
 }
+
+export default withRetainedProjectPage(Home, "siteDiary");

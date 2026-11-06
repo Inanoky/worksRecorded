@@ -8,7 +8,9 @@ import {
 	within,
 } from "@testing-library/react";
 import { IDBFactory } from "fake-indexeddb";
+import constructionConfig from "@/components/sitediary/configs/defaultConfig.json";
 import ztcConfig from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
+import type { LimeniProjectSnapshot } from "@/flows/default-construction/visual/project-snapshot-store";
 import { ZtcPersistentCache } from "@/flows/ztc-production/lib/ztc-persistent-cache";
 import type {
 	ZtcWorkspaceData,
@@ -23,6 +25,7 @@ const mockMedia = jest.fn();
 const mockGetConfig = jest.fn();
 const mockRates = jest.fn();
 const mockWorkspace = jest.fn();
+const mockFilledDays = jest.fn();
 let mockScope = "user:org";
 const originalBrowserStorage = {
 	indexedDB: global.indexedDB,
@@ -69,12 +72,24 @@ jest.mock("@/flows/ztc-production/backend/actions", () => ({
 	getZtcWorkspaceActivity: jest.fn(),
 }));
 jest.mock("@/server/actions/site-diary-actions", () => ({
+	getFilledDays: (...args: unknown[]) => mockFilledDays(...args),
 	getConfig: (...args: unknown[]) => mockGetConfig(...args),
 	getSiteDiaryRecordsPage: (...args: unknown[]) => mockPage(...args),
 	getSiteDiaryMediaOnlyDays: (...args: unknown[]) => mockMedia(...args),
 }));
 jest.mock("@/server/actions/pdfBuilderForFrontend", () => ({}));
 jest.mock("@/server/actions/fima-diary-collaboration", () => ({}));
+jest.mock(
+	"@/components/projects/WorkspaceActivity",
+	() => ({
+		useWorkspaceVisible: () => true,
+		useWorkspaceManaged: () => false,
+		useWorkspaceProtection: () => undefined,
+		WorkspacePortalActivity: ({ children }: { children: React.ReactNode }) =>
+			children,
+	}),
+	{ virtual: true },
+);
 jest.mock("@/components/providers/ProjectLoadingProgressProvider", () => ({
 	useProjectPreparationStep: () => undefined,
 	useProjectCacheScope: () => mockScope,
@@ -111,6 +126,7 @@ jest.mock("@/flows/default-construction/planner/ConstructionPlanner", () => ({
 		diaryRows: [],
 		show: false,
 		showAny: false,
+		showDay: () => false,
 	}),
 	PlannerControls: () => null,
 }));
@@ -521,5 +537,46 @@ describe("ZTC diary filter requests", () => {
 				await new ZtcPersistentCache(mockScope, "site-a").read(),
 			).toBeUndefined(),
 		);
+	});
+	it("filters and clears a cached standard construction diary without fetching a page or filled days", async () => {
+		const initial = {
+			version: "standard",
+			settings: { siteId: "standard", organizationId: "org" },
+			config: constructionConfig,
+			diary: {
+				rows: [
+					{
+						id: "one",
+						Date: new Date("2026-11-06"),
+						Works: "Standard cached work",
+						Location: "Area A",
+						Units: "m2",
+						Amounts: "10",
+						createdBy: "Worker",
+						Photos: [],
+					},
+				],
+				mediaPhotos: [],
+			},
+		} as unknown as LimeniProjectSnapshot;
+		render(
+			<SiteDiaryList
+				siteId="standard"
+				limeniClientDiary
+				initialLimeniProject={initial}
+				bisEnabled={false}
+				organizationLanguage="lv"
+			/>,
+		);
+		await screen.findAllByText("Standard cached work");
+		fireEvent.change(screen.getByPlaceholderText("Meklēt pēc atslēgvārda…"), {
+			target: { value: "Area A" },
+		});
+		fireEvent.click(screen.getByText("Notīrīt filtrus"));
+		fireEvent.click(screen.getByRole("tab", { name: /Kalend/ }));
+		expect(mockPage).not.toHaveBeenCalled();
+		expect(mockGetConfig).not.toHaveBeenCalled();
+		expect(mockMedia).not.toHaveBeenCalled();
+		expect(mockFilledDays).not.toHaveBeenCalled();
 	});
 });

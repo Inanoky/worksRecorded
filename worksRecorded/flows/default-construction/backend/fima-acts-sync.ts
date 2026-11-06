@@ -27,7 +27,11 @@ export function diffFimaActs(
 	data: FimaActsData & { cache: FimaActsVersions },
 	known: FimaActsVersions,
 ): FimaActsDelta {
-	if (data.cache.revision === known.revision) return { kind: "unchanged" };
+	if (
+		data.cache.revision === known.revision &&
+		data.cache.sourceRevision === known.sourceRevision
+	)
+		return { kind: "unchanged" };
 	const { siteId, siteName, caseId, checkedAt, cache } = data;
 	return {
 		kind: "delta",

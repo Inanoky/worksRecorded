@@ -15,6 +15,8 @@ export type FimaDiaryWorkspace = {
 	organizationLanguage: string | null;
 };
 export type FimaDiaryDelta = {
+	bisEnabled?: boolean;
+	organizationLanguage?: string | null;
 	siteId: string;
 	revision: string;
 	configVersion: string;
@@ -176,6 +178,11 @@ export function mergeFimaDiaryDelta(
 		configVersion: delta.configVersion,
 		versions,
 		config: delta.config ?? current.config,
+		bisEnabled: delta.bisEnabled ?? current.bisEnabled,
+		organizationLanguage:
+			delta.organizationLanguage === undefined
+				? current.organizationLanguage
+				: delta.organizationLanguage,
 		rows: [...rows.values()],
 	};
 }

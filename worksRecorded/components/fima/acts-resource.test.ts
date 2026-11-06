@@ -14,6 +14,22 @@ const base = () =>
 		choices: [],
 		references: [],
 	});
+it("checks just the source revision while Acts are unchanged", async () => {
+	const data = base();
+	data.cache.sourceRevision = "a".repeat(64);
+	const load = jest.fn();
+	const delta = jest.fn();
+	const check = jest.fn().mockResolvedValue({ kind: "unchanged" });
+	const resource = createFimaActsResource(load, async () => {}, {
+		check,
+		loadDelta: delta,
+		persistence: () => ({ read: async () => data, write: async () => {} }),
+	});
+	await resource.load("a");
+	expect(check).toHaveBeenCalledWith("a", data.cache.sourceRevision);
+	expect(load).not.toHaveBeenCalled();
+	expect(delta).not.toHaveBeenCalled();
+});
 it("restores Acts immediately and checks only the delta after remounting", async () => {
 	const data = base();
 	const cache = {

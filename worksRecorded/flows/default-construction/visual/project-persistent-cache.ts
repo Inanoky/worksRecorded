@@ -3,6 +3,7 @@ const STORE = "project-cache";
 const META = "project-cache-meta";
 const MAX_BYTES = 192 * 1024 * 1024;
 let generation = 0;
+let storageRequest: Promise<boolean> | undefined;
 type Entry<T> = {
 	key: string;
 	value: T;
@@ -11,8 +12,34 @@ type Entry<T> = {
 	bytes: number;
 };
 
+export async function requestPersistentProjectStorage() {
+	if (typeof navigator === "undefined" || !navigator.storage?.persist)
+		return false;
+	storageRequest ??= (async () => {
+		try {
+			return (
+				(await navigator.storage.persisted?.()) ||
+				(await navigator.storage.persist())
+			);
+		} catch {
+			return false;
+		}
+	})();
+	return storageRequest;
+}
+
+function evictionPriority(entry: Entry<unknown>, now: number) {
+	if (entry.expires <= now) return 0;
+	try {
+		return JSON.parse(entry.key)[2] === "snapshot" ? 2 : 1;
+	} catch {
+		return 0;
+	}
+}
+
 async function database() {
 	if (typeof indexedDB === "undefined") return null;
+	void requestPersistentProjectStorage();
 	return new Promise<IDBDatabase | null>((resolve) => {
 		let settled = false;
 		const finish = (value: IDBDatabase | null) => {
@@ -146,12 +173,15 @@ export class PersistentProjectCache {
 				});
 				const all = metadata.getAll();
 				all.onsuccess = () => {
+					const now = Date.now();
 					const entries = (all.result as Entry<unknown>[]).sort(
-						(a, b) => a.saved - b.saved,
+						(a, b) =>
+							evictionPriority(a, now) - evictionPriority(b, now) ||
+							a.saved - b.saved,
 					);
 					let size = entries.reduce((sum, entry) => sum + entry.bytes, 0);
 					for (const entry of entries)
-						if (entry.expires < Date.now() || size > MAX_BYTES) {
+						if (entry.expires <= now || size > MAX_BYTES) {
 							store.delete(entry.key);
 							metadata.delete(entry.key);
 							size -= entry.bytes;

@@ -3,6 +3,7 @@ import { usePathname } from "next/navigation";
 import {
 	createContext,
 	lazy,
+	memo,
 	type ReactNode,
 	Suspense,
 	useCallback,
@@ -15,11 +16,13 @@ import {
 	useSyncExternalStore,
 } from "react";
 import AiWidgetRag from "@/components/ai/AiChatLazy";
+import { WorkspaceView } from "@/components/projects/WorkspaceActivity";
 import { useProjectPreparationReporter } from "@/components/providers/ProjectLoadingProgressProvider";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import { Button } from "@/components/ui/button";
 import { DIARY_RECORD_UPDATED } from "@/flows/default-construction/lib/diary-record-updated-event";
 import {
+	getFimaActsActivity,
 	getFimaActsDelta,
 	getFimaActsForSite,
 } from "@/server/actions/fima-acts";
@@ -29,9 +32,13 @@ import { FimaProjectNavigationContext } from "./FimaProjectNavigationLink";
 
 const loadView = () =>
 	import("./FimaActsPage").then((module) => ({ default: module.FimaActsPage }));
-const View = lazy(loadView);
+const View = lazy(() =>
+	loadView().then((module) => ({ default: memo(module.default) })),
+);
 const loadDiary = () => import("@/components/sitediary/SiteDiaryList");
-const Diary = lazy(loadDiary);
+const Diary = lazy(() =>
+	loadDiary().then((module) => ({ default: memo(module.default) })),
+);
 
 import type { FimaActsData } from "@/lib/fima/act-register";
 import type { FimaDiaryWorkspace } from "@/lib/fima/diary-workspace";
@@ -64,6 +71,7 @@ export function FimaProjectProvider({
 }) {
 	const [resource] = useState(() =>
 		createFimaActsResource(getFimaActsForSite, loadView, {
+			check: getFimaActsActivity,
 			loadDelta: getFimaActsDelta,
 			persistence: fimaResourcePersistence<FimaActsData>(
 				cacheScope,
@@ -88,35 +96,40 @@ export function FimaProjectProvider({
 	const enabled = !!siteId && siteIds.includes(siteId);
 	useEffect(() => {
 		if (!enabled) return;
-		void resource.load(siteId, resource.get(siteId).data !== null);
-		void diary.load(siteId, diary.get(siteId).data !== null);
+		if (document.visibilityState !== "hidden" && navigator.onLine !== false) {
+			void resource.load(siteId, resource.get(siteId).data !== null);
+			void diary.load(siteId, diary.get(siteId).data !== null);
+		}
 		let checked = Date.now();
 		let debounce: ReturnType<typeof setTimeout> | undefined;
 		const sync = (forced = false) => {
 			if (
 				document.visibilityState === "hidden" ||
-				(!forced && Date.now() - checked < 60000)
+				navigator.onLine === false ||
+				(!forced && Date.now() - checked < 15000)
 			)
 				return;
 			checked = Date.now();
 			void diary.load(siteId, true);
 			void resource.load(siteId, true);
 		};
-		const focus = () => sync();
+		const focus = () => sync(true);
 		const changed = (event: Event) => {
 			const detail = (event as CustomEvent<{ siteId?: string }>).detail;
 			if (detail?.siteId && detail.siteId !== siteId) return;
 			clearTimeout(debounce);
 			debounce = setTimeout(() => sync(true), 1500);
 		};
-		const interval = setInterval(focus, 60000);
+		const interval = setInterval(() => sync(), 15000);
 		window.addEventListener("focus", focus);
+		window.addEventListener("online", focus);
 		document.addEventListener("visibilitychange", focus);
 		window.addEventListener(DIARY_RECORD_UPDATED, changed);
 		return () => {
 			clearInterval(interval);
 			clearTimeout(debounce);
 			window.removeEventListener("focus", focus);
+			window.removeEventListener("online", focus);
 			document.removeEventListener("visibilitychange", focus);
 			window.removeEventListener(DIARY_RECORD_UPDATED, changed);
 		};
@@ -296,29 +309,33 @@ function PreparedProject({
 			>
 				<Suspense fallback={null}>
 					{diaryState.data ? (
-						<Diary
-							key={siteId}
-							siteId={siteId}
-							active={diaryActive}
-							batchEditing
-							bisEnabled={diaryState.data.bisEnabled}
-							organizationLanguage={diaryState.data.organizationLanguage}
-							fimaClientData={diaryState.data}
-							onFimaRowsChange={patchRows}
-							onFimaSync={sync}
-						/>
+						<WorkspaceView active={diaryActive}>
+							<Diary
+								key={siteId}
+								siteId={siteId}
+								active={diaryActive}
+								batchEditing
+								bisEnabled={diaryState.data.bisEnabled}
+								organizationLanguage={diaryState.data.organizationLanguage}
+								fimaClientData={diaryState.data}
+								onFimaRowsChange={patchRows}
+								onFimaSync={sync}
+							/>
+						</WorkspaceView>
 					) : null}
 				</Suspense>
 			</section>
 			<section ref={actsRoot} hidden={!active} aria-label="Akti">
 				<Suspense fallback={null}>
 					{state.data ? (
-						<View
-							active={active}
-							key={siteId}
-							initial={state.data}
-							onDataChange={resource.update}
-						/>
+						<WorkspaceView active={active}>
+							<View
+								active={active}
+								key={siteId}
+								initial={state.data}
+								onDataChange={resource.update}
+							/>
+						</WorkspaceView>
 					) : null}
 				</Suspense>
 			</section>

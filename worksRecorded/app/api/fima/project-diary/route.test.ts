@@ -84,12 +84,15 @@ beforeEach(() => {
 	language.mockResolvedValue("lv");
 });
 it("returns 304 without loading record data when the project has not changed", async () => {
-	const result = await GET(request({}, `"${hash}"`));
+	const first = await GET(request());
+	const result = await GET(
+		request({}, (first.headers as unknown as Record<string, string>).ETag),
+	);
 	expect(result.status).toBe(304);
 	expect(delta).not.toHaveBeenCalled();
 	expect(revision).toHaveBeenCalledWith("org", siteId);
 });
-it("loads a scoped initial snapshot and checks BIS connectivity only during project preparation", async () => {
+it("loads a scoped initial snapshot and includes stored BIS connectivity during project preparation", async () => {
 	const result = await POST(request({ project: siteId }));
 	expect(result.status).toBe(200);
 	expect(await result.json()).toMatchObject({
@@ -99,12 +102,12 @@ it("loads a scoped initial snapshot and checks BIS connectivity only during proj
 	expect(delta).toHaveBeenCalledWith("org", siteId, undefined);
 	expect(bis).toHaveBeenCalledTimes(1);
 });
-it("forwards only version identifiers for incremental updates without repeating BIS calls", async () => {
+it("forwards version identifiers and current settings for incremental updates", async () => {
 	const known = { configVersion: hash, versions: { [siteId]: hash } };
 	await POST(request({ project: siteId, known, organizationId: "attacker" }));
 	expect(delta).toHaveBeenCalledWith("org", siteId, known);
-	expect(bis).not.toHaveBeenCalled();
-	expect(language).not.toHaveBeenCalled();
+	expect(bis).toHaveBeenCalledTimes(1);
+	expect(language).toHaveBeenCalledTimes(1);
 });
 it.each([401, 403])(
 	"rejects access with %i before reading data",

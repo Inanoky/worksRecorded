@@ -9,10 +9,12 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { WorkspaceView } from "@/components/projects/WorkspaceActivity";
 import {
 	useProjectPreparationReporter,
 	useVisualProjectPreload,
 } from "@/components/providers/ProjectLoadingProgressProvider";
+import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import type { getDefaultConstructionForma2Results } from "../backend/forma2-analytics-actions";
 import { DIARY_RECORD_UPDATED } from "../lib/diary-record-updated-event";
 import { patchProject } from "../visual/project-sync";
@@ -31,8 +33,9 @@ type Payload = {
 };
 
 export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
-	const enabled = useVisualProjectPreload(siteId);
+	const visualPreload = useVisualProjectPreload(siteId);
 	const projectData = useLimeniProjectData();
+	const enabled = visualPreload || projectData.enabled;
 	const seeded = useRef("");
 	const active = usePathname() === `/dashboard/sites/${siteId}/analytics`;
 	const report = useProjectPreparationReporter(siteId);
@@ -173,6 +176,9 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 	if (!enabled) return null;
 	return (
 		<section hidden={!active} aria-label="Forma 2">
+			{active && projectData.enabled && !payload ? (
+				<ProjectOpeningOverlay label="Ielādē Forma 2…" />
+			) : null}
 			{failed ? (
 				<output className="block rounded-md border p-3 text-sm">
 					Neizdevās atjaunot Forma 2.{" "}
@@ -184,7 +190,9 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 			{payload ? (
 				<Forma2RefreshContext.Provider value={update}>
 					<Suspense fallback={null}>
-						<View siteId={siteId} {...payload} />
+						<WorkspaceView active={active}>
+							<View siteId={siteId} {...payload} />
+						</WorkspaceView>
 					</Suspense>
 				</Forma2RefreshContext.Provider>
 			) : null}

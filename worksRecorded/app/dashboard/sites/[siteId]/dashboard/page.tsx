@@ -1,3 +1,4 @@
+import { withRetainedProjectPage } from "@/components/projects/withRetainedProjectPage";
 import { notFound, redirect } from "next/navigation";
 import { after } from "next/server";
 import AiWidgetRag from "@/components/ai/AiChatLazy";
@@ -28,7 +29,7 @@ import { sendFirstProjectWelcomeTemplateForUserIfNeeded } from "@/server/onboard
 
 export const maxDuration = 800;
 
-export default async function InvoiceRoute({
+async function InvoiceRoute({
 	params,
 }: {
 	params: Promise<{ siteId: string }>;
@@ -147,3 +148,5 @@ export default async function InvoiceRoute({
 		</>
 	);
 }
+
+export default withRetainedProjectPage(InvoiceRoute, "dashboard");

@@ -1,4 +1,6 @@
 "use server";
+import { requireConstructionProjectAccess } from "@/flows/default-construction/backend/construction-project-access";
+import { readConstructionDiarySnapshot, type ConstructionDiarySnapshotOptions } from "@/flows/default-construction/backend/construction-diary-snapshot";
 import { BisDiarySyncCache, syncLinkedBisRecords } from "@/lib/bis/diary-record-sync";
 import { buildDefaultConstructionDiaryConfig } from "@/flows/default-construction/lib/diary-config";
 import { withFimaExampleSources } from "@/flows/default-construction/backend/fima-example-sources";
@@ -2466,17 +2468,23 @@ function buildSiteDiaryListWhere(
       };
 }
 
-export async function getLimeniDiarySnapshot(siteId: string) {
+export async function getConstructionDiarySnapshot(siteId:string,options:ConstructionDiarySnapshotOptions = {}) {
+  const user=await requireUser();
+  const access=await requireConstructionProjectAccess(user.id,siteId);
+  return readConstructionDiarySnapshot(siteId,access.organizationId,options);
+}
+
+export async function getLimeniDiarySnapshot(siteId: string, options: { ids?: string[]; media?: boolean } = {}) {
   const user = await requireUser();
   const site = await orgCheck(user.id, siteId);
   if (!site || !hasInlineDiaryPhotos(site.organizationId)) throw new Error("Access denied");
   const [records, mediaPhotos] = await Promise.all([
-    prisma.sitediaryrecords.findMany({
-      where: { siteId, organizationId: site.organizationId, archivedAt: null },
+    options.ids?.length === 0 ? [] : prisma.sitediaryrecords.findMany({
+      where: { siteId, organizationId: site.organizationId, archivedAt: null, ...(options.ids ? { id: { in: options.ids } } : {}) },
       orderBy: [{ Date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       select: constructionDiaryListSelect,
     }),
-    prisma.photos.findMany({
+    options.media === false ? [] : prisma.photos.findMany({
       where: {
         siteId, organizationId: site.organizationId,
         AND: [siteDiaryPhotoPurposeWhere()],

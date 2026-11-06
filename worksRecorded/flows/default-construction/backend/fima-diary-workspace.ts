@@ -86,6 +86,7 @@ export async function readFimaDiaryManifest(
 				record.id,
 				hash([
 					record.version,
+					process.env.VERCEL_GIT_COMMIT_SHA || "local",
 					linked
 						? readActs(readFimaBisRecordLinks(linked.metadata, linked.BISId))
 						: null,
@@ -104,7 +105,10 @@ export async function readFimaDiaryManifest(
 		...site,
 		siteDiaryRecordsMap: { ...raw, otherSettings },
 	});
-	const configVersion = hash(config);
+	const configVersion = hash([
+		config,
+		process.env.VERCEL_GIT_COMMIT_SHA || "local",
+	]);
 	return {
 		revision: hash([configVersion, versions]),
 		configVersion,
@@ -116,7 +120,14 @@ export async function getFimaDiaryRevision(
 	organizationId: string,
 	siteId: string,
 ) {
-	return (await readFimaDiaryManifest(prisma, organizationId, siteId)).revision;
+	return prisma.$transaction(
+		async (db) =>
+			(await readFimaDiaryManifest(db, organizationId, siteId)).revision,
+		{
+			isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+			timeout: 30000,
+		},
+	);
 }
 export async function loadFimaDiaryDelta(
 	organizationId: string,

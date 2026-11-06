@@ -1,3 +1,4 @@
+import { withRetainedProjectPage } from "@/components/projects/withRetainedProjectPage";
 
 // export const revalidate = 0
 
@@ -48,7 +49,7 @@ import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { siteDiaryPhotoPurposeWhere } from "@/lib/photos/media-purpose";
 
-export default async function SettingsSiteRoute({
+async function SettingsSiteRoute({
   params,
   searchParams,
 }: {
@@ -358,3 +359,5 @@ export default async function SettingsSiteRoute({
     </>
   );
 }
+
+export default withRetainedProjectPage(SettingsSiteRoute, "settings");

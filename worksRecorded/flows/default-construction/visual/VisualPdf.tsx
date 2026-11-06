@@ -1,5 +1,7 @@
 "use client";
 
+import { useWorkspaceActive } from "@/components/projects/WorkspaceActivity";
+
 import {
 	ChevronLeft,
 	ChevronRight,
@@ -239,6 +241,12 @@ export function VisualPdf({
 	const [ready, setReady] = useState(false);
 	const [highlighted, setHighlighted] = useState<string | null>(null);
 	const canvas = useRef<HTMLCanvasElement>(null);
+	const workspaceActive = useWorkspaceActive();
+	useEffect(() => {
+		if (workspaceActive) return;
+		setLoadedPdf(null);
+		if (canvas.current) { canvas.current.width = 0; canvas.current.height = 0; }
+	}, [workspaceActive]);
 	const [draft, setDraft] = useState<ZoneDraft | null>(null);
 	const [planningAreaDraft, setPlanningAreaDraft] =
 		useState<PlanningAreaDraft | null>(null);
@@ -889,7 +897,7 @@ export function VisualPdf({
 		setPage(1);
 	}, [url, resourceCache]);
 	useEffect(() => {
-		if (!needsOriginal) return;
+		if (!needsOriginal || !workspaceActive) return;
 		let active = true;
 		let task:
 			| ReturnType<typeof import("pdfjs-dist")["getDocument"]>
@@ -925,11 +933,11 @@ export function VisualPdf({
 			cachedPdf?.release();
 			void task?.destroy();
 		};
-	}, [url, resourceCache, needsOriginal, preparedSource]);
+	}, [url, resourceCache, needsOriginal, preparedSource, workspaceActive]);
 	useLayoutEffect(() => {
 		const preview = resourceCache?.peekPreview(url, page);
 		const element = canvas.current;
-		if (!preview || !element) return;
+		if (!workspaceActive || !preview || !element) return;
 		const context = element.getContext("2d");
 		if (!context) return;
 		element.width = preview.canvas.width;
@@ -937,10 +945,10 @@ export function VisualPdf({
 		context.drawImage(preview.canvas, 0, 0);
 		setAspect(preview.aspect);
 		setReady(true);
-	}, [url, page, resourceCache]);
+	}, [url, page, resourceCache, workspaceActive]);
 	useEffect(() => {
 		if (
-			!preparedPages ||
+			!workspaceActive || !preparedPages ||
 			!resourceCache ||
 			resourceCache.preparedManifest(url)?.source !== preparedSource
 		)
@@ -965,9 +973,9 @@ export function VisualPdf({
 		return () => {
 			cancelled = true;
 		};
-	}, [url, page, resourceCache, preparedPages, preparedSource]);
+	}, [url, page, resourceCache, preparedPages, preparedSource, workspaceActive]);
 	useEffect(() => {
-		if (!document) return;
+		if (!document || !workspaceActive) return;
 		let active = true;
 		let render: { promise: Promise<void>; cancel: () => void } | undefined;
 		if (!resourceCache?.peekPreview(url, page)) setReady(false);
@@ -1025,7 +1033,7 @@ export function VisualPdf({
 			active = false;
 			render?.cancel();
 		};
-	}, [document, page, url, resourceCache]);
+	}, [document, page, url, resourceCache, workspaceActive]);
 	const actualLayerCandidates: LayerHitOption[] = shownMarks
 		.filter((mark) => mark.page === page)
 		.map((mark) => ({

@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Joyride, { CallBackProps, STATUS } from "react-joyride";
+import { useWorkspaceVisible } from "@/components/projects/WorkspaceActivity";
 import { hasCompletedTour, markTourCompleted } from "@/components/joyride/user-tour-action";
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export default function TourRunner({ steps, stepName, onFinished }: Props) {
+  const active = useWorkspaceVisible();
   const [shouldRun, setShouldRun] = useState<boolean>(false);
   const [checked, setChecked] = useState<boolean>(false);
 
@@ -46,7 +48,7 @@ export default function TourRunner({ steps, stepName, onFinished }: Props) {
   return (
     <Joyride
       steps={steps}
-      run={shouldRun}
+      run={shouldRun && active}
       continuous
       showSkipButton
       disableOverlayClose

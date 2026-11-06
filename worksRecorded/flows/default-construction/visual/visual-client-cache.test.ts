@@ -309,6 +309,60 @@ it("invalidates planning after mutations and retries a failed planning request",
 	cache.clear();
 });
 
+it("releases inactive render resources while retaining project data", async () => {
+	const cache = new VisualClientCache("site");
+	const load = jest.fn().mockResolvedValue({ drawings: [], locations: ["1. stāvs"] });
+	await cache.loadIndex(load);
+	const source = document.createElement("canvas");
+	source.width = 1000;
+	source.height = 1000;
+	cache.rememberPreview("/drawing", 1, source, 1);
+	const preview = cache.peekPreview("/drawing", 1);
+	cache.suspend();
+	expect(preview?.canvas.width).toBe(0);
+	expect(cache.peekPreview("/drawing", 1)).toBeUndefined();
+	expect(cache.peekIndex()?.locations).toEqual(["1. stāvs"]);
+	await cache.loadIndex(load);
+	expect(load).toHaveBeenCalledTimes(1);
+	cache.clear();
+});
+
+it("releases a suspended PDF after its last viewer finishes, without cancelling an in-use document", async () => {
+	const cache = new VisualClientCache("site");
+	const viewer = cache.openPdf("/drawing.pdf");
+	await viewer.promise;
+	cache.suspend();
+	expect(mockDestroy).not.toHaveBeenCalled();
+	viewer.release();
+	expect(mockDestroy).toHaveBeenCalledTimes(1);
+	cache.resume();
+	const reopened = cache.openPdf("/drawing.pdf");
+	await reopened.promise;
+	reopened.release();
+	expect(mockDestroy).toHaveBeenCalledTimes(1);
+	cache.clear();
+	expect(mockDestroy).toHaveBeenCalledTimes(2);
+});
+
+it("can finish a full preload after a project is suspended and resumed partway through preparation", async () => {
+	const cache = new VisualClientCache("site");
+	let cancelled = false;
+	let finishPlanning: (value: VisualPlanningIndex) => void = () => {};
+	const planning = new Promise<VisualPlanningIndex>(resolve => { finishPlanning = resolve; });
+	const progress = jest.fn();
+	const first = cache.prepareProject([{ id: "drawing" }], () => planning, progress, () => cancelled);
+	await waitForPreparation();
+	cancelled = true;
+	cache.suspend();
+	finishPlanning(planningIndex);
+	await first;
+	cache.resume();
+	const resumed = jest.fn();
+	await cache.prepareProject([{ id: "drawing" }], async () => planningIndex, resumed);
+	for (const step of ["visual-drawing", "visual-planning", "visual-preview"]) expect(resumed).toHaveBeenCalledWith(step, "done", { completed: 1, total: 1 });
+	cache.clear();
+});
+
 it("bounds rendered previews by memory and releases the least recently used floor", () => {
 	const cache = new VisualClientCache("site");
 	const source = document.createElement("canvas");

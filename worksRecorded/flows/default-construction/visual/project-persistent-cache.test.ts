@@ -3,6 +3,7 @@ import { IDBFactory } from "fake-indexeddb";
 import {
 	clearPersistentProjects,
 	PersistentProjectCache,
+	requestPersistentProjectStorage,
 	switchPersistentIdentity,
 } from "./project-persistent-cache";
 
@@ -117,4 +118,45 @@ it("upgrades an existing downloaded project without discarding it when the old e
 	expect(
 		await new PersistentProjectCache("user:org", "site").read("snapshot"),
 	).toEqual({ version: "downloaded-before-upgrade" });
+});
+
+it("keeps project snapshots when downloaded tiles fill the storage budget", async () => {
+	let now = 1_000_000;
+	jest.spyOn(Date, "now").mockImplementation(() => now++);
+	const cache = new PersistentProjectCache("user:org", "site");
+	await cache.write("snapshot", { version: "project-ready" });
+	const large = "x".repeat(40 * 1024 * 1024);
+	await cache.write("tile:old", large);
+	await cache.write("tile:middle", large);
+	await cache.write("tile:new", large);
+	expect(await cache.read("snapshot")).toEqual({ version: "project-ready" });
+	expect(await cache.read("tile:old")).toBeUndefined();
+	expect(await cache.read("tile:new")).toBe(large);
+});
+
+it("requests durable browser storage once without blocking cache operations", async () => {
+	const persisted = jest.fn().mockResolvedValue(false);
+	let finish!: (value: boolean) => void;
+	const persist = jest.fn().mockImplementation(
+		() =>
+			new Promise<boolean>((resolve) => {
+				finish = resolve;
+			}),
+	);
+	Object.defineProperty(navigator, "storage", {
+		configurable: true,
+		value: { persisted, persist },
+	});
+	try {
+		const cache = new PersistentProjectCache("user:org", "site");
+		await cache.write("snapshot", { version: "ready" });
+		expect(await cache.read("snapshot")).toEqual({ version: "ready" });
+		finish(true);
+		expect(await requestPersistentProjectStorage()).toBe(true);
+		expect(await requestPersistentProjectStorage()).toBe(true);
+		expect(persisted).toHaveBeenCalledTimes(1);
+		expect(persist).toHaveBeenCalledTimes(1);
+	} finally {
+		Reflect.deleteProperty(navigator, "storage");
+	}
 });

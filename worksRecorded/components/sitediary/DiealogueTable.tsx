@@ -374,6 +374,7 @@ export function DialogTable({
   organizationLanguage,
   initialRows,
   initialConfig,
+  cachedWorkspace = false,
   focusedRecordId,
   batchEditing = false,
   onQueued,
@@ -384,6 +385,7 @@ export function DialogTable({
   organizationLanguage?: string | null;
   initialRows?: Record<string, any>[] | null;
   initialConfig?: Record<string, any> | null;
+  cachedWorkspace?:boolean;
   focusedRecordId?: string | null;
   batchEditing?: boolean;
   onQueued?: () => void;
@@ -407,6 +409,7 @@ export function DialogTable({
   const [tableHeads, setTableHeads] = useState<string[]>([]);
   const [defaultMap, setMap] = useState<Record<string, any>>(defaultConfig);
   const hasClientEditsRef = React.useRef(false);
+  const draftTargetRef = React.useRef("");
   const uncontrolledFieldRefs = React.useRef(
     new Map<string, HTMLInputElement | HTMLTextAreaElement>(),
   );
@@ -748,7 +751,7 @@ export function DialogTable({
     return defaultMap[key]?.Type ?? null;
   }
 
-  function getDisplayNameByKey(key) {
+  function getDisplayNameByKey(key:string) {
     if (
       key === "Units" &&
       normalizeOrganizationLanguage(organizationLanguage) === "lv"
@@ -970,6 +973,9 @@ export function DialogTable({
   }
 
   useEffect(() => {
+    const target = `${siteId}:${date?.getTime()}:${focusedRecordId ?? "day"}`;
+    if (draftTargetRef.current === target && hasClientEditsRef.current) return;
+    draftTargetRef.current = target;
     let cancelled = false;
 
     if (!date || !siteId) {
@@ -991,8 +997,9 @@ export function DialogTable({
     hasClientEditsRef.current = false;
     dirtyFieldsRef.current.clear();
 
-    if (cachedRows) {
-      savedRowsRef.current = new Map(cachedRows.map(row => [String(row.id), row]));
+    const authoritative = cachedWorkspace && initialRows !== undefined && initialRows !== null && !!initialConfig;
+    if (cachedRows || authoritative) {
+      savedRowsRef.current = new Map((cachedRows ?? []).map(row => [String(row.id), row]));
       const renderableFields = Object.entries(cachedConfig)
         .filter(([_, cfg]) => cfg?.Type !== "noRender")
         .sort((a, b) => {
@@ -1007,7 +1014,7 @@ export function DialogTable({
           return aOrder !== bOrder ? aOrder - bOrder : a[0].localeCompare(b[0]);
         })
         .map(([key]) => key.trim());
-      const editableRows = cachedRows.map((row) => ({
+      const editableRows = (cachedRows ?? []).map((row) => ({
         id: row.id ?? undefined,
         createdBy: row.createdBy ?? undefined,
         ...Object.fromEntries(
@@ -1024,12 +1031,14 @@ export function DialogTable({
 
       setMap(cachedConfig);
       setTableHeads(renderableFields);
-      setRows(editableRows);
+      setRows(editableRows.length ? editableRows : focusedRecordId ? [] : [newEmptyRow()]);
       setDirtyRowIds(new Set());
       setLoading(false);
     } else {
       setLoading(true);
     }
+
+    if (authoritative) return;
 
     (async () => {
       const isoDate = typeof date === "string" ? date : date.toISOString();
@@ -1176,7 +1185,7 @@ export function DialogTable({
     return () => {
       cancelled = true;
     };
-  }, [date, focusedRecordId, initialConfig, initialRows, siteId]);
+  }, [date, focusedRecordId, initialConfig, initialRows, siteId,cachedWorkspace]);
 
   if (loading) {
     return (

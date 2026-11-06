@@ -4,6 +4,7 @@ import { Building2, Check, ChevronDown, MoreHorizontal } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
+import { useWorkspaceNavigation } from "@/components/projects/WorkspaceNavigation";
 import { useProject } from "@/components/providers/ProjectProvider";
 import {
 	DropdownMenu,
@@ -394,6 +395,7 @@ function ProjectSwitcher({
 	pathname: string;
 }) {
 	const [open, setOpen] = useState(false);
+	const workspace = useWorkspaceNavigation();
 	const projects = normalizeProjectSwitcherOptions(
 		showAllProjects
 			? [{ id: "__all__", name: "Visi projekti" }, ...availableProjects]
@@ -448,7 +450,7 @@ function ProjectSwitcher({
 					const href =
 						project.id === "__all__"
 							? "/dashboard/all-projects"
-							: getProjectSwitchHref(project.id, pathname);
+							: workspace?.store.preferredHref(project.id, getProjectSwitchHref(project.id, pathname)) ?? getProjectSwitchHref(project.id, pathname);
 					return (
 						<DropdownMenuItem key={project.id} asChild>
 							<FimaProjectNavigationLink

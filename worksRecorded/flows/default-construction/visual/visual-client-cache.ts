@@ -55,6 +55,7 @@ type LoadOptions = { force?: boolean };
 type TilePriority = { background: boolean };
 
 export class VisualClientCache {
+	private suspended = false;
 	private planningImages = new PlanningImageCache();
 	planningImageKey(
 		url: string,
@@ -595,6 +596,7 @@ export class VisualClientCache {
 				if (released) return;
 				released = true;
 				entry.references -= 1;
+				if (this.suspended && !entry.references && this.pdfs.get(url) === entry) this.destroyPdf(url, entry);
 				this.trimPdfs();
 			},
 		};
@@ -821,6 +823,7 @@ export class VisualClientCache {
 			}
 		};
 		await Promise.all(Array.from({ length: ids.length }, worker));
+		if (cancelled() || this.suspended) return;
 		const signal = this.tileAbort.signal;
 		setTimeout(() => {
 			void (async () => {
@@ -916,6 +919,21 @@ export class VisualClientCache {
 		this.drawingRequests.get(id)?.controller.abort();
 		this.drawingRequests.delete(id);
 	}
+
+	suspend() {
+		this.suspended = true;
+		this.tileAbort.abort();
+		this.tileAbort = new AbortController();
+		this.tileRequests.clear();
+		this.tileBlobs.clear();
+		this.previewGeneration += 1;
+		for (const request of this.previewRequests.values()) request.cancel();
+		this.previewRequests.clear();
+		for (const preview of this.previews.values()) { preview.canvas.width = 0; preview.canvas.height = 0; }
+		this.previews.clear();
+		for (const [url, entry] of this.pdfs) if (!entry.references) this.destroyPdf(url, entry);
+	}
+	resume() { this.suspended = false; }
 
 	clear() {
 		this.planningImages.clear();

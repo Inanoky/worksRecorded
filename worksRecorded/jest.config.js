@@ -17,7 +17,7 @@ module.exports = {
 		"^.+\\.svg$": "<rootDir>/__mocks__/svgMock.ts",
 		// keep other static assets
 		"\\.(png|jpe?g|gif|webp|avif|ico|bmp)$": "<rootDir>/__mocks__/fileMock.js",
-		"\\.(css|scss|sass)$": "identity-obj-proxy",
+		"\\.(css|scss|sass)$": "<rootDir>/__mocks__/styleMock.js",
 		// 👇 alias AFTER the svg rule
 		"^@/(.*)$": "<rootDir>/$1",
 	},

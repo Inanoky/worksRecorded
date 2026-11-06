@@ -1,14 +1,21 @@
 import { createHash } from "node:crypto";
-import { GET as project } from "@/app/api/sites/[siteId]/limeni-project/route";
+import {
+	GET as project,
+	POST as syncProject,
+} from "@/app/api/sites/[siteId]/limeni-project/route";
 import { GET as preview } from "@/app/api/sites/[siteId]/visual/[drawingId]/preview/[page]/route";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
+import { getLimeniDiarySnapshot } from "@/server/actions/site-diary-actions";
 import { previewSource } from "./preview-revision";
-import { loadProjectRevision } from "./project-revision-store";
+import { loadProjectManifest } from "./project-revision-store";
+import type { LimeniProjectSnapshot } from "./project-snapshot-store";
 import {
 	loadLimeniProjectSnapshot,
 	ProjectAccessError,
 } from "./project-snapshot-store";
+import { mergeProjectDelta, type ProjectDelta } from "./project-sync";
+import { fetchProjectSync } from "./project-sync-client";
 import { projectSyncPayload } from "./project-sync-server";
 import { requireVisualAccess } from "./store";
 
@@ -17,7 +24,20 @@ jest.mock("@/lib/utils/db", () => ({
 	prisma: { documents: { findFirst: jest.fn() }, $queryRaw: jest.fn() },
 }));
 jest.mock("./project-revision-store", () => ({
-	loadProjectRevision: jest.fn(),
+	loadProjectManifest: jest.fn(),
+}));
+jest.mock("@/server/actions/site-diary-actions", () => ({
+	getConfig: jest.fn(),
+	getLimeniDiarySnapshot: jest.fn(),
+}));
+jest.mock("@/server/actions/shared-actions", () => ({
+	getOrganizationLanguageByUserId: jest.fn(),
+}));
+jest.mock("@/lib/bis/dashboard-status", () => ({
+	getDashboardBisStatus: jest.fn(),
+}));
+jest.mock("../backend/forma2-analytics-actions", () => ({
+	getDefaultConstructionForma2Results: jest.fn(),
 }));
 jest.mock("./store", () => ({ requireVisualAccess: jest.fn() }));
 jest.mock("./project-snapshot-store", () => ({
@@ -42,7 +62,12 @@ const context = {
 };
 beforeEach(() => {
 	jest.resetAllMocks();
-	jest.mocked(loadProjectRevision).mockResolvedValue("revision");
+	jest.mocked(loadProjectManifest).mockResolvedValue({
+		revision: "revision",
+		sourceVersions: {},
+		diaryRowVersions: {},
+		organizationId: "limeni",
+	});
 	jest.mocked(requireUser).mockResolvedValue({ id: "user" } as never);
 	jest
 		.mocked(requireVisualAccess)
@@ -55,21 +80,228 @@ beforeEach(() => {
 		.mockResolvedValue(new Response(new Uint8Array([1, 2, 3])));
 });
 
+it("negotiates record syncing with a cheap revision check before loading the snapshot", async () => {
+	const response = await project(
+		new Request("https://test/api/sites/site/limeni-project", {
+			headers: {
+				"If-None-Match": '"old"',
+				"X-Project-Parts": JSON.stringify({ diary: "a".repeat(64) }),
+				"X-Project-Sync": "records-v1",
+			},
+		}),
+		context,
+	);
+	expect(response.status).toBe(202);
+	expect(response.headers.get("x-project-sync")).toBe("records-v1");
+	expect(loadProjectManifest).toHaveBeenCalledTimes(1);
+	expect(loadLimeniProjectSnapshot).not.toHaveBeenCalled();
+});
+
+it("applies record inventories from a request body and sends only the changed journal row", async () => {
+	const initial = {
+		version: "v1",
+		settings: { siteId: "site" },
+		index: {},
+		drawings: [],
+		config: {},
+		forma2: {},
+		diary: {
+			rows: [
+				{ id: "keep", Amounts: 10 },
+				{ id: "edit", Amounts: 20 },
+			],
+			mediaPhotos: [],
+		},
+	};
+	const cached = projectSyncPayload(initial as never, "old");
+	jest.mocked(loadLimeniProjectSnapshot).mockResolvedValue({
+		...initial,
+		version: "v2",
+		diary: {
+			...initial.diary,
+			rows: [initial.diary.rows[0], { id: "edit", Amounts: 25 }],
+		},
+	} as never);
+	const response = await syncProject(
+		new Request("https://test/api/sites/site/limeni-project", {
+			method: "POST",
+			headers: { "Content-Type": "application/json", "If-None-Match": '"old"' },
+			body: JSON.stringify({
+				parts: cached.partVersions,
+				rows: cached.diaryRowVersions,
+			}),
+		}),
+		context,
+	);
+	expect(response.status).toBe(200);
+	expect(await response.json()).toMatchObject({
+		kind: "delta",
+		drawings: [],
+		changes: {},
+		diaryRows: {
+			changed: [{ id: "edit", Amounts: 25 }],
+			order: ["keep", "edit"],
+		},
+	});
+	expect(loadProjectManifest).toHaveBeenCalledWith("user", "site");
+});
+
+it("validates record sync bodies before loading project data", async () => {
+	for (const body of [
+		"invalid",
+		"null",
+		JSON.stringify({ parts: {}, rows: { row: "invalid" } }),
+	]) {
+		const response = await syncProject(
+			new Request("https://test", { method: "POST", body }),
+			context,
+		);
+		expect(response.status).toBe(400);
+	}
+	expect(
+		(
+			await syncProject(
+				new Request("https://test", {
+					method: "POST",
+					headers: { "Content-Length": "2000001" },
+					body: "{}",
+				}),
+				context,
+			)
+		).status,
+	).toBe(413);
+	expect(loadLimeniProjectSnapshot).not.toHaveBeenCalled();
+});
+
+it("runs the client-to-route sync contract from first load through a row delta to an unchanged revision", async () => {
+	const initial = {
+		version: "v1",
+		settings: { siteId: "site" },
+		index: {},
+		drawings: [],
+		config: {},
+		forma2: {},
+		diary: {
+			rows: [{ id: "row", Amounts: 10, Comments: "Original WhatsApp message" }],
+			mediaPhotos: [],
+		},
+	} as unknown as LimeniProjectSnapshot;
+	jest.mocked(loadLimeniProjectSnapshot).mockResolvedValue(initial);
+	const requests: Request[] = [];
+	global.fetch = jest.fn(async (url, options) => {
+		const request = new Request(new URL(String(url), "https://test"), options);
+		requests.push(request);
+		return options?.method === "POST"
+			? syncProject(request, context)
+			: project(request, context);
+	});
+	const signal = new AbortController().signal;
+	const first = (await (
+		await fetchProjectSync("site", null, signal)
+	).json()) as LimeniProjectSnapshot;
+	expect(first.diary.rows[0].Amounts).toBe(10);
+	first.sourceVersions = undefined;
+	jest.mocked(loadProjectManifest).mockResolvedValue({
+		revision: "r2",
+		sourceVersions: {},
+		diaryRowVersions: { row: "a".repeat(64) },
+		organizationId: "limeni",
+	});
+	jest.mocked(loadLimeniProjectSnapshot).mockResolvedValue({
+		...initial,
+		version: "v2",
+		diary: {
+			...initial.diary,
+			rows: [{ ...initial.diary.rows[0], Amounts: 20 }],
+		},
+	});
+	const deltaResponse = await fetchProjectSync("site", first, signal);
+	const delta = (await deltaResponse.json()) as ProjectDelta;
+	expect(delta.diaryRows?.changed).toHaveLength(1);
+	expect(delta.changes.diary).toBeUndefined();
+	const updated = mergeProjectDelta(first, delta);
+	expect(updated.diary.rows[0]).toMatchObject({
+		Amounts: 20,
+		Comments: "Original WhatsApp message",
+	});
+	expect(updated.config).toBe(first.config);
+	expect((await fetchProjectSync("site", updated, signal)).status).toBe(304);
+	expect(requests.map((request) => request.method)).toEqual([
+		"GET",
+		"GET",
+		"POST",
+		"GET",
+	]);
+	expect(loadLimeniProjectSnapshot).toHaveBeenCalledTimes(2);
+});
+it("negotiates a media-only delta without loading the full project or unchanged journal rows", async () => {
+	const initial = {
+		version: "v1",
+		settings: { siteId: "site" },
+		index: { drawings: [] },
+		drawings: [],
+		config: {},
+		forma2: {},
+		diary: { rows: [{ id: "keep", Works: "Unchanged" }], mediaPhotos: [] },
+	} as unknown as LimeniProjectSnapshot;
+	const old = "a".repeat(64),
+		next = "b".repeat(64);
+	jest.mocked(loadProjectManifest).mockResolvedValue({
+		organizationId: "limeni",
+		revision: "r1",
+		sourceVersions: { media: old },
+		diaryRowVersions: { keep: old },
+	});
+	jest.mocked(loadLimeniProjectSnapshot).mockResolvedValue(initial);
+	global.fetch = jest.fn(async (url, options) => {
+		const request = new Request(new URL(String(url), "https://test"), options);
+		return options?.method === "POST"
+			? syncProject(request, context)
+			: project(request, context);
+	});
+	const signal = new AbortController().signal;
+	const cached = (await (
+		await fetchProjectSync("site", null, signal)
+	).json()) as LimeniProjectSnapshot;
+	jest.mocked(loadProjectManifest).mockResolvedValue({
+		organizationId: "limeni",
+		revision: "r2",
+		sourceVersions: { media: next },
+		diaryRowVersions: { keep: old },
+	});
+	jest.mocked(getLimeniDiarySnapshot).mockResolvedValue({
+		rows: [],
+		mediaPhotos: [{ URL: "new.jpg" }],
+	} as never);
+	const delta = (await (
+		await fetchProjectSync("site", cached, signal)
+	).json()) as ProjectDelta;
+	const merged = mergeProjectDelta(cached, delta);
+	expect(merged.diary.rows[0]).toBe(cached.diary.rows[0]);
+	expect(merged.diary.mediaPhotos).toEqual([{ URL: "new.jpg" }]);
+	expect(getLimeniDiarySnapshot).toHaveBeenCalledWith("site", {
+		ids: [],
+		media: true,
+	});
+	expect(loadLimeniProjectSnapshot).toHaveBeenCalledTimes(1);
+	expect(delta.changes).toEqual({});
+});
+
 it("revalidates a project snapshot only after authentication and an authorized load", async () => {
 	const request = new Request("https://test/api/sites/site/limeni-project", {
 		headers: { "If-None-Match": '"revision"' },
 	});
 	const response = await project(request, context);
 	expect(response.status).toBe(304);
-	expect(loadProjectRevision).toHaveBeenCalledWith("user", "site");
+	expect(loadProjectManifest).toHaveBeenCalledWith("user", "site");
 	expect(loadLimeniProjectSnapshot).not.toHaveBeenCalled();
 	expect(response.headers.get("cache-control")).toBe("private, no-cache");
 	jest
-		.mocked(loadProjectRevision)
+		.mocked(loadProjectManifest)
 		.mockRejectedValue(new ProjectAccessError("Denied"));
 	expect((await project(request, context)).status).toBe(403);
 	jest
-		.mocked(loadProjectRevision)
+		.mocked(loadProjectManifest)
 		.mockRejectedValue(new Error("Database unavailable"));
 	expect((await project(request, context)).status).toBe(503);
 });
@@ -98,13 +330,15 @@ it("refreshes cached Forma 2 calculations after a code change without resending 
 		cached as never,
 		"project-v2-same-data",
 	).partVersions;
-	jest.mocked(prisma.$queryRaw).mockResolvedValue([{ revision: "same-data" }]);
 	jest
-		.mocked(loadProjectRevision)
+		.mocked(prisma.$queryRaw)
+		.mockResolvedValue([{ sources: { site: "same-data" }, rows: [] }]);
+	jest
+		.mocked(loadProjectManifest)
 		.mockImplementation(
 			jest.requireActual<typeof import("./project-revision-store")>(
 				"./project-revision-store",
-			).loadProjectRevision,
+			).loadProjectManifest,
 		);
 	jest.mocked(loadLimeniProjectSnapshot).mockResolvedValue({
 		...cached,
@@ -315,7 +549,12 @@ it("returns only changed project sections and skips snapshot loading when that r
 	);
 	const cached = await first.json();
 	expect(cached.revision).toBe("revision");
-	jest.mocked(loadProjectRevision).mockResolvedValue("changed-revision");
+	jest.mocked(loadProjectManifest).mockResolvedValue({
+		revision: "changed-revision",
+		sourceVersions: {},
+		diaryRowVersions: {},
+		organizationId: "limeni",
+	});
 	jest.mocked(loadLimeniProjectSnapshot).mockResolvedValue({
 		...initial,
 		version: "v2",

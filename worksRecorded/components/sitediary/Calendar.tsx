@@ -2,6 +2,8 @@
 
 import { MessageCircle } from "lucide-react";
 import React from "react";
+import { useLimeniProjectData } from "@/flows/default-construction/frontend/LimeniProjectData";
+import type { LimeniProjectSnapshot } from "@/flows/default-construction/visual/project-snapshot-store";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import { DiaryFeedbackBrain } from "@/flows/default-construction/frontend/DiaryFeedbackBrain";
 import { useDiarySaveQueue } from "@/flows/default-construction/frontend/DiarySaveProvider";
@@ -49,7 +51,7 @@ const WhatsAppIcon = ({ size = 22 }) => (
   </svg>
 );
 
-function getCalendarGrid(year, month) {
+function getCalendarGrid(year:number, month:number) {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
   const weeks = [];
@@ -67,20 +69,29 @@ function getCalendarGrid(year, month) {
   return weeks;
 }
 
-export default function SiteDiaryCalendar({ siteId, isZtcFlow = false, batchEditing = false }) {
+export default function SiteDiaryCalendar({ siteId, isZtcFlow = false, batchEditing = false }: {siteId:string|null;isZtcFlow?:boolean;batchEditing?:boolean}) {
+  const projectData=useLimeniProjectData();
+  const cached = !isZtcFlow && projectData.enabled;
+  const projectSnapshot = cached ? projectData.snapshot : null;
+  const [dialogSeed,setDialogSeed]=React.useState<LimeniProjectSnapshot | null>(null);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const today = new Date();
   const [currentMonth, setCurrentMonth] = React.useState(today.getMonth());
   const [currentYear, setCurrentYear] = React.useState(today.getFullYear());
-  const [date, setDate] = React.useState(null);
+  const [date, setDate] = React.useState<Date | null>(null);
   const [confirmedFilledDays, setFilledDays] = React.useState<number[]>([]);
-  const { snapshot: diarySaveSnapshot } = useDiarySaveQueue(siteId, batchEditing && !isZtcFlow);
+  const { snapshot: diarySaveSnapshot } = useDiarySaveQueue(siteId, (batchEditing || cached) && !isZtcFlow);
   const filledDays = [...new Set([...confirmedFilledDays, ...diarySaveSnapshot.items.flatMap(item => [...item.request.creates, ...item.request.updates]).flatMap(row => {
     const date = row.fields.Date ? new Date(row.fields.Date) : null;
     return date && date.getFullYear() === currentYear && date.getMonth() === currentMonth ? [date.getDate()] : [];
   })])];
   const [loadedSiteId, setLoadedSiteId] = React.useState<string | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+
+  const dialogRows=React.useMemo(() => dialogSeed ? dialogSeed.diary.rows.filter(row => {
+    const value=row.Date ? new Date(row.Date) : null;
+    return value && date && value.getFullYear() === date.getFullYear() && value.getMonth() === date.getMonth() && value.getDate() === date.getDate();
+  }) : undefined,[dialogSeed,date]);
 
   const weeks = getCalendarGrid(currentYear, currentMonth);
   const monthName = new Date(currentYear, currentMonth).toLocaleString(
@@ -91,6 +102,7 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false, batchEdit
   );
 
   async function exportToExcel() {
+    if (!siteId) return;
     const XLSX = await import("xlsx");
     const [rows, config] = await Promise.all([
       getSitediaryRecordsBySiteIdForExcel(siteId, {
@@ -112,13 +124,22 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false, batchEdit
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) return setFilledDays([]);
+    if (cached) {
+      const days=projectSnapshot?.diary.rows.flatMap(row => {
+        const value=row.Date ? new Date(row.Date) : null;
+        return value && value.getFullYear() === currentYear && value.getMonth() === currentMonth ? [value.getDate()] : [];
+      }) ?? [];
+      setFilledDays([...new Set(days)]);
+      if (projectSnapshot) setLoadedSiteId(siteId);
+      return;
+    }
     getFilledDays({
       siteId,
       year: currentYear,
       month: currentMonth,
       flowId: isZtcFlow ? "ztc" : undefined,
     }).then(setFilledDays);
-  }, [siteId, currentMonth, currentYear, isZtcFlow]);
+  }, [siteId, currentMonth, currentYear, isZtcFlow,cached,projectSnapshot]);
 
   React.useEffect(() => {
     if (diarySaveSnapshot.revision) reloadFilledDays();
@@ -129,6 +150,7 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false, batchEdit
     async function fetchFilledDays() {
       if (!siteId) return setFilledDays([]);
       setLoadError(null);
+      if (cached) {reloadFilledDays();return;}
       try {
         const days = await getFilledDays({
           siteId,
@@ -150,7 +172,7 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false, batchEdit
     return () => {
       cancelled = true;
     };
-  }, [siteId, currentMonth, currentYear, isZtcFlow]);
+  }, [siteId, currentMonth, currentYear, isZtcFlow,cached,reloadFilledDays]);
 
   const hasFilledDays = filledDays.length > 0;
 
@@ -253,6 +275,7 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false, batchEdit
                 )}
                 onClick={() => {
                   if (dateObj) {
+                    setDialogSeed(projectSnapshot);
                     setDialogOpen(true);
                     setDate(dateObj);
                   }
@@ -286,7 +309,10 @@ export default function SiteDiaryCalendar({ siteId, isZtcFlow = false, batchEdit
         siteId={siteId}
         onSaved={reloadFilledDays}
         isZtcFlow={isZtcFlow}
-        batchEditing={batchEditing && !isZtcFlow}
+        batchEditing={(batchEditing || cached) && !isZtcFlow}
+        initialConfig={dialogSeed?.config}
+        cachedWorkspace={cached}
+        initialRows={dialogRows}
       >
         <div className="grid gap-3">{/* dialog content */}</div>
       </DialogWindow>

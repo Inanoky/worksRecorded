@@ -1,3 +1,4 @@
+import { withRetainedProjectPage } from "@/components/projects/withRetainedProjectPage";
 import { notFound } from "next/navigation";
 import { isFimaDiary } from "@/lib/fima/diary-collaboration";
 import { prisma } from "@/lib/utils/db";
@@ -7,7 +8,7 @@ import { orgCheck } from "@/server/actions/shared-actions";
 export const dynamic = "force-dynamic";
 export const maxDuration = 800;
 
-export default async function ActsRoute({
+async function ActsRoute({
 	params,
 }: {
 	params: Promise<{ siteId: string }>;
@@ -23,3 +24,5 @@ export default async function ActsRoute({
 	if (!site?.bisCaseId || !isFimaDiary(site.siteDiaryRecordsMap)) notFound();
 	return null;
 }
+
+export default withRetainedProjectPage(ActsRoute, "acts");

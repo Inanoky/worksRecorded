@@ -33,6 +33,7 @@ import { readFimaActRegister } from "@/lib/fima/act-register";
 import {
 	getFimaActReferenceDetail,
 	getFimaActSetting,
+	getFimaActsActivity,
 	getFimaActsDelta,
 	getFimaActsForSite,
 	saveFimaActSettings,
@@ -80,6 +81,8 @@ beforeEach(() => {
 	}));
 	query.mockImplementation(async (first: TemplateStringsArray | Prisma.Sql) => {
 		const sql = ("strings" in first ? first.strings : first).join("");
+		if (sql.includes("AS revision"))
+			return [{ revision: JSON.stringify([config, sourceStatus]) }];
 		if (sql.includes("FOR UPDATE"))
 			return [{ id: siteId, name: "Olaine", bisCaseId: "668714", config }];
 		if (sql.includes("sitediaryrecords")) return [];
@@ -316,9 +319,11 @@ it("returns an empty delta for an unchanged cached Acts register without writing
 	const initial = await getFimaActsForSite(siteId);
 	if (!initial.cache) throw new Error("Missing versions");
 	execute.mockClear();
-	expect(await getFimaActsDelta(siteId, initial.cache)).toEqual({
-		kind: "unchanged",
-	});
+	const prepared = await getFimaActsDelta(siteId, initial.cache);
+	const known = prepared.kind === "delta" ? prepared.cache : initial.cache;
+	query.mockClear();
+	expect(await getFimaActsDelta(siteId, known)).toEqual({ kind: "unchanged" });
+	expect(query).toHaveBeenCalledTimes(1);
 	expect(execute).not.toHaveBeenCalled();
 });
 it("returns only the new Act comment to a cached client", async () => {
@@ -335,6 +340,18 @@ it("returns only the new Act comment to a cached client", async () => {
 	expect(delta.rows[0].setting.history[0].text).toBe("Human comment");
 	expect(delta.choices).toEqual([]);
 	expect(delta.references).toEqual([]);
+});
+it("checks Acts activity without reading the comparison catalogue", async () => {
+	const initial = await getFimaActsForSite(siteId);
+	if (!initial.cache) throw new Error("Missing cache");
+	const result = await getFimaActsDelta(siteId, initial.cache);
+	const known = result.kind === "delta" ? result.cache : initial.cache;
+	if (!known.sourceRevision) throw new Error("Missing source revision");
+	query.mockClear();
+	expect(await getFimaActsActivity(siteId, known.sourceRevision)).toEqual({
+		kind: "unchanged",
+	});
+	expect(query).toHaveBeenCalledTimes(1);
 });
 it("explicitly rejects a revoked project's cached data", async () => {
 	const initial = await getFimaActsForSite(siteId);

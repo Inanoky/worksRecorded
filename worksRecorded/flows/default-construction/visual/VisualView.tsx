@@ -1,5 +1,7 @@
 "use client";
 
+import { useWorkspaceActive, useWorkspaceProtection } from "@/components/projects/WorkspaceActivity";
+
 import {
 	CalendarRange,
 	ClipboardCheck,
@@ -157,7 +159,30 @@ export default function VisualView({
 	}, [reportPreparation]);
 	const { workspace, height } = useVisualWorkspace(active);
 	const resourceCache = useMemo(() => new VisualClientCache(siteId), [siteId]);
+	const workspaceActive = useWorkspaceActive();
+	useEffect(() => {
+		if (!workspaceActive) resourceCache.suspend();
+		else resourceCache.resume();
+	}, [workspaceActive, resourceCache]);
 	const [index, setIndex] = useState<Index | null>(null);
+	const preparedProjectKey = useRef<string | null>(null);
+	const preparationKey = index?.drawings.map(item => item.id).join(";") ?? null;
+	useEffect(() => {
+		if (!preload || !workspaceActive || !index || preparedProjectKey.current === preparationKey)
+			return;
+		let cancelled = false;
+		void resourceCache.prepareProject(
+			index.drawings,
+			id => fetchVisualPlanning(siteId, id),
+			(step, status, counts) => {
+				if (!cancelled) reportPreparation(step, status, counts);
+			},
+			() => cancelled,
+		).then(() => {
+			if (!cancelled) preparedProjectKey.current = preparationKey;
+		}).catch(() => {});
+		return () => { cancelled = true; };
+	}, [index, preparationKey, preload, workspaceActive, resourceCache, siteId, reportPreparation]);
 	const [location, setLocation] = useState("");
 	const [drawing, setDrawing] = useState<VisualDrawing | null>(null);
 	const { queue: planningSaves, state: planningSaveState } =
@@ -203,6 +228,7 @@ export default function VisualView({
 	const [sidebarOpen, setSidebarOpen] = useState(true);
 	const [mode, setMode] = useState<"actual" | "planning">("actual");
 	const [planningDirty, setPlanningDirty] = useState(false);
+	useWorkspaceProtection(editing || workEditing || recordDraft !== null || planningDirty || hasUnsavedPolygons || planningSaveState.length > 0 || busy);
 	const [managingLayers, setManagingLayers] = useState(false);
 	const [savingLayers, setSavingLayers] = useState(false);
 	const layerConfiguration =
@@ -329,19 +355,7 @@ export default function VisualView({
 				showIndex(data, !cached);
 				reportPreparation("visual-index");
 				const first = firstAssignedDrawing(data);
-				if (preload)
-					void resourceCache
-						.prepareProject(
-							data.drawings,
-							(id) => fetchVisualPlanning(siteId, id),
-							(step, status, counts) => {
-								if (run === epoch.current)
-									reportPreparation(step, status, counts);
-							},
-							() => run !== epoch.current,
-						)
-						.catch(() => {});
-				else if (!first)
+				if (!preload && !first)
 					for (const step of [
 						"visual-drawing",
 						"visual-planning",
@@ -378,13 +392,13 @@ export default function VisualView({
 	]);
 	const pollDrawingId = drawing?.id;
 	useEffect(() => {
-		if ((!active && !preload) || !pollDrawingId) return;
+		if (!workspaceActive || (!active && !preload) || !pollDrawingId) return;
 		void resourceCache
 			.loadPlanning(pollDrawingId, () =>
 				getVisualPlanning(siteId, pollDrawingId),
 			)
 			.catch(() => {});
-	}, [active, preload, pollDrawingId, resourceCache, siteId]);
+	}, [workspaceActive, active, preload, pollDrawingId, resourceCache, siteId]);
 	useEffect(() => {
 		if (
 			preload ||

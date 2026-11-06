@@ -1,4 +1,5 @@
 import { act, fireEvent, renderHook, waitFor } from "@testing-library/react";
+import { WorkspaceActivityContext } from "@/components/projects/WorkspaceActivity";
 import { saveVisualPolygonPatch as saveVisualPolygon } from "./actions";
 import type { PolygonEdit } from "./polygon-edit";
 import { usePolygonSaveQueue } from "./usePolygonSaveQueue";
@@ -82,5 +83,22 @@ it("warns before reload or leaving the project while pending edits exist and cle
 	const clean = new Event("beforeunload", { cancelable: true });
 	window.dispatchEvent(clean);
 	expect(clean.defaultPrevented).toBe(false);
+	link.remove();
+});
+
+it("keeps pending polygon saves while navigating within the retained dashboard", () => {
+	sessionStorage.setItem(key, stored);
+	const confirm = jest.spyOn(window, "confirm").mockReturnValue(false);
+	const onSaved = jest.fn();
+	const wrapper = ({ children }: { children: React.ReactNode }) => <WorkspaceActivityContext.Provider value={{ active: false, managed: true, protect: jest.fn() }}>{children}</WorkspaceActivityContext.Provider>;
+	const view = renderHook(() => usePolygonSaveQueue("site", "user", onSaved), { wrapper });
+	const link = document.createElement("a");
+	link.href = "/dashboard/sites/another/dashboard";
+	link.addEventListener("click", event => event.preventDefault());
+	document.body.append(link);
+	fireEvent.click(link);
+	expect(confirm).not.toHaveBeenCalled();
+	expect(view.result.current.state.items).toHaveLength(1);
+	expect(JSON.parse(sessionStorage.getItem(key) ?? "null")).toMatchObject(JSON.parse(stored));
 	link.remove();
 });

@@ -1,7 +1,8 @@
+import { withRetainedProjectPage } from "@/components/projects/withRetainedProjectPage";
 import { requireUser } from "@/lib/utils/requireUser";
 import { requireVisualAccess } from "@/flows/default-construction/visual/store";
 
-export default async function ExecutionDrawingsPage({
+async function ExecutionDrawingsPage({
 	params,
 }: {
 	params: Promise<{ siteId: string }>;
@@ -11,3 +12,5 @@ export default async function ExecutionDrawingsPage({
 	await requireVisualAccess(user.id, siteId);
 	return null;
 }
+
+export default withRetainedProjectPage(ExecutionDrawingsPage, "izpildshemas");

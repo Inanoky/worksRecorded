@@ -6,6 +6,7 @@ import {
 	loadFimaActRecords,
 	loadFimaActSites,
 	loadFimaActs,
+	loadFimaActsSourceRevision,
 	lockFimaActSite,
 	saveFimaActRegister,
 } from "@/flows/default-construction/backend/fima-acts";
@@ -80,11 +81,14 @@ export async function getFimaActsForSite(
 ): Promise<FimaActsData> {
 	scopeSchema.parse({ siteId });
 	const scope = await requireScope(siteId);
+	const sourceRevision = await loadFimaActsSourceRevision(scope.organizationId);
 	const data = await loadFimaActs(scope.organizationId, siteId, {
 		assignNumbers: true,
 	});
 	if (!data) throw new Error("FIMA akti šajā projektā nav pieejami.");
-	return versionFimaActs(data);
+	const result = versionFimaActs(data);
+	result.cache.sourceRevision = sourceRevision;
+	return result;
 }
 export async function getFimaActsDelta(
 	siteId: string,
@@ -97,6 +101,7 @@ export async function getFimaActsDelta(
 		.refine((value) => Object.keys(value).length <= 30000);
 	z.object({
 		revision: digest,
+		sourceRevision: digest.optional(),
 		meta: digest,
 		rows: versions,
 		choices: versions,
@@ -104,13 +109,45 @@ export async function getFimaActsDelta(
 	}).parse(known);
 	try {
 		const scope = await requireScope(siteId);
+		const sourceRevision = await loadFimaActsSourceRevision(
+			scope.organizationId,
+		);
+		if (known.sourceRevision === sourceRevision) return { kind: "unchanged" };
 		const data = await loadFimaActs(scope.organizationId, siteId, {
 			assignNumbers: true,
 		});
 		if (!data) return { kind: "denied" };
-		return diffFimaActs(versionFimaActs(data), known);
+		const versioned = versionFimaActs(data);
+		versioned.cache.sourceRevision = sourceRevision;
+		return diffFimaActs(versioned, known);
 	} catch (error) {
 		if (error instanceof FimaActsAccessError) return { kind: "denied" };
+		throw error;
+	}
+}
+export async function getFimaActsActivity(
+	siteId: string,
+	sourceRevision: string,
+) {
+	scopeSchema.parse({ siteId });
+	z.string()
+		.regex(/^[a-f0-9]{64}$/)
+		.parse(sourceRevision);
+	try {
+		const scope = await requireScope(siteId);
+		const revision = await loadFimaActsSourceRevision(scope.organizationId);
+		return {
+			kind:
+				revision === sourceRevision
+					? ("unchanged" as const)
+					: ("changed" as const),
+		};
+	} catch (error) {
+		if (
+			error instanceof FimaActsAccessError ||
+			(error instanceof Error && error.message.startsWith("NEXT_REDIRECT"))
+		)
+			return { kind: "denied" as const };
 		throw error;
 	}
 }

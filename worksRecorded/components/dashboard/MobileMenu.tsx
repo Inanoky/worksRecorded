@@ -3,6 +3,7 @@
 import { Building2, Check, Menu } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
+import { useWorkspaceNavigation } from "@/components/projects/WorkspaceNavigation";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -59,6 +60,7 @@ export function MobileMenu({
 		flowModuleKey,
 	});
 	const searchParams = useSearchParams();
+	const workspace = useWorkspaceNavigation();
 	const labels = getMobileMenuLabels(organizationLanguage);
 	const isTgem = flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL;
 	const activeTgemView: TgemWorkspaceNavLink["view"] | null =
@@ -113,7 +115,7 @@ export function MobileMenu({
 						{availableProjects.map((project) => (
 							<DropdownMenuItem key={project.id} asChild>
 								<FimaProjectNavigationLink
-									href={`/dashboard/sites/${project.id}/dashboard`}
+									href={workspace?.store.preferredHref(project.id, `/dashboard/sites/${project.id}/dashboard`) ?? `/dashboard/sites/${project.id}/dashboard`}
 								>
 									{project.name}
 								</FimaProjectNavigationLink>

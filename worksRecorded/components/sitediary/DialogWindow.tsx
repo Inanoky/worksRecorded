@@ -34,6 +34,7 @@ type DialogWindowProps = {
   initialRows?: Record<string, any>[] | null;
   initialConfig?: Record<string, any> | null;
   initialRates?: ZtcProjectTaskRates[] | null;
+  cachedWorkspace?:boolean;
   focusedRecordId?: string | null;
   initialTab?: "records" | "media";
   children?: React.ReactNode;
@@ -51,6 +52,7 @@ export default function DialogWindow({
   initialRows,
   initialConfig,
   initialRates,
+  cachedWorkspace = false,
   focusedRecordId,
   initialTab = "records",
 }: DialogWindowProps) {
@@ -182,6 +184,7 @@ export default function DialogWindow({
                   organizationLanguage={organizationLanguage}
                   initialRows={initialRows}
                   initialConfig={initialConfig}
+                  cachedWorkspace={cachedWorkspace}
                   focusedRecordId={focusedRecordId}
                   onSaved={handleSaved}
                   batchEditing={batchEditing}

@@ -1,5 +1,6 @@
 "use client"
 import { RetainedViewPortal } from "@/components/providers/RetainedView";
+import { WorkspacePortalActivity } from "@/components/projects/WorkspaceActivity";
 
 import * as React from "react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
@@ -25,7 +26,7 @@ function PopoverContent({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   return (
-    <RetainedViewPortal><PopoverPrimitive.Portal>
+    <RetainedViewPortal><WorkspacePortalActivity><PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}
@@ -36,7 +37,7 @@ function PopoverContent({
         )}
         {...props}
       />
-    </PopoverPrimitive.Portal></RetainedViewPortal>
+    </PopoverPrimitive.Portal></WorkspacePortalActivity></RetainedViewPortal>
   )
 }
 
