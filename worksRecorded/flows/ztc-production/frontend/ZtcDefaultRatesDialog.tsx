@@ -1,10 +1,11 @@
 "use client";
 
-import * as React from "react";
 import { Loader2, Search, Trash2 } from "lucide-react";
+import * as React from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -40,6 +40,7 @@ import {
   ZTC_RATE_UNITS,
   type ZtcRateUnit,
 } from "@/flows/ztc-production/lib/ztc-rate-units";
+import { printZtcTaskRates } from "@/flows/ztc-production/lib/ztc-rates-print";
 
 type ZtcDefaultRatesDialogProps = {
   open: boolean;
@@ -184,6 +185,44 @@ function ztcRateRowsEqual(
   );
 }
 
+function getVisibleRateRows(
+  project: ZtcProjectTaskRates,
+  allProjects: ZtcProjectTaskRates,
+  category: ZtcRateCategory,
+): ZtcVisibleTaskRate[] {
+  if (project.projectName === ZTC_ALL_PROJECTS_RATE_NAME) return project[category];
+  const excludedTaskKeys = getZtcExcludedRateTaskKeys(
+    project.excludedTasks,
+    category,
+  );
+  const inheritedRows = allProjects[category].filter(
+    (entry) => !excludedTaskKeys.has(normalizeZtcRateTaskKey(entry.task)),
+  );
+  return [
+    ...inheritedRows.map((master) => {
+      const override = project[category].find(
+        (entry) => entry.task.toLowerCase() === master.task.toLowerCase(),
+      );
+      return {
+        task: master.task,
+        rate: override?.rate ?? master.rate,
+        unit: override?.unit ?? master.unit,
+        laborNorm: override?.laborNorm ?? master.laborNorm ?? "",
+        relatesToElement:
+          override?.relatesToElement ?? master.relatesToElement ?? false,
+        __projectSpecific: Boolean(override),
+      };
+    }),
+    ...project[category]
+      .filter(
+        (entry) => !inheritedRows.some(
+          (master) => master.task.toLowerCase() === entry.task.toLowerCase(),
+        ),
+      )
+      .map((entry) => ({ ...entry, __projectSpecific: true })),
+  ];
+}
+
 export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
   open,
   siteId,
@@ -231,39 +270,11 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
     draft.find((project) => project.projectName === selectedProject) ??
     emptyZtcProjectRates(selectedProject);
   const isAllProjects = selectedProject === ZTC_ALL_PROJECTS_RATE_NAME;
-  const excludedTaskKeys = getZtcExcludedRateTaskKeys(
-    selectedProjectRates.excludedTasks,
+  const visibleRows = getVisibleRateRows(
+    selectedProjectRates,
+    allProjects,
     selectedCategory,
   );
-  const inheritedRows = allProjects[selectedCategory].filter(
-    (entry) => !excludedTaskKeys.has(normalizeZtcRateTaskKey(entry.task)),
-  );
-  const visibleRows: ZtcVisibleTaskRate[] = isAllProjects
-    ? selectedProjectRates[selectedCategory]
-    : [
-        ...inheritedRows.map((master) => {
-          const override = selectedProjectRates[selectedCategory].find(
-            (entry) => entry.task.toLowerCase() === master.task.toLowerCase(),
-          );
-          return {
-            task: master.task,
-            rate: override?.rate ?? master.rate,
-            unit: override?.unit ?? master.unit,
-            laborNorm: override?.laborNorm ?? master.laborNorm ?? "",
-            relatesToElement:
-              override?.relatesToElement ?? master.relatesToElement ?? false,
-            __projectSpecific: Boolean(override),
-          };
-        }),
-        ...selectedProjectRates[selectedCategory]
-          .filter(
-            (entry) =>
-              !inheritedRows.some(
-                (master) => master.task.toLowerCase() === entry.task.toLowerCase(),
-              ),
-          )
-          .map((entry) => ({ ...entry, __projectSpecific: true })),
-      ];
   const normalizedRateSearch = rateSearch.trim().toLowerCase();
   const filteredRows = visibleRows
     .map((entry, index) => ({ entry, index }))
@@ -647,6 +658,26 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
     [commitVisibleRateInputs, isAllProjects, selectedProject, visibleRows],
   );
 
+  const printDraft = () => {
+    const currentDraft = commitVisibleRateInputs();
+    const project = currentDraft.find(
+      (entry) => entry.projectName === selectedProject,
+    );
+    const master = currentDraft.find(
+      (entry) => entry.projectName === ZTC_ALL_PROJECTS_RATE_NAME,
+    );
+    if (!project || !master) return;
+    printZtcTaskRates(
+      selectedProject,
+      ZTC_RATE_CATEGORIES.map((category) => ({
+        category,
+        label: ZTC_RATE_CATEGORY_LABELS[category],
+        rows: getVisibleRateRows(project, master, category),
+      })),
+      () => toast.error("Neizdevās atvērt drukas logu. Mēģiniet vēlreiz."),
+    );
+  };
+
   const saveDraft = React.useCallback(async () => {
     if (!siteId) return;
 
@@ -1022,7 +1053,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t px-6 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t px-6 py-4">
           <Button
             type="button"
             variant="outline"
@@ -1041,7 +1072,15 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
           >
             Pievienot likmi
           </Button>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={printDraft}
+            >
+              Drukāt
+            </Button>
             <Button
               type="button"
               variant="outline"

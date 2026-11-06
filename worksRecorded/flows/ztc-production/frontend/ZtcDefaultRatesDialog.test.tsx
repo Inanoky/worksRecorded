@@ -8,6 +8,11 @@ import {
 import userEvent from "@testing-library/user-event";
 
 const mockUpdateZtcDefaultTaskRates = jest.fn();
+const mockPrintZtcTaskRates = jest.fn();
+
+jest.mock("@/flows/ztc-production/lib/ztc-rates-print", () => ({
+	printZtcTaskRates: (...args: unknown[]) => mockPrintZtcTaskRates(...args),
+}));
 
 jest.mock("@/flows/ztc-production/backend/actions", () => ({
 	updateZtcDefaultTaskRates: (...args: unknown[]) =>
@@ -79,13 +84,13 @@ function installDomPolyfills() {
 	});
 }
 
-function renderDialog() {
+function renderDialog(rates = allProjectRates) {
 	const onSaved = jest.fn();
 	render(
 		<ZtcDefaultRatesDialog
 			open
 			siteId="ztc-site"
-			rates={allProjectRates}
+			rates={rates}
 			projectOptions={["test projekts"]}
 			onOpenChange={jest.fn()}
 			onSaved={onSaved}
@@ -116,6 +121,97 @@ describe("ZtcDefaultRatesDialog project inheritance", () => {
 			ok: true,
 			rates,
 		}));
+	});
+
+	it("prints every category for the selected project with unsaved edits regardless of search", async () => {
+		const user = userEvent.setup();
+		renderDialog([
+			...allProjectRates,
+			{
+				projectName: "test projekts",
+				works: [
+					{ task: "latojums 25x45", rate: "2", unit: "m2", laborNorm: "0.1" },
+				],
+				additionalDetails: [{ task: "Kronšteins", rate: "3", unit: "gab" }],
+				additionalWorks: [
+					{
+						task: "CNC projekts",
+						rate: "20",
+						unit: "st",
+						relatesToElement: true,
+					},
+				],
+			},
+			{
+				projectName: "Cits projekts",
+				manual: true,
+				works: [{ task: "Cits darbs", rate: "99", unit: "m2" }],
+				additionalDetails: [],
+				additionalWorks: [],
+			},
+		]);
+		await selectProject(user);
+		fireEvent.change(screen.getByDisplayValue("2"), {
+			target: { value: "2,5" },
+		});
+		fireEvent.change(screen.getByPlaceholderText("Meklēt likmi..."), {
+			target: { value: "latojums" },
+		});
+		fireEvent.change(screen.getByDisplayValue("0.1"), {
+			target: { value: "0,12" },
+		});
+		await user.click(screen.getByRole("button", { name: "Drukāt" }));
+
+		expect(mockPrintZtcTaskRates).toHaveBeenCalledWith(
+			"test projekts",
+			[
+				{
+					category: "works",
+					label: "Darbi",
+					rows: [
+						expect.objectContaining({ task: "1 koeficients", rate: "1" }),
+						expect.objectContaining({
+							task: "latojums 25x45",
+							rate: "2,5",
+							laborNorm: "0,12",
+						}),
+					],
+				},
+				{
+					category: "additionalDetails",
+					label: "Papilddetāļas",
+					rows: [expect.objectContaining({ task: "Kronšteins", rate: "3" })],
+				},
+				{
+					category: "additionalWorks",
+					label: "Papilddarbi",
+					rows: [
+						expect.objectContaining({
+							task: "CNC projekts",
+							rate: "20",
+							relatesToElement: true,
+						}),
+					],
+				},
+			],
+			expect.any(Function),
+		);
+		expect(mockUpdateZtcDefaultTaskRates).not.toHaveBeenCalled();
+	});
+
+	it("prints global rates and respects project exclusions after switching projects", async () => {
+		const user = userEvent.setup();
+		renderDialog();
+		await user.click(screen.getByRole("button", { name: "Drukāt" }));
+		expect(mockPrintZtcTaskRates.mock.calls[0][0]).toBe("Visi projekti");
+		expect(mockPrintZtcTaskRates.mock.calls[0][1][0].rows).toHaveLength(2);
+		await selectProject(user);
+		await user.click(screen.getByRole("button", { name: "Dzēst likmi" }));
+		await user.click(screen.getByRole("button", { name: "Drukāt" }));
+		expect(mockPrintZtcTaskRates.mock.calls[1][0]).toBe("test projekts");
+		expect(mockPrintZtcTaskRates.mock.calls[1][1][0].rows).toEqual([
+			expect.objectContaining({ task: "1 koeficients", rate: "1" }),
+		]);
 	});
 
 	afterEach(() => {

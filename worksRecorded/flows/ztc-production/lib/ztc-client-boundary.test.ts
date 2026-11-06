@@ -8,6 +8,8 @@ jest.mock("@/lib/utils/db", () => {
 
 it("loads shared diary utilities without server-only dependencies", () => {
 	jest.isolateModules(() => {
+		const { createZtcDiaryView } = require("./ztc-diary-view");
+		expect(createZtcDiaryView([], []).summary({})).toBeNull();
 		const { getZtcPayrollValues } = require("./ztc-site-diary-utils");
 		expect(
 			getZtcPayrollValues({

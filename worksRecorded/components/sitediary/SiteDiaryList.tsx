@@ -145,11 +145,11 @@ import {
 } from "@/flows/default-construction/lib/site-diary-work-order";
 import {
   getZtcDefaultTaskRates,
-  getZtcFilterOptions,
-  getZtcScopeSummary,
+  getZtcDiarySnapshot,
 } from "@/flows/ztc-production/backend/actions";
 import { useZtcSiteDiaryFlow } from "@/flows/ztc-production/frontend/useZtcSiteDiaryFlow";
 import { ZtcCommentPopoverContent } from "@/flows/ztc-production/frontend/ZtcCommentPopoverContent";
+import { createZtcDiaryView } from "@/flows/ztc-production/lib/ztc-diary-view";
 import { exportZtcElementsToExcel } from "@/flows/ztc-production/lib/ztc-element-export";
 import {
   applyZtcExcelNumberFormats,
@@ -241,6 +241,9 @@ const WhatsAppIcon = ({ size = 22 }) => (
 );
 
 const SITE_DIARY_LIST_PAGE_SIZE = 75;
+const EMPTY_ZTC_FILTER_OPTIONS = {
+  projects: [], elements: [], works: [], workers: [],
+};
 
 type DiaryRow = {
   id?: string;
@@ -280,10 +283,6 @@ type SiteDiaryProjectCopyTarget = Awaited<
   ReturnType<typeof getSiteDiaryProjectCopyTargets>
 >[number];
 
-type ZtcScopeSummary = NonNullable<
-  Awaited<ReturnType<typeof getZtcScopeSummary>>
->;
-type ZtcFilterOptions = Awaited<ReturnType<typeof getZtcFilterOptions>>;
 type ExcelExportKind =
   "siteDiary" | "ztcElements" | "ztcPayroll" | "ztcProductivity";
 
@@ -814,13 +813,6 @@ export default function SiteDiaryCalendar({
   const [workerFilter, setWorkerFilter] = React.useState<string>("__ALL__");
   const [keywordFilter, setKeywordFilter] = React.useState<string>("");
   const [fimaFilters, setFimaFilters] = React.useState<FimaFilters>({});
-  const [ztcFilterOptions, setZtcFilterOptions] =
-    React.useState<ZtcFilterOptions>({
-      projects: [],
-      elements: [],
-      works: [],
-      workers: [],
-    });
   const [listPage, setListPage] = React.useState(1);
   const fimaTableContainer = React.useRef<HTMLDivElement>(null);
   const { change: changeFimaFilters, restore: restoreFimaPosition } =
@@ -832,14 +824,19 @@ export default function SiteDiaryCalendar({
     page: number;
   } | null>(null);
   const [loadedFimaQuery, setLoadedFimaQuery] = React.useState<string | null>(null);
-  const [listTotalCount, setListTotalCount] = React.useState(0);
-  const [listTotalPages, setListTotalPages] = React.useState(1);
+  const [serverListTotalCount, setListTotalCount] = React.useState(0);
+  const [serverListTotalPages, setListTotalPages] = React.useState(1);
   const keywordInputRef = React.useRef<HTMLInputElement | null>(null);
   const keywordDebounceRef = React.useRef<number | null>(null);
   const initialBisSyncSiteRef = React.useRef<string | null>(null);
   const mediaOnlyRequestRef = React.useRef(0);
   const diaryRowsRequestRef = React.useRef(0);
   const diaryLastLoaded = React.useRef(0);
+  const ztcSnapshot = React.useRef<{
+    siteId: string;
+    revision: number;
+    rows: DiaryRow[];
+  } | null>(null);
   const [fimaPages] = React.useState(() => createFimaPageCache<Awaited<ReturnType<typeof getSiteDiaryRecordsPage>>>());
   const fimaPageScope = React.useRef<string | null>(null);
   const fimaPrefetchTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -914,7 +911,7 @@ export default function SiteDiaryCalendar({
       if (keywordDebounceRef.current) {
         window.clearTimeout(keywordDebounceRef.current);
       }
-      if (clientDiary) {
+      if (clientDiary || isZtcFlow) {
         setKeywordFilter(nextValue);
         return;
       }
@@ -922,7 +919,7 @@ export default function SiteDiaryCalendar({
         setKeywordFilter(nextValue);
       }, 250);
     },
-    [clientDiary],
+    [clientDiary, isZtcFlow],
   );
 
   React.useEffect(
@@ -1259,6 +1256,42 @@ export default function SiteDiaryCalendar({
     setElementFilter,
     setWorkerFilter,
   });
+  React.useEffect(() => {
+    if (isZtcSite && ztcSnapshot.current?.siteId === siteId) {
+      ztcSnapshot.current.rows = rows;
+    }
+  }, [isZtcSite, rows, siteId]);
+  const ztcFilters = React.useMemo(() => ({
+    projectName: floorFilter,
+    elementName: elementFilter,
+    workerName: workerFilter,
+    workName: workFilter,
+    keyword: keywordFilter,
+    dateFrom,
+    dateTo,
+  }), [floorFilter, elementFilter, workerFilter, workFilter, keywordFilter, dateFrom, dateTo]);
+  const ztcDiaryView = React.useMemo(
+    () => isZtcSite ? createZtcDiaryView(rows, ztc.defaultRates) : null,
+    [isZtcSite, rows, ztc.defaultRates],
+  );
+  const ztcSelection = React.useMemo(
+    () => ztcDiaryView?.select(ztcFilters),
+    [ztcDiaryView, ztcFilters],
+  );
+  const ztcFilterOptions = ztcSelection?.options ?? EMPTY_ZTC_FILTER_OPTIONS;
+  const ztcSummaryFilterKey = JSON.stringify({
+    projectName: floorFilter,
+    elementName: elementFilter,
+    workerName: workerFilter,
+    workName: workerFilter !== "__ALL__" ? workFilter : null,
+    keyword: workerFilter !== "__ALL__" ? keywordFilter : null,
+    dateFrom: workerFilter !== "__ALL__" ? dateFrom : null,
+    dateTo: workerFilter !== "__ALL__" ? dateTo : null,
+  });
+  const ztcSelectedScopeSummary = React.useMemo(
+    () => ztcDiaryView?.summary(JSON.parse(ztcSummaryFilterKey)) ?? null,
+    [ztcDiaryView, ztcSummaryFilterKey],
+  );
   const defaultConstructionSummary = useDefaultConstructionSiteDiarySummary({
     enabled: !isZtcSite && ancillaryDiaryEnabled,
     siteId,
@@ -1338,7 +1371,7 @@ export default function SiteDiaryCalendar({
     dateFrom || dateTo || workFilter !== "__ALL__" || floorFilter !== "__ALL__" ||
     keywordFilter.trim() || Object.values(fimaFilters).some(Boolean)
   );
-  const remoteQueryKey = JSON.stringify(clientDiary ? {} : {
+  const remoteQueryKey = JSON.stringify(clientDiary || isZtcSite ? {} : {
     dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
     dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
     workFilter, floorFilter,
@@ -1367,6 +1400,27 @@ export default function SiteDiaryCalendar({
         setLoadedFimaQuery(`${siteId}:${remoteQueryKey}`);
         setMediaOnlyDays([]);
         return page.rows;
+      }
+      if (isZtcSite) {
+        const cached = ztcSnapshot.current;
+        const useCachedSnapshot = options?.useCache &&
+          cached?.siteId === siteId && cached.revision === optionsRevision;
+        const data = useCachedSnapshot
+          ? cached.rows
+          : await getZtcDiarySnapshot({ siteId });
+        if (diaryRowsRequestRef.current !== requestId) return data;
+        ztcSnapshot.current = { siteId, revision: optionsRevision, rows: data };
+        setRows(data);
+        if (!useCachedSnapshot) {
+          setMediaOnlyDays([]);
+          const mediaRequestId = ++mediaOnlyRequestRef.current;
+          void getSiteDiaryMediaOnlyDays(siteId, { flowId: siteDiaryFlowId })
+            .then((days) => {
+              if (mediaOnlyRequestRef.current === mediaRequestId) setMediaOnlyDays(days);
+            })
+            .catch(() => {});
+        }
+        return data;
       }
       const isFima = !isZtcSite && fimaConfig.current?.key === `${siteId}:${siteDiaryFlowId}:${optionsRevision}` && fimaConfig.current.enabled;
       if (bisUiEnabled && !options?.skipSync && !isFima) {
@@ -1555,10 +1609,10 @@ export default function SiteDiaryCalendar({
   }, [siteId]);
 
   React.useEffect(() => {
-    if (!fimaDiary && listPage > listTotalPages) {
-      setListPage(Math.max(1, listTotalPages));
+    if (!fimaDiary && !isZtcSite && listPage > serverListTotalPages) {
+      setListPage(Math.max(1, serverListTotalPages));
     }
-  }, [fimaDiary, listPage, listTotalPages]);
+  }, [fimaDiary, isZtcSite, listPage, serverListTotalPages]);
 
   React.useEffect(() => {
     if (!loading || !hasLoadedRowsOnce) {
@@ -1746,53 +1800,6 @@ export default function SiteDiaryCalendar({
   const hasRecords = rows.length > 0;
   const GALLERY_PAGE_SIZE = 20;
 
-  React.useEffect(() => {
-    if (!isZtcSite || !siteId) {
-      setZtcFilterOptions({
-        projects: [],
-        elements: [],
-        works: [],
-        workers: [],
-      });
-      return;
-    }
-
-    let cancelled = false;
-    getZtcFilterOptions({
-      siteId,
-      projectName: floorFilter,
-      elementName: elementFilter,
-      workerName: workerFilter,
-      workName: workFilter,
-      dateFrom: dateFrom ? toLocalDateKey(dateFrom) : null,
-      dateTo: dateTo ? toLocalDateKey(dateTo) : null,
-      keyword: keywordFilter,
-    })
-      .then((options) => {
-        if (!cancelled) setZtcFilterOptions(options);
-      })
-      .catch((error: any) => {
-        if (!cancelled) {
-          toast.error(error?.message ?? "Neizdevās ielādēt filtru vērtības.");
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    dateFrom,
-    dateTo,
-    elementFilter,
-    floorFilter,
-    isZtcSite,
-    keywordFilter,
-    siteDiaryFlowId,
-    siteId,
-    workFilter,
-    workerFilter,
-  ]);
-
   // Works filter options
   const pageWorksOptions = React.useMemo(() => {
     const set = new Set<string>();
@@ -1917,6 +1924,7 @@ export default function SiteDiaryCalendar({
 
   // Rows after applying structured filters (date, works, floor)
   const filteredRows: DiaryRow[] = React.useMemo(() => {
+    if (ztcSelection) return ztcSelection.rows as DiaryRow[];
     const startMs = dateFrom
       ? new Date(new Date(dateFrom).setHours(0, 0, 0, 0)).getTime()
       : null;
@@ -1953,6 +1961,7 @@ export default function SiteDiaryCalendar({
       return true;
     });
   }, [
+    ztcSelection,
     rows,
     dateFrom,
     dateTo,
@@ -1964,10 +1973,30 @@ export default function SiteDiaryCalendar({
     ztc.defaultRates,
   ]);
 
-  const mediaOnlyDays = React.useMemo(() => clientDiary
+  const listTotalCount = isZtcSite ? filteredRows.length : serverListTotalCount;
+  const listTotalPages = isZtcSite
+    ? Math.max(1, Math.ceil(listTotalCount / SITE_DIARY_LIST_PAGE_SIZE))
+    : serverListTotalPages;
+  const ztcPageRows = React.useMemo(
+    () => isZtcSite
+      ? filteredRows.slice(
+          (listPage - 1) * SITE_DIARY_LIST_PAGE_SIZE,
+          listPage * SITE_DIARY_LIST_PAGE_SIZE,
+        )
+      : filteredRows,
+    [isZtcSite, filteredRows, listPage],
+  );
+  React.useEffect(() => {
+    if (isZtcSite && listPage > listTotalPages) setListPage(listTotalPages);
+  }, [isZtcSite, listPage, listTotalPages]);
+  const mediaOnlyDays = React.useMemo(() => isZtcSite
+    ? (workFilter === "__ALL__" && floorFilter === "__ALL__" && elementFilter === "__ALL__" && workerFilter === "__ALL__"
+      ? serverMediaOnlyDays.filter(day => (!dateFrom || day.key >= toLocalDateKey(dateFrom)) && (!dateTo || day.key <= toLocalDateKey(dateTo)))
+      : [])
+    : clientDiary
     ? getClientDiaryMediaDays(clientMediaPhotos, filteredRows.filter(row => diaryRowMatchesKeyword(row, keywordFilter)).map(row => row.Date), { dateFrom, dateTo, work: workFilter, location: floorFilter, keyword: keywordFilter })
     : serverMediaOnlyDays,
-    [clientDiary, clientMediaPhotos, filteredRows, keywordFilter, dateFrom, dateTo, workFilter, floorFilter, serverMediaOnlyDays]);
+    [isZtcSite, elementFilter, workerFilter, clientDiary, clientMediaPhotos, filteredRows, keywordFilter, dateFrom, dateTo, workFilter, floorFilter, serverMediaOnlyDays]);
 
   // Group filtered rows by day
   const dayGroups: DayGroup[] = React.useMemo(() => {
@@ -1975,7 +2004,7 @@ export default function SiteDiaryCalendar({
     const photoCountsByDay = new Map(
       mediaOnlyDays.map((day) => [day.key, day.photoCount]),
     );
-    for (const r of filteredRows) {
+    for (const r of ztcPageRows) {
       const d = new Date(r.Date);
       if (Number.isNaN(d.getTime())) continue;
       const key = toLocalDateKey(d);
@@ -2019,7 +2048,7 @@ export default function SiteDiaryCalendar({
     return Object.values(res).sort(
       (a, b) => b.date.getTime() - a.date.getTime(),
     );
-  }, [filteredRows, isZtcSite, mediaOnlyDays]);
+  }, [ztcPageRows, isZtcSite, mediaOnlyDays]);
 
   const mediaOnlyDayGroups: DayGroup[] = React.useMemo(
     () =>
@@ -2104,78 +2133,6 @@ export default function SiteDiaryCalendar({
   const showInitialListSkeleton = ((loading && !hasLoadedRowsOnce) || imagesPreloading) && !error;
   const showUpdatingListSkeleton =
     loading && hasLoadedRowsOnce && showDelayedListSkeleton && !error;
-
-  const [ztcSelectedScopeSummary, setZtcSelectedScopeSummary] =
-    React.useState<ZtcScopeSummary | null>(null);
-  const [ztcScopeSummaryLoading, setZtcScopeSummaryLoading] =
-    React.useState(false);
-  const [ztcScopeSummaryError, setZtcScopeSummaryError] = React.useState<
-    string | null
-  >(null);
-
-  React.useEffect(() => {
-    const workerName = workerFilter !== "__ALL__" ? workerFilter : null;
-    const projectName = floorFilter !== "__ALL__" ? floorFilter : null;
-    const elementName = elementFilter !== "__ALL__" ? elementFilter : null;
-    const workName = workFilter !== "__ALL__" ? workFilter : null;
-
-    if (
-      !isZtcSite ||
-      !siteId ||
-      (!projectName && !elementName && !workerName)
-    ) {
-      setZtcSelectedScopeSummary(null);
-      setZtcScopeSummaryLoading(false);
-      setZtcScopeSummaryError(null);
-      return;
-    }
-
-    let cancelled = false;
-    setZtcScopeSummaryLoading(true);
-    setZtcScopeSummaryError(null);
-
-    getZtcScopeSummary({
-      siteId,
-      projectName,
-      elementName,
-      workerName,
-      workName: workerName ? workName : null,
-      dateFrom: workerName && dateFrom ? toLocalDateKey(dateFrom) : null,
-      dateTo: workerName && dateTo ? toLocalDateKey(dateTo) : null,
-      keyword: workerName ? keywordFilter : null,
-    })
-      .then((summary) => {
-        if (cancelled) return;
-        setZtcSelectedScopeSummary(summary);
-      })
-      .catch((error: any) => {
-        if (cancelled) return;
-        setZtcSelectedScopeSummary(null);
-        setZtcScopeSummaryError(
-          error?.message ?? "Neizdevās ielādēt kopsavilkumu.",
-        );
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setZtcScopeSummaryLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    dateFrom,
-    dateTo,
-    elementFilter,
-    floorFilter,
-    isZtcSite,
-    keywordFilter,
-    siteDiaryFlowId,
-    siteId,
-    workFilter,
-    workerFilter,
-  ]);
 
   const visibleRecordIds = React.useMemo(
     () =>
@@ -3846,18 +3803,6 @@ export default function SiteDiaryCalendar({
             )}
 
             {defaultConstructionSummary.panel}
-
-            {ztcScopeSummaryLoading ? (
-              <div className="mb-4 rounded-md border bg-background px-3 py-3 text-sm text-muted-foreground shadow-sm sm:px-4">
-                Ielādē kopsavilkumu...
-              </div>
-            ) : null}
-
-            {ztcScopeSummaryError ? (
-              <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-3 text-sm text-destructive shadow-sm sm:px-4">
-                {ztcScopeSummaryError}
-              </div>
-            ) : null}
 
             {ztcSelectedScopeSummary ? (
               <div className="mb-4 rounded-md border bg-background px-3 py-3 shadow-sm sm:px-4">
