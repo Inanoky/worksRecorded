@@ -15,6 +15,10 @@ type AuditContext = {
 
 const storage = new AsyncLocalStorage<AuditContext>();
 
+export function getZtcRecordAuditContext() {
+  return storage.getStore();
+}
+
 export function withZtcRecordAudit<T>(context: AuditContext, run: () => T): T {
   return storage.run({ correlationId: randomUUID(), ...storage.getStore(), ...context }, run);
 }
