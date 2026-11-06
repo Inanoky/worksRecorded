@@ -35,6 +35,14 @@ import {
   applyDefaultConstructionForma2MaterialRules,
   getDefaultConstructionForma2MaterialAssignments,
 } from "@/flows/default-construction/backend/forma2-analytics-actions";
+import {
+  getWarehouseTransferTargets,
+  moveWarehouseRecordsToProject,
+} from "@/server/actions/warehouse-transfer-actions";
+import {
+  fetchWarehouseInvoiceRows,
+  fetchWarehouseInvoiceSummaries,
+} from "@/server/actions/warehouse-invoice-view-actions";
 
 export const maxDuration = 120;
 
@@ -2149,7 +2157,7 @@ export default async function MaterialsPage({
     userRole: dbUser?.role,
   });
 
-  const [materialsPage, materialConfigurationData, flowModuleKey] = await trace.measure("initialData", () =>
+  const [materialsPage, materialConfigurationData, flowModuleKey, transferTargets] = await trace.measure("initialData", () =>
     Promise.all([
       getWarehouseMaterialPage({ siteId, includeSpendInsights: showSpendInsights }),
       bisEnabled ? fetchWarehouseMaterialConfigurationData(siteId).catch(async (error) => {
@@ -2169,6 +2177,7 @@ export default async function MaterialsPage({
         organizationId: siteOrg?.organizationId,
         siteId,
       }),
+      getWarehouseTransferTargets(siteId),
     ]),
   );
 
@@ -2211,6 +2220,7 @@ export default async function MaterialsPage({
         materialConfigurations={materialConfigurationData.materialConfigurations}
         materialMeasures={materialConfigurationData.materialMeasures}
         materialTypes={materialConfigurationData.materialTypes}
+        transferTargets={transferTargets}
         initialPagination={{
           totalCount: materialsPage.totalCount,
           totalCost: materialsPage.totalCost,
@@ -2237,6 +2247,9 @@ export default async function MaterialsPage({
         attachCertificate={attachCertificateToMaterialConfiguration}
         copyMaterialRecord={copyWarehouseRecord}
         deleteRecords={deleteWarehouseRecords}
+        moveRecordsToProject={moveWarehouseRecordsToProject}
+        fetchInvoices={fetchWarehouseInvoiceSummaries}
+        fetchInvoiceRows={fetchWarehouseInvoiceRows}
       /></div>
   </>;
 

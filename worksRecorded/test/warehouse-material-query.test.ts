@@ -59,11 +59,23 @@ describe("warehouse material query", () => {
       page: 1,
       pageSize: 50,
       search: "abc",
+      invoiceNumber: "",
       status: "sent",
       configFilter: "all",
       sortBy: "name_asc",
       invoiceDateFrom: undefined,
       invoiceDateTo: undefined,
+    });
+  });
+
+  it("filters by the invoice number printed on the invoice", () => {
+    expect(buildWarehouseMaterialWhere("site-1", {
+      invoiceNumber: "  INV-42  ",
+    })).toEqual({
+      AND: [
+        { siteId: "site-1" },
+        { invoiceNr: { equals: "INV-42", mode: "insensitive" } },
+      ],
     });
   });
 

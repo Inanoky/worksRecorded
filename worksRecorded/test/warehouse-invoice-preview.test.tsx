@@ -64,6 +64,7 @@ function props(): Props {
 		materialConfigurations: [],
 		materialMeasures: [],
 		materialTypes: [],
+		transferTargets: [],
 		initialPagination: {
 			totalCount: 4,
 			totalCost: 400,
@@ -89,6 +90,9 @@ function props(): Props {
 		attachCertificate: jest.fn(),
 		copyMaterialRecord: jest.fn(),
 		deleteRecords: jest.fn(),
+		moveRecordsToProject: jest.fn(),
+		fetchInvoices: jest.fn().mockResolvedValue([]),
+		fetchInvoiceRows: jest.fn().mockResolvedValue([]),
 	};
 }
 

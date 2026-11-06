@@ -255,8 +255,12 @@ type WarehouseMaterialConfigSelectMessages = {
 
 type WarehouseUiMessages = {
   filters: string;
+  materialView: string;
+  invoiceView: string;
   clearFilters: string;
   searchMaterials: string;
+  invoiceNumber: string;
+  invoiceNumberPlaceholder: string;
   totalCost: string;
   spendInsights: string;
   invoiceDateFrom: string;
@@ -357,6 +361,16 @@ type WarehouseUiMessages = {
   singleSourcePhotoPosition: string;
   singleSourcePhotoPositionDescription: string;
   relatedPhotoDatesUpdated: (count: number) => string;
+  moveToProject: string;
+  moveToProjectTitle: string;
+  moveToProjectDescription: (count: number) => string;
+  targetProject: string;
+  selectTargetProject: string;
+  noTargetProjects: string;
+  moving: string;
+  movedToProject: (count: number, projectName: string) => string;
+  moveFailed: string;
+  moveBisRecordsBlocked: string;
   materialConfigSelect: WarehouseMaterialConfigSelectMessages;
 };
 
@@ -1084,8 +1098,12 @@ const WORKERS_UI_MESSAGES: Record<OrganizationLanguage, WorkersUiMessages> = {
 const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> = {
   en: {
     filters: "Filters",
+    materialView: "Materials",
+    invoiceView: "Invoices",
     clearFilters: "Clear filters",
     searchMaterials: "Search materials, suppliers or invoices...",
+    invoiceNumber: "Invoice number",
+    invoiceNumberPlaceholder: "Enter or select an invoice number",
     totalCost: "Total cost",
     spendInsights: "Spend insights",
     invoiceDateFrom: "Invoice date from",
@@ -1186,6 +1204,16 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     singleSourcePhotoPosition: "This photo has only one position",
     singleSourcePhotoPositionDescription: "There are no other positions to update from this photo.",
     relatedPhotoDatesUpdated: (count) => `Dates updated for ${count} positions from this photo`,
+    moveToProject: "Move to project",
+    moveToProjectTitle: "Move warehouse records",
+    moveToProjectDescription: (count) => `Move ${count} selected warehouse record(s) to another project.`,
+    targetProject: "Target project",
+    selectTargetProject: "Select a project",
+    noTargetProjects: "There are no other projects in this organization.",
+    moving: "Moving...",
+    movedToProject: (count, projectName) => `Moved ${count} record(s) to ${projectName}.`,
+    moveFailed: "Failed to move the selected warehouse records.",
+    moveBisRecordsBlocked: "Records already sent to BIS cannot be moved to another project.",
     materialConfigSelect: {
       materialKindRequired: "Material kind is required",
       measurementRequired: "Measurement is required",
@@ -1224,8 +1252,12 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
   },
   lv: {
     filters: "Filtri",
+    materialView: "Materiāli",
+    invoiceView: "Rēķini",
     clearFilters: "Notīrīt filtrus",
     searchMaterials: "Meklēt materiālus, piegādātājus vai rēķinus...",
+    invoiceNumber: "Rēķina numurs",
+    invoiceNumberPlaceholder: "Ievadiet vai izvēlieties rēķina numuru",
     totalCost: "Kopējās izmaksas",
     spendInsights: "Izmaksu pārskats",
     invoiceDateFrom: "Rēķina datums no",
@@ -1326,6 +1358,16 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     singleSourcePhotoPosition: "Šim fotoattēlam ir tikai viena pozīcija",
     singleSourcePhotoPositionDescription: "No šī fotoattēla nav citu pozīciju, ko atjaunināt.",
     relatedPhotoDatesUpdated: (count) => `Datumi atjaunināti ${count} pozīcijām no šī fotoattēla`,
+    moveToProject: "Pārvietot uz projektu",
+    moveToProjectTitle: "Pārvietot noliktavas ierakstus",
+    moveToProjectDescription: (count) => `Pārvietot ${count} atlasītos noliktavas ierakstus uz citu projektu.`,
+    targetProject: "Mērķa projekts",
+    selectTargetProject: "Izvēlieties projektu",
+    noTargetProjects: "Šajā organizācijā nav citu projektu.",
+    moving: "Pārvieto...",
+    movedToProject: (count, projectName) => `Uz projektu “${projectName}” pārvietoti ${count} ieraksti.`,
+    moveFailed: "Neizdevās pārvietot atlasītos noliktavas ierakstus.",
+    moveBisRecordsBlocked: "Uz BIS jau nosūtītus ierakstus nevar pārvietot uz citu projektu.",
     materialConfigSelect: {
       materialKindRequired: "Materiāla veids ir obligāts",
       measurementRequired: "Mērvienība ir obligāta",

@@ -67,6 +67,7 @@ export type WarehouseMaterialQueryInput = {
   page?: number;
   pageSize?: number;
   search?: string;
+  invoiceNumber?: string;
   status?: WarehouseMaterialStatusFilter;
   configFilter?: string;
   sortBy?: WarehouseMaterialSort;
@@ -132,7 +133,7 @@ type WarehouseMaterialQueryClient = {
 
 type NormalizedWarehouseMaterialQuery = Required<Pick<
   WarehouseMaterialQueryInput,
-  "page" | "pageSize" | "search" | "status" | "configFilter" | "sortBy"
+  "page" | "pageSize" | "search" | "invoiceNumber" | "status" | "configFilter" | "sortBy"
 >> & Pick<
   WarehouseMaterialQueryInput,
   "invoiceDateFrom" | "invoiceDateTo"
@@ -172,6 +173,7 @@ export function normalizeWarehouseMaterialQuery(input: WarehouseMaterialQueryInp
     page,
     pageSize,
     search: input.search?.trim() ?? "",
+    invoiceNumber: input.invoiceNumber?.trim() ?? "",
     status,
     configFilter: input.configFilter?.trim() || WAREHOUSE_CONFIG_FILTER_ALL,
     sortBy,
@@ -203,6 +205,12 @@ export function buildWarehouseMaterialWhere(
         { BISId: { contains: normalized.search, mode: "insensitive" } },
         { bisStatus: { contains: normalized.search, mode: "insensitive" } },
       ],
+    });
+  }
+
+  if (normalized.invoiceNumber) {
+    and.push({
+      invoiceNr: { equals: normalized.invoiceNumber, mode: "insensitive" },
     });
   }
 

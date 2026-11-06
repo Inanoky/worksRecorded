@@ -14,6 +14,8 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  ArrowRightLeft,
+  Loader2,
 } from "lucide-react"
 import {
   CartesianGrid,
@@ -80,11 +82,20 @@ import {
 import { DefaultConstructionForma2MaterialRulesDialog } from "@/flows/default-construction/frontend/DefaultConstructionForma2MaterialRulesDialog"
 import { DefaultConstructionForma2SplitEditor } from "@/flows/default-construction/frontend/DefaultConstructionForma2SplitEditor"
 import { DefaultConstructionForma2InvoicePreview } from "@/flows/default-construction/frontend/DefaultConstructionForma2InvoicePreview"
-import type { WarehouseMaterialSort as DatabaseWarehouseMaterialSort } from "@/lib/bis/warehouse-material-query"
+import type {
+  WarehouseMaterialQueryInput as DatabaseWarehouseMaterialQueryInput,
+  WarehouseMaterialRow,
+  WarehouseMaterialSort as DatabaseWarehouseMaterialSort,
+} from "@/lib/bis/warehouse-material-query"
+import type {
+  WarehouseInvoiceLocator,
+  WarehouseInvoiceSummary,
+} from "@/server/actions/warehouse-invoice-view-actions"
 import {
   getWarehouseForma2PositionLabel,
   type WarehouseForma2Sort,
 } from "@/lib/bis/warehouse-forma2-sort"
+import { WarehouseInvoiceView } from "./warehouse-invoice-view"
 
 const MAX_MATERIAL_NAME_LENGTH = 120
 const MAX_MEASUREMENT_UNIT_LENGTH = 20
@@ -145,6 +156,7 @@ type WarehouseMaterialQueryInput = {
   page?: number
   pageSize?: number
   search?: string
+  invoiceNumber?: string
   status?: "all" | "sent" | "unsent"
   configFilter?: string
   sortBy?: WarehouseMaterialSort
@@ -188,6 +200,7 @@ type Props = {
   materialConfigurations: MaterialCategory[]
   materialMeasures: Array<{ id: string; name: string }>
   materialTypes: Array<{ id: string; name: string }>
+  transferTargets: Array<{ id: string; name: string }>
   initialPagination: WarehouseMaterialPagination
   fetchMaterials: (
     siteId: string,
@@ -313,11 +326,34 @@ type Props = {
   ) => Promise<{ success: boolean }>
   copyMaterialRecord: (siteId: string, recordId: string) => Promise<{ success: true; material: MaterialRow }>
   deleteRecords: (siteId: string, recordIds: string[]) => Promise<{ deletedIds: string[] }>
+  moveRecordsToProject: (input: {
+    sourceSiteId: string
+    targetSiteId: string
+    recordIds: string[]
+  }) => Promise<{ count: number; movedIds: string[]; targetSiteId: string }>
+  fetchInvoices: (
+    siteId: string,
+    input: DatabaseWarehouseMaterialQueryInput,
+  ) => Promise<WarehouseInvoiceSummary[]>
+  fetchInvoiceRows: (
+    siteId: string,
+    locator: WarehouseInvoiceLocator,
+  ) => Promise<WarehouseMaterialRow[]>
 }
 
 function formatDate(value: Date | null) {
   if (!value) return "—"
   return new Intl.DateTimeFormat("en-GB").format(new Date(value))
+}
+
+function getInvoiceNumberOptions(rows: MaterialRow[]) {
+  return Array.from(
+    new Set(
+      rows
+        .map((row) => row.invoiceNr?.trim())
+        .filter((value): value is string => Boolean(value)),
+    ),
+  )
 }
 
 function formatMoney(value: number | null) {
@@ -490,6 +526,7 @@ export default function MaterialsTableClient({
   materialConfigurations,
   materialMeasures,
   materialTypes,
+  transferTargets,
   initialPagination,
   fetchMaterials,
   exportMaterials,
@@ -510,6 +547,9 @@ export default function MaterialsTableClient({
   attachCertificate,
   copyMaterialRecord,
   deleteRecords,
+  moveRecordsToProject,
+  fetchInvoices,
+  fetchInvoiceRows,
 }: Props) {
   const language = normalizeOrganizationLanguage(organizationLanguage)
   const t = getWarehouseUiMessages(language)
@@ -524,6 +564,7 @@ export default function MaterialsTableClient({
     return t.unnamedMaterial
   }, [t])
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
+  const [warehouseView, setWarehouseView] = React.useState<"materials" | "invoices">("materials")
   const [previewRecordId, setPreviewRecordId] = React.useState<string | null>(null)
   const previewTriggerRef = React.useRef<HTMLButtonElement | null>(null)
   const previewPanelRef = React.useRef<HTMLDivElement | null>(null)
@@ -535,6 +576,10 @@ export default function MaterialsTableClient({
   const [measures, setMeasures] = React.useState<Array<{ id: string; name: string }>>(materialMeasures)
   const [types, setTypes] = React.useState<Array<{ id: string; name: string }>>(materialTypes)
   const [search, setSearch] = React.useState("")
+  const [invoiceNumber, setInvoiceNumber] = React.useState("")
+  const [invoiceNumberOptions, setInvoiceNumberOptions] = React.useState(() =>
+    getInvoiceNumberOptions(materials),
+  )
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")
   const [configFilter, setConfigFilter] = React.useState("all")
   const [invoiceDateFrom, setInvoiceDateFrom] = React.useState("")
@@ -558,6 +603,9 @@ export default function MaterialsTableClient({
   const [syncLoading, setSyncLoading] = React.useState(false)
   const [selectedRowIds, setSelectedRowIds] = React.useState<string[]>([])
   const [deleteLoading, setDeleteLoading] = React.useState(false)
+  const [moveDialogOpen, setMoveDialogOpen] = React.useState(false)
+  const [moveTargetId, setMoveTargetId] = React.useState("")
+  const [moveLoading, setMoveLoading] = React.useState(false)
   const [copyingRecordId, setCopyingRecordId] = React.useState<string | null>(null)
   const [copyConfirmationRow, setCopyConfirmationRow] = React.useState<MaterialRow | null>(null)
   const [editableRowIds, setEditableRowIds] = React.useState<string[]>([])
@@ -624,6 +672,10 @@ export default function MaterialsTableClient({
   }, [materials])
 
   React.useEffect(() => {
+    if (!invoiceNumber) setInvoiceNumberOptions(getInvoiceNumberOptions(rows))
+  }, [invoiceNumber, rows])
+
+  React.useEffect(() => {
     setPagination(initialPagination)
     setPage(initialPagination.page)
     setPageInput(String(initialPagination.page))
@@ -646,6 +698,7 @@ export default function MaterialsTableClient({
     page,
     pageSize,
     search,
+    invoiceNumber,
     status,
     configFilter,
     sortBy,
@@ -658,6 +711,7 @@ export default function MaterialsTableClient({
     page,
     pageSize,
     search,
+    invoiceNumber,
     status,
     configFilter,
     sortBy,
@@ -667,6 +721,29 @@ export default function MaterialsTableClient({
     forma2Assignment,
     forma2PositionId,
   ])
+
+  const invoiceQueryInput = React.useMemo<DatabaseWarehouseMaterialQueryInput>(() => ({
+    search,
+    invoiceNumber,
+    status,
+    configFilter,
+    invoiceDateFrom: invoiceDateFrom || undefined,
+    invoiceDateTo: invoiceDateTo || undefined,
+  }), [
+    search,
+    invoiceNumber,
+    status,
+    configFilter,
+    invoiceDateFrom,
+    invoiceDateTo,
+  ])
+
+  React.useEffect(() => {
+    if (warehouseView === "invoices") {
+      setSelectedRowIds([])
+      setPreviewRecordId(null)
+    }
+  }, [warehouseView])
 
   const loadWarehousePage = React.useCallback(async (input: WarehouseMaterialQueryInput = queryInput) => {
     const requestId = ++loadRequestIdRef.current
@@ -707,10 +784,10 @@ export default function MaterialsTableClient({
 
     const timeout = window.setTimeout(() => {
       void loadWarehousePage()
-    }, search.trim() ? 300 : 0)
+    }, search.trim() || invoiceNumber.trim() ? 300 : 0)
 
     return () => window.clearTimeout(timeout)
-  }, [loadWarehousePage, search])
+  }, [invoiceNumber, loadWarehousePage, search])
 
   const approverKey = React.useCallback(
     (approver: BisApprover) =>
@@ -1234,6 +1311,46 @@ export default function MaterialsTableClient({
     }
   }
 
+  const openMoveDialog = () => {
+    const selectedRows = rows.filter((row) => selectedRowIds.includes(row.id))
+    if (selectedRows.some((row) => row.BISId)) {
+      toast.error(t.moveBisRecordsBlocked)
+      return
+    }
+    setMoveTargetId("")
+    setMoveDialogOpen(true)
+  }
+
+  const moveSelectedRows = async () => {
+    if (!selectedRowIds.length || !moveTargetId) return
+    const target = transferTargets.find((option) => option.id === moveTargetId)
+    if (!target) return
+
+    setMoveLoading(true)
+    try {
+      const result = await moveRecordsToProject({
+        sourceSiteId: siteId,
+        targetSiteId: target.id,
+        recordIds: selectedRowIds,
+      })
+      setRows((current) => current.filter((row) => !result.movedIds.includes(row.id)))
+      setSelectedRowIds([])
+      setMoveDialogOpen(false)
+      toast.success(t.movedToProject(result.count, target.name))
+      void loadWarehousePage()
+    } catch (error) {
+      console.error("[Warehouse] Move records failed", {
+        siteId,
+        targetSiteId: moveTargetId,
+        selectedRowIds,
+        error,
+      })
+      toast.error(t.moveFailed)
+    } finally {
+      setMoveLoading(false)
+    }
+  }
+
   const submitApproval = async () => {
     if (!approverDialogRow?.BISId) return
 
@@ -1418,8 +1535,16 @@ export default function MaterialsTableClient({
   }
 
   const filteredMaterials = rows
+  const visibleInvoiceNumbers = React.useMemo(
+    () => [...invoiceNumberOptions].sort((left, right) => left.localeCompare(right, language === "lv" ? "lv" : "en", {
+      numeric: true,
+      sensitivity: "base",
+    })),
+    [invoiceNumberOptions, language],
+  )
   const hasActiveFilters = Boolean(
     search.trim() ||
+      invoiceNumber.trim() ||
       status !== "all" ||
       configFilter !== "all" ||
       invoiceDateFrom ||
@@ -1431,6 +1556,7 @@ export default function MaterialsTableClient({
 
   const clearWarehouseFilters = () => {
     setSearch("")
+    setInvoiceNumber("")
     setStatus("all")
     setConfigFilter("all")
     setInvoiceDateFrom("")
@@ -1732,18 +1858,38 @@ export default function MaterialsTableClient({
               {formatMoney(totalCost)}
             </div>
           </div>
-          <div className="relative w-full lg:max-w-[420px]">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              aria-label={t.searchMaterials}
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
-              placeholder={t.searchMaterials}
-              className="pl-9"
-            />
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center lg:w-auto">
+            <div className="inline-flex rounded-lg border bg-muted/30 p-1">
+              <Button
+                type="button"
+                size="sm"
+                variant={warehouseView === "materials" ? "default" : "ghost"}
+                onClick={() => setWarehouseView("materials")}
+              >
+                {t.materialView}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={warehouseView === "invoices" ? "default" : "ghost"}
+                onClick={() => setWarehouseView("invoices")}
+              >
+                {t.invoiceView}
+              </Button>
+            </div>
+            <div className="relative w-full sm:w-[360px] lg:w-[420px]">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                aria-label={t.searchMaterials}
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setPage(1)
+                }}
+                placeholder={t.searchMaterials}
+                className="pl-9"
+              />
+            </div>
           </div>
         </div>
 
@@ -1813,6 +1959,31 @@ export default function MaterialsTableClient({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="warehouse-invoice-number"
+              className="block text-xs font-medium text-muted-foreground"
+            >
+              {t.invoiceNumber}
+            </label>
+            <Input
+              id="warehouse-invoice-number"
+              list="warehouse-visible-invoice-numbers"
+              value={invoiceNumber}
+              onChange={(event) => {
+                setInvoiceNumber(event.target.value)
+                setPage(1)
+              }}
+              placeholder={t.invoiceNumberPlaceholder}
+              autoComplete="off"
+            />
+            <datalist id="warehouse-visible-invoice-numbers">
+              {visibleInvoiceNumbers.map((number) => (
+                <option key={number} value={number} />
+              ))}
+            </datalist>
           </div>
 
           <label htmlFor="warehouse-invoice-date-from" className="space-y-1.5">
@@ -1912,15 +2083,27 @@ export default function MaterialsTableClient({
         <div className="mt-4 flex flex-col gap-3 border-t pt-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             {selectedRowIds.length > 0 ? (
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                onClick={deleteSelectedRows}
-                disabled={deleteLoading}
-              >
-                {deleteLoading ? "..." : `${t.delete} (${selectedRowIds.length})`}
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={openMoveDialog}
+                  disabled={moveLoading}
+                >
+                  <ArrowRightLeft className="mr-2 h-4 w-4" />
+                  {t.moveToProject} ({selectedRowIds.length})
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={deleteSelectedRows}
+                  disabled={deleteLoading}
+                >
+                  {deleteLoading ? "..." : `${t.delete} (${selectedRowIds.length})`}
+                </Button>
+              </>
             ) : null}
 
             {forma2Enabled ? (
@@ -1970,12 +2153,22 @@ export default function MaterialsTableClient({
               </Button>
             ) : null}
 
-            {renderPaginationControls()}
+            {warehouseView === "materials" ? renderPaginationControls() : null}
           </div>
         </div>
       </div>
 
-      <div className={previewRow ? "grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,40%)]" : "min-w-0"}>
+      {warehouseView === "invoices" ? (
+        <WarehouseInvoiceView
+          siteId={siteId}
+          language={language}
+          query={invoiceQueryInput}
+          fetchInvoices={fetchInvoices}
+          fetchInvoiceRows={fetchInvoiceRows}
+        />
+      ) : null}
+
+      <div className={warehouseView === "invoices" ? "hidden" : previewRow ? "grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,40%)]" : "min-w-0"}>
       <div
         className="relative min-w-0 overflow-hidden rounded-2xl border bg-background shadow-sm"
         aria-busy={isDefaultConstructionFlow && tableLoading}
@@ -2589,6 +2782,56 @@ export default function MaterialsTableClient({
               className="bg-blue-600 text-white hover:bg-blue-700"
             >
               {approvalLoading ? t.submitting : t.sendForApproval}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={moveDialogOpen} onOpenChange={setMoveDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.moveToProjectTitle}</DialogTitle>
+            <DialogDescription>
+              {t.moveToProjectDescription(selectedRowIds.length)}
+            </DialogDescription>
+          </DialogHeader>
+          {transferTargets.length ? (
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="warehouse-move-target">
+                {t.targetProject}
+              </label>
+              <Select value={moveTargetId} onValueChange={setMoveTargetId} disabled={moveLoading}>
+                <SelectTrigger id="warehouse-move-target" className="w-full">
+                  <SelectValue placeholder={t.selectTargetProject} />
+                </SelectTrigger>
+                <SelectContent>
+                  {transferTargets.map((target) => (
+                    <SelectItem key={target.id} value={target.id}>
+                      {target.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">{t.noTargetProjects}</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMoveDialogOpen(false)} disabled={moveLoading}>
+              {t.cancel}
+            </Button>
+            <Button onClick={moveSelectedRows} disabled={!moveTargetId || moveLoading}>
+              {moveLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t.moving}
+                </>
+              ) : (
+                <>
+                  <ArrowRightLeft className="mr-2 h-4 w-4" />
+                  {t.moveToProject}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
