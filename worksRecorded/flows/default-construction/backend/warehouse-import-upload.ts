@@ -4,6 +4,7 @@ import { z } from "zod";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { prisma } from "@/lib/utils/db";
+import { isSuperUserId } from "@/lib/utils/super-user";
 import {
 	WAREHOUSE_IMPORT_MAX_BYTES,
 	WAREHOUSE_IMPORT_TYPES,
@@ -65,12 +66,14 @@ export async function requireWarehouseImportAccess(
 	userId: string,
 	siteId: string,
 ) {
+	const superUser = isSuperUserId(userId);
 	const user = await prisma.user.findUnique({
 		where: { id: userId },
 		select: { organizationId: true, status: true },
 	});
 	if (
-		!user?.organizationId ||
+		!user ||
+		(!superUser && !user.organizationId) ||
 		(user.status !== null && user.status !== "active")
 	)
 		throw new UploadThingError({
@@ -78,22 +81,27 @@ export async function requireWarehouseImportAccess(
 			message: "Project access denied",
 		});
 	const site = await prisma.site.findFirst({
-		where: { id: siteId, organizationId: user.organizationId },
+		where: superUser
+			? { id: siteId }
+			: { id: siteId, organizationId: user.organizationId },
 		select: { id: true, organizationId: true },
 	});
-	if (!site)
+	if (
+		!site?.organizationId ||
+		(!superUser && site.organizationId !== user.organizationId)
+	)
 		throw new UploadThingError({
 			code: "FORBIDDEN",
 			message: "Project access denied",
 		});
 	const flow = await resolveFlowModuleKeyForRuntime({
 		siteId: site.id,
-		organizationId: user.organizationId,
+		organizationId: site.organizationId,
 	});
 	if (flow !== FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION)
 		throw new UploadThingError({
 			code: "FORBIDDEN",
 			message: "Warehouse import is unavailable for this flow",
 		});
-	return { userId, siteId: site.id, organizationId: user.organizationId };
+	return { userId, siteId: site.id, organizationId: site.organizationId };
 }
