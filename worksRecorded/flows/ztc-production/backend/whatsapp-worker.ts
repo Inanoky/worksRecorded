@@ -1,7 +1,5 @@
 import { attachZtcRateMatchDecision } from "@/flows/ztc-production/lib/ztc-rate-match-decision";
-import { auditZtcMutation, getZtcRecordAuditContext, withZtcRecordAudit, ztcMessageAuditContext } from "@/flows/ztc-production/lib/ztc-record-audit";
-import { extractZtcAdditionalDetails, hasZtcAdditionalDetailReport, ZtcAdditionalDetailExtractionError, type ZtcAdditionalDetail } from "./additional-detail-extraction";
-import { prepareZtcAdditionalDetailRows, persistZtcSessionCompletion, persistZtcStandaloneAdditionalDetails } from "./additional-detail-persistence";
+import { auditZtcMutation, withZtcRecordAudit, ztcMessageAuditContext } from "@/flows/ztc-production/lib/ztc-record-audit";
 import { drawingLogText, drawingRejectionReasons, summarizeDrawingExtraction } from "@/flows/ztc-production/lib/ztc-drawing-diagnostics";
 import { validateZtcDrawingProjectCode } from "@/flows/ztc-production/lib/ztc-drawing-project-code";
 import { canRepairZtcDrawingContext } from "@/flows/ztc-production/lib/ztc-drawing-context-repair";
@@ -172,7 +170,10 @@ type WorkExtraction = {
   isAdditionalWork: boolean;
   polishedText?: string | null;
   additionalWorkDescription: string | null;
-  additionalDetails?: ZtcAdditionalDetail[];
+  additionalDetails?: Array<{
+    description: string;
+    quantity: number | null;
+  }>;
   workOption: string | null;
   amountCompleted: number | null;
   units: string | null;
@@ -517,6 +518,14 @@ function rateTokenVariants(token: string) {
   return Array.from(
     new Set([normalized, stem.length >= 3 ? stem : normalized].filter(Boolean)),
   );
+}
+
+function normalizeAdditionalDetailDescription(value: string | null | undefined) {
+  return normalizeZtcWorkName(value)
+    .replace(/^\s*\d+(?:[.,]\d+)?\s*/i, "")
+    .replace(/\b(gab\.?|gabali?|vienibas?|vienības?)\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 function taskRateMatchTokens(value: string) {
@@ -1901,7 +1910,7 @@ async function extractWorkInfo(
         {
           role: "system",
           content:
-            `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, polishedText string|null, additionalWorkDescription string|null, additionalDetails array of {description string, quantity number|null}, workOption string|null, amountCompleted number|null, units string|null, issue string|null. For polishedText, correct the worker comment in Latvian while preserving the original meaning, technical terms, project names, element names, work codes, numbers, units, and names; do not add details. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. Extract additionalDetails whenever the worker reports extra installed parts/details, including standalone reports and completion of either main or additional work such as packaging, for example "papildus detaļas", "papilddetāļas", "vēl divas detaļas", "papildus 3 kronšteini". If two or more different detail types are mentioned, return a separate additionalDetails item for each type, for example "2 kronšteini un 4 skrūves" -> [{description:"kronšteini",quantity:2},{description:"skrūves",quantity:4}]. Use a concise detail description without the quantity words; if a detail is clearly mentioned without quantity use quantity null. Do not combine different detail types into one description. Do not put normal work names into additionalDetails. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. A drawing work prefixed with "TL" means timber frame / timberkarkass / karkass; when the worker says karkass, koka karkass, timber frame, or frame, match the most relevant TL option and return its exact label. Treat T and T1 prefixes as TL, and never return a T1 work option. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
+            `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, polishedText string|null, additionalWorkDescription string|null, additionalDetails array of {description string, quantity number|null}, workOption string|null, amountCompleted number|null, units string|null, issue string|null. For polishedText, correct the worker comment in Latvian while preserving the original meaning, technical terms, project names, element names, work codes, numbers, units, and names; do not add details. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. Extract additionalDetails only when the worker reports extra parts/details used while finishing the main work, for example "papildus detaļas", "papilddetāļas", "vēl divas detaļas", "papildus 3 kronšteini". If two or more different detail types are mentioned, return a separate additionalDetails item for each type, for example "2 kronšteini un 4 skrūves" -> [{description:"kronšteini",quantity:2},{description:"skrūves",quantity:4}]. Use a concise detail description without the quantity words; if a detail is clearly mentioned without quantity use quantity null. Do not combine different detail types into one description. Do not put normal work names into additionalDetails. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. A drawing work prefixed with "TL" means timber frame / timberkarkass / karkass; when the worker says karkass, koka karkass, timber frame, or frame, match the most relevant TL option and return its exact label. Treat T and T1 prefixes as TL, and never return a T1 work option. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
         },
         { role: "user", content: normalized },
       ],
@@ -1953,13 +1962,6 @@ async function extractWorkInfo(
         : null),
     units: normalizeAllowedOption(extracted.units, unitOptions),
   };
-
-  if (result.isFinish || result.additionalDetails.length || hasZtcAdditionalDetailReport(normalized)) {
-    const detailsStartedAt = Date.now();
-    const classifierDetailCount = result.additionalDetails.length;
-    result.additionalDetails = await withZtcTimeout(extractZtcAdditionalDetails(normalized), "ztc_additional_detail_extraction", ZTC_TEXT_TIMEOUT_MS);
-    logZtcTiming("additional_detail_extraction", detailsStartedAt, { classifierDetailCount, detailCount: result.additionalDetails.length });
-  }
 
   logZtcTiming("work_text_extraction_total", startedAt, {
     textLength: normalized.length,
@@ -2395,6 +2397,93 @@ async function cancelTlDiagonalAttempt(args: {
   );
 }
 
+function positiveNumberOrNull(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+async function createAdditionalDetailRows(args: {
+  session: OpenZtcSession;
+  details: WorkExtraction["additionalDetails"];
+  completedText?: string | null;
+}) {
+  const detailMap = new Map<string, { description: string; quantity: number | null }>();
+  for (const detail of args.details ?? []) {
+    const description = normalizeAdditionalDetailDescription(detail.description);
+    if (!description) continue;
+    const key = description.toLowerCase();
+    const existing = detailMap.get(key);
+    const quantity = positiveNumberOrNull(detail.quantity);
+    detailMap.set(key, {
+      description,
+      quantity:
+        existing?.quantity != null || quantity != null
+          ? (existing?.quantity ?? 0) + (quantity ?? 0)
+          : null,
+    });
+  }
+  const details = Array.from(detailMap.values());
+  if (!details.length) return;
+
+  const now = new Date();
+  const context = {
+    siteId: args.session.siteId ?? ZTC_SITE_ID,
+    organizationId: args.session.organizationId ?? ZTC_ORGANIZATION_ID,
+  };
+  const entityMatch = await matchZtcCanonicalEntities({
+    siteId: context.siteId,
+    rawProjectName: args.session.Location,
+    rawWorks: details.map((detail) => detail.description),
+    category: "additionalDetails",
+  });
+  const canonicalProjectName = entityMatch.project?.name ?? args.session.Location;
+  const workMatchesByIndex = new Map(
+    entityMatch.works.map((match) => [match.rawIndex, match]),
+  );
+  const rows = await Promise.all(
+    details.map(async (detail, index) => {
+      const entityWorkMatch = workMatchesByIndex.get(index);
+      const defaultRateMatch = entityWorkMatch?.rate ?? null;
+      const mappedDescription = defaultRateMatch?.task?.trim() || detail.description;
+
+      return {
+        workerId: args.session.workerId,
+        siteId: context.siteId,
+        organizationId: context.organizationId,
+        Date: now,
+        Date_Custom_1: args.session.Date_Custom_1 ?? args.session.Date ?? now,
+        Date_Custom_2: now,
+        Location: canonicalProjectName,
+        Location_Custom_1: args.session.Location_Custom_1,
+        Works_Custom_1: "Papilddetāļas",
+        Works: mappedDescription,
+        Location_Custom_2: defaultRateMatch?.rate ?? null,
+        Works_Custom_2: args.session.Works_Custom_2 ?? null,
+        Units: defaultRateMatch?.unit ?? "gab",
+        Amounts: positiveNumberOrNull(detail.quantity) ?? 1,
+        TimeInvolved: 0,
+        Comments: args.completedText?.trim()
+          ? `Papilddetāļas: ${args.completedText.trim()}`
+          : "Papilddetāļas",
+        Comments_Custom_2: JSON.stringify({
+          type: "ztc_additional_detail",
+          parentSessionId: args.session.id,
+          projectName: canonicalProjectName,
+          elementName: args.session.Location_Custom_1,
+          mainWork: args.session.Works,
+          extractedWork: detail.description,
+          matchedRateTask: defaultRateMatch?.task ?? null,
+          ztcRateMatch: { task: defaultRateMatch?.task ?? null, work: mappedDescription, source: entityWorkMatch?.source ?? "raw", reason: entityWorkMatch?.reason },
+        }),
+        originalUserComment: args.completedText?.trim() ?? null,
+        Photos: [],
+      };
+    }),
+  );
+
+  await auditZtcMutation("createAdditionalDetailRows", (tx) => tx.ztcRecords.createMany({ data: rows }));
+}
+
 async function completeSession(args: {
   session: OpenZtcSession;
   to: string | null;
@@ -2454,22 +2543,8 @@ async function completeSession(args: {
       finishText: completedText,
     });
 
-  const reportedDetails = completedWork?.additionalDetails ?? [];
-  const detailRows = await prepareZtcAdditionalDetailRows({
-    session,
-    details: !reportedDetails.length && hasZtcAdditionalDetailReport(completedText ?? "")
-      ? await withZtcTimeout(extractZtcAdditionalDetails(completedText ?? ""), "ztc_additional_detail_extraction", ZTC_TEXT_TIMEOUT_MS)
-      : reportedDetails,
-    completedAt: completionTime,
-    completedText,
-    sourceMessageId: getZtcRecordAuditContext()?.messageId,
-  });
-  const completionMetadata = parseJsonObject<Record<string, unknown>>(session.Comments_Custom_2, {});
-  const priorDetailReview = completionMetadata.ztcAdditionalDetailsReview as Record<string, unknown> | undefined;
-  const completion = await persistZtcSessionCompletion({
-    recordId: session.id,
-    organizationId: session.organizationId,
-    details: detailRows,
+  const updated = await auditZtcMutation("completeSession", (tx) => tx.ztcRecords.update({
+    where: { id: session.id },
     data: {
       Date_Custom_2: completionTime,
       TimeInvolved: timeInvolved,
@@ -2479,14 +2554,9 @@ async function completeSession(args: {
       Units: sessionUnit,
       Comments_Custom_1: photoBatchMarker(),
       Comments: finalWorkerComment,
-      Comments_Custom_2: priorDetailReview?.required ? JSON.stringify({ ...completionMetadata,
-        ztcAdditionalDetailsReview: { ...priorDetailReview, required: false, resolvedAt: completionTime.toISOString() },
-      }) : undefined,
       originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
     },
-  });
-  if (!completion.newlyCompleted) return;
-  const updated = completion.record;
+  }));
 
   logZtcSession("session_completed", {
     session: updated,
@@ -2539,11 +2609,6 @@ async function completeSession(args: {
     completionMessage += "\n\nNākamo rasējuma darbu varat sākt bez atkārtotas rasējuma nosūtīšanas. Papilddarbs pēc šī pabeigtā darba tiks uzskaitīts atsevišķi.";
   }
 
-  if (detailRows.length) {
-    completionMessage += "\n\nAtsevišķi saglabātas papilddetāļas:\n" + detailRows.map(row =>
-      `${row.Works}: ${row.Amounts == null ? "lūdzu, precizējiet daudzumu" : `${row.Amounts} ${row.Units}`}${row.Location_Custom_2 == null ? " — Nav piesaistīta darba likme" : ` — ${row.Location_Custom_2} EUR/${row.Units}`}`,
-    ).join("\n");
-  }
   await sendZtcMessage(to, completionMessage);
 
   try {
@@ -2564,6 +2629,12 @@ async function completeSession(args: {
       error,
     });
   }
+
+  await createAdditionalDetailRows({
+    session,
+    details: completedWork?.additionalDetails ?? [],
+    completedText,
+  });
 
 }
 
@@ -3515,45 +3586,11 @@ async function handleWorkText(args: {
       : await getLatestZtcDrawingContext(worker);
   const contextSession = hasZtcDrawingContext(openSession) ? openSession : latestDrawingContext;
   const workOptionsForSession = getSessionWorkOptions(contextSession);
-  let work: WorkExtraction;
-  try {
-    work = await extractWorkInfo(text, workOptionsForSession);
-  } catch (error) {
-    if (!(error instanceof ZtcAdditionalDetailExtractionError)) throw error;
-    outcome = "additional_details_need_clarification";
-    console.warn("[ZTC] Additional detail extraction requires review", { workerId: worker.id, messageId: getZtcRecordAuditContext()?.messageId, reason: error.message });
-    if (openSession) {
-      const metadata = parseJsonObject<Record<string, unknown>>(openSession.Comments_Custom_2, {});
-      await auditZtcMutation("flagAdditionalDetailsForReview", tx => tx.ztcRecords.update({ where: { id: openSession.id }, data: {
-        Comments_Custom_2: JSON.stringify({ ...metadata, ztcAdditionalDetailsReview: { required: true, inputText: text, sourceMessageId: getZtcRecordAuditContext()?.messageId, reason: error.message } }),
-      } }));
-    }
-    await sendZtcMessage(to, "Neizdevās droši nolasīt papilddetāļas. Lūdzu, atsūtiet katra papilddetaļu veida nosaukumu un skaitu. Darbs vēl nav noslēgts.");
-    return;
-  }
+  const work = await extractWorkInfo(text, workOptionsForSession);
 
   if (work.isGibberish) {
     outcome = "gibberish";
     await sendZtcMessage(to, "Neizdevās saprast ziņu. Lūdzu, mēģiniet vēlreiz.");
-    return;
-  }
-
-  if (!work.isFinish && !work.workOption && work.additionalDetails?.length && hasZtcAdditionalDetailReport(text)) {
-    if (!openSession || !hasZtcDrawingContext(openSession) || !openSession.Location) {
-      outcome = "additional_details_need_drawing";
-      await sendZtcMessage(to, "Papilddetāļu ziņa ir saņemta. Lūdzu, atsūtiet attiecīgā paneļa rasējumu un atkārtojiet papilddetaļu nosaukumus un skaitu, lai tos piesaistītu pareizajam darbam.");
-      return;
-    }
-    const detailRows = await prepareZtcAdditionalDetailRows({ session: openSession,
-      parentSessionId: openSession.Works ? openSession.id : null,
-      details: work.additionalDetails, completedAt: new Date(), completedText: text,
-      sourceMessageId: getZtcRecordAuditContext()?.messageId,
-    });
-    await persistZtcStandaloneAdditionalDetails(openSession, detailRows);
-    outcome = "additional_details_saved";
-    await sendZtcMessage(to, "Atsevišķi saglabātas papilddetāļas:\n" + detailRows.map(row =>
-      `${row.Works}: ${row.Amounts == null ? "lūdzu, precizējiet daudzumu" : `${row.Amounts} ${row.Units}`}${row.Location_Custom_2 == null ? " — Nav piesaistīta darba likme" : ` — ${row.Location_Custom_2} EUR/${row.Units}`}`,
-    ).join("\n"));
     return;
   }
 
