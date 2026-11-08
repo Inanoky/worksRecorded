@@ -13,6 +13,7 @@
 		"test:smoke": "bun run test/app-smoke-tests.ts",
 		"test:start": "bun run test/startTest.ts",
 		"perf:capture-auth": "node --import tsx scripts/capture-performance-auth.ts",
+		"perf:benchmark:default-construction": "cross-env PERF_TARGET=default-construction-core playwright test --config=playwright.performance.config.ts",
 		"perf:compare": "node --import tsx scripts/compare-performance-runs.ts",
 		"perf:prod": "playwright test --config=playwright.performance.config.ts",
 		"eval:ai:dashboard": "tsx test/ai-evals/run-dashboard-eval.ts",

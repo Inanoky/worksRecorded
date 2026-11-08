@@ -143,7 +143,11 @@ it("applies record inventories from a request body and sends only the changed jo
 			order: ["keep", "edit"],
 		},
 	});
-	expect(loadProjectManifest).toHaveBeenCalledWith("user", "site");
+	expect(loadProjectManifest).toHaveBeenCalledWith(
+		"user",
+		"site",
+		expect.objectContaining({ measure: expect.any(Function) }),
+	);
 });
 
 it("validates record sync bodies before loading project data", async () => {
@@ -293,7 +297,11 @@ it("revalidates a project snapshot only after authentication and an authorized l
 	});
 	const response = await project(request, context);
 	expect(response.status).toBe(304);
-	expect(loadProjectManifest).toHaveBeenCalledWith("user", "site");
+	expect(loadProjectManifest).toHaveBeenCalledWith(
+		"user",
+		"site",
+		expect.objectContaining({ measure: expect.any(Function) }),
+	);
 	expect(loadLimeniProjectSnapshot).not.toHaveBeenCalled();
 	expect(response.headers.get("cache-control")).toBe("private, no-cache");
 	jest

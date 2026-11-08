@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
+import { getPerformanceBenchmarkTarget } from "./test/e2e/performance/benchmark-targets";
 
-const baseURL = process.env.PERF_BASE_URL;
+const benchmarkTarget = getPerformanceBenchmarkTarget(process.env.PERF_TARGET);
+const baseURL = process.env.PERF_BASE_URL ?? benchmarkTarget?.baseURL;
 
 if (!baseURL) {
 	throw new Error(

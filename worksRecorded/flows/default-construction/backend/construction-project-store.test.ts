@@ -1,7 +1,7 @@
 import { GET, POST } from "@/app/api/sites/[siteId]/construction-project/route";
 import { prisma } from "@/lib/utils/db";
 import { getConfig } from "@/server/actions/site-diary-actions";
-import { readProjectManifest } from "../visual/project-revision-store";
+import { readConstructionProjectManifest } from "../visual/project-revision-store";
 import type { LimeniProjectSnapshot } from "../visual/project-snapshot-store";
 import { mergeProjectDelta, type ProjectDelta } from "../visual/project-sync";
 import { fetchProjectSync } from "../visual/project-sync-client";
@@ -16,7 +16,7 @@ jest.mock("@/lib/utils/requireUser", () => ({
 	requireUser: async () => ({ id: "user" }),
 }));
 jest.mock("../visual/project-revision-store", () => ({
-	readProjectManifest: jest.fn(),
+	readConstructionProjectManifest: jest.fn(),
 }));
 jest.mock("../visual/project-snapshot-store", () => ({
 	ProjectAccessError: jest.requireActual("../visual/project-access-error")
@@ -66,7 +66,7 @@ beforeEach(() => {
 		Date: new Date("2026-11-06"),
 		createdAt: new Date("2026-11-06"),
 	}));
-	jest.mocked(readProjectManifest).mockResolvedValue({
+	jest.mocked(readConstructionProjectManifest).mockResolvedValue({
 		organizationId: "org",
 		revision: "r1",
 		sourceVersions: { diary: hash },
@@ -97,7 +97,7 @@ it("runs bootstrap, edited/deleted rows, and a bodyless unchanged check for a st
 	records = records
 		.filter((row) => row.id !== "remove")
 		.map((row) => (row.id === "edit" ? { ...row, Works: "Updated" } : row));
-	jest.mocked(readProjectManifest).mockResolvedValue({
+	jest.mocked(readConstructionProjectManifest).mockResolvedValue({
 		organizationId: "org",
 		revision: "r2",
 		sourceVersions: { diary: other },

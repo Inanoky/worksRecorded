@@ -17,28 +17,37 @@ Complete Kinde login in the opened browser. The saved session is gitignored.
 
 ## Run the journey
 
+Named targets keep the flow, project, scenario, expected project API, run count,
+and cycle count consistent. The first canonical target is
+`default-construction-core`, which measures the Pļavas iela 2 project using the
+`construction-project` API. A full baseline uses five fresh browser contexts
+and three diary/warehouse cycles per context:
+
 ```sh
-PERF_BASE_URL=https://www.worksrecorded.com \
-PERF_PROJECT_ID=b07a1080-0d74-4991-80ea-20f378420542 \
-PERF_RUNS=5 \
-PERF_CYCLES=3 \
-PERF_RUN_LABEL=before-performance-fixes-v2 \
-npm run perf:prod
+PERF_RUN_LABEL=baseline-v1-2026-11-08 \
+npm run perf:benchmark:default-construction
 ```
 
 Use one visible run as a smoke test before the headless baseline:
 
 ```sh
-PERF_BASE_URL=https://www.worksrecorded.com \
-PERF_PROJECT_ID=b07a1080-0d74-4991-80ea-20f378420542 \
 PERF_RUNS=1 \
 PERF_CYCLES=1 \
-PERF_RUN_LABEL=baseline-smoke \
-npm run perf:prod -- --headed
+PERF_RUN_LABEL=smoke-2026-11-08 \
+npm run perf:benchmark:default-construction -- --headed
 ```
 
+Named target definitions live in `benchmark-targets.ts`. The test fails when
+the configured project does not produce a successful request to its expected
+project API, preventing a report from being mislabeled with the wrong flow or
+project implementation. Manual `PERF_BASE_URL` and `PERF_PROJECT_ID` runs remain
+available through `npm run perf:prod` for investigation outside canonical
+benchmarks.
+
 Timestamped or labelled JSON and Markdown results are written under
-`.performance-results/`, alongside the Playwright HTML report.
+`.performance-results/`, alongside the Playwright HTML report. Canonical files
+use `benchmark-<benchmark-id>-<run-label>.json` and `.md`; both formats include
+the benchmark ID, flow key, scenario, project name and ID, and expected API.
 
 The JSON stores API, document, fetch, XHR, RSC, failed, and unusually slow
 requests for every run, tagged with the journey phase that initiated them. The
@@ -61,14 +70,15 @@ production region before and after deployment. Then compare P75 values:
 
 ```sh
 npm run perf:compare -- \
-  .performance-results/customer-journey-before-performance-fixes-v2.json \
-  .performance-results/customer-journey-after-performance-fixes-v2.json
+  .performance-results/benchmark-default-construction-core-baseline-v1-2026-11-08.json \
+  .performance-results/benchmark-default-construction-core-after-v1-2026-11-08.json
 ```
 
 The comparison covers customer-visible P75 timings, slow request-group P75s,
 per-phase response volume, cache misses, and failed requests. It labels changes
 of at least 10 percent as improvements or regressions. Smaller changes are
-reported as inconclusive noise.
+reported as inconclusive noise. Comparison also refuses reports with different
+benchmark IDs, flow keys, scenarios, or project IDs.
 
 ## Include login timing
 

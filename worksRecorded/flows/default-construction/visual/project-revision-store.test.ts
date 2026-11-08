@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/utils/db";
-import { loadProjectRevision } from "./project-revision-store";
+import {
+	loadProjectRevision,
+	readConstructionProjectManifest,
+} from "./project-revision-store";
 import { requireVisualAccess } from "./store";
 
 jest.mock("@/lib/utils/db", () => ({ prisma: { $queryRaw: jest.fn() } }));
@@ -46,4 +49,16 @@ it("checks project access before reading a cached revision", async () => {
 	jest.mocked(requireVisualAccess).mockRejectedValue(new Error("Denied"));
 	await expect(loadProjectRevision("user", "site")).rejects.toThrow("Denied");
 	expect(prisma.$queryRaw).not.toHaveBeenCalled();
+});
+
+it("omits visual-only sources from the standard construction manifest", async () => {
+	await readConstructionProjectManifest("user", "site", "org");
+	const query = (
+		jest.mocked(prisma.$queryRaw).mock.calls[0][0] as unknown as string[]
+	).join("");
+	expect(query).toContain('public."sitediaryrecords"');
+	expect(query).toContain('public."BISmaterialRecords"');
+	expect(query).not.toContain('public."ConstructionPlan"');
+	expect(query).not.toContain('public."VisualPlanningContact"');
+	expect(query).not.toContain('public."WhatsAppTaskSend"');
 });

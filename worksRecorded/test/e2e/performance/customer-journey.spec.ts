@@ -9,6 +9,7 @@ import {
 	type Request,
 	test,
 } from "@playwright/test";
+import { getPerformanceBenchmarkTarget } from "./benchmark-targets";
 
 type NetworkRequestResult = {
 	journeyPhase: string;
@@ -35,13 +36,37 @@ type RunResult = {
 	networkRequests: NetworkRequestResult[];
 };
 
-const baseURL = process.env.PERF_BASE_URL as string;
-const projectId = process.env.PERF_PROJECT_ID;
+const benchmarkTarget = getPerformanceBenchmarkTarget(process.env.PERF_TARGET);
+const baseURL = (process.env.PERF_BASE_URL ??
+	benchmarkTarget?.baseURL) as string;
+const projectId = process.env.PERF_PROJECT_ID ?? benchmarkTarget?.projectId;
+const benchmarkId = (
+	process.env.PERF_BENCHMARK_ID ??
+	benchmarkTarget?.id ??
+	"customer-journey"
+).replace(/[^a-zA-Z0-9_-]+/g, "-");
+const flowKey = process.env.PERF_FLOW_KEY ?? benchmarkTarget?.flowKey ?? null;
+const projectName =
+	process.env.PERF_PROJECT_NAME ?? benchmarkTarget?.projectName ?? null;
+const scenario =
+	process.env.PERF_SCENARIO ??
+	benchmarkTarget?.scenario ??
+	"projects-diary-warehouse";
+const expectedProjectApiPath =
+	process.env.PERF_EXPECTED_PROJECT_API_PATH ??
+	benchmarkTarget?.expectedProjectApiPath ??
+	null;
 const authFile = resolve(
 	process.env.PERF_AUTH_FILE ?? "playwright/.auth/performance-user.json",
 );
-const runs = Number.parseInt(process.env.PERF_RUNS ?? "5", 10);
-const cycles = Number.parseInt(process.env.PERF_CYCLES ?? "3", 10);
+const runs = Number.parseInt(
+	process.env.PERF_RUNS ?? String(benchmarkTarget?.defaultRuns ?? 5),
+	10,
+);
+const cycles = Number.parseInt(
+	process.env.PERF_CYCLES ?? String(benchmarkTarget?.defaultCycles ?? 3),
+	10,
+);
 const runLabel = (
 	process.env.PERF_RUN_LABEL ?? new Date().toISOString()
 ).replace(/[^a-zA-Z0-9_-]+/g, "-");
@@ -367,7 +392,22 @@ async function runJourney(
 	);
 
 	await networkCapture.finish();
+	const expectedProjectApiObserved = expectedProjectApiPath
+		? networkCapture.records.some((request) => {
+				const url = new URL(request.url);
+				return (
+					url.pathname === expectedProjectApiPath &&
+					request.method === "GET" &&
+					request.status === 200 &&
+					request.failure === null
+				);
+			})
+		: true;
 	await context.close();
+	expect(
+		expectedProjectApiObserved,
+		`Expected a successful GET for ${expectedProjectApiPath} while measuring ${benchmarkId}.`,
+	).toBe(true);
 	console.log(
 		`[performance] run ${run}/${runs}: complete (${networkCapture.records.length} network requests saved)`,
 	);
@@ -448,8 +488,13 @@ function buildMarkdown(results: RunResult[]) {
 		"# Production performance journey",
 		"",
 		`Generated: ${new Date().toISOString()}`,
+		`Benchmark ID: ${benchmarkId}`,
+		`Flow: ${flowKey ?? "unspecified"}`,
+		`Scenario: ${scenario}`,
 		`Target: ${new URL(baseURL).origin}`,
-		`Project: ${projectId}`,
+		`Project name: ${projectName ?? "unspecified"}`,
+		`Project ID: ${projectId}`,
+		`Expected project API: ${expectedProjectApiPath ?? "not enforced"}`,
 		`Run label: ${runLabel}`,
 		`Runs: ${results.length}`,
 		`Diary/warehouse cycles per run: ${cycles}`,
@@ -530,15 +575,23 @@ test("authenticated projects, diary, and warehouse journey", async ({
 	await mkdir(resultDirectory, { recursive: true });
 	const jsonPath = resolve(
 		resultDirectory,
-		`customer-journey-${runLabel}.json`,
+		`benchmark-${benchmarkId}-${runLabel}.json`,
 	);
 	const markdownPath = resolve(
 		resultDirectory,
-		`customer-journey-${runLabel}.md`,
+		`benchmark-${benchmarkId}-${runLabel}.md`,
 	);
+	const benchmark = {
+		id: benchmarkId,
+		flowKey,
+		scenario,
+		projectName,
+		projectId,
+		expectedProjectApiPath,
+	};
 	await writeFile(
 		jsonPath,
-		`${JSON.stringify({ generatedAt: new Date().toISOString(), runLabel, baseURL, projectId, runs, cycles, results }, null, 2)}\n`,
+		`${JSON.stringify({ generatedAt: new Date().toISOString(), runLabel, baseURL, benchmark, runs, cycles, results }, null, 2)}\n`,
 	);
 	await writeFile(markdownPath, buildMarkdown(results));
 	await testInfo.attach("customer-journey-summary", {
