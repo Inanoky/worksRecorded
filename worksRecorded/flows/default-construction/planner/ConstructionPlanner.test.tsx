@@ -56,6 +56,9 @@ function Harness({
 	if (!enabled) return <p>Other flow</p>;
 	return (
 		<>
+			<button type="button" onClick={() => void planner.reload()}>
+				Refresh planner
+			</button>
 			<PlannerControls
 				planner={planner}
 				onCatalogChanged={() => {}}
@@ -135,17 +138,13 @@ describe("construction planner interface", () => {
 		expect(loadConstructionWeek).not.toHaveBeenCalled();
 		expect(loadConstructionDiaryPlans).not.toHaveBeenCalled();
 	});
-	it("prefetches once and toggles cached plans instantly without server requests", async () => {
+	it("loads diary plan comparisons only when the user shows them", async () => {
 		render(<Harness />);
-		await waitFor(() =>
-			expect(loadConstructionDiaryPlans).toHaveBeenCalledTimes(1),
-		);
-		await waitFor(() =>
-			expect(screen.queryByText("Walls")).not.toBeInTheDocument(),
-		);
+		expect(loadConstructionDiaryPlans).not.toHaveBeenCalled();
 		const toggle = screen.getByRole("checkbox", { name: "Rādīt plānu" });
 		fireEvent.click(toggle);
-		expect(screen.getByText("Walls")).toBeInTheDocument();
+		expect(await screen.findByText("Walls")).toBeInTheDocument();
+		expect(loadConstructionDiaryPlans).toHaveBeenCalledTimes(1);
 		fireEvent.click(toggle);
 		expect(screen.queryByText("Walls")).not.toBeInTheDocument();
 		fireEvent.click(
@@ -187,6 +186,18 @@ describe("construction planner interface", () => {
 			),
 		);
 		expect(loadConstructionDiaryPlans).toHaveBeenCalledTimes(2);
+	});
+	it("forces a fresh comparison when the planner explicitly reloads", async () => {
+		render(<Harness />);
+		fireEvent.click(
+			screen.getByRole("checkbox", { name: "Rādīt plānu 2026-09-15" }),
+		);
+		await screen.findByText("Walls");
+		expect(loadConstructionDiaryPlans).toHaveBeenCalledTimes(1);
+		fireEvent.click(screen.getByRole("button", { name: "Refresh planner" }));
+		await waitFor(() =>
+			expect(loadConstructionDiaryPlans).toHaveBeenCalledTimes(2),
+		);
 	});
 	it("shows paired columns and unmatched plans when enabled", async () => {
 		render(<Harness />);

@@ -10,7 +10,7 @@ export function DefaultConstructionSpending() {
 	const { snapshot, failed, denied } = useLimeniProjectData();
 	const data = useMemo(
 		() =>
-			snapshot?.forma2.data.clientCosts
+			snapshot && !snapshot.bootstrap && snapshot.forma2.data.clientCosts
 				? projectSpendingInput({
 						data: snapshot.forma2.data,
 						config: snapshot.config,

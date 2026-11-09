@@ -3,6 +3,7 @@ import { GET as settings } from "@/app/api/sites/[siteId]/limeni-workspace/route
 import { GET as planning } from "@/app/api/sites/[siteId]/visual/[drawingId]/planning/route";
 import { GET as drawings } from "@/app/api/sites/[siteId]/visual/route";
 import { requireUser } from "@/lib/utils/requireUser";
+import { requireConstructionProjectAccess } from "../backend/construction-project-access";
 import { getDefaultConstructionForma2Results } from "../backend/forma2-analytics-actions";
 import { getVisualDrawings, getVisualPlanning } from "../visual/actions";
 import { requireVisualAccess } from "../visual/store";
@@ -17,6 +18,9 @@ beforeAll(() =>
 afterAll(() => Object.assign(globalThis, original));
 jest.mock("@/lib/utils/requireUser", () => ({ requireUser: jest.fn() }));
 jest.mock("../visual/store", () => ({ requireVisualAccess: jest.fn() }));
+jest.mock("../backend/construction-project-access", () => ({
+	requireConstructionProjectAccess: jest.fn(),
+}));
 jest.mock("../backend/forma2-analytics-actions", () => ({
 	getDefaultConstructionForma2Results: jest.fn(),
 }));
@@ -39,9 +43,16 @@ beforeEach(() => {
 	jest
 		.mocked(requireVisualAccess)
 		.mockResolvedValue({ organizationId: "limeni" } as never);
-	jest
-		.mocked(getDefaultConstructionForma2Results)
-		.mockResolvedValue({ siteName: "Project", document: null, resultRows: [] });
+	jest.mocked(requireConstructionProjectAccess).mockResolvedValue({
+		organizationId: "organization",
+		bisCaseId: null,
+	});
+	jest.mocked(getDefaultConstructionForma2Results).mockResolvedValue({
+		siteName: "Project",
+		document: null,
+		resultRows: [],
+		clientCosts: { positions: [], sources: [], allocations: [] },
+	});
 });
 
 it("loads settings only after authenticating the project and organization", async () => {
@@ -60,6 +71,9 @@ it("loads settings only after authenticating the project and organization", asyn
 
 it("rejects another organization before loading Forma 2 or serving a cached response", async () => {
 	jest.mocked(requireVisualAccess).mockRejectedValue(new Error("Forbidden"));
+	jest
+		.mocked(requireConstructionProjectAccess)
+		.mockRejectedValue(new Error("Forbidden"));
 	expect((await settings(request(), context)).status).toBe(403);
 	expect((await results(request(), context)).status).toBe(403);
 	expect(getDefaultConstructionForma2Results).not.toHaveBeenCalled();
@@ -72,10 +86,13 @@ it("returns unchanged Forma 2 as 304 after rechecking access and sends changed r
 		headers: { "If-None-Match": etag },
 	});
 	expect((await results(conditional, context)).status).toBe(304);
-	expect(requireVisualAccess).toHaveBeenCalledTimes(2);
-	jest
-		.mocked(getDefaultConstructionForma2Results)
-		.mockResolvedValue({ siteName: "Changed", document: null, resultRows: [] });
+	expect(requireConstructionProjectAccess).toHaveBeenCalledTimes(2);
+	jest.mocked(getDefaultConstructionForma2Results).mockResolvedValue({
+		siteName: "Changed",
+		document: null,
+		resultRows: [],
+		clientCosts: { positions: [], sources: [], allocations: [] },
+	});
 	const changed = await results(conditional, context);
 	expect(changed.status).toBe(200);
 	expect(changed.headers.get("etag")).not.toBe(etag);

@@ -86,7 +86,7 @@ beforeEach(() => {
 			: GET(request, scope);
 	});
 });
-it("runs bootstrap, edited/deleted rows, and a bodyless unchanged check for a standard project", async () => {
+it("runs bootstrap, edited/deleted rows, and a single-request unchanged check for a standard project", async () => {
 	const signal = new AbortController().signal;
 	const first = (await (
 		await fetchProjectSync("site", null, signal, "construction")
@@ -127,6 +127,7 @@ it("runs bootstrap, edited/deleted rows, and a bodyless unchanged check for a st
 	expect(
 		(await fetchProjectSync("site", merged, signal, "construction")).status,
 	).toBe(304);
+	expect(global.fetch).toHaveBeenCalledTimes(3);
 	expect(prisma.sitediaryrecords.findMany).not.toHaveBeenCalled();
 	expect(requireConstructionProjectAccess).toHaveBeenCalledWith("user", "site");
 });

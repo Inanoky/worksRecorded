@@ -25,7 +25,7 @@ const PERFORMANCE_BENCHMARK_TARGETS: Record<
 		projectName: "Pļavas iela 2",
 		scenario: "projects-diary-warehouse",
 		expectedProjectApiPath:
-			"/api/sites/dcbdc6fd-ded4-46db-9ac6-e1489298cce0/construction-project",
+			"/api/sites/dcbdc6fd-ded4-46db-9ac6-e1489298cce0/construction-project/bootstrap",
 		defaultRuns: 5,
 		defaultCycles: 3,
 	},

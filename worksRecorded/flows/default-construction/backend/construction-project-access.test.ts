@@ -24,6 +24,7 @@ beforeEach(() => {
 it("authorizes a regular construction project without a customer-specific organization ID", async () => {
 	expect(await requireConstructionProjectAccess("user", "site")).toEqual({
 		organizationId: "org",
+		bisCaseId: null,
 	});
 	expect(getAuthorizedProjectSite).toHaveBeenCalledWith("user", "site");
 });

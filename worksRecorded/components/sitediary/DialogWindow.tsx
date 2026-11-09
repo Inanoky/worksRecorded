@@ -1,6 +1,5 @@
 "use client";
 import * as React from "react";
-import TourRunner from "@/components/joyride/TourRunner";
 import { DialogTable } from "@/components/sitediary/DiealogueTable";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import { Button } from "@/components/ui/button";
@@ -14,13 +13,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { DiaryEditChanges } from "@/flows/default-construction/lib/diary-edit";
 import type { ZtcProjectTaskRates } from "@/flows/ztc-production/backend/actions";
 import { ZtcDialogTable } from "@/flows/ztc-production/frontend/ZtcDialogTable";
 import {
   getSiteDiaryDialogMessages,
   normalizeOrganizationLanguage,
 } from "@/lib/dashboard-i18n";
-import type { DiaryEditChanges } from "@/flows/default-construction/lib/diary-edit";
 
 type DialogWindowProps = {
   open: any;
@@ -30,6 +29,7 @@ type DialogWindowProps = {
   onSaved: any;
   organizationLanguage?: any;
   isZtcFlow?: boolean;
+  preloadMedia?: boolean;
   batchEditing?: boolean;
   initialRows?: Record<string, any>[] | null;
   initialConfig?: Record<string, any> | null;
@@ -48,6 +48,7 @@ export default function DialogWindow({
   onSaved,
   organizationLanguage,
   isZtcFlow = false,
+  preloadMedia,
   batchEditing = false,
   initialRows,
   initialConfig,
@@ -56,6 +57,7 @@ export default function DialogWindow({
   focusedRecordId,
   initialTab = "records",
 }: DialogWindowProps) {
+  const eagerMedia = preloadMedia ?? !isZtcFlow;
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [selectedTab, setSelectedTab] = React.useState<"records" | "media">(
     "records",
@@ -197,12 +199,12 @@ export default function DialogWindow({
           {!focusedRecordId ? (
             <TabsContent
               value="media"
-              forceMount={!isZtcFlow ? true : undefined}
+              forceMount={eagerMedia ? true : undefined}
               className="mt-0 min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden"
             >
               <div data-tour="dialog-gallery" className="h-full min-h-[300px]">
                 <ImageGallery
-                  preloadAll={!isZtcFlow}
+                  preloadAll={eagerMedia}
                   date={date}
                   siteId={siteId}
                   organizationLanguage={organizationLanguage}

@@ -8,7 +8,9 @@ jest.mock("@/components/joyride/TourRunner", () => ({
 }));
 jest.mock("@/components/sitediary/ImageGallery", () => ({
 	__esModule: true,
-	default: () => null,
+	default: ({ preloadAll }: { preloadAll?: boolean }) => (
+		<div data-testid="dialog-image-gallery" data-preload-all={preloadAll} />
+	),
 }));
 jest.mock("@/flows/ztc-production/frontend/ZtcDialogTable", () => ({
 	ZtcDialogTable: () => null,
@@ -83,4 +85,18 @@ it("keeps the legacy refresh behavior when batch editing is not enabled", async 
 	await waitFor(() =>
 		expect(screen.getByRole("button", { name: "Test save" })).not.toBe(button),
 	);
+});
+
+it("does not mount or preload default-construction media while records are active", () => {
+	render(
+		<DialogWindow
+			open
+			setOpen={jest.fn()}
+			date={new Date()}
+			siteId="site"
+			onSaved={jest.fn()}
+			preloadMedia={false}
+		/>,
+	);
+	expect(screen.queryByTestId("dialog-image-gallery")).toBeNull();
 });

@@ -67,7 +67,7 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 					if (request.signal.aborted) return;
 					etag.current = response.headers.get("etag") ?? "";
 					setPayload(next);
-					if (projectData.enabled)
+					if (projectData.enabled && !projectData.snapshot?.bootstrap)
 						patchProject(siteId, (snapshot) => ({
 							...snapshot,
 							revision: undefined,
@@ -93,12 +93,13 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 			});
 		pending.current = work;
 		return work;
-	}, [siteId, report, projectData.enabled]);
+	}, [siteId, report, projectData.enabled, projectData.snapshot?.bootstrap]);
 	useEffect(() => {
 		if (projectData.enabled) {
 			void loadView().catch(() => report("forma2", "error"));
 			if (
 				projectData.snapshot &&
+				!projectData.snapshot.bootstrap &&
 				seeded.current !== projectData.snapshot.version
 			) {
 				seeded.current = projectData.snapshot.version;
@@ -120,6 +121,21 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 			pending.current = null;
 		};
 	}, [enabled, refresh, projectData.enabled, projectData.snapshot, report]);
+	useEffect(() => {
+		if (
+			projectData.enabled &&
+			projectData.snapshot?.bootstrap &&
+			active &&
+			!payload
+		)
+			void refresh();
+	}, [
+		active,
+		payload,
+		projectData.enabled,
+		projectData.snapshot?.bootstrap,
+		refresh,
+	]);
 	useEffect(() => {
 		if (snapshot.revision === lastDiaryRevision.current) return;
 		lastDiaryRevision.current = snapshot.revision;

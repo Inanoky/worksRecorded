@@ -32,7 +32,12 @@ export const beginAllocationSchema = z.object({
   workers: z.number().finite().nonnegative().nullable(),
   savedAt: z.string().datetime(),
   sourceImportedAt: z.string().datetime(),
-  source: z.enum(["legacy-comment", "allocation", "begin-allocation"]),
+  source: z.enum([
+    "legacy-comment",
+    "allocation",
+    "begin-allocation",
+    "begin-report-cost-allocation",
+  ]),
 });
 export type BeginAllocation = z.infer<typeof beginAllocationSchema>;
 const revisionSchema = z.object({

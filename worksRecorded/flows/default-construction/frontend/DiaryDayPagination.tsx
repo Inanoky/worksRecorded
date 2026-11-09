@@ -6,8 +6,11 @@ export function DiaryDayPagination({
 	page,
 	totalPages,
 	totalCount,
+	totalRecords,
 	first,
 	last,
+	remainingFirstPage,
+	onExpandFirstPage,
 	onPageChange,
 	language,
 	disabled,
@@ -15,8 +18,11 @@ export function DiaryDayPagination({
 	page: number;
 	totalPages: number;
 	totalCount: number;
+	totalRecords?: number;
 	first: number;
 	last: number;
+	remainingFirstPage: number;
+	onExpandFirstPage: () => void;
 	onPageChange: (page: number) => void;
 	language: string;
 	disabled: boolean;
@@ -29,10 +35,24 @@ export function DiaryDayPagination({
 		>
 			<span className="text-xs text-muted-foreground">
 				{lv
-					? `Dienas ${first}–${last} no ${totalCount}`
-					: `Days ${first}–${last} of ${totalCount}`}
+					? `Dienas ${first}–${last} no ${totalCount}${totalRecords === undefined ? "" : ` · ${totalRecords} ieraksti`}`
+					: `Days ${first}–${last} of ${totalCount}${totalRecords === undefined ? "" : ` · ${totalRecords} records`}`}
 			</span>
 			<div className="flex items-center gap-2">
+				{remainingFirstPage > 0 ? (
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						disabled={disabled}
+						aria-expanded="false"
+						onClick={onExpandFirstPage}
+					>
+						{lv
+							? `Rādīt vēl ${remainingFirstPage} dienas`
+							: `Show ${remainingFirstPage} more days`}
+					</Button>
+				) : null}
 				<Button
 					type="button"
 					variant="outline"
@@ -49,7 +69,9 @@ export function DiaryDayPagination({
 					type="button"
 					variant="outline"
 					size="sm"
-					disabled={disabled || page >= totalPages}
+					disabled={
+						disabled || page >= totalPages || remainingFirstPage > 0
+					}
 					onClick={() => onPageChange(page + 1)}
 				>
 					{lv ? "Nākamā" : "Next"}

@@ -45,6 +45,7 @@ it("navigates with accessible client buttons and correct boundaries", () => {
 			<DiaryDayPagination
 				{...state}
 				onPageChange={state.setPage}
+				onExpandFirstPage={state.expandFirstPage}
 				language="lv"
 				disabled={false}
 			/>
@@ -56,4 +57,33 @@ it("navigates with accessible client buttons and correct boundaries", () => {
 	expect(screen.getByText("Dienas 11–20 no 23")).toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Nākamā" }));
 	expect(screen.getByRole("button", { name: "Nākamā" })).toBeDisabled();
+});
+
+it("shows three recent days before explicitly revealing the rest of the first page", () => {
+	function Diary() {
+		const state = useDiaryDayPagination(groups, "construction", 10, 3);
+		return (
+			<>
+				<span>{state.groups.map((group) => group.key).join(",")}</span>
+				<DiaryDayPagination
+					{...state}
+					totalRecords={328}
+					onPageChange={state.setPage}
+					onExpandFirstPage={state.expandFirstPage}
+					language="en"
+					disabled={false}
+				/>
+			</>
+		);
+	}
+	render(<Diary />);
+	expect(screen.getByText("day-0,day-1,day-2")).toBeInTheDocument();
+	expect(screen.getByText("Days 1–3 of 23 · 328 records")).toBeInTheDocument();
+	expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+	fireEvent.click(screen.getByRole("button", { name: "Show 7 more days" }));
+	expect(
+		screen.getByText(groups.slice(0, 10).map((group) => group.key).join(",")),
+	).toBeInTheDocument();
+	expect(screen.getByText("Days 1–10 of 23 · 328 records")).toBeInTheDocument();
+	expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
 });

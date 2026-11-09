@@ -4,6 +4,7 @@ import { ChevronDown, ExternalLink, FileText, Loader2 } from "lucide-react"
 import * as React from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -22,6 +23,10 @@ type Props = {
   siteId: string
   language: "lv" | "en"
   query: WarehouseMaterialQueryInput
+  active: boolean
+  refreshKey: number
+  selectedRowIds: string[]
+  onSelectionChange: (recordIds: string[]) => void
   fetchInvoices: (
     siteId: string,
     input: WarehouseMaterialQueryInput,
@@ -55,6 +60,9 @@ const messages = {
     loading: "Loading invoices...",
     unnamedInvoice: "Invoice without number",
     unnamedMaterial: "Unnamed material",
+    selectInvoice: "Select all movable rows in this invoice",
+    selectRow: "Select warehouse row",
+    sentCannotMove: "Rows already sent to BIS cannot be moved",
   },
   lv: {
     invoice: "Rēķins",
@@ -78,6 +86,9 @@ const messages = {
     loading: "Ielādē rēķinus...",
     unnamedInvoice: "Rēķins bez numura",
     unnamedMaterial: "Nenorādīts materiāls",
+    selectInvoice: "Atlasīt visas pārvietojamās rēķina pozīcijas",
+    selectRow: "Atlasīt noliktavas ierakstu",
+    sentCannotMove: "Uz BIS nosūtītās pozīcijas nevar pārvietot",
   },
 } as const
 
@@ -100,6 +111,10 @@ export function WarehouseInvoiceView({
   siteId,
   language,
   query,
+  active,
+  refreshKey,
+  selectedRowIds,
+  onSelectionChange,
   fetchInvoices,
   fetchInvoiceRows,
 }: Props) {
@@ -111,17 +126,29 @@ export function WarehouseInvoiceView({
   const [rowsByInvoice, setRowsByInvoice] = React.useState<Record<string, WarehouseMaterialRow[]>>({})
   const [loadingKeys, setLoadingKeys] = React.useState<string[]>([])
   const requestIdRef = React.useRef(0)
+  const loadedQueryRef = React.useRef("")
+  const rowRequestsRef = React.useRef<Record<string, Promise<WarehouseMaterialRow[]>>>({})
+  const queryKey = React.useMemo(
+    () => JSON.stringify([siteId, query, refreshKey]),
+    [query, refreshKey, siteId],
+  )
 
   React.useEffect(() => {
+    if (!active || loadedQueryRef.current === queryKey) return
     const requestId = ++requestIdRef.current
     setLoading(true)
     setLoadError(false)
     setExpandedKeys([])
     setRowsByInvoice({})
+    setLoadingKeys([])
+    rowRequestsRef.current = {}
     const timeout = window.setTimeout(() => {
       fetchInvoices(siteId, query)
         .then((result) => {
-          if (requestId === requestIdRef.current) setInvoices(result)
+          if (requestId === requestIdRef.current) {
+            loadedQueryRef.current = queryKey
+            setInvoices(result)
+          }
         })
         .catch((error) => {
           if (requestId !== requestIdRef.current) return
@@ -135,7 +162,38 @@ export function WarehouseInvoiceView({
     }, query.search?.trim() || query.invoiceNumber?.trim() ? 300 : 0)
 
     return () => window.clearTimeout(timeout)
-  }, [fetchInvoices, query, siteId])
+  }, [active, fetchInvoices, query, queryKey, siteId])
+
+  const loadInvoiceRows = React.useCallback(
+    (invoice: WarehouseInvoiceSummary) => {
+      const cached = rowsByInvoice[invoice.key]
+      if (cached) return Promise.resolve(cached)
+      const pending = rowRequestsRef.current[invoice.key]
+      if (pending) return pending
+      setLoadingKeys((current) => [...current, invoice.key])
+      const request = fetchInvoiceRows(siteId, invoice.locator)
+        .then((rows) => {
+          setRowsByInvoice((current) => ({ ...current, [invoice.key]: rows }))
+          return rows
+        })
+        .catch((error) => {
+          console.error("[Warehouse invoices] Failed to load invoice rows", {
+            siteId,
+            invoiceKey: invoice.key,
+            error,
+          })
+          setRowsByInvoice((current) => ({ ...current, [invoice.key]: [] }))
+          return []
+        })
+        .finally(() => {
+          delete rowRequestsRef.current[invoice.key]
+          setLoadingKeys((current) => current.filter((key) => key !== invoice.key))
+        })
+      rowRequestsRef.current[invoice.key] = request
+      return request
+    },
+    [fetchInvoiceRows, rowsByInvoice, siteId],
+  )
 
   const toggleInvoice = async (invoice: WarehouseInvoiceSummary) => {
     if (expandedKeys.includes(invoice.key)) {
@@ -144,21 +202,26 @@ export function WarehouseInvoiceView({
     }
 
     setExpandedKeys((current) => [...current, invoice.key])
-    if (rowsByInvoice[invoice.key] || loadingKeys.includes(invoice.key)) return
-    setLoadingKeys((current) => [...current, invoice.key])
-    try {
-      const rows = await fetchInvoiceRows(siteId, invoice.locator)
-      setRowsByInvoice((current) => ({ ...current, [invoice.key]: rows }))
-    } catch (error) {
-      console.error("[Warehouse invoices] Failed to load invoice rows", {
-        siteId,
-        invoiceKey: invoice.key,
-        error,
-      })
-      setRowsByInvoice((current) => ({ ...current, [invoice.key]: [] }))
-    } finally {
-      setLoadingKeys((current) => current.filter((key) => key !== invoice.key))
-    }
+    await loadInvoiceRows(invoice)
+  }
+
+  const selectInvoice = async (invoice: WarehouseInvoiceSummary, checked: boolean) => {
+    const invoiceRows = await loadInvoiceRows(invoice)
+    const ids = invoiceRows.filter((row) => !row.BISId).map((row) => row.id)
+    onSelectionChange(
+      checked
+        ? Array.from(new Set([...selectedRowIds, ...ids]))
+        : selectedRowIds.filter((id) => !ids.includes(id)),
+    )
+  }
+
+  const selectRow = (row: WarehouseMaterialRow, checked: boolean) => {
+    if (row.BISId) return
+    onSelectionChange(
+      checked
+        ? Array.from(new Set([...selectedRowIds, row.id]))
+        : selectedRowIds.filter((id) => id !== row.id),
+    )
   }
 
   if (loading) {
@@ -192,15 +255,28 @@ export function WarehouseInvoiceView({
         const expanded = expandedKeys.includes(invoice.key)
         const rowsLoading = loadingKeys.includes(invoice.key)
         const invoiceRows = rowsByInvoice[invoice.key]
+        const movableRows = invoiceRows?.filter((row) => !row.BISId) ?? []
+        const selectedMovableCount = movableRows.filter((row) => selectedRowIds.includes(row.id)).length
+        const allMovableSelected = movableRows.length > 0 && selectedMovableCount === movableRows.length
 
         return (
           <div key={invoice.key} className="overflow-hidden rounded-2xl border bg-background shadow-sm">
-            <button
-              type="button"
-              className="grid w-full gap-3 px-4 py-4 text-left hover:bg-muted/30 md:grid-cols-[minmax(150px,1.2fr)_minmax(140px,1fr)_110px_90px_110px_130px_32px] md:items-center"
-              aria-expanded={expanded}
-              onClick={() => void toggleInvoice(invoice)}
-            >
+            <div className="flex items-stretch hover:bg-muted/30">
+              <div className="flex w-12 shrink-0 items-center justify-center border-r">
+                <Checkbox
+                  checked={allMovableSelected ? true : selectedMovableCount > 0 ? "indeterminate" : false}
+                  disabled={rowsLoading || invoice.sentCount > 0}
+                  aria-label={`${t.selectInvoice}: ${invoice.invoiceNumber || t.unnamedInvoice}`}
+                  title={invoice.sentCount > 0 ? t.sentCannotMove : t.selectInvoice}
+                  onCheckedChange={(value) => void selectInvoice(invoice, value === true)}
+                />
+              </div>
+              <button
+                type="button"
+                className="grid min-w-0 flex-1 gap-3 px-4 py-4 text-left md:grid-cols-[minmax(150px,1.2fr)_minmax(140px,1fr)_110px_90px_110px_130px_32px] md:items-center"
+                aria-expanded={expanded}
+                onClick={() => void toggleInvoice(invoice)}
+              >
               <div className="min-w-0">
                 <div className="text-xs text-muted-foreground">{t.invoice}</div>
                 <div className="truncate font-semibold">{invoice.invoiceNumber || t.unnamedInvoice}</div>
@@ -228,7 +304,8 @@ export function WarehouseInvoiceView({
                 </Badge>
               </div>
               <ChevronDown className={`h-5 w-5 transition-transform ${expanded ? "rotate-180" : ""}`} />
-            </button>
+              </button>
+            </div>
 
             {expanded ? (
               <div className="border-t bg-muted/10">
@@ -258,6 +335,7 @@ export function WarehouseInvoiceView({
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-12" />
                           <TableHead>{t.material}</TableHead>
                           <TableHead>{t.quantity}</TableHead>
                           <TableHead>{t.unit}</TableHead>
@@ -269,6 +347,15 @@ export function WarehouseInvoiceView({
                       <TableBody>
                         {invoiceRows.map((row) => (
                           <TableRow key={row.id}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedRowIds.includes(row.id)}
+                                disabled={Boolean(row.BISId)}
+                                aria-label={`${t.selectRow}: ${row.name || t.unnamedMaterial}`}
+                                title={row.BISId ? t.sentCannotMove : t.selectRow}
+                                onCheckedChange={(value) => selectRow(row, value === true)}
+                              />
+                            </TableCell>
                             <TableCell className="font-medium">{row.name || t.unnamedMaterial}</TableCell>
                             <TableCell>{row.quantity ?? "—"}</TableCell>
                             <TableCell>{row.measurementUnit || "—"}</TableCell>

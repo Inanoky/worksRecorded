@@ -25,7 +25,7 @@ Baseline P75 values:
 
 ## Active plan: cold diary bootstrap
 
-Status: Stage 1 and its cold-cache measurement instrumentation are implemented and validated locally; awaiting a separate commit and deployment. Keep the warehouse read-path batch and cold diary bootstrap as separate deployment and benchmark boundaries.
+Status: the cold bootstrap API and client handoff are implemented and validated locally; awaiting a separate commit and deployment. Keep the warehouse read-path batch and cold diary bootstrap as separate deployment and benchmark boundaries.
 
 Goal: reduce the first default-construction project opening in a fresh browser context without weakening authorization, moving mutations to the browser, or making cached data authoritative.
 
@@ -67,6 +67,34 @@ implementation instead of introducing a second cache.
 - Do not add a service worker or a second browser cache until the existing
   IndexedDB behavior has been measured.
 
+First batch: remove the default-construction cached-sync negotiation request.
+When a construction snapshot already has part and diary-row revisions, send
+them directly through the existing authenticated POST sync contract. Keep the
+Limeni negotiation behavior unchanged until this batch is measured.
+
+The same deployment batch limits default-construction diary presentation and
+image demand:
+
+- Render the three newest day groups first while keeping ten days as the normal
+  page size.
+- Reveal the remaining seven first-page days only after an explicit user action.
+- Do not bulk-download diary originals during project opening or while the
+  record editor is on its records tab.
+- Mount day and full galleries on demand and let thumbnails load lazily.
+- Keep Limeni image preparation unchanged in this batch.
+- Treat server-side day-cursor pagination as a later data-volume batch; this
+  first step reduces DOM and image/network work but does not yet remove older
+  diary rows from the authoritative project snapshot.
+
+Before-batch references:
+
+- Browser report:
+  `.performance-results/benchmark-default-construction-core-before-cached-sync-direct-post-2026-11-09.json`
+- Vercel phase summary:
+  `.performance-results/benchmark-default-construction-core-before-cached-sync-direct-post-2026-11-09-vercel-phases.json`
+- Cached unchanged checks: 32 samples, 2,935 ms P75 per manifest request.
+- Construction-project cold snapshot: 6 samples, 6,453 ms P75.
+
 Exit criteria:
 
 - A warm hard reload can render usable cached diary content before project
@@ -81,6 +109,16 @@ Exit criteria:
 
 ### Stage 3: reduce the critical cold snapshot
 
+- Add an authenticated `/construction-project/bootstrap` read endpoint for
+  empty-cache default-construction openings.
+- Authorize once, skip the revision manifest, and return configuration plus the
+  newest three diary dates and their media metadata.
+- Return a valid but explicitly temporary snapshot without Forma 2 results or
+  Visual planning assets.
+- Publish that snapshot immediately, do not store it as the durable IndexedDB
+  snapshot, and start the existing complete sync after the diary is usable.
+- Keep cached openings on the existing ETag/delta endpoint, and keep Limeni on
+  its existing endpoint.
 - Use production phase timings to decide whether Forma 2, complete media metadata, or both should leave the diary critical path.
 - Keep the diary configuration and first usable diary rows authoritative.
 - Load deferred resources through their existing authenticated endpoints and ETag contracts.
@@ -89,6 +127,16 @@ Exit criteria:
   the browser after the required records have arrived.
 - Keep calculations on the server when the browser does not have the complete
   authoritative dataset.
+
+Local validation:
+
+- The bootstrap route denies unauthenticated and unauthorized requests before
+  reading diary data.
+- The newest-day query is limited to three distinct diary dates.
+- The browser publishes the temporary bootstrap without persisting it, then
+  replaces and persists it after the complete sync.
+- Ten focused suites pass with 61 tests; touched bootstrap paths pass Biome and
+  have no filtered TypeScript diagnostics.
 
 ### Stage 4: project-opening intent prefetch
 

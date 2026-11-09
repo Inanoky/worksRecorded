@@ -111,6 +111,75 @@ it("restores standard construction projects without enabling the visual preload 
 	);
 });
 
+it("publishes a cold construction bootstrap before saving the complete sync", async () => {
+	const bootstrap = { ...project("bootstrap:one"), bootstrap: true };
+	const complete = project("complete");
+	jest
+		.mocked(global.fetch)
+		.mockResolvedValueOnce({
+			ok: true,
+			json: async () => ({
+				kind: "construction-bootstrap",
+				snapshot: bootstrap,
+			}),
+		} as Response)
+		.mockResolvedValueOnce({
+			ok: true,
+			json: async () => complete,
+		} as Response);
+	render(
+		<ProjectLoadingProgressProvider enabled cacheScope="user:organization">
+			<LimeniProjectData siteId="site" constructionWorkspace>
+				<Consumer />
+			</LimeniProjectData>
+		</ProjectLoadingProgressProvider>,
+	);
+	expect(await screen.findByText("bootstrap:one")).toBeInTheDocument();
+	expect(mockWrite).not.toHaveBeenCalled();
+	expect(
+		await screen.findByText("complete", {}, { timeout: 3_000 }),
+	).toBeInTheDocument();
+	expect(global.fetch).toHaveBeenNthCalledWith(
+		1,
+		"/api/sites/site/construction-project/bootstrap",
+		expect.objectContaining({ cache: "no-cache" }),
+	);
+	expect(global.fetch).toHaveBeenNthCalledWith(
+		2,
+		"/api/sites/site/construction-project",
+		expect.objectContaining({
+			headers: { "If-None-Match": '"bootstrap:one"' },
+		}),
+	);
+	expect(mockWrite).toHaveBeenCalledWith("construction:snapshot", complete);
+});
+
+it("falls back to the complete construction endpoint when bootstrap is unavailable", async () => {
+	const complete = project("complete-fallback");
+	jest
+		.mocked(global.fetch)
+		.mockResolvedValueOnce({ ok: false, status: 503 } as Response)
+		.mockResolvedValueOnce({
+			ok: true,
+			json: async () => complete,
+		} as Response);
+	render(
+		<ProjectLoadingProgressProvider enabled cacheScope="user:organization">
+			<LimeniProjectData siteId="site" constructionWorkspace>
+				<Consumer />
+			</LimeniProjectData>
+		</ProjectLoadingProgressProvider>,
+	);
+	expect(await screen.findByText("complete-fallback")).toBeInTheDocument();
+	expect(global.fetch).toHaveBeenCalledTimes(2);
+	expect(global.fetch).toHaveBeenNthCalledWith(
+		2,
+		"/api/sites/site/construction-project",
+		expect.objectContaining({ headers: {} }),
+	);
+	expect(mockWrite).toHaveBeenCalledWith("construction:snapshot", complete);
+});
+
 it("shows the saved project immediately and revalidates without resetting an edited draft", async () => {
 	mockRead.mockResolvedValue(project("cached"));
 	let finish!: (response: Response) => void;

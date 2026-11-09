@@ -4,3 +4,4 @@
 node_modules/
 /.research-sales/
 /.market-build/
+.env*

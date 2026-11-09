@@ -1,5 +1,8 @@
 import type { LimeniProjectSnapshot } from "./project-snapshot-store";
-import { fetchProjectSync } from "./project-sync-client";
+import {
+	fetchConstructionProjectBootstrap,
+	fetchProjectSync,
+} from "./project-sync-client";
 
 const originalFetch = global.fetch;
 const cached = {
@@ -66,6 +69,32 @@ it("requests row changes only after a changed revision, using the cached revisio
 	);
 });
 
+it("posts cached construction row versions without a negotiation request", async () => {
+	const delta = { status: 200 } as Response;
+	jest.mocked(global.fetch).mockResolvedValue(delta);
+	const signal = new AbortController().signal;
+	expect(
+		await fetchProjectSync("site/escaped", cached, signal, "construction"),
+	).toBe(delta);
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+	expect(global.fetch).toHaveBeenCalledWith(
+		"/api/sites/site%2Fescaped/construction-project",
+		{
+			method: "POST",
+			cache: "no-cache",
+			signal,
+			headers: {
+				"Content-Type": "application/json",
+				"If-None-Match": '"old-revision"',
+			},
+			body: JSON.stringify({
+				parts: cached.partVersions,
+				rows: cached.diaryRowVersions,
+			}),
+		},
+	);
+});
+
 it("supports existing snapshots and servers without record-sync negotiation", async () => {
 	const response = { status: 200 } as Response;
 	jest.mocked(global.fetch).mockResolvedValue(response);
@@ -86,4 +115,17 @@ it("uses a fresh request without cached fingerprints when recovering a damaged c
 	jest.mocked(global.fetch).mockResolvedValue({ status: 200 } as Response);
 	await fetchProjectSync("site", null, new AbortController().signal);
 	expect(jest.mocked(global.fetch).mock.calls[0][1]?.headers).toEqual({});
+});
+
+it("loads a cold construction bootstrap from its additive endpoint", async () => {
+	const response = { status: 200 } as Response;
+	jest.mocked(global.fetch).mockResolvedValue(response);
+	const signal = new AbortController().signal;
+	expect(await fetchConstructionProjectBootstrap("site/one", signal)).toBe(
+		response,
+	);
+	expect(global.fetch).toHaveBeenCalledWith(
+		"/api/sites/site%2Fone/construction-project/bootstrap",
+		{ cache: "no-cache", signal },
+	);
 });

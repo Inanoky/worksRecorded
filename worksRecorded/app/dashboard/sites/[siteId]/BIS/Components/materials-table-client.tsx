@@ -606,6 +606,7 @@ export default function MaterialsTableClient({
   const [moveDialogOpen, setMoveDialogOpen] = React.useState(false)
   const [moveTargetId, setMoveTargetId] = React.useState("")
   const [moveLoading, setMoveLoading] = React.useState(false)
+  const [invoiceRefreshKey, setInvoiceRefreshKey] = React.useState(0)
   const [copyingRecordId, setCopyingRecordId] = React.useState<string | null>(null)
   const [copyConfirmationRow, setCopyConfirmationRow] = React.useState<MaterialRow | null>(null)
   const [editableRowIds, setEditableRowIds] = React.useState<string[]>([])
@@ -1336,6 +1337,7 @@ export default function MaterialsTableClient({
       setRows((current) => current.filter((row) => !result.movedIds.includes(row.id)))
       setSelectedRowIds([])
       setMoveDialogOpen(false)
+      setInvoiceRefreshKey((current) => current + 1)
       toast.success(t.movedToProject(result.count, target.name))
       void loadWarehousePage()
     } catch (error) {
@@ -2094,7 +2096,7 @@ export default function MaterialsTableClient({
                   <ArrowRightLeft className="mr-2 h-4 w-4" />
                   {t.moveToProject} ({selectedRowIds.length})
                 </Button>
-                <Button
+                {warehouseView === "materials" ? <Button
                   type="button"
                   variant="destructive"
                   size="sm"
@@ -2102,7 +2104,7 @@ export default function MaterialsTableClient({
                   disabled={deleteLoading}
                 >
                   {deleteLoading ? "..." : `${t.delete} (${selectedRowIds.length})`}
-                </Button>
+                </Button> : null}
               </>
             ) : null}
 
@@ -2158,17 +2160,21 @@ export default function MaterialsTableClient({
         </div>
       </div>
 
-      {warehouseView === "invoices" ? (
+      <div className={warehouseView === "invoices" ? "" : "hidden"}>
         <WarehouseInvoiceView
           siteId={siteId}
           language={language}
           query={invoiceQueryInput}
+          active={warehouseView === "invoices"}
+          refreshKey={invoiceRefreshKey}
+          selectedRowIds={selectedRowIds}
+          onSelectionChange={setSelectedRowIds}
           fetchInvoices={fetchInvoices}
           fetchInvoiceRows={fetchInvoiceRows}
         />
-      ) : null}
+      </div>
 
-      <div className={warehouseView === "invoices" ? "hidden" : previewRow ? "grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,40%)]" : "min-w-0"}>
+      {warehouseView === "materials" ? <div className={previewRow ? "grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,40%)]" : "min-w-0"}>
       <div
         className="relative min-w-0 overflow-hidden rounded-2xl border bg-background shadow-sm"
         aria-busy={isDefaultConstructionFlow && tableLoading}
@@ -2678,7 +2684,7 @@ export default function MaterialsTableClient({
           />
         </div>
       ) : null}
-      </div>
+      </div> : null}
 
       <Dialog
         open={copyConfirmationRow !== null}

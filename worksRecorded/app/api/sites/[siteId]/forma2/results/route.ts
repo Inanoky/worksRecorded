@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
+import { requireConstructionProjectAccess } from "@/flows/default-construction/backend/construction-project-access";
 import { getDefaultConstructionForma2Results } from "@/flows/default-construction/backend/forma2-analytics-actions";
-import { requireVisualAccess } from "@/flows/default-construction/visual/store";
 import { requireUser } from "@/lib/utils/requireUser";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 
@@ -13,7 +13,7 @@ export async function GET(
 	try {
 		const { siteId } = await params;
 		const user = await requireUser();
-		await requireVisualAccess(user.id, siteId);
+		await requireConstructionProjectAccess(user.id, siteId);
 		const [data, organizationLanguage] = await Promise.all([
 			getDefaultConstructionForma2Results(siteId),
 			getOrganizationLanguageByUserId(user.id),

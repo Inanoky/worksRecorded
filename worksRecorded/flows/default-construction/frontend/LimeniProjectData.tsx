@@ -32,7 +32,11 @@ import {
 	patchProject,
 } from "../visual/project-sync";
 import { hasActiveProjectEditor } from "../visual/project-sync-activity";
-import { fetchProjectSync } from "../visual/project-sync-client";
+import {
+	type ConstructionProjectBootstrapPayload,
+	fetchConstructionProjectBootstrap,
+	fetchProjectSync,
+} from "../visual/project-sync-client";
 import { useDiarySaveQueue } from "./DiarySaveContext";
 import { FORMA2_CHANGED } from "./forma2-client-refresh";
 
@@ -135,7 +139,8 @@ function ScopedLimeniProjectData({
 							applyLocalProjectPatch(visible, detail.apply, version),
 						),
 			);
-			void persistence.write(cacheKey, current.current);
+			if (!current.current.bootstrap)
+				void persistence.write(cacheKey, current.current);
 		},
 		[siteId, persistence, publish, cacheKey],
 	);
@@ -195,12 +200,12 @@ function ScopedLimeniProjectData({
 			const cached = current.current;
 			try {
 				if (firstSyncPending) mark("sync-request-start");
-				let response = await fetchProjectSync(
-					siteId,
-					cached,
-					controller.signal,
-					mode,
-				);
+				const coldConstructionBootstrap =
+					mode === "construction" && !cached && firstSyncPending;
+				let deferCompleteSync = coldConstructionBootstrap;
+				let response = coldConstructionBootstrap
+					? await fetchConstructionProjectBootstrap(siteId, controller.signal)
+					: await fetchProjectSync(siteId, cached, controller.signal, mode);
 				if (firstSyncPending) {
 					mark("sync-response");
 					firstSyncPending = false;
@@ -219,6 +224,16 @@ function ScopedLimeniProjectData({
 					return true;
 				};
 				if (await deniedResponse()) return;
+				if (!response.ok && coldConstructionBootstrap) {
+					response = await fetchProjectSync(
+						siteId,
+						null,
+						controller.signal,
+						mode,
+					);
+					deferCompleteSync = false;
+					if (await deniedResponse()) return;
+				}
 				if (response.status === 304 && cached) {
 					if (before === interaction) flush();
 					setFailed(false);
@@ -227,15 +242,18 @@ function ScopedLimeniProjectData({
 				if (!response.ok) throw new Error("Project unavailable");
 				const payload = (await response.json()) as
 					| LimeniProjectSnapshot
-					| ProjectDelta;
+					| ProjectDelta
+					| ConstructionProjectBootstrapPayload;
 				let next: LimeniProjectSnapshot | null;
 				try {
 					next =
-						"kind" in payload && payload.kind === "delta"
-							? cached
-								? mergeProjectDelta(cached, payload)
-								: null
-							: (payload as LimeniProjectSnapshot);
+						"kind" in payload && payload.kind === "construction-bootstrap"
+							? payload.snapshot
+							: "kind" in payload && payload.kind === "delta"
+								? cached
+									? mergeProjectDelta(cached, payload)
+									: null
+								: (payload as LimeniProjectSnapshot);
 				} catch {
 					response = await fetchProjectSync(
 						siteId,
@@ -243,6 +261,7 @@ function ScopedLimeniProjectData({
 						controller.signal,
 						mode,
 					);
+					deferCompleteSync = false;
 					if (await deniedResponse()) return;
 					if (!response.ok) throw new Error("Project unavailable");
 					next = (await response.json()) as LimeniProjectSnapshot;
@@ -264,8 +283,9 @@ function ScopedLimeniProjectData({
 					mark("snapshot-published");
 					deferred.current = null;
 				} else deferred.current = next;
-				void persistence.write(cacheKey, next);
+				if (!next.bootstrap) void persistence.write(cacheKey, next);
 				setFailed(false);
+				if (deferCompleteSync) schedule();
 			} catch {
 				if (!controller.signal.aborted) setFailed(true);
 			} finally {

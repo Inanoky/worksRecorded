@@ -184,4 +184,5 @@ export type LimeniProjectSnapshot = Awaited<
 	partVersions?: Record<string, string>;
 	diaryRowVersions?: Record<string, string>;
 	sourceVersions?: Record<string, string>;
+	bootstrap?: boolean;
 };

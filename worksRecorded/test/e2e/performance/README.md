@@ -20,7 +20,7 @@ Complete Kinde login in the opened browser. The saved session is gitignored.
 Named targets keep the flow, project, scenario, expected project API, run count,
 and cycle count consistent. The first canonical target is
 `default-construction-core`, which measures the Pļavas iela 2 project using the
-`construction-project` API. A full baseline uses five fresh browser contexts
+`construction-project/bootstrap` API for its cold diary opening. A full baseline uses five fresh browser contexts
 and three diary/warehouse cycles per context:
 
 ```sh

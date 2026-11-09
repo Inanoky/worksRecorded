@@ -34,7 +34,12 @@ it("reads old snapshots without allocation data", () => {
 	expect(parseBeginDay(JSON.stringify(day))).toEqual(day);
 });
 
-it.each(["legacy-comment", "allocation", "begin-allocation"] as const)(
+it.each([
+	"legacy-comment",
+	"allocation",
+	"begin-allocation",
+	"begin-report-cost-allocation",
+] as const)(
 	"preserves %s explanations in current data and history",
 	(source) => {
 		const updated = withBeginAllocation(day, { ...allocation, source });

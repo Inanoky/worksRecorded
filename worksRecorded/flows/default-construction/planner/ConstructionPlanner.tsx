@@ -74,19 +74,31 @@ export function useConstructionPlanner(
 	const [diaryLoading, setDiaryLoading] = useState(false);
 	const [diaryError, setDiaryError] = useState("");
 	const diarySequence = useRef(0);
+	const diaryLoadedFor = useRef<{ siteId: string; refreshKey: unknown } | null>(
+		null,
+	);
 	const showAny = show || Object.values(dayOverrides).some(Boolean);
 	const setShow = (value: boolean) => {
 		setShowValue(value);
 		setDayOverrides({});
 	};
-	const reloadDiary = useCallback(async () => {
-		if (!siteId || !enabled) return;
+	const reloadDiary = useCallback(async (force = false) => {
+		if (!siteId || !enabled || !showAny) return;
+		if (
+			!force &&
+			diaryLoadedFor.current?.siteId === siteId &&
+			Object.is(diaryLoadedFor.current.refreshKey, refreshKey)
+		)
+			return;
 		const request = ++diarySequence.current;
 		setDiaryLoading(true);
 		setDiaryError("");
 		try {
 			const result = await loadConstructionDiaryPlans(siteId);
-			if (request === diarySequence.current) setDiary({ siteId, rows: result });
+			if (request === diarySequence.current) {
+				diaryLoadedFor.current = { siteId, refreshKey };
+				setDiary({ siteId, rows: result });
+			}
 		} catch (cause) {
 			if (request === diarySequence.current)
 				setDiaryError(
@@ -95,7 +107,7 @@ export function useConstructionPlanner(
 		} finally {
 			if (request === diarySequence.current) setDiaryLoading(false);
 		}
-	}, [siteId, enabled]);
+	}, [siteId, enabled, showAny, refreshKey]);
 	useEffect(() => {
 		void refreshKey;
 		void reloadDiary();
@@ -154,7 +166,7 @@ export function useConstructionPlanner(
 		loading,
 		error,
 		reload: async () => {
-			await Promise.all([reload(), reloadDiary()]);
+			await Promise.all([reload(), reloadDiary(true)]);
 		},
 	};
 }

@@ -892,6 +892,7 @@ export default function SiteDiaryCalendar({
     React.useState<Record<string, any>>(() => initialDiary?.config ?? defaultConfig);
   const [configSiteId, setConfigSiteId] = React.useState<string | null>(() => initialDiary?.siteId ?? null);
   const clientDiary = !isZtcFlow && (limeniClientDiary || (configSiteId === siteId && defaultMap?.otherSettings?.inlineDiaryPhotos === true));
+  const constructionClientDiary = clientDiary && initialLimeniProject?.settings.organizationId !== LIMENI_ORGANIZATION_ID;
   const fimaPanelRow = rows.find((row) => row.id === fimaRecordId) ?? (fimaRecordId ? fimaSelectedRow : null);
   const fimaDiary = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.fimaCollaboration === true;
   const linkedFimaSearch = React.useRef<string | null>(null);
@@ -906,7 +907,14 @@ export default function SiteDiaryCalendar({
   const fimaFilterOptions = useFimaDiaryFilterOptions(siteId, fimaDiary, optionsRevision, fimaClientData?.rows);
   const ancillaryDiaryEnabled = configSiteId === siteId && hasLoadedRowsOnce && !fimaDiary;
   const planner = useConstructionPlanner(siteId, !isZtcFlow && ancillaryDiaryEnabled, rows);
-  const beginHours = useBeginHours(ancillaryDiaryEnabled ? siteId : null, rows);
+  const knownOrganizationId = initialLimeniProject?.settings.organizationId;
+  const beginHours = useBeginHours(
+    ancillaryDiaryEnabled &&
+      knownOrganizationId === LIMENI_ORGANIZATION_ID
+      ? siteId
+      : null,
+    rows,
+  );
   const fimaCurrentRows = React.useRef(rows);
   fimaCurrentRows.current = rows;
   const fimaCurrentSelection = React.useRef(fimaSelectedRow);
@@ -2170,16 +2178,20 @@ export default function SiteDiaryCalendar({
     );
   }, [dayGroups, keywordFilter, mediaOnlyDayGroups, beginHours.enabled, beginHours.days, beginHours.diaryDates, listPage, workFilter, floorFilter, dateFrom, dateTo, isZtcSite, fimaDiary, planner.show, visiblePlanRows]);
 
-  const clientPagination = useDiaryDayPagination(allKeywordMatchedDayGroups, JSON.stringify([siteId, dateFrom, dateTo, workFilter, floorFilter, keywordFilter, planner.show]));
+  const clientPagination = useDiaryDayPagination(allKeywordMatchedDayGroups, JSON.stringify([siteId, dateFrom, dateTo, workFilter, floorFilter, keywordFilter, planner.show]), undefined, constructionClientDiary ? 3 : undefined);
+  const clientPaginationRecordCount = React.useMemo(
+    () => allKeywordMatchedDayGroups.reduce((total, group) => total + group.rows.length, 0),
+    [allKeywordMatchedDayGroups],
+  );
   const keywordMatchedDayGroups = clientDiary ? clientPagination.groups : allKeywordMatchedDayGroups;
   const diaryPagePhotoUrls = React.useMemo(
-    () => clientDiary ? getDiaryPagePhotoUrls(allKeywordMatchedDayGroups, clientMediaPhotos, clientPagination.page) : [],
-    [clientDiary, allKeywordMatchedDayGroups, clientMediaPhotos, clientPagination.page],
+    () => clientDiary && !constructionClientDiary ? getDiaryPagePhotoUrls(allKeywordMatchedDayGroups, clientMediaPhotos, clientPagination.page) : [],
+    [clientDiary, constructionClientDiary, allKeywordMatchedDayGroups, clientMediaPhotos, clientPagination.page],
   );
   const { progress: diaryImageProgress, loading: pageImagesLoading } = useDiaryImagePreload(
-    diaryPagePhotoUrls, siteId ?? "", clientDiary && diarySnapshotSiteId === siteId,
+    diaryPagePhotoUrls, siteId ?? "", clientDiary && !constructionClientDiary && diarySnapshotSiteId === siteId,
   );
-  const imagesPreloading = clientDiary && (diarySnapshotSiteId !== siteId || (!limeniClientDiary && pageImagesLoading));
+  const imagesPreloading = clientDiary && (diarySnapshotSiteId !== siteId || (!constructionClientDiary && !limeniClientDiary && pageImagesLoading));
   useProjectPreparationStep(siteId ?? "", "settings", configSiteId === siteId, !!error);
   useProjectPreparationStep(siteId ?? "", "diary", hasLoadedRowsOnce && !imagesPreloading, !!error);
   const showInitialListSkeleton = ((loading && !hasLoadedRowsOnce) || imagesPreloading) && !error;
@@ -2600,7 +2612,7 @@ export default function SiteDiaryCalendar({
     });
 
   const renderListPagination = () => {
-    if (clientDiary) return <DiaryDayPagination {...clientPagination} onPageChange={clientPagination.setPage} language={language} disabled={loading} />;
+    if (clientDiary) return <DiaryDayPagination {...clientPagination} totalRecords={clientPaginationRecordCount} onPageChange={clientPagination.setPage} onExpandFirstPage={clientPagination.expandFirstPage} language={language} disabled={loading} />;
     if (listTotalPages <= 1 && listTotalCount <= SITE_DIARY_LIST_PAGE_SIZE)
       return null;
     const pageWindow = 2;
@@ -6380,7 +6392,7 @@ export default function SiteDiaryCalendar({
           {/* GALLERY VIEW */}
           <TabsContent value="gallery" className="mt-0">
             <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
-              <FullPhotoGallery siteId={siteId ?? ""} preloadAll={!isZtcFlow} onMediaChanged={async () => { await refreshRowsWithBisSync({ skipSync: true }); }} />
+              <FullPhotoGallery siteId={siteId ?? ""} preloadAll={!isZtcFlow && !constructionClientDiary} onMediaChanged={async () => { await refreshRowsWithBisSync({ skipSync: true }); }} />
             </React.Suspense>
           </TabsContent>
         </Tabs>
@@ -6397,6 +6409,7 @@ export default function SiteDiaryCalendar({
               siteId={siteId}
               organizationLanguage={organizationLanguage}
               isZtcFlow={isZtcSite}
+              preloadMedia={!isZtcSite && !constructionClientDiary}
               batchEditing={batchEditing && !isZtcSite}
               initialRows={dialogInitialRows}
               cachedWorkspace={!!initialLimeniProject}
@@ -7219,7 +7232,7 @@ export default function SiteDiaryCalendar({
               </DialogDescription>
             </DialogHeader>
             <ImageGallery
-              preloadAll={!isZtcFlow}
+              preloadAll={!isZtcFlow && !constructionClientDiary}
               date={photosDate}
               siteId={siteId}
               className="h-[70vh]"

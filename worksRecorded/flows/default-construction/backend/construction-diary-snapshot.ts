@@ -8,6 +8,7 @@ import {
 export type ConstructionDiarySnapshotOptions = {
 	ids?: string[];
 	media?: boolean;
+	dates?: Date[];
 };
 export async function readConstructionDiarySnapshot(
 	siteId: string,
@@ -23,6 +24,7 @@ export async function readConstructionDiarySnapshot(
 						organizationId,
 						archivedAt: null,
 						...(options.ids ? { id: { in: options.ids } } : {}),
+						...(options.dates ? { Date: { in: options.dates } } : {}),
 					},
 					orderBy: [{ Date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
 					select: constructionDiaryListSelect,
@@ -33,6 +35,7 @@ export async function readConstructionDiarySnapshot(
 					where: {
 						siteId,
 						organizationId,
+						...(options.dates ? { Date: { in: options.dates } } : {}),
 						AND: [siteDiaryPhotoPurposeWhere()],
 						OR: [
 							{ AND: [{ URL: { not: null } }, { URL: { not: "" } }] },
@@ -49,4 +52,25 @@ export async function readConstructionDiarySnapshot(
 				}),
 	]);
 	return { rows: rows.map(mapConstructionDiaryListRecord), mediaPhotos };
+}
+
+export async function readConstructionDiaryBootstrap(
+	siteId: string,
+	organizationId: string,
+	dayCount = 3,
+) {
+	const days = await prisma.sitediaryrecords.groupBy({
+		by: ["Date"],
+		where: {
+			siteId,
+			organizationId,
+			archivedAt: null,
+			Date: { not: null },
+		},
+		orderBy: { Date: "desc" },
+		take: dayCount,
+	});
+	const dates = days.flatMap((day) => (day.Date ? [day.Date] : []));
+	if (!dates.length) return { rows: [], mediaPhotos: [] };
+	return readConstructionDiarySnapshot(siteId, organizationId, { dates });
 }
