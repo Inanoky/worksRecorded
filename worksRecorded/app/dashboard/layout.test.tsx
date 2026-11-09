@@ -284,7 +284,9 @@ describe("DashboardLayout project visibility", () => {
 
 	it("shows the official Ocelt logo for Ocelt members", async () => {
 		mockOrganizationFindUnique.mockResolvedValue({ name: "Ocelt" });
-		render(await DashboardLayout({ children: <div>Page</div> }));
+		const { container, unmount } = render(
+			await DashboardLayout({ children: <div>Page</div> }),
+		);
 		expect(
 			screen.getByRole("link", {
 				name: "WorksRecorded — Ocelt business suite",
@@ -295,6 +297,10 @@ describe("DashboardLayout project visibility", () => {
 			"/brands/ocelt.svg",
 		);
 		expect(screen.getByText("Ocelt business suite")).toBeInTheDocument();
+		expect(container.querySelector(".ocelt-suite")).not.toBeNull();
+		expect(document.documentElement.dataset.oceltSuite).toBe("true");
+		unmount();
+		expect(document.documentElement.dataset.oceltSuite).toBeUndefined();
 	});
 
 	it("keeps Ocelt branding scoped to the account organization", async () => {
@@ -306,5 +312,22 @@ describe("DashboardLayout project visibility", () => {
 			screen.queryByAltText("Ošukalns celtniecība"),
 		).not.toBeInTheDocument();
 		expect(screen.queryByText("Ocelt business suite")).not.toBeInTheDocument();
+		expect(document.documentElement.dataset.oceltSuite).toBeUndefined();
+	});
+
+	it("uses Ocelt colours when an Ocelt project has FIMA diary features", async () => {
+		mockOrganizationFindUnique.mockResolvedValue({ name: "Ocelt" });
+		mockSiteFindMany.mockResolvedValue([
+			{
+				...projects[0],
+				siteDiaryRecordsMap: { otherSettings: { fimaCollaboration: true } },
+			},
+		]);
+		const { container } = render(
+			await DashboardLayout({ children: <div>Page</div> }),
+		);
+		expect(container.querySelector(".ocelt-suite")).not.toBeNull();
+		expect(document.documentElement.dataset.oceltSuite).toBe("true");
+		expect(document.documentElement.dataset.fimaSuite).toBeUndefined();
 	});
 });

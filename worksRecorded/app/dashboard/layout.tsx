@@ -21,6 +21,7 @@ import { LanguageFlagSwitcher } from "@/components/dashboard/LanguageFlagSwitche
 import { LimeniSuiteLogo } from "@/components/dashboard/LimeniSuiteLogo";
 import { LimeniSuiteTheme } from "@/components/dashboard/LimeniSuiteTheme";
 import { OceltSuiteLogo } from "@/components/dashboard/OceltSuiteLogo";
+import { OceltSuiteTheme } from "@/components/dashboard/OceltSuiteTheme";
 import { ProdevSuiteLogo } from "@/components/dashboard/ProdevSuiteLogo";
 import { ProdevSuiteTheme } from "@/components/dashboard/ProdevSuiteTheme";
 import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
@@ -119,15 +120,17 @@ export default async function DashboardLayout({
 		!limeniSuiteEnabled &&
 		!prodevSuiteEnabled &&
 		isBbbuveOrganization(organization?.name);
-	const suiteClassName = fimaCollaborationEnabled
-		? "fima-suite"
-		: limeniSuiteEnabled
-			? "limeni-suite"
-			: prodevSuiteEnabled
-				? "prodev-suite"
-				: bbbuveSuiteEnabled
-					? "bbbuve-suite"
-					: "";
+	const suiteClassName = oceltSuiteEnabled
+		? "ocelt-suite"
+		: fimaCollaborationEnabled
+			? "fima-suite"
+			: limeniSuiteEnabled
+				? "limeni-suite"
+				: prodevSuiteEnabled
+					? "prodev-suite"
+					: bbbuveSuiteEnabled
+						? "bbbuve-suite"
+						: "";
 	const suiteLabel = oceltSuiteEnabled
 		? "WorksRecorded — Ocelt business suite"
 		: limeniSuiteEnabled
@@ -168,10 +171,11 @@ export default async function DashboardLayout({
 			>
 			<ZtcNavigationProvider enabled={flowModuleKey === FLOW_MODULE_KEYS.ZTC_PRODUCTION} userId={userId} organizationId={organizationId} projects={allHeaderProjects.map(({ id, name, description, imageUrl }) => ({ id, name, description, imageUrl }))} language={organizationLanguage}>
 			<FimaWarehouseProvider key={`${userId}-${organizationId ?? ""}`}>
-				<FimaSuiteTheme enabled={fimaCollaborationEnabled} />
+				<FimaSuiteTheme enabled={fimaCollaborationEnabled && !oceltSuiteEnabled} />
 				<ProdevSuiteTheme enabled={prodevSuiteEnabled} />
 				<LimeniSuiteTheme enabled={limeniSuiteEnabled} />
 				<BbbuveSuiteTheme enabled={bbbuveSuiteEnabled} />
+				<OceltSuiteTheme enabled={oceltSuiteEnabled} />
 				{fimaCollaborationEnabled ? (
 					<FimaProjectWarehousePreload
 						siteIds={allHeaderProjects.filter(project => project.bisCaseId && isFimaDiary(project.siteDiaryRecordsMap)).map(project => project.id)}

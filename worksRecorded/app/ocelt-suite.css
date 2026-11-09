@@ -1,0 +1,116 @@
+html[data-ocelt-suite="true"],
+.ocelt-suite {
+	--background: #f7f7f6;
+	--foreground: #333;
+	--card: #fff;
+	--card-foreground: #333;
+	--popover: #fff;
+	--popover-foreground: #333;
+	--primary: #8a1e02;
+	--primary-foreground: #fff;
+	--secondary: #eee;
+	--secondary-foreground: #333;
+	--muted: #eee;
+	--muted-foreground: #5f6062;
+	--accent: #fff5d7;
+	--accent-foreground: #6a1802;
+	--border: #dedddb;
+	--input: #dedddb;
+	--ring: #8a1e02;
+	--chart-1: #8a1e02;
+	--chart-2: #fdb812;
+	--chart-3: #5f6062;
+	--chart-4: #c66a22;
+	--chart-5: #95989a;
+	--sidebar: #f7f7f6;
+	--sidebar-foreground: #333;
+	--sidebar-primary: #8a1e02;
+	--sidebar-primary-foreground: #fff;
+	--sidebar-accent: #fff5d7;
+	--sidebar-accent-foreground: #6a1802;
+	--sidebar-border: #dedddb;
+	--sidebar-ring: #8a1e02;
+	--ocelt-link: #8a1e02;
+	--ocelt-control-border: #d6b49c;
+	--ocelt-control-hover: #6a1802;
+}
+
+.dark[data-ocelt-suite="true"],
+.dark .ocelt-suite {
+	--background: #181818;
+	--foreground: #fafafa;
+	--card: #272727;
+	--card-foreground: #fafafa;
+	--popover: #272727;
+	--popover-foreground: #fafafa;
+	--primary: #fdb812;
+	--primary-foreground: #181818;
+	--secondary: #313131;
+	--secondary-foreground: #fafafa;
+	--muted: #313131;
+	--muted-foreground: #b3b3b3;
+	--accent: #313131;
+	--accent-foreground: #fdb812;
+	--border: #5f6062;
+	--input: #5f6062;
+	--ring: #fdb812;
+	--chart-1: #fdb812;
+	--chart-2: #dc8561;
+	--chart-3: #b3b3b3;
+	--chart-4: #c66a22;
+	--chart-5: #95989a;
+	--sidebar: #272727;
+	--sidebar-foreground: #fafafa;
+	--sidebar-primary: #fdb812;
+	--sidebar-primary-foreground: #181818;
+	--sidebar-accent: #313131;
+	--sidebar-accent-foreground: #fdb812;
+	--sidebar-border: #5f6062;
+	--sidebar-ring: #fdb812;
+	--ocelt-link: #fdb812;
+	--ocelt-control-border: #997326;
+	--ocelt-control-hover: #ffd166;
+}
+
+:is(html[data-ocelt-suite="true"], .ocelt-suite)
+	:is(a, button, [aria-current="page"]):is(
+		[class~="text-green-700"],
+		[class~="text-green-600"]
+	) {
+	color: var(--ocelt-link);
+}
+
+:is(html[data-ocelt-suite="true"], .ocelt-suite)
+	:is(a, button, [aria-current="page"])[class~="bg-green-50"] {
+	background-color: var(--accent);
+	border-color: var(--ocelt-control-border);
+}
+
+:is(html[data-ocelt-suite="true"], .ocelt-suite)
+	button:is([class~="bg-green-600"], [class~="bg-green-700"]) {
+	background-color: var(--primary);
+	color: var(--primary-foreground);
+}
+
+:is(html[data-ocelt-suite="true"], .ocelt-suite)
+	button:is([class~="bg-green-600"], [class~="bg-green-700"]):hover {
+	background-color: var(--ocelt-control-hover);
+}
+
+:is(html[data-ocelt-suite="true"], .ocelt-suite)
+	:is(a, button, [aria-current="page"]):is(
+		[class~="border-green-300"],
+		[class~="border-green-100"]
+	) {
+	border-color: var(--ocelt-control-border);
+}
+
+:is(html[data-ocelt-suite="true"], .ocelt-suite)
+	a:not([data-slot="button"])[class~="text-primary"] {
+	color: var(--ocelt-link);
+}
+
+:is(html[data-ocelt-suite="true"], .ocelt-suite) :is(a, button):focus-visible {
+	--tw-ring-color: color-mix(in srgb, var(--ring) 25%, transparent);
+	border-color: var(--ring);
+}
