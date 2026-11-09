@@ -53,6 +53,27 @@ jest.mock("@/components/providers/ProjectProvider", () => ({
 		<>{children}</>
 	),
 }));
+jest.mock("@/components/fima/FimaProjectProvider", () => ({
+	FimaProjectProvider: ({ children }: { children: React.ReactNode }) => (
+		<>{children}</>
+	),
+}));
+jest.mock("@/components/projects/ProjectWorkspaces", () => ({
+	ProjectWorkspaceProvider: ({ children }: { children: React.ReactNode }) => (
+		<>{children}</>
+	),
+	ProjectWorkspaceViewport: ({ children }: { children: React.ReactNode }) => (
+		<>{children}</>
+	),
+}));
+jest.mock("@/flows/ztc-production/frontend/ZtcNavigation", () => ({
+	ZtcNavigationProvider: ({ children }: { children: React.ReactNode }) => (
+		<>{children}</>
+	),
+	ZtcNavigationViewport: ({ children }: { children: React.ReactNode }) => (
+		<>{children}</>
+	),
+}));
 jest.mock("@/components/providers/ProjectLoadingProgressProvider", () => ({
 	ProjectLoadingProgressProvider: ({
 		children,
@@ -154,7 +175,7 @@ describe("DashboardLayout project visibility", () => {
 		expect(document.documentElement.dataset.limeniSuite).toBeUndefined();
 		expect(mockVisibleTgemSites).toHaveBeenCalledWith(
 			expect.objectContaining({ organizationId: "org-1" }),
-			projects,
+			projects.map((project) => ({ ...project, fimaActsEnabled: false })),
 		);
 	});
 
@@ -259,5 +280,31 @@ describe("DashboardLayout project visibility", () => {
 		expect(screen.queryByAltText("PRO DEV")).not.toBeInTheDocument();
 		expect(document.documentElement.dataset.prodevSuite).toBeUndefined();
 		expect(document.documentElement.dataset.limeniSuite).toBeUndefined();
+	});
+
+	it("shows the official Ocelt logo for Ocelt members", async () => {
+		mockOrganizationFindUnique.mockResolvedValue({ name: "Ocelt" });
+		render(await DashboardLayout({ children: <div>Page</div> }));
+		expect(
+			screen.getByRole("link", {
+				name: "WorksRecorded — Ocelt business suite",
+			}),
+		).toBeInTheDocument();
+		expect(screen.getByAltText("Ošukalns celtniecība")).toHaveAttribute(
+			"src",
+			"/brands/ocelt.svg",
+		);
+		expect(screen.getByText("Ocelt business suite")).toBeInTheDocument();
+	});
+
+	it("keeps Ocelt branding scoped to the account organization", async () => {
+		mockSiteFindMany.mockResolvedValue([
+			{ ...projects[0], name: "Testa projekts Ocelt" },
+		]);
+		render(await DashboardLayout({ children: <div>Page</div> }));
+		expect(
+			screen.queryByAltText("Ošukalns celtniecība"),
+		).not.toBeInTheDocument();
+		expect(screen.queryByText("Ocelt business suite")).not.toBeInTheDocument();
 	});
 });

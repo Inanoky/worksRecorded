@@ -20,6 +20,7 @@ import {
 import { LanguageFlagSwitcher } from "@/components/dashboard/LanguageFlagSwitcher";
 import { LimeniSuiteLogo } from "@/components/dashboard/LimeniSuiteLogo";
 import { LimeniSuiteTheme } from "@/components/dashboard/LimeniSuiteTheme";
+import { OceltSuiteLogo } from "@/components/dashboard/OceltSuiteLogo";
 import { ProdevSuiteLogo } from "@/components/dashboard/ProdevSuiteLogo";
 import { ProdevSuiteTheme } from "@/components/dashboard/ProdevSuiteTheme";
 import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
@@ -44,6 +45,7 @@ import { ZtcNavigationProvider, ZtcNavigationViewport } from "@/flows/ztc-produc
 import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
 import { isAiEvalUiEnabled } from "@/lib/ai-evals/local-gate";
 import { isBbbuveOrganization } from "@/lib/branding/bbbuve";
+import { isOceltOrganization } from "@/lib/branding/ocelt";
 import { isProdevOrganization } from "@/lib/branding/prodev";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
 import { isFimaDiary } from "@/lib/fima/diary-collaboration";
@@ -100,6 +102,8 @@ export default async function DashboardLayout({
 			: Promise.resolve(null),
 	]);
 	const fimaCollaborationEnabled = !isSuperUser && allHeaderProjects.some((project) => isFimaDiary(project.siteDiaryRecordsMap));
+	const oceltSuiteEnabled =
+		!isSuperUser && isOceltOrganization(organization?.name);
 	const limeniSuiteEnabled =
 		!isSuperUser &&
 		!fimaCollaborationEnabled &&
@@ -124,13 +128,15 @@ export default async function DashboardLayout({
 				: bbbuveSuiteEnabled
 					? "bbbuve-suite"
 					: "";
-	const suiteLabel = limeniSuiteEnabled
-		? "WorksRecorded — Līmenī business suite"
-		: prodevSuiteEnabled
-			? "WorksRecorded — ProDev business suite"
-			: bbbuveSuiteEnabled
-				? "WorksRecorded — BB BŪVE business suite"
-				: undefined;
+	const suiteLabel = oceltSuiteEnabled
+		? "WorksRecorded — Ocelt business suite"
+		: limeniSuiteEnabled
+			? "WorksRecorded — Līmenī business suite"
+			: prodevSuiteEnabled
+				? "WorksRecorded — ProDev business suite"
+				: bbbuveSuiteEnabled
+					? "WorksRecorded — BB BŪVE business suite"
+					: undefined;
 	let headerProjects = allHeaderProjects.map(({ siteDiaryRecordsMap, bisCaseId, ...project }) => ({...project, fimaActsEnabled: Boolean(bisCaseId && isFimaDiary(siteDiaryRecordsMap))}));
 	if (
 		flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL &&
@@ -214,7 +220,9 @@ export default async function DashboardLayout({
 								aria-label={suiteLabel}
 								className="flex items-center gap-2 font-semibold shrink-0"
 							>
-								{limeniSuiteEnabled ? (
+								{oceltSuiteEnabled ? (
+									<OceltSuiteLogo />
+								) : limeniSuiteEnabled ? (
 									<LimeniSuiteLogo />
 								) : prodevSuiteEnabled ? (
 									<ProdevSuiteLogo />
