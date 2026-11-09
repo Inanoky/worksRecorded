@@ -6,6 +6,7 @@ import "./globals.css";
 import { MarketingTagManager } from "@/components/analytics/MarketingTagManager";
 import { ThemeProvider } from "@/components/dashboard/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { OzoluHost } from "@/flows/demo/client/OzoluHost";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -103,7 +104,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <OzoluHost>{children}</OzoluHost>
           <Toaster richColors closeButton />
         </ThemeProvider>
         <MarketingTagManager

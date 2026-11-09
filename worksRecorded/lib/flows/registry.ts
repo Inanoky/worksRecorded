@@ -1,5 +1,6 @@
 import { defaultConstructionFlowModule } from "@/flows/default-construction/module";
 import { defaultProductionFlowModule } from "@/flows/default-production/module";
+import { demoFlowModule } from "@/flows/demo/module";
 import { fimaFlowModule } from "@/flows/fima/module";
 import { sprinklerAttendanceFlowModule } from "@/flows/sprinkler-attendance/module";
 import { tgemInvoiceApprovalFlowModule } from "@/flows/tgem-invoice-approval/module";
@@ -17,6 +18,7 @@ export const FLOW_MODULES: readonly FlowModuleDefinition[] = [
   tgemInvoiceApprovalFlowModule,
   sprinklerAttendanceFlowModule,
   fimaFlowModule,
+  demoFlowModule,
 ];
 
 export function getFlowModules() {

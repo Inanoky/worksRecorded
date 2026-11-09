@@ -3,6 +3,9 @@
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
+		"predev": "node scripts/build-ozolu-client.cjs",
+		"prebuild": "node scripts/build-ozolu-client.cjs",
+		"build:ozolu": "node scripts/build-ozolu-client.cjs",
 		"dev": "next dev --turbo",
 		"dev:debug": "cross-env NODE_OPTIONS='--inspect' next dev --turbo",
 		"build": "next build",
@@ -174,6 +177,7 @@
 		"@types/react": "^19",
 		"@types/react-dom": "^19",
 		"cross-env": "^7.0.3",
+		"esbuild": "^0.28.1",
 		"eslint": "^9",
 		"eslint-config-next": "15.3.2",
 		"fake-indexeddb": "6.2.6",

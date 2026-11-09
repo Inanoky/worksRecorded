@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
+import { DEMO_SITE_ID } from "@/flows/demo/constants";
 import { FimaProjectContent } from "@/components/fima/FimaProjectProvider";
 import { RegisterProjectWorkspace } from "@/components/projects/ProjectRegistration";
 import { getWorkspaceAccess } from "@/components/projects/workspace-access";
@@ -16,6 +18,7 @@ export default async function ProjectLayout({
 	params: Promise<{ siteId: string }>;
 }) {
 	const { siteId } = await params;
+	if (siteId === DEMO_SITE_ID) redirect("/demo");
 	const descriptor = await getWorkspaceAccess(siteId);
 	if (retainProjectFlow(descriptor.flowModuleKey)) {
 		return <RegisterProjectWorkspace descriptor={descriptor}>{children}</RegisterProjectWorkspace>;
