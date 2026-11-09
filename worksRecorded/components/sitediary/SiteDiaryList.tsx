@@ -6167,7 +6167,7 @@ export default function SiteDiaryCalendar({
                                                     size="sm"
                                                     variant="outline"
                                                     className={cn(
-                                                      "h-8",
+                                                      "h-auto min-h-8 max-w-full whitespace-normal px-2 py-1 text-center leading-tight [overflow-wrap:anywhere]",
                                                       isApproved
                                                         ? "bg-green-600 text-white hover:bg-green-600"
                                                         : isPendingApproval
