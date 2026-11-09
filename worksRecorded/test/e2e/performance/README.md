@@ -1,8 +1,10 @@
 # Production performance journey
 
 This read-only Playwright suite measures an authenticated customer moving from
-the project list to a project diary, then between the diary and warehouse. It
-also measures browser history and hard reloads. It does not create, update, or
+the project list to a project diary, switching to a second project and back,
+opening Forma 2, and using the warehouse material and invoice views. It also
+measures diary/warehouse cycles, browser history, hard reloads, and whether
+already-loaded invoice rows are fetched again. It does not create, update, or
 delete application data.
 
 ## One-time authentication
@@ -20,8 +22,11 @@ Complete Kinde login in the opened browser. The saved session is gitignored.
 Named targets keep the flow, project, scenario, expected project API, run count,
 and cycle count consistent. The first canonical target is
 `default-construction-core`, which measures the Pļavas iela 2 project using the
-`construction-project/bootstrap` API for its cold diary opening. A full baseline uses five fresh browser contexts
-and three diary/warehouse cycles per context:
+`construction-project/bootstrap` API for its cold diary opening. It switches to
+the B68 project through the project dropdown and back to Pļavas iela 2, then
+checks Forma 2, warehouse materials, invoice summaries, invoice rows, and a
+cached invoice-row reopen. A full baseline uses five fresh browser contexts and
+three diary/warehouse cycles per context:
 
 ```sh
 PERF_RUN_LABEL=baseline-v1-2026-11-08 \
@@ -49,10 +54,12 @@ Timestamped or labelled JSON and Markdown results are written under
 use `benchmark-<benchmark-id>-<run-label>.json` and `.md`; both formats include
 the benchmark ID, flow key, scenario, project name and ID, and expected API.
 
-The JSON stores API, document, fetch, XHR, RSC, failed, and unusually slow
-requests for every run, tagged with the journey phase that initiated them. The
-Markdown report lists the 20 slowest successful requests, per-phase request
-volume, divergent requests, and failed or cancelled requests separately.
+The JSON stores every browser request for every run, including documents,
+scripts, styles, images, fonts, API, fetch, XHR, RSC, failed, and cancelled
+requests, tagged with the journey phase that initiated them. The Markdown
+report records every passed readiness check and lists the 20 slowest successful
+requests, per-phase request volume, divergent requests, and failed or cancelled
+requests separately.
 Browser timings separate connection work, time to first byte, streamed or
 download time, payload size, cache status, and `Server-Timing`. High time to
 first byte points to the server, database, cold start, or an upstream service;

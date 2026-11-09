@@ -52,11 +52,13 @@ it("navigates with accessible client buttons and correct boundaries", () => {
 		);
 	}
 	render(<Diary />);
-	expect(screen.getByRole("button", { name: "Iepriekšējā" })).toBeDisabled();
-	fireEvent.click(screen.getByRole("button", { name: "Nākamā" }));
+	expect(
+		screen.getByRole("button", { name: "Iepriekšējā lapa" }),
+	).toBeDisabled();
+	fireEvent.click(screen.getByRole("button", { name: "Nākamā lapa" }));
 	expect(screen.getByText("Dienas 11–20 no 23")).toBeInTheDocument();
-	fireEvent.click(screen.getByRole("button", { name: "Nākamā" }));
-	expect(screen.getByRole("button", { name: "Nākamā" })).toBeDisabled();
+	fireEvent.click(screen.getByRole("button", { name: "Nākamā lapa" }));
+	expect(screen.getByRole("button", { name: "Nākamā lapa" })).toBeDisabled();
 });
 
 it("shows three recent days before explicitly revealing the rest of the first page", () => {
@@ -79,11 +81,37 @@ it("shows three recent days before explicitly revealing the rest of the first pa
 	render(<Diary />);
 	expect(screen.getByText("day-0,day-1,day-2")).toBeInTheDocument();
 	expect(screen.getByText("Days 1–3 of 23 · 328 records")).toBeInTheDocument();
-	expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
-	fireEvent.click(screen.getByRole("button", { name: "Show 7 more days" }));
+	expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled();
+	fireEvent.click(screen.getByRole("button", { name: "Next page" }));
 	expect(
-		screen.getByText(groups.slice(0, 10).map((group) => group.key).join(",")),
+		screen.getByText(
+			groups
+				.slice(0, 10)
+				.map((group) => group.key)
+				.join(","),
+		),
 	).toBeInTheDocument();
 	expect(screen.getByText("Days 1–10 of 23 · 328 records")).toBeInTheDocument();
-	expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+	expect(screen.getByRole("button", { name: "Next page" })).toBeEnabled();
+});
+
+it("offers an explicit older-history load while only bootstrap days are known", () => {
+	const loadMore = jest.fn();
+	function Diary() {
+		const state = useDiaryDayPagination(groups.slice(0, 3), "bootstrap", 10, 3);
+		return (
+			<DiaryDayPagination
+				{...state}
+				hasMoreUnknown
+				onLoadMore={loadMore}
+				onPageChange={state.setPage}
+				onExpandFirstPage={state.expandFirstPage}
+				language="en"
+				disabled={false}
+			/>
+		);
+	}
+	render(<Diary />);
+	fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+	expect(loadMore).toHaveBeenCalledTimes(1);
 });

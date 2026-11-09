@@ -11,6 +11,9 @@ export function DiaryDayPagination({
 	last,
 	remainingFirstPage,
 	onExpandFirstPage,
+	hasMoreUnknown = false,
+	loadingMore = false,
+	onLoadMore,
 	onPageChange,
 	language,
 	disabled,
@@ -23,11 +26,21 @@ export function DiaryDayPagination({
 	last: number;
 	remainingFirstPage: number;
 	onExpandFirstPage: () => void;
+	hasMoreUnknown?: boolean;
+	loadingMore?: boolean;
+	onLoadMore?: () => void;
 	onPageChange: (page: number) => void;
 	language: string;
 	disabled: boolean;
 }) {
 	const lv = language === "lv";
+	const olderDisabled =
+		disabled || loadingMore || (page >= totalPages && !hasMoreUnknown);
+	const showOlder = () => {
+		if (remainingFirstPage > 0) onExpandFirstPage();
+		else if (page < totalPages) onPageChange(page + 1);
+		else onLoadMore?.();
+	};
 	return (
 		<nav
 			aria-label={lv ? "Žurnāla lapas" : "Diary pages"}
@@ -60,7 +73,7 @@ export function DiaryDayPagination({
 					disabled={disabled || page <= 1}
 					onClick={() => onPageChange(page - 1)}
 				>
-					{lv ? "Iepriekšējā" : "Previous"}
+					{lv ? "Iepriekšējā lapa" : "Previous page"}
 				</Button>
 				<span aria-live="polite">
 					{page} / {totalPages}
@@ -69,12 +82,16 @@ export function DiaryDayPagination({
 					type="button"
 					variant="outline"
 					size="sm"
-					disabled={
-						disabled || page >= totalPages || remainingFirstPage > 0
-					}
-					onClick={() => onPageChange(page + 1)}
+					disabled={olderDisabled}
+					onClick={showOlder}
 				>
-					{lv ? "Nākamā" : "Next"}
+					{loadingMore
+						? lv
+							? "Ielādē…"
+							: "Loading…"
+						: lv
+							? "Nākamā lapa"
+							: "Next page"}
 				</Button>
 			</div>
 		</nav>

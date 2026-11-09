@@ -1,9 +1,11 @@
 "use server";
 
 import { TGEM_ORGANIZATION_ID } from "@/lib/client-flows/constants";
-import { getFlowAssignmentForOrganization } from "@/lib/flows/assignments-server";
 import { FLOW_MODULE_KEYS, type FlowModuleKey } from "@/lib/flows/types";
-import { resolveProductionFlowConfigForRuntime } from "@/lib/production-flow/config-server";
+import {
+  loadProductionFlowResolutionData,
+  resolveProductionFlowConfigForRuntime,
+} from "@/lib/production-flow/config-server";
 
 export async function resolveFlowModuleKeyForRuntime(args: {
   organizationId?: string | null;
@@ -13,12 +15,16 @@ export async function resolveFlowModuleKeyForRuntime(args: {
     return FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL;
   }
 
-  const assignment = await getFlowAssignmentForOrganization(args.organizationId);
+  const resolutionData = await loadProductionFlowResolutionData(args.organizationId);
+  const { assignment } = resolutionData;
   if (assignment?.enabled) {
     return assignment.flowModuleKey;
   }
 
-  const productionConfig = await resolveProductionFlowConfigForRuntime(args);
+  const productionConfig = await resolveProductionFlowConfigForRuntime(
+    args,
+    resolutionData,
+  );
   if (productionConfig?.flowModuleKey) {
     return productionConfig.flowModuleKey;
   }

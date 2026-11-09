@@ -2,7 +2,7 @@
 
 import { Building2, Check, ChevronDown, MoreHorizontal } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
 import { useWorkspaceNavigation } from "@/components/projects/WorkspaceNavigation";
 import { useProject } from "@/components/providers/ProjectProvider";
@@ -19,6 +19,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { prefetchConstructionProjectBootstrap } from "@/flows/default-construction/visual/project-sync-client";
 import { FLOW_MODULE_KEYS, type FlowModuleKey } from "@/lib/flows/types";
 import { cn } from "@/lib/utils/utils";
 import { DashboardSettingsLink } from "./DashboardSettingsLink";
@@ -130,6 +131,15 @@ export function DashboardProjectNavigation({
 	const labels = getProjectNavigationLabels(organizationLanguage);
 	const { setProject } = useProject();
 	const isTgem = flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL;
+	const prefetchProjectBootstrap =
+		flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION
+			? (siteId: string) => {
+					void prefetchConstructionProjectBootstrap(siteId);
+				}
+			: undefined;
+	const prefetchProjectRoute = prefetchProjectBootstrap
+		? undefined
+		: (href: string) => router.prefetch(href);
 
 	if (isTgem) {
 		const activeView: TgemWorkspaceNavLink["view"] | null =
@@ -189,7 +199,8 @@ export function DashboardProjectNavigation({
 					availableProjects={availableProjects}
 					isActive
 					labels={labels}
-					onPrefetch={(href) => router.prefetch(href)}
+					onProjectIntent={prefetchProjectBootstrap}
+					onRoutePrefetch={prefetchProjectRoute}
 					onSelectProject={setProject}
 					pathname={pathname}
 					showAllProjects
@@ -207,7 +218,8 @@ export function DashboardProjectNavigation({
 				availableProjects={availableProjects}
 				isActive={isProjectOverviewRoute(projectId, pathname)}
 				labels={labels}
-				onPrefetch={(href) => router.prefetch(href)}
+				onProjectIntent={prefetchProjectBootstrap}
+				onRoutePrefetch={prefetchProjectRoute}
 				onSelectProject={setProject}
 				pathname={pathname}
 			/>
@@ -380,7 +392,8 @@ function ProjectSwitcher({
 	availableProjects,
 	isActive,
 	labels,
-	onPrefetch,
+	onProjectIntent,
+	onRoutePrefetch,
 	onSelectProject,
 	pathname,
 }: {
@@ -390,11 +403,14 @@ function ProjectSwitcher({
 	availableProjects: ProjectSwitcherOption[];
 	isActive: boolean;
 	labels: { more: string; project: string; switchProject: string };
-	onPrefetch: (href: string) => void;
+	onProjectIntent?: (siteId: string) => void;
+	onRoutePrefetch?: (href: string) => void;
 	onSelectProject: (id: string, name: string) => void;
 	pathname: string;
 }) {
 	const [open, setOpen] = useState(false);
+	const intentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const preparedProjects = useRef(new Set<string>());
 	const workspace = useWorkspaceNavigation();
 	const projects = normalizeProjectSwitcherOptions(
 		showAllProjects
@@ -402,6 +418,58 @@ function ProjectSwitcher({
 			: availableProjects,
 		activeProjectId,
 		activeProjectName,
+	);
+	const clearIntentTimer = () => {
+		if (!intentTimer.current) return;
+		clearTimeout(intentTimer.current);
+		intentTimer.current = null;
+	};
+	const prepareProject = (projectId: string, href: string) => {
+		clearIntentTimer();
+		if (
+			projectId === "__all__" ||
+			projectId === activeProjectId ||
+			preparedProjects.current.has(projectId) ||
+			workspace?.store.hasRoute(href)
+		)
+			return;
+		if (!onProjectIntent && !onRoutePrefetch) return;
+		preparedProjects.current.add(projectId);
+		if (onProjectIntent) onProjectIntent(projectId);
+		else onRoutePrefetch?.(href);
+	};
+	const scheduleProject = (projectId: string, href: string) => {
+		clearIntentTimer();
+		intentTimer.current = setTimeout(
+			() => prepareProject(projectId, href),
+			180,
+		);
+	};
+	const handleOpenChange = (nextOpen: boolean) => {
+		setOpen(nextOpen);
+		if (!nextOpen) {
+			clearIntentTimer();
+			return;
+		}
+		if (!onProjectIntent) return;
+		const alternatives = projects.filter(
+			(project) => project.id !== "__all__" && project.id !== activeProjectId,
+		);
+		if (alternatives.length !== 1) return;
+		const project = alternatives[0];
+		if (!project) return;
+		const href =
+			workspace?.store.preferredHref(
+				project.id,
+				getProjectSwitchHref(project.id, pathname),
+			) ?? getProjectSwitchHref(project.id, pathname);
+		prepareProject(project.id, href);
+	};
+	useEffect(
+		() => () => {
+			if (intentTimer.current) clearTimeout(intentTimer.current);
+		},
+		[],
 	);
 
 	if (projects.length <= 1) {
@@ -421,7 +489,7 @@ function ProjectSwitcher({
 	}
 
 	return (
-		<DropdownMenu open={open} onOpenChange={setOpen}>
+		<DropdownMenu open={open} onOpenChange={handleOpenChange}>
 			<DropdownMenuTrigger asChild>
 				<button
 					type="button"
@@ -450,7 +518,10 @@ function ProjectSwitcher({
 					const href =
 						project.id === "__all__"
 							? "/dashboard/all-projects"
-							: workspace?.store.preferredHref(project.id, getProjectSwitchHref(project.id, pathname)) ?? getProjectSwitchHref(project.id, pathname);
+							: (workspace?.store.preferredHref(
+									project.id,
+									getProjectSwitchHref(project.id, pathname),
+								) ?? getProjectSwitchHref(project.id, pathname));
 					return (
 						<DropdownMenuItem key={project.id} asChild>
 							<FimaProjectNavigationLink
@@ -460,10 +531,15 @@ function ProjectSwitcher({
 									project.id === activeProjectId ? "page" : undefined
 								}
 								onClick={() => {
-									if (project.id !== "__all__")
+									if (project.id !== "__all__") {
+										prepareProject(project.id, href);
 										onSelectProject(project.id, project.name);
+									}
 								}}
-								onMouseEnter={() => onPrefetch(href)}
+								onFocus={() => scheduleProject(project.id, href)}
+								onMouseEnter={() => scheduleProject(project.id, href)}
+								onMouseLeave={clearIntentTimer}
+								onTouchStart={() => prepareProject(project.id, href)}
 								className={cn(
 									"flex w-full min-w-0 items-center gap-2",
 									project.id === activeProjectId

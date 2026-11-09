@@ -10,12 +10,20 @@ import {
   getFlowModuleByKey,
   getFlowModuleByProductionConfigKey,
 } from "@/lib/flows/registry";
-import { getFlowAssignmentForOrganization } from "@/lib/flows/assignments-server";
+import {
+  getFlowAssignmentForOrganization,
+  type FlowAssignmentRow,
+} from "@/lib/flows/assignments-server";
 
 type OverrideRow = {
   key: string;
   config: unknown;
   updatedAt: Date;
+};
+
+export type ProductionFlowResolutionData = {
+  assignment: FlowAssignmentRow | null;
+  configs: ProductionFlowConfig[];
 };
 
 function stringArray(value: unknown) {
@@ -62,7 +70,9 @@ function mergeProductionFlowConfig(
           defaultRate: String(row?.defaultRate ?? "").trim(),
           unit: String(row?.unit ?? "").trim() || "x",
         }))
-        .filter((row) => row.code && row.task && row.defaultRate)
+        .filter((row: { code: string; task: string; defaultRate: string }) =>
+          Boolean(row.code && row.task && row.defaultRate),
+        )
     : base.coefficients.rows;
 
   return {
@@ -195,14 +205,28 @@ export async function getMergedProductionFlowConfigs() {
   return configs;
 }
 
-export async function resolveProductionFlowConfigForRuntime(args: {
-  organizationId?: string | null;
-  siteId?: string | null;
-}) {
+export async function loadProductionFlowResolutionData(
+  organizationId?: string | null,
+): Promise<ProductionFlowResolutionData> {
+  const [assignment, configs] = await Promise.all([
+    getFlowAssignmentForOrganization(organizationId),
+    getMergedProductionFlowConfigs(),
+  ]);
+
+  return { assignment, configs };
+}
+
+export async function resolveProductionFlowConfigForRuntime(
+  args: {
+    organizationId?: string | null;
+    siteId?: string | null;
+  },
+  resolutionData?: ProductionFlowResolutionData,
+) {
   const organizationId = args.organizationId ?? "";
   const siteId = args.siteId ?? "";
-  const configs = await getMergedProductionFlowConfigs();
-  const assignment = await getFlowAssignmentForOrganization(organizationId);
+  const { assignment, configs } =
+    resolutionData ?? (await loadProductionFlowResolutionData(organizationId));
 
   if (assignment?.enabled) {
     const assignedModule = getFlowModuleByKey(assignment.flowModuleKey);

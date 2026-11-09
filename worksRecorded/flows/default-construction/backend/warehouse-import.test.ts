@@ -86,6 +86,7 @@ describe("warehouse web import", () => {
 		jest.mocked(extractAndEnrichBISMaterialsFromPublicUrl).mockResolvedValue({
 			items: [
 				{
+					supplierName: "SIA Piegādātājs",
 					name: "Cements",
 					quantity: 4,
 					cost: 20,
@@ -157,6 +158,7 @@ describe("warehouse web import", () => {
 		expect(prisma.bISmaterialRecords.createMany).toHaveBeenCalledWith({
 			data: [
 				expect.objectContaining({
+					supplierName: "SIA Piegādātājs",
 					siteId,
 					orgId: organizationId,
 					userId: "user-1",

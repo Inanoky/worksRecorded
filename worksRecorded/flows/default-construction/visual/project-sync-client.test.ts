@@ -1,7 +1,9 @@
 import type { LimeniProjectSnapshot } from "./project-snapshot-store";
 import {
+	clearConstructionProjectBootstrapPrefetches,
 	fetchConstructionProjectBootstrap,
 	fetchProjectSync,
+	prefetchConstructionProjectBootstrap,
 } from "./project-sync-client";
 
 const originalFetch = global.fetch;
@@ -13,6 +15,7 @@ const cached = {
 } as unknown as LimeniProjectSnapshot;
 beforeEach(() => {
 	global.fetch = jest.fn();
+	clearConstructionProjectBootstrapPrefetches();
 });
 afterAll(() => {
 	global.fetch = originalFetch;
@@ -128,4 +131,25 @@ it("loads a cold construction bootstrap from its additive endpoint", async () =>
 		"/api/sites/site%2Fone/construction-project/bootstrap",
 		{ cache: "no-cache", signal },
 	);
+});
+
+it("hands one prefetched bootstrap response to the destination project", async () => {
+	const payload = { kind: "construction-bootstrap" };
+	const response = {
+		ok: true,
+		clone: () => ({ json: async () => payload }),
+	} as unknown as Response;
+	jest.mocked(global.fetch).mockResolvedValue(response);
+
+	await Promise.all([
+		prefetchConstructionProjectBootstrap("site"),
+		prefetchConstructionProjectBootstrap("site"),
+	]);
+	const consumed = await fetchConstructionProjectBootstrap(
+		"site",
+		new AbortController().signal,
+	);
+
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+	expect(await consumed.json()).toEqual({ kind: "construction-bootstrap" });
 });

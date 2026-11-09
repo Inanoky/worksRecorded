@@ -89,7 +89,7 @@ import type {
 } from "@/lib/bis/warehouse-material-query"
 import type {
   WarehouseInvoiceLocator,
-  WarehouseInvoiceSummary,
+  WarehouseInvoicePage,
 } from "@/server/actions/warehouse-invoice-view-actions"
 import {
   getWarehouseForma2PositionLabel,
@@ -334,7 +334,8 @@ type Props = {
   fetchInvoices: (
     siteId: string,
     input: DatabaseWarehouseMaterialQueryInput,
-  ) => Promise<WarehouseInvoiceSummary[]>
+    pagination?: { offset?: number; limit?: number },
+  ) => Promise<WarehouseInvoicePage>
   fetchInvoiceRows: (
     siteId: string,
     locator: WarehouseInvoiceLocator,
@@ -1988,40 +1989,42 @@ export default function MaterialsTableClient({
             </datalist>
           </div>
 
-          <label htmlFor="warehouse-invoice-date-from" className="space-y-1.5">
-            <span className="block text-xs font-medium text-muted-foreground">
-              {t.invoiceDateFrom}
-            </span>
-            <Input
-              id="warehouse-invoice-date-from"
-              type="date"
-              value={invoiceDateFrom}
-              onChange={(event) => {
-                const nextDate = event.target.value
-                setInvoiceDateFrom(nextDate)
-                if (invoiceDateTo && nextDate > invoiceDateTo) {
-                  setInvoiceDateTo(nextDate)
-                }
-                setPage(1)
-              }}
-            />
-          </label>
+          <div className="grid min-w-0 grid-cols-2 gap-3 md:col-span-2 xl:col-span-1">
+            <label htmlFor="warehouse-invoice-date-from" className="min-w-0 space-y-1.5">
+              <span className="block text-xs font-medium text-muted-foreground">
+                {t.invoiceDateFrom}
+              </span>
+              <Input
+                id="warehouse-invoice-date-from"
+                type="date"
+                value={invoiceDateFrom}
+                onChange={(event) => {
+                  const nextDate = event.target.value
+                  setInvoiceDateFrom(nextDate)
+                  if (invoiceDateTo && nextDate > invoiceDateTo) {
+                    setInvoiceDateTo(nextDate)
+                  }
+                  setPage(1)
+                }}
+              />
+            </label>
 
-          <label htmlFor="warehouse-invoice-date-to" className="space-y-1.5">
-            <span className="block text-xs font-medium text-muted-foreground">
-              {t.invoiceDateTo}
-            </span>
-            <Input
-              id="warehouse-invoice-date-to"
-              type="date"
-              min={invoiceDateFrom || undefined}
-              value={invoiceDateTo}
-              onChange={(event) => {
-                setInvoiceDateTo(event.target.value)
-                setPage(1)
-              }}
-            />
-          </label>
+            <label htmlFor="warehouse-invoice-date-to" className="min-w-0 space-y-1.5">
+              <span className="block text-xs font-medium text-muted-foreground">
+                {t.invoiceDateTo}
+              </span>
+              <Input
+                id="warehouse-invoice-date-to"
+                type="date"
+                min={invoiceDateFrom || undefined}
+                value={invoiceDateTo}
+                onChange={(event) => {
+                  setInvoiceDateTo(event.target.value)
+                  setPage(1)
+                }}
+              />
+            </label>
+          </div>
 
           {forma2Enabled ? (
             <div className="space-y-1.5">

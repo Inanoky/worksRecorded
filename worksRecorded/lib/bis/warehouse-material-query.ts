@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { getInvoicePrefixesForSupplierSearch } from "@/lib/bis/invoice-supplier-map";
 import { prisma } from "@/lib/utils/db";
 
 export const WAREHOUSE_MATERIAL_PAGE_SIZE = 50;
@@ -195,6 +196,9 @@ export function buildWarehouseMaterialWhere(
   const and: Prisma.BISmaterialRecordsWhereInput[] = [{ siteId }];
 
   if (normalized.search) {
+    const mappedInvoicePrefixes = getInvoicePrefixesForSupplierSearch(
+      normalized.search,
+    );
     and.push({
       OR: [
         { name: { contains: normalized.search, mode: "insensitive" } },
@@ -204,6 +208,9 @@ export function buildWarehouseMaterialWhere(
         { supplierName: { contains: normalized.search, mode: "insensitive" } },
         { BISId: { contains: normalized.search, mode: "insensitive" } },
         { bisStatus: { contains: normalized.search, mode: "insensitive" } },
+        ...mappedInvoicePrefixes.map((prefix) => ({
+          invoiceNr: { startsWith: prefix, mode: "insensitive" as const },
+        })),
       ],
     });
   }

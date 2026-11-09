@@ -10,6 +10,7 @@
 		"lint": "next lint",
 		"test:webhooks": "npx tsx scripts/test-whatsapp-webhooks.ts",
 		"import:material-spend": "tsx scripts/import-material-spend.ts",
+		"backfill:warehouse-suppliers": "node --import tsx scripts/backfill-warehouse-suppliers.ts",
 		"test:smoke": "bun run test/app-smoke-tests.ts",
 		"test:start": "bun run test/startTest.ts",
 		"perf:capture-auth": "node --import tsx scripts/capture-performance-auth.ts",

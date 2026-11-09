@@ -5,14 +5,73 @@ export type ConstructionProjectBootstrapPayload = {
 	snapshot: LimeniProjectSnapshot;
 };
 
-export function fetchConstructionProjectBootstrap(
+const BOOTSTRAP_PREFETCH_TTL_MS = 15_000;
+const bootstrapPrefetches = new Map<
+	string,
+	{ expiresAt: number; response: Promise<Response> }
+>();
+
+function constructionBootstrapUrl(siteId: string) {
+	return `/api/sites/${encodeURIComponent(siteId)}/construction-project/bootstrap`;
+}
+
+function getBootstrapPrefetch(siteId: string) {
+	const entry = bootstrapPrefetches.get(siteId);
+	if (!entry) return null;
+	if (entry.expiresAt > Date.now()) return entry;
+	bootstrapPrefetches.delete(siteId);
+	return null;
+}
+
+export function prefetchConstructionProjectBootstrap(siteId: string) {
+	const existing = getBootstrapPrefetch(siteId);
+	if (existing)
+		return existing.response.then(
+			() => undefined,
+			() => undefined,
+		);
+
+	const entry = {
+		expiresAt: Date.now() + BOOTSTRAP_PREFETCH_TTL_MS,
+		response: fetch(constructionBootstrapUrl(siteId), { cache: "no-cache" }),
+	};
+	bootstrapPrefetches.set(siteId, entry);
+	void entry.response.then(
+		(response) => {
+			if (!response.ok && bootstrapPrefetches.get(siteId) === entry)
+				bootstrapPrefetches.delete(siteId);
+		},
+		() => {
+			if (bootstrapPrefetches.get(siteId) === entry)
+				bootstrapPrefetches.delete(siteId);
+		},
+	);
+	return entry.response.then(
+		() => undefined,
+		() => undefined,
+	);
+}
+
+export function clearConstructionProjectBootstrapPrefetches() {
+	bootstrapPrefetches.clear();
+}
+
+export async function fetchConstructionProjectBootstrap(
 	siteId: string,
 	signal: AbortSignal,
 ) {
-	return fetch(
-		`/api/sites/${encodeURIComponent(siteId)}/construction-project/bootstrap`,
-		{ cache: "no-cache", signal },
-	);
+	const prefetched = getBootstrapPrefetch(siteId);
+	if (!prefetched)
+		return fetch(constructionBootstrapUrl(siteId), {
+			cache: "no-cache",
+			signal,
+		});
+
+	bootstrapPrefetches.delete(siteId);
+	const response = await prefetched.response;
+	if (signal.aborted)
+		throw signal.reason ?? new DOMException("Aborted", "AbortError");
+	return response.clone();
 }
 
 export async function fetchProjectSync(

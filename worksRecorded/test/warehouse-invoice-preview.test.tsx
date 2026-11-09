@@ -91,7 +91,11 @@ function props(): Props {
 		copyMaterialRecord: jest.fn(),
 		deleteRecords: jest.fn(),
 		moveRecordsToProject: jest.fn(),
-		fetchInvoices: jest.fn().mockResolvedValue([]),
+		fetchInvoices: jest.fn().mockResolvedValue({
+			invoices: [],
+			nextOffset: null,
+			totalCount: 0,
+		}),
 		fetchInvoiceRows: jest.fn().mockResolvedValue([]),
 	};
 }

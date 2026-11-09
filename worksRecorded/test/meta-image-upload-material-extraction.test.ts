@@ -180,6 +180,7 @@ describe("site-manager material image upload extraction", () => {
 				reason: "readable invoice with construction material rows",
 			})
 			.mockResolvedValueOnce({
+				supplierName: "SIA DEPO DIY",
 				items: expectedItemsWithDateEvidence,
 			});
 	});
@@ -263,6 +264,7 @@ describe("site-manager material image upload extraction", () => {
 			expect(createManyArg.data).toEqual(
 				expect.arrayContaining([
 					expect.objectContaining({
+							supplierName: "SIA DEPO DIY",
 						name: expected.name,
 						quantity: expected.quantity,
 						invoiceNr: expected.invoiceNr,
@@ -318,6 +320,7 @@ describe("site-manager material image upload extraction", () => {
 				reason: "document-like invoice but material rows are uncertain",
 			})
 			.mockResolvedValueOnce({
+				supplierName: "SIA DEPO DIY",
 				items: expectedItemsWithDateEvidence,
 			});
 
@@ -370,6 +373,7 @@ describe("site-manager material image upload extraction", () => {
 				reason: "readable invoice with construction service rows and prices",
 			})
 			.mockResolvedValueOnce({
+				supplierName: "SIA Celtniecības partneris",
 				items: [
 					{
 						name: "Celtniecības pakalpojumi",
@@ -407,6 +411,7 @@ describe("site-manager material image upload extraction", () => {
 		expect(mockCreateMany).toHaveBeenCalledWith({
 			data: [
 				expect.objectContaining({
+					supplierName: "SIA Celtniecības partneris",
 					name: "Celtniecības pakalpojumi",
 					cost: 4200,
 					invoiceNr: "MDP 34",

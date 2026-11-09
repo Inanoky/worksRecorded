@@ -58,6 +58,7 @@ export async function importWarehouseInvoice(receipt: string) {
 					data: payload.items.map((item) => ({
 						...where,
 						userId: user.id,
+						supplierName: item.supplierName?.trim() || null,
 						name: item.name,
 						quantity: item.quantity,
 						cost: item.cost,

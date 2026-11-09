@@ -15,6 +15,7 @@ const invoice: WarehouseInvoiceSummary = {
   itemCount: 2,
   totalCost: 30,
   sentCount: 0,
+  movableRowIds: ["row-1", "row-2"],
 }
 
 const rows = [
@@ -38,9 +39,17 @@ const rows = [
   },
 ] as WarehouseMaterialRow[]
 
+function invoicePage(
+  invoices: WarehouseInvoiceSummary[],
+  nextOffset: number | null = null,
+  totalCount = invoices.length,
+) {
+  return { invoices, nextOffset, totalCount }
+}
+
 function Harness({
   active,
-  fetchInvoices = jest.fn().mockResolvedValue([invoice]),
+  fetchInvoices = jest.fn().mockResolvedValue(invoicePage([invoice])),
   fetchInvoiceRows = jest.fn().mockResolvedValue(rows),
 }: {
   active: boolean
@@ -64,7 +73,7 @@ function Harness({
 }
 
 it("retains invoice summaries and rows when the invoice view is reopened", async () => {
-  const fetchInvoices = jest.fn().mockResolvedValue([invoice])
+  const fetchInvoices = jest.fn().mockResolvedValue(invoicePage([invoice]))
   const fetchInvoiceRows = jest.fn().mockResolvedValue(rows)
   const props = {
     siteId: "site-1",
@@ -92,7 +101,7 @@ it("retains invoice summaries and rows when the invoice view is reopened", async
 })
 
 it("selects every movable row from the invoice header", async () => {
-  const fetchInvoices = jest.fn().mockResolvedValue([invoice])
+  const fetchInvoices = jest.fn().mockResolvedValue(invoicePage([invoice]))
   const fetchInvoiceRows = jest.fn().mockResolvedValue(rows)
   render(
     <Harness
@@ -119,4 +128,63 @@ it("selects every movable row from the invoice header", async () => {
   ).toBeChecked()
   expect(fetchInvoices).toHaveBeenCalledTimes(1)
   expect(fetchInvoiceRows).toHaveBeenCalledTimes(1)
+})
+
+it("selects invoice rows immediately without loading the details", async () => {
+  const fetchInvoiceRows = jest.fn().mockResolvedValue(rows)
+  render(<Harness active fetchInvoiceRows={fetchInvoiceRows} />)
+  await screen.findByText("INV-1")
+
+  const checkbox = screen.getByRole("checkbox", {
+    name: "Select all movable rows in this invoice: INV-1",
+  })
+  fireEvent.click(checkbox)
+
+  expect(fetchInvoiceRows).not.toHaveBeenCalled()
+  expect(checkbox).toBeChecked()
+})
+
+it("allows selecting unsent rows when part of the invoice is already in BIS", async () => {
+  render(
+    <Harness
+      active
+      fetchInvoices={jest.fn().mockResolvedValue(invoicePage([
+        { ...invoice, sentCount: 1, movableRowIds: ["row-1"] },
+      ]))}
+    />,
+  )
+
+  const checkbox = await screen.findByRole("checkbox", {
+    name: "Select all movable rows in this invoice: INV-1",
+  })
+  expect(checkbox).toBeEnabled()
+  fireEvent.click(checkbox)
+  expect(checkbox).toBeChecked()
+})
+
+it("loads another bounded invoice page on demand", async () => {
+  const secondInvoice = {
+    ...invoice,
+    key: "batch:two",
+    locator: { type: "batch" as const, value: "two" },
+    invoiceNumber: "INV-2",
+    movableRowIds: ["row-3"],
+  }
+  const fetchInvoices = jest
+    .fn()
+    .mockResolvedValueOnce(invoicePage([invoice], 1, 2))
+    .mockResolvedValueOnce(invoicePage([secondInvoice], null, 2))
+
+  render(<Harness active fetchInvoices={fetchInvoices} />)
+  await screen.findByText("INV-1")
+  expect(screen.queryByText("INV-2")).not.toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole("button", { name: "Load more invoices" }))
+
+  expect(await screen.findByText("INV-2")).toBeInTheDocument()
+  expect(fetchInvoices).toHaveBeenLastCalledWith(
+    "site-1",
+    {},
+    { offset: 1, limit: 30 },
+  )
 })

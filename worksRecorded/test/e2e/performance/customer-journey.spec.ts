@@ -33,7 +33,14 @@ type NetworkRequestResult = {
 type RunResult = {
 	run: number;
 	metrics: Record<string, number>;
+	checks: JourneyCheck[];
 	networkRequests: NetworkRequestResult[];
+};
+
+type JourneyCheck = {
+	name: string;
+	status: "passed";
+	durationMs: number;
 };
 
 const benchmarkTarget = getPerformanceBenchmarkTarget(process.env.PERF_TARGET);
@@ -48,6 +55,14 @@ const benchmarkId = (
 const flowKey = process.env.PERF_FLOW_KEY ?? benchmarkTarget?.flowKey ?? null;
 const projectName =
 	process.env.PERF_PROJECT_NAME ?? benchmarkTarget?.projectName ?? null;
+const secondaryProjectId =
+	process.env.PERF_SECONDARY_PROJECT_ID ??
+	benchmarkTarget?.secondaryProjectId ??
+	null;
+const secondaryProjectName =
+	process.env.PERF_SECONDARY_PROJECT_NAME ??
+	benchmarkTarget?.secondaryProjectName ??
+	null;
 const scenario =
 	process.env.PERF_SCENARIO ??
 	benchmarkTarget?.scenario ??
@@ -55,6 +70,10 @@ const scenario =
 const expectedProjectApiPath =
 	process.env.PERF_EXPECTED_PROJECT_API_PATH ??
 	benchmarkTarget?.expectedProjectApiPath ??
+	null;
+const secondaryExpectedProjectApiPath =
+	process.env.PERF_SECONDARY_EXPECTED_PROJECT_API_PATH ??
+	benchmarkTarget?.secondaryExpectedProjectApiPath ??
 	null;
 const authFile = resolve(
 	process.env.PERF_AUTH_FILE ?? "playwright/.auth/performance-user.json",
@@ -79,6 +98,7 @@ const projectCacheDatabase = "works-recorded-limeni-v1";
 const projectsReady = '[data-performance-ready="projects-list"]';
 const diaryReady = '[data-performance-ready="project-diary"]';
 const warehouseReady = '[data-performance-ready="warehouse"]';
+const forma2Heading = /^(Analītika|Analytics)$/;
 
 function percentile(values: number[], percentileValue: number) {
 	const sorted = [...values].sort((left, right) => left - right);
@@ -92,6 +112,9 @@ function elapsed(start: number, end: number) {
 
 function sanitizeRequestUrl(value: string) {
 	const url = new URL(value);
+	if (url.protocol !== "http:" && url.protocol !== "https:") {
+		return url.protocol;
+	}
 	const queryKeys = Array.from(url.searchParams.keys()).sort();
 	return `${url.origin}${url.pathname}${queryKeys.length ? `?${queryKeys.join("&")}` : ""}`;
 }
@@ -127,20 +150,6 @@ function likelyBottleneck(
 	return "mixed or fast";
 }
 
-function shouldKeepRequest(request: Request, durationMs: number) {
-	const resourceType = request.resourceType();
-	const url = new URL(request.url());
-	return (
-		resourceType === "document" ||
-		resourceType === "fetch" ||
-		resourceType === "xhr" ||
-		request.method() !== "GET" ||
-		url.pathname.startsWith("/api/") ||
-		url.searchParams.has("_rsc") ||
-		durationMs >= 1_000
-	);
-}
-
 function captureNetworkRequests(page: Page) {
 	const records: NetworkRequestResult[] = [];
 	const pending = new Set<Promise<void>>();
@@ -159,7 +168,6 @@ function captureNetworkRequests(page: Page) {
 			if (!response) return;
 			const timing = request.timing();
 			const durationMs = elapsed(0, timing.responseEnd);
-			if (!shouldKeepRequest(request, durationMs)) return;
 			const sizes = await request.sizes().catch(() => null);
 			const headers = response.headers();
 			const partial = {
@@ -239,7 +247,57 @@ async function measure(action: () => Promise<void>) {
 
 async function waitForReady(page: Page, url: RegExp, selector: string) {
 	await page.waitForURL(url);
-	await expect(page.locator(selector)).toBeVisible({ timeout: 120_000 });
+	await expect(page.locator(`${selector}:visible`).first()).toBeVisible({
+		timeout: 120_000,
+	});
+}
+
+async function checkedStage(
+	checks: JourneyCheck[],
+	name: string,
+	action: () => Promise<void>,
+) {
+	return test.step(name, async () => {
+		const startedAt = performance.now();
+		try {
+			await action();
+		} catch (error) {
+			throw new Error(`Journey stage failed: ${name}`, { cause: error });
+		}
+		const durationMs = Math.round(performance.now() - startedAt);
+		checks.push({ name, status: "passed", durationMs });
+		return durationMs;
+	});
+}
+
+async function switchProjectFromDropdown(
+	page: Page,
+	targetProjectId: string,
+	targetUrl: RegExp,
+) {
+	await page
+		.getByRole("button", { name: /^(Mainīt projektu|Switch project)$/ })
+		.click();
+	await page
+		.locator(
+			`a[role="menuitem"][href="/dashboard/sites/${targetProjectId}/dashboard"]`,
+		)
+		.click();
+	await waitForReady(page, targetUrl, diaryReady);
+}
+
+async function waitForInvoiceView(page: Page) {
+	await expect(
+		page.getByText(/^(Ielādē rēķinus\.\.\.|Loading invoices\.\.\.)$/),
+	).toHaveCount(0, { timeout: 120_000 });
+	await expect(
+		page.getByText(
+			/^(Neizdevās ielādēt rēķina datus\.|Invoice data could not be loaded\.)$/,
+		),
+	).toHaveCount(0);
+	const invoiceDate = page.getByText(/^(Rēķina datums|Invoice date)$/).first();
+	await expect(invoiceDate).toBeVisible({ timeout: 120_000 });
+	return invoiceDate.locator("xpath=ancestor::button[1]");
 }
 
 async function measureNavigation(
@@ -355,13 +413,21 @@ async function runJourney(
 	const page = await context.newPage();
 	const networkCapture = captureNetworkRequests(page);
 	const metrics: Record<string, number> = {};
+	const checks: JourneyCheck[] = [];
 	const diaryUrl = new RegExp(
 		`/dashboard/sites/${projectId}/dashboard(?:\\?.*)?$`,
+	);
+	const secondaryDiaryUrl = secondaryProjectId
+		? new RegExp(`/dashboard/sites/${secondaryProjectId}/dashboard(?:\\?.*)?$`)
+		: null;
+	const forma2Url = new RegExp(
+		`/dashboard/sites/${projectId}/analytics(?:\\?.*)?$`,
 	);
 	const warehouseUrl = new RegExp(
 		`/dashboard/sites/${projectId}/BIS(?:\\?.*)?$`,
 	);
 	const diaryHref = `/dashboard/sites/${projectId}/dashboard`;
+	const forma2Href = `/dashboard/sites/${projectId}/analytics`;
 	const warehouseHref = `/dashboard/sites/${projectId}/BIS`;
 
 	console.log(`[performance] run ${run}/${runs}: opening projects`);
@@ -369,10 +435,14 @@ async function runJourney(
 		await logIn(page, metrics, networkCapture.setPhase);
 	} else {
 		networkCapture.setPhase("projects_cold_load");
-		metrics.projects_cold_load_ms = await measure(async () => {
-			await page.goto(new URL("/dashboard", baseURL).toString());
-			await waitForReady(page, /\/dashboard(?:\?.*)?$/, projectsReady);
-		});
+		metrics.projects_cold_load_ms = await checkedStage(
+			checks,
+			"dashboard project list ready",
+			async () => {
+				await page.goto(new URL("/dashboard", baseURL).toString());
+				await waitForReady(page, /\/dashboard(?:\?.*)?$/, projectsReady);
+			},
+		);
 	}
 	if (coldProjectCache) {
 		networkCapture.setPhase("project_cache_reset");
@@ -383,11 +453,13 @@ async function runJourney(
 
 	console.log(`[performance] run ${run}/${runs}: opening project diary`);
 	networkCapture.setPhase("project_first_open");
-	metrics.project_first_open_ms = await measureNavigation(
-		page,
-		() => page.locator(`a[href="${diaryHref}"]`).first().click(),
-		diaryUrl,
-		diaryReady,
+	metrics.project_first_open_ms = await checkedStage(
+		checks,
+		"primary project cold diary ready",
+		async () => {
+			await page.locator(`a[href="${diaryHref}"]`).first().click();
+			await waitForReady(page, diaryUrl, diaryReady);
+		},
 	);
 	const bootstrapMetrics = await collectProjectBootstrapMetrics(
 		page,
@@ -397,13 +469,105 @@ async function runJourney(
 		if (value !== undefined) metrics[name] = value;
 	}
 
+	if (secondaryProjectId && secondaryDiaryUrl) {
+		console.log(`[performance] run ${run}/${runs}: switching projects`);
+		networkCapture.setPhase("primary_to_secondary_project");
+		metrics.primary_to_secondary_project_ms = await checkedStage(
+			checks,
+			`secondary project ${secondaryProjectName ?? secondaryProjectId} diary ready`,
+			() =>
+				switchProjectFromDropdown(page, secondaryProjectId, secondaryDiaryUrl),
+		);
+		networkCapture.setPhase("secondary_to_primary_project");
+		metrics.secondary_to_primary_project_ms = await checkedStage(
+			checks,
+			"primary project diary ready after project switch",
+			() => switchProjectFromDropdown(page, projectId as string, diaryUrl),
+		);
+	}
+
+	console.log(`[performance] run ${run}/${runs}: opening Forma 2`);
+	networkCapture.setPhase("diary_to_forma2");
+	metrics.diary_to_forma2_ms = await checkedStage(
+		checks,
+		"Forma 2 ready",
+		async () => {
+			await page.locator(`a[href="${forma2Href}"]`).first().click();
+			await page.waitForURL(forma2Url);
+			await expect(
+				page.getByRole("heading", { name: forma2Heading }),
+			).toBeVisible({
+				timeout: 120_000,
+			});
+		},
+	);
+	networkCapture.setPhase("forma2_to_diary");
+	metrics.forma2_to_diary_ms = await checkedStage(
+		checks,
+		"project diary ready after Forma 2",
+		async () => {
+			await page.locator(`a[href="${diaryHref}"]`).first().click();
+			await waitForReady(page, diaryUrl, diaryReady);
+		},
+	);
+
 	console.log(`[performance] run ${run}/${runs}: opening warehouse`);
 	networkCapture.setPhase("warehouse_first_open");
-	metrics.warehouse_first_open_ms = await measureNavigation(
-		page,
-		() => page.locator(`a[href="${warehouseHref}"]`).first().click(),
-		warehouseUrl,
-		warehouseReady,
+	metrics.warehouse_first_open_ms = await checkedStage(
+		checks,
+		"warehouse ready",
+		async () => {
+			await page.locator(`a[href="${warehouseHref}"]`).first().click();
+			await waitForReady(page, warehouseUrl, warehouseReady);
+			await expect(
+				page.getByRole("button", { name: /^(Materiāli|Materials)$/ }),
+			).toBeVisible();
+		},
+	);
+
+	networkCapture.setPhase("warehouse_materials_to_invoices");
+	metrics.warehouse_materials_to_invoices_ms = await checkedStage(
+		checks,
+		"warehouse invoice list ready",
+		async () => {
+			await page.getByRole("button", { name: /^(Rēķini|Invoices)$/ }).click();
+			const invoiceButton = await waitForInvoiceView(page);
+			await invoiceButton.click();
+			await expect(
+				page.getByText(/^(Rēķina pozīcijas|Invoice rows)$/).first(),
+			).toBeVisible({ timeout: 120_000 });
+		},
+	);
+
+	networkCapture.setPhase("warehouse_invoice_to_materials");
+	metrics.warehouse_invoice_to_materials_ms = await checkedStage(
+		checks,
+		"warehouse materials view restored",
+		async () => {
+			await page
+				.getByRole("button", { name: /^(Materiāli|Materials)$/ })
+				.click();
+			await expect(page.locator(warehouseReady)).toBeVisible();
+		},
+	);
+
+	networkCapture.setPhase("warehouse_invoice_cached_reopen");
+	metrics.warehouse_invoice_cached_reopen_ms = await checkedStage(
+		checks,
+		"cached warehouse invoice rows reopen without refetch",
+		async () => {
+			await page.getByRole("button", { name: /^(Rēķini|Invoices)$/ }).click();
+			const invoiceButton = await waitForInvoiceView(page);
+			await expect(invoiceButton).toHaveAttribute("aria-expanded", "true");
+			await invoiceButton.click();
+			await expect(invoiceButton).toHaveAttribute("aria-expanded", "false");
+			await invoiceButton.click();
+			await expect(invoiceButton).toHaveAttribute("aria-expanded", "true");
+			await expect(
+				page.getByText(/^(Rēķina pozīcijas|Invoice rows)$/).first(),
+			).toBeVisible();
+			await page.waitForTimeout(500);
+		},
 	);
 
 	for (let cycle = 1; cycle <= cycles; cycle += 1) {
@@ -472,15 +636,44 @@ async function runJourney(
 				);
 			})
 		: true;
+	const secondaryExpectedProjectApiObserved = secondaryExpectedProjectApiPath
+		? networkCapture.records.some((request) => {
+				const url = new URL(request.url);
+				return (
+					url.pathname === secondaryExpectedProjectApiPath &&
+					request.method === "GET" &&
+					request.status === 200 &&
+					request.failure === null
+				);
+			})
+		: true;
+	const cachedInvoicePostRequests = networkCapture.records.filter((request) => {
+		const url = new URL(request.url);
+		return (
+			request.journeyPhase === "warehouse_invoice_cached_reopen" &&
+			request.method === "POST" &&
+			url.pathname === `/dashboard/sites/${projectId}/BIS`
+		);
+	});
+	metrics.warehouse_invoice_cached_reopen_post_requests =
+		cachedInvoicePostRequests.length;
 	await context.close();
 	expect(
 		expectedProjectApiObserved,
 		`Expected a successful GET for ${expectedProjectApiPath} while measuring ${benchmarkId}.`,
 	).toBe(true);
+	expect(
+		secondaryExpectedProjectApiObserved,
+		`Expected a successful GET for ${secondaryExpectedProjectApiPath} while switching to ${secondaryProjectName ?? secondaryProjectId}.`,
+	).toBe(true);
+	expect(
+		cachedInvoicePostRequests,
+		"Reopening already-loaded invoice rows should not repeat a warehouse server-action request.",
+	).toHaveLength(0);
 	console.log(
 		`[performance] run ${run}/${runs}: complete (${networkCapture.records.length} network requests saved)`,
 	);
-	return { run, metrics, networkRequests: networkCapture.records };
+	return { run, metrics, checks, networkRequests: networkCapture.records };
 }
 
 function buildMarkdown(results: RunResult[]) {
@@ -552,6 +745,9 @@ function buildMarkdown(results: RunResult[]) {
 		group.bytes += request.responseBytes ?? 0;
 		phaseBytes.set(request.journeyPhase, group);
 	}
+	const checks = results.flatMap((result) =>
+		result.checks.map((check) => ({ run: result.run, ...check })),
+	);
 
 	return [
 		"# Production performance journey",
@@ -563,11 +759,25 @@ function buildMarkdown(results: RunResult[]) {
 		`Target: ${new URL(baseURL).origin}`,
 		`Project name: ${projectName ?? "unspecified"}`,
 		`Project ID: ${projectId}`,
+		`Secondary project name: ${secondaryProjectName ?? "not configured"}`,
+		`Secondary project ID: ${secondaryProjectId ?? "not configured"}`,
 		`Expected project API: ${expectedProjectApiPath ?? "not enforced"}`,
+		`Expected secondary project API: ${secondaryExpectedProjectApiPath ?? "not enforced"}`,
 		`Initial project cache: ${coldProjectCache ? "cold (IndexedDB cleared)" : "preserved"}`,
 		`Run label: ${runLabel}`,
 		`Runs: ${results.length}`,
 		`Diary/warehouse cycles per run: ${cycles}`,
+		"",
+		"## Verified journey checks",
+		"",
+		"Each row passed its URL and usable-content readiness assertion. A failed check stops the run and is named in the Playwright report.",
+		"",
+		"| Run | Check | Status | Duration ms |",
+		"| ---: | --- | --- | ---: |",
+		...checks.map(
+			(check) =>
+				`| ${check.run} | ${check.name} | ${check.status} | ${check.durationMs} |`,
+		),
 		"",
 		"| Metric | Samples | P50 ms | P75 ms | P95 ms |",
 		"| --- | ---: | ---: | ---: | ---: |",
@@ -657,7 +867,10 @@ test("authenticated projects, diary, and warehouse journey", async ({
 		scenario,
 		projectName,
 		projectId,
+		secondaryProjectName,
+		secondaryProjectId,
 		expectedProjectApiPath,
+		secondaryExpectedProjectApiPath,
 		coldProjectCache,
 	};
 	await writeFile(

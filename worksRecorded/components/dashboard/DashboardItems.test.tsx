@@ -11,6 +11,7 @@ import { MobileMenu } from "./MobileMenu";
 let mockPathname = "/dashboard";
 let mockSearchParams = "";
 const mockPrefetch = jest.fn();
+const mockProjectBootstrapPrefetch = jest.fn();
 
 jest.mock("next/navigation", () => ({
 	usePathname: () => mockPathname,
@@ -54,6 +55,11 @@ jest.mock("@/lib/production-flow/runtime-server", () => ({
 	getProjectNavigationRuntimeForSite: jest.fn(),
 }));
 
+jest.mock("@/flows/default-construction/visual/project-sync-client", () => ({
+	prefetchConstructionProjectBootstrap: (...args: unknown[]) =>
+		mockProjectBootstrapPrefetch(...args),
+}));
+
 const getProjectNavigationRuntimeForSiteMock =
 	getProjectNavigationRuntimeForSite as jest.MockedFunction<
 		typeof getProjectNavigationRuntimeForSite
@@ -74,6 +80,7 @@ describe("dashboard navigation", () => {
 		mockPathname = "/dashboard";
 		mockSearchParams = "";
 		mockPrefetch.mockClear();
+		mockProjectBootstrapPrefetch.mockClear();
 		window.sessionStorage.clear();
 		getProjectNavigationRuntimeForSiteMock.mockReset();
 		getProjectNavigationRuntimeForSiteMock.mockResolvedValue(null);
@@ -454,6 +461,7 @@ describe("dashboard navigation", () => {
 						{ id: "site-current", name: "Current project" },
 						{ id: "site-next", name: "Next project" },
 					]}
+					flowModuleKey={FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}
 					organizationLanguage="en"
 				/>
 			</ProjectProvider>,
@@ -469,12 +477,19 @@ describe("dashboard navigation", () => {
 		const nextProjectLink = await screen.findByRole("menuitem", {
 			name: "Next project",
 		});
+		expect(mockProjectBootstrapPrefetch).toHaveBeenCalledTimes(1);
+		expect(mockProjectBootstrapPrefetch).toHaveBeenCalledWith("site-next");
 		expect(nextProjectLink).toHaveAttribute(
 			"href",
 			"/dashboard/sites/site-next/timesheets",
 		);
 
+		await user.hover(nextProjectLink);
 		await user.click(nextProjectLink);
+		expect(mockProjectBootstrapPrefetch).toHaveBeenCalledTimes(1);
+		expect(mockPrefetch).not.toHaveBeenCalledWith(
+			"/dashboard/sites/site-next/timesheets",
+		);
 		expect(window.sessionStorage.getItem("project:user-switcher")).toBe(
 			JSON.stringify({ id: "site-next", name: "Next project" }),
 		);

@@ -837,6 +837,8 @@ export default function SiteDiaryCalendar({
   >([]);
   const [clientMediaPhotos, setClientMediaPhotos] = React.useState<DiaryMediaPhoto[]>([]);
   const [loading, setLoading] = React.useState(Boolean(siteId));
+  const [olderDaysLoading, setOlderDaysLoading] = React.useState(false);
+  const [historyLoadedSiteId, setHistoryLoadedSiteId] = React.useState<string | null>(null);
   const [hasLoadedRowsOnce, setHasLoadedRowsOnce] = React.useState(false);
   const [showDelayedListSkeleton, setShowDelayedListSkeleton] =
     React.useState(false);
@@ -880,6 +882,7 @@ export default function SiteDiaryCalendar({
 
   React.useEffect(() => {
     setDiarySnapshotSiteId(null);
+    setHistoryLoadedSiteId(null);
     setFimaFilters({});
     return () => {
       ++diaryRowsRequestRef.current;
@@ -2183,6 +2186,17 @@ export default function SiteDiaryCalendar({
     () => allKeywordMatchedDayGroups.reduce((total, group) => total + group.rows.length, 0),
     [allKeywordMatchedDayGroups],
   );
+  const loadOlderDiaryDays = React.useCallback(async () => {
+    if (!siteId || olderDaysLoading) return;
+    setOlderDaysLoading(true);
+    try {
+      await refreshRowsWithBisSync({ skipSync: true });
+      setHistoryLoadedSiteId(siteId);
+      clientPagination.expandFirstPage();
+    } finally {
+      setOlderDaysLoading(false);
+    }
+  }, [clientPagination, olderDaysLoading, refreshRowsWithBisSync, siteId]);
   const keywordMatchedDayGroups = clientDiary ? clientPagination.groups : allKeywordMatchedDayGroups;
   const diaryPagePhotoUrls = React.useMemo(
     () => clientDiary && !constructionClientDiary ? getDiaryPagePhotoUrls(allKeywordMatchedDayGroups, clientMediaPhotos, clientPagination.page) : [],
@@ -2612,7 +2626,7 @@ export default function SiteDiaryCalendar({
     });
 
   const renderListPagination = () => {
-    if (clientDiary) return <DiaryDayPagination {...clientPagination} totalRecords={clientPaginationRecordCount} onPageChange={clientPagination.setPage} onExpandFirstPage={clientPagination.expandFirstPage} language={language} disabled={loading} />;
+    if (clientDiary) return <DiaryDayPagination {...clientPagination} totalRecords={clientPaginationRecordCount} hasMoreUnknown={initialLimeniProject?.bootstrap === true && historyLoadedSiteId !== siteId} loadingMore={olderDaysLoading} onLoadMore={loadOlderDiaryDays} onPageChange={clientPagination.setPage} onExpandFirstPage={clientPagination.expandFirstPage} language={language} disabled={loading} />;
     if (listTotalPages <= 1 && listTotalCount <= SITE_DIARY_LIST_PAGE_SIZE)
       return null;
     const pageWindow = 2;

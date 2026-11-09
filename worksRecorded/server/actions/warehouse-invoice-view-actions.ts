@@ -4,6 +4,7 @@ import {
   type WarehouseMaterialQueryInput,
   warehouseMaterialSelect,
 } from "@/lib/bis/warehouse-material-query";
+import { resolveInvoiceSupplierName } from "@/lib/bis/invoice-supplier-map";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
@@ -29,7 +30,17 @@ export type WarehouseInvoiceSummary = {
   itemCount: number;
   totalCost: number;
   sentCount: number;
+  movableRowIds: string[];
 };
+
+export type WarehouseInvoicePage = {
+  invoices: WarehouseInvoiceSummary[];
+  nextOffset: number | null;
+  totalCount: number;
+};
+
+const DEFAULT_INVOICE_PAGE_SIZE = 30;
+const MAX_INVOICE_PAGE_SIZE = 100;
 
 type InvoiceSourceRow = {
   id: string;
@@ -95,9 +106,15 @@ export function groupWarehouseInvoiceRows(
       current.itemCount += 1;
       current.totalCost += row.cost ?? 0;
       current.sentCount += row.BISId ? 1 : 0;
+      if (!row.BISId) current.movableRowIds.push(row.id);
       if (row.createdAt > current.createdAt) current.createdAt = row.createdAt;
       if (!current.invoiceNumber) current.invoiceNumber = normalizeText(row.invoiceNr);
-      if (!current.supplierName) current.supplierName = normalizeText(row.supplierName);
+      if (!current.supplierName) {
+        current.supplierName = resolveInvoiceSupplierName(
+          row.invoiceNr,
+          row.supplierName,
+        );
+      }
       if (!current.invoiceDate) current.invoiceDate = row.invoiceDate;
       if (!current.sourcePhoto) current.sourcePhoto = normalizeText(row.sourcePhoto);
       continue;
@@ -107,13 +124,14 @@ export function groupWarehouseInvoiceRows(
       key: identity.key,
       locator: identity.locator,
       invoiceNumber: normalizeText(row.invoiceNr),
-      supplierName: normalizeText(row.supplierName),
+      supplierName: resolveInvoiceSupplierName(row.invoiceNr, row.supplierName),
       invoiceDate: row.invoiceDate,
       createdAt: row.createdAt,
       sourcePhoto: normalizeText(row.sourcePhoto),
       itemCount: 1,
       totalCost: row.cost ?? 0,
       sentCount: row.BISId ? 1 : 0,
+      movableRowIds: row.BISId ? [] : [row.id],
     });
   }
 
@@ -133,7 +151,8 @@ async function requireWarehouseSite(siteId: string) {
 export async function fetchWarehouseInvoiceSummaries(
   siteId: string,
   input: WarehouseMaterialQueryInput,
-) {
+  pagination: { offset?: number; limit?: number } = {},
+): Promise<WarehouseInvoicePage> {
   "use server";
 
   await requireWarehouseSite(siteId);
@@ -152,12 +171,24 @@ export async function fetchWarehouseInvoiceSummaries(
     },
   });
   const matchingInvoices = groupWarehouseInvoiceRows(matchingRows);
-  if (!matchingInvoices.length) return [];
+  const offset = Math.max(0, Math.floor(pagination.offset ?? 0));
+  const limit = Math.min(
+    MAX_INVOICE_PAGE_SIZE,
+    Math.max(1, Math.floor(pagination.limit ?? DEFAULT_INVOICE_PAGE_SIZE)),
+  );
+  const pageInvoices = matchingInvoices.slice(offset, offset + limit);
+  if (!pageInvoices.length) {
+    return {
+      invoices: [],
+      nextOffset: null,
+      totalCount: matchingInvoices.length,
+    };
+  }
 
   const invoiceRows = await prisma.bISmaterialRecords.findMany({
     where: {
       siteId,
-      OR: matchingInvoices.map((invoice) =>
+      OR: pageInvoices.map((invoice) =>
         buildInvoiceLocatorWhere(siteId, invoice.locator),
       ),
     },
@@ -173,7 +204,14 @@ export async function fetchWarehouseInvoiceSummaries(
       BISId: true,
     },
   });
-  return groupWarehouseInvoiceRows(invoiceRows);
+  return {
+    invoices: groupWarehouseInvoiceRows(invoiceRows),
+    nextOffset:
+      offset + pageInvoices.length < matchingInvoices.length
+        ? offset + pageInvoices.length
+        : null,
+    totalCount: matchingInvoices.length,
+  };
 }
 
 function buildInvoiceLocatorWhere(
