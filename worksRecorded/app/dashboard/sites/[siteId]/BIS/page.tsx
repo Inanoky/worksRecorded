@@ -1,49 +1,49 @@
+import { revalidatePath } from "next/cache";
+import AiWidgetRag from "@/components/ai/AiChatLazy";
+import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
+import TourRunner from "@/components/joyride/TourRunner";
 import { withRetainedProjectPage } from "@/components/projects/withRetainedProjectPage";
 import { FimaWarehouse } from "@/components/sitediary/FimaWarehouse";
-import { isFimaDiary } from "@/lib/fima/diary-collaboration";
-import { prisma } from "@/lib/utils/db";
-import { requireUser } from "@/lib/utils/requireUser";
-import { revalidatePath } from "next/cache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import MaterialsTableClient from "./Components/materials-table-client";
-import AiWidgetRag from "@/components/ai/AiChatLazy";
-import { ensureUserBisAccessToken, getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, refreshBisAccessToken, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
-import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
-import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
-import { getWarehousePageMessages } from "@/lib/dashboard-i18n";
-import { normalizeMaterialConfigurationTemplates } from "@/lib/bis/material-configuration-templates";
 import {
-  getWarehouseMaterialExportRows,
-  getWarehouseMaterialPage,
-  normalizeWarehouseMaterialQuery,
-  type WarehouseMaterialQueryInput as BaseWarehouseMaterialQueryInput,
-  type WarehouseMaterialRow,
-  type WarehouseMaterialSort,
-} from "@/lib/bis/warehouse-material-query";
+  getDefaultConstructionForma2MaterialAssignments,
+} from "@/flows/default-construction/backend/forma2-analytics-actions";
+import { readStoredDefaultConstructionForma2MaterialAssignments } from "@/flows/default-construction/backend/forma2-material-assignment-read";
+import { WarehouseInvoiceImport } from "@/flows/default-construction/frontend/WarehouseInvoiceImport";
+import { normalizeMaterialConfigurationTemplates } from "@/lib/bis/material-configuration-templates";
 import {
   sortWarehouseRowsByForma2Position,
   type WarehouseForma2Sort,
 } from "@/lib/bis/warehouse-forma2-sort";
+import {
+  type WarehouseMaterialQueryInput as BaseWarehouseMaterialQueryInput,
+  getWarehouseMaterialExportRows,
+  getWarehouseMaterialPage,
+  normalizeWarehouseMaterialQuery,
+  type WarehouseMaterialRow,
+  type WarehouseMaterialSort,
+} from "@/lib/bis/warehouse-material-query";
+import { normalizeWarehouseSourcePhoto } from "@/lib/bis/warehouse-source-photo-group";
 import { canShowWarehouseSpendInsights } from "@/lib/bis/warehouse-spend-visibility";
-import TourRunner from "@/components/joyride/TourRunner";
-import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
-import { createPerfTrace } from "@/lib/observability/perf";
+import { getWarehousePageMessages } from "@/lib/dashboard-i18n";
+import { isFimaDiary } from "@/lib/fima/diary-collaboration";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
-import { WarehouseInvoiceImport } from "@/flows/default-construction/frontend/WarehouseInvoiceImport";
-import { normalizeWarehouseSourcePhoto } from "@/lib/bis/warehouse-source-photo-group";
-import {
-  applyDefaultConstructionForma2MaterialRules,
-  getDefaultConstructionForma2MaterialAssignments,
-} from "@/flows/default-construction/backend/forma2-analytics-actions";
-import {
-  getWarehouseTransferTargets,
-  moveWarehouseRecordsToProject,
-} from "@/server/actions/warehouse-transfer-actions";
+import { createPerfTrace } from "@/lib/observability/perf";
+import { prisma } from "@/lib/utils/db";
+import { requireUser } from "@/lib/utils/requireUser";
+import { ensureUserBisAccessToken, getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, refreshBisAccessToken, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
+import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
+import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import {
   fetchWarehouseInvoiceRows,
   fetchWarehouseInvoiceSummaries,
 } from "@/server/actions/warehouse-invoice-view-actions";
+import {
+  getWarehouseTransferTargets,
+  moveWarehouseRecordsToProject,
+} from "@/server/actions/warehouse-transfer-actions";
+import MaterialsTableClient from "./Components/materials-table-client";
 
 export const maxDuration = 120;
 
@@ -304,10 +304,6 @@ async function addForma2AssignmentsToMaterials(
   siteId: string,
   materials: Array<ReturnType<typeof withoutWarehouseBisState>>,
 ) {
-  await applyDefaultConstructionForma2MaterialRules({
-    siteId,
-    sourceIds: materials.map((material) => material.id),
-  });
   const forma2 = await getDefaultConstructionForma2MaterialAssignments({
     siteId,
     sourceIds: materials.map((material) => material.id),
@@ -341,7 +337,6 @@ async function getWarehouseForma2RecordIdFilter(
   const positionId = filters.forma2PositionId?.trim();
   if (assignmentFilter === "all" && !positionId) return undefined;
 
-  await applyDefaultConstructionForma2MaterialRules({ siteId });
   const forma2 = await getDefaultConstructionForma2MaterialAssignments({ siteId });
   if (!forma2.enabled) return { include: [] as string[] };
 
@@ -2184,12 +2179,39 @@ async function MaterialsPage({
 
   // Keep initial page render fast by using stored DB state only.
   // BIS live refresh stays available through explicit sync actions in the UI.
-  const forma2 = await trace.measure("forma2Assignments", () =>
-    addForma2AssignmentsToMaterials(
-      siteId,
-      materialsPage.rows.map(withoutWarehouseBisState),
-    ),
-  );
+  const forma2 = await trace.measure("forma2Assignments", async () => {
+    const materials = materialsPage.rows.map(withoutWarehouseBisState);
+    if (flowModuleKey !== FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION) {
+      return {
+        enabled: false,
+        positionOptions: [],
+        assignments: [],
+        materialRules: [],
+        materials,
+      };
+    }
+    const stored =
+      await readStoredDefaultConstructionForma2MaterialAssignments(
+        siteId,
+        materials,
+      );
+    const assignmentsBySource = new Map(
+      stored.assignments.map((assignment) => [assignment.sourceId, assignment]),
+    );
+    return {
+      ...stored,
+      materials: materials.map((material) => {
+        const assignment = assignmentsBySource.get(material.id);
+        return {
+          ...material,
+          forma2PositionId: assignment?.positionId ?? null,
+          forma2SplitPositionIds: assignment?.splitPositionIds,
+          forma2AssignmentMethod: assignment?.method ?? null,
+          forma2AssignmentConfidence: assignment?.confidence ?? null,
+        };
+      }),
+    };
+  });
   const materialsWithBisState = forma2.materials;
 
   trace.end({

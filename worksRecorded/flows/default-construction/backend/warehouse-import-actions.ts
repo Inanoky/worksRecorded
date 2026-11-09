@@ -9,6 +9,7 @@ import {
 	extractAndEnrichBISMaterialsFromPublicUrl,
 	normalizeExtractedInvoiceDate,
 } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
+import { applyDefaultConstructionForma2MaterialRules } from "./forma2-analytics-actions";
 import {
 	requireWarehouseImportAccess,
 	verifyWarehouseUpload,
@@ -89,6 +90,16 @@ export async function importWarehouseInvoice(receipt: string) {
 			},
 			{ timeout: 15000 },
 		);
+		if (!result.duplicate) {
+			await applyDefaultConstructionForma2MaterialRules({
+				siteId: upload.siteId,
+			}).catch((error) => {
+				console.error("[warehouse-import] Forma2 rule assignment failed", {
+					siteId: upload.siteId,
+					error,
+				});
+			});
+		}
 		revalidatePath(`/dashboard/sites/${upload.siteId}/BIS`);
 		return { ok: true as const, ...result };
 	} catch (error) {

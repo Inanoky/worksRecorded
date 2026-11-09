@@ -13,6 +13,9 @@ jest.mock("@/lib/flows/resolve-flow-module-server", () => ({
 }));
 jest.mock("@/lib/utils/requireUser", () => ({ requireUser: jest.fn() }));
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
+jest.mock("./forma2-analytics-actions", () => ({
+	applyDefaultConstructionForma2MaterialRules: jest.fn(),
+}));
 jest.mock("@/server/actions/META/RoutingHandlers/metaImageHandler", () => ({
 	extractAndEnrichBISMaterialsFromPublicUrl: jest.fn(),
 	normalizeExtractedInvoiceDate: jest.fn(() => new Date("2026-09-15")),
@@ -30,6 +33,7 @@ import {
 	validateWarehouseImportFiles,
 	WAREHOUSE_IMPORT_MAX_BYTES,
 } from "../warehouse-import";
+import { applyDefaultConstructionForma2MaterialRules } from "./forma2-analytics-actions";
 import { importWarehouseInvoice } from "./warehouse-import-actions";
 import {
 	requireWarehouseImportAccess,
@@ -57,6 +61,9 @@ describe("warehouse web import", () => {
 		jest.resetAllMocks();
 		process.env.UPLOADTHING_TOKEN = "test-signing-key";
 		jest.mocked(requireUser).mockResolvedValue({ id: "user-1" } as never);
+		jest
+			.mocked(applyDefaultConstructionForma2MaterialRules)
+			.mockResolvedValue({ assignedRecords: 0 });
 		jest
 			.mocked(prisma.user.findUnique)
 			.mockResolvedValue({ organizationId, status: "active" } as never);
@@ -167,6 +174,9 @@ describe("warehouse web import", () => {
 				URL: upload.url,
 				Comment: "invoice.pdf",
 			}),
+		});
+		expect(applyDefaultConstructionForma2MaterialRules).toHaveBeenCalledWith({
+			siteId,
 		});
 	});
 
