@@ -2,6 +2,7 @@ jest.mock("@/components/dashboard/DashboardSettingsProvider", () => ({
   DashboardSettingsProvider: ({children}: {children: React.ReactNode}) => <>{children}</>,
   DashboardSettingsContent: ({children}: {children: React.ReactNode}) => <>{children}</>,
 }));
+
 import { render, screen } from "@testing-library/react";
 
 const mockRequireUser = jest.fn();
@@ -12,6 +13,20 @@ const mockVisibleTgemSites = jest.fn();
 const mockSiteFindMany = jest.fn();
 const mockOrganizationFindUnique = jest.fn();
 const mockGetOrganizationIdByUserId = jest.fn();
+const mockLoadDashboardAccount = jest.fn();
+
+function setDashboardAccount(
+	organizationId = "org-1",
+	organizationName = "Other company",
+) {
+	mockLoadDashboardAccount.mockResolvedValue({
+		email: "user@example.com",
+		phone: "+37120000000",
+		userTour: {},
+		organizationId,
+		organization: { name: organizationName, orgLanguage: "lv" },
+	});
+}
 
 jest.mock("@kinde-oss/kinde-auth-nextjs/components", () => ({
 	LogoutLink: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -101,6 +116,34 @@ jest.mock("@/lib/ai-evals/local-gate", () => ({
 jest.mock("@/lib/dashboard-i18n", () => ({
 	getDashboardMessages: () => ({ logOut: "Log out" }),
 }));
+jest.mock("@/lib/dashboard/dashboard-request-data", () => ({
+	loadDashboardAccount: (...args: unknown[]) =>
+		mockLoadDashboardAccount(...args),
+	loadDashboardSites: (...args: unknown[]) => mockSiteFindMany(...args),
+	loadDashboardRequestData: async (userId: string) => {
+		const account = await mockLoadDashboardAccount(userId);
+		const isSuperUser = mockIsSuperUserId(userId);
+		const organizationId = isSuperUser
+			? null
+			: (account?.organizationId ?? null);
+		return {
+			account,
+			flowModuleKey: isSuperUser
+				? null
+				: await mockResolveFlowModuleKeyForRuntime({ organizationId }),
+			isSuperUser,
+			organizationId,
+			sites: await mockSiteFindMany(organizationId, isSuperUser),
+		};
+	},
+	loadDashboardFlowModuleKey: (
+		organizationId: string | null,
+		isSuperUser: boolean,
+	) =>
+		isSuperUser
+			? Promise.resolve(null)
+			: mockResolveFlowModuleKeyForRuntime({ organizationId }),
+}));
 jest.mock("@/lib/flows/resolve-flow-module-server", () => ({
 	resolveFlowModuleKeyForRuntime: (...args: unknown[]) =>
 		mockResolveFlowModuleKeyForRuntime(...args),
@@ -152,6 +195,7 @@ describe("DashboardLayout project visibility", () => {
 		mockSiteFindMany.mockResolvedValue(projects);
 		mockOrganizationFindUnique.mockResolvedValue({ name: "Other company" });
 		mockGetOrganizationIdByUserId.mockResolvedValue("org-1");
+		setDashboardAccount();
 		mockLoadTgemAccessScope.mockResolvedValue({ organizationId: "org-1" });
 		mockVisibleTgemSites.mockReturnValue([projects[0]]);
 	});
@@ -201,7 +245,7 @@ describe("DashboardLayout project visibility", () => {
 			"Visible project,Hidden project",
 		);
 		expect(mockResolveFlowModuleKeyForRuntime).not.toHaveBeenCalled();
-		expect(mockOrganizationFindUnique).not.toHaveBeenCalled();
+		expect(mockLoadDashboardAccount).toHaveBeenCalledWith("user-1");
 		expect(
 			screen.queryByRole("img", { name: "Līmenī" }),
 		).not.toBeInTheDocument();
@@ -209,8 +253,7 @@ describe("DashboardLayout project visibility", () => {
 	});
 
 	it("uses Limeni's own organization for suite branding, rather than visible projects or the company name", async () => {
-		mockGetOrganizationIdByUserId.mockResolvedValue(LIMENI_ORGANIZATION_ID);
-		mockOrganizationFindUnique.mockResolvedValue({ name: "SIA M.S.AQUA" });
+		setDashboardAccount(LIMENI_ORGANIZATION_ID, "SIA M.S.AQUA");
 		mockResolveFlowModuleKeyForRuntime.mockResolvedValue(
 			"default-construction",
 		);
@@ -233,7 +276,7 @@ describe("DashboardLayout project visibility", () => {
 	});
 
 	it("does not apply Limeni branding to another organization viewing a Limeni project", async () => {
-		mockOrganizationFindUnique.mockResolvedValue({ name: "Līmenī" });
+		setDashboardAccount("org-1", "Līmenī");
 		mockSiteFindMany.mockResolvedValue([
 			{ ...projects[0], organizationId: LIMENI_ORGANIZATION_ID },
 		]);
@@ -245,17 +288,14 @@ describe("DashboardLayout project visibility", () => {
 	});
 
 	it("shows ProDev business suite branding only for the signed-in organization", async () => {
-		mockOrganizationFindUnique.mockResolvedValue({ name: "ProDev" });
+		setDashboardAccount("org-1", "ProDev");
 		mockResolveFlowModuleKeyForRuntime.mockResolvedValue(
 			"default-construction",
 		);
 		const { container } = render(
 			await DashboardLayout({ children: <div>Page</div> }),
 		);
-		expect(mockOrganizationFindUnique).toHaveBeenCalledWith({
-			where: { id: "org-1" },
-			select: { name: true },
-		});
+		expect(mockLoadDashboardAccount).toHaveBeenCalledWith("user-1");
 		expect(screen.getByAltText("PRO DEV")).toBeInTheDocument();
 		expect(screen.getByText("business suite")).toBeInTheDocument();
 		expect(container.querySelector(".prodev-suite")).not.toBeNull();
@@ -265,7 +305,7 @@ describe("DashboardLayout project visibility", () => {
 	});
 
 	it("keeps FIMA branding separate from ProDev", async () => {
-		mockOrganizationFindUnique.mockResolvedValue({ name: "FIMA" });
+		setDashboardAccount("org-1", "FIMA");
 		mockSiteFindMany.mockResolvedValue([
 			{
 				...projects[0],
@@ -283,7 +323,7 @@ describe("DashboardLayout project visibility", () => {
 	});
 
 	it("shows the official Ocelt logo for Ocelt members", async () => {
-		mockOrganizationFindUnique.mockResolvedValue({ name: "Ocelt" });
+		setDashboardAccount("org-1", "Ocelt");
 		const { container, unmount } = render(
 			await DashboardLayout({ children: <div>Page</div> }),
 		);
@@ -316,7 +356,7 @@ describe("DashboardLayout project visibility", () => {
 	});
 
 	it("uses Ocelt colours when an Ocelt project has FIMA diary features", async () => {
-		mockOrganizationFindUnique.mockResolvedValue({ name: "Ocelt" });
+		setDashboardAccount("org-1", "Ocelt");
 		mockSiteFindMany.mockResolvedValue([
 			{
 				...projects[0],

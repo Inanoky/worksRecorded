@@ -19,37 +19,20 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import {
+	loadDashboardFlowModuleKey,
+	loadDashboardRequestData,
+} from "@/lib/dashboard/dashboard-request-data";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
 import { getFlowModuleUi } from "@/lib/flows/registry";
-import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
-import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
-import { isSuperUserId } from "@/lib/utils/super-user";
 import DefaultImage from "@/public/default.png";
-import {
-	getOrganizationIdByUserId,
-	getOrganizationLanguageByUserId,
-} from "@/server/actions/shared-actions";
-
-async function getData(orgId: string | null, isSuperUser: boolean) {
-	const [sites] = await Promise.all([
-		prisma.site.findMany({
-			where: isSuperUser ? {} : { organizationId: orgId ?? "" },
-			orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-		}),
-	]);
-
-	return { sites };
-}
 
 export default async function DashboardIndexPage() {
 	const user = await requireUser();
-
-	const dbUser = await prisma.user.findUnique({
-		where: { id: user.id },
-		select: { phone: true, userTour: true },
-	});
+	const dashboardData = await loadDashboardRequestData(user.id);
+	const dbUser = dashboardData.account;
 	const tour = (
 		dbUser?.userTour && typeof dbUser.userTour === "object"
 			? dbUser.userTour
@@ -58,25 +41,25 @@ export default async function DashboardIndexPage() {
 	if (!dbUser?.phone) redirect("/dashboard/welcome");
 	if (!tour.onboardingLanguageSelected) redirect("/dashboard/welcome/language");
 
-	const isSuperUser = isSuperUserId(user.id);
+	const isSuperUser = dashboardData.isSuperUser;
 
-	const selectedOrganizationId = await getOrganizationIdByUserId(user.id);
+	const selectedOrganizationId = dbUser?.organizationId ?? null;
 	const selectedFlow = selectedOrganizationId
-		? await resolveFlowModuleKeyForRuntime({
-				organizationId: selectedOrganizationId,
-			})
+		? isSuperUser
+			? await loadDashboardFlowModuleKey(selectedOrganizationId, false)
+			: dashboardData.flowModuleKey
 		: null;
 	if (selectedFlow === FLOW_MODULE_KEYS.FIMA) redirect("/dashboard/fima");
-	const org = isSuperUser ? null : selectedOrganizationId;
+	const org = dashboardData.organizationId;
 	const organizationLanguage = isSuperUser
 		? "en"
-		: await getOrganizationLanguageByUserId(user.id);
+		: (dbUser?.organization?.orgLanguage ?? "en");
 	const t = getDashboardMessages(organizationLanguage);
 
-	const { sites } = await getData(org, isSuperUser);
-	const flowModuleKey = await resolveFlowModuleKeyForRuntime({
-		organizationId: org,
-	});
+	const sites = dashboardData.sites;
+	const flowModuleKey = isSuperUser
+		? await loadDashboardFlowModuleKey(org, false)
+		: (dashboardData.flowModuleKey ?? FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION);
 	const flowUi = getFlowModuleUi(flowModuleKey);
 	const hideCreateProject = Boolean(flowUi.hideCreateProject);
 	const showAllProjects =

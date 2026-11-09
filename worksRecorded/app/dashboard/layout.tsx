@@ -42,15 +42,17 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DiarySaveProvider } from "@/flows/default-construction/frontend/DiarySaveProvider";
-import { ZtcNavigationProvider, ZtcNavigationViewport } from "@/flows/ztc-production/frontend/ZtcNavigation";
 import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
+import { ZtcNavigationProvider, ZtcNavigationViewport } from "@/flows/ztc-production/frontend/ZtcNavigation";
 import { isAiEvalUiEnabled } from "@/lib/ai-evals/local-gate";
 import { isBbbuveOrganization } from "@/lib/branding/bbbuve";
 import { isOceltOrganization } from "@/lib/branding/ocelt";
 import { isProdevOrganization } from "@/lib/branding/prodev";
+import {
+	loadDashboardRequestData,
+} from "@/lib/dashboard/dashboard-request-data";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
 import { isFimaDiary } from "@/lib/fima/diary-collaboration";
-import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { canAccessFlowConfigAdmin } from "@/lib/production-flow/config";
 import {
@@ -59,12 +61,6 @@ import {
 } from "@/lib/tgem-invoice-approval/access";
 import { hasAiEvalAccess } from "@/lib/utils/ai-context-access";
 import { prisma } from "@/lib/utils/db";
-import { isSuperUserId } from "@/lib/utils/super-user";
-import {
-	getOrganizationIdByUserId,
-	getOrganizationLanguageByUserId,
-	getUserEmailByUserId,
-} from "@/server/actions/shared-actions";
 import { MobileMenu } from "../../components/dashboard/MobileMenu";
 import { requireUser } from "../../lib/utils/requireUser";
 
@@ -75,13 +71,11 @@ export default async function DashboardLayout({
 }) {
 	const user = await requireUser();
 	const userId = user.id;
-	const isSuperUser = isSuperUserId(userId);
-	const [email, organizationLanguage, accountOrganizationId] = await Promise.all([
-		getUserEmailByUserId(user.id),
-		getOrganizationLanguageByUserId(user.id),
-		getOrganizationIdByUserId(user.id),
-	]);
-	const organizationId = isSuperUser ? null : accountOrganizationId;
+	const dashboardData = await loadDashboardRequestData(userId);
+	const { account, flowModuleKey, isSuperUser, organizationId } = dashboardData;
+	const email = account?.email ?? null;
+	const organizationLanguage = account?.organization?.orgLanguage ?? "en";
+	const accountOrganizationId = account?.organizationId ?? null;
 	const t = getDashboardMessages(organizationLanguage);
 	const canAccessAiEvals = hasAiEvalAccess(userId) && isAiEvalUiEnabled();
 	const requestHeaders = await headers();
@@ -89,19 +83,8 @@ export default async function DashboardLayout({
 		userId,
 		requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host"),
 	);
-	const [allHeaderProjects, flowModuleKey, organization] = await Promise.all([
-		prisma.site.findMany({
-			where: isSuperUser ? {} : { organizationId: organizationId ?? "" },
-				select: { id: true, name: true, description: true, imageUrl: true, organizationId: true, siteDiaryRecordsMap: true, bisCaseId: true },
-			orderBy: { createdAt: "desc" },
-		}),
-		isSuperUser
-			? Promise.resolve(null)
-			: resolveFlowModuleKeyForRuntime({ organizationId }),
-		!isSuperUser && organizationId
-			? prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } })
-			: Promise.resolve(null),
-	]);
+	const allHeaderProjects = dashboardData.sites;
+	const organization = !isSuperUser ? account?.organization : null;
 	const fimaCollaborationEnabled = !isSuperUser && allHeaderProjects.some((project) => isFimaDiary(project.siteDiaryRecordsMap));
 	const oceltSuiteEnabled =
 		!isSuperUser && isOceltOrganization(organization?.name);
