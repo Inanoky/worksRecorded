@@ -23,9 +23,104 @@ Baseline P75 values:
 | Warm diary to warehouse | 91–97 ms |
 | Warm warehouse to diary | 73–74 ms |
 
+## Active plan: cold diary bootstrap
+
+Status: Stage 1 and its cold-cache measurement instrumentation are implemented and validated locally; awaiting a separate commit and deployment. Keep the warehouse read-path batch and cold diary bootstrap as separate deployment and benchmark boundaries.
+
+Goal: reduce the first default-construction project opening in a fresh browser context without weakening authorization, moving mutations to the browser, or making cached data authoritative.
+
+### Stage 1: consolidate authorized project context
+
+- Use one authorized site lookup for project identity, organization, BIS configuration, and diary mode.
+- Reuse that result in the project workspace layout and construction-project access gate.
+- Preserve the existing organization membership and superuser access rules.
+- Preserve flow resolution and FIMA/default-construction separation.
+
+Exit criteria:
+
+- Revoked and cross-organization access remains denied.
+- Default-construction and FIMA collaboration routing remains unchanged.
+- The workspace layout and construction-project access gate no longer issue a second site configuration query.
+- Production logs separate workspace authentication, authorized site loading, and flow resolution.
+- Focused access, workspace, and project-route tests pass; touched files have no TypeScript diagnostics and pass Biome and whitespace checks.
+
+### Stage 2: default-construction browser-first bootstrap
+
+Default construction already uses the Limeni `PersistentProjectCache` engine
+with its own `construction:snapshot` cache key. Extend and verify that shared
+implementation instead of introducing a second cache.
+
+- Restore the scoped IndexedDB snapshot before waiting for network
+  revalidation.
+- Make the cached diary usable while the authenticated ETag/delta request runs
+  in the background.
+- Retain the same project snapshot across diary and warehouse navigation.
+- Merge server deltas and confirmed save results into the cached snapshot using
+  the existing project synchronization contract.
+- Keep cache scope tied to the authenticated identity, organization, project,
+  and construction snapshot key.
+- Clear or reject cached data after identity changes, denied access, incompatible
+  schema versions, or an invalid project response.
+- Do not make IndexedDB authoritative and do not move authorization, mutation
+  validation, financial truth, or cross-organization access checks into the
+  browser.
+- Do not add a service worker or a second browser cache until the existing
+  IndexedDB behavior has been measured.
+
+Exit criteria:
+
+- A warm hard reload can render usable cached diary content before project
+  revalidation finishes.
+- The background request still returns `304`, a delta, or a replacement
+  snapshot according to the existing server contract.
+- Local diary edits and queued saves are not overwritten by background
+  revalidation.
+- Switching user, organization, project, or flow cannot expose another cache
+  scope.
+- Offline cache failure falls back to the normal authenticated cold request.
+
+### Stage 3: reduce the critical cold snapshot
+
+- Use production phase timings to decide whether Forma 2, complete media metadata, or both should leave the diary critical path.
+- Keep the diary configuration and first usable diary rows authoritative.
+- Load deferred resources through their existing authenticated endpoints and ETag contracts.
+- Do not change the snapshot contract until the Stage 1 production benchmark identifies the dominant cold-snapshot phase.
+- Calculate bounded presentation-only grouping, sorting, and derived UI state in
+  the browser after the required records have arrived.
+- Keep calculations on the server when the browser does not have the complete
+  authoritative dataset.
+
+### Stage 4: project-opening intent prefetch
+
+- Prefetch only the project the user indicates through hover, focus, touch, or click intent.
+- Do not eagerly open every project card or multiply full project database reads.
+- Cancel obsolete work when project selection changes.
+- Reuse a successful prefetched response or in-flight request when the selected
+  project workspace mounts.
+- Keep authorization and response validation identical to a normal project
+  opening.
+
+### Stage 5: browser bootstrap timing
+
+- Measure IndexedDB open/read, first construction-project request start, response, hydration, and diary readiness.
+- Save browser-side cache, sync, snapshot publication, and diary readiness durations in every benchmark report.
+- Only race cache lookup with a cold request if production evidence shows cache lookup materially delays an empty-cache opening.
+- Report cold-cache and warm-cache project openings separately so browser-cache
+  gains cannot hide slow server work.
+
+Measurement gate:
+
+1. Run the cold-cache journey with the project snapshot removed from IndexedDB.
+2. Run the warm-cache journey with a valid construction snapshot already stored.
+3. Run the named 1×1 default-construction smoke benchmark after deployment.
+4. Inspect `workspaceAuthMs`, `workspaceSiteAccessMs`, `workspaceFlowMs`, `manifestAccessMs`, `manifestQueryMs`, snapshot phases, IndexedDB timing, response bytes, and diary readiness.
+5. Run the matching 5×3 benchmark only after both smoke journeys are correct.
+6. Require at least a 10% cold customer-visible P75 improvement for server batches.
+7. Require cached diary readiness to precede network revalidation on the warm journey without authorization, stale-data, mutation, or cross-flow regressions.
+
 ## Batch 1: project synchronization diagnosis and safe reduction
 
-Status: implemented locally, not deployed.
+Status: deployed and benchmarked on 2026-11-08.
 
 - Add phase tracing for authentication, manifest, delta, snapshot, payload, and response type.
 - Add default-construction snapshot timings for diary, configuration, Forma 2, BIS, language, assembly, and hashing.
@@ -39,6 +134,12 @@ Exit criteria:
 - Deploy before measuring impact.
 - Run `after-batch-1` with the same named 5×3 benchmark.
 - Inspect `[perf]` events to determine `manifestQueryMs`, `snapshotDiaryMs`, `snapshotForma2Ms`, and other phase costs.
+
+Measured result:
+
+- Construction-project request P75 improved from 10,035 ms to 7,392 ms.
+- Project first-open P75 improved from 14,118 ms to 11,609 ms.
+- Remaining work moved into the active cold diary bootstrap stages above.
 
 ## Batch 2: revision architecture
 
@@ -57,7 +158,7 @@ Exit criteria:
 
 ## Batch 3: warehouse read path
 
-Status: planned.
+Status: deployed and benchmarked on 2026-11-09.
 
 - Remove automatic Forma 2 material-rule writes from warehouse page reads.
 - Apply rules during material import, rule creation, copy, transfer, and explicit synchronization.
@@ -70,6 +171,12 @@ Exit criteria:
 - Warehouse navigation and reload are read-only with respect to business records.
 - Initial table readiness does not wait for BIS classifier downloads.
 - Warehouse hard-reload P75 improves without losing BIS controls.
+
+Measured result:
+
+- Warehouse first-open P75 improved from 12,600 ms to 5,318 ms compared with
+  the preceding project-sync benchmark.
+- Warehouse hard-reload P75 improved from 10,108 ms to 4,746 ms.
 
 ## Batch 4: warehouse query scaling
 

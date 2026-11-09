@@ -4,26 +4,32 @@ import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-p
 import { isFimaDiary } from "@/lib/fima/diary-collaboration";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
-import { prisma } from "@/lib/utils/db";
+import { getAuthorizedProjectSite } from "@/lib/projects/authorized-project-site";
 import { requireUser } from "@/lib/utils/requireUser";
-import { orgCheck } from "@/server/actions/shared-actions";
 import type { WorkspaceDescriptor } from "./workspace-store";
+
+type WorkspaceAccessTrace = {
+	measure<T>(phase: string, task: () => T | Promise<T>): Promise<T>;
+};
 
 export async function getWorkspaceAccess(
 	siteId: string,
+	trace?: WorkspaceAccessTrace,
 ): Promise<WorkspaceDescriptor> {
-	const user = await requireUser();
-	const site = await orgCheck(user.id, siteId);
+	const measure = <T>(phase: string, task: () => T | Promise<T>) =>
+		trace ? trace.measure(phase, task) : task();
+	const user = await measure("workspaceAuth", () => requireUser());
+	const site = await measure("workspaceSiteAccess", () =>
+		getAuthorizedProjectSite(user.id, siteId),
+	);
 	if (!site) notFound();
 	const organizationId = site.organizationId ?? null;
-	const flowModuleKey = await resolveFlowModuleKeyForRuntime({
-		siteId,
-		organizationId,
-	});
-	const configuration = await prisma.site.findUnique({
-		where: { id: siteId },
-		select: { bisCaseId: true, siteDiaryRecordsMap: true },
-	});
+	const flowModuleKey = await measure("workspaceFlow", () =>
+		resolveFlowModuleKeyForRuntime({
+			siteId,
+			organizationId,
+		}),
+	);
 	return {
 		siteId,
 		userId: user.id,
@@ -33,16 +39,10 @@ export async function getWorkspaceAccess(
 		visualPreload:
 			organizationId === LIMENI_ORGANIZATION_ID &&
 			flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION,
-		fimaActs: Boolean(
-			configuration?.bisCaseId &&
-				isFimaDiary(configuration.siteDiaryRecordsMap),
-		),
+		fimaActs: Boolean(site.bisCaseId && isFimaDiary(site.siteDiaryRecordsMap)),
 		constructionWorkspace:
 			flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION &&
 			organizationId !== LIMENI_ORGANIZATION_ID &&
-			!(
-				configuration?.bisCaseId &&
-				isFimaDiary(configuration.siteDiaryRecordsMap)
-			),
+			!(site.bisCaseId && isFimaDiary(site.siteDiaryRecordsMap)),
 	};
 }

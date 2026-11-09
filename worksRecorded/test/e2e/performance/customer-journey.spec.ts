@@ -73,6 +73,8 @@ const runLabel = (
 const includeLogin = process.env.PERF_INCLUDE_LOGIN === "true";
 const loginEmail = process.env.PERF_LOGIN_EMAIL;
 const loginPassword = process.env.PERF_LOGIN_PASSWORD;
+const coldProjectCache = process.env.PERF_COLD_PROJECT_CACHE !== "false";
+const projectCacheDatabase = "works-recorded-limeni-v1";
 
 const projectsReady = '[data-performance-ready="projects-list"]';
 const diaryReady = '[data-performance-ready="project-diary"]';
@@ -252,6 +254,60 @@ async function measureNavigation(
 	});
 }
 
+async function clearProjectBrowserCache(page: Page) {
+	await page.evaluate(
+		(databaseName) =>
+			new Promise<void>((resolve, reject) => {
+				const timeout = window.setTimeout(
+					() => reject(new Error("Project cache reset timed out")),
+					5_000,
+				);
+				const request = indexedDB.deleteDatabase(databaseName);
+				request.onsuccess = () => {
+					window.clearTimeout(timeout);
+					resolve();
+				};
+				request.onerror = () => {
+					window.clearTimeout(timeout);
+					reject(request.error ?? new Error("Project cache reset failed"));
+				};
+				request.onblocked = () => {
+					window.clearTimeout(timeout);
+					reject(new Error("Project cache reset was blocked"));
+				};
+			}),
+		projectCacheDatabase,
+	);
+}
+
+async function collectProjectBootstrapMetrics(page: Page, siteId: string) {
+	const prefix = `limeni:${siteId}:`;
+	return page.evaluate((markPrefix) => {
+		const mark = (phase: string) =>
+			window.performance.getEntriesByName(`${markPrefix}${phase}`).at(-1)
+				?.startTime;
+		const duration = (start: number | undefined, end: number | undefined) =>
+			start !== undefined && end !== undefined && end >= start
+				? Math.round(end - start)
+				: undefined;
+		const opening = mark("opening");
+		const cacheStart = mark("cache-read-start");
+		const cacheEnd = mark("cache-read-end");
+		const requestStart = mark("sync-request-start");
+		const response = mark("sync-response");
+		const snapshot = mark("snapshot-published");
+		const ready = window.performance.now();
+		return {
+			project_client_open_to_diary_ready_ms: duration(opening, ready),
+			project_cache_lookup_ms: duration(cacheStart, cacheEnd),
+			project_cache_to_sync_start_ms: duration(cacheEnd, requestStart),
+			project_sync_request_ms: duration(requestStart, response),
+			project_sync_response_to_snapshot_ms: duration(response, snapshot),
+			project_snapshot_to_diary_ready_ms: duration(snapshot, ready),
+		};
+	}, prefix);
+}
+
 async function createAuthenticatedContext(browser: Browser) {
 	if (!includeLogin) {
 		return browser.newContext({ storageState: authFile });
@@ -318,6 +374,12 @@ async function runJourney(
 			await waitForReady(page, /\/dashboard(?:\?.*)?$/, projectsReady);
 		});
 	}
+	if (coldProjectCache) {
+		networkCapture.setPhase("project_cache_reset");
+		metrics.project_cache_reset_ms = await measure(() =>
+			clearProjectBrowserCache(page),
+		);
+	}
 
 	console.log(`[performance] run ${run}/${runs}: opening project diary`);
 	networkCapture.setPhase("project_first_open");
@@ -327,6 +389,13 @@ async function runJourney(
 		diaryUrl,
 		diaryReady,
 	);
+	const bootstrapMetrics = await collectProjectBootstrapMetrics(
+		page,
+		projectId as string,
+	);
+	for (const [name, value] of Object.entries(bootstrapMetrics)) {
+		if (value !== undefined) metrics[name] = value;
+	}
 
 	console.log(`[performance] run ${run}/${runs}: opening warehouse`);
 	networkCapture.setPhase("warehouse_first_open");
@@ -495,6 +564,7 @@ function buildMarkdown(results: RunResult[]) {
 		`Project name: ${projectName ?? "unspecified"}`,
 		`Project ID: ${projectId}`,
 		`Expected project API: ${expectedProjectApiPath ?? "not enforced"}`,
+		`Initial project cache: ${coldProjectCache ? "cold (IndexedDB cleared)" : "preserved"}`,
 		`Run label: ${runLabel}`,
 		`Runs: ${results.length}`,
 		`Diary/warehouse cycles per run: ${cycles}`,
@@ -588,6 +658,7 @@ test("authenticated projects, diary, and warehouse journey", async ({
 		projectName,
 		projectId,
 		expectedProjectApiPath,
+		coldProjectCache,
 	};
 	await writeFile(
 		jsonPath,

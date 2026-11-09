@@ -1,5 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import {
+	assertComparablePerformanceReports,
+} from "@/lib/performance/report-identity";
 
 type PerformanceReport = {
 	runLabel?: string;
@@ -11,6 +14,7 @@ type PerformanceReport = {
 		projectName: string | null;
 		projectId: string | undefined;
 		expectedProjectApiPath: string | null;
+		coldProjectCache?: boolean;
 	};
 	results: Array<{
 		metrics: Record<string, number>;
@@ -121,15 +125,6 @@ async function loadReport(path: string) {
 	return JSON.parse(await readFile(resolve(path), "utf8")) as PerformanceReport;
 }
 
-function reportIdentity(report: PerformanceReport) {
-	return {
-		benchmarkId: report.benchmark?.id ?? "legacy-customer-journey",
-		projectId: report.benchmark?.projectId ?? report.projectId,
-		flowKey: report.benchmark?.flowKey ?? null,
-		scenario: report.benchmark?.scenario ?? "projects-diary-warehouse",
-	};
-}
-
 async function main() {
 	const beforePath = process.argv[2];
 	const afterPath = process.argv[3];
@@ -144,18 +139,7 @@ async function main() {
 		loadReport(beforePath),
 		loadReport(afterPath),
 	]);
-	const beforeIdentity = reportIdentity(before);
-	const afterIdentity = reportIdentity(after);
-	if (
-		beforeIdentity.benchmarkId !== afterIdentity.benchmarkId ||
-		beforeIdentity.projectId !== afterIdentity.projectId ||
-		beforeIdentity.flowKey !== afterIdentity.flowKey ||
-		beforeIdentity.scenario !== afterIdentity.scenario
-	) {
-		throw new Error(
-			`Cannot compare different benchmark targets: ${JSON.stringify(beforeIdentity)} vs ${JSON.stringify(afterIdentity)}.`,
-		);
-	}
+	const beforeIdentity = assertComparablePerformanceReports(before, after);
 	const metricNames = Array.from(
 		new Set(
 			[before, after].flatMap((report) =>
@@ -227,6 +211,7 @@ async function main() {
 			`Flow: ${beforeIdentity.flowKey ?? "unspecified"}`,
 			`Scenario: ${beforeIdentity.scenario}`,
 			`Project ID: ${beforeIdentity.projectId ?? "unspecified"}`,
+			`Initial project cache: ${beforeIdentity.coldProjectCache ? "cold" : "preserved"}`,
 			`Before: ${before.runLabel ?? beforePath}`,
 			`After: ${after.runLabel ?? afterPath}`,
 			"",

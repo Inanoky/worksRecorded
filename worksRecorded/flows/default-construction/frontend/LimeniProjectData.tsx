@@ -142,10 +142,22 @@ function ScopedLimeniProjectData({
 	useEffect(() => {
 		if (!enabled || !persistence || !workspaceActive) return;
 		const controller = new AbortController();
-		performance.mark?.(`limeni:${siteId}:opening`);
+		const markName = (phase: string) => `limeni:${siteId}:${phase}`;
+		for (const phase of [
+			"opening",
+			"cache-read-start",
+			"cache-read-end",
+			"sync-request-start",
+			"sync-response",
+			"snapshot-published",
+		])
+			performance.clearMarks?.(markName(phase));
+		const mark = (phase: string) => performance.mark?.(markName(phase));
+		mark("opening");
 		let interaction = 0;
 		let inFlight = false;
 		let initialized = false;
+		let firstSyncPending = true;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const flush = () => {
 			if (
@@ -182,12 +194,17 @@ function ScopedLimeniProjectData({
 			const before = interaction;
 			const cached = current.current;
 			try {
+				if (firstSyncPending) mark("sync-request-start");
 				let response = await fetchProjectSync(
 					siteId,
 					cached,
 					controller.signal,
 					mode,
 				);
+				if (firstSyncPending) {
+					mark("sync-response");
+					firstSyncPending = false;
+				}
 				const deniedResponse = async () => {
 					if (controller.signal.aborted) return true;
 					if (response.status !== 403 && response.status !== 401) return false;
@@ -244,6 +261,7 @@ function ScopedLimeniProjectData({
 				current.current = next;
 				if (!cached || !hasActiveProjectEditor()) {
 					publish(next);
+					mark("snapshot-published");
 					deferred.current = null;
 				} else deferred.current = next;
 				void persistence.write(cacheKey, next);
@@ -286,7 +304,9 @@ function ScopedLimeniProjectData({
 				void refresh();
 				return;
 			}
+			mark("cache-read-start");
 			const cached = await persistence.read<LimeniProjectSnapshot>(cacheKey);
+			mark("cache-read-end");
 			if (controller.signal.aborted) return;
 			if (cached?.settings?.siteId === siteId) {
 				current.current = hydrateProjectDates(cached);

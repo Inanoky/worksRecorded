@@ -63,6 +63,13 @@ Every repetition uses a fresh browser context with the saved authenticated
 session. This gives a cold browser cache at the start of the journey while
 preserving realistic warm navigation inside that journey.
 
+By default, the suite also deletes the default-construction project IndexedDB
+before the first project click in every run. Reports record
+`Initial project cache: cold (IndexedDB cleared)`, so `project_first_open_ms`
+cannot silently become a restored-snapshot measurement. Set
+`PERF_COLD_PROJECT_CACHE=false` only for an explicitly labelled warm-cache
+investigation; do not compare that report with the canonical cold benchmark.
+
 ## Compare before and after
 
 Run the same number of repetitions against the same project, device, and

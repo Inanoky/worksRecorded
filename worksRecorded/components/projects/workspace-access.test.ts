@@ -1,7 +1,6 @@
 const mockUser = jest.fn();
 const mockAccess = jest.fn();
 const mockFlow = jest.fn();
-const mockConfiguration = jest.fn();
 jest.mock("server-only", () => ({}), { virtual: true });
 jest.mock("next/navigation", () => ({
 	notFound: () => {
@@ -9,16 +8,11 @@ jest.mock("next/navigation", () => ({
 	},
 }));
 jest.mock("@/lib/utils/requireUser", () => ({ requireUser: () => mockUser() }));
-jest.mock("@/server/actions/shared-actions", () => ({
-	orgCheck: (...args: unknown[]) => mockAccess(...args),
+jest.mock("@/lib/projects/authorized-project-site", () => ({
+	getAuthorizedProjectSite: (...args: unknown[]) => mockAccess(...args),
 }));
 jest.mock("@/lib/flows/resolve-flow-module-server", () => ({
 	resolveFlowModuleKeyForRuntime: (...args: unknown[]) => mockFlow(...args),
-}));
-jest.mock("@/lib/utils/db", () => ({
-	prisma: {
-		site: { findUnique: (...args: unknown[]) => mockConfiguration(...args) },
-	},
 }));
 
 import { getWorkspaceAccess } from "./workspace-access";
@@ -30,12 +24,10 @@ beforeEach(() => {
 		id: "site",
 		name: "Project",
 		organizationId: "org",
-	});
-	mockFlow.mockResolvedValue("default-construction");
-	mockConfiguration.mockResolvedValue({
 		bisCaseId: "case",
 		siteDiaryRecordsMap: { otherSettings: { fimaCollaboration: true } },
 	});
+	mockFlow.mockResolvedValue("default-construction");
 });
 it("authorizes the user against the requested project and returns only workspace capabilities", async () => {
 	expect(await getWorkspaceAccess("site")).toEqual({
@@ -53,19 +45,17 @@ it("authorizes the user against the requested project and returns only workspace
 		siteId: "site",
 		organizationId: "org",
 	});
-	expect(mockConfiguration).toHaveBeenCalledWith({
-		where: { id: "site" },
-		select: { bisCaseId: true, siteDiaryRecordsMap: true },
-	});
 });
 it("denies revoked access before reading configuration", async () => {
 	mockAccess.mockResolvedValue(null);
 	await expect(getWorkspaceAccess("site")).rejects.toThrow("not-found");
-	expect(mockConfiguration).not.toHaveBeenCalled();
 	expect(mockFlow).not.toHaveBeenCalled();
 });
 it("enables standard construction caching without enabling the Limeni or FIMA views", async () => {
-	mockConfiguration.mockResolvedValue({
+	mockAccess.mockResolvedValue({
+		id: "site",
+		name: "Project",
+		organizationId: "org",
 		bisCaseId: null,
 		siteDiaryRecordsMap: {},
 	});
@@ -74,4 +64,24 @@ it("enables standard construction caching without enabling the Limeni or FIMA vi
 		visualPreload: false,
 		fimaActs: false,
 	});
+});
+
+it("reports cold workspace access phases without changing the result", async () => {
+	const phases: string[] = [];
+	const trace = {
+		measure: async <T>(phase: string, task: () => T | Promise<T>) => {
+			phases.push(phase);
+			return task();
+		},
+	};
+
+	await expect(getWorkspaceAccess("site", trace)).resolves.toMatchObject({
+		siteId: "site",
+		flowModuleKey: "default-construction",
+	});
+	expect(phases).toEqual([
+		"workspaceAuth",
+		"workspaceSiteAccess",
+		"workspaceFlow",
+	]);
 });
