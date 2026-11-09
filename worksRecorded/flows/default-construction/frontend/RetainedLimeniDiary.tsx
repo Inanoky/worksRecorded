@@ -152,6 +152,7 @@ export function RetainedLimeniDiary({
 								organizationLanguage={settings.organizationLanguage}
 								limeniClientDiary
 								initialLimeniProject={projectData.snapshot ?? undefined}
+								onRefreshCachedProject={projectData.refresh}
 								active={active}
 								batchEditing
 							/>

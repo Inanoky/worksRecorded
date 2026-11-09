@@ -46,6 +46,7 @@ type ProjectData = {
 	restored?: boolean;
 	snapshot: LimeniProjectSnapshot | null;
 	persistence?: PersistentProjectCache;
+	refresh?: () => Promise<void>;
 	failed: boolean;
 	denied: boolean;
 };
@@ -118,6 +119,11 @@ function ScopedLimeniProjectData({
 	const [snapshot, setSnapshot] = useState<LimeniProjectSnapshot | null>(null);
 	const [failed, setFailed] = useState(false);
 	const [denied, setDenied] = useState(false);
+	const manualRefresh = useRef<(() => Promise<void>) | null>(null);
+	const refreshProject = useCallback(async () => {
+		if (!manualRefresh.current) throw new Error("Neizdevās atjaunot projektu.");
+		await manualRefresh.current();
+	}, []);
 	const publish = useCallback((next: LimeniProjectSnapshot | null) => {
 		displayed.current = next;
 		setSnapshot(next);
@@ -160,7 +166,7 @@ function ScopedLimeniProjectData({
 		const mark = (phase: string) => performance.mark?.(markName(phase));
 		mark("opening");
 		let interaction = 0;
-		let inFlight = false;
+		let inFlight: Promise<void> | undefined;
 		let initialized = false;
 		let firstSyncPending = true;
 		let timer: ReturnType<typeof setTimeout> | undefined;
@@ -168,14 +174,14 @@ function ScopedLimeniProjectData({
 			if (
 				deferred.current &&
 				!pendingSaves.current &&
-				!hasActiveProjectEditor()
+				!hasActiveProjectEditor(siteId)
 			) {
 				publish(deferred.current);
 				deferred.current = null;
 			}
 		};
 		const edited = () => {
-			interaction++;
+			if (hasActiveProjectEditor(siteId)) interaction++;
 		};
 		const patch = (event: Event) => {
 			const detail = (event as CustomEvent<ProjectPatch>).detail;
@@ -184,18 +190,7 @@ function ScopedLimeniProjectData({
 			applyPatch(detail);
 			schedule();
 		};
-		const refresh = async () => {
-			flush();
-			if (
-				document.visibilityState === "hidden" ||
-				navigator.onLine === false ||
-				inFlight ||
-				controller.signal.aborted ||
-				!initialized ||
-				pendingSaves.current
-			)
-				return;
-			inFlight = true;
+		const sync = async (manual: boolean) => {
 			const before = interaction;
 			const cached = current.current;
 			try {
@@ -235,7 +230,11 @@ function ScopedLimeniProjectData({
 					if (await deniedResponse()) return;
 				}
 				if (response.status === 304 && cached) {
-					if (before === interaction) flush();
+					if (before === interaction) {
+						flush();
+						if (manual && !cached.bootstrap)
+							await persistence.write(cacheKey, cached);
+					}
 					setFailed(false);
 					return;
 				}
@@ -271,27 +270,54 @@ function ScopedLimeniProjectData({
 					next.settings.siteId !== siteId ||
 					controller.signal.aborted
 				)
-					return;
+					throw new Error("Neizdevās atjaunot projektu.");
 				hydrateProjectDates(next);
 				if (before !== interaction || pendingSaves.current) {
 					schedule();
+					if (manual)
+						throw new Error("Pabeidziet labojumus un atjaunojiet vēlreiz.");
 					return;
 				}
 				current.current = next;
-				if (!cached || !hasActiveProjectEditor()) {
+				if (!cached || !hasActiveProjectEditor(siteId)) {
 					publish(next);
 					mark("snapshot-published");
 					deferred.current = null;
 				} else deferred.current = next;
-				if (!next.bootstrap) void persistence.write(cacheKey, next);
+				if (!next.bootstrap) await persistence.write(cacheKey, next);
 				setFailed(false);
 				if (deferCompleteSync) schedule();
-			} catch {
+			} catch (error) {
 				if (!controller.signal.aborted) setFailed(true);
-			} finally {
-				inFlight = false;
+				if (manual) throw error;
 			}
 		};
+		const refresh = async (manual = false) => {
+			flush();
+			if (manual) {
+				while (inFlight) await inFlight.catch(() => {});
+			} else if (inFlight || document.visibilityState === "hidden") return;
+			if (
+				navigator.onLine === false ||
+				controller.signal.aborted ||
+				!initialized
+			) {
+				if (manual) throw new Error("Neizdevās atjaunot projektu.");
+				return;
+			}
+			if (pendingSaves.current || (manual && hasActiveProjectEditor(siteId))) {
+				if (manual)
+					throw new Error("Pabeidziet labojumus un atjaunojiet vēlreiz.");
+				return;
+			}
+			inFlight = sync(manual);
+			try {
+				await inFlight;
+			} finally {
+				inFlight = undefined;
+			}
+		};
+		manualRefresh.current = () => refresh(true);
 		function schedule() {
 			if (timer) clearTimeout(timer);
 			timer = setTimeout(() => void refresh(), 1500);
@@ -338,6 +364,7 @@ function ScopedLimeniProjectData({
 			void refresh();
 		})();
 		return () => {
+			manualRefresh.current = null;
 			controller.abort();
 			clearInterval(interval);
 			if (timer) clearTimeout(timer);
@@ -402,10 +429,20 @@ function ScopedLimeniProjectData({
 			restored,
 			snapshot,
 			persistence,
+			refresh: enabled ? refreshProject : undefined,
 			failed,
 			denied,
 		}),
-		[enabled, checkingCache, restored, snapshot, persistence, failed, denied],
+		[
+			enabled,
+			checkingCache,
+			restored,
+			snapshot,
+			persistence,
+			refreshProject,
+			failed,
+			denied,
+		],
 	);
 	if (denied)
 		return (

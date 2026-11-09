@@ -86,6 +86,7 @@ export default function DialogWindow({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
+        data-project-editor={siteId ?? undefined}
         className={
           focusedRecordId
             ? `

@@ -730,6 +730,7 @@ export default function SiteDiaryCalendar({
   batchEditing = false,
   initialFimaDiary,
   initialLimeniProject,
+  onRefreshCachedProject,
   fimaClientData,
   onFimaRowsChange,
   onFimaSync,
@@ -743,6 +744,7 @@ export default function SiteDiaryCalendar({
   batchEditing?: boolean;
   initialFimaDiary?: FimaProjectDiary | null;
   initialLimeniProject?: LimeniProjectSnapshot;
+  onRefreshCachedProject?: () => Promise<void>;
   fimaClientData?: FimaDiaryWorkspace;
   onFimaRowsChange?: (rows: (Partial<ConstructionDiaryListRow> & {id: string})[], removed?: string[]) => void;
   onFimaSync?: () => Promise<FimaDiaryWorkspace | null>;
@@ -3118,7 +3120,8 @@ export default function SiteDiaryCalendar({
     try {
       setRecordsRefreshLoading(true);
       setError(null);
-      await refreshRowsWithBisSync({ skipSync: true });
+      if (onRefreshCachedProject) await onRefreshCachedProject();
+      else await refreshRowsWithBisSync({ skipSync: true });
       reloadFilledDays();
     } catch (e: any) {
       const message = e?.message ?? "Failed to refresh site diary records";
