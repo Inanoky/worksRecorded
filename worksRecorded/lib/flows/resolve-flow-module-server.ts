@@ -15,7 +15,6 @@ export async function resolveFlowModuleKeyForRuntime(args: {
 
   const assignment = await getFlowAssignmentForOrganization(args.organizationId);
   if (assignment?.enabled) {
-    if (assignment.flowModuleKey === FLOW_MODULE_KEYS.DEMO) return FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION;
     return assignment.flowModuleKey;
   }
 

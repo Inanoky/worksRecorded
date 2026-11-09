@@ -1,7 +1,6 @@
 // C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\app\dashboard\page.tsx
 
 import { FolderKanban, PlusCircle } from "lucide-react";
-import { DEMO_ORGANIZATION_ID, DEMO_SITE_ID } from "@/flows/demo/constants";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -33,10 +32,10 @@ import {
 	getOrganizationLanguageByUserId,
 } from "@/server/actions/shared-actions";
 
-async function getData(orgId: string | null, isSuperUser: boolean, userId: string) {
+async function getData(orgId: string | null, isSuperUser: boolean) {
 	const [sites] = await Promise.all([
 		prisma.site.findMany({
-			where: isSuperUser ? {} : { OR: [{ organizationId: orgId ?? "" }, { id: DEMO_SITE_ID, organizationId: DEMO_ORGANIZATION_ID, userId }] },
+			where: isSuperUser ? {} : { organizationId: orgId ?? "" },
 			orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 		}),
 	]);
@@ -74,7 +73,7 @@ export default async function DashboardIndexPage() {
 		: await getOrganizationLanguageByUserId(user.id);
 	const t = getDashboardMessages(organizationLanguage);
 
-	const { sites } = await getData(org, isSuperUser, user.id);
+	const { sites } = await getData(org, isSuperUser);
 	const flowModuleKey = await resolveFlowModuleKeyForRuntime({
 		organizationId: org,
 	});

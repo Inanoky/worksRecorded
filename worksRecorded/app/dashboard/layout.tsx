@@ -1,5 +1,4 @@
 import { FimaProjectProvider } from "@/components/fima/FimaProjectProvider";
-import { DEMO_ORGANIZATION_ID, DEMO_SITE_ID } from "@/flows/demo/constants";
 import { ProjectWorkspaceProvider, ProjectWorkspaceViewport } from "@/components/projects/ProjectWorkspaces";
 // worksRecorded\app\dashboard\layout.tsx
 
@@ -89,7 +88,7 @@ export default async function DashboardLayout({
 	);
 	const [allHeaderProjects, flowModuleKey, organization] = await Promise.all([
 		prisma.site.findMany({
-			where: isSuperUser ? {} : { OR: [{ organizationId: organizationId ?? "" }, { id: DEMO_SITE_ID, organizationId: DEMO_ORGANIZATION_ID, userId }] },
+			where: isSuperUser ? {} : { organizationId: organizationId ?? "" },
 				select: { id: true, name: true, description: true, imageUrl: true, organizationId: true, siteDiaryRecordsMap: true, bisCaseId: true },
 			orderBy: { createdAt: "desc" },
 		}),

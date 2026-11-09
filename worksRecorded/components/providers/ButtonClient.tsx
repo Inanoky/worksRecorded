@@ -1,9 +1,6 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import Link from "next/link";
-import { DEMO_SITE_ID } from "@/flows/demo/constants";
-import { loadOzoluClient, openOzoluProject } from "@/flows/demo/client/OzoluClient";
 import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
 import { useWorkspaceNavigation } from "@/components/projects/WorkspaceNavigation";
 import { type MouseEvent, useEffect, useState } from "react";
@@ -47,9 +44,6 @@ export default function OpenProjectButton({
 		(projectId ? `/dashboard/sites/${projectId}/dashboard` : "/dashboard");
 	const href = !destination && projectId ? workspace?.store.preferredHref(projectId, fallbackHref) ?? fallbackHref : fallbackHref;
 	const cached = workspace?.store.hasRoute(href) ?? false;
-	useEffect(() => {
-		if (projectId === DEMO_SITE_ID) void loadOzoluClient();
-	}, [projectId]);
 
 	useEffect(() => {
 		if (!opening) return;
@@ -73,13 +67,6 @@ export default function OpenProjectButton({
 		}
 	};
 
-	if (projectId === DEMO_SITE_ID) {
-		return <Button asChild className="w-full active:scale-95 active:bg-muted transition-transform"><Link href="/demo" prefetch={false} onClick={event => {
-			if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-			event.preventDefault();
-			openOzoluProject();
-		}}>{label}</Link></Button>;
-	}
 	return (
 		<>
 			<Button

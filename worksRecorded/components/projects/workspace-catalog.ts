@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { DEMO_ORGANIZATION_ID, DEMO_SITE_ID } from "@/flows/demo/constants";
 import { prisma } from "@/lib/utils/db";
 import { isSuperUserId } from "@/lib/utils/super-user";
 import {
@@ -38,7 +37,7 @@ export async function loadWorkspaceCatalogRevision(userId: string) {
 	const organizationId = await getOrganizationIdByUserId(userId);
 	const admin = isSuperUserId(userId);
 	const sites = await prisma.site.findMany({
-		where: admin ? {} : { OR: [{ organizationId: organizationId ?? "" }, { id: DEMO_SITE_ID, organizationId: DEMO_ORGANIZATION_ID, userId }] },
+		where: admin ? {} : { organizationId: organizationId ?? "" },
 		select: {
 			id: true,
 			name: true,

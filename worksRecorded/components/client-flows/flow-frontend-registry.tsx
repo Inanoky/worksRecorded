@@ -111,10 +111,6 @@ function DefaultConstructionDiary(props: FlowSiteDiaryProps) {
 }
 
 export const FLOW_FRONTEND_MODULES: Record<string, FlowFrontendModule> = {
-	[FLOW_MODULE_KEYS.DEMO]: {
-		Dashboard: DefaultConstructionDashboardFlow,
-		SiteDiary: DefaultConstructionDiary,
-	},
 	[FLOW_MODULE_KEYS.FIMA]: {
 		Dashboard: FimaDashboard,
 		SiteDiary: DefaultConstructionSiteDiaryFlow,

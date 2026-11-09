@@ -5,7 +5,6 @@ export const FLOW_MODULE_KEYS = {
 	TGEM_INVOICE_APPROVAL: "tgem-invoice-approval",
 	SPRINKLER_ATTENDANCE: "sprinkler-attendance",
 	FIMA: "fima",
-	DEMO: "demo",
 } as const;
 
 export type BuiltInFlowModuleKey =
