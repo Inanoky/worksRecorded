@@ -56,6 +56,27 @@ it.each([true, false])(
 	},
 );
 
+it("queries deleted BIS rows separately from drafts", async () => {
+	await loadFimaDiaryPage("org", { bisStatus: "deleted" });
+	expect(count.mock.calls[0][0].where.AND).toContainEqual({
+		bisStatus: { equals: "deleted", mode: "insensitive" },
+	});
+
+	await loadFimaDiaryPage("org", { bisStatus: "draft" });
+	expect(count.mock.calls[1][0].where.AND).toContainEqual({
+		AND: expect.arrayContaining([
+			{
+				NOT: {
+					bisStatus: {
+						in: expect.arrayContaining(["deleted"]),
+						mode: "insensitive",
+					},
+				},
+			},
+		]),
+	});
+});
+
 it("loads act indexes once per project and returns only coverage for the row's current BIS link", async () => {
 	findMany.mockResolvedValue([
 		{

@@ -15,7 +15,7 @@ export const fimaDiaryFilterSchema = z.object({
 		.optional(),
 	bis: presence.optional(),
 	bisStatus: z
-		.enum(["works_recorded", "draft", "pending", "approved"])
+		.enum(["works_recorded", "draft", "pending", "approved", "deleted"])
 		.optional(),
 	materials: presence.optional(),
 	examples: presence.optional(),
@@ -64,6 +64,7 @@ export const fimaDiaryFilterOptions = [
 			{ value: "draft", label: "BIS sagatave" },
 			{ value: "pending", label: "BIS gaida apstiprinājumu" },
 			{ value: "approved", label: "BIS apstiprināts" },
+			{ value: "deleted", label: "BIS dzēsts" },
 		],
 	},
 	{

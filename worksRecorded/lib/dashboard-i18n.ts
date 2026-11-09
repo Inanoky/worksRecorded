@@ -81,6 +81,7 @@ type SiteDiaryListMessages = {
   bisApproved: string;
   bisPending: string;
   bisDraft: string;
+  bisDeleted: string;
   sentToBis: string;
   sending: string;
   sendToBis: string;
@@ -755,6 +756,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     bisApproved: "BIS approved",
     bisPending: "BIS pending",
     bisDraft: "BIS draft",
+    bisDeleted: "BIS deleted",
     sentToBis: "Sent to BIS",
     sending: "Sending...",
     sendToBis: "Send to BIS",
@@ -876,6 +878,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     bisApproved: "BIS apstiprināts",
     bisPending: "BIS gaida apstiprinājumu",
     bisDraft: "BIS melnraksts",
+    bisDeleted: "BIS dzēsts",
     sentToBis: "Nosūtīts uz BIS",
     sending: "Sūta...",
     sendToBis: "Sūtīt uz BIS",

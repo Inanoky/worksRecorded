@@ -9,6 +9,7 @@ it.each([
 	["pending_approval", "pending"],
 	["submitted_to_approve", "pending"],
 	["draft", "draft"],
+	[" DELETED ", "deleted"],
 	["opened_for_update", "draft"],
 ] as const)("groups %s with the displayed %s status", (value, expected) => {
 	expect(getFimaBisStatus(value)).toBe(expected);

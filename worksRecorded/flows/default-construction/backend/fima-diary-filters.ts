@@ -19,15 +19,15 @@ export function buildFimaDiaryFilterWhere(input: unknown): Where[] {
 		const absent: Where = { OR: [{ bisStatus: null }, { bisStatus: "" }] };
 		const known: Where = {
 			bisStatus: {
-				in: ["approved", ...fimaBisPendingStatuses],
+				in: ["approved", "deleted", ...fimaBisPendingStatuses],
 				mode: "insensitive",
 			},
 		};
 		conditions.push(
 			filters.bisStatus === "works_recorded"
 				? absent
-				: filters.bisStatus === "approved"
-					? { bisStatus: { equals: "approved", mode: "insensitive" } }
+				: filters.bisStatus === "draft"
+					? { AND: [{ NOT: absent }, { NOT: known }] }
 					: filters.bisStatus === "pending"
 						? {
 								bisStatus: {
@@ -35,7 +35,7 @@ export function buildFimaDiaryFilterWhere(input: unknown): Where[] {
 									mode: "insensitive",
 								},
 							}
-						: { AND: [{ NOT: absent }, { NOT: known }] },
+						: { bisStatus: { equals: filters.bisStatus, mode: "insensitive" } },
 		);
 	}
 	if (filters.review) {

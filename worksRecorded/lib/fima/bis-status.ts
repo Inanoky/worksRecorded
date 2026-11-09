@@ -13,6 +13,7 @@ export function getFimaBisStatus(status?: string | null) {
 	const value = status?.trim().toLowerCase();
 	if (!value) return "works_recorded";
 	if (value === "approved") return "approved";
+	if (value === "deleted") return "deleted";
 	return fimaBisPendingStatuses.some((pending) => pending === value)
 		? "pending"
 		: "draft";
