@@ -25,7 +25,18 @@ jest.mock("next/navigation", () => ({
 }));
 jest.mock("@/components/sitediary/SiteDiaryList", () => ({
 	__esModule: true,
-	default: () => <output>Diary mounted</output>,
+	default: ({
+		onRefreshCachedProject,
+	}: {
+		onRefreshCachedProject?: () => Promise<void>;
+	}) => (
+		<>
+			<output>Diary mounted</output>
+			<button type="button" onClick={() => void onRefreshCachedProject?.()}>
+				Atjaunot ierakstus
+			</button>
+		</>
+	),
 }));
 jest.mock("../visual/VisualView", () => ({
 	__esModule: true,
@@ -70,7 +81,8 @@ function Workspace({ enabled = true }: { enabled?: boolean }) {
 }
 beforeEach(() => {
 	jest.clearAllMocks();
-	mockRead.mockResolvedValue(undefined);
+	mockRead.mockReset().mockResolvedValue(undefined);
+	mockWrite.mockReset().mockResolvedValue(undefined);
 	global.fetch = jest.fn();
 });
 afterAll(() => {
@@ -191,7 +203,9 @@ it("shows the saved project immediately and revalidates without resetting an edi
 	);
 	render(<Workspace />);
 	expect(await screen.findByText("cached")).toBeInTheDocument();
-	fireEvent.input(screen.getByLabelText("Draft"), {
+	const draft = screen.getByLabelText("Draft");
+	draft.setAttribute("data-project-editor", "site");
+	fireEvent.input(draft, {
 		target: { value: "unsaved" },
 	});
 	await act(async () =>
@@ -347,14 +361,40 @@ it("does not let a hidden always-mounted dialog block background synchronization
 	} as Response);
 	render(
 		<>
-			<div hidden>
-				<div role="dialog">Hidden contact form</div>
+			<div role="dialog" style={{ opacity: 0, pointerEvents: "none" }}>
+				Hidden contact form
 			</div>
 			<Workspace />
 		</>,
 	);
 	expect(await screen.findByText("updated")).toBeInTheDocument();
 	expect(mockWrite).toHaveBeenLastCalledWith("snapshot", project("updated"));
+});
+
+it("applies a background update while a user types into a journal filter", async () => {
+	mockRead.mockResolvedValue(project("cached"));
+	let finish!: (response: Response) => void;
+	jest.mocked(global.fetch).mockImplementation(
+		() =>
+			new Promise((resolve) => {
+				finish = resolve;
+			}),
+	);
+	render(
+		<>
+			<input aria-label="Search" />
+			<Workspace />
+		</>,
+	);
+	await screen.findByText("cached");
+	const search = screen.getByLabelText("Search");
+	search.focus();
+	fireEvent.input(search, { target: { value: "Estrich" } });
+	await act(async () =>
+		finish({ ok: true, json: async () => project("updated") } as Response),
+	);
+	expect(screen.getByText("updated")).toBeInTheDocument();
+	expect(search).toHaveValue("Estrich");
 });
 
 it("retains a deferred background update across workspace switches and publishes it after the editor closes", async () => {
@@ -371,7 +411,11 @@ it("retains a deferred background update across workspace switches and publishes
 		<WorkspaceActivityContext.Provider
 			value={{ active, protect, managed: true }}
 		>
-			{editing && <div role="dialog">Editor</div>}
+			{editing && (
+				<div role="dialog" data-project-editor="site">
+					Editor
+				</div>
+			)}
 			<Workspace />
 		</WorkspaceActivityContext.Provider>
 	);
@@ -399,7 +443,9 @@ it("keeps confirmed local changes visible while a remote update is deferred", as
 	} as Response);
 	render(
 		<>
-			<div role="dialog">Editor</div>
+			<div role="dialog" data-project-editor="site">
+				Editor
+			</div>
 			<Workspace />
 		</>,
 	);
@@ -536,4 +582,46 @@ it("pauses an inactive project and resumes without reading storage or resetting 
 	expect(mockRead).toHaveBeenCalledTimes(1);
 	expect(screen.getByLabelText("Draft")).toHaveValue("not saved");
 	expect(screen.getByText("ready")).toBeInTheDocument();
+});
+
+it("refreshes from the journal and restores the new snapshot on reopening", async () => {
+	let stored = project("cached");
+	mockRead.mockImplementation(async () => stored);
+	mockWrite.mockImplementation(async (_key, snapshot) => {
+		stored = snapshot;
+	});
+	jest
+		.mocked(global.fetch)
+		.mockResolvedValueOnce({ status: 304 } as Response)
+		.mockResolvedValueOnce({
+			ok: true,
+			json: async () => project("fresh"),
+		} as Response)
+		.mockResolvedValue({ status: 304 } as Response);
+	const journal = (
+		<ProjectLoadingProgressProvider
+			enabled
+			visualPreloadEnabled
+			cacheScope="user:organization"
+		>
+			<LimeniProjectData siteId="site">
+				<Consumer />
+				<RetainedLimeniDiary siteId="site">{null}</RetainedLimeniDiary>
+			</LimeniProjectData>
+		</ProjectLoadingProgressProvider>
+	);
+	const first = render(journal);
+	await screen.findByText("cached");
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Atjaunot ierakstus" }),
+	);
+	await screen.findByText("fresh");
+	await waitFor(() => expect(stored).toEqual(project("fresh")));
+	first.unmount();
+	render(journal);
+	expect(await screen.findByText("fresh")).toBeInTheDocument();
+	expect(global.fetch).toHaveBeenLastCalledWith(
+		expect.any(String),
+		expect.objectContaining({ headers: { "If-None-Match": '"fresh"' } }),
+	);
 });

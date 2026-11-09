@@ -228,7 +228,14 @@ export default function VisualView({
 	const [sidebarOpen, setSidebarOpen] = useState(true);
 	const [mode, setMode] = useState<"actual" | "planning">("actual");
 	const [planningDirty, setPlanningDirty] = useState(false);
-	useWorkspaceProtection(editing || workEditing || recordDraft !== null || planningDirty || hasUnsavedPolygons || planningSaveState.length > 0 || busy);
+	const editingProject =
+		editing ||
+		workEditing ||
+		recordDraft !== null ||
+		planningDirty ||
+		hasUnsavedPolygons ||
+		planningSaveState.length > 0;
+	useWorkspaceProtection(editingProject || busy);
 	const [managingLayers, setManagingLayers] = useState(false);
 	const [savingLayers, setSavingLayers] = useState(false);
 	const layerConfiguration =
@@ -1131,6 +1138,7 @@ export default function VisualView({
 		<section
 			ref={workspace}
 			data-testid="visual-workspace"
+			data-project-editor={editingProject ? siteId : undefined}
 			aria-label="Izpildshēmu darba telpa"
 			className="relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-background"
 			style={{ height: height ?? "calc(100dvh - 240px)" }}
