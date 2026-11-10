@@ -82,7 +82,6 @@ function props(): Props {
 			pageSize: 30,
 			totalPages: 1,
 		},
-		fetchMaterials: jest.fn(),
 		exportMaterials: jest.fn(),
 		sendToBis: jest.fn(),
 		updateSentRecordInBis: jest.fn(),
@@ -101,12 +100,6 @@ function props(): Props {
 		copyMaterialRecord: jest.fn(),
 		deleteRecords: jest.fn(),
 		moveRecordsToProject: jest.fn(),
-		fetchInvoices: jest.fn().mockResolvedValue({
-			invoices: [],
-			nextOffset: null,
-			totalCount: 0,
-		}),
-		fetchInvoiceRows: jest.fn().mockResolvedValue([]),
 	};
 }
 
@@ -151,7 +144,7 @@ it("opens beside the table, highlights the invoice rows, switches documents and 
 	).not.toBeInTheDocument();
 	expect(next).toHaveFocus();
 	expect(screen.getByRole("table")).toBeInTheDocument();
-	expect(input.fetchMaterials).not.toHaveBeenCalled();
+	expect(input.exportMaterials).not.toHaveBeenCalled();
 	expect(input.updateMaterialDetails).not.toHaveBeenCalled();
 });
 
@@ -196,20 +189,16 @@ it("uses Latvian preview labels and clears a removed record preview", () => {
 
 it("restores the unfiltered page after a filter is cleared", async () => {
 	const input = props();
+	input.materials = Array.from({ length: 120 }, (_, index) => ({
+		...materials[index % materials.length],
+		id: `row-${index}`,
+	}));
 	input.initialPagination = {
 		...input.initialPagination,
 		page: 3,
 		totalCount: 1200,
 		totalPages: 40,
 	};
-	input.fetchMaterials = jest.fn().mockResolvedValue({
-		rows: materials,
-		totalCount: materials.length,
-		totalCost: 400,
-		page: 1,
-		pageSize: 30,
-		totalPages: 1,
-	});
 
 	render(<MaterialsTableClient {...input} />);
 
@@ -222,17 +211,16 @@ it("restores the unfiltered page after a filter is cleared", async () => {
 
 	fireEvent.change(searchInput, { target: { value: "" } });
 	for (const pageInput of pageInputs) expect(pageInput).toHaveValue(3);
-	await waitFor(() =>
-		expect(input.fetchMaterials).toHaveBeenLastCalledWith(
-			"site",
-			expect.objectContaining({ page: 3, search: "" }),
-		),
-	);
+	expect(input.exportMaterials).not.toHaveBeenCalled();
 });
 
 it("filters by suppliers from the full analytics list and accepts custom values", async () => {
 	const input = props();
 	input.showSpendInsights = true;
+	input.materials = materials.map((material, index) => ({
+		...material,
+		supplierName: index < 3 ? "Supplier A" : "Supplier B",
+	}));
 	input.initialPagination = {
 		...input.initialPagination,
 		spendInsights: {
@@ -243,15 +231,6 @@ it("filters by suppliers from the full analytics list and accepts custom values"
 			monthlyTotals: [],
 		},
 	};
-	input.fetchMaterials = jest.fn().mockResolvedValue({
-		rows: materials,
-		totalCount: materials.length,
-		totalCost: 400,
-		page: 1,
-		pageSize: 30,
-		totalPages: 1,
-		spendInsights: input.initialPagination.spendInsights,
-	});
 
 	render(<MaterialsTableClient {...input} />);
 
@@ -266,20 +245,10 @@ it("filters by suppliers from the full analytics list and accepts custom values"
 	).not.toBeNull();
 
 	fireEvent.click(screen.getByRole("button", { name: /Supplier A/ }));
-	await waitFor(() =>
-		expect(input.fetchMaterials).toHaveBeenLastCalledWith(
-			"site",
-			expect.objectContaining({ supplierName: "Supplier A", page: 1 }),
-		),
-	);
+	expect(input.exportMaterials).not.toHaveBeenCalled();
 
 	fireEvent.change(supplierInput, { target: { value: "Custom supplier" } });
-	await waitFor(() =>
-		expect(input.fetchMaterials).toHaveBeenLastCalledWith(
-			"site",
-			expect.objectContaining({ supplierName: "Custom supplier" }),
-		),
-	);
+	expect(input.exportMaterials).not.toHaveBeenCalled();
 
 	const supplierClear = screen.getByRole("button", {
 		name: "Clear filters: Supplier",
@@ -306,6 +275,10 @@ it("shows an inline clear button for the invoice number dropdown", () => {
 it("replaces supplier options when the warehouse site changes", async () => {
 	const firstSite = props();
 	firstSite.showSpendInsights = true;
+	firstSite.materials = materials.map((material) => ({
+		...material,
+		supplierName: "Site A supplier",
+	}));
 	firstSite.initialPagination = {
 		...firstSite.initialPagination,
 		spendInsights: {
@@ -322,6 +295,10 @@ it("replaces supplier options when the warehouse site changes", async () => {
 	const secondSite = {
 		...firstSite,
 		siteId: "site-b",
+		materials: materials.map((material) => ({
+			...material,
+			supplierName: "Site B supplier",
+		})),
 		initialPagination: {
 			...firstSite.initialPagination,
 			spendInsights: {
@@ -351,6 +328,10 @@ it("replaces supplier options when the warehouse site changes", async () => {
 it("replaces supplier options when refreshed analytics changes in a mounted warehouse", async () => {
 	const input = props();
 	input.showSpendInsights = true;
+	input.materials = materials.map((material) => ({
+		...material,
+		supplierName: "Old supplier",
+	}));
 	input.initialPagination = {
 		...input.initialPagination,
 		spendInsights: {
@@ -364,6 +345,10 @@ it("replaces supplier options when refreshed analytics changes in a mounted ware
 
 	const refreshedInput = {
 		...input,
+		materials: materials.map((material) => ({
+			...material,
+			supplierName: "New supplier",
+		})),
 		initialPagination: {
 			...input.initialPagination,
 			spendInsights: {
@@ -390,22 +375,8 @@ it("replaces supplier options when refreshed analytics changes in a mounted ware
 	});
 });
 
-it("refreshes retained warehouse analytics when its project becomes active again", async () => {
+it("does not refetch retained warehouse data when its project becomes active again", () => {
 	const input = props();
-	input.fetchMaterials = jest.fn().mockResolvedValue({
-		rows: materials,
-		totalCount: materials.length,
-		totalCost: 400,
-		page: 1,
-		pageSize: 30,
-		totalPages: 1,
-		spendInsights: {
-			supplierTotals: [
-				{ key: "fresh", label: "Fresh supplier", totalCost: 400, count: 4 },
-			],
-			monthlyTotals: [],
-		},
-	});
 	const renderWarehouse = (active: boolean) => (
 		<WorkspaceActivityContext.Provider
 			value={{ active, managed: true, protect: jest.fn() }}
@@ -414,26 +385,12 @@ it("refreshes retained warehouse analytics when its project becomes active again
 		</WorkspaceActivityContext.Provider>
 	);
 	const { rerender } = render(renderWarehouse(true));
-	expect(input.fetchMaterials).not.toHaveBeenCalled();
+	expect(input.exportMaterials).not.toHaveBeenCalled();
 
 	rerender(renderWarehouse(false));
 	rerender(renderWarehouse(true));
 
-	await waitFor(() =>
-		expect(input.fetchMaterials).toHaveBeenCalledWith(
-			"site",
-			expect.objectContaining({ page: 1 }),
-		),
-	);
-	await waitFor(() => {
-		const supplierInput = screen.getByLabelText("Supplier");
-		const supplierList = document.getElementById(
-			supplierInput.getAttribute("list") ?? "",
-		);
-		expect(
-			supplierList?.querySelector('option[value="Fresh supplier"]'),
-		).not.toBeNull();
-	});
+	expect(input.exportMaterials).not.toHaveBeenCalled();
 });
 
 it("keeps retained projects bound to their own supplier and invoice datalists", () => {
@@ -443,6 +400,7 @@ it("keeps retained projects bound to their own supplier and invoice datalists", 
 	siteA.materials = materials.map((material) => ({
 		...material,
 		invoiceNr: "SITE-A-INVOICE",
+		supplierName: "Site A supplier",
 	}));
 	siteA.initialPagination = {
 		...siteA.initialPagination,
@@ -459,6 +417,7 @@ it("keeps retained projects bound to their own supplier and invoice datalists", 
 	siteB.materials = materials.map((material) => ({
 		...material,
 		invoiceNr: "SITE-B-INVOICE",
+		supplierName: "Site B supplier",
 	}));
 	siteB.initialPagination = {
 		...siteB.initialPagination,

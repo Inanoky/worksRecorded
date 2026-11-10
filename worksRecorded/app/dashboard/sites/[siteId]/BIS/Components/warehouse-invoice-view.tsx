@@ -22,6 +22,11 @@ import type {
 
 const INVOICE_PAGE_SIZE = 30
 
+type WarehouseInvoiceMaterialRow = Pick<
+  WarehouseMaterialRow,
+  "id" | "name" | "quantity" | "measurementUnit" | "cost" | "materialDate" | "BISId"
+>
+
 type Props = {
   siteId: string
   language: "lv" | "en"
@@ -38,7 +43,7 @@ type Props = {
   fetchInvoiceRows: (
     siteId: string,
     locator: WarehouseInvoiceLocator,
-  ) => Promise<WarehouseMaterialRow[]>
+  ) => Promise<WarehouseInvoiceMaterialRow[]>
 }
 
 const messages = {
@@ -146,12 +151,12 @@ export function WarehouseInvoiceView({
   const [nextOffset, setNextOffset] = React.useState<number | null>(null)
   const [totalCount, setTotalCount] = React.useState(0)
   const [expandedKeys, setExpandedKeys] = React.useState<string[]>([])
-  const [rowsByInvoice, setRowsByInvoice] = React.useState<Record<string, WarehouseMaterialRow[]>>({})
+  const [rowsByInvoice, setRowsByInvoice] = React.useState<Record<string, WarehouseInvoiceMaterialRow[]>>({})
   const [loadingKeys, setLoadingKeys] = React.useState<string[]>([])
   const requestIdRef = React.useRef(0)
   const loadedQueryRef = React.useRef("")
   const unfilteredPageCountRef = React.useRef(1)
-  const rowRequestsRef = React.useRef<Record<string, Promise<WarehouseMaterialRow[]>>>({})
+  const rowRequestsRef = React.useRef<Record<string, Promise<WarehouseInvoiceMaterialRow[]>>>({})
   const queryIsFiltered = hasInvoiceFilters(query)
   const queryKey = React.useMemo(
     () => JSON.stringify([siteId, query, refreshKey]),
@@ -298,7 +303,7 @@ export function WarehouseInvoiceView({
     )
   }
 
-  const selectRow = (row: WarehouseMaterialRow, checked: boolean) => {
+  const selectRow = (row: WarehouseInvoiceMaterialRow, checked: boolean) => {
     if (row.BISId) return
     onSelectionChange(
       checked

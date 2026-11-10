@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { SourceDocumentPreview } from "@/components/ui/SourceDocumentPreview"
-import { useWorkspaceActive } from "@/components/projects/WorkspaceActivity"
 import {
   Search,
   Filter,
@@ -85,13 +84,16 @@ import { DefaultConstructionForma2SplitEditor } from "@/flows/default-constructi
 import { DefaultConstructionForma2InvoicePreview } from "@/flows/default-construction/frontend/DefaultConstructionForma2InvoicePreview"
 import type {
   WarehouseMaterialQueryInput as DatabaseWarehouseMaterialQueryInput,
-  WarehouseMaterialRow,
   WarehouseMaterialSort as DatabaseWarehouseMaterialSort,
 } from "@/lib/bis/warehouse-material-query"
 import type {
   WarehouseInvoiceLocator,
-  WarehouseInvoicePage,
 } from "@/server/actions/warehouse-invoice-view-actions"
+import { queryClientWarehouseMaterials } from "@/lib/bis/warehouse-client-query"
+import {
+  buildClientWarehouseInvoicePage,
+  getClientWarehouseInvoiceRows,
+} from "@/lib/bis/warehouse-invoice-client"
 import {
   getWarehouseForma2PositionLabel,
   type WarehouseForma2Sort,
@@ -204,10 +206,6 @@ type Props = {
   materialTypes: Array<{ id: string; name: string }>
   transferTargets: Array<{ id: string; name: string }>
   initialPagination: WarehouseMaterialPagination
-  fetchMaterials: (
-    siteId: string,
-    input: WarehouseMaterialQueryInput,
-  ) => Promise<WarehouseMaterialPagination & { rows: MaterialRow[] }>
   exportMaterials: (
     siteId: string,
     input: WarehouseMaterialQueryInput,
@@ -333,15 +331,6 @@ type Props = {
     targetSiteId: string
     recordIds: string[]
   }) => Promise<{ count: number; movedIds: string[]; targetSiteId: string }>
-  fetchInvoices: (
-    siteId: string,
-    input: DatabaseWarehouseMaterialQueryInput,
-    pagination?: { offset?: number; limit?: number },
-  ) => Promise<WarehouseInvoicePage>
-  fetchInvoiceRows: (
-    siteId: string,
-    locator: WarehouseInvoiceLocator,
-  ) => Promise<WarehouseMaterialRow[]>
 }
 
 function formatDate(value: Date | null) {
@@ -537,7 +526,6 @@ export default function MaterialsTableClient({
   materialTypes,
   transferTargets,
   initialPagination,
-  fetchMaterials,
   exportMaterials,
   showSpendInsights,
   sendToBis,
@@ -557,11 +545,7 @@ export default function MaterialsTableClient({
   copyMaterialRecord,
   deleteRecords,
   moveRecordsToProject,
-  fetchInvoices,
-  fetchInvoiceRows,
 }: Props) {
-  const workspaceActive = useWorkspaceActive()
-  const wasWorkspaceActiveRef = React.useRef(workspaceActive)
   const invoiceNumberListId = React.useId()
   const supplierNameListId = React.useId()
   const language = normalizeOrganizationLanguage(organizationLanguage)
@@ -584,7 +568,6 @@ export default function MaterialsTableClient({
   const previewRow = isDefaultConstructionFlow
     ? rows.find((row) => row.id === previewRecordId && row.sourcePhoto)
     : undefined
-  const [pagination, setPagination] = React.useState<WarehouseMaterialPagination>(initialPagination)
   const [configurations, setConfigurations] = React.useState<MaterialCategory[]>(materialConfigurations)
   const [measures, setMeasures] = React.useState<Array<{ id: string; name: string }>>(materialMeasures)
   const [types, setTypes] = React.useState<Array<{ id: string; name: string }>>(materialTypes)
@@ -738,7 +721,6 @@ export default function MaterialsTableClient({
   }, [invoiceNumber, rows])
 
   React.useEffect(() => {
-    setPagination(initialPagination)
     setPage(initialPagination.page)
     setPageInput(String(initialPagination.page))
     unfilteredPageRef.current = initialPagination.page
@@ -816,34 +798,25 @@ export default function MaterialsTableClient({
     const requestId = ++loadRequestIdRef.current
     setTableLoading(true)
     try {
-      const result = await fetchMaterials(siteId, input)
+      const result = await exportMaterials(siteId, {
+        ...input,
+        page: undefined,
+        pageSize: undefined,
+        search: undefined,
+        invoiceNumber: undefined,
+        supplierName: undefined,
+        status: "all",
+        configFilter: "all",
+        invoiceDateFrom: undefined,
+        invoiceDateTo: undefined,
+        forma2Assignment: "all",
+        forma2PositionId: undefined,
+        sortBy: "default",
+      })
       if (requestId !== loadRequestIdRef.current) return
 
-      setRows(result.rows)
-      setPagination({
-        totalCount: result.totalCount,
-        totalCost: result.totalCost,
-        page: result.page,
-        pageSize: result.pageSize,
-        totalPages: result.totalPages,
-        spendInsights: result.spendInsights,
-      })
-      setPage(result.page)
-      setPageInput(String(result.page))
-      if (!warehouseFiltersAreActive({
-        search: input.search ?? "",
-        invoiceNumber: input.invoiceNumber ?? "",
-        supplierName: input.supplierName ?? "",
-        status: input.status ?? "all",
-        configFilter: input.configFilter ?? "all",
-        invoiceDateFrom: input.invoiceDateFrom ?? "",
-        invoiceDateTo: input.invoiceDateTo ?? "",
-        sortBy: input.sortBy ?? "default",
-        forma2Assignment: input.forma2Assignment ?? "all",
-        forma2PositionId: input.forma2PositionId ?? "all",
-      })) unfilteredPageRef.current = result.page
-      setPageSize(result.pageSize)
-      setSelectedRowIds((current) => current.filter((id) => result.rows.some((row) => row.id === id)))
+      setRows(result)
+      setSelectedRowIds((current) => current.filter((id) => result.some((row) => row.id === id)))
     } catch (error) {
       if (requestId !== loadRequestIdRef.current) return
 
@@ -852,29 +825,7 @@ export default function MaterialsTableClient({
     } finally {
       if (requestId === loadRequestIdRef.current) setTableLoading(false)
     }
-  }, [fetchMaterials, queryInput, siteId, toastMessages.failedLoadMaterials, warehouseFiltersAreActive])
-
-  React.useEffect(() => {
-    const wasActive = wasWorkspaceActiveRef.current
-    wasWorkspaceActiveRef.current = workspaceActive
-    if (!workspaceActive || wasActive) return
-
-    void loadWarehousePage()
-  }, [loadWarehousePage, workspaceActive])
-
-  const didMountRef = React.useRef(false)
-  React.useEffect(() => {
-    if (!didMountRef.current) {
-      didMountRef.current = true
-      return
-    }
-
-    const timeout = window.setTimeout(() => {
-      void loadWarehousePage()
-    }, search.trim() || invoiceNumber.trim() ? 300 : 0)
-
-    return () => window.clearTimeout(timeout)
-  }, [invoiceNumber, loadWarehousePage, search])
+  }, [exportMaterials, queryInput, siteId, toastMessages.failedLoadMaterials])
 
   const approverKey = React.useCallback(
     (approver: BisApprover) =>
@@ -1622,7 +1573,26 @@ export default function MaterialsTableClient({
     }
   }
 
-  const filteredMaterials = rows
+  const clientPage = React.useMemo(() => queryClientWarehouseMaterials(rows, queryInput, {
+    showSpendInsights,
+    forma2Positions: forma2PositionOptions,
+  }), [forma2PositionOptions, queryInput, rows, showSpendInsights])
+  React.useEffect(() => {
+    if (page === clientPage.page) return
+    setPage(clientPage.page)
+    setPageInput(String(clientPage.page))
+  }, [clientPage.page, page])
+  const filteredMaterials = clientPage.rows
+  const pagination = clientPage
+  const fetchClientInvoices = React.useCallback((
+    _siteId: string,
+    input: DatabaseWarehouseMaterialQueryInput,
+    invoicePagination?: { offset?: number; limit?: number },
+  ) => Promise.resolve(buildClientWarehouseInvoicePage(rows, input, invoicePagination)), [rows])
+  const fetchClientInvoiceRows = React.useCallback((
+    _siteId: string,
+    locator: WarehouseInvoiceLocator,
+  ) => Promise.resolve(getClientWarehouseInvoiceRows(rows, locator)), [rows])
   const visibleInvoiceNumbers = React.useMemo(
     () => [...invoiceNumberOptions].sort((left, right) => left.localeCompare(right, language === "lv" ? "lv" : "en", {
       numeric: true,
@@ -2349,8 +2319,8 @@ export default function MaterialsTableClient({
           refreshKey={invoiceRefreshKey}
           selectedRowIds={selectedRowIds}
           onSelectionChange={setSelectedRowIds}
-          fetchInvoices={fetchInvoices}
-          fetchInvoiceRows={fetchInvoiceRows}
+          fetchInvoices={fetchClientInvoices}
+          fetchInvoiceRows={fetchClientInvoiceRows}
         />
       </div>
 

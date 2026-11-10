@@ -20,9 +20,11 @@ import {
   getWarehouseMaterialExportRows,
   getWarehouseMaterialPage,
   normalizeWarehouseMaterialQuery,
+  WAREHOUSE_MATERIAL_PAGE_SIZE,
   type WarehouseMaterialRow,
   type WarehouseMaterialSort,
 } from "@/lib/bis/warehouse-material-query";
+import { buildClientWarehouseSpendInsights } from "@/lib/bis/warehouse-client-query";
 import { normalizeWarehouseSourcePhoto } from "@/lib/bis/warehouse-source-photo-group";
 import { canShowWarehouseSpendInsights } from "@/lib/bis/warehouse-spend-visibility";
 import { getWarehousePageMessages } from "@/lib/dashboard-i18n";
@@ -35,10 +37,6 @@ import { requireUser } from "@/lib/utils/requireUser";
 import { ensureUserBisAccessToken, getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, refreshBisAccessToken, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
 import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
-import {
-  fetchWarehouseInvoiceRows,
-  fetchWarehouseInvoiceSummaries,
-} from "@/server/actions/warehouse-invoice-view-actions";
 import {
   getWarehouseTransferTargets,
   moveWarehouseRecordsToProject,
@@ -2129,23 +2127,24 @@ async function MaterialsPage({
 
   try {
   const user = await trace.measure("auth", () => requireUser());
-  const organizationLanguage = await trace.measure("orgLanguage", () => getOrganizationLanguageByUserId(user.id));
+  const [organizationLanguage, [site, userBisToken, dbUser, siteOrg]] = await Promise.all([
+    trace.measure("orgLanguage", () => getOrganizationLanguageByUserId(user.id)),
+    trace.measure("bisConfig", () =>
+      Promise.all([
+        getSiteBisConfig(siteId),
+        ensureUserBisAccessToken(user.id),
+        prisma.user.findUnique({
+          where: { id: user.id },
+          select: { role: true },
+        }),
+        prisma.site.findUnique({
+          where: { id: siteId },
+          select: { organizationId: true, siteDiaryRecordsMap: true },
+        }),
+      ]),
+    ),
+  ]);
   const t = getWarehousePageMessages(organizationLanguage);
-
-  const [site, userBisToken, dbUser, siteOrg] = await trace.measure("bisConfig", () =>
-    Promise.all([
-      getSiteBisConfig(siteId),
-      ensureUserBisAccessToken(user.id),
-      prisma.user.findUnique({
-        where: { id: user.id },
-        select: { role: true },
-      }),
-      prisma.site.findUnique({
-        where: { id: siteId },
-        select: { organizationId: true, siteDiaryRecordsMap: true },
-      }),
-    ]),
-  );
 
   const bisEnabled = Boolean(site?.bisCaseId && userBisToken?.accessToken);
   const showSpendInsights = canShowWarehouseSpendInsights({
@@ -2153,9 +2152,9 @@ async function MaterialsPage({
     userRole: dbUser?.role,
   });
 
-  const [materialsPage, materialConfigurationData, flowModuleKey, transferTargets] = await trace.measure("initialData", () =>
+  const [materialRows, materialConfigurationData, flowModuleKey, transferTargets] = await trace.measure("initialData", () =>
     Promise.all([
-      getWarehouseMaterialPage({ siteId, includeSpendInsights: showSpendInsights }),
+      getWarehouseMaterialExportRows({ siteId, includeSpendInsights: showSpendInsights }),
       bisEnabled ? fetchWarehouseMaterialConfigurationData(siteId).catch(async (error) => {
         console.error("Failed to load BIS material configurations", error);
         const organizationTemplates = await fetchOrganizationMaterialConfigurationTemplatesForSite(siteId).catch(() => []);
@@ -2176,6 +2175,17 @@ async function MaterialsPage({
       getWarehouseTransferTargets(siteId),
     ]),
   );
+  const materialsPage = {
+    rows: materialRows,
+    totalCount: materialRows.length,
+    totalCost: materialRows.reduce((total, row) => total + (row.cost ?? 0), 0),
+    page: 1,
+    pageSize: WAREHOUSE_MATERIAL_PAGE_SIZE,
+    totalPages: Math.max(1, Math.ceil(materialRows.length / WAREHOUSE_MATERIAL_PAGE_SIZE)),
+    spendInsights: showSpendInsights
+      ? buildClientWarehouseSpendInsights(materialRows)
+      : undefined,
+  };
 
   // Keep initial page render fast by using stored DB state only.
   // BIS live refresh stays available through explicit sync actions in the UI.
@@ -2253,7 +2263,6 @@ async function MaterialsPage({
           totalPages: materialsPage.totalPages,
           spendInsights: materialsPage.spendInsights,
         }}
-        fetchMaterials={fetchWarehouseMaterialsPage}
         exportMaterials={exportWarehouseMaterials}
         sendToBis={sendToBis}
         updateSentRecordInBis={updateSentReceivedMaterialInBis}
@@ -2272,8 +2281,6 @@ async function MaterialsPage({
         copyMaterialRecord={copyWarehouseRecord}
         deleteRecords={deleteWarehouseRecords}
         moveRecordsToProject={moveWarehouseRecordsToProject}
-        fetchInvoices={fetchWarehouseInvoiceSummaries}
-        fetchInvoiceRows={fetchWarehouseInvoiceRows}
       /></div>
   </>;
 
