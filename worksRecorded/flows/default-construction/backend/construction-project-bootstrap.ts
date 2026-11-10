@@ -1,7 +1,5 @@
 import { createHash } from "node:crypto";
 import { getDashboardBisStatus } from "@/lib/bis/dashboard-status";
-import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
-import { getConfig } from "@/server/actions/site-diary-actions";
 import type { LimeniProjectSnapshot } from "../visual/project-snapshot-store";
 import { readConstructionDiaryBootstrap } from "./construction-diary-snapshot";
 import { requireConstructionProjectAccess } from "./construction-project-access";
@@ -26,22 +24,18 @@ export async function loadConstructionProjectBootstrap(
 	const access = await measureBootstrapPhase(trace, "bootstrapAccess", () =>
 		requireConstructionProjectAccess(userId, siteId),
 	);
-	const [diary, config, bis, language] = await Promise.all([
+	const [diary, bis] = await Promise.all([
 		measureBootstrapPhase(trace, "bootstrapDiary", () =>
 			readConstructionDiaryBootstrap(siteId, access.organizationId),
-		),
-		measureBootstrapPhase(trace, "bootstrapConfig", () =>
-			getConfig(siteId, { flowId: "default" }),
 		),
 		access.bisCaseId
 			? measureBootstrapPhase(trace, "bootstrapBis", () =>
 					getDashboardBisStatus(userId, siteId, true),
 				)
 			: Promise.resolve({ enabled: false, unavailable: false }),
-		measureBootstrapPhase(trace, "bootstrapLanguage", () =>
-			getOrganizationLanguageByUserId(userId),
-		),
 	]);
+	const config = access.diaryConfig;
+	const language = access.organizationLanguage;
 	const data = {
 		settings: {
 			siteId,

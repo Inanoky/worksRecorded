@@ -1,7 +1,9 @@
+import { normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 import { isFimaDiary } from "@/lib/fima/diary-collaboration";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { getAuthorizedProjectSite } from "@/lib/projects/authorized-project-site";
+import { buildDefaultConstructionDiaryConfig } from "../lib/diary-config";
 import { ProjectAccessError } from "../visual/project-access-error";
 
 export async function requireConstructionProjectAccess(
@@ -22,5 +24,9 @@ export async function requireConstructionProjectAccess(
 	return {
 		organizationId: site.organizationId,
 		bisCaseId: site.bisCaseId,
+		organizationLanguage: normalizeOrganizationLanguage(
+			site.organization?.orgLanguage,
+		),
+		diaryConfig: buildDefaultConstructionDiaryConfig(site),
 	};
 }

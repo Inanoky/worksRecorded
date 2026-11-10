@@ -1,9 +1,19 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import type { ComponentProps } from "react";
 import MaterialsTableClient from "@/app/dashboard/sites/[siteId]/BIS/Components/materials-table-client";
+import { WorkspaceActivityContext } from "@/components/projects/WorkspaceActivity";
 
 jest.mock("@/lib/utils/UploadthingsComponents", () => ({
 	UploadButton: () => null,
+}));
+jest.mock("@/flows/default-construction/frontend/DiaryFeedbackBrain", () => ({
+	DiaryFeedbackBrain: () => null,
 }));
 jest.mock(
 	"@/flows/default-construction/backend/forma2-analytics-actions",
@@ -182,4 +192,322 @@ it("uses Latvian preview labels and clears a removed record preview", () => {
 	expect(
 		screen.queryByRole("region", { name: "Rēķina priekšskatījums" }),
 	).not.toBeInTheDocument();
+});
+
+it("restores the unfiltered page after a filter is cleared", async () => {
+	const input = props();
+	input.initialPagination = {
+		...input.initialPagination,
+		page: 3,
+		totalCount: 1200,
+		totalPages: 40,
+	};
+	input.fetchMaterials = jest.fn().mockResolvedValue({
+		rows: materials,
+		totalCount: materials.length,
+		totalCost: 400,
+		page: 1,
+		pageSize: 30,
+		totalPages: 1,
+	});
+
+	render(<MaterialsTableClient {...input} />);
+
+	const pageInputs = screen.getAllByRole("spinbutton", { name: "Page" });
+	const searchInput = screen.getByRole("textbox", { name: /Search materials/ });
+	for (const pageInput of pageInputs) expect(pageInput).toHaveValue(3);
+
+	fireEvent.change(searchInput, { target: { value: "Optimera" } });
+	for (const pageInput of pageInputs) expect(pageInput).toHaveValue(1);
+
+	fireEvent.change(searchInput, { target: { value: "" } });
+	for (const pageInput of pageInputs) expect(pageInput).toHaveValue(3);
+	await waitFor(() =>
+		expect(input.fetchMaterials).toHaveBeenLastCalledWith(
+			"site",
+			expect.objectContaining({ page: 3, search: "" }),
+		),
+	);
+});
+
+it("filters by suppliers from the full analytics list and accepts custom values", async () => {
+	const input = props();
+	input.showSpendInsights = true;
+	input.initialPagination = {
+		...input.initialPagination,
+		spendInsights: {
+			supplierTotals: [
+				{ key: "supplier-a", label: "Supplier A", totalCost: 300, count: 3 },
+				{ key: "supplier-b", label: "Supplier B", totalCost: 100, count: 1 },
+			],
+			monthlyTotals: [],
+		},
+	};
+	input.fetchMaterials = jest.fn().mockResolvedValue({
+		rows: materials,
+		totalCount: materials.length,
+		totalCost: 400,
+		page: 1,
+		pageSize: 30,
+		totalPages: 1,
+		spendInsights: input.initialPagination.spendInsights,
+	});
+
+	render(<MaterialsTableClient {...input} />);
+
+	const supplierInput = screen.getByLabelText("Supplier");
+	const supplierList = document.getElementById(
+		supplierInput.getAttribute("list") ?? "",
+	);
+	expect(supplierInput).toHaveAttribute("list");
+	expect(supplierList?.querySelectorAll("option")).toHaveLength(2);
+	expect(
+		supplierList?.querySelector('option[value="Supplier B"]'),
+	).not.toBeNull();
+
+	fireEvent.click(screen.getByRole("button", { name: /Supplier A/ }));
+	await waitFor(() =>
+		expect(input.fetchMaterials).toHaveBeenLastCalledWith(
+			"site",
+			expect.objectContaining({ supplierName: "Supplier A", page: 1 }),
+		),
+	);
+
+	fireEvent.change(supplierInput, { target: { value: "Custom supplier" } });
+	await waitFor(() =>
+		expect(input.fetchMaterials).toHaveBeenLastCalledWith(
+			"site",
+			expect.objectContaining({ supplierName: "Custom supplier" }),
+		),
+	);
+
+	const supplierClear = screen.getByRole("button", {
+		name: "Clear filters: Supplier",
+	});
+	expect(supplierInput.parentElement?.firstElementChild).toBe(supplierClear);
+	fireEvent.click(supplierClear);
+	expect(supplierInput).toHaveValue("");
+});
+
+it("shows an inline clear button for the invoice number dropdown", () => {
+	render(<MaterialsTableClient {...props()} />);
+
+	const invoiceInput = screen.getByLabelText("Invoice number");
+	fireEvent.change(invoiceInput, { target: { value: "INV-1" } });
+	const invoiceClear = screen.getByRole("button", {
+		name: "Clear filters: Invoice number",
+	});
+	expect(invoiceInput.parentElement?.firstElementChild).toBe(invoiceClear);
+	fireEvent.click(invoiceClear);
+
+	expect(invoiceInput).toHaveValue("");
+});
+
+it("replaces supplier options when the warehouse site changes", async () => {
+	const firstSite = props();
+	firstSite.showSpendInsights = true;
+	firstSite.initialPagination = {
+		...firstSite.initialPagination,
+		spendInsights: {
+			supplierTotals: [
+				{ key: "site-a", label: "Site A supplier", totalCost: 100, count: 1 },
+			],
+			monthlyTotals: [],
+		},
+	};
+	const { rerender } = render(
+		<MaterialsTableClient key={firstSite.siteId} {...firstSite} />,
+	);
+
+	const secondSite = {
+		...firstSite,
+		siteId: "site-b",
+		initialPagination: {
+			...firstSite.initialPagination,
+			spendInsights: {
+				supplierTotals: [
+					{ key: "site-b", label: "Site B supplier", totalCost: 200, count: 2 },
+				],
+				monthlyTotals: [],
+			},
+		},
+	};
+	rerender(<MaterialsTableClient key={secondSite.siteId} {...secondSite} />);
+
+	await waitFor(() => {
+		const supplierInput = screen.getByLabelText("Supplier");
+		const supplierList = document.getElementById(
+			supplierInput.getAttribute("list") ?? "",
+		);
+		expect(
+			supplierList?.querySelector('option[value="Site A supplier"]'),
+		).toBeNull();
+		expect(
+			supplierList?.querySelector('option[value="Site B supplier"]'),
+		).not.toBeNull();
+	});
+});
+
+it("replaces supplier options when refreshed analytics changes in a mounted warehouse", async () => {
+	const input = props();
+	input.showSpendInsights = true;
+	input.initialPagination = {
+		...input.initialPagination,
+		spendInsights: {
+			supplierTotals: [
+				{ key: "old", label: "Old supplier", totalCost: 100, count: 1 },
+			],
+			monthlyTotals: [],
+		},
+	};
+	const { rerender } = render(<MaterialsTableClient {...input} />);
+
+	const refreshedInput = {
+		...input,
+		initialPagination: {
+			...input.initialPagination,
+			spendInsights: {
+				supplierTotals: [
+					{ key: "new", label: "New supplier", totalCost: 200, count: 2 },
+				],
+				monthlyTotals: [],
+			},
+		},
+	};
+	rerender(<MaterialsTableClient {...refreshedInput} />);
+
+	await waitFor(() => {
+		const supplierInput = screen.getByLabelText("Supplier");
+		const supplierList = document.getElementById(
+			supplierInput.getAttribute("list") ?? "",
+		);
+		expect(
+			supplierList?.querySelector('option[value="Old supplier"]'),
+		).toBeNull();
+		expect(
+			supplierList?.querySelector('option[value="New supplier"]'),
+		).not.toBeNull();
+	});
+});
+
+it("refreshes retained warehouse analytics when its project becomes active again", async () => {
+	const input = props();
+	input.fetchMaterials = jest.fn().mockResolvedValue({
+		rows: materials,
+		totalCount: materials.length,
+		totalCost: 400,
+		page: 1,
+		pageSize: 30,
+		totalPages: 1,
+		spendInsights: {
+			supplierTotals: [
+				{ key: "fresh", label: "Fresh supplier", totalCost: 400, count: 4 },
+			],
+			monthlyTotals: [],
+		},
+	});
+	const renderWarehouse = (active: boolean) => (
+		<WorkspaceActivityContext.Provider
+			value={{ active, managed: true, protect: jest.fn() }}
+		>
+			<MaterialsTableClient {...input} />
+		</WorkspaceActivityContext.Provider>
+	);
+	const { rerender } = render(renderWarehouse(true));
+	expect(input.fetchMaterials).not.toHaveBeenCalled();
+
+	rerender(renderWarehouse(false));
+	rerender(renderWarehouse(true));
+
+	await waitFor(() =>
+		expect(input.fetchMaterials).toHaveBeenCalledWith(
+			"site",
+			expect.objectContaining({ page: 1 }),
+		),
+	);
+	await waitFor(() => {
+		const supplierInput = screen.getByLabelText("Supplier");
+		const supplierList = document.getElementById(
+			supplierInput.getAttribute("list") ?? "",
+		);
+		expect(
+			supplierList?.querySelector('option[value="Fresh supplier"]'),
+		).not.toBeNull();
+	});
+});
+
+it("keeps retained projects bound to their own supplier and invoice datalists", () => {
+	const siteA = props();
+	siteA.siteId = "site-a";
+	siteA.showSpendInsights = true;
+	siteA.materials = materials.map((material) => ({
+		...material,
+		invoiceNr: "SITE-A-INVOICE",
+	}));
+	siteA.initialPagination = {
+		...siteA.initialPagination,
+		spendInsights: {
+			supplierTotals: [
+				{ key: "site-a", label: "Site A supplier", totalCost: 400, count: 4 },
+			],
+			monthlyTotals: [],
+		},
+	};
+	const siteB = props();
+	siteB.siteId = "site-b";
+	siteB.showSpendInsights = true;
+	siteB.materials = materials.map((material) => ({
+		...material,
+		invoiceNr: "SITE-B-INVOICE",
+	}));
+	siteB.initialPagination = {
+		...siteB.initialPagination,
+		spendInsights: {
+			supplierTotals: [
+				{ key: "site-b", label: "Site B supplier", totalCost: 400, count: 4 },
+			],
+			monthlyTotals: [],
+		},
+	};
+
+	render(
+		<>
+			<div data-testid="retained-site-a" hidden>
+				<MaterialsTableClient {...siteA} />
+			</div>
+			<div data-testid="active-site-b">
+				<MaterialsTableClient {...siteB} />
+			</div>
+		</>,
+	);
+
+	const siteARoot = screen.getByTestId("retained-site-a");
+	const siteBRoot = screen.getByTestId("active-site-b");
+	const siteASupplierInput = siteARoot.querySelector<HTMLInputElement>(
+		'input[id="warehouse-supplier-name"]',
+	);
+	const siteBSupplierInput = siteBRoot.querySelector<HTMLInputElement>(
+		'input[id="warehouse-supplier-name"]',
+	);
+	const siteAInvoiceInput = siteARoot.querySelector<HTMLInputElement>(
+		'input[id="warehouse-invoice-number"]',
+	);
+	const siteBInvoiceInput = siteBRoot.querySelector<HTMLInputElement>(
+		'input[id="warehouse-invoice-number"]',
+	);
+
+	expect(siteASupplierInput?.list?.id).not.toBe(siteBSupplierInput?.list?.id);
+	expect(siteAInvoiceInput?.list?.id).not.toBe(siteBInvoiceInput?.list?.id);
+	expect(
+		siteBSupplierInput?.list?.querySelector('option[value="Site A supplier"]'),
+	).toBeNull();
+	expect(
+		siteBSupplierInput?.list?.querySelector('option[value="Site B supplier"]'),
+	).not.toBeNull();
+	expect(
+		siteBInvoiceInput?.list?.querySelector('option[value="SITE-A-INVOICE"]'),
+	).toBeNull();
+	expect(
+		siteBInvoiceInput?.list?.querySelector('option[value="SITE-B-INVOICE"]'),
+	).not.toBeNull();
 });

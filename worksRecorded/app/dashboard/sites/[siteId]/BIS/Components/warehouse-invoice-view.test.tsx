@@ -1,6 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import * as React from "react"
-import type { WarehouseMaterialRow } from "@/lib/bis/warehouse-material-query"
+import type {
+  WarehouseMaterialQueryInput,
+  WarehouseMaterialRow,
+} from "@/lib/bis/warehouse-material-query"
 import type { WarehouseInvoiceSummary } from "@/server/actions/warehouse-invoice-view-actions"
 import { WarehouseInvoiceView } from "./warehouse-invoice-view"
 
@@ -187,4 +190,67 @@ it("loads another bounded invoice page on demand", async () => {
     {},
     { offset: 1, limit: 30 },
   )
+})
+
+it("restores the loaded invoice pages after filters are cleared", async () => {
+  const secondInvoice = {
+    ...invoice,
+    key: "batch:two",
+    locator: { type: "batch" as const, value: "two" },
+    invoiceNumber: "INV-2",
+  }
+  const thirdInvoice = {
+    ...invoice,
+    key: "batch:three",
+    locator: { type: "batch" as const, value: "three" },
+    invoiceNumber: "INV-3",
+  }
+  const filteredInvoice = {
+    ...invoice,
+    key: "batch:filtered",
+    locator: { type: "batch" as const, value: "filtered" },
+    invoiceNumber: "FILTERED-1",
+  }
+  const fetchInvoices = jest.fn(async (
+    _siteId: string,
+    query: WarehouseMaterialQueryInput,
+    pagination: { offset?: number; limit?: number } = {},
+  ) => {
+    if (query.search) return invoicePage([filteredInvoice])
+    if (pagination.offset === 1) return invoicePage([secondInvoice], 2, 3)
+    if (pagination.offset === 2) return invoicePage([thirdInvoice], null, 3)
+    return invoicePage([invoice], 1, 3)
+  })
+  const baseProps = {
+    siteId: "site-1",
+    language: "en" as const,
+    active: true,
+    refreshKey: 0,
+    selectedRowIds: [],
+    onSelectionChange: jest.fn(),
+    fetchInvoices,
+    fetchInvoiceRows: jest.fn().mockResolvedValue(rows),
+  }
+  const view = render(<WarehouseInvoiceView {...baseProps} query={{}} />)
+  await screen.findByText("INV-1")
+
+  fireEvent.click(screen.getByRole("button", { name: "Load more invoices" }))
+  await screen.findByText("INV-2")
+  fireEvent.click(screen.getByRole("button", { name: "Load more invoices" }))
+  await screen.findByText("INV-3")
+
+  view.rerender(
+    <WarehouseInvoiceView {...baseProps} query={{ search: "filtered" }} />,
+  )
+  await screen.findByText("FILTERED-1")
+
+  fetchInvoices.mockClear()
+  view.rerender(<WarehouseInvoiceView {...baseProps} query={{}} />)
+
+  expect(await screen.findByText("INV-3")).toBeInTheDocument()
+  expect(fetchInvoices.mock.calls.map((call) => call[2]?.offset)).toEqual([
+    0,
+    1,
+    2,
+  ])
 })

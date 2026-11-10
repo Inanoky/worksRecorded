@@ -2231,6 +2231,7 @@ async function MaterialsPage({
         <WarehouseInvoiceImport key={siteId} siteId={siteId} organizationLanguage={organizationLanguage} />
       ) : null}
       <div data-tour="warehouse-table" data-performance-ready="warehouse"><MaterialsTableClient
+        key={siteId}
         siteId={siteId}
         organizationLanguage={organizationLanguage}
         showSpendInsights={showSpendInsights}

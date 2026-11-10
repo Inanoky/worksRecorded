@@ -46,6 +46,8 @@ beforeEach(() => {
 	jest.mocked(requireConstructionProjectAccess).mockResolvedValue({
 		organizationId: "organization",
 		bisCaseId: null,
+		organizationLanguage: "lv",
+		diaryConfig: {},
 	});
 	jest.mocked(getDefaultConstructionForma2Results).mockResolvedValue({
 		siteName: "Project",

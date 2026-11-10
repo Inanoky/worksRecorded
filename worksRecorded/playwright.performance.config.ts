@@ -17,6 +17,7 @@ if (!baseURL.startsWith("https://") && process.env.PERF_ALLOW_HTTP !== "true") {
 export default defineConfig({
 	testDir: "./test/e2e/performance",
 	testMatch: /.*\.spec\.ts/,
+	globalSetup: "./test/e2e/performance/auth-preflight.ts",
 	fullyParallel: false,
 	workers: 1,
 	retries: 0,

@@ -1,19 +1,24 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { type MouseEvent, useEffect, useRef, useState } from "react";
 import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
 import { useWorkspaceNavigation } from "@/components/projects/WorkspaceNavigation";
-import { DEMO_SITE_ID } from "@/flows/demo/constants";
-import { loadOzoluClient, openOzoluProject } from "@/flows/demo/client/OzoluClient";
-import { type MouseEvent, useEffect, useState } from "react";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Button } from "@/components/ui/button";
+import { prefetchConstructionProjectBootstrap } from "@/flows/default-construction/visual/project-sync-client";
+import {
+	loadOzoluClient,
+	openOzoluProject,
+} from "@/flows/demo/client/OzoluClient";
+import { DEMO_SITE_ID } from "@/flows/demo/constants";
 import { useProjectPreparationReset } from "./ProjectLoadingProgressProvider";
 
 type CommonProps = {
 	label?: string;
 	loadingLabel?: string;
+	prefetchConstructionBootstrap?: boolean;
 };
 
 type Props = CommonProps &
@@ -36,6 +41,7 @@ export default function OpenProjectButton({
 	href: destination,
 	label = "Open Project",
 	loadingLabel = "Opening project...",
+	prefetchConstructionBootstrap = false,
 }: Props) {
 	const { setProject, projectId: currentProjectId } = useProject();
 	const resetProgress = useProjectPreparationReset(projectId ?? "");
@@ -44,12 +50,46 @@ export default function OpenProjectButton({
 	const fallbackHref =
 		destination ??
 		(projectId ? `/dashboard/sites/${projectId}/dashboard` : "/dashboard");
-	const href = !destination && projectId ? workspace?.store.preferredHref(projectId, fallbackHref) ?? fallbackHref : fallbackHref;
+	const href =
+		!destination && projectId
+			? (workspace?.store.preferredHref(projectId, fallbackHref) ??
+				fallbackHref)
+			: fallbackHref;
 	const cached = workspace?.store.hasRoute(href) ?? false;
 	const ozolu = projectId === DEMO_SITE_ID;
+	const intentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const canPrepareBootstrap = Boolean(
+		prefetchConstructionBootstrap &&
+			projectId &&
+			!destination &&
+			!cached &&
+			!ozolu,
+	);
+	const clearIntentTimer = () => {
+		if (!intentTimer.current) return;
+		clearTimeout(intentTimer.current);
+		intentTimer.current = null;
+	};
+	const prepareBootstrap = () => {
+		clearIntentTimer();
+		if (canPrepareBootstrap && projectId)
+			void prefetchConstructionProjectBootstrap(projectId);
+	};
+	const scheduleBootstrap = () => {
+		clearIntentTimer();
+		if (!canPrepareBootstrap) return;
+		intentTimer.current = setTimeout(prepareBootstrap, 180);
+	};
 	useEffect(() => {
 		if (ozolu) void loadOzoluClient();
 	}, [ozolu]);
+
+	useEffect(
+		() => () => {
+			if (intentTimer.current) clearTimeout(intentTimer.current);
+		},
+		[],
+	);
 
 	useEffect(() => {
 		if (!opening) return;
@@ -58,7 +98,14 @@ export default function OpenProjectButton({
 	}, [opening]);
 
 	const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
-		if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+		if (
+			event.button !== 0 ||
+			event.ctrlKey ||
+			event.metaKey ||
+			event.shiftKey ||
+			event.altKey
+		)
+			return;
 		if (ozolu) {
 			event.preventDefault();
 			openOzoluProject();
@@ -68,6 +115,7 @@ export default function OpenProjectButton({
 			event.preventDefault();
 			return;
 		}
+		prepareBootstrap();
 		if (!cached) setOpening(true);
 		if (!cached && projectId && currentProjectId !== projectId) resetProgress();
 		if (projectId && projectName) {
@@ -85,7 +133,15 @@ export default function OpenProjectButton({
 				className="w-full active:scale-95 active:bg-muted transition-transform"
 				aria-disabled={opening}
 			>
-				<FimaProjectNavigationLink href={href} onClick={handleClick}>
+				<FimaProjectNavigationLink
+					href={href}
+					onClick={handleClick}
+					onFocus={scheduleBootstrap}
+					onBlur={clearIntentTimer}
+					onMouseEnter={scheduleBootstrap}
+					onMouseLeave={clearIntentTimer}
+					onTouchStart={prepareBootstrap}
+				>
 					{opening ? (
 						<span className="inline-flex items-center gap-2">
 							<Loader2 className="size-4 animate-spin" />

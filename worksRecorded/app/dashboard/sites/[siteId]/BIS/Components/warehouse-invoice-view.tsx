@@ -115,6 +115,18 @@ function formatMoney(value: number, language: "lv" | "en") {
   }).format(value)
 }
 
+function hasInvoiceFilters(query: WarehouseMaterialQueryInput) {
+  return Boolean(
+    query.search?.trim() ||
+      query.invoiceNumber?.trim() ||
+      query.supplierName?.trim() ||
+      (query.status && query.status !== "all") ||
+      (query.configFilter && query.configFilter !== "all") ||
+      query.invoiceDateFrom ||
+      query.invoiceDateTo,
+  )
+}
+
 export function WarehouseInvoiceView({
   siteId,
   language,
@@ -138,7 +150,9 @@ export function WarehouseInvoiceView({
   const [loadingKeys, setLoadingKeys] = React.useState<string[]>([])
   const requestIdRef = React.useRef(0)
   const loadedQueryRef = React.useRef("")
+  const unfilteredPageCountRef = React.useRef(1)
   const rowRequestsRef = React.useRef<Record<string, Promise<WarehouseMaterialRow[]>>>({})
+  const queryIsFiltered = hasInvoiceFilters(query)
   const queryKey = React.useMemo(
     () => JSON.stringify([siteId, query, refreshKey]),
     [query, refreshKey, siteId],
@@ -156,8 +170,31 @@ export function WarehouseInvoiceView({
     setRowsByInvoice({})
     setLoadingKeys([])
     rowRequestsRef.current = {}
+    const pageCount = queryIsFiltered ? 1 : unfilteredPageCountRef.current
     const timeout = window.setTimeout(() => {
-      fetchInvoices(siteId, query, { offset: 0, limit: INVOICE_PAGE_SIZE })
+      const loadPages = async () => {
+        const loadedInvoices: WarehouseInvoiceSummary[] = []
+        let offset = 0
+        let result: WarehouseInvoicePage | null = null
+        for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+          result = await fetchInvoices(siteId, query, {
+            offset,
+            limit: INVOICE_PAGE_SIZE,
+          })
+          const knownKeys = new Set(loadedInvoices.map((invoice) => invoice.key))
+          loadedInvoices.push(
+            ...result.invoices.filter((invoice) => !knownKeys.has(invoice.key)),
+          )
+          if (result.nextOffset === null) break
+          offset = result.nextOffset
+        }
+        return {
+          invoices: loadedInvoices,
+          nextOffset: result?.nextOffset ?? null,
+          totalCount: result?.totalCount ?? 0,
+        }
+      }
+      loadPages()
         .then((result) => {
           if (requestId === requestIdRef.current) {
             loadedQueryRef.current = queryKey
@@ -178,7 +215,7 @@ export function WarehouseInvoiceView({
     }, query.search?.trim() || query.invoiceNumber?.trim() ? 300 : 0)
 
     return () => window.clearTimeout(timeout)
-  }, [active, fetchInvoices, query, queryKey, siteId])
+  }, [active, fetchInvoices, query, queryIsFiltered, queryKey, siteId])
 
   const loadMoreInvoices = async () => {
     if (nextOffset === null || loadingMore) return
@@ -192,10 +229,12 @@ export function WarehouseInvoiceView({
       if (loadedQueryRef.current !== expectedQueryKey) return
       setInvoices((current) => {
         const knownKeys = new Set(current.map((invoice) => invoice.key))
-        return [
+        const nextInvoices = [
           ...current,
           ...result.invoices.filter((invoice) => !knownKeys.has(invoice.key)),
         ]
+        if (!queryIsFiltered) unfilteredPageCountRef.current += 1
+        return nextInvoices
       })
       setNextOffset(result.nextOffset)
       setTotalCount(result.totalCount)

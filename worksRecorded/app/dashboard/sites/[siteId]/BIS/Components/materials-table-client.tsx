@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { SourceDocumentPreview } from "@/components/ui/SourceDocumentPreview"
+import { useWorkspaceActive } from "@/components/projects/WorkspaceActivity"
 import {
   Search,
   Filter,
@@ -157,6 +158,7 @@ type WarehouseMaterialQueryInput = {
   pageSize?: number
   search?: string
   invoiceNumber?: string
+  supplierName?: string
   status?: "all" | "sent" | "unsent"
   configFilter?: string
   sortBy?: WarehouseMaterialSort
@@ -357,6 +359,12 @@ function getInvoiceNumberOptions(rows: MaterialRow[]) {
   )
 }
 
+function getSupplierOptions(insights?: WarehouseSpendInsights) {
+  return (insights?.supplierTotals ?? [])
+    .map((supplier) => supplier.label.trim())
+    .filter(Boolean)
+}
+
 function formatMoney(value: number | null) {
   if (value == null) return "—"
   return new Intl.NumberFormat("en-GB", {
@@ -552,6 +560,10 @@ export default function MaterialsTableClient({
   fetchInvoices,
   fetchInvoiceRows,
 }: Props) {
+  const workspaceActive = useWorkspaceActive()
+  const wasWorkspaceActiveRef = React.useRef(workspaceActive)
+  const invoiceNumberListId = React.useId()
+  const supplierNameListId = React.useId()
   const language = normalizeOrganizationLanguage(organizationLanguage)
   const t = getWarehouseUiMessages(language)
   const toastMessages = getToastMessages(language)
@@ -581,6 +593,7 @@ export default function MaterialsTableClient({
   const [invoiceNumberOptions, setInvoiceNumberOptions] = React.useState(() =>
     getInvoiceNumberOptions(materials),
   )
+  const [supplierFilter, setSupplierFilter] = React.useState("")
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")
   const [configFilter, setConfigFilter] = React.useState("all")
   const [invoiceDateFrom, setInvoiceDateFrom] = React.useState("")
@@ -592,6 +605,7 @@ export default function MaterialsTableClient({
   const [sortBy, setSortBy] = React.useState<WarehouseMaterialSort>("default")
   const [page, setPage] = React.useState(initialPagination.page)
   const [pageInput, setPageInput] = React.useState(String(initialPagination.page))
+  const unfilteredPageRef = React.useRef(initialPagination.page)
   const [pageSize, setPageSize] = React.useState(initialPagination.pageSize)
   const [tableLoading, setTableLoading] = React.useState(false)
   const loadRequestIdRef = React.useRef(0)
@@ -663,11 +677,57 @@ export default function MaterialsTableClient({
     ),
     [forma2PositionOptions],
   )
-  const handleWarehouseSort = React.useCallback((nextSort: WarehouseMaterialSort) => {
-    setSortBy(nextSort)
+  const warehouseFiltersAreActive = React.useCallback((overrides: {
+    search?: string
+    invoiceNumber?: string
+    supplierName?: string
+    status?: "all" | "sent" | "unsent"
+    configFilter?: string
+    invoiceDateFrom?: string
+    invoiceDateTo?: string
+    sortBy?: WarehouseMaterialSort
+    forma2Assignment?: "all" | "assigned" | "unassigned"
+    forma2PositionId?: string
+  } = {}) => Boolean(
+    (overrides.search ?? search).trim() ||
+      (overrides.invoiceNumber ?? invoiceNumber).trim() ||
+      (overrides.supplierName ?? supplierFilter).trim() ||
+      (overrides.status ?? status) !== "all" ||
+      (overrides.configFilter ?? configFilter) !== "all" ||
+      (overrides.invoiceDateFrom ?? invoiceDateFrom) ||
+      (overrides.invoiceDateTo ?? invoiceDateTo) ||
+      (overrides.sortBy ?? sortBy) !== "default" ||
+      (forma2Enabled && (overrides.forma2Assignment ?? forma2Assignment) !== "all") ||
+      (forma2Enabled && (overrides.forma2PositionId ?? forma2PositionId) !== "all"),
+  ), [
+    configFilter,
+    forma2Assignment,
+    forma2Enabled,
+    forma2PositionId,
+    invoiceDateFrom,
+    invoiceDateTo,
+    invoiceNumber,
+    search,
+    sortBy,
+    status,
+    supplierFilter,
+  ])
+  const filtersActive = warehouseFiltersAreActive()
+  const updatePageForFilterChange = React.useCallback((nextFiltersActive: boolean) => {
+    if (!filtersActive && nextFiltersActive) unfilteredPageRef.current = page
+    const nextPage = nextFiltersActive ? 1 : unfilteredPageRef.current
+    setPage(nextPage)
+    setPageInput(String(nextPage))
+  }, [filtersActive, page])
+  const resetWarehousePage = React.useCallback(() => {
     setPage(1)
     setPageInput("1")
-  }, [])
+    if (!filtersActive) unfilteredPageRef.current = 1
+  }, [filtersActive])
+  const handleWarehouseSort = React.useCallback((nextSort: WarehouseMaterialSort) => {
+    setSortBy(nextSort)
+    updatePageForFilterChange(warehouseFiltersAreActive({ sortBy: nextSort }))
+  }, [updatePageForFilterChange, warehouseFiltersAreActive])
 
   React.useEffect(() => {
     setRows(materials)
@@ -681,8 +741,9 @@ export default function MaterialsTableClient({
     setPagination(initialPagination)
     setPage(initialPagination.page)
     setPageInput(String(initialPagination.page))
+    unfilteredPageRef.current = initialPagination.page
     setPageSize(initialPagination.pageSize)
-  }, [initialPagination])
+  }, [initialPagination, siteId])
 
   React.useEffect(() => {
     setConfigurations(materialConfigurations)
@@ -701,6 +762,7 @@ export default function MaterialsTableClient({
     pageSize,
     search,
     invoiceNumber,
+    supplierName: supplierFilter || undefined,
     status,
     configFilter,
     sortBy,
@@ -714,6 +776,7 @@ export default function MaterialsTableClient({
     pageSize,
     search,
     invoiceNumber,
+    supplierFilter,
     status,
     configFilter,
     sortBy,
@@ -727,6 +790,7 @@ export default function MaterialsTableClient({
   const invoiceQueryInput = React.useMemo<DatabaseWarehouseMaterialQueryInput>(() => ({
     search,
     invoiceNumber,
+    supplierName: supplierFilter || undefined,
     status,
     configFilter,
     invoiceDateFrom: invoiceDateFrom || undefined,
@@ -734,6 +798,7 @@ export default function MaterialsTableClient({
   }), [
     search,
     invoiceNumber,
+    supplierFilter,
     status,
     configFilter,
     invoiceDateFrom,
@@ -765,6 +830,18 @@ export default function MaterialsTableClient({
       })
       setPage(result.page)
       setPageInput(String(result.page))
+      if (!warehouseFiltersAreActive({
+        search: input.search ?? "",
+        invoiceNumber: input.invoiceNumber ?? "",
+        supplierName: input.supplierName ?? "",
+        status: input.status ?? "all",
+        configFilter: input.configFilter ?? "all",
+        invoiceDateFrom: input.invoiceDateFrom ?? "",
+        invoiceDateTo: input.invoiceDateTo ?? "",
+        sortBy: input.sortBy ?? "default",
+        forma2Assignment: input.forma2Assignment ?? "all",
+        forma2PositionId: input.forma2PositionId ?? "all",
+      })) unfilteredPageRef.current = result.page
       setPageSize(result.pageSize)
       setSelectedRowIds((current) => current.filter((id) => result.rows.some((row) => row.id === id)))
     } catch (error) {
@@ -775,7 +852,15 @@ export default function MaterialsTableClient({
     } finally {
       if (requestId === loadRequestIdRef.current) setTableLoading(false)
     }
-  }, [fetchMaterials, queryInput, siteId, toastMessages.failedLoadMaterials])
+  }, [fetchMaterials, queryInput, siteId, toastMessages.failedLoadMaterials, warehouseFiltersAreActive])
+
+  React.useEffect(() => {
+    const wasActive = wasWorkspaceActiveRef.current
+    wasWorkspaceActiveRef.current = workspaceActive
+    if (!workspaceActive || wasActive) return
+
+    void loadWarehousePage()
+  }, [loadWarehousePage, workspaceActive])
 
   const didMountRef = React.useRef(false)
   React.useEffect(() => {
@@ -1545,21 +1630,25 @@ export default function MaterialsTableClient({
     })),
     [invoiceNumberOptions, language],
   )
-  const hasActiveFilters = Boolean(
-    search.trim() ||
-      invoiceNumber.trim() ||
-      status !== "all" ||
-      configFilter !== "all" ||
-      invoiceDateFrom ||
-      invoiceDateTo ||
-      sortBy !== "default" ||
-      (forma2Enabled && forma2Assignment !== "all") ||
-      (forma2Enabled && forma2PositionId !== "all"),
+  const visibleSupplierOptions = React.useMemo(
+    () => getSupplierOptions(pagination.spendInsights).sort((left, right) => left.localeCompare(
+      right,
+      language === "lv" ? "lv" : "en",
+      { sensitivity: "base" },
+    )),
+    [language, pagination.spendInsights],
   )
+  const hasActiveFilters = filtersActive
+
+  const changeSupplierFilter = (nextSupplier: string) => {
+    setSupplierFilter(nextSupplier)
+    updatePageForFilterChange(warehouseFiltersAreActive({ supplierName: nextSupplier }))
+  }
 
   const clearWarehouseFilters = () => {
     setSearch("")
     setInvoiceNumber("")
+    setSupplierFilter("")
     setStatus("all")
     setConfigFilter("all")
     setInvoiceDateFrom("")
@@ -1567,8 +1656,7 @@ export default function MaterialsTableClient({
     setForma2Assignment("all")
     setForma2PositionId("all")
     setSortBy("default")
-    setPage(1)
-    setPageInput("1")
+    updatePageForFilterChange(false)
   }
 
   const allVisibleSelected = filteredMaterials.length > 0 && filteredMaterials.every((row) => selectedRowIds.includes(row.id))
@@ -1608,7 +1696,8 @@ export default function MaterialsTableClient({
 
     setPage(nextPage)
     setPageInput(String(nextPage))
-  }, [pageInput, pagination.page, pagination.totalPages])
+    if (!filtersActive) unfilteredPageRef.current = nextPage
+  }, [filtersActive, pageInput, pagination.page, pagination.totalPages])
 
   const renderPaginationControls = (className = "") => (
     <div className={`flex flex-wrap items-center gap-2 text-sm text-muted-foreground ${className}`}>
@@ -1617,7 +1706,7 @@ export default function MaterialsTableClient({
         value={String(pageSize)}
         onValueChange={(value) => {
           setPageSize(Number(value))
-          setPage(1)
+          resetWarehousePage()
         }}
       >
         <SelectTrigger className="h-8 w-[92px]">
@@ -1639,6 +1728,7 @@ export default function MaterialsTableClient({
           const nextPage = Math.max(1, pagination.page - 1)
           setPage(nextPage)
           setPageInput(String(nextPage))
+          if (!filtersActive) unfilteredPageRef.current = nextPage
         }}
         disabled={tableLoading || pagination.page <= 1}
       >
@@ -1673,6 +1763,7 @@ export default function MaterialsTableClient({
           const nextPage = Math.min(pagination.totalPages, pagination.page + 1)
           setPage(nextPage)
           setPageInput(String(nextPage))
+          if (!filtersActive) unfilteredPageRef.current = nextPage
         }}
         disabled={tableLoading || pagination.page >= pagination.totalPages}
       >
@@ -1771,12 +1862,34 @@ export default function MaterialsTableClient({
             <div>
               <div className="mb-2 text-sm font-medium">{t.topSuppliers}</div>
               <div className="space-y-2">
-                {supplierTotals.slice(0, 5).map((supplier) => (
-                  <div key={supplier.key} className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
-                    <div className="min-w-0 truncate">{supplier.label || t.noSupplier}</div>
-                    <div className="shrink-0 font-medium">{formatMoney(supplier.totalCost)}</div>
-                  </div>
-                ))}
+                {supplierTotals.slice(0, 5).map((supplier) => {
+                  const selected = Boolean(supplier.label) && supplierFilter.localeCompare(
+                    supplier.label,
+                    language === "lv" ? "lv" : "en",
+                    { sensitivity: "base" },
+                  ) === 0
+                  const className = `flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors ${
+                    selected ? "border-primary bg-primary/10" : "bg-muted/30 hover:bg-muted/60"
+                  }`
+
+                  return supplier.label ? (
+                    <button
+                      key={supplier.key}
+                      type="button"
+                      aria-pressed={selected}
+                      className={className}
+                      onClick={() => changeSupplierFilter(selected ? "" : supplier.label)}
+                    >
+                      <span className="min-w-0 truncate">{supplier.label}</span>
+                      <span className="shrink-0 font-medium">{formatMoney(supplier.totalCost)}</span>
+                    </button>
+                  ) : (
+                    <div key={supplier.key} className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                      <div className="min-w-0 truncate">{t.noSupplier}</div>
+                      <div className="shrink-0 font-medium">{formatMoney(supplier.totalCost)}</div>
+                    </div>
+                  )
+                })}
                 {supplierTotals.length === 0 ? (
                   <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">{t.noRows}</div>
                 ) : null}
@@ -1886,8 +1999,9 @@ export default function MaterialsTableClient({
                 aria-label={t.searchMaterials}
                 value={search}
                 onChange={(e) => {
-                  setSearch(e.target.value)
-                  setPage(1)
+                  const nextSearch = e.target.value
+                  setSearch(nextSearch)
+                  updatePageForFilterChange(warehouseFiltersAreActive({ search: nextSearch }))
                 }}
                 placeholder={t.searchMaterials}
                 className="pl-9"
@@ -1921,8 +2035,9 @@ export default function MaterialsTableClient({
             <Select
               value={status}
               onValueChange={(v) => {
-                setStatus(v as "all" | "sent" | "unsent")
-                setPage(1)
+                const nextStatus = v as "all" | "sent" | "unsent"
+                setStatus(nextStatus)
+                updatePageForFilterChange(warehouseFiltersAreActive({ status: nextStatus }))
               }}
             >
               <SelectTrigger className="w-full" aria-label={t.status}>
@@ -1942,7 +2057,7 @@ export default function MaterialsTableClient({
             </div>
             <Select value={configFilter} onValueChange={(value) => {
               setConfigFilter(value)
-              setPage(1)
+              updatePageForFilterChange(warehouseFiltersAreActive({ configFilter: value }))
             }}>
               <SelectTrigger className="w-full" aria-label={t.configPlaceholder}>
                 <SelectValue placeholder={t.configPlaceholder} />
@@ -1971,20 +2086,72 @@ export default function MaterialsTableClient({
             >
               {t.invoiceNumber}
             </label>
-            <Input
-              id="warehouse-invoice-number"
-              list="warehouse-visible-invoice-numbers"
-              value={invoiceNumber}
-              onChange={(event) => {
-                setInvoiceNumber(event.target.value)
-                setPage(1)
-              }}
-              placeholder={t.invoiceNumberPlaceholder}
-              autoComplete="off"
-            />
-            <datalist id="warehouse-visible-invoice-numbers">
+            <div className="relative">
+              {invoiceNumber ? (
+                <button
+                  type="button"
+                  aria-label={`${t.clearFilters}: ${t.invoiceNumber}`}
+                  className="absolute right-7 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                  onClick={() => {
+                    setInvoiceNumber("")
+                    updatePageForFilterChange(warehouseFiltersAreActive({ invoiceNumber: "" }))
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+              <Input
+                id="warehouse-invoice-number"
+                list={invoiceNumberListId}
+                value={invoiceNumber}
+                onChange={(event) => {
+                  const nextInvoiceNumber = event.target.value
+                  setInvoiceNumber(nextInvoiceNumber)
+                  updatePageForFilterChange(warehouseFiltersAreActive({ invoiceNumber: nextInvoiceNumber }))
+                }}
+                placeholder={t.invoiceNumberPlaceholder}
+                className={invoiceNumber ? "pr-14" : undefined}
+                autoComplete="off"
+              />
+            </div>
+            <datalist id={invoiceNumberListId}>
               {visibleInvoiceNumbers.map((number) => (
                 <option key={number} value={number} />
+              ))}
+            </datalist>
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="warehouse-supplier-name"
+              className="block text-xs font-medium text-muted-foreground"
+            >
+              {t.supplier}
+            </label>
+            <div className="relative">
+              {supplierFilter ? (
+                <button
+                  type="button"
+                  aria-label={`${t.clearFilters}: ${t.supplier}`}
+                  className="absolute right-7 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                  onClick={() => changeSupplierFilter("")}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+              <Input
+                id="warehouse-supplier-name"
+                list={supplierNameListId}
+                value={supplierFilter}
+                onChange={(event) => changeSupplierFilter(event.target.value)}
+                placeholder={t.supplier}
+                className={supplierFilter ? "pr-14" : undefined}
+                autoComplete="off"
+              />
+            </div>
+            <datalist id={supplierNameListId}>
+              {visibleSupplierOptions.map((supplier) => (
+                <option key={supplier} value={supplier} />
               ))}
             </datalist>
           </div>
@@ -2004,7 +2171,10 @@ export default function MaterialsTableClient({
                   if (invoiceDateTo && nextDate > invoiceDateTo) {
                     setInvoiceDateTo(nextDate)
                   }
-                  setPage(1)
+                  updatePageForFilterChange(warehouseFiltersAreActive({
+                    invoiceDateFrom: nextDate,
+                    invoiceDateTo: invoiceDateTo && nextDate > invoiceDateTo ? nextDate : invoiceDateTo,
+                  }))
                 }}
               />
             </label>
@@ -2019,8 +2189,9 @@ export default function MaterialsTableClient({
                 min={invoiceDateFrom || undefined}
                 value={invoiceDateTo}
                 onChange={(event) => {
-                  setInvoiceDateTo(event.target.value)
-                  setPage(1)
+                  const nextDate = event.target.value
+                  setInvoiceDateTo(nextDate)
+                  updatePageForFilterChange(warehouseFiltersAreActive({ invoiceDateTo: nextDate }))
                 }}
               />
             </label>
@@ -2037,7 +2208,10 @@ export default function MaterialsTableClient({
                   const next = value as "all" | "assigned" | "unassigned"
                   setForma2Assignment(next)
                   if (next === "unassigned") setForma2PositionId("all")
-                  setPage(1)
+                  updatePageForFilterChange(warehouseFiltersAreActive({
+                    forma2Assignment: next,
+                    forma2PositionId: next === "unassigned" ? "all" : forma2PositionId,
+                  }))
                 }}
               >
                 <SelectTrigger className="w-full" aria-label={t.forma2Assignment}>
@@ -2063,7 +2237,10 @@ export default function MaterialsTableClient({
                 onValueChange={(value) => {
                   setForma2PositionId(value)
                   if (value !== "all") setForma2Assignment("assigned")
-                  setPage(1)
+                  updatePageForFilterChange(warehouseFiltersAreActive({
+                    forma2Assignment: value !== "all" ? "assigned" : forma2Assignment,
+                    forma2PositionId: value,
+                  }))
                 }}
               >
                 <SelectTrigger className="w-full" aria-label={t.forma2Position}>

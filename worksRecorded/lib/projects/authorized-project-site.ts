@@ -20,7 +20,11 @@ export async function getAuthorizedProjectSite(userId: string, siteId: string) {
 			name: true,
 			organizationId: true,
 			bisCaseId: true,
+			bisCaseNumber: true,
 			siteDiaryRecordsMap: true,
+			organization: {
+				select: { orgLanguage: true },
+			},
 		},
 	});
 }

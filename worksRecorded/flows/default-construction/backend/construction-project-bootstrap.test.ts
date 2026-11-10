@@ -2,8 +2,6 @@ import { GET } from "@/app/api/sites/[siteId]/construction-project/bootstrap/rou
 import { getDashboardBisStatus } from "@/lib/bis/dashboard-status";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
-import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
-import { getConfig } from "@/server/actions/site-diary-actions";
 import { ProjectAccessError } from "../visual/project-access-error";
 import { requireConstructionProjectAccess } from "./construction-project-access";
 
@@ -14,16 +12,9 @@ jest.mock("./construction-project-access", () => ({
 jest.mock("@/lib/bis/dashboard-status", () => ({
 	getDashboardBisStatus: jest.fn(),
 }));
-jest.mock("@/server/actions/shared-actions", () => ({
-	getOrganizationLanguageByUserId: jest.fn(),
-}));
-jest.mock("@/server/actions/site-diary-actions", () => ({
-	getConfig: jest.fn(),
-}));
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
-		sitediaryrecords: { findMany: jest.fn(), groupBy: jest.fn() },
-		photos: { findMany: jest.fn() },
+		$queryRaw: jest.fn(),
 	},
 }));
 
@@ -46,25 +37,24 @@ beforeEach(() => {
 	jest.mocked(requireConstructionProjectAccess).mockResolvedValue({
 		organizationId: "org",
 		bisCaseId: null,
+		organizationLanguage: "lv",
+		diaryConfig: { Works: {} },
 	});
-	jest.mocked(getOrganizationLanguageByUserId).mockResolvedValue("lv");
-	jest.mocked(getConfig).mockResolvedValue({ Works: {} } as never);
-	jest
-		.mocked(prisma.sitediaryrecords.groupBy)
-		.mockResolvedValue([
-			{ Date: new Date("2026-11-09") },
-			{ Date: new Date("2026-11-08") },
-			{ Date: new Date("2026-11-07") },
-		] as never);
-	jest.mocked(prisma.sitediaryrecords.findMany).mockResolvedValue([
+	jest.mocked(prisma.$queryRaw).mockResolvedValue([
 		{
-			id: "record",
-			Date: new Date("2026-11-09"),
-			createdAt: new Date("2026-11-09"),
-			Photos: [],
+			rows: [
+				{
+					id: "record",
+					Date: new Date("2026-11-09"),
+					createdAt: new Date("2026-11-09"),
+					Date_Custom_1: null,
+					Date_Custom_2: null,
+					Photos: [],
+				},
+			],
+			mediaPhotos: [],
 		},
 	] as never);
-	jest.mocked(prisma.photos.findMany).mockResolvedValue([]);
 });
 
 it("returns a three-day bootstrap without loading Forma2, BIS, or a manifest", async () => {
@@ -83,40 +73,25 @@ it("returns a three-day bootstrap without loading Forma2, BIS, or a manifest", a
 				siteId: "site",
 				organizationId: "org",
 				bisEnabled: false,
+				organizationLanguage: "lv",
 			},
 			diary: { rows: [{ id: "record" }], mediaPhotos: [] },
 			drawings: [],
+			config: { Works: {} },
 		},
 	});
 	expect(payload.snapshot.version).toMatch(/^bootstrap:[a-f0-9]{64}$/);
 	expect(requireConstructionProjectAccess).toHaveBeenCalledTimes(1);
-	expect(getConfig).toHaveBeenCalledWith("site", { flowId: "default" });
 	expect(getDashboardBisStatus).not.toHaveBeenCalled();
-	expect(prisma.sitediaryrecords.groupBy).toHaveBeenCalledWith(
-		expect.objectContaining({
-			by: ["Date"],
-			take: 3,
-		}),
-	);
-	expect(prisma.sitediaryrecords.findMany).toHaveBeenCalledWith(
-		expect.objectContaining({
-			where: expect.objectContaining({
-				Date: {
-					in: [
-						new Date("2026-11-09"),
-						new Date("2026-11-08"),
-						new Date("2026-11-07"),
-					],
-				},
-			}),
-		}),
-	);
+	expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
 });
 
 it("checks BIS only when the authorized project has a BIS case", async () => {
 	jest.mocked(requireConstructionProjectAccess).mockResolvedValue({
 		organizationId: "org",
 		bisCaseId: "case",
+		organizationLanguage: "lv",
+		diaryConfig: { Works: {} },
 	});
 	jest
 		.mocked(getDashboardBisStatus)
@@ -138,8 +113,7 @@ it("returns forbidden without project data when default-construction access fail
 		scope,
 	);
 	expect(response.status).toBe(403);
-	expect(prisma.sitediaryrecords.findMany).not.toHaveBeenCalled();
-	expect(getConfig).not.toHaveBeenCalled();
+	expect(prisma.$queryRaw).not.toHaveBeenCalled();
 });
 
 it("returns unauthorized before checking project access", async () => {

@@ -69,6 +69,7 @@ export type WarehouseMaterialQueryInput = {
   pageSize?: number;
   search?: string;
   invoiceNumber?: string;
+  supplierName?: string;
   status?: WarehouseMaterialStatusFilter;
   configFilter?: string;
   sortBy?: WarehouseMaterialSort;
@@ -134,7 +135,7 @@ type WarehouseMaterialQueryClient = {
 
 type NormalizedWarehouseMaterialQuery = Required<Pick<
   WarehouseMaterialQueryInput,
-  "page" | "pageSize" | "search" | "invoiceNumber" | "status" | "configFilter" | "sortBy"
+  "page" | "pageSize" | "search" | "invoiceNumber" | "supplierName" | "status" | "configFilter" | "sortBy"
 >> & Pick<
   WarehouseMaterialQueryInput,
   "invoiceDateFrom" | "invoiceDateTo"
@@ -175,6 +176,7 @@ export function normalizeWarehouseMaterialQuery(input: WarehouseMaterialQueryInp
     pageSize,
     search: input.search?.trim() ?? "",
     invoiceNumber: input.invoiceNumber?.trim() ?? "",
+    supplierName: input.supplierName?.trim() ?? "",
     status,
     configFilter: input.configFilter?.trim() || WAREHOUSE_CONFIG_FILTER_ALL,
     sortBy,
@@ -218,6 +220,12 @@ export function buildWarehouseMaterialWhere(
   if (normalized.invoiceNumber) {
     and.push({
       invoiceNr: { equals: normalized.invoiceNumber, mode: "insensitive" },
+    });
+  }
+
+  if (normalized.supplierName) {
+    and.push({
+      supplierName: { equals: normalized.supplierName, mode: "insensitive" },
     });
   }
 

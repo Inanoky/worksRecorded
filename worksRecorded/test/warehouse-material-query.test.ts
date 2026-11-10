@@ -64,6 +64,7 @@ describe("warehouse material query", () => {
 			pageSize: 50,
 			search: "abc",
 			invoiceNumber: "",
+			supplierName: "",
 			status: "sent",
 			configFilter: "all",
 			sortBy: "name_asc",
@@ -104,6 +105,24 @@ describe("warehouse material query", () => {
 				},
 				{ BISId: null },
 				{ categoryId: "config-1" },
+			],
+		});
+	});
+
+	it("filters by an exact supplier name independently of the visible page", () => {
+		expect(
+			buildWarehouseMaterialWhere("site-1", {
+				supplierName: "  OPTIMERA LATVIA, SIA  ",
+			}),
+		).toEqual({
+			AND: [
+				{ siteId: "site-1" },
+				{
+					supplierName: {
+						equals: "OPTIMERA LATVIA, SIA",
+						mode: "insensitive",
+					},
+				},
 			],
 		});
 	});

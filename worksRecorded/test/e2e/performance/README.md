@@ -17,6 +17,13 @@ PERF_BASE_URL=https://your-production-domain.example npm run perf:capture-auth
 
 Complete Kinde login in the opened browser. The saved session is gitignored.
 
+Every saved-session performance run first opens `/dashboard` outside the
+measured journey. If the project list becomes ready, the session is valid. If
+the app redirects to Kinde, Buvconsult, or another authentication origin, a
+visible browser opens automatically so login can be completed and the refreshed
+session can be saved before testing continues. Set
+`PERF_AUTH_INTERACTIVE=false` to fail instead of opening the login window.
+
 ## Run the journey
 
 Named targets keep the flow, project, scenario, expected project API, run count,

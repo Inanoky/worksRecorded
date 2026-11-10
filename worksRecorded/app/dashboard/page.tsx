@@ -176,6 +176,9 @@ export default async function DashboardIndexPage() {
 									<OpenProjectButton
 										projectId={item.id}
 										projectName={item.name}
+										prefetchConstructionBootstrap={
+											flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION
+										}
 										href={
 											showAllInvoices
 												? `/dashboard/invoices?project=${encodeURIComponent(item.id)}`
