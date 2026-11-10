@@ -1,4 +1,5 @@
 export const FLOW_MODULE_KEYS = {
+	DEMO: "demo",
 	DEFAULT_CONSTRUCTION: "default-construction",
 	DEFAULT_PRODUCTION: "default-production",
 	ZTC_PRODUCTION: "ztc-production",

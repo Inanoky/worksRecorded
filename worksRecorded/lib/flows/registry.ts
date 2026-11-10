@@ -1,6 +1,7 @@
 import { defaultConstructionFlowModule } from "@/flows/default-construction/module";
 import { defaultProductionFlowModule } from "@/flows/default-production/module";
 import { fimaFlowModule } from "@/flows/fima/module";
+import { demoFlowModule } from "@/flows/demo/module";
 import { sprinklerAttendanceFlowModule } from "@/flows/sprinkler-attendance/module";
 import { tgemInvoiceApprovalFlowModule } from "@/flows/tgem-invoice-approval/module";
 import { ztcProductionFlowModule } from "@/flows/ztc-production/module";
@@ -11,6 +12,7 @@ import type {
 } from "@/lib/flows/types";
 
 export const FLOW_MODULES: readonly FlowModuleDefinition[] = [
+  demoFlowModule,
   defaultConstructionFlowModule,
   defaultProductionFlowModule,
   ztcProductionFlowModule,

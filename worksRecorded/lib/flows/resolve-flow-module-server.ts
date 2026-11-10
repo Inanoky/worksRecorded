@@ -18,7 +18,9 @@ export async function resolveFlowModuleKeyForRuntime(args: {
   const resolutionData = await loadProductionFlowResolutionData(args.organizationId);
   const { assignment } = resolutionData;
   if (assignment?.enabled) {
-    return assignment.flowModuleKey;
+    return assignment.flowModuleKey === FLOW_MODULE_KEYS.DEMO
+      ? FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION
+      : assignment.flowModuleKey;
   }
 
   const productionConfig = await resolveProductionFlowConfigForRuntime(

@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { MarketingTagManager } from "@/components/analytics/MarketingTagManager";
 import { ThemeProvider } from "@/components/dashboard/ThemeProvider";
+import { OzoluHost } from "@/flows/demo/client/OzoluHost";
 import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
@@ -103,7 +104,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <OzoluHost>{children}</OzoluHost>
           <Toaster richColors closeButton />
         </ThemeProvider>
         <MarketingTagManager

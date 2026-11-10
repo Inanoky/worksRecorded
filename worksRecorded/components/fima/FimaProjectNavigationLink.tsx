@@ -3,6 +3,8 @@ import Link from "next/link";
 import { type ComponentProps, createContext, useContext } from "react";
 import { useWorkspaceNavigation } from "@/components/projects/WorkspaceNavigation";
 import { useZtcNavigation } from "@/flows/ztc-production/frontend/ZtcNavigationContext";
+import { loadOzoluClient, openOzoluProject } from "@/flows/demo/client/OzoluClient";
+import { DEMO_SITE_ID } from "@/flows/demo/constants";
 
 export const FimaProjectNavigationContext = createContext<{
 	local: (href: string) => boolean;
@@ -22,6 +24,7 @@ export function FimaProjectNavigationLink({
 	const navigation = useContext(FimaProjectNavigationContext);
 	const ztc = useZtcNavigation();
 	const workspace = useWorkspaceNavigation();
+	const ozolu = href === "/demo" || href.startsWith(`/dashboard/sites/${DEMO_SITE_ID}/`);
 	const cached = workspace?.store.hasRoute(href) ?? false;
 	const local =
 		(ztc?.canNavigate(href) ?? false) ||
@@ -30,12 +33,14 @@ export function FimaProjectNavigationLink({
 	return (
 		<Link
 			{...props}
-			href={href}
+			href={ozolu ? "/demo" : href}
 			prefetch={false}
 			onMouseEnter={(event) => {
+				if (ozolu) void loadOzoluClient();
 				if (!local) onMouseEnter?.(event);
 			}}
 			onFocus={(event) => {
+				if (ozolu) void loadOzoluClient();
 				if (!local) onFocus?.(event);
 			}}
 			onTouchStart={(event) => {
@@ -49,7 +54,13 @@ export function FimaProjectNavigationLink({
 						event.preventDefault();
 					},
 				});
-				if (cancelled || !local) return;
+				if (cancelled) return;
+				if (ozolu) {
+					event.preventDefault();
+					openOzoluProject();
+					return;
+				}
+				if (!local) return;
 				event.preventDefault();
 				if (ztc?.navigate(href, props)) return;
 				if (cached && workspace?.navigate(href, props)) return;

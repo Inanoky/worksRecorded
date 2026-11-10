@@ -22,6 +22,7 @@ import { LimeniSuiteLogo } from "@/components/dashboard/LimeniSuiteLogo";
 import { LimeniSuiteTheme } from "@/components/dashboard/LimeniSuiteTheme";
 import { OceltSuiteLogo } from "@/components/dashboard/OceltSuiteLogo";
 import { OceltSuiteTheme } from "@/components/dashboard/OceltSuiteTheme";
+import { DEMO_SITE_ID } from "@/flows/demo/constants";
 import { ProdevSuiteLogo } from "@/components/dashboard/ProdevSuiteLogo";
 import { ProdevSuiteTheme } from "@/components/dashboard/ProdevSuiteTheme";
 import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
@@ -85,7 +86,7 @@ export default async function DashboardLayout({
 	);
 	const allHeaderProjects = dashboardData.sites;
 	const organization = !isSuperUser ? account?.organization : null;
-	const fimaCollaborationEnabled = !isSuperUser && allHeaderProjects.some((project) => isFimaDiary(project.siteDiaryRecordsMap));
+	const fimaCollaborationEnabled = !isSuperUser && allHeaderProjects.some((project) => project.id !== DEMO_SITE_ID && isFimaDiary(project.siteDiaryRecordsMap));
 	const oceltSuiteEnabled =
 		!isSuperUser && isOceltOrganization(organization?.name);
 	const limeniSuiteEnabled =

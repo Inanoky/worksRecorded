@@ -3,6 +3,8 @@
 import { Loader2 } from "lucide-react";
 import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
 import { useWorkspaceNavigation } from "@/components/projects/WorkspaceNavigation";
+import { DEMO_SITE_ID } from "@/flows/demo/constants";
+import { loadOzoluClient, openOzoluProject } from "@/flows/demo/client/OzoluClient";
 import { type MouseEvent, useEffect, useState } from "react";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
 import { useProject } from "@/components/providers/ProjectProvider";
@@ -44,6 +46,10 @@ export default function OpenProjectButton({
 		(projectId ? `/dashboard/sites/${projectId}/dashboard` : "/dashboard");
 	const href = !destination && projectId ? workspace?.store.preferredHref(projectId, fallbackHref) ?? fallbackHref : fallbackHref;
 	const cached = workspace?.store.hasRoute(href) ?? false;
+	const ozolu = projectId === DEMO_SITE_ID;
+	useEffect(() => {
+		if (ozolu) void loadOzoluClient();
+	}, [ozolu]);
 
 	useEffect(() => {
 		if (!opening) return;
@@ -53,6 +59,11 @@ export default function OpenProjectButton({
 
 	const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
 		if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+		if (ozolu) {
+			event.preventDefault();
+			openOzoluProject();
+			return;
+		}
 		if (opening) {
 			event.preventDefault();
 			return;

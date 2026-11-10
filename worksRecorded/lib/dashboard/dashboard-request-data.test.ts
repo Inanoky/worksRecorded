@@ -33,6 +33,7 @@ jest.mock("@/lib/observability/perf", () => ({
 	}),
 }));
 
+import { DEMO_ORGANIZATION_ID, DEMO_SITE_ID } from "@/flows/demo/constants";
 import { loadDashboardRequestData } from "./dashboard-request-data";
 
 describe("dashboard request data", () => {
@@ -64,7 +65,18 @@ describe("dashboard request data", () => {
 		expect(mockUserFindUnique).toHaveBeenCalledTimes(1);
 		expect(mockSiteFindMany).toHaveBeenCalledTimes(1);
 		expect(mockSiteFindMany).toHaveBeenCalledWith(
-			expect.objectContaining({ where: { organizationId: "org-1" } }),
+			expect.objectContaining({
+				where: {
+					OR: [
+						{ organizationId: "org-1" },
+						{
+							id: DEMO_SITE_ID,
+							organizationId: DEMO_ORGANIZATION_ID,
+							userId: "member-1",
+						},
+					],
+				},
+			}),
 		);
 		expect(mockResolveFlowModuleKeyForRuntime).toHaveBeenCalledTimes(1);
 		expect(mockTraceEnd).toHaveBeenCalledWith({

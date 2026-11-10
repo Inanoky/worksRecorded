@@ -47,7 +47,10 @@
 		"test:all": "npm run test:unit && npm run test:ai:dry-run",
 		"whatsapp-browser:bootstrap": "tsx workers/whatsapp-browser-sync/index.ts --bootstrap",
 		"whatsapp-browser:health": "tsx workers/whatsapp-browser-sync/index.ts --health-check",
-		"whatsapp-browser:once": "tsx workers/whatsapp-browser-sync/index.ts"
+		"whatsapp-browser:once": "tsx workers/whatsapp-browser-sync/index.ts",
+		"predev": "node scripts/build-ozolu-client.cjs",
+		"prebuild": "node scripts/build-ozolu-client.cjs",
+		"build:ozolu": "node scripts/build-ozolu-client.cjs"
 	},
 	"dependencies": {
 		"@ai-sdk/openai": "^1.3.22",
@@ -186,6 +189,7 @@
 		"ts-jest": "^29.4.1",
 		"tsx": "^4.20.3",
 		"tw-animate-css": "^1.3.0",
-		"typescript": "^5"
+		"typescript": "^5",
+		"esbuild": "0.28.1"
 	}
 }

@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { DEMO_ORGANIZATION_ID, DEMO_SITE_ID } from "@/flows/demo/constants";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { createPerfTrace } from "@/lib/observability/perf";
 import { prisma } from "@/lib/utils/db";
@@ -23,9 +24,20 @@ export const loadDashboardAccount = cache(async (userId: string) =>
 );
 
 export const loadDashboardSites = cache(
-	async (organizationId: string | null, isSuperUser: boolean) =>
+	async (organizationId: string | null, isSuperUser: boolean, userId: string) =>
 		prisma.site.findMany({
-			where: isSuperUser ? {} : { organizationId: organizationId ?? "" },
+			where: isSuperUser
+				? {}
+				: {
+						OR: [
+							{ organizationId: organizationId ?? "" },
+							{
+								id: DEMO_SITE_ID,
+								organizationId: DEMO_ORGANIZATION_ID,
+								userId,
+							},
+						],
+					},
 			select: {
 				id: true,
 				name: true,
@@ -41,9 +53,7 @@ export const loadDashboardSites = cache(
 
 export const loadDashboardFlowModuleKey = cache(
 	async (organizationId: string | null, isSuperUser: boolean) =>
-		isSuperUser
-			? null
-			: resolveFlowModuleKeyForRuntime({ organizationId }),
+		isSuperUser ? null : resolveFlowModuleKeyForRuntime({ organizationId }),
 );
 
 export const loadDashboardRequestData = cache(async (userId: string) => {
@@ -62,7 +72,7 @@ export const loadDashboardRequestData = cache(async (userId: string) => {
 			: (account?.organizationId ?? null);
 		const [sites, flowModuleKey] = await trace.measure("workspace", () =>
 			Promise.all([
-				loadDashboardSites(organizationId, isSuperUser),
+				loadDashboardSites(organizationId, isSuperUser, userId),
 				loadDashboardFlowModuleKey(organizationId, isSuperUser),
 			]),
 		);
