@@ -70,6 +70,7 @@ export async function loadConstructionProjectSnapshot(
 			userId,
 			organizationId,
 			bisEnabled: bis.enabled,
+			bisUnavailable: bis.unavailable,
 			organizationLanguage: language,
 		},
 		index: { userId, locations: [], drawings: [] },

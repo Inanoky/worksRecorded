@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { getDashboardBisStatus } from "@/lib/bis/dashboard-status";
+import { getDashboardBisStatusForCase } from "@/lib/bis/dashboard-status";
 import type { LimeniProjectSnapshot } from "../visual/project-snapshot-store";
 import { readConstructionDiaryBootstrap } from "./construction-diary-snapshot";
 import { requireConstructionProjectAccess } from "./construction-project-access";
@@ -24,13 +24,22 @@ export async function loadConstructionProjectBootstrap(
 	const access = await measureBootstrapPhase(trace, "bootstrapAccess", () =>
 		requireConstructionProjectAccess(userId, siteId),
 	);
+	return readAuthorizedConstructionBootstrap(userId, siteId, access, trace);
+}
+
+export async function readAuthorizedConstructionBootstrap(
+	userId: string,
+	siteId: string,
+	access: Awaited<ReturnType<typeof requireConstructionProjectAccess>>,
+	trace?: ProjectBootstrapTrace,
+): Promise<LimeniProjectSnapshot> {
 	const [diary, bis] = await Promise.all([
 		measureBootstrapPhase(trace, "bootstrapDiary", () =>
 			readConstructionDiaryBootstrap(siteId, access.organizationId),
 		),
 		access.bisCaseId
 			? measureBootstrapPhase(trace, "bootstrapBis", () =>
-					getDashboardBisStatus(userId, siteId, true),
+					getDashboardBisStatusForCase(userId, siteId, true, access.bisCaseId),
 				)
 			: Promise.resolve({ enabled: false, unavailable: false }),
 	]);
@@ -42,6 +51,7 @@ export async function loadConstructionProjectBootstrap(
 			userId,
 			organizationId: access.organizationId,
 			bisEnabled: bis.enabled,
+			bisUnavailable: bis.unavailable,
 			organizationLanguage: language,
 		},
 		index: { userId, locations: [], drawings: [] },

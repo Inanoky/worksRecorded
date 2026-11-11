@@ -10,7 +10,11 @@ import {
 let mockPathname = "/dashboard/sites/site/dashboard";
 const mockMount = jest.fn();
 const mockUnmount = jest.fn();
-jest.mock("next/navigation", () => ({ usePathname: () => mockPathname }));
+const mockPrefetch = jest.fn();
+jest.mock("next/navigation", () => ({
+	usePathname: () => mockPathname,
+	useRouter: () => ({ prefetch: mockPrefetch }),
+}));
 jest.mock("@/components/sitediary/SiteDiaryList", () => {
 	const React = jest.requireActual<typeof import("react")>("react");
 	return {

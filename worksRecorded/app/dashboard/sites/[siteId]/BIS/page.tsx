@@ -3,6 +3,7 @@ import AiWidgetRag from "@/components/ai/AiChatLazy";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import TourRunner from "@/components/joyride/TourRunner";
 import { withRetainedProjectPage } from "@/components/projects/withRetainedProjectPage";
+import { getWorkspaceRouteContext } from "@/components/projects/workspace-access";
 import { FimaWarehouse } from "@/components/sitediary/FimaWarehouse";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -2117,7 +2118,7 @@ export async function exportWarehouseMaterials(siteId: string, input: WarehouseM
     : forma2.materials;
 }
 
-async function MaterialsPage({
+export async function MaterialsPage({
   params,
 }: {
   params: Promise<{ siteId: string }>;
@@ -2126,9 +2127,12 @@ async function MaterialsPage({
   const trace = createPerfTrace({ route: "/dashboard/sites/[siteId]/BIS", category: "action", siteId });
 
   try {
-  const user = await trace.measure("auth", () => requireUser());
+  const context = await getWorkspaceRouteContext(siteId);
+  const user = { id: context.descriptor.userId };
   const [organizationLanguage, [site, userBisToken, dbUser, siteOrg]] = await Promise.all([
-    trace.measure("orgLanguage", () => getOrganizationLanguageByUserId(user.id)),
+    trace.measure("orgLanguage", () => context.descriptor.constructionWorkspace
+      ? context.organizationLanguage
+      : getOrganizationLanguageByUserId(user.id)),
     trace.measure("bisConfig", () =>
       Promise.all([
         getSiteBisConfig(siteId),
@@ -2168,7 +2172,7 @@ async function MaterialsPage({
         materialMeasures: [] as MaterialMeasure[],
         materialTypes: [] as MaterialType[],
       })),
-      resolveFlowModuleKeyForRuntime({
+      context.descriptor.constructionWorkspace ? context.descriptor.flowModuleKey : resolveFlowModuleKeyForRuntime({
         organizationId: siteOrg?.organizationId,
         siteId,
       }),

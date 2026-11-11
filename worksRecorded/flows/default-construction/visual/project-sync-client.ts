@@ -84,25 +84,6 @@ export async function fetchProjectSync(
 	const headers: Record<string, string> = cached
 		? { "If-None-Match": `"${cached.revision ?? cached.version}"` }
 		: {};
-	if (
-		mode === "construction" &&
-		cached?.partVersions &&
-		cached.diaryRowVersions
-	)
-		return fetch(url, {
-			method: "POST",
-			cache: "no-cache",
-			signal,
-			headers: {
-				"Content-Type": "application/json",
-				"If-None-Match": headers["If-None-Match"],
-			},
-			body: JSON.stringify({
-				parts: cached.partVersions,
-				rows: cached.diaryRowVersions,
-				sources: cached.sourceVersions,
-			}),
-		});
 	if (cached?.partVersions && cached.diaryRowVersions)
 		headers["X-Project-Sync"] = "records-v1";
 	else if (cached?.partVersions)

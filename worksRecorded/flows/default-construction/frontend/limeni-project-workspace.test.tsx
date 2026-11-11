@@ -18,10 +18,14 @@ import { RetainedLimeniForma2 } from "./RetainedLimeniForma2";
 
 let mockPathname = "/dashboard/sites/site/dashboard";
 const mockRouterRefresh = jest.fn();
+const mockRouterPrefetch = jest.fn();
 const mockMounted = jest.fn();
 jest.mock("next/navigation", () => ({
 	usePathname: () => mockPathname,
-	useRouter: () => ({ refresh: mockRouterRefresh }),
+	useRouter: () => ({
+		refresh: mockRouterRefresh,
+		prefetch: mockRouterPrefetch,
+	}),
 }));
 jest.mock("./DiarySaveProvider", () => ({
 	useDiarySaveQueue: () => ({ snapshot: { revision: 0, items: [] } }),
@@ -151,6 +155,7 @@ it("starts independent preloads together, gates on every section, and keeps one 
 	await waitFor(() =>
 		expect(screen.queryByRole("progressbar")).not.toBeInTheDocument(),
 	);
+	expect(mockRouterPrefetch).not.toHaveBeenCalled();
 	const journal = screen.getByLabelText("Journal filter");
 	const drawing = screen.getByLabelText("Drawing floor");
 	const forma2 = screen.getByLabelText("Forma 2 filter");

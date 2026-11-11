@@ -101,6 +101,7 @@ export function DashboardProjectNavigation({
 	canAccessAiEvals = false,
 	canAccessFlowConfigAdmin = false,
 	flowModuleKey = null,
+	constructionBootstrapClickOnly = false,
 }: {
 	fimaCollaborationEnabled?: boolean;
 	availableProjects?: ProjectSwitcherOption[];
@@ -108,6 +109,7 @@ export function DashboardProjectNavigation({
 	canAccessAiEvals?: boolean;
 	canAccessFlowConfigAdmin?: boolean;
 	flowModuleKey?: FlowModuleKey | null;
+	constructionBootstrapClickOnly?: boolean;
 }) {
 	const {
 		isProjectRoute,
@@ -204,6 +206,7 @@ export function DashboardProjectNavigation({
 					onSelectProject={setProject}
 					pathname={pathname}
 					showAllProjects
+					prefetchOnIntent={!constructionBootstrapClickOnly}
 				/>
 			</div>
 		);
@@ -222,6 +225,7 @@ export function DashboardProjectNavigation({
 				onRoutePrefetch={prefetchProjectRoute}
 				onSelectProject={setProject}
 				pathname={pathname}
+				prefetchOnIntent={!constructionBootstrapClickOnly}
 			/>
 
 			<div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
@@ -396,6 +400,7 @@ function ProjectSwitcher({
 	onRoutePrefetch,
 	onSelectProject,
 	pathname,
+	prefetchOnIntent = true,
 }: {
 	showAllProjects?: boolean;
 	activeProjectId: string;
@@ -407,6 +412,7 @@ function ProjectSwitcher({
 	onRoutePrefetch?: (href: string) => void;
 	onSelectProject: (id: string, name: string) => void;
 	pathname: string;
+	prefetchOnIntent?: boolean;
 }) {
 	const [open, setOpen] = useState(false);
 	const intentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -433,15 +439,17 @@ function ProjectSwitcher({
 			workspace?.store.hasRoute(href)
 		)
 			return;
+		if (!prefetchOnIntent && !projects.find((project) => project.id === projectId)?.fimaActsEnabled) return;
 		if (!onProjectIntent && !onRoutePrefetch) return;
 		preparedProjects.current.add(projectId);
 		if (onProjectIntent) onProjectIntent(projectId);
 		else onRoutePrefetch?.(href);
 	};
-	const scheduleProject = (projectId: string, href: string) => {
+	const scheduleProject = (project: ProjectSwitcherOption, href: string) => {
 		clearIntentTimer();
+		if (!prefetchOnIntent && !project.fimaActsEnabled) return;
 		intentTimer.current = setTimeout(
-			() => prepareProject(projectId, href),
+			() => prepareProject(project.id, href),
 			180,
 		);
 	};
@@ -458,6 +466,7 @@ function ProjectSwitcher({
 		if (alternatives.length !== 1) return;
 		const project = alternatives[0];
 		if (!project) return;
+		if (!prefetchOnIntent && !project.fimaActsEnabled) return;
 		const href =
 			workspace?.store.preferredHref(
 				project.id,
@@ -536,10 +545,13 @@ function ProjectSwitcher({
 										onSelectProject(project.id, project.name);
 									}
 								}}
-								onFocus={() => scheduleProject(project.id, href)}
-								onMouseEnter={() => scheduleProject(project.id, href)}
+								onFocus={() => scheduleProject(project, href)}
+								onMouseEnter={() => scheduleProject(project, href)}
 								onMouseLeave={clearIntentTimer}
-								onTouchStart={() => prepareProject(project.id, href)}
+								onTouchStart={() => {
+									if (prefetchOnIntent || project.fimaActsEnabled)
+										prepareProject(project.id, href);
+								}}
 								className={cn(
 									"flex w-full min-w-0 items-center gap-2",
 									project.id === activeProjectId

@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
 	createContext,
 	lazy,
@@ -33,6 +33,7 @@ type DiarySettings = {
 	userId: string;
 	organizationId: string;
 	bisEnabled: boolean;
+	bisUnavailable?: boolean;
 	organizationLanguage: string | null;
 };
 
@@ -53,6 +54,8 @@ export function RetainedLimeniDiary({
 	const visualPreload = useVisualProjectPreload(siteId);
 	const preload = visualPreload || projectData.enabled;
 	const report = useProjectPreparationReporter(siteId);
+	const router = useRouter();
+	const backgroundRoutesPrefetched = useRef(false);
 	useEffect(() => {
 		if (!preload) return;
 		if (projectData.enabled) {
@@ -99,6 +102,25 @@ export function RetainedLimeniDiary({
 		() => ({ register: setSettings, ready: active && ready }),
 		[active, ready],
 	);
+	useEffect(() => {
+		if (
+			projectData.mode !== "construction" ||
+			projectData.streamedTabs ||
+			!projectData.snapshot ||
+			projectData.snapshot.bootstrap ||
+			backgroundRoutesPrefetched.current
+		)
+			return;
+		backgroundRoutesPrefetched.current = true;
+		router.prefetch(`/dashboard/sites/${siteId}/timesheets`);
+		router.prefetch(`/dashboard/sites/${siteId}/BIS`);
+	}, [
+		projectData.mode,
+		projectData.snapshot,
+		projectData.streamedTabs,
+		router,
+		siteId,
+	]);
 
 	useLayoutEffect(() => {
 		if (scrollScope.current !== scope) {
@@ -130,6 +152,13 @@ export function RetainedLimeniDiary({
 		<DiaryContext.Provider value={context}>
 			{children}
 			<section hidden={!active} aria-label="Būvdarbu žurnāls">
+				{projectData.mode === "construction" && settings?.bisUnavailable ? (
+					<output className="block rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+						{settings.organizationLanguage === "en"
+							? "BIS is temporarily unavailable. You can continue using the diary; your BIS connection is retained. Try again in a minute."
+							: "BIS īslaicīgi nav pieejams. Žurnālu varat lietot kā parasti; BIS savienojums ir saglabāts. Mēģiniet vēlreiz pēc minūtes."}
+					</output>
+				) : null}
 				{ready && settings ? (
 					<Suspense
 						fallback={

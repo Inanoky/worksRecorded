@@ -1,5 +1,5 @@
 import { GET } from "@/app/api/sites/[siteId]/construction-project/bootstrap/route";
-import { getDashboardBisStatus } from "@/lib/bis/dashboard-status";
+import { getDashboardBisStatusForCase } from "@/lib/bis/dashboard-status";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { ProjectAccessError } from "../visual/project-access-error";
@@ -10,7 +10,7 @@ jest.mock("./construction-project-access", () => ({
 	requireConstructionProjectAccess: jest.fn(),
 }));
 jest.mock("@/lib/bis/dashboard-status", () => ({
-	getDashboardBisStatus: jest.fn(),
+	getDashboardBisStatusForCase: jest.fn(),
 }));
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
@@ -82,7 +82,7 @@ it("returns a three-day bootstrap without loading Forma2, BIS, or a manifest", a
 	});
 	expect(payload.snapshot.version).toMatch(/^bootstrap:[a-f0-9]{64}$/);
 	expect(requireConstructionProjectAccess).toHaveBeenCalledTimes(1);
-	expect(getDashboardBisStatus).not.toHaveBeenCalled();
+	expect(getDashboardBisStatusForCase).not.toHaveBeenCalled();
 	expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
 });
 
@@ -94,14 +94,19 @@ it("checks BIS only when the authorized project has a BIS case", async () => {
 		diaryConfig: { Works: {} },
 	});
 	jest
-		.mocked(getDashboardBisStatus)
+		.mocked(getDashboardBisStatusForCase)
 		.mockResolvedValue({ enabled: true, unavailable: false });
 	const response = await GET(
 		new Request("https://test/api/sites/site/construction-project/bootstrap"),
 		scope,
 	);
 	expect((await response.json()).snapshot.settings.bisEnabled).toBe(true);
-	expect(getDashboardBisStatus).toHaveBeenCalledWith("user", "site", true);
+	expect(getDashboardBisStatusForCase).toHaveBeenCalledWith(
+		"user",
+		"site",
+		true,
+		"case",
+	);
 });
 
 it("returns forbidden without project data when default-construction access fails", async () => {

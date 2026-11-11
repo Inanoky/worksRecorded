@@ -72,15 +72,34 @@ it("requests row changes only after a changed revision, using the cached revisio
 	);
 });
 
-it("posts cached construction row versions without a negotiation request", async () => {
+it("negotiates before posting cached construction row versions", async () => {
 	const delta = { status: 200 } as Response;
-	jest.mocked(global.fetch).mockResolvedValue(delta);
+	jest
+		.mocked(global.fetch)
+		.mockResolvedValueOnce({
+			status: 202,
+			headers: new Map([["x-project-sync", "records-v1"]]),
+		} as unknown as Response)
+		.mockResolvedValueOnce(delta);
 	const signal = new AbortController().signal;
 	expect(
 		await fetchProjectSync("site/escaped", cached, signal, "construction"),
 	).toBe(delta);
-	expect(global.fetch).toHaveBeenCalledTimes(1);
-	expect(global.fetch).toHaveBeenCalledWith(
+	expect(global.fetch).toHaveBeenCalledTimes(2);
+	expect(global.fetch).toHaveBeenNthCalledWith(
+		1,
+		"/api/sites/site%2Fescaped/construction-project",
+		{
+			cache: "no-cache",
+			signal,
+			headers: {
+				"If-None-Match": '"old-revision"',
+				"X-Project-Sync": "records-v1",
+			},
+		},
+	);
+	expect(global.fetch).toHaveBeenNthCalledWith(
+		2,
 		"/api/sites/site%2Fescaped/construction-project",
 		{
 			method: "POST",

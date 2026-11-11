@@ -293,6 +293,10 @@ export default async function DashboardLayout({
 						canAccessAiEvals={canAccessAiEvals}
 						canAccessFlowConfigAdmin={canAccessFlowConfigs}
 						flowModuleKey={flowModuleKey}
+						constructionBootstrapClickOnly={
+							flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION &&
+							!limeniSuiteEnabled
+						}
 					/>
 				</header>
 

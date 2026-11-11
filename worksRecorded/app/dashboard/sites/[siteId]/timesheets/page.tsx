@@ -1,4 +1,5 @@
 import { withRetainedProjectPage } from "@/components/projects/withRetainedProjectPage";
+import { getWorkspaceRouteContext } from "@/components/projects/workspace-access";
 
 import { FrontendTable } from "@/components/timesheets/FrontendTable";
 import {
@@ -8,9 +9,6 @@ import {
 import AiWidgetRag from "@/components/ai/AiChatLazy";
 import { getLocationsWorksFromSiteSchema } from "@/server/actions/site-diary-actions";
 import { SiteSchemaProvider } from "@/components/providers/SiteSchemaProvider";
-import { requireUser } from "@/lib/utils/requireUser";
-import { getOrganizationLanguageByUserId, orgCheck } from "@/server/actions/shared-actions";
-import { notFound } from "next/navigation";
 import { getTimesheetsPageMessages } from "@/lib/dashboard-i18n";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
@@ -25,17 +23,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-async function AddWorkerPage({
+export async function AddWorkerPage({
   params,
 }: {
-  params: { siteId: string };
+  params: { siteId: string } | Promise<{ siteId: string }>;
 }) {
   const { siteId } = await params;
 
-  const user = await requireUser();
-  const siteCheck = await orgCheck(user.id, siteId);
-  if (!siteCheck) notFound();
-  const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
+  const context = await getWorkspaceRouteContext(siteId);
+  const organizationLanguage = context.organizationLanguage;
   const t = getTimesheetsPageMessages(organizationLanguage);
 
   const [timelogs, workers, locations, works] = await Promise.all([

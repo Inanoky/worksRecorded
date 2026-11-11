@@ -463,6 +463,7 @@ describe("dashboard navigation", () => {
 					]}
 					flowModuleKey={FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}
 					organizationLanguage="en"
+					constructionBootstrapClickOnly
 				/>
 			</ProjectProvider>,
 		);
@@ -477,16 +478,16 @@ describe("dashboard navigation", () => {
 		const nextProjectLink = await screen.findByRole("menuitem", {
 			name: "Next project",
 		});
-		expect(mockProjectBootstrapPrefetch).toHaveBeenCalledTimes(1);
-		expect(mockProjectBootstrapPrefetch).toHaveBeenCalledWith("site-next");
+		expect(mockProjectBootstrapPrefetch).not.toHaveBeenCalled();
 		expect(nextProjectLink).toHaveAttribute(
 			"href",
 			"/dashboard/sites/site-next/timesheets",
 		);
 
 		await user.hover(nextProjectLink);
+		expect(mockProjectBootstrapPrefetch).not.toHaveBeenCalled();
 		await user.click(nextProjectLink);
-		expect(mockProjectBootstrapPrefetch).toHaveBeenCalledTimes(1);
+		expect(mockProjectBootstrapPrefetch).not.toHaveBeenCalled();
 		expect(mockPrefetch).not.toHaveBeenCalledWith(
 			"/dashboard/sites/site-next/timesheets",
 		);

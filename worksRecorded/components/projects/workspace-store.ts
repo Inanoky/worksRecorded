@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { LimeniProjectSnapshot } from "@/flows/default-construction/visual/project-snapshot-store";
 import { FLOW_MODULE_KEYS, type FlowModuleKey } from "@/lib/flows/types";
 
 export const RECENT_PROJECT_LIMIT = 5;
@@ -20,6 +21,7 @@ export type ProjectWorkspace = {
 	routes: ReadonlyMap<string, WorkspaceRoute>;
 	lastHref: string;
 	authorizedAt: number;
+	initialDiary?: LimeniProjectSnapshot;
 };
 export function retainProjectFlow(flow: FlowModuleKey) {
 	return (
@@ -105,6 +107,7 @@ export function createWorkspaceStore(
 				routes: existing?.routes ?? new Map(),
 				lastHref: existing?.lastHref ?? "",
 				authorizedAt: Date.now(),
+				initialDiary: descriptor.constructionWorkspace ? existing?.initialDiary : undefined,
 			};
 			snapshot = existing
 				? snapshot.map((value) => (value === existing ? entry : value))
@@ -118,6 +121,7 @@ export function createWorkspaceStore(
 			href: string,
 			content: ReactNode,
 			active = true,
+			initialDiary?: LimeniProjectSnapshot,
 		) {
 			if (!allowed(descriptor) || projectIdFromHref(href) !== descriptor.siteId)
 				return;
@@ -130,7 +134,7 @@ export function createWorkspaceStore(
 			const routes = new Map(entry.routes);
 			routes.set(href, { href, content });
 			snapshot = snapshot.map((value) =>
-				value === entry ? { ...entry, routes } : value,
+				value === entry ? { ...entry, routes, initialDiary: initialDiary ?? entry.initialDiary } : value,
 			);
 			notify();
 		},

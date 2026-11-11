@@ -19,11 +19,13 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
 import {
 	loadDashboardFlowModuleKey,
 	loadDashboardRequestData,
 } from "@/lib/dashboard/dashboard-request-data";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
+import { isFimaDiary } from "@/lib/fima/diary-collaboration";
 import { getFlowModuleUi } from "@/lib/flows/registry";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { requireUser } from "@/lib/utils/requireUser";
@@ -178,6 +180,11 @@ export default async function DashboardIndexPage() {
 										projectName={item.name}
 										prefetchConstructionBootstrap={
 											flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION
+										}
+										constructionBootstrapClickOnly={
+											flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION &&
+											item.organizationId !== LIMENI_ORGANIZATION_ID &&
+											!(item.bisCaseId && isFimaDiary(item.siteDiaryRecordsMap))
 										}
 										href={
 											showAllInvoices

@@ -8,6 +8,24 @@ import {
 import { orgCheck } from "@/server/actions/shared-actions";
 import { LIMENI_ORGANIZATION_ID } from "../lib/diary-photos";
 
+const mockWorkspaceRouteContext = jest.fn();
+
+jest.mock("@/components/projects/ProjectRegistration", () => ({
+	RegisterProjectPage: ({
+		href,
+		children,
+	}: {
+		href: string;
+		children: React.ReactNode;
+	}) => (href.endsWith("/dashboard") ? children : null),
+}));
+jest.mock("../backend/construction-project-bootstrap", () => ({
+	readAuthorizedConstructionBootstrap: jest.fn().mockResolvedValue({}),
+}));
+jest.mock("../lib/diary-config", () => ({
+	buildDefaultConstructionDiaryConfig: jest.fn(),
+}));
+
 jest.mock("next/navigation", () => ({
 	notFound: () => {
 		throw new Error("Not found");
@@ -17,10 +35,17 @@ jest.mock("next/navigation", () => ({
 	},
 }));
 jest.mock("next/server", () => ({ after: jest.fn() }));
+jest.mock("@/components/projects/workspace-access", () => ({
+	getWorkspaceRouteContext: (...args: unknown[]) =>
+		mockWorkspaceRouteContext(...args),
+}));
 jest.mock("@/lib/utils/requireUser", () => ({
 	requireUser: async () => ({ id: "user" }),
 }));
 jest.mock("@/lib/utils/super-user", () => ({ isSuperUserId: () => false }));
+jest.mock("@/lib/utils/db", () => ({
+	prisma: { site: { findFirst: jest.fn().mockResolvedValue(null) } },
+}));
 jest.mock("@/server/actions/shared-actions", () => ({
 	orgCheck: jest.fn(),
 	getOrganizationLanguageByUserId: async () => "lv",
@@ -82,6 +107,20 @@ jest.mock("./RetainedLimeniDiary", () => ({
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	mockWorkspaceRouteContext.mockResolvedValue({
+		descriptor: {
+			siteId: "site",
+			userId: "user",
+			organizationId: LIMENI_ORGANIZATION_ID,
+			name: "Project",
+			flowModuleKey: "default-construction",
+			visualPreload: true,
+			fimaActs: false,
+			constructionWorkspace: false,
+		},
+		organizationLanguage: "lv",
+		bisCaseId: null,
+	});
 	jest.mocked(getSiteBisConfig).mockResolvedValue(null);
 	jest.mocked(getUserBisTokenByUserId).mockResolvedValue(null);
 	jest.mocked(orgCheck).mockResolvedValue({
@@ -203,4 +242,30 @@ it("does not enable retention for a different flow or an inaccessible project", 
 	await expect(
 		Page({ params: Promise.resolve({ siteId: "site" }) }),
 	).rejects.toThrow("Not found");
+});
+
+it("opens a standard construction workspace without repeating legacy route checks", async () => {
+	mockWorkspaceRouteContext.mockResolvedValue({
+		descriptor: {
+			siteId: "site",
+			userId: "user",
+			organizationId: "construction-org",
+			name: "Construction project",
+			flowModuleKey: "default-construction",
+			visualPreload: false,
+			fimaActs: false,
+			constructionWorkspace: true,
+		},
+		organizationLanguage: "lv",
+		bisCaseId: null,
+	});
+
+	render(await Page({ params: Promise.resolve({ siteId: "site" }) }));
+
+	expect(orgCheck).not.toHaveBeenCalled();
+	expect(resolveFlowModuleKeyForRuntime).not.toHaveBeenCalled();
+	expect(getSiteBisConfig).not.toHaveBeenCalled();
+	expect(getUserBisTokenByUserId).not.toHaveBeenCalled();
+	expect(screen.queryByText("Clear retained diary")).not.toBeInTheDocument();
+	expect(screen.queryByText("Standard flow")).not.toBeInTheDocument();
 });

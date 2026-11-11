@@ -273,6 +273,7 @@ function Workspace({
 						<LimeniProjectData
 							siteId={siteId}
 							constructionWorkspace={entry.descriptor.constructionWorkspace}
+							initialDiary={entry.initialDiary}
 						>
 							<VisualProjectView siteId={siteId}>
 								<RetainedLimeniDiary siteId={siteId}>
@@ -302,6 +303,7 @@ const RetainedRoute = memo(function RetainedRoute({
 }) {
 	const outer = useContext(WorkspaceActivityContext);
 	const value = useMemo(() => ({ ...outer, active }), [outer, active]);
+	const [visited, setVisited] = useState(active);
 	const root = useRef<HTMLDivElement>(null);
 	const scroll = useRef({
 		x: 0,
@@ -310,6 +312,7 @@ const RetainedRoute = memo(function RetainedRoute({
 	});
 	useLayoutEffect(() => {
 		if (!active) return;
+		setVisited(true);
 		const remember = (event: Event) => {
 			scroll.current.x = window.scrollX;
 			scroll.current.y = window.scrollY;
@@ -345,7 +348,7 @@ const RetainedRoute = memo(function RetainedRoute({
 			data-project-route={route.href}
 		>
 			<WorkspaceActivityContext.Provider value={value}>
-				{route.content}
+				{(active || visited) && route.content}
 			</WorkspaceActivityContext.Provider>
 		</div>
 	);

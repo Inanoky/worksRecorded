@@ -2,7 +2,10 @@ import {
 	getSiteBisConfig,
 	getUserBisTokenByUserId,
 } from "@/server/actions/BIS/service";
-import { getDashboardBisStatus } from "./dashboard-status";
+import {
+	getDashboardBisStatus,
+	getDashboardBisStatusForCase,
+} from "./dashboard-status";
 
 jest.mock("@/server/actions/BIS/service", () => ({
 	getSiteBisConfig: jest.fn(),
@@ -24,6 +27,15 @@ it("never checks BIS for flows with BIS disabled", async () => {
 	});
 	expect(getSiteBisConfig).not.toHaveBeenCalled();
 	expect(getUserBisTokenByUserId).not.toHaveBeenCalled();
+});
+it("uses an already-authorized BIS case without rereading the site", async () => {
+	jest.mocked(getUserBisTokenByUserId).mockResolvedValue({
+		accessToken: "secret",
+	} as never);
+	await expect(
+		getDashboardBisStatusForCase("user", "site", true, "case"),
+	).resolves.toEqual({ enabled: true, unavailable: false });
+	expect(getSiteBisConfig).not.toHaveBeenCalled();
 });
 it("never renews a token for a project without a BIS case", async () => {
 	jest.mocked(getSiteBisConfig).mockResolvedValue({ bisCaseId: null } as never);

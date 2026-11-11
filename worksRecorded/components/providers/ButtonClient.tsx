@@ -19,6 +19,7 @@ type CommonProps = {
 	label?: string;
 	loadingLabel?: string;
 	prefetchConstructionBootstrap?: boolean;
+	constructionBootstrapClickOnly?: boolean;
 };
 
 type Props = CommonProps &
@@ -42,6 +43,7 @@ export default function OpenProjectButton({
 	label = "Open Project",
 	loadingLabel = "Opening project...",
 	prefetchConstructionBootstrap = false,
+	constructionBootstrapClickOnly = false,
 }: Props) {
 	const { setProject, projectId: currentProjectId } = useProject();
 	const resetProgress = useProjectPreparationReset(projectId ?? "");
@@ -60,6 +62,7 @@ export default function OpenProjectButton({
 	const intentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const canPrepareBootstrap = Boolean(
 		prefetchConstructionBootstrap &&
+			!constructionBootstrapClickOnly &&
 			projectId &&
 			!destination &&
 			!cached &&
@@ -136,11 +139,19 @@ export default function OpenProjectButton({
 				<FimaProjectNavigationLink
 					href={href}
 					onClick={handleClick}
-					onFocus={scheduleBootstrap}
-					onBlur={clearIntentTimer}
-					onMouseEnter={scheduleBootstrap}
-					onMouseLeave={clearIntentTimer}
-					onTouchStart={prepareBootstrap}
+					onFocus={
+						constructionBootstrapClickOnly ? undefined : scheduleBootstrap
+					}
+					onBlur={constructionBootstrapClickOnly ? undefined : clearIntentTimer}
+					onMouseEnter={
+						constructionBootstrapClickOnly ? undefined : scheduleBootstrap
+					}
+					onMouseLeave={
+						constructionBootstrapClickOnly ? undefined : clearIntentTimer
+					}
+					onTouchStart={
+						constructionBootstrapClickOnly ? undefined : prepareBootstrap
+					}
 				>
 					{opening ? (
 						<span className="inline-flex items-center gap-2">

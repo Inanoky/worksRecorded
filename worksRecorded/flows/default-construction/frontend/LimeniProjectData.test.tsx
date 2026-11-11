@@ -20,8 +20,10 @@ import {
 	RetainedLimeniDiary,
 } from "./RetainedLimeniDiary";
 
+const mockRouterPrefetch = jest.fn();
 jest.mock("next/navigation", () => ({
 	usePathname: () => "/dashboard/sites/site/dashboard",
+	useRouter: () => ({ prefetch: mockRouterPrefetch }),
 }));
 jest.mock("@/components/sitediary/SiteDiaryList", () => ({
 	__esModule: true,
@@ -89,6 +91,24 @@ afterAll(() => {
 	global.fetch = originalFetch;
 });
 
+it("renders the streamed construction diary without a bootstrap request", async () => {
+	const seed = { ...project("streamed"), bootstrap: true };
+	render(
+		<ProjectLoadingProgressProvider enabled cacheScope="user:organization">
+			<LimeniProjectData
+				siteId="site"
+				constructionWorkspace
+				initialDiary={seed as never}
+			>
+				<Consumer />
+			</LimeniProjectData>
+		</ProjectLoadingProgressProvider>,
+	);
+	expect(await screen.findByText("streamed")).toBeInTheDocument();
+	expect(mockRead).not.toHaveBeenCalled();
+	expect(global.fetch).not.toHaveBeenCalled();
+});
+
 it("loads one project snapshot and persists it under the authenticated scope", async () => {
 	jest.mocked(global.fetch).mockResolvedValue({
 		ok: true,
@@ -123,8 +143,45 @@ it("restores standard construction projects without enabling the visual preload 
 	);
 });
 
+it("throttles passive construction refreshes and ignores focusout", async () => {
+	let now = 100_000;
+	const clock = jest.spyOn(Date, "now").mockImplementation(() => now);
+	mockRead.mockResolvedValue(project("cached-construction"));
+	jest.mocked(global.fetch).mockResolvedValue({ status: 304 } as Response);
+	try {
+		render(
+			<ProjectLoadingProgressProvider enabled cacheScope="user:organization">
+				<LimeniProjectData siteId="site" constructionWorkspace>
+					<Consumer />
+				</LimeniProjectData>
+			</ProjectLoadingProgressProvider>,
+		);
+		await screen.findByText("cached-construction");
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+		fireEvent.focusOut(document);
+		fireEvent.focus(window);
+		expect(global.fetch).toHaveBeenCalledTimes(1);
+		now += 15_001;
+		fireEvent.focus(window);
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+	} finally {
+		clock.mockRestore();
+	}
+});
+
 it("publishes a cold construction bootstrap before saving the complete sync", async () => {
-	const bootstrap = { ...project("bootstrap:one"), bootstrap: true };
+	const bootstrap = {
+		...project("bootstrap:one"),
+		bootstrap: true,
+		settings: {
+			siteId: "site",
+			userId: "user",
+			organizationId: "construction",
+			bisEnabled: false,
+			bisUnavailable: true,
+			organizationLanguage: "lv",
+		},
+	};
 	const complete = project("complete");
 	jest
 		.mocked(global.fetch)
@@ -142,11 +199,16 @@ it("publishes a cold construction bootstrap before saving the complete sync", as
 	render(
 		<ProjectLoadingProgressProvider enabled cacheScope="user:organization">
 			<LimeniProjectData siteId="site" constructionWorkspace>
-				<Consumer />
+				<RetainedLimeniDiary siteId="site">
+					<Consumer />
+				</RetainedLimeniDiary>
 			</LimeniProjectData>
 		</ProjectLoadingProgressProvider>,
 	);
 	expect(await screen.findByText("bootstrap:one")).toBeInTheDocument();
+	expect(
+		await screen.findByText(/BIS īslaicīgi nav pieejams/),
+	).toBeInTheDocument();
 	expect(mockWrite).not.toHaveBeenCalled();
 	expect(
 		await screen.findByText("complete", {}, { timeout: 3_000 }),
@@ -164,6 +226,10 @@ it("publishes a cold construction bootstrap before saving the complete sync", as
 		}),
 	);
 	expect(mockWrite).toHaveBeenCalledWith("construction:snapshot", complete);
+	expect(mockRouterPrefetch).toHaveBeenCalledWith(
+		"/dashboard/sites/site/timesheets",
+	);
+	expect(mockRouterPrefetch).toHaveBeenCalledWith("/dashboard/sites/site/BIS");
 });
 
 it("falls back to the complete construction endpoint when bootstrap is unavailable", async () => {

@@ -1,6 +1,6 @@
 # Default-construction performance plan
 
-## Baseline
+## Historical baseline
 
 - Benchmark ID: `default-construction-core`
 - Project: `Pļavas iela 2`
@@ -23,9 +23,53 @@ Baseline P75 values:
 | Warm diary to warehouse | 91–97 ms |
 | Warm warehouse to diary | 73–74 ms |
 
+## Current accepted production benchmark
+
+- Benchmark ID: `default-construction-core`
+- Project: `Pļavas iela 2`
+- Secondary project: `B68`
+- Scenario: project switch, Forma 2, warehouse material and invoice views, warm navigation, browser history, and hard reloads
+- Benchmark label: `prod-dashboard-bootstrap-5x3-2026-11-10`
+- Runs: 5 independent cold browser contexts
+- Diary/warehouse cycles per run: 3
+- Initial project cache: cold, with IndexedDB cleared before each first project open
+- Report: `.performance-results/benchmark-default-construction-core-prod-dashboard-bootstrap-5x3-2026-11-10.json`
+
+Accepted benchmark values:
+
+| Metric | P75 | P95 |
+| --- | ---: | ---: |
+| Projects cold load | 3,549 ms | 5,626 ms |
+| Project first open | 3,543 ms | 4,552 ms |
+| Project client open to diary ready | 459 ms | 814 ms |
+| Primary to B68 project switch | 3,508 ms | 3,802 ms |
+| B68 to primary project switch | 429 ms | 440 ms |
+| Diary to Forma 2 | 4,425 ms | 5,436 ms |
+| Warehouse first open | 4,183 ms | 4,376 ms |
+| Warehouse hard reload | 4,009 ms | 4,085 ms |
+| Warehouse materials to invoices | 234 ms | 254 ms |
+| Cached invoice reopen | 829 ms | 847 ms |
+| Warm diary to warehouse | 81–85 ms | 88–95 ms |
+| Warm warehouse to diary | 76–78 ms | 76–115 ms |
+
+All five journeys passed their readiness checks, each primary and secondary
+project produced exactly one bootstrap request, no WorksRecorded request
+returned an HTTP 4xx or 5xx response, and cached invoice reopen produced zero
+invoice-row refetches. Use this report as the comparison source for the next
+deployed performance batch.
+
+The five-run sample supports P75 and observed P95 comparisons, but it is not a
+statistical guarantee that these timings hold for 90% of all users, regions,
+devices, and production periods. Confirm durability with repeated equivalent
+5x3 reports; use a larger run count if a formal P90 service target is needed.
+
 ## Active plan: cold diary bootstrap
 
-Status: the cold bootstrap API and client handoff are implemented and validated locally; awaiting a separate commit and deployment. Keep the warehouse read-path batch and cold diary bootstrap as separate deployment and benchmark boundaries.
+Status: the cold bootstrap API and client handoff are implemented, deployed,
+and measured in the current accepted production benchmark. Cold project-open
+P75 was unchanged against the preceding five-run report, while client
+open-to-diary readiness improved by 24.9%. Keep future server/bootstrap work as
+a separate deployment and benchmark boundary.
 
 Goal: reduce the first default-construction project opening in a fresh browser context without weakening authorization, moving mutations to the browser, or making cached data authoritative.
 

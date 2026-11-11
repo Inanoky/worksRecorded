@@ -15,7 +15,7 @@ jest.mock("@/lib/flows/resolve-flow-module-server", () => ({
 	resolveFlowModuleKeyForRuntime: (...args: unknown[]) => mockFlow(...args),
 }));
 
-import { getWorkspaceAccess } from "./workspace-access";
+import { loadWorkspaceAccess } from "./workspace-access";
 
 beforeEach(() => {
 	jest.clearAllMocks();
@@ -30,7 +30,7 @@ beforeEach(() => {
 	mockFlow.mockResolvedValue("default-construction");
 });
 it("authorizes the user against the requested project and returns only workspace capabilities", async () => {
-	expect(await getWorkspaceAccess("site")).toEqual({
+	expect((await loadWorkspaceAccess("site")).descriptor).toEqual({
 		siteId: "site",
 		name: "Project",
 		userId: "user",
@@ -48,7 +48,7 @@ it("authorizes the user against the requested project and returns only workspace
 });
 it("denies revoked access before reading configuration", async () => {
 	mockAccess.mockResolvedValue(null);
-	await expect(getWorkspaceAccess("site")).rejects.toThrow("not-found");
+	await expect(loadWorkspaceAccess("site")).rejects.toThrow("not-found");
 	expect(mockFlow).not.toHaveBeenCalled();
 });
 it("enables standard construction caching without enabling the Limeni or FIMA views", async () => {
@@ -59,10 +59,12 @@ it("enables standard construction caching without enabling the Limeni or FIMA vi
 		bisCaseId: null,
 		siteDiaryRecordsMap: {},
 	});
-	expect(await getWorkspaceAccess("site")).toMatchObject({
-		constructionWorkspace: true,
-		visualPreload: false,
-		fimaActs: false,
+	expect(await loadWorkspaceAccess("site")).toMatchObject({
+		descriptor: {
+			constructionWorkspace: true,
+			visualPreload: false,
+			fimaActs: false,
+		},
 	});
 });
 
@@ -75,9 +77,11 @@ it("reports cold workspace access phases without changing the result", async () 
 		},
 	};
 
-	await expect(getWorkspaceAccess("site", trace)).resolves.toMatchObject({
-		siteId: "site",
-		flowModuleKey: "default-construction",
+	await expect(loadWorkspaceAccess("site", trace)).resolves.toMatchObject({
+		descriptor: {
+			siteId: "site",
+			flowModuleKey: "default-construction",
+		},
 	});
 	expect(phases).toEqual([
 		"workspaceAuth",

@@ -42,6 +42,8 @@ import { FORMA2_CHANGED } from "./forma2-client-refresh";
 
 type ProjectData = {
 	enabled: boolean;
+	mode?: "limeni" | "construction";
+	streamedTabs?: boolean;
 	checkingCache?: boolean;
 	restored?: boolean;
 	snapshot: LimeniProjectSnapshot | null;
@@ -76,6 +78,7 @@ const Context = createContext<ProjectData>({
 export function LimeniProjectData(props: {
 	siteId: string;
 	constructionWorkspace?: boolean;
+	initialDiary?: LimeniProjectSnapshot;
 	children: ReactNode;
 }) {
 	const scope = useProjectCacheScope();
@@ -91,9 +94,11 @@ function ScopedLimeniProjectData({
 	siteId,
 	children,
 	constructionWorkspace = false,
+	initialDiary,
 }: {
 	siteId: string;
 	constructionWorkspace?: boolean;
+	initialDiary?: LimeniProjectSnapshot;
 	children: ReactNode;
 }) {
 	const scope = useProjectCacheScope();
@@ -101,22 +106,26 @@ function ScopedLimeniProjectData({
 	const visual = useVisualProjectPreload(siteId);
 	const enabled = (visual || constructionWorkspace) && !!scope;
 	const cacheKey = constructionWorkspace ? "construction:snapshot" : "snapshot";
-	const mode = constructionWorkspace ? "construction" : "limeni";
+	const mode: "construction" | "limeni" = constructionWorkspace
+		? "construction"
+		: "limeni";
 	const persistence = useMemo(
 		() => (scope ? new PersistentProjectCache(scope, siteId) : undefined),
 		[scope, siteId],
 	);
 	const [restored, setRestored] = useState(false);
-	const [checkingCache, setCheckingCache] = useState(true);
-	const current = useRef<LimeniProjectSnapshot | null>(null);
-	const displayed = useRef<LimeniProjectSnapshot | null>(null);
+	const [checkingCache, setCheckingCache] = useState(!initialDiary);
+	const current = useRef<LimeniProjectSnapshot | null>(initialDiary ?? null);
+	const displayed = useRef<LimeniProjectSnapshot | null>(initialDiary ?? null);
 	const deferred = useRef<LimeniProjectSnapshot | null>(null);
 	const patchRevision = useRef(0);
 	const { snapshot: saves } = useDiarySaveQueue(siteId, enabled);
 	const pendingSaves = useRef(0);
 	pendingSaves.current = saves.items.length;
 	const confirmedRevision = useRef(0);
-	const [snapshot, setSnapshot] = useState<LimeniProjectSnapshot | null>(null);
+	const [snapshot, setSnapshot] = useState<LimeniProjectSnapshot | null>(
+		initialDiary ?? null,
+	);
 	const [failed, setFailed] = useState(false);
 	const [denied, setDenied] = useState(false);
 	const manualRefresh = useRef<(() => Promise<void>) | null>(null);
@@ -169,6 +178,7 @@ function ScopedLimeniProjectData({
 		let inFlight: Promise<void> | undefined;
 		let initialized = false;
 		let firstSyncPending = true;
+		let lastPassiveSync = 0;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const flush = () => {
 			if (
@@ -292,8 +302,15 @@ function ScopedLimeniProjectData({
 				if (manual) throw error;
 			}
 		};
-		const refresh = async (manual = false) => {
+		const refresh = async (manual = false, passive = false) => {
 			flush();
+			if (
+				!manual &&
+				passive &&
+				mode === "construction" &&
+				Date.now() - lastPassiveSync < 15000
+			)
+				return;
 			if (manual) {
 				while (inFlight) await inFlight.catch(() => {});
 			} else if (inFlight || document.visibilityState === "hidden") return;
@@ -310,6 +327,7 @@ function ScopedLimeniProjectData({
 					throw new Error("Pabeidziet labojumus un atjaunojiet vēlreiz.");
 				return;
 			}
+			if (mode === "construction") lastPassiveSync = Date.now();
 			inFlight = sync(manual);
 			try {
 				await inFlight;
@@ -331,7 +349,7 @@ function ScopedLimeniProjectData({
 			}
 		};
 		const wake = () => {
-			if (document.visibilityState !== "hidden") void refresh();
+			if (document.visibilityState !== "hidden") void refresh(false, true);
 		};
 		for (const event of ["input", "submit", "pointerdown"])
 			document.addEventListener(event, edited, true);
@@ -341,13 +359,19 @@ function ScopedLimeniProjectData({
 		window.addEventListener("focus", wake);
 		window.addEventListener("online", wake);
 		document.addEventListener("visibilitychange", wake);
-		document.addEventListener("focusout", schedule);
+		if (mode !== "construction")
+			document.addEventListener("focusout", schedule);
 		const interval = setInterval(wake, 15000);
 		void (async () => {
+			if (!current.current && initialDiary) {
+				current.current = initialDiary;
+				publish(initialDiary);
+				setCheckingCache(false);
+			}
 			if (current.current) {
 				flush();
 				initialized = true;
-				void refresh();
+				if (!current.current.bootstrap) void refresh();
 				return;
 			}
 			mark("cache-read-start");
@@ -380,7 +404,8 @@ function ScopedLimeniProjectData({
 			window.removeEventListener("focus", wake);
 			window.removeEventListener("online", wake);
 			document.removeEventListener("visibilitychange", wake);
-			document.removeEventListener("focusout", schedule);
+			if (mode !== "construction")
+				document.removeEventListener("focusout", schedule);
 		};
 	}, [
 		enabled,
@@ -391,6 +416,7 @@ function ScopedLimeniProjectData({
 		publish,
 		cacheKey,
 		mode,
+		initialDiary,
 	]);
 	useEffect(() => {
 		if (!enabled || !persistence || workspaceActive) return;
@@ -425,6 +451,8 @@ function ScopedLimeniProjectData({
 	const value = useMemo(
 		() => ({
 			enabled,
+			mode,
+			streamedTabs: Boolean(initialDiary),
 			checkingCache,
 			restored,
 			snapshot,
@@ -435,6 +463,8 @@ function ScopedLimeniProjectData({
 		}),
 		[
 			enabled,
+			mode,
+			initialDiary,
 			checkingCache,
 			restored,
 			snapshot,

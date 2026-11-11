@@ -180,6 +180,11 @@ export async function loadLimeniProjectSnapshot(
 export type LimeniProjectSnapshot = Awaited<
 	ReturnType<typeof loadLimeniProjectSnapshot>
 > & {
+	settings: Awaited<
+		ReturnType<typeof loadLimeniProjectSnapshot>
+	>["settings"] & {
+		bisUnavailable?: boolean;
+	};
 	revision?: string;
 	partVersions?: Record<string, string>;
 	diaryRowVersions?: Record<string, string>;

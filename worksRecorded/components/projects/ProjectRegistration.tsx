@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
+import type { LimeniProjectSnapshot } from "@/flows/default-construction/visual/project-snapshot-store";
 import {
 	createContext,
 	type ReactNode,
@@ -52,16 +53,23 @@ export function RegisterProjectPage({
 	siteId,
 	href,
 	children,
+	initialDiary,
 }: {
 	siteId: string;
 	href: string;
 	children: ReactNode;
+	initialDiary?: LimeniProjectSnapshot;
 }) {
 	const context = useContext(WorkspaceNavigationContext);
 	const descriptor = useContext(Registration);
 	if (!context || descriptor?.siteId !== siteId) return children;
 	return (
-		<ManagedPage store={context.store} descriptor={descriptor} href={href}>
+		<ManagedPage
+			store={context.store}
+			descriptor={descriptor}
+			href={href}
+			initialDiary={initialDiary}
+		>
 			{children}
 		</ManagedPage>
 	);
@@ -71,17 +79,25 @@ function ManagedPage({
 	descriptor,
 	href,
 	children,
+	initialDiary,
 }: {
 	store: WorkspaceStore;
 	descriptor: WorkspaceDescriptor;
 	href: string;
 	children: ReactNode;
+	initialDiary?: LimeniProjectSnapshot;
 }) {
 	const pathname = usePathname();
 	const query = useSearchParams().toString();
 	const current = `${pathname}${query ? `?${query}` : ""}`;
 	useLayoutEffect(() => {
-		store.registerRoute(descriptor, href, children, current === href);
-	}, [store, descriptor, href, current, children]);
+		store.registerRoute(
+			descriptor,
+			href,
+			children,
+			current === href,
+			initialDiary,
+		);
+	}, [store, descriptor, href, current, children, initialDiary]);
 	return null;
 }

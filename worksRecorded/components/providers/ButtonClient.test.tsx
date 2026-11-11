@@ -92,6 +92,18 @@ it("starts the construction bootstrap after deliberate hover intent", () => {
 	expect(prefetchBootstrap).toHaveBeenCalledWith("site");
 });
 
+it("leaves standard construction bootstrap to the project route", () => {
+	renderProjectButton({ constructionBootstrapClickOnly: true });
+	const link = screen.getByRole("link", { name: "Open project" });
+	fireEvent.mouseEnter(link);
+	fireEvent.focus(link);
+	fireEvent.touchStart(link);
+	act(() => jest.advanceTimersByTime(180));
+	expect(prefetchBootstrap).not.toHaveBeenCalled();
+	fireEvent.click(link);
+	expect(prefetchBootstrap).not.toHaveBeenCalled();
+});
+
 it("cancels delayed pointer and focus intent when it ends", () => {
 	renderProjectButton();
 	const link = screen.getByRole("link", { name: "Open project" });

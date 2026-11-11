@@ -127,7 +127,7 @@ it("runs bootstrap, edited/deleted rows, and a single-request unchanged check fo
 	expect(
 		(await fetchProjectSync("site", merged, signal, "construction")).status,
 	).toBe(304);
-	expect(global.fetch).toHaveBeenCalledTimes(3);
+	expect(global.fetch).toHaveBeenCalledTimes(4);
 	expect(prisma.sitediaryrecords.findMany).not.toHaveBeenCalled();
 	expect(requireConstructionProjectAccess).toHaveBeenCalledWith("user", "site");
 });
