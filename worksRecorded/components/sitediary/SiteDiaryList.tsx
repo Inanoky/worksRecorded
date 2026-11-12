@@ -1,4 +1,6 @@
 "use client";
+import { CreateBisAct } from "./CreateBisAct";
+import { BisDiaryReferenceFields, useBisDiaryReferences } from "./BisDiaryReferences";
 import { useWorkspaceVisible, useWorkspaceProtection, useWorkspaceManaged } from "@/components/projects/WorkspaceActivity";
 import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
 import type { LimeniProjectSnapshot } from "@/flows/default-construction/visual/project-snapshot-store";
@@ -723,6 +725,7 @@ function diaryRowMatchesKeyword(row: DiaryRow, keyword: string) {
 export default function SiteDiaryCalendar({
   siteId,
   bisEnabled = true,
+  constructionBisTools = false,
   organizationLanguage,
   isZtcFlow = false,
   limeniClientDiary = false,
@@ -737,6 +740,7 @@ export default function SiteDiaryCalendar({
 }: {
   siteId: string | null;
   bisEnabled?: boolean;
+  constructionBisTools?: boolean;
   organizationLanguage?: string | null;
   isZtcFlow?: boolean;
   limeniClientDiary?: boolean;
@@ -1228,6 +1232,16 @@ export default function SiteDiaryCalendar({
   const [excelExportLoading, setExcelExportLoading] =
     React.useState<ExcelExportKind | null>(null);
   const bisUiEnabled = bisEnabled && showBisUi;
+  const bisReferences = useBisDiaryReferences(
+    siteId,
+    constructionBisTools &&
+      bisUiEnabled &&
+      !isZtcFlow &&
+      !fimaDiary &&
+      configSiteId === siteId,
+  );
+  const [bisProjectDocumentIds, setBisProjectDocumentIds] = React.useState<string[]>([]);
+  const [bisEstimatePositionId, setBisEstimatePositionId] = React.useState("");
   const isZtcSite = isZtcFlow;
   const siteDiaryFlowId = isZtcSite ? "ztc" : "default";
   React.useEffect(() => {
@@ -2774,6 +2788,8 @@ export default function SiteDiaryCalendar({
       return;
     }
 
+    setBisProjectDocumentIds([]);
+    setBisEstimatePositionId("");
     setSelectedRowForBis(row);
     setBisSubmitDate(row.Date ? new Date(row.Date) : new Date());
     setBisMultipleDayJob(false);
@@ -3201,6 +3217,8 @@ export default function SiteDiaryCalendar({
 
       const parsedAmount = Number(bisSubmitAmount);
       await sendSiteDiaryRecordToBis(selectedRowForBis.id, {
+        projectDocumentIds: bisProjectDocumentIds,
+        estimatePositionId: bisEstimatePositionId || null,
         materials: selectedMaterials,
         attachments: selectedAttachmentUrls.map((url) => ({ url })),
         eventDate: bisSubmitDate ? toLocalDateKey(bisSubmitDate) : undefined,
@@ -3826,6 +3844,21 @@ export default function SiteDiaryCalendar({
                   </div>
                   {selectedRecordIds.size > 0 ? (
                     <div className="mt-3 flex flex-col gap-2 border-t pt-3 lg:flex-row lg:items-center lg:justify-between">
+                      {constructionBisTools && bisUiEnabled && !isZtcSite && !fimaDiary && siteId ? (
+                        <CreateBisAct
+                          siteId={siteId}
+                          recordIds={[...selectedRecordIds]}
+                          allApproved={[...selectedRecordIds].every((id) => {
+                            const row = rows.find((item) => item.id === id);
+                            return Boolean(row?.BISId) && isApprovedStatus(
+                              bisApprovalStatusByRowId[id] ?? row?.bisStatus,
+                            );
+                          })}
+                          onCreated={() => {
+                            void refreshRowsWithBisSync({ invalidateCache: isZtcSite });
+                          }}
+                        />
+                      ) : null}
                       {fimaDiary ? <Button size="sm" variant="outline" onClick={() => setSelectedRecordIds(new Set())}>Notīrīt atlasi ({selectedRecordIds.size})</Button> : null}
                       {!isZtcSite ? (
                         <div className="flex justify-start">
@@ -6747,6 +6780,16 @@ export default function SiteDiaryCalendar({
                         </div>
                       </div>
                     </div>
+                    {constructionBisTools && !fimaDiary ? (
+                      <BisDiaryReferenceFields
+                        references={bisReferences}
+                        documentIds={bisProjectDocumentIds}
+                        estimateId={bisEstimatePositionId}
+                        onDocumentsChange={setBisProjectDocumentIds}
+                        onEstimateChange={setBisEstimatePositionId}
+                        disabled={bisSendingRowId !== null}
+                      />
+                    ) : null}
                     <div className="rounded-md border p-4">
                       <h3 className="mb-2 text-sm font-semibold">
                         {t.attachments}

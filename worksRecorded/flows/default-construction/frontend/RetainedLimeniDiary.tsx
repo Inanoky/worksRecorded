@@ -43,10 +43,12 @@ const DiaryContext = createContext<{
 } | null>(null);
 
 export function RetainedLimeniDiary({
+	constructionBisTools = false,
 	siteId,
 	children,
 }: {
 	siteId: string;
+	constructionBisTools?: boolean;
 	children: ReactNode;
 }) {
 	const [settings, setSettings] = useState<DiarySettings | null>(null);
@@ -178,6 +180,7 @@ export function RetainedLimeniDiary({
 								key={scope}
 								siteId={siteId}
 								bisEnabled={settings.bisEnabled}
+								constructionBisTools={constructionBisTools}
 								organizationLanguage={settings.organizationLanguage}
 								limeniClientDiary
 								initialLimeniProject={projectData.snapshot ?? undefined}

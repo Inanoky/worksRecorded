@@ -16,6 +16,7 @@ export function DefaultProductionFlow({
 		<SiteDiaryList
 			siteId={siteId}
 			bisEnabled={bisEnabled}
+			constructionBisTools
 			organizationLanguage={organizationLanguage}
 			initialFimaDiary={initialFimaDiary}
 			batchEditing

@@ -1,4 +1,5 @@
 "use server";
+import { validateBisDiaryReferences } from "@/server/actions/bis-diary-references";
 import { requireConstructionProjectAccess } from "@/flows/default-construction/backend/construction-project-access";
 import { readConstructionDiarySnapshot, type ConstructionDiarySnapshotOptions } from "@/flows/default-construction/backend/construction-diary-snapshot";
 import { BisDiarySyncCache, syncLinkedBisRecords } from "@/lib/bis/diary-record-sync";
@@ -3503,6 +3504,8 @@ async function resolveBisResponsiblePersonForCase(
 export async function sendSiteDiaryRecordToBis(
   recordId: string,
   options?: {
+    projectDocumentIds?: string[];
+    estimatePositionId?: string | null;
     materials?: BisPerformedWorkMaterialSelection[];
     attachments?: BisPerformedWorkAttachmentSelection[];
     eventDate?: string;
@@ -3548,6 +3551,10 @@ export async function sendSiteDiaryRecordToBis(
     throw new Error("Site diary record not found");
   }
 
+  const references =
+    options?.projectDocumentIds?.length || options?.estimatePositionId
+      ? await validateBisDiaryReferences(recordSite.siteId, options)
+      : { attributes: {}, relationships: {} };
   const baseUrl = getBisBaseUrl();
   const selectedResponsiblePersonId = options?.responsiblePersonId;
   const selectedResponsiblePersonType = options?.responsiblePersonType;
@@ -3641,6 +3648,7 @@ export async function sendSiteDiaryRecordToBis(
   });
 
   const relationships: Record<string, unknown> = {
+    ...references.relationships,
     detail: {
       data: {
         type: "performed_work",
@@ -3662,6 +3670,7 @@ export async function sendSiteDiaryRecordToBis(
     data: {
       type: "performed_work",
       attributes: {
+        ...references.attributes,
         event_date: eventDate,
         ...(eventDateTo ? { event_date_to: eventDateTo } : {}),
         event_time_from: eventTimeFrom,

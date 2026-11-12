@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { ManualWarehouseMaterial } from "@/flows/default-construction/frontend/ManualWarehouseMaterial"
 import { SourceDocumentPreview } from "@/components/ui/SourceDocumentPreview"
 import {
   Search,
@@ -2280,6 +2281,16 @@ export default function MaterialsTableClient({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+            {isDefaultConstructionFlow ? (
+              <ManualWarehouseMaterial
+                key={siteId}
+                siteId={siteId}
+                onCreated={() => {
+                  setInvoiceRefreshKey((key) => key + 1)
+                  void loadWarehousePage()
+                }}
+              />
+            ) : null}
             {isDefaultConstructionFlow ? <DiaryFeedbackBrain key={`${siteId}:warehouse`} siteId={siteId} domain="warehouse" organizationLanguage={organizationLanguage} /> : null}
             <Button
               type="button"

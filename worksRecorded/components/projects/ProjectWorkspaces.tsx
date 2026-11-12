@@ -276,7 +276,13 @@ function Workspace({
 							initialDiary={entry.initialDiary}
 						>
 							<VisualProjectView siteId={siteId}>
-								<RetainedLimeniDiary siteId={siteId}>
+								<RetainedLimeniDiary
+									siteId={siteId}
+									constructionBisTools={
+										entry.descriptor.constructionWorkspace ||
+										entry.descriptor.visualPreload
+									}
+								>
 									{[...entry.routes.values()].map((route) => (
 										<RetainedRoute
 											key={route.href}
