@@ -11,6 +11,15 @@ import { useBisDiaryReferences } from "./BisDiaryReferences";
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	global.fetch = jest.fn(async (url: string | URL | Request) => {
+		const parsed = new URL(String(url), "https://app.example");
+		const siteId = parsed.pathname.split("/")[3];
+		const result = await loadBisDiaryReferenceOptions(
+			siteId,
+			parsed.searchParams.get("refresh") === "1",
+		);
+		return { ok: result.ok, json: async () => result } as Response;
+	});
 	jest
 		.mocked(loadBisDiaryReferenceOptions)
 		.mockImplementation(async (siteId) => ({

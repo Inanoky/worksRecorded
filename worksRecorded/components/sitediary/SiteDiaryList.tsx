@@ -1,6 +1,9 @@
 "use client";
 import { CreateBisAct } from "./CreateBisAct";
 import { BisDiaryReferenceFields, useBisDiaryReferences } from "./BisDiaryReferences";
+import { BisOptionsStatus } from "./BisOptionsStatus";
+import { useBisSendOptions } from "./useBisSendOptions";
+import { mergeBisDiaryLinks, type BisDiaryLink, type BisMaterialOption, type GalleryAttachmentOption, type BisResponsiblePersonOption } from "@/lib/bis/diary-send-options";
 import { useWorkspaceVisible, useWorkspaceProtection, useWorkspaceManaged } from "@/components/projects/WorkspaceActivity";
 import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
 import type { LimeniProjectSnapshot } from "@/flows/default-construction/visual/project-snapshot-store";
@@ -65,7 +68,7 @@ import { BeginRecordHours } from "@/components/sitediary/BeginRecordHours";
 import { toast } from "sonner";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOverlay";
-import { useProjectPreparationStep } from "@/components/providers/ProjectLoadingProgressProvider";
+import { useProjectPreparationStep, useProjectCacheScope } from "@/components/providers/ProjectLoadingProgressProvider";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import { OriginalSourceContent } from "@/components/sitediary/OriginalSourceContent";
 import { SiteDiaryOptionsManager } from "@/components/sitediary/SiteDiaryOptionsManager";
@@ -606,31 +609,6 @@ function SearchableFilterSelect({
   );
 }
 
-type BisMaterialOption = {
-  id: string;
-  label: string;
-  measurementUnit?: string | null;
-  deliveredQuantity?: number;
-  usedQuantity?: number;
-  availableQuantity: number;
-};
-
-type GalleryAttachmentOption = {
-  id: string;
-  url: string;
-  date?: Date | null;
-  comment?: string | null;
-};
-
-type BisResponsiblePersonOption = {
-  id: string;
-  personId: number | null;
-  fullName: string | null;
-  role: string | null;
-  responsiblePersonId: number | null;
-  responsiblePersonType: string | null;
-};
-
 type WeatherHour = {
   hour: number;
   temperatureC: number | null;
@@ -1164,10 +1142,10 @@ export default function SiteDiaryCalendar({
   const [bisPickerOpen, setBisPickerOpen] = React.useState(false);
   const [selectedRowForBis, setSelectedRowForBis] =
     React.useState<DiaryRow | null>(null);
-  const [bisMaterialOptions, setBisMaterialOptions] = React.useState<
+  const [legacyBisMaterialOptions, setBisMaterialOptions] = React.useState<
     BisMaterialOption[]
   >([]);
-  const [galleryAttachmentOptions, setGalleryAttachmentOptions] =
+  const [legacyGalleryAttachmentOptions, setGalleryAttachmentOptions] =
     React.useState<GalleryAttachmentOption[]>([]);
   const [selectedAttachmentUrls, setSelectedAttachmentUrls] = React.useState<
     string[]
@@ -1203,10 +1181,10 @@ export default function SiteDiaryCalendar({
   const [bisInputResetKey, setBisInputResetKey] = React.useState(0);
   const [bisSubmitMeasurement, setBisSubmitMeasurement] =
     React.useState<string>("12");
-  const [bisMeasurementOptions, setBisMeasurementOptions] = React.useState<
+  const [legacyBisMeasurementOptions, setBisMeasurementOptions] = React.useState<
     Array<{ id: string; name: string }>
   >([]);
-  const [bisResponsiblePersonOptions, setBisResponsiblePersonOptions] =
+  const [legacyBisResponsiblePersonOptions, setBisResponsiblePersonOptions] =
     React.useState<BisResponsiblePersonOption[]>([]);
   const [selectedBisResponsiblePersonKey, setSelectedBisResponsiblePersonKey] =
     React.useState<string>("");
@@ -1232,14 +1210,49 @@ export default function SiteDiaryCalendar({
   const [excelExportLoading, setExcelExportLoading] =
     React.useState<ExcelExportKind | null>(null);
   const bisUiEnabled = bisEnabled && showBisUi;
-  const bisReferences = useBisDiaryReferences(
-    siteId,
-    constructionBisTools &&
-      bisUiEnabled &&
-      !isZtcFlow &&
-      !fimaDiary &&
-      configSiteId === siteId,
-  );
+  const constructionBisEnabled =
+    constructionBisTools && bisUiEnabled && !isZtcFlow && !fimaDiary && configSiteId === siteId;
+  const bisSendOptions = useBisSendOptions(siteId, constructionBisEnabled);
+  const projectCacheScope = useProjectCacheScope();
+  const bisScope = `${projectCacheScope}:${siteId}:${constructionBisEnabled}`;
+  const currentBisScope = React.useRef<string | null>(bisScope);
+  currentBisScope.current = bisScope;
+  const bisSendPending = React.useRef(false);
+  const [bisBackgroundSyncCount, setBisBackgroundSyncCount] = React.useState(0);
+  const bisReferences = useBisDiaryReferences(siteId, constructionBisEnabled);
+  const bisMaterialOptions = constructionBisEnabled
+    ? bisSendOptions.materials.data ?? [] : legacyBisMaterialOptions;
+  const galleryAttachmentOptions = constructionBisEnabled
+    ? bisSendOptions.attachments.data ?? [] : legacyGalleryAttachmentOptions;
+  const bisMeasurementOptions = constructionBisEnabled
+    ? bisSendOptions.measurements.data ?? [] : legacyBisMeasurementOptions;
+  const bisResponsiblePersonOptions = constructionBisEnabled
+    ? bisSendOptions.responsiblePeople.data ?? [] : legacyBisResponsiblePersonOptions;
+  React.useEffect(() => {
+    currentBisScope.current = bisScope;
+    setBisBackgroundSyncCount(0);
+    setBisPickerOpen(false);
+    setSelectedRowForBis(null);
+    return () => {
+      currentBisScope.current = null;
+    };
+  }, [bisScope]);
+  React.useEffect(() => {
+    if (!constructionBisEnabled || !bisSendOptions.measurements.data) return;
+    const options = bisSendOptions.measurements.data;
+    setBisSubmitMeasurement(current =>
+      options.some(option => option.id === current) ? current : options[0]?.id ?? "12",
+    );
+  }, [constructionBisEnabled, bisSendOptions.measurements.data]);
+  React.useEffect(() => {
+    if (!constructionBisEnabled || !bisSendOptions.responsiblePeople.data) return;
+    const options = bisSendOptions.responsiblePeople.data;
+    setSelectedBisResponsiblePersonKey(current => {
+      if (options.some(person => `${person.responsiblePersonId}:${person.responsiblePersonType}` === current)) return current;
+      const first = options[0];
+      return first ? `${first.responsiblePersonId}:${first.responsiblePersonType}` : "";
+    });
+  }, [constructionBisEnabled, bisSendOptions.responsiblePeople.data]);
   const [bisProjectDocumentIds, setBisProjectDocumentIds] = React.useState<string[]>([]);
   const [bisEstimatePositionId, setBisEstimatePositionId] = React.useState("");
   const isZtcSite = isZtcFlow;
@@ -2798,6 +2811,18 @@ export default function SiteDiaryCalendar({
     setBisSubmitAmount(String(row.Amounts ?? 1));
     setBisInputResetKey((value) => value + 1);
     setBisPickerOpen(true);
+    if (constructionBisEnabled) {
+      setBisPickerLoading(false);
+      setSelectedAttachmentUrls([]);
+      setGalleryAttachmentPage(1);
+      materialQuantitiesRef.current = {};
+      for (const resource of Object.values(bisSendOptions)) {
+        if (!resource.data || !resource.loadedAt || Date.now() - resource.loadedAt > 60_000) {
+          void resource.refresh();
+        }
+      }
+      return;
+    }
     setBisPickerLoading(true);
 
     try {
@@ -3163,6 +3188,7 @@ export default function SiteDiaryCalendar({
   };
 
   const handleSendRowToBis = async () => {
+    if (bisSendPending.current) return;
     if (!selectedRowForBis?.id) {
       toast.error(toastMessages.missingSelectedRecordId);
       return;
@@ -3213,10 +3239,11 @@ export default function SiteDiaryCalendar({
     }
 
     try {
+      bisSendPending.current = true;
       setBisSendingRowId(selectedRowForBis.id);
 
       const parsedAmount = Number(bisSubmitAmount);
-      await sendSiteDiaryRecordToBis(selectedRowForBis.id, {
+      const result = await sendSiteDiaryRecordToBis(selectedRowForBis.id, {
         projectDocumentIds: bisProjectDocumentIds,
         estimatePositionId: bisEstimatePositionId || null,
         materials: selectedMaterials,
@@ -3232,6 +3259,75 @@ export default function SiteDiaryCalendar({
         responsiblePersonId: selectedResponsiblePerson.responsiblePersonId,
         responsiblePersonType: selectedResponsiblePerson.responsiblePersonType,
       });
+
+      if (constructionBisEnabled && siteId) {
+        if (!result.bisId) {
+          throw new Error("BIS neapstiprināja ieraksta numuru. Pirms atkārtotas sūtīšanas pārbaudiet BIS žurnālu.");
+        }
+        if (currentBisScope.current !== bisScope) return;
+        const recordId = selectedRowForBis.id;
+        const bisStatus = String(result.response?.data?.attributes?.status ?? "sent");
+        const confirmed = { id: recordId, BISId: result.bisId, bisStatus };
+        setRows(current => current.map(row =>
+          row.id === recordId ? { ...row, ...confirmed } : row,
+        ));
+        setBisApprovalStatusByRowId(current => ({ ...current, [recordId]: bisStatus }));
+        setBisSentRowIds(current => new Set(current).add(recordId));
+        setBisPickerOpen(false);
+        toast.success(toastMessages.siteDiarySentToBis);
+        const baseline = fimaCurrentRows.current.filter(row => row.id).map(row => ({
+          id: row.id!, BISId: row.BISId ?? null, bisStatus: row.bisStatus ?? null,
+        }));
+        const syncBaseline = baseline.map(row => row.id === recordId ? confirmed : row);
+        setBisBackgroundSyncCount(count => count + 1);
+        void Promise.resolve()
+          .then(() => fetch(`/api/sites/${encodeURIComponent(siteId)}/bis-diary`, { method: "POST" }))
+          .then(async response => {
+            if (!response.ok) throw new Error("BIS sync failed");
+            const data = await response.json();
+            if (!Array.isArray(data.records)) throw new Error("Invalid BIS sync response");
+            if (currentBisScope.current !== bisScope) return;
+            const records = data.records as BisDiaryLink[];
+            setRows(current => mergeBisDiaryLinks(current, syncBaseline, records));
+            setBisApprovalStatusByRowId(current => {
+              const merged = { ...current };
+              const previous = new Map(syncBaseline.map(row => [row.id, row]));
+              const currentRows = new Map(fimaCurrentRows.current.map(row => [row.id, row]));
+              for (const row of records) {
+                const before = previous.get(row.id);
+                if (before &&
+                  (currentRows.get(row.id)?.BISId ?? null) === before.BISId &&
+                  (current[row.id] ?? "") === (before.bisStatus ?? "")) {
+                  merged[row.id] = row.bisStatus ?? "";
+                }
+              }
+              return merged;
+            });
+            setBisSentRowIds(current => {
+              const remaining = new Set(current);
+              const previous = new Map(syncBaseline.map(row => [row.id, row]));
+              const currentRows = new Map(fimaCurrentRows.current.map(row => [row.id, row]));
+              for (const record of records) {
+                const before = previous.get(record.id);
+                const row = currentRows.get(record.id);
+                if (!record.BISId && before &&
+                  (row?.BISId ?? null) === before.BISId &&
+                  (row?.bisStatus ?? null) === before.bisStatus) {
+                  remaining.delete(record.id);
+                }
+              }
+              return remaining;
+            });
+          })
+          .catch(() => {
+            if (currentBisScope.current === bisScope) toast.info("Ieraksts ir saglabāts BIS. Žurnāla sinhronizāciju neizdevās pabeigt; izmantojiet BIS atjaunošanas pogu.");
+          })
+          .finally(() => {
+            if (currentBisScope.current === bisScope) setBisBackgroundSyncCount(count => Math.max(0, count - 1));
+          });
+        void bisSendOptions.materials.refresh();
+        return;
+      }
 
       const bisStatus = selectedRowForBis.id
         ? bisApprovalStatusByRowId[selectedRowForBis.id]
@@ -3259,6 +3355,7 @@ export default function SiteDiaryCalendar({
     } catch (e: any) {
       toast.error(e?.message ?? toastMessages.failedSendSiteDiaryToBis);
     } finally {
+      bisSendPending.current = false;
       setBisSendingRowId(null);
     }
   };
@@ -3445,6 +3542,12 @@ export default function SiteDiaryCalendar({
                   </>
                 ) : null}
                 {fimaDiary ? <FimaActsRefreshButton siteId={siteId} onRefreshed={backgroundRefresh} /> : null}
+                {constructionBisEnabled && bisBackgroundSyncCount > 0 ? (
+                  <output className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />
+                    BIS saglabāts · sinhronizē žurnālu…
+                  </output>
+                ) : null}
                 {bisUiEnabled ? (
                   <Button
                     variant="outline"
@@ -6551,7 +6654,7 @@ export default function SiteDiaryCalendar({
                 </DialogDescription>
               </DialogHeader>
 
-              {bisPickerLoading ? (
+              {bisPickerLoading && !constructionBisEnabled ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Loading options...
@@ -6737,6 +6840,7 @@ export default function SiteDiaryCalendar({
                           <Select
                             value={bisSubmitMeasurement}
                             onValueChange={setBisSubmitMeasurement}
+                            disabled={constructionBisEnabled && !bisSendOptions.measurements.data}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select measurement" />
@@ -6749,6 +6853,7 @@ export default function SiteDiaryCalendar({
                               ))}
                             </SelectContent>
                           </Select>
+                          {constructionBisEnabled ? <BisOptionsStatus resource={bisSendOptions.measurements} /> : null}
                         </div>
                         <div className="space-y-1 xl:col-span-2">
                           <label className="text-xs font-medium text-foreground">
@@ -6757,6 +6862,7 @@ export default function SiteDiaryCalendar({
                           <Select
                             value={selectedBisResponsiblePersonKey}
                             onValueChange={setSelectedBisResponsiblePersonKey}
+                            disabled={constructionBisEnabled && !bisSendOptions.responsiblePeople.data}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select responsible person" />
@@ -6777,6 +6883,8 @@ export default function SiteDiaryCalendar({
                               })}
                             </SelectContent>
                           </Select>
+                          {constructionBisEnabled ? <BisOptionsStatus resource={bisSendOptions.responsiblePeople} /> : null}
+                          {constructionBisEnabled && bisSendOptions.responsiblePeople.data?.length === 0 ? <p role="alert" className="text-xs text-destructive">BIS lietā nav pieejamu atbildīgo personu.</p> : null}
                         </div>
                       </div>
                     </div>
@@ -6806,17 +6914,20 @@ export default function SiteDiaryCalendar({
                       >
                         {t.addManageAttachments}
                       </Button>
+                      {constructionBisEnabled ? <BisOptionsStatus resource={bisSendOptions.attachments} /> : null}
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold">
-                      {t.materialsFromCurrentBisCase}
-                    </h3>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-semibold">{t.materialsFromCurrentBisCase}</h3>
+                      {constructionBisEnabled ? <Button type="button" size="sm" variant="ghost" disabled={bisSendOptions.materials.loading} onClick={() => void bisSendOptions.materials.refresh()}>Atjaunot materiālus</Button> : null}
+                    </div>
+                    {constructionBisEnabled ? <BisOptionsStatus resource={bisSendOptions.materials} /> : null}
                     <div className="max-h-[52vh] overflow-y-auto rounded-md border">
                       {bisMaterialOptions.length === 0 ? (
                         <p className="p-3 text-xs text-muted-foreground">
-                          {t.noBisMaterialsAvailable}
+                          {constructionBisEnabled && (bisSendOptions.materials.loading || bisSendOptions.materials.error) ? "Varat aizpildīt pārējo formu. Materiālus nav obligāti pievienot." : t.noBisMaterialsAvailable}
                         </p>
                       ) : (
                         <table className="w-full text-sm">
@@ -6865,6 +6976,7 @@ export default function SiteDiaryCalendar({
                                 </td>
                                 <td className="px-3 py-2 text-right">
                                   <Input
+                                    key={`${bisInputResetKey}:${material.id}`}
                                     type="text"
                                     inputMode="decimal"
                                     className="ml-auto w-28"
@@ -6946,6 +7058,7 @@ export default function SiteDiaryCalendar({
                           bisSendingRowId === selectedRowForBis.id,
                         ) ||
                         (Number.parseFloat(bisSubmitAmount || "") || 0) <= 0 ||
+                        (constructionBisEnabled && (!bisSendOptions.measurements.data?.length || !bisSendOptions.responsiblePeople.data?.length || !selectedBisResponsiblePersonKey)) ||
                         (bisMultipleDayJob && !bisSubmitDateTo)
                       }
                     >
@@ -7177,6 +7290,7 @@ export default function SiteDiaryCalendar({
               </DialogDescription>
             </DialogHeader>
 
+            {constructionBisEnabled ? <BisOptionsStatus resource={bisSendOptions.attachments} /> : null}
             {galleryAttachmentOptions.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 {t.noGalleryPhotos}

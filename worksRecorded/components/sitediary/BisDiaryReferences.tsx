@@ -12,7 +12,7 @@ export function useBisDiaryReferences(
 	enabled: boolean,
 ) {
 	const identity = useProjectCacheScope();
-	const key = `${identity}:${siteId}`;
+	const key = `${identity}:${siteId}:${enabled}`;
 	const currentKey = useRef(key);
 	currentKey.current = key;
 	const [state, setState] = useState<{
@@ -31,13 +31,19 @@ export function useBisDiaryReferences(
 				data: old.key === key ? old.data : undefined,
 				loading: true,
 			}));
-			const promise = import("@/server/actions/bis-diary-references")
-				.then(({ loadBisDiaryReferenceOptions }) =>
-					loadBisDiaryReferenceOptions(siteId, refresh),
+			const promise = Promise.resolve()
+				.then(() =>
+					fetch(
+						`/api/sites/${encodeURIComponent(siteId)}/bis-diary?kind=references${refresh ? "&refresh=1" : ""}`,
+						{ cache: "no-store" },
+					),
 				)
-				.then((result) => {
-					if (!result.ok) throw new Error(result.error);
-					const data = result.data;
+				.then(async (response) => {
+					if (!response.ok) throw new Error("Neizdevās ielādēt BIS sarakstus.");
+					const result = await response.json();
+					const data = result.data as BisDiaryReferences;
+					if (!Array.isArray(data?.drawings) || !Array.isArray(data?.estimates))
+						throw new Error("BIS atgrieza nepilnīgus sarakstus.");
 					if (currentKey.current === key)
 						setState({ key, data, loading: false });
 				})
@@ -64,9 +70,9 @@ export function useBisDiaryReferences(
 		void load();
 	}, [load]);
 	return {
-		data: state.key === key ? state.data : undefined,
-		error: state.key === key ? state.error : undefined,
-		loading: state.key !== key || state.loading,
+		data: enabled && state.key === key ? state.data : undefined,
+		error: enabled && state.key === key ? state.error : undefined,
+		loading: enabled && (state.key !== key || state.loading),
 		refresh: () => load(true),
 	};
 }
