@@ -15,7 +15,6 @@ import {
 } from "./planning-whatsapp";
 import {
 	LIMENI_TASK_TEMPLATE,
-	limeniSectionTemplateName,
 	planningWhatsAppTemplateContent,
 } from "./planning-whatsapp-templates";
 import { requireVisualAccess } from "./store";
@@ -248,8 +247,6 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 	});
 	if (!businessNumber)
 		throw new Error("Limeni WhatsApp numurs nav aktivizēts.");
-	if (businessNumber.templateName === LIMENI_TASK_TEMPLATE && geometry.section)
-		limeniSectionTemplateName(geometry.section);
 	const token = getWhatsAppBusinessToken(businessNumber.credentialProfile);
 	const idempotencyKey = `${access.organizationId}:${input.clientRequestId}`;
 	let send = await prisma.whatsAppTaskSend.findUnique({

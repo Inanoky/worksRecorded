@@ -91,7 +91,10 @@ beforeEach(() => {
 		{ id: "item-1", ordinal: 0, page: 1, section: null, status: "pending" },
 		{ id: "item-2", ordinal: 1, page: 11, section: "PA1.6", status: "pending" },
 	];
-	sendCreate.mockResolvedValue({ id: "send-1", items });
+	sendCreate.mockImplementation(async ({ data }) => {
+		items[1].section = data.items.create[1]?.section ?? null;
+		return { id: "send-1", items };
+	});
 	itemUpdate.mockImplementation(async ({ where, data }) => {
 		const item = items.find((candidate) => candidate.id === where.id);
 		if (!item) throw new Error("Unknown test item");
@@ -394,7 +397,15 @@ it("rejects an unexpected credential profile without a shared-token fallback", a
 	);
 });
 
-it("uses the clean section template with no task description or image count", async () => {
+it("sends a PT-10-1 drawing with the shared template and section code", async () => {
+	const section = "PT-10-1";
+	const plan = await constructionPlanFindFirst();
+	constructionPlanFindFirst.mockResolvedValue({
+		...plan,
+		visualAreas: { ...plan.visualAreas, section },
+	});
+	const request = validRequest();
+	request.input.images[1].section = section;
 	businessNumberFindFirst.mockResolvedValue({
 		businessPhoneNumberId: "limeni-phone-id",
 		credentialProfile: "limeni-dedicated",
@@ -411,9 +422,9 @@ it("uses the clean section template with no task description or image count", as
 						: { messages: [{ id: "wamid.clean" }] },
 			}) as Response,
 	) as typeof fetch;
-	expect((await sendVisualPlanningWhatsAppTask(validRequest())).status).toBe(
-		"sent",
-	);
+	const result = await sendVisualPlanningWhatsAppTask(request);
+	expect(result.status).toBe("sent");
+	expect(result.items[1]).toMatchObject({ section, status: "sent" });
 	const messages = jest
 		.mocked(global.fetch)
 		.mock.calls.filter(([url]) => String(url).endsWith("/messages"))
@@ -428,32 +439,19 @@ it("uses the clean section template with no task description or image count", as
 		"Testa objekts",
 	);
 	expect(messages[1].template).toEqual({
-		name: "limeni_section_pa1_6_v2",
+		name: "limeni_section_drawing_v1",
 		language: { code: "lv" },
 		components: [
 			{
 				type: "header",
 				parameters: [{ type: "image", image: { id: "media" } }],
 			},
+			{
+				type: "body",
+				parameters: [
+					{ type: "text", parameter_name: "sekcija", text: section },
+				],
+			},
 		],
 	});
-});
-
-it("rejects an unmapped section before sending any images or creating a send", async () => {
-	businessNumberFindFirst.mockResolvedValue({
-		businessPhoneNumberId: "limeni-phone-id",
-		credentialProfile: "limeni-dedicated",
-		templateName: "limeni_work_task_v2",
-		templateLanguage: "lv",
-	});
-	const plan = await constructionPlanFindFirst();
-	plan.visualAreas.section = "PA1.10";
-	const request = validRequest();
-	request.input.images[1].section = "PA1.10";
-	global.fetch = jest.fn();
-	await expect(sendVisualPlanningWhatsAppTask(request)).rejects.toThrow(
-		"Sekcijai nav pieejama WhatsApp veidne.",
-	);
-	expect(global.fetch).not.toHaveBeenCalled();
-	expect(sendCreate).not.toHaveBeenCalled();
 });

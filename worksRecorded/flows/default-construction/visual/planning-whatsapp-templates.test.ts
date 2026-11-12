@@ -1,7 +1,8 @@
 import sectionCatalog from "@/assets/visual-sections/ar-701/catalog.json";
+import raudasSectionCatalog from "@/assets/visual-sections/raudas-16/catalog.json";
 import {
+	LIMENI_SECTION_TEMPLATE,
 	LIMENI_TASK_TEMPLATE,
-	limeniSectionTemplates,
 	limeniTaskTemplateBody,
 	planningWhatsAppTemplateContent,
 } from "./planning-whatsapp-templates";
@@ -13,26 +14,17 @@ const args = {
 	total: 2,
 };
 
-it.each(sectionCatalog.sections)(
-	"sends $code with its approved fixed caption and no body parameters",
+it.each([...sectionCatalog.sections, ...raudasSectionCatalog.sections])(
+	"sends $code using the shared section drawing template",
 	({ code }) => {
-		const content = planningWhatsAppTemplateContent({ ...args, section: code });
-		const slug =
-			code === "Minerālvates variants"
-				? "mineral_wool"
-				: code.toLowerCase().replace(/\./g, "_");
-		expect(content).toEqual({
-			name: `limeni_section_${slug}_v2`,
-			parameters: [],
-		});
+		expect(planningWhatsAppTemplateContent({ ...args, section: code })).toEqual(
+			{
+				name: LIMENI_SECTION_TEMPLATE,
+				parameters: [{ type: "text", parameter_name: "sekcija", text: code }],
+			},
+		);
 	},
 );
-
-it("covers every drawing section without a generic section template", () => {
-	expect(Object.keys(limeniSectionTemplates).sort()).toEqual(
-		sectionCatalog.sections.map(({ code }) => code).sort(),
-	);
-});
 
 it("matches the approved task body without image counts or acknowledgement instructions", () => {
 	const content = planningWhatsAppTemplateContent(args);
@@ -59,15 +51,6 @@ it("avoids repeating the heading from the prepared task message", () => {
 	});
 	expect(content.parameters[0].text).toBe(args.message);
 });
-
-it.each(["PA1.10", "toString", "__proto__"])(
-	"rejects unsupported section %s rather than sending the old verbose template",
-	(section) => {
-		expect(() => planningWhatsAppTemplateContent({ ...args, section })).toThrow(
-			"Sekcijai nav pieejama WhatsApp veidne.",
-		);
-	},
-);
 
 it("preserves other configured templates", () => {
 	const content = planningWhatsAppTemplateContent({
