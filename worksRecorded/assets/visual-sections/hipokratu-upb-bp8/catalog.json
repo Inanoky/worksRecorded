@@ -1,0 +1,130 @@
+{
+	"id": "hipokratu-upb-bp8",
+	"projectName": "Hipokrātu iela 2, Rīga (UPB)",
+	"projectAliases": [],
+	"siteId": "fddc4c95-12e1-4d18-93c4-ceff209f0172",
+	"sources": [
+		{
+			"file": "AR-1-Griezums-1-1---idlhc-081-02-001-ar-1-griezums-1-1-2026-05-11.pdf",
+			"sha256": "d742bfd77de3805196032d1ad45b09d95ed3d6e76b73417b1111d45cc1b244c3",
+			"page": 1,
+			"url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJIMSXN3v96PE7FSxd8poYaCvArGVwBRM02mb1",
+			"documentId": "upb-whatsapp-source:fddc4c95-12e1-4d18-93c4-ceff209f0172:d742bfd77de3805196032d1ad45b09d95ed3d6e76b73417b1111d45cc1b244c3",
+			"messageId": "3EB038A18FEA50A037D050"
+		},
+		{
+			"file": "IDLHC-081-03-001_ARD_0_PĀRSEGUMU-SPECIFIKĀCIJA-2026-11-03.pdf",
+			"sha256": "f0ddde95a9badf081a65a4b2a269e327fac8610f37a1a93df361d2ec3832fc06",
+			"page": 1,
+			"url": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"documentId": "upb-whatsapp-source:fddc4c95-12e1-4d18-93c4-ceff209f0172:f0ddde95a9badf081a65a4b2a269e327fac8610f37a1a93df361d2ec3832fc06",
+			"messageId": "3EB07D96994DEDBAC38248"
+		}
+	],
+	"sections": [
+		{
+			"code": "P-1.3",
+			"title": "Grīda uz grunts esošajā apjomā",
+			"bounds": [0.03386549, 0.01232235, 0.30209893, 0.3367016],
+			"file": "P-1.3.png",
+			"source": "IDLHC-081-03-001_ARD_0_PĀRSEGUMU-SPECIFIKĀCIJA-2026-11-03.pdf",
+			"sourceSha256": "f0ddde95a9badf081a65a4b2a269e327fac8610f37a1a93df361d2ec3832fc06",
+			"sourcePage": 1,
+			"sourceUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourceMessageId": "3EB07D96994DEDBAC38248",
+			"sha256": "c13d53359f7d8eb6fb15289a74a40a487146e4963bc7ed117bdafc986f64e8f1"
+		},
+		{
+			"code": "P-1.4",
+			"title": "Grīda uz grunts galerijā",
+			"bounds": [0.30269285, 0.01232235, 0.57092629, 0.3367016],
+			"file": "P-1.4.png",
+			"source": "IDLHC-081-03-001_ARD_0_PĀRSEGUMU-SPECIFIKĀCIJA-2026-11-03.pdf",
+			"sourceSha256": "f0ddde95a9badf081a65a4b2a269e327fac8610f37a1a93df361d2ec3832fc06",
+			"sourcePage": 1,
+			"sourceUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourceMessageId": "3EB07D96994DEDBAC38248",
+			"sha256": "b26c0095d7dd578e8c701e7ab2597364f0489e20364d2265431054c5fd37f4f5"
+		},
+		{
+			"code": "P-2.4",
+			"title": "Starpstāvu pārsegums galerijā",
+			"bounds": [0.57152022, 0.01232235, 0.83974772, 0.3367016],
+			"file": "P-2.4.png",
+			"source": "IDLHC-081-03-001_ARD_0_PĀRSEGUMU-SPECIFIKĀCIJA-2026-11-03.pdf",
+			"sourceSha256": "f0ddde95a9badf081a65a4b2a269e327fac8610f37a1a93df361d2ec3832fc06",
+			"sourcePage": 1,
+			"sourceUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourceMessageId": "3EB07D96994DEDBAC38248",
+			"sha256": "8779cd90a106595d3b19415b4d54e0bd32046e85c0c78191efe851c8426929c3"
+		},
+		{
+			"code": "P-2.7",
+			"title": "Starpstāvu pārsegums galerijā",
+			"bounds": [0.03386549, 0.33754157, 0.30209893, 0.66209722],
+			"file": "P-2.7.png",
+			"source": "IDLHC-081-03-001_ARD_0_PĀRSEGUMU-SPECIFIKĀCIJA-2026-11-03.pdf",
+			"sourceSha256": "f0ddde95a9badf081a65a4b2a269e327fac8610f37a1a93df361d2ec3832fc06",
+			"sourcePage": 1,
+			"sourceUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourceMessageId": "3EB07D96994DEDBAC38248",
+			"sha256": "4d40f5106e6f9e17e165ac858b3ce021258225665782be2111d5f466f1fb1f54"
+		},
+		{
+			"code": "P-3.3",
+			"title": "Pārseguma siltinājums gaisa ieņemšanas kanālā",
+			"bounds": [0.30269285, 0.33754157, 0.57092629, 0.66209722],
+			"file": "P-3.3.png",
+			"source": "IDLHC-081-03-001_ARD_0_PĀRSEGUMU-SPECIFIKĀCIJA-2026-11-03.pdf",
+			"sourceSha256": "f0ddde95a9badf081a65a4b2a269e327fac8610f37a1a93df361d2ec3832fc06",
+			"sourcePage": 1,
+			"sourceUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourceMessageId": "3EB07D96994DEDBAC38248",
+			"sha256": "0ad418852f0eb038919b1a0e5dc8dbc1be39b5d77575c441a867e4e43b5e25e0"
+		},
+		{
+			"code": "P-3.4",
+			"title": "Režģoga siltinājums gaisa ieņemšanas kanālā",
+			"bounds": [0.57152022, 0.33754157, 0.83974772, 0.66209722],
+			"file": "P-3.4.png",
+			"source": "IDLHC-081-03-001_ARD_0_PĀRSEGUMU-SPECIFIKĀCIJA-2026-11-03.pdf",
+			"sourceSha256": "f0ddde95a9badf081a65a4b2a269e327fac8610f37a1a93df361d2ec3832fc06",
+			"sourcePage": 1,
+			"sourceUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourceMessageId": "3EB07D96994DEDBAC38248",
+			"sha256": "dcdcaf4c53d73ecd23a810c50ce00f0db124c7ac827d000b99cc7dd7238ae9be"
+		},
+		{
+			"code": "P-3.5",
+			"title": "Režģoga uz grunts siltinājums",
+			"bounds": [0.03386549, 0.66293719, 0.30209893, 0.98767764],
+			"file": "P-3.5.png",
+			"source": "IDLHC-081-03-001_ARD_0_PĀRSEGUMU-SPECIFIKĀCIJA-2026-11-03.pdf",
+			"sourceSha256": "f0ddde95a9badf081a65a4b2a269e327fac8610f37a1a93df361d2ec3832fc06",
+			"sourcePage": 1,
+			"sourceUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourceMessageId": "3EB07D96994DEDBAC38248",
+			"sha256": "02efefca2cccd12a36064d396424922414ad7967c07d855bf2e53cf737fcbba3"
+		},
+		{
+			"code": "P-3.6",
+			"title": "Grīda uz grunts pagrabstāvā gaisa ieņemšanas kanālā",
+			"bounds": [0.30269285, 0.66293719, 0.57092629, 0.98767764],
+			"file": "P-3.6.png",
+			"source": "IDLHC-081-03-001_ARD_0_PĀRSEGUMU-SPECIFIKĀCIJA-2026-11-03.pdf",
+			"sourceSha256": "f0ddde95a9badf081a65a4b2a269e327fac8610f37a1a93df361d2ec3832fc06",
+			"sourcePage": 1,
+			"sourceUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5fXVKUC4NwUH1jiQWdkyzhZntG2g3lC8xPKs",
+			"sourceMessageId": "3EB07D96994DEDBAC38248",
+			"sha256": "cf5238a7669d10ea1ac34adafc9fa8fae21620785c2633745022a85d285b3dce"
+		}
+	]
+}

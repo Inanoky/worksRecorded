@@ -23,10 +23,12 @@ const nextConfig: NextConfig = {
 		],
 		"/api/sites/*/visual/section-drawing": [
 			"./assets/visual-sections/ar-701/*.png",
+			"./assets/visual-sections/hipokratu-upb-bp8/*.png",
 			"./assets/visual-sections/raudas-16/*.png",
 		],
 		"/api/sites/*/visual/planning-share": [
 			"./assets/visual-sections/ar-701/*.png",
+			"./assets/visual-sections/hipokratu-upb-bp8/*.png",
 			"./assets/visual-sections/raudas-16/*.png",
 		],
 	},
