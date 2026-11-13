@@ -41,7 +41,11 @@ function createMockClient(
 ) {
 	return {
 		bISmaterialRecords: {
-			findMany: jest.fn().mockResolvedValue(rows),
+			findMany: jest.fn().mockImplementation(async (args) => {
+				const ids = args.where?.AND?.find((condition: any) => condition.id?.in)
+					?.id.in;
+				return ids ? rows.filter((row) => ids.includes(row.id)) : rows;
+			}),
 			count: jest.fn().mockResolvedValue(125),
 			aggregate: jest.fn().mockResolvedValue({ _sum: { cost: 1234.56 } }),
 		},
@@ -523,6 +527,19 @@ describe("warehouse material query", () => {
 			client,
 		);
 
+		expect(client.bISmaterialRecords.findMany).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				take: 50,
+				skip: 0,
+				where: {
+					AND: [
+						expect.any(Object),
+						{ id: { in: ["imported-row", "photo-row", "future-photo-row"] } },
+					],
+				},
+			}),
+		);
+		expect(result.totalCount).toBe(3);
 		expect(result.rows.map((row) => row.id).sort()).toEqual([
 			"future-photo-row",
 			"imported-row",

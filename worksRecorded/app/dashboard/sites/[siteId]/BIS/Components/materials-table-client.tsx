@@ -1,23 +1,21 @@
 "use client"
 
-import * as React from "react"
-import { ManualWarehouseMaterial } from "@/flows/default-construction/frontend/ManualWarehouseMaterial"
-import { SourceDocumentPreview } from "@/components/ui/SourceDocumentPreview"
 import {
-  Search,
-  Filter,
-  RefreshCw,
-  MoreHorizontal,
+  ArrowDown,
+  ArrowRightLeft,
+  ArrowUp,
+  ArrowUpDown,
   CalendarIcon,
   CameraOff,
   Download,
-  X,
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  ArrowRightLeft,
+  Filter,
   Loader2,
+  MoreHorizontal,
+  RefreshCw,
+  Search,
+  X,
 } from "lucide-react"
+import * as React from "react"
 import {
   CartesianGrid,
   Line,
@@ -27,10 +25,33 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-
+import { toast } from "sonner"
+import { useWorkspaceActive } from "@/components/projects/WorkspaceActivity"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Calendar } from "@/components/ui/calendar"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { SourceDocumentPreview } from "@/components/ui/SourceDocumentPreview"
 import {
   Select,
   SelectContent,
@@ -46,59 +67,39 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import MaterialConfigSelect, {
-  type MaterialCategory,
-  NO_MATCH_VALUE,
-} from "./material-config-select"
-import { toast } from "sonner"
-import { getToastMessages, getWarehouseUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
-import { DiaryFeedbackBrain } from "@/flows/default-construction/frontend/DiaryFeedbackBrain"
-import { UploadButton } from "@/lib/utils/UploadthingsComponents"
-import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url"
 import {
   DefaultConstructionForma2AssignmentSelect,
   type Forma2MaterialPositionOption,
 } from "@/flows/default-construction/frontend/DefaultConstructionForma2AssignmentSelect"
+import { DefaultConstructionForma2InvoicePreview } from "@/flows/default-construction/frontend/DefaultConstructionForma2InvoicePreview"
 import { DefaultConstructionForma2MaterialRulesDialog } from "@/flows/default-construction/frontend/DefaultConstructionForma2MaterialRulesDialog"
 import { DefaultConstructionForma2SplitEditor } from "@/flows/default-construction/frontend/DefaultConstructionForma2SplitEditor"
-import { DefaultConstructionForma2InvoicePreview } from "@/flows/default-construction/frontend/DefaultConstructionForma2InvoicePreview"
-import type {
-  WarehouseMaterialQueryInput as DatabaseWarehouseMaterialQueryInput,
-  WarehouseMaterialSort as DatabaseWarehouseMaterialSort,
-} from "@/lib/bis/warehouse-material-query"
-import type {
-  WarehouseInvoiceLocator,
-} from "@/server/actions/warehouse-invoice-view-actions"
+import { DiaryFeedbackBrain } from "@/flows/default-construction/frontend/DiaryFeedbackBrain"
+import { ManualWarehouseMaterial } from "@/flows/default-construction/frontend/ManualWarehouseMaterial"
 import { queryClientWarehouseMaterials } from "@/lib/bis/warehouse-client-query"
-import {
-  buildClientWarehouseInvoicePage,
-  getClientWarehouseInvoiceRows,
-} from "@/lib/bis/warehouse-invoice-client"
 import {
   getWarehouseForma2PositionLabel,
   type WarehouseForma2Sort,
 } from "@/lib/bis/warehouse-forma2-sort"
+import {
+  buildClientWarehouseInvoicePage,
+  getClientWarehouseInvoiceRows,
+} from "@/lib/bis/warehouse-invoice-client"
+import type {
+  WarehouseMaterialQueryInput as DatabaseWarehouseMaterialQueryInput,
+  WarehouseMaterialSort as DatabaseWarehouseMaterialSort,
+} from "@/lib/bis/warehouse-material-query"
+import { createWarehousePageCache, warehousePageKey } from "@/lib/bis/warehouse-page-cache"
+import { getToastMessages, getWarehouseUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
+import { UploadButton } from "@/lib/utils/UploadthingsComponents"
+import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url"
+import type {
+  WarehouseInvoiceLocator,
+} from "@/server/actions/warehouse-invoice-view-actions"
+import MaterialConfigSelect, {
+  type MaterialCategory,
+  NO_MATCH_VALUE,
+} from "./material-config-select"
 import { WarehouseInvoiceView } from "./warehouse-invoice-view"
 
 const MAX_MATERIAL_NAME_LENGTH = 120
@@ -207,6 +208,9 @@ type Props = {
   materialTypes: Array<{ id: string; name: string }>
   transferTargets: Array<{ id: string; name: string }>
   initialPagination: WarehouseMaterialPagination
+  fetchInvoices?: React.ComponentProps<typeof WarehouseInvoiceView>["fetchInvoices"]
+  fetchInvoiceRows?: React.ComponentProps<typeof WarehouseInvoiceView>["fetchInvoiceRows"]
+  fetchMaterialsPage?: (siteId: string, input: WarehouseMaterialQueryInput) => Promise<WarehouseMaterialPagination & { rows: MaterialRow[] }>
   exportMaterials: (
     siteId: string,
     input: WarehouseMaterialQueryInput,
@@ -528,6 +532,9 @@ export default function MaterialsTableClient({
   transferTargets,
   initialPagination,
   exportMaterials,
+  fetchMaterialsPage,
+  fetchInvoices,
+  fetchInvoiceRows,
   showSpendInsights,
   sendToBis,
   updateSentRecordInBis,
@@ -547,6 +554,7 @@ export default function MaterialsTableClient({
   deleteRecords,
   moveRecordsToProject,
 }: Props) {
+  const workspaceActive = useWorkspaceActive()
   const invoiceNumberListId = React.useId()
   const supplierNameListId = React.useId()
   const language = normalizeOrganizationLanguage(organizationLanguage)
@@ -561,6 +569,11 @@ export default function MaterialsTableClient({
 
     return t.unnamedMaterial
   }, [t])
+  const invoicePages = React.useRef(createWarehousePageCache<Awaited<ReturnType<NonNullable<Props["fetchInvoices"]>>>>())
+  const invoiceRows = React.useRef(createWarehousePageCache<Awaited<ReturnType<NonNullable<Props["fetchInvoiceRows"]>>>>())
+  const [serverPage, setServerPage] = React.useState(() => ({ ...initialPagination, rows: materials }))
+  const shownPageRef = React.useRef(initialPagination.page)
+  const pageCache = React.useRef(createWarehousePageCache<WarehouseMaterialPagination & { rows: MaterialRow[] }>())
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
   const [warehouseView, setWarehouseView] = React.useState<"materials" | "invoices">("materials")
   const [previewRecordId, setPreviewRecordId] = React.useState<string | null>(null)
@@ -715,7 +728,10 @@ export default function MaterialsTableClient({
 
   React.useEffect(() => {
     setRows(materials)
-  }, [materials])
+    setServerPage({ ...initialPagination, rows: materials })
+    pageCache.current.clear(); invoicePages.current.clear(); invoiceRows.current.clear()
+    pageCache.current.seed(warehousePageKey({ page: initialPagination.page, pageSize: initialPagination.pageSize, search: "", invoiceNumber: "", status: "all", configFilter: "all", sortBy: "default", forma2Assignment: forma2Enabled ? "all" : undefined }), { ...initialPagination, rows: materials })
+  }, [materials, initialPagination, forma2Enabled])
 
   React.useEffect(() => {
     if (!invoiceNumber) setInvoiceNumberOptions(getInvoiceNumberOptions(rows))
@@ -770,6 +786,27 @@ export default function MaterialsTableClient({
     forma2PositionId,
   ])
 
+  React.useEffect(() => {
+    if (!fetchMaterialsPage || !workspaceActive || warehouseView !== "materials") return
+    const requestId = ++loadRequestIdRef.current
+    let disposed = false
+    setTableLoading(true)
+    const timeout = window.setTimeout(() => {
+      pageCache.current.read(warehousePageKey(queryInput), () => fetchMaterialsPage(siteId, queryInput))
+        .then((result) => {
+          if (disposed || requestId !== loadRequestIdRef.current) return
+          shownPageRef.current = result.page
+          setServerPage(result)
+          setRows((current) => { const known = new Map(current.map((row) => [row.id, row])); for (const row of result.rows) if (!known.has(row.id)) known.set(row.id, row); return [...known.values()] })
+          setPage(result.page)
+          setPageInput(String(result.page))
+        })
+        .catch(() => { if (!disposed && requestId === loadRequestIdRef.current) { setPage(shownPageRef.current); setPageInput(String(shownPageRef.current)); toast.error(toastMessages.failedLoadMaterials) } })
+        .finally(() => { if (!disposed && requestId === loadRequestIdRef.current) setTableLoading(false) })
+    }, search.trim() || invoiceNumber.trim() ? 300 : 0)
+    return () => { disposed = true; window.clearTimeout(timeout) }
+  }, [fetchMaterialsPage, invoiceNumber, queryInput, search, siteId, toastMessages.failedLoadMaterials, warehouseView, workspaceActive])
+
   const invoiceQueryInput = React.useMemo<DatabaseWarehouseMaterialQueryInput>(() => ({
     search,
     invoiceNumber,
@@ -799,6 +836,19 @@ export default function MaterialsTableClient({
     const requestId = ++loadRequestIdRef.current
     setTableLoading(true)
     try {
+      if (fetchMaterialsPage) {
+        pageCache.current.clear(); invoicePages.current.clear(); invoiceRows.current.clear()
+        setInvoiceRefreshKey((value) => value + 1)
+        const result = await pageCache.current.read(warehousePageKey(input), () => fetchMaterialsPage(siteId, input))
+        if (requestId !== loadRequestIdRef.current) return
+        shownPageRef.current = result.page
+          setServerPage(result)
+        setPage(result.page)
+        setPageInput(String(result.page))
+        setRows(result.rows)
+        setSelectedRowIds([])
+        return
+      }
       const result = await exportMaterials(siteId, {
         ...input,
         page: undefined,
@@ -826,7 +876,19 @@ export default function MaterialsTableClient({
     } finally {
       if (requestId === loadRequestIdRef.current) setTableLoading(false)
     }
-  }, [exportMaterials, queryInput, siteId, toastMessages.failedLoadMaterials])
+  }, [exportMaterials, fetchMaterialsPage, queryInput, siteId, toastMessages.failedLoadMaterials])
+
+  React.useEffect(() => {
+    if (!fetchMaterialsPage) return
+    const invalidate = (event: Event) => {
+      if ((event as CustomEvent<{siteId: string}>).detail?.siteId !== siteId) return
+      pageCache.current.clear(); invoicePages.current.clear(); invoiceRows.current.clear()
+      setInvoiceRefreshKey((value) => value + 1)
+      if (workspaceActive) void loadWarehousePage()
+    }
+    window.addEventListener("warehouse:invalidated", invalidate)
+    return () => window.removeEventListener("warehouse:invalidated", invalidate)
+  }, [fetchMaterialsPage, loadWarehousePage, siteId, workspaceActive])
 
   const approverKey = React.useCallback(
     (approver: BisApprover) =>
@@ -877,6 +939,7 @@ export default function MaterialsTableClient({
 
     try {
       await updateMaterialConfiguration(recordId, config)
+      if (fetchMaterialsPage) void loadWarehousePage()
       return { success: true as const }
     } catch (error) {
       console.error(error)
@@ -1376,6 +1439,7 @@ export default function MaterialsTableClient({
       setSelectedRowIds([])
       setMoveDialogOpen(false)
       setInvoiceRefreshKey((current) => current + 1)
+      window.dispatchEvent(new CustomEvent("warehouse:invalidated", { detail: { siteId: target.id } }))
       toast.success(t.movedToProject(result.count, target.name))
       void loadWarehousePage()
     } catch (error) {
@@ -1579,21 +1643,21 @@ export default function MaterialsTableClient({
     forma2Positions: forma2PositionOptions,
   }), [forma2PositionOptions, queryInput, rows, showSpendInsights])
   React.useEffect(() => {
-    if (page === clientPage.page) return
+    if (fetchMaterialsPage || page === clientPage.page) return
     setPage(clientPage.page)
     setPageInput(String(clientPage.page))
-  }, [clientPage.page, page])
-  const filteredMaterials = clientPage.rows
-  const pagination = clientPage
+  }, [clientPage.page, fetchMaterialsPage, page])
+  const filteredMaterials = fetchMaterialsPage ? serverPage.rows.map((row) => rows.find((known) => known.id === row.id) ?? row) : clientPage.rows
+  const pagination = fetchMaterialsPage ? serverPage : clientPage
   const fetchClientInvoices = React.useCallback((
     _siteId: string,
     input: DatabaseWarehouseMaterialQueryInput,
     invoicePagination?: { offset?: number; limit?: number },
-  ) => Promise.resolve(buildClientWarehouseInvoicePage(rows, input, invoicePagination)), [rows])
+  ) => fetchInvoices ? invoicePages.current.read(warehousePageKey({siteId, ...input, ...invoicePagination}), () => fetchInvoices(siteId, input, invoicePagination)) : Promise.resolve(buildClientWarehouseInvoicePage(rows, input, invoicePagination)), [fetchInvoices, rows, siteId])
   const fetchClientInvoiceRows = React.useCallback((
     _siteId: string,
     locator: WarehouseInvoiceLocator,
-  ) => Promise.resolve(getClientWarehouseInvoiceRows(rows, locator)), [rows])
+  ) => fetchInvoiceRows ? invoiceRows.current.read(warehousePageKey({siteId, ...locator}), () => fetchInvoiceRows(siteId, locator)) : Promise.resolve(getClientWarehouseInvoiceRows(rows, locator)), [fetchInvoiceRows, rows, siteId])
   const visibleInvoiceNumbers = React.useMemo(
     () => [...invoiceNumberOptions].sort((left, right) => left.localeCompare(right, language === "lv" ? "lv" : "en", {
       numeric: true,
@@ -2665,7 +2729,8 @@ export default function MaterialsTableClient({
                             value={r.forma2PositionId ?? null}
                             options={forma2PositionOptions}
                             organizationLanguage={organizationLanguage}
-                            onAssigned={(positionId) =>
+                            onAssigned={(positionId) => {
+                              if (fetchMaterialsPage) { pageCache.current.clear(); invoicePages.current.clear(); invoiceRows.current.clear() }
                               setRows((current) =>
                                 current.map((row) =>
                                   row.id === r.id
@@ -2678,7 +2743,8 @@ export default function MaterialsTableClient({
                                     : row,
                                 ),
                               )
-                            }
+                              if (fetchMaterialsPage) void loadWarehousePage()
+                            }}
                           />}
                         </TableCell>
                       ) : null}

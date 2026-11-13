@@ -12,6 +12,7 @@ import {
 import { readStoredDefaultConstructionForma2MaterialAssignments } from "@/flows/default-construction/backend/forma2-material-assignment-read";
 import { WarehouseInvoiceImport } from "@/flows/default-construction/frontend/WarehouseInvoiceImport";
 import { normalizeMaterialConfigurationTemplates } from "@/lib/bis/material-configuration-templates";
+import { buildClientWarehouseSpendInsights } from "@/lib/bis/warehouse-client-query";
 import {
   sortWarehouseRowsByForma2Position,
   type WarehouseForma2Sort,
@@ -25,7 +26,6 @@ import {
   type WarehouseMaterialRow,
   type WarehouseMaterialSort,
 } from "@/lib/bis/warehouse-material-query";
-import { buildClientWarehouseSpendInsights } from "@/lib/bis/warehouse-client-query";
 import { normalizeWarehouseSourcePhoto } from "@/lib/bis/warehouse-source-photo-group";
 import { canShowWarehouseSpendInsights } from "@/lib/bis/warehouse-spend-visibility";
 import { getWarehousePageMessages } from "@/lib/dashboard-i18n";
@@ -38,6 +38,7 @@ import { requireUser } from "@/lib/utils/requireUser";
 import { ensureUserBisAccessToken, getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, refreshBisAccessToken, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
 import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
+import { fetchWarehouseInvoiceRows, fetchWarehouseInvoiceSummaries } from "@/server/actions/warehouse-invoice-view-actions";
 import {
   getWarehouseTransferTargets,
   moveWarehouseRecordsToProject,
@@ -297,6 +298,12 @@ function withoutWarehouseBisState(material: WarehouseMaterialRecord) {
     bisStatus: material.bisStatus,
     bisApprovers: [],
   };
+}
+
+async function addStoredForma2Assignments(siteId: string, materials: Array<ReturnType<typeof withoutWarehouseBisState>>) {
+ const stored = await readStoredDefaultConstructionForma2MaterialAssignments(siteId, materials);
+ const byId = new Map(stored.assignments.map((assignment) => [assignment.sourceId, assignment]));
+ return { ...stored, materials: materials.map((material) => { const assignment = byId.get(material.id); return { ...material, forma2PositionId: assignment?.positionId ?? null, forma2SplitPositionIds: assignment?.splitPositionIds, forma2AssignmentMethod: assignment?.method ?? null, forma2AssignmentConfidence: assignment?.confidence ?? null }; }) };
 }
 
 async function addForma2AssignmentsToMaterials(
@@ -1991,13 +1998,14 @@ export async function updateSentReceivedMaterialInBis(
 export async function fetchWarehouseMaterialsPage(siteId: string, input: WarehouseMaterialQueryInput) {
   "use server";
 
-  const user = await requireUser();
+  const context = await getWorkspaceRouteContext(siteId);
+  const user = { id: context.descriptor.userId };
   const [dbUser, site] = await Promise.all([
     prisma.user.findUnique({
       where: { id: user.id },
       select: { role: true },
     }),
-    prisma.site.findUnique({
+    context.descriptor.constructionWorkspace ? Promise.resolve({ organizationId: context.descriptor.organizationId }) : prisma.site.findUnique({
       where: { id: siteId },
       select: { organizationId: true },
     }),
@@ -2067,10 +2075,9 @@ export async function fetchWarehouseMaterialsPage(siteId: string, input: Warehou
     recordIdFilter,
   });
 
-  const forma2 = await addForma2AssignmentsToMaterials(
-    siteId,
-    pageData.rows.map(withoutWarehouseBisState),
-  );
+  const forma2 = context.descriptor.constructionWorkspace
+    ? await addStoredForma2Assignments(siteId, pageData.rows.map(withoutWarehouseBisState))
+    : await addForma2AssignmentsToMaterials(siteId, pageData.rows.map(withoutWarehouseBisState));
 
   return {
     ...pageData,
@@ -2135,13 +2142,13 @@ export async function MaterialsPage({
       : getOrganizationLanguageByUserId(user.id)),
     trace.measure("bisConfig", () =>
       Promise.all([
-        getSiteBisConfig(siteId),
-        ensureUserBisAccessToken(user.id),
+        context.descriptor.constructionWorkspace ? Promise.resolve({ bisCaseId: context.bisCaseId }) : getSiteBisConfig(siteId),
+        context.descriptor.constructionWorkspace && !context.bisCaseId ? Promise.resolve(null) : ensureUserBisAccessToken(user.id),
         prisma.user.findUnique({
           where: { id: user.id },
           select: { role: true },
         }),
-        prisma.site.findUnique({
+        context.descriptor.constructionWorkspace ? Promise.resolve({ organizationId: context.descriptor.organizationId, siteDiaryRecordsMap: context.siteDiaryRecordsMap }) : prisma.site.findUnique({
           where: { id: siteId },
           select: { organizationId: true, siteDiaryRecordsMap: true },
         }),
@@ -2156,9 +2163,11 @@ export async function MaterialsPage({
     userRole: dbUser?.role,
   });
 
-  const [materialRows, materialConfigurationData, flowModuleKey, transferTargets] = await trace.measure("initialData", () =>
+  const [initialMaterials, materialConfigurationData, flowModuleKey, transferTargets] = await trace.measure("initialData", () =>
     Promise.all([
-      getWarehouseMaterialExportRows({ siteId, includeSpendInsights: showSpendInsights }),
+      context.descriptor.constructionWorkspace
+        ? getWarehouseMaterialPage({ siteId, page: 1, pageSize: WAREHOUSE_MATERIAL_PAGE_SIZE, includeSpendInsights: showSpendInsights })
+        : getWarehouseMaterialExportRows({ siteId, includeSpendInsights: showSpendInsights }),
       bisEnabled ? fetchWarehouseMaterialConfigurationData(siteId).catch(async (error) => {
         console.error("Failed to load BIS material configurations", error);
         const organizationTemplates = await fetchOrganizationMaterialConfigurationTemplatesForSite(siteId).catch(() => []);
@@ -2179,7 +2188,8 @@ export async function MaterialsPage({
       getWarehouseTransferTargets(siteId),
     ]),
   );
-  const materialsPage = {
+  const materialRows = Array.isArray(initialMaterials) ? initialMaterials : initialMaterials.rows;
+  const materialsPage = !Array.isArray(initialMaterials) ? initialMaterials : {
     rows: materialRows,
     totalCount: materialRows.length,
     totalCost: materialRows.reduce((total, row) => total + (row.cost ?? 0), 0),
@@ -2234,6 +2244,7 @@ export async function MaterialsPage({
       userId: user.id,
       bisEnabled,
       materialCount: materialsPage.totalCount,
+      returnedMaterialCount: materialsPage.rows.length,
       materialConfigurationCount: materialConfigurationData.materialConfigurations.length,
       materialMeasureCount: materialConfigurationData.materialMeasures.length,
       materialTypeCount: materialConfigurationData.materialTypes.length,
@@ -2267,6 +2278,9 @@ export async function MaterialsPage({
           totalPages: materialsPage.totalPages,
           spendInsights: materialsPage.spendInsights,
         }}
+        fetchMaterialsPage={context.descriptor.constructionWorkspace ? fetchWarehouseMaterialsPage : undefined}
+        fetchInvoices={context.descriptor.constructionWorkspace ? fetchWarehouseInvoiceSummaries : undefined}
+        fetchInvoiceRows={context.descriptor.constructionWorkspace ? fetchWarehouseInvoiceRows : undefined}
         exportMaterials={exportWarehouseMaterials}
         sendToBis={sendToBis}
         updateSentRecordInBis={updateSentReceivedMaterialInBis}

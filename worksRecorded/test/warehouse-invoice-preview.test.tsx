@@ -470,3 +470,110 @@ it("keeps retained projects bound to their own supplier and invoice datalists", 
 		siteBInvoiceInput?.list?.querySelector('option[value="SITE-B-INVOICE"]'),
 	).not.toBeNull();
 });
+
+it("fetches only missing material pages and reuses page one and page two", async () => {
+	const input = props();
+	const makeRows = (start: number) =>
+		Array.from({ length: 50 }, (_, i) => ({
+			...materials[0],
+			id: "paged-" + (start + i),
+			name: "Material " + (start + i),
+		}));
+	input.materials = makeRows(1);
+	input.initialPagination = {
+		totalCount: 9809,
+		totalCost: 9809,
+		page: 1,
+		pageSize: 50,
+		totalPages: 197,
+	};
+	const fetchPage = jest.fn(async (_siteId, query) => ({
+		...input.initialPagination,
+		page: query.page,
+		rows: makeRows((query.page - 1) * 50 + 1),
+	}));
+	input.fetchMaterialsPage = fetchPage;
+	render(<MaterialsTableClient {...input} />);
+	await waitFor(() =>
+		expect(screen.getAllByRole("button", { name: "Next" })[0]).toBeEnabled(),
+	);
+	expect(fetchPage).not.toHaveBeenCalled();
+	expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(
+		51,
+	);
+	fireEvent.click(screen.getAllByRole("button", { name: "Next" })[0]);
+	expect(await screen.findByText("Material 51")).toBeInTheDocument();
+	expect(fetchPage).toHaveBeenCalledTimes(1);
+	expect(fetchPage).toHaveBeenCalledWith(
+		"site",
+		expect.objectContaining({ page: 2, pageSize: 50 }),
+	);
+	fireEvent.click(screen.getAllByRole("button", { name: "Previous" })[0]);
+	expect(await screen.findByText("Material 1")).toBeInTheDocument();
+	fireEvent.click(screen.getAllByRole("button", { name: "Next" })[0]);
+	expect(await screen.findByText("Material 51")).toBeInTheDocument();
+	expect(fetchPage).toHaveBeenCalledTimes(1);
+	expect(input.exportMaterials).not.toHaveBeenCalled();
+});
+
+it("runs material search on the server instead of filtering only the loaded 50 rows", async () => {
+	const input = props();
+	input.initialPagination = {
+		totalCount: 9809,
+		totalCost: 9809,
+		page: 1,
+		pageSize: 50,
+		totalPages: 197,
+	};
+	input.fetchMaterialsPage = jest.fn(async () => ({
+		...input.initialPagination,
+		totalCount: 1,
+		totalPages: 1,
+		rows: [
+			{ ...materials[0], id: "outside-first-page", name: "Off-page needle" },
+		],
+	}));
+	render(<MaterialsTableClient {...input} />);
+	const search = screen.getByPlaceholderText(/Search|Meklēt/i);
+	fireEvent.change(search, { target: { value: "needle" } });
+	expect(await screen.findByText("Off-page needle")).toBeInTheDocument();
+	expect(input.fetchMaterialsPage).toHaveBeenCalledWith(
+		"site",
+		expect.objectContaining({ search: "needle", page: 1 }),
+	);
+	expect(input.exportMaterials).not.toHaveBeenCalled();
+});
+
+it("allows retrying a failed material page without getting stuck on the requested page", async () => {
+	const input = props();
+	input.initialPagination = {
+		totalCount: 100,
+		totalCost: 100,
+		page: 1,
+		pageSize: 50,
+		totalPages: 2,
+	};
+	const fetchPage = jest
+		.fn()
+		.mockRejectedValueOnce(new Error("unavailable"))
+		.mockResolvedValue({
+			...input.initialPagination,
+			page: 2,
+			rows: [{ ...materials[0], id: "retry", name: "Retried page" }],
+		});
+	input.fetchMaterialsPage = fetchPage;
+	render(<MaterialsTableClient {...input} />);
+	await waitFor(() =>
+		expect(screen.getAllByRole("button", { name: "Next" })[0]).toBeEnabled(),
+	);
+	fireEvent.click(screen.getAllByRole("button", { name: "Next" })[0]);
+	await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(1));
+	await waitFor(() =>
+		expect(screen.getAllByRole("spinbutton", { name: "Page" })[0]).toHaveValue(
+			1,
+		),
+	);
+	fireEvent.click(screen.getAllByRole("button", { name: "Next" })[0]);
+	expect(await screen.findByText("Retried page")).toBeInTheDocument();
+	expect(fetchPage).toHaveBeenCalledTimes(2);
+});

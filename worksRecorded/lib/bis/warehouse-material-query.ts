@@ -512,7 +512,7 @@ export async function getWarehouseMaterialPage(
   client: WarehouseMaterialQueryClient = prisma as unknown as WarehouseMaterialQueryClient,
 ) {
   const normalized = normalizeWarehouseMaterialQuery(options);
-  const useEffectiveSpendDate = Boolean(options.includeSpendInsights);
+  const useEffectiveSpendDate = Boolean(options.includeSpendInsights && (normalized.invoiceDateFrom || normalized.invoiceDateTo));
   const where = buildWarehouseMaterialWhere(options.siteId, normalized, {
     dateFilteringMode: useEffectiveSpendDate ? "none" : "invoiceDate",
     recordIdFilter: options.recordIdFilter,
@@ -522,12 +522,9 @@ export async function getWarehouseMaterialPage(
   if (useEffectiveSpendDate) {
     const candidateRows = await client.bISmaterialRecords.findMany({
       where,
-      select: warehouseMaterialSelect,
-    }) as WarehouseMaterialRow[];
-    const filteredRows = sortWarehouseRows(
-      candidateRows.filter((row) => isWithinEffectiveSpendDateRange(row, normalized)),
-      normalized.sortBy,
-    );
+      select: { id: true, supplierName: true, invoiceDate: true, createdAt: true, importBatchId: true, sourcePhoto: true, cost: true },
+    }) as (WarehouseSpendInsightRow & { id: string })[];
+    const filteredRows = candidateRows.filter((row) => isWithinEffectiveSpendDateRange(row, normalized));
     const totalCount = filteredRows.length;
     const totalCost = filteredRows.reduce((sum, row) => (
       typeof row.cost === "number" && !Number.isNaN(row.cost) ? sum + row.cost : sum
@@ -537,7 +534,10 @@ export async function getWarehouseMaterialPage(
     const skip = (page - 1) * normalized.pageSize;
 
     return {
-      rows: filteredRows.slice(skip, skip + normalized.pageSize),
+      rows: await client.bISmaterialRecords.findMany({
+        where: { AND: [where, { id: { in: filteredRows.map((row) => row.id) } }] },
+        orderBy, skip, take: normalized.pageSize, select: warehouseMaterialSelect,
+      }) as WarehouseMaterialRow[],
       totalCount,
       totalCost,
       page,
