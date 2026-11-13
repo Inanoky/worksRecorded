@@ -12,6 +12,8 @@ import { VISUAL_PLAN_TYPE, visualPlanAreasSchema } from "./planning-model";
 import {
 	normalizePlanningWhatsAppMessage,
 	normalizePlanningWhatsAppTemplateText,
+	PLANNING_WHATSAPP_MESSAGE_LIMIT,
+	planningWhatsAppMessageWithReportingNote,
 } from "./planning-whatsapp";
 import {
 	LIMENI_TASK_TEMPLATE,
@@ -30,7 +32,7 @@ const sendInputSchema = z
 		message: z
 			.string()
 			.transform(normalizePlanningWhatsAppMessage)
-			.pipe(z.string().min(1).max(900)),
+			.pipe(z.string().min(1).max(PLANNING_WHATSAPP_MESSAGE_LIMIT)),
 		clientRequestId: z.string().uuid(),
 		images: z
 			.array(
@@ -248,6 +250,7 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 	if (!businessNumber)
 		throw new Error("Limeni WhatsApp numurs nav aktivizēts.");
 	const token = getWhatsAppBusinessToken(businessNumber.credentialProfile);
+	const message = planningWhatsAppMessageWithReportingNote(input.message);
 	const idempotencyKey = `${access.organizationId}:${input.clientRequestId}`;
 	let send = await prisma.whatsAppTaskSend.findUnique({
 		where: { idempotencyKey },
@@ -262,7 +265,7 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 			send.planId !== input.planId ||
 			send.planVersion !== input.planVersion ||
 			send.recipient !== input.recipient ||
-			normalizePlanningWhatsAppMessage(send.message) !== input.message ||
+			planningWhatsAppMessageWithReportingNote(send.message) !== message ||
 			existingItems.length !== input.images.length ||
 			existingItems.some(
 				(item, ordinal) =>
@@ -273,6 +276,11 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 		)
 			throw new Error("Nosūtīšanas pieprasījums neatbilst sākotnējam saturam.");
 	} else {
+		if (!message) throw new Error("Ievadiet darba uzdevuma ziņu.");
+		if (message.length > PLANNING_WHATSAPP_MESSAGE_LIMIT)
+			throw new Error(
+				`Ziņa kopā ar piezīmi pārsniedz ${PLANNING_WHATSAPP_MESSAGE_LIMIT} rakstzīmes.`,
+			);
 		send = await prisma.whatsAppTaskSend.create({
 			data: {
 				id: randomUUID(),
@@ -283,7 +291,7 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 				planVersion: input.planVersion,
 				senderUserId: args.userId,
 				recipient: input.recipient,
-				message: input.message,
+				message,
 				items: {
 					create: input.images.map((image, ordinal) => ({
 						ordinal,
@@ -327,7 +335,7 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 						: `${plan.site.name} — ${label}`,
 				message: item.section
 					? item.section
-					: normalizePlanningWhatsAppTemplateText(input.message),
+					: normalizePlanningWhatsAppTemplateText(send.message),
 				total: item.section ? 1 : items.length,
 				mediaId,
 				section: item.section,

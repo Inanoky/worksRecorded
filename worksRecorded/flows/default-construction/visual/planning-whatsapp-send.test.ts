@@ -24,6 +24,10 @@ jest.mock("@/lib/utils/db", () => ({
 	},
 }));
 
+import {
+	LIMENI_TASK_REPORTING_NOTE,
+	PLANNING_WHATSAPP_MESSAGE_LIMIT,
+} from "./planning-whatsapp";
 import { sendVisualPlanningWhatsAppTask } from "./planning-whatsapp-send";
 
 const png = Buffer.from(
@@ -93,7 +97,7 @@ beforeEach(() => {
 	];
 	sendCreate.mockImplementation(async ({ data }) => {
 		items[1].section = data.items.create[1]?.section ?? null;
-		return { id: "send-1", items };
+		return { id: "send-1", message: data.message, items };
 	});
 	itemUpdate.mockImplementation(async ({ where, data }) => {
 		const item = items.find((candidate) => candidate.id === where.id);
@@ -177,7 +181,9 @@ it("sends every ordered image with the approved template", async () => {
 	});
 	expect(sendCreate).toHaveBeenCalledWith(
 		expect.objectContaining({
-			data: expect.objectContaining({ message: "Pārbaudīt\ndarbu šeit" }),
+			data: expect.objectContaining({
+				message: `Pārbaudīt\ndarbu šeit\n\n${LIMENI_TASK_REPORTING_NOTE}`,
+			}),
 		}),
 	);
 	expect(messageBodies[1]).toMatchObject({
@@ -275,27 +281,29 @@ it("never falls back to the shared Meta credential", async () => {
 
 it("continues after a provider failure and retries only the failed item", async () => {
 	let messageAttempt = 0;
-	const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
-		const url = String(input);
-		if (url.endsWith("/media"))
+	const fetchMock = jest.fn(
+		async (input: RequestInfo | URL, _init?: RequestInit) => {
+			const url = String(input);
+			if (url.endsWith("/media"))
+				return {
+					ok: true,
+					status: 200,
+					json: async () => ({ id: "media-id" }),
+				} as Response;
+			messageAttempt += 1;
+			if (messageAttempt === 1)
+				return {
+					ok: false,
+					status: 400,
+					json: async () => ({ error: { code: 131000 } }),
+				} as Response;
 			return {
 				ok: true,
 				status: 200,
-				json: async () => ({ id: "media-id" }),
+				json: async () => ({ messages: [{ id: `wamid.${messageAttempt}` }] }),
 			} as Response;
-		messageAttempt += 1;
-		if (messageAttempt === 2)
-			return {
-				ok: false,
-				status: 400,
-				json: async () => ({ error: { code: 131000 } }),
-			} as Response;
-		return {
-			ok: true,
-			status: 200,
-			json: async () => ({ messages: [{ id: `wamid.${messageAttempt}` }] }),
-		} as Response;
-	});
+		},
+	);
 	global.fetch = fetchMock as typeof fetch;
 	const input = {
 		planId: "11111111-1111-4111-8111-111111111111",
@@ -313,7 +321,7 @@ it("continues after a provider failure and retries only the failed item", async 
 		files,
 	});
 	expect(first.status).toBe("partial");
-	expect(first.items.map((item) => item.status)).toEqual(["sent", "failed"]);
+	expect(first.items.map((item) => item.status)).toEqual(["failed", "sent"]);
 
 	const createdItems = sendCreate.mock.calls[0][0].data.items.create;
 	const existingItems = first.items.map((item, ordinal) => ({
@@ -327,7 +335,7 @@ it("continues after a provider failure and retries only the failed item", async 
 		planId: input.planId,
 		planVersion: input.planVersion,
 		recipient: input.recipient,
-		message: input.message,
+		message: sendCreate.mock.calls[0][0].data.message,
 		items: existingItems,
 	});
 	itemFindMany.mockImplementation(async () => existingItems);
@@ -351,6 +359,11 @@ it("continues after a provider failure and retries only the failed item", async 
 	});
 	expect(retried.status).toBe("sent");
 	expect(fetchMock.mock.calls.length - callsBeforeRetry).toBe(2);
+	const [, retryMessage] = fetchMock.mock.calls.at(-1) ?? [];
+	expect(
+		JSON.parse(String(retryMessage?.body)).template.components[1].parameters[1]
+			.text,
+	).toBe(`${input.message} ${LIMENI_TASK_REPORTING_NOTE}`);
 });
 
 it("denies access before resolving another organization's sender", async () => {
@@ -406,6 +419,13 @@ it("sends a PT-10-1 drawing with the shared template and section code", async ()
 	});
 	const request = validRequest();
 	request.input.images[1].section = section;
+	const task = `*Darba uzdevums*\n\n${"A".repeat(
+		PLANNING_WHATSAPP_MESSAGE_LIMIT -
+			LIMENI_TASK_REPORTING_NOTE.length -
+			2 -
+			"*Darba uzdevums*\n\n".length,
+	)}`;
+	request.input.message = `${task}\n\n${LIMENI_TASK_REPORTING_NOTE}`;
 	businessNumberFindFirst.mockResolvedValue({
 		businessPhoneNumberId: "limeni-phone-id",
 		credentialProfile: "limeni-dedicated",
@@ -438,6 +458,10 @@ it("sends a PT-10-1 drawing with the shared template and section code", async ()
 	expect(messages[0].template.components[1].parameters[1].text).toBe(
 		"Testa objekts",
 	);
+	expect(messages[0].template.components[1].parameters[0].text).toBe(
+		`${task.split("\n\n")[1]} ${LIMENI_TASK_REPORTING_NOTE}`,
+	);
+	expect(sendCreate.mock.calls[0][0].data.message).toBe(request.input.message);
 	expect(messages[1].template).toEqual({
 		name: "limeni_section_drawing_v1",
 		language: { code: "lv" },
@@ -454,4 +478,16 @@ it("sends a PT-10-1 drawing with the shared template and section code", async ()
 			},
 		],
 	});
+});
+
+it("rejects a task that fits only without the reporting note before sending anything", async () => {
+	const request = validRequest();
+	request.input.message = "A".repeat(PLANNING_WHATSAPP_MESSAGE_LIMIT);
+	const fetchMock = jest.fn();
+	global.fetch = fetchMock as typeof fetch;
+	await expect(sendVisualPlanningWhatsAppTask(request)).rejects.toThrow(
+		"Ziņa kopā ar piezīmi pārsniedz",
+	);
+	expect(sendCreate).not.toHaveBeenCalled();
+	expect(fetchMock).not.toHaveBeenCalled();
 });

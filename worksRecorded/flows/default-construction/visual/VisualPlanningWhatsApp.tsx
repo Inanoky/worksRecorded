@@ -18,8 +18,11 @@ import { Textarea } from "@/components/ui/textarea";
 import type { PlanningImage } from "./planning-image";
 import type { VisualPlan } from "./planning-model";
 import {
+	LIMENI_TASK_REPORTING_NOTE,
 	normalizePlanningWhatsAppMessage,
 	normalizePlanningWhatsAppPhone,
+	PLANNING_WHATSAPP_MESSAGE_LIMIT,
+	planningWhatsAppMessageWithReportingNote,
 	planningWhatsAppTemplateMessage,
 } from "./planning-whatsapp";
 import {
@@ -104,20 +107,21 @@ export function VisualPlanningWhatsApp({
 	);
 	const images = prepared.key === imageKey ? prepared.images : [];
 	const recipient = normalizePlanningWhatsAppPhone(contact?.phone ?? "");
-	const normalizedMessage = normalizePlanningWhatsAppMessage(message);
-	const messageTooLong = normalizedMessage.length > 900;
+	const outgoingMessage = planningWhatsAppMessageWithReportingNote(message);
+	const messageTooLong =
+		outgoingMessage.length > PLANNING_WHATSAPP_MESSAGE_LIMIT;
 	const id = useId();
 	const sendDisabled =
 		disabled ||
 		sending ||
 		!images.length ||
 		!recipient ||
-		!normalizedMessage ||
+		!outgoingMessage ||
 		messageTooLong ||
 		sendResult?.status === "sent";
 	async function sendTask() {
 		if (sendDisabled || !recipient || !clientRequestId) return;
-		setMessage(normalizedMessage);
+		setMessage(normalizePlanningWhatsAppMessage(message));
 		setSending(true);
 		setSendError(null);
 		try {
@@ -126,7 +130,7 @@ export function VisualPlanningWhatsApp({
 				planId: plan.id,
 				planVersion: plan.version,
 				recipient,
-				message: normalizedMessage,
+				message: outgoingMessage,
 				clientRequestId,
 				images,
 				signal: new AbortController().signal,
@@ -252,16 +256,22 @@ export function VisualPlanningWhatsApp({
 							<Label htmlFor={`${id}-message`}>Ziņa</Label>
 							<Textarea
 								id={`${id}-message`}
-								rows={12}
+								rows={8}
 								value={message}
 								disabled={Boolean(sendResult) || sending}
 								aria-invalid={messageTooLong}
 								onChange={(event) => setMessage(event.target.value)}
-								onBlur={() => setMessage(normalizedMessage)}
+								onBlur={() =>
+									setMessage(normalizePlanningWhatsAppMessage(message))
+								}
 							/>
+							<p className="whitespace-pre-wrap text-sm">
+								{LIMENI_TASK_REPORTING_NOTE}
+							</p>
 							{messageTooLong ? (
 								<p role="alert" className="text-xs text-destructive">
-									Ziņa pārsniedz 900 rakstzīmes.
+									Ziņa kopā ar piezīmi pārsniedz{" "}
+									{PLANNING_WHATSAPP_MESSAGE_LIMIT} rakstzīmes.
 								</p>
 							) : null}
 						</div>

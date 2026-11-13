@@ -1,5 +1,9 @@
 import type { VisualPlan } from "./planning-model";
 
+export const PLANNING_WHATSAPP_MESSAGE_LIMIT = 900;
+export const LIMENI_TASK_REPORTING_NOTE =
+	"Piezīme: Norādot paveikto darbu whatsapp jābūt norādītai precīzai objekta adresei, kas tika darīts, PRECĪZI iezīmētai darbu zonai, jābūt norādītam darbu apjomam m2 un iztērētajam materiālam. UZ ŠO ZIŅU NEATBILDĒT! SĪKĀKS INFO PIE ARTURA +371 29 484 894";
+
 export function normalizePlanningWhatsAppPhone(value: string) {
 	const compact = value
 		.trim()
@@ -37,6 +41,13 @@ export function normalizePlanningWhatsAppMessage(value: string) {
 
 export function normalizePlanningWhatsAppTemplateText(value: string) {
 	return value.replace(/\s+/gu, " ").trim();
+}
+
+export function planningWhatsAppMessageWithReportingNote(value: string) {
+	const description = normalizePlanningWhatsAppMessage(
+		value.replaceAll(LIMENI_TASK_REPORTING_NOTE, ""),
+	);
+	return description ? `${description}\n\n${LIMENI_TASK_REPORTING_NOTE}` : "";
 }
 
 export function planningWhatsAppTemplateMessage(plan: VisualPlan) {

@@ -23,6 +23,7 @@ import type {
 	VisualPlanArea,
 	VisualPlanInput,
 } from "./planning-model";
+import { LIMENI_TASK_REPORTING_NOTE } from "./planning-whatsapp";
 import { sendPlanningWhatsAppTask } from "./planning-whatsapp-send-client";
 import { fetchSectionDrawing } from "./section-drawing-client";
 import {
@@ -1168,6 +1169,7 @@ it("prepares images before opening and sends to the assigned contact without ask
 	).toHaveAttribute("src", "blob:zone-preview");
 	const message = within(dialog).getByLabelText("Ziņa");
 	expect((message as HTMLTextAreaElement).value).toContain("*Darbs:* Smilts");
+	expect(within(dialog).getByText(LIMENI_TASK_REPORTING_NOTE)).toBeVisible();
 	expect(within(dialog).getByRole("button", { name: "Nosūtīt" })).toBeEnabled();
 	fireEvent.click(within(dialog).getByRole("button", { name: "Atcelt" }));
 	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
@@ -1185,7 +1187,7 @@ it("prepares images before opening and sends to the assigned contact without ask
 				siteId: "site",
 				planId: plan.id,
 				recipient: planningContact.phone,
-				message: "Lūdzu,\npārbaudīt XPS & grīdu #1",
+				message: `Lūdzu,\npārbaudīt XPS & grīdu #1\n\n${LIMENI_TASK_REPORTING_NOTE}`,
 				images: [expect.objectContaining({ page: 1 })],
 			}),
 		),
