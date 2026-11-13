@@ -71,7 +71,7 @@ export class PlanningSaveQueue {
 	private timers = new Map<string, ReturnType<typeof setTimeout>>();
 	constructor(
 		private readonly transport: Transport,
-		private readonly onSaved: (drawingId: string, plan: SavedPlan) => void,
+		private readonly onSaved: (drawingId: string, plans: SavedPlan[]) => void,
 		private readonly siteId: string,
 	) {}
 	getSnapshot = () => this.items;
@@ -92,7 +92,7 @@ export class PlanningSaveQueue {
 			return previous.plan;
 		const defer =
 			previous && (this.running.has(id) || previous.status === "failed");
-		const request = {
+		const request: VisualPlanInput = {
 			...input,
 			...(previous
 				? defer
@@ -106,11 +106,15 @@ export class PlanningSaveQueue {
 					? { clientId: id }
 					: {}),
 			mutationId: crypto.randomUUID(),
+			geometry: input.additionalWorks
+				? { ...input.geometry, sharedZoneId: id }
+				: input.geometry,
 		};
 		const plan: VisualPlan = {
 			...input,
 			id,
 			version: (request.version ?? 0) + 1,
+			geometry: request.geometry,
 			geometryReviewRequired: false,
 			archivedAt: null,
 		};
@@ -245,7 +249,10 @@ export class PlanningSaveQueue {
 				} else {
 					if (result.plan.id !== item.id)
 						throw new Error("Serveris neatgrieza gaidīto plānu.");
-					this.onSaved(item.input.drawingId, result.plan);
+					this.onSaved(item.input.drawingId, [
+						result.plan,
+						...(result.linkedPlans ?? []),
+					]);
 					if (latest.nextInput) {
 						const input = {
 							...latest.nextInput,
@@ -312,6 +319,8 @@ function geometryContent(geometry: VisualPlanInput["geometry"]) {
 		geometry.version,
 		geometry.section ?? null,
 		geometry.quantitySource ?? null,
+		geometry.sharedZoneId ?? null,
+		geometry.notes ?? "",
 		geometry.areas.map((area) => [
 			area.id,
 			area.page,

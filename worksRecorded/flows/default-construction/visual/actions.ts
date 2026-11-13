@@ -303,9 +303,13 @@ function planningFailure(error: unknown) {
 export async function saveVisualPlanningItem(input: unknown) {
 	const user = await requireUser();
 	try {
-		const plan = await persistVisualPlan(user.id, input);
+		const { plan, linkedPlans } = await persistVisualPlan(user.id, input);
 		revalidateVisualPlanning((input as { siteId?: unknown })?.siteId);
-		return { ok: true as const, plan };
+		return {
+			ok: true as const,
+			plan,
+			...(linkedPlans.length ? { linkedPlans } : {}),
+		};
 	} catch (error) {
 		return planningFailure(error);
 	}

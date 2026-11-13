@@ -31,8 +31,14 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -41,6 +47,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
 	archiveVisualPlanningItem,
 	getVisualPlanning,
@@ -57,6 +64,7 @@ import {
 import { type VisualDrawing, visualLayers } from "./model";
 import {
 	VISUAL_PLAN_MAX_AREAS,
+	VISUAL_PLAN_MAX_LINKED_WORKS,
 	type VisualPlan,
 	type VisualPlanArea,
 	type VisualPlanInput,
@@ -80,6 +88,7 @@ const defaultLayerConfiguration: VisualLayerConfiguration = {
 	workOptions: [],
 	positionIds: {},
 };
+const emptyPlanAreas: VisualPlanArea[] = [];
 type PlanningItem = PlanningIndex["plans"][number];
 type PlanningDraft = {
 	id: string | null;
@@ -88,6 +97,9 @@ type PlanningDraft = {
 	unit: string;
 	quantity: string;
 	automaticQuantity: boolean;
+	sharedZoneId?: string;
+	additionalWorks: NonNullable<VisualPlanInput["additionalWorks"]>;
+	notes: string;
 	section: string | null;
 	startDate: string;
 	endDate: string;
@@ -208,6 +220,8 @@ function emptyDraft(
 		unit: firstWork?.unit || index.unitOptions[0] || "",
 		quantity: "",
 		automaticQuantity: true,
+		additionalWorks: [],
+		notes: "",
 		section: null,
 		startDate,
 		endDate: startDate,
@@ -225,6 +239,9 @@ function draftFromPlan(plan: VisualPlan): PlanningDraft {
 		unit: plan.unit,
 		quantity: String(plan.quantity),
 		automaticQuantity: plan.geometry.quantitySource === "area",
+		sharedZoneId: plan.geometry.sharedZoneId,
+		additionalWorks: [],
+		notes: plan.geometry.notes ?? "",
 		section: plan.geometry.section ?? null,
 		startDate: plan.startDate,
 		endDate: plan.endDate,
@@ -281,7 +298,19 @@ export function VisualPlanningPanel({
 		() => cache.peekPlanning(drawing.id) ?? null,
 	);
 	const [draft, setDraft] = useState<PlanningDraft | null>(null);
-	const [measuredArea, setMeasuredArea] = useState<number | null>(null);
+	const [workSearch, setWorkSearch] = useState("");
+	const sharedArea = !!(draft?.sharedZoneId || draft?.additionalWorks.length);
+	const sharedPlanPending =
+		!!draft?.sharedZoneId &&
+		planningSaveState.some(
+			(item) => item.plan.geometry.sharedZoneId === draft.sharedZoneId,
+		);
+	const [measurement, setMeasurement] = useState<{
+		area: number | null;
+		areas: VisualPlanArea[];
+	} | null>(null);
+	const measuredArea =
+		measurement?.areas === draft?.areas ? (measurement?.area ?? null) : null;
 	const [pageScales, setPageScales] = useState<Record<string, number>>(
 		() => drawing.state.pageScales ?? {},
 	);
@@ -338,14 +367,20 @@ export function VisualPlanningPanel({
 	const [dirty, setDirty] = useState(false);
 	const [areaEditing, setAreaEditing] = useState(false);
 	const onMeasuredAreaChange = useCallback(
-		(area: number | null) => {
-			setMeasuredArea(area);
+		(area: number | null, areas: VisualPlanArea[]) => {
+			if (areas !== draft?.areas) return;
+			setMeasurement((previous) =>
+				previous?.areas === areas && previous.area === area
+					? previous
+					: { area, areas },
+			);
 			if (
 				area !== null &&
-				draft?.automaticQuantity &&
+				(draft?.automaticQuantity || sharedArea) &&
 				isAreaUnit(draft.unit) &&
 				!draft.archivedAt &&
 				!areaEditing &&
+				!sharedPlanPending &&
 				roundedArea(area) !== Number(draft.quantity)
 			)
 				setDirty(true);
@@ -355,7 +390,10 @@ export function VisualPlanningPanel({
 			draft?.unit,
 			draft?.archivedAt,
 			draft?.quantity,
+			draft?.areas,
 			areaEditing,
+			sharedArea,
+			sharedPlanPending,
 		],
 	);
 	const [loading, setLoading] = useState(true);
@@ -384,12 +422,20 @@ export function VisualPlanningPanel({
 	const endId = `${fieldId}-end`;
 	const contactId = `${fieldId}-contact`;
 	const drawerKey = draft ? (draft.id ?? "new") : null;
-	const planPending = planningSaveState.some((item) => item.id === draft?.id);
+	const planPending =
+		sharedPlanPending ||
+		planningSaveState.some((item) => item.id === draft?.id);
+	const draftReadOnly = saving || !!draft?.archivedAt || sharedPlanPending;
 	useEffect(() => {
 		const value = cache.peekPlanning(drawing.id);
 		if (!value) return;
 		setIndex(value);
-		const pending = planningSaveState.find((item) => item.id === draft?.id);
+		const pending = planningSaveState.find(
+			(item) =>
+				item.id === draft?.id ||
+				(draft?.sharedZoneId &&
+					item.plan.geometry.sharedZoneId === draft.sharedZoneId),
+		);
 		if (pending?.status === "failed") {
 			setConflict(pending.conflict ?? null);
 			setError(pending.error ?? null);
@@ -408,7 +454,15 @@ export function VisualPlanningPanel({
 				? { ...current, version: plan.version }
 				: draftFromPlan(plan);
 		});
-	}, [cache, drawing.id, planningSaveState, dirty, areaEditing, draft?.id]);
+	}, [
+		cache,
+		drawing.id,
+		planningSaveState,
+		dirty,
+		areaEditing,
+		draft?.id,
+		draft?.sharedZoneId,
+	]);
 
 	useEffect(() => {
 		onDirtyChange(dirty || areaEditing);
@@ -588,6 +642,7 @@ export function VisualPlanningPanel({
 		!index ||
 		saving ||
 		areaEditing ||
+		sharedPlanPending ||
 		!!(
 			draft &&
 			!draft.archivedAt &&
@@ -650,15 +705,18 @@ export function VisualPlanningPanel({
 	}
 
 	function savePlan(automatic = false) {
-		if (!index || !draft || saving || !dirty || draft.archivedAt || areaEditing)
+		if (!index || !draft || draftReadOnly || !dirty || areaEditing)
 			return;
 		const invalid = (message: string) => {
 			if (!automatic) setError(message);
 		};
-		const automaticQuantity = draft.automaticQuantity && isAreaUnit(draft.unit);
+		const automaticQuantity =
+			sharedArea || (draft.automaticQuantity && isAreaUnit(draft.unit));
 		if (automaticQuantity && measuredArea === null) {
 			invalid(
-				"Norādiet rasējuma mērogu, lai aprēķinātu laukumu, vai ievadiet apjomu manuāli.",
+				sharedArea
+					? "Norādiet rasējuma mērogu, lai aprēķinātu kopīgās zonas laukumu."
+					: "Norādiet rasējuma mērogu, lai aprēķinātu laukumu, vai ievadiet apjomu manuāli.",
 			);
 			return;
 		}
@@ -701,11 +759,16 @@ export function VisualPlanningPanel({
 				startDate: draft.startDate,
 				endDate: draft.endDate,
 				contactId: draft.contactId,
+				...(draft.additionalWorks.length
+					? { additionalWorks: draft.additionalWorks }
+					: {}),
 				geometry: {
 					version: 1,
 					areas: draft.areas,
 					...(automaticQuantity ? { quantitySource: "area" as const } : {}),
 					...(draft.section ? { section: draft.section } : {}),
+					...(draft.sharedZoneId ? { sharedZoneId: draft.sharedZoneId } : {}),
+					...(draft.notes.trim() ? { notes: draft.notes.trim() } : {}),
 				},
 			};
 			const current = draft.id
@@ -855,19 +918,43 @@ export function VisualPlanningPanel({
 			((showArchived || !draft.archivedAt) &&
 				selectedPlanningDay !== null &&
 				utcDay(draft.startDate) <= selectedPlanningDay));
-	const backgroundAreas = visiblePdfPlans
-		.filter((plan) => plan.id !== draft?.id)
-		.flatMap((plan) =>
-			plan.geometry.areas.map((area) => ({
-				...area,
-				planId: plan.id,
-				color: workColor(plan.work),
-				label: plan.work,
-			})),
-		);
+	const shownZones = new Set(
+		activePlanVisible && draft ? [draft.sharedZoneId ?? draft.id] : [],
+	);
+	const activePdfPlans = visiblePdfPlans.filter((plan) => !plan.archivedAt);
+	const backgroundAreas = [
+		...activePdfPlans,
+		...visiblePdfPlans.filter((plan) => plan.archivedAt),
+	].flatMap((plan) => {
+		const zoneId = plan.geometry.sharedZoneId ?? plan.id;
+		if (shownZones.has(zoneId)) return [];
+		shownZones.add(zoneId);
+		return plan.geometry.areas.map((area) => ({
+			...area,
+			planId: plan.id,
+			color: workColor(plan.work),
+			label: plan.work,
+		}));
+	});
 	const fixedUnit = index?.workOptions.find(
 		(option) => option.work === draft?.work,
 	)?.unit;
+	const areaUnit = index?.unitOptions.find(isAreaUnit);
+	const additionalWorkOptions = (index?.workOptions ?? [])
+		.filter((option) => option.work !== draft?.work)
+		.map((option) => ({ ...option, unit: option.unit || areaUnit || "" }))
+		.filter((option) => isAreaUnit(option.unit));
+	const workOptions = (index?.workOptions ?? []).filter(
+		(option) =>
+			option.work === draft?.work ||
+			(!draft?.additionalWorks.some((work) => work.work === option.work) &&
+				(!sharedArea || isAreaUnit(option.unit || areaUnit || ""))),
+	);
+	const linkedWorks = draft?.sharedZoneId
+		? timelinePlans.filter(
+				(plan) => plan.geometry.sharedZoneId === draft.sharedZoneId,
+			)
+		: [];
 	const selectableContacts = (index?.contacts ?? []).filter(
 		(contact) => !contact.archivedAt || contact.id === draft?.contactId,
 	);
@@ -946,14 +1033,13 @@ export function VisualPlanningPanel({
 						onAreaChange: onMeasuredAreaChange,
 						planId: draft?.id ?? null,
 						interactionKey: `${draft ? (draft.id ?? "new") : "closed"}:${planningSession}`,
-						areas: activePlanVisible ? (draft?.areas ?? []) : [],
+						areas: activePlanVisible && draft ? draft.areas : emptyPlanAreas,
 						backgroundAreas,
 						selectedArea,
 						areaRequest,
 						color: draft ? workColor(draft.work) : undefined,
 						label: draft?.work,
-						editable:
-							activePlanVisible && !!draft && !saving && !draft.archivedAt,
+						editable: activePlanVisible && !draftReadOnly,
 						onChange: (areas) => {
 							if (draft) changeDraft({ areas });
 						},
@@ -1230,7 +1316,7 @@ export function VisualPlanningPanel({
 								<Label htmlFor={workId}>Darbs</Label>
 								<Select
 									value={draft.work}
-									disabled={saving || !!draft.archivedAt}
+									disabled={draftReadOnly || !!draft.sharedZoneId}
 									onValueChange={(work) => {
 										const option = index.workOptions.find(
 											(item) => item.work === work,
@@ -1239,6 +1325,7 @@ export function VisualPlanningPanel({
 											work,
 											unit:
 												option?.unit ||
+												(sharedArea ? areaUnit : undefined) ||
 												draft.unit ||
 												index.unitOptions[0] ||
 												"",
@@ -1252,7 +1339,7 @@ export function VisualPlanningPanel({
 										/>
 									</SelectTrigger>
 									<SelectContent className="max-w-[calc(100vw-2rem)]">
-										{index.workOptions.map((option) => (
+										{workOptions.map((option) => (
 											<SelectItem
 												key={option.work}
 												value={option.work}
@@ -1263,89 +1350,224 @@ export function VisualPlanningPanel({
 										))}
 									</SelectContent>
 								</Select>
-							</div>
-
-							<div className="grid grid-cols-[minmax(0,1fr)_110px] gap-3">
-								<div className="space-y-2">
-									<Label htmlFor={quantityId}>Plānotais apjoms</Label>
-									<Input
-										id={quantityId}
-										type="number"
-										min="0"
-										step="any"
-										value={
-											draft.automaticQuantity && isAreaUnit(draft.unit)
-												? measuredArea === null || measuredArea === 0
-													? ""
-													: roundedArea(measuredArea)
-												: draft.quantity
-										}
-										disabled={saving || !!draft.archivedAt}
-										onChange={(event) =>
-											changeDraft({
-												quantity: event.target.value,
-												automaticQuantity: false,
-											})
-										}
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor={unitId}>Mērvienība</Label>
-									<Select
-										value={draft.unit}
-										disabled={saving || !!draft.archivedAt || !!fixedUnit}
-										onValueChange={(unit) => changeDraft({ unit })}
-									>
-										<SelectTrigger id={unitId}>
-											<SelectValue placeholder="Vienība" />
-										</SelectTrigger>
-										<SelectContent>
-											{[...new Set([draft.unit, ...index.unitOptions])]
-												.filter(Boolean)
-												.map((unit) => (
-													<SelectItem key={unit} value={unit}>
-														{unit}
-													</SelectItem>
+								{!draft.id &&
+								isAreaUnit(draft.unit) &&
+								additionalWorkOptions.length ? (
+									<>
+										{draft.additionalWorks.length ? (
+											<ul className="space-y-1 text-sm">
+												{draft.additionalWorks.map((work) => (
+													<li key={work.clientId}>{work.work}</li>
 												))}
-										</SelectContent>
-									</Select>
-								</div>
+											</ul>
+										) : null}
+										<Popover
+											onOpenChange={(open) => {
+												if (!open) setWorkSearch("");
+											}}
+										>
+											<PopoverTrigger asChild>
+												<Button
+													type="button"
+													variant="outline"
+													size="sm"
+													disabled={draftReadOnly}
+												>
+													<Plus className="h-3.5 w-3.5" />
+													{draft.additionalWorks.length
+														? "Mainīt darbu izvēli"
+														: "Pievienot darbus šai zonai"}
+												</Button>
+											</PopoverTrigger>
+											<PopoverContent
+												align="start"
+												className="w-[min(20rem,calc(100vw-2rem))] space-y-2 p-3"
+											>
+												<Input
+													aria-label="Meklēt darbus"
+													placeholder="Meklēt darbus"
+													value={workSearch}
+													onChange={(event) =>
+														setWorkSearch(event.target.value)
+													}
+												/>
+												<div className="max-h-56 space-y-1 overflow-y-auto">
+													{additionalWorkOptions
+														.filter(({ work }) =>
+															work
+																.toLocaleLowerCase("lv")
+																.includes(
+																	workSearch.trim().toLocaleLowerCase("lv"),
+																),
+														)
+														.map((option) => {
+															const checked = draft.additionalWorks.some(
+																({ work }) => work === option.work,
+															);
+															const optionId = `${workId}-${index.workOptions.findIndex(({ work }) => work === option.work)}`;
+															return (
+																<div
+																	key={option.work}
+																	className="flex items-center gap-2 rounded-sm px-1 py-2 hover:bg-muted"
+																>
+																	<Checkbox
+																		id={optionId}
+																		checked={checked}
+																		disabled={
+																			!checked &&
+																			draft.additionalWorks.length >=
+																				VISUAL_PLAN_MAX_LINKED_WORKS - 1
+																		}
+																		onCheckedChange={(next) =>
+																			changeDraft({
+																				additionalWorks:
+																					next === true
+																						? [
+																								...draft.additionalWorks,
+																								{
+																									...option,
+																									clientId: crypto.randomUUID(),
+																								},
+																							]
+																						: draft.additionalWorks.filter(
+																								({ work }) =>
+																									work !== option.work,
+																							),
+																			})
+																		}
+																	/>
+																	<label
+																		className="min-w-0 flex-1 cursor-pointer text-sm"
+																		htmlFor={optionId}
+																	>
+																		{option.work}
+																	</label>
+																</div>
+															);
+														})}
+												</div>
+											</PopoverContent>
+										</Popover>
+									</>
+								) : null}
+								{linkedWorks.length > 1 ? (
+									<ul aria-label="Kopīgās zonas darbi" className="space-y-1">
+										{linkedWorks
+											.filter((plan) => plan.id !== draft.id)
+											.map((plan) => (
+												<li key={plan.id}>
+													<Button
+														type="button"
+														variant="outline"
+														size="sm"
+														className="h-auto max-w-full whitespace-normal text-left"
+														onClick={() => selectPlan(plan)}
+													>
+														{plan.work}
+													</Button>
+												</li>
+											))}
+									</ul>
+								) : null}
 							</div>
 
-							{isAreaUnit(draft.unit) ? (
-								<div className="space-y-1">
-									<label
-										htmlFor={`${fieldId}-area-quantity`}
-										className="flex items-center gap-2 text-xs"
-									>
-										<Switch
-											id={`${fieldId}-area-quantity`}
-											checked={draft.automaticQuantity}
-											disabled={saving || !!draft.archivedAt}
-											onCheckedChange={(automaticQuantity) =>
-												changeDraft({
-													automaticQuantity,
-													quantity:
-														!automaticQuantity && measuredArea !== null
-															? String(roundedArea(measuredArea))
-															: draft.quantity,
-												})
-											}
-										/>
-										Apjoms no zonas (m²)
-									</label>
-									{draft.automaticQuantity && measuredArea === null ? (
-										<p className="text-xs text-muted-foreground">
-											Laukumam vajadzīgs lapas mērogs un derīga zonas kontūra.
-										</p>
-									) : null}
+							{sharedArea ? (
+								<div className="space-y-1 text-sm">
+									<p className="font-medium">Kopīgās zonas laukums</p>
+									<output className="tabular-nums">
+										{measuredArea !== null && measuredArea > 0
+											? `${roundedArea(measuredArea).toLocaleString("lv-LV")} m²`
+											: draft.id
+												? `${Number(draft.quantity).toLocaleString("lv-LV")} m²`
+												: "Norādiet rasējuma mērogu un uzzīmējiet zonu."}
+									</output>
 								</div>
-							) : null}
+							) : (
+								<>
+									<div className="grid grid-cols-[minmax(0,1fr)_110px] gap-3">
+										<div className="space-y-2">
+											<Label htmlFor={quantityId}>Plānotais apjoms</Label>
+											<Input
+												id={quantityId}
+												type="number"
+												min="0"
+												step="any"
+												value={
+													draft.automaticQuantity && isAreaUnit(draft.unit)
+														? measuredArea === null || measuredArea === 0
+															? ""
+															: roundedArea(measuredArea)
+														: draft.quantity
+												}
+												disabled={saving || !!draft.archivedAt}
+												onChange={(event) =>
+													changeDraft({
+														quantity: event.target.value,
+														automaticQuantity: false,
+													})
+												}
+											/>
+										</div>
+										<div className="space-y-2">
+											<Label htmlFor={unitId}>Mērvienība</Label>
+											<Select
+												value={draft.unit}
+												disabled={saving || !!draft.archivedAt || !!fixedUnit}
+												onValueChange={(unit) => changeDraft({ unit })}
+											>
+												<SelectTrigger id={unitId}>
+													<SelectValue placeholder="Vienība" />
+												</SelectTrigger>
+												<SelectContent>
+													{[...new Set([draft.unit, ...index.unitOptions])]
+														.filter(Boolean)
+														.map((unit) => (
+															<SelectItem key={unit} value={unit}>
+																{unit}
+															</SelectItem>
+														))}
+												</SelectContent>
+											</Select>
+										</div>
+									</div>
+
+									{isAreaUnit(draft.unit) ? (
+										<div className="space-y-1">
+											<label
+												htmlFor={`${fieldId}-area-quantity`}
+												className="flex items-center gap-2 text-xs"
+											>
+												<Switch
+													id={`${fieldId}-area-quantity`}
+													checked={draft.automaticQuantity}
+													disabled={saving || !!draft.archivedAt}
+													onCheckedChange={(automaticQuantity) =>
+														changeDraft({
+															automaticQuantity,
+															quantity:
+																!automaticQuantity && measuredArea !== null
+																	? String(roundedArea(measuredArea))
+																	: draft.quantity,
+														})
+													}
+												/>
+												Apjoms no zonas (m²)
+											</label>
+											{draft.automaticQuantity && measuredArea === null ? (
+												<p className="text-xs text-muted-foreground">
+													Laukumam vajadzīgs lapas mērogs un derīga zonas
+													kontūra.
+												</p>
+											) : null}
+										</div>
+									) : null}
+								</>
+							)}
 							<VisualSectionSelect
 								siteId={siteId}
 								value={draft.section}
 								options={index.sections ?? []}
-								disabled={saving || !!draft.archivedAt || areaEditing}
+								disabled={draftReadOnly || areaEditing}
 								onChange={(section) => changeDraft({ section })}
 								onOptionsChange={(sections) => {
 									const next = { ...index, sections };
@@ -1359,7 +1581,7 @@ export function VisualPlanningPanel({
 									<Label htmlFor={contactId}>Atbildīgais kontakts</Label>
 									<Select
 										value={draft.contactId ?? "unassigned"}
-										disabled={saving || !!draft.archivedAt}
+										disabled={draftReadOnly}
 										onValueChange={(value) =>
 											changeDraft({
 												contactId: value === "unassigned" ? null : value,
@@ -1398,7 +1620,7 @@ export function VisualPlanningPanel({
 										type="date"
 										min={draft.id ? undefined : index.today}
 										value={draft.startDate}
-										disabled={saving || !!draft.archivedAt}
+										disabled={draftReadOnly}
 										onChange={(event) =>
 											changeDraft({ startDate: event.target.value })
 										}
@@ -1411,12 +1633,25 @@ export function VisualPlanningPanel({
 										type="date"
 										min={draft.startDate || index.today}
 										value={draft.endDate}
-										disabled={saving || !!draft.archivedAt}
+										disabled={draftReadOnly}
 										onChange={(event) =>
 											changeDraft({ endDate: event.target.value })
 										}
 									/>
 								</div>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor={`${fieldId}-notes`}>Piezīmes</Label>
+								<Textarea
+									id={`${fieldId}-notes`}
+									rows={2}
+									maxLength={1000}
+									disabled={draftReadOnly}
+									value={draft.notes}
+									onChange={(event) =>
+										changeDraft({ notes: event.target.value })
+									}
+								/>
 							</div>
 
 							<details

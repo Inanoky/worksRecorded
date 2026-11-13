@@ -1,7 +1,5 @@
 "use client";
 
-import { useWorkspaceActive } from "@/components/projects/WorkspaceActivity";
-
 import {
 	ChevronLeft,
 	ChevronRight,
@@ -25,6 +23,7 @@ import {
 	useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { useWorkspaceActive } from "@/components/projects/WorkspaceActivity";
 import { Button } from "@/components/ui/button";
 import {
 	type DrawingPageMeasurement,
@@ -109,7 +108,7 @@ export type VisualPdfPlanning = {
 	onEditingChange?: (editing: boolean) => void;
 	pageScales?: Record<string, number>;
 	onScaleChange?: (page: number, scale: number | null) => Promise<void>;
-	onAreaChange?: (squareMetres: number | null) => void;
+	onAreaChange?: (squareMetres: number | null, areas: VisualPlanArea[]) => void;
 };
 
 type PlanningAreaDraft = {
@@ -245,7 +244,10 @@ export function VisualPdf({
 	useEffect(() => {
 		if (workspaceActive) return;
 		setLoadedPdf(null);
-		if (canvas.current) { canvas.current.width = 0; canvas.current.height = 0; }
+		if (canvas.current) {
+			canvas.current.width = 0;
+			canvas.current.height = 0;
+		}
 	}, [workspaceActive]);
 	const [draft, setDraft] = useState<ZoneDraft | null>(null);
 	const [planningAreaDraft, setPlanningAreaDraft] =
@@ -389,9 +391,11 @@ export function VisualPdf({
 		planning?.pageScales,
 	]);
 	const onAreaChange = planning?.onAreaChange;
+	const committedPlanningAreas = planning?.areas;
 	useEffect(() => {
-		onAreaChange?.(liveArea);
-	}, [liveArea, onAreaChange]);
+		if (committedPlanningAreas)
+			onAreaChange?.(liveArea, committedPlanningAreas);
+	}, [committedPlanningAreas, liveArea, onAreaChange]);
 	const selectedPlanArea = shownPlanningAreas.find(
 		(area) =>
 			area.id === planning?.selectedArea?.areaId &&
@@ -948,7 +952,8 @@ export function VisualPdf({
 	}, [url, page, resourceCache, workspaceActive]);
 	useEffect(() => {
 		if (
-			!workspaceActive || !preparedPages ||
+			!workspaceActive ||
+			!preparedPages ||
 			!resourceCache ||
 			resourceCache.preparedManifest(url)?.source !== preparedSource
 		)
@@ -973,7 +978,14 @@ export function VisualPdf({
 		return () => {
 			cancelled = true;
 		};
-	}, [url, page, resourceCache, preparedPages, preparedSource, workspaceActive]);
+	}, [
+		url,
+		page,
+		resourceCache,
+		preparedPages,
+		preparedSource,
+		workspaceActive,
+	]);
 	useEffect(() => {
 		if (!document || !workspaceActive) return;
 		let active = true;

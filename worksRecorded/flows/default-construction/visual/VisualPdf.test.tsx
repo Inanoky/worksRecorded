@@ -1371,7 +1371,10 @@ it("reads a page scale label, reports physical area and recalculates when the us
 		).toHaveTextContent("1:100 · PDF"),
 	);
 	await waitFor(() =>
-		expect(onAreaChange).toHaveBeenLastCalledWith(expect.closeTo(14.5161, 4)),
+		expect(onAreaChange).toHaveBeenLastCalledWith(
+			expect.closeTo(14.5161, 4),
+			expect.any(Array),
+		),
 	);
 	fireEvent.click(screen.getByRole("button", { name: "Rasējuma mērogs" }));
 	fireEvent.change(screen.getByRole("textbox", { name: /^Mērogs$/ }), {
@@ -1381,7 +1384,10 @@ it("reads a page scale label, reports physical area and recalculates when the us
 	await waitFor(() => expect(onScaleChange).toHaveBeenCalledWith(1, 50));
 	view.rerender(content({ 1: 50 }));
 	await waitFor(() =>
-		expect(onAreaChange).toHaveBeenLastCalledWith(expect.closeTo(3.629025, 4)),
+		expect(onAreaChange).toHaveBeenLastCalledWith(
+			expect.closeTo(3.629025, 4),
+			expect.any(Array),
+		),
 	);
 });
 

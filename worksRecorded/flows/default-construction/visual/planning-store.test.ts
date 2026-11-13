@@ -70,13 +70,150 @@ const input = {
 	endDate: "2026-10-18",
 	geometry,
 };
+const linkedId = "55555555-5555-4555-8555-555555555555";
+const linkedMutationId = "77777777-7777-4777-8777-777777777777";
+const sharedGeometry = {
+	...geometry,
+	quantitySource: "area" as const,
+	sharedZoneId: planId,
+};
+const linkedInput = {
+	...input,
+	clientId: planId,
+	mutationId: linkedMutationId,
+	geometry: sharedGeometry,
+	additionalWorks: [{ clientId: linkedId, work: "Smilts", unit: "m²" }],
+};
+
+it("creates every work with one measured area and returns the same tasks on retry", async () => {
+	const visualAreas = { ...sharedGeometry, mutationId: linkedMutationId };
+	const primary = stored({ visualAreas });
+	const linked = stored({ id: linkedId, work: "Smilts", visualAreas });
+	jest
+		.mocked(prisma.constructionPlan.create)
+		.mockResolvedValueOnce(primary as never)
+		.mockResolvedValueOnce(linked as never);
+	const result = await persistVisualPlan("user", linkedInput);
+	expect(result.plan).toMatchObject({
+		id: planId,
+		quantity: 100,
+		geometry: visualAreas,
+	});
+	expect(result.linkedPlans).toMatchObject([
+		{ id: linkedId, work: "Smilts", quantity: 100, geometry: visualAreas },
+	]);
+	expect(prisma.constructionPlan.create).toHaveBeenNthCalledWith(2, {
+		data: expect.objectContaining({
+			id: linkedId,
+			work: "Smilts",
+			quantity: 100,
+			visualAreas,
+		}),
+	});
+	expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+	expect(prisma.constructionPlanRevision.create).toHaveBeenCalledTimes(2);
+
+	jest
+		.mocked(prisma.constructionPlan.findFirst)
+		.mockResolvedValue(primary as never);
+	jest
+		.mocked(prisma.constructionPlan.findMany)
+		.mockResolvedValueOnce([linked] as never);
+	expect(await persistVisualPlan("user", linkedInput)).toEqual(result);
+	expect(prisma.constructionPlan.create).toHaveBeenCalledTimes(2);
+});
+
+it("checks every selected work before writing and rejects manual shared quantities", async () => {
+	await expect(
+		persistVisualPlan("user", {
+			...linkedInput,
+			geometry: { ...sharedGeometry, quantitySource: "manual" },
+		}),
+	).rejects.toThrow(/laukuma/);
+	const existingId = "99999999-9999-4999-8999-999999999999";
+	jest
+		.mocked(prisma.constructionPlan.findMany)
+		.mockResolvedValueOnce([
+			stored({ id: existingId, work: "Smilts" }),
+		] as never);
+	await expect(persistVisualPlan("user", linkedInput)).rejects.toMatchObject({
+		conflict: { id: existingId, work: "Smilts" },
+	});
+	expect(prisma.constructionPlan.create).not.toHaveBeenCalled();
+});
+
+it("updates linked geometry and quantity without replacing another work's details", async () => {
+	const updatedGeometry = {
+		...sharedGeometry,
+		areas: [{ ...geometry.areas[0], id: "edited" }],
+	};
+	const linkedGeometry = {
+		...sharedGeometry,
+		notes: "Norādījumi otrajam darbam.",
+	};
+	const linked = stored({
+		id: linkedId,
+		work: "Smilts",
+		version: 3,
+		visualAreas: linkedGeometry,
+		archivedAt: new Date("2026-10-15"),
+		startDate: new Date("2026-10-16"),
+	});
+	jest
+		.mocked(prisma.constructionPlan.findFirst)
+		.mockResolvedValue(stored({ visualAreas: sharedGeometry }) as never);
+	jest
+		.mocked(prisma.constructionPlan.findMany)
+		.mockResolvedValueOnce([linked] as never);
+	jest
+		.mocked(prisma.constructionPlan.findUniqueOrThrow)
+		.mockResolvedValueOnce(
+			stored({
+				version: 2,
+				quantity: 150,
+				visualAreas: updatedGeometry,
+			}) as never,
+		)
+		.mockResolvedValueOnce({
+			...linked,
+			version: 4,
+			quantity: 150,
+			visualAreas: { ...linkedGeometry, areas: updatedGeometry.areas },
+		} as never);
+	const result = await persistVisualPlan("user", {
+		...input,
+		id: planId,
+		version: 1,
+		quantity: 150,
+		geometry: updatedGeometry,
+	});
+	expect(result.linkedPlans).toMatchObject([
+		{
+			id: linkedId,
+			work: "Smilts",
+			startDate: "2026-10-16",
+			quantity: 150,
+			geometry: { areas: updatedGeometry.areas, notes: linkedGeometry.notes },
+		},
+	]);
+	expect(prisma.constructionPlan.updateMany).toHaveBeenNthCalledWith(2, {
+		where: expect.objectContaining({ id: linkedId, version: 3 }),
+		data: {
+			quantity: 150,
+			visualAreas: { ...linkedGeometry, areas: updatedGeometry.areas },
+			geometryReviewRequired: false,
+			updatedBy: "user",
+			version: { increment: 1 },
+		},
+	});
+});
 
 it("uses the client plan ID and returns a confirmed retry without creating another plan or revision", async () => {
 	const mutationId = "77777777-7777-4777-8777-777777777777";
 	const request = { ...input, clientId: planId, mutationId };
 	const row = stored({ visualAreas: { ...geometry, mutationId } });
 	jest.mocked(prisma.constructionPlan.create).mockResolvedValue(row as never);
-	const first = await persistVisualPlan("user", request);
+	const { plan: first } = await persistVisualPlan("user", request);
 	expect(first).toMatchObject({
 		id: planId,
 		version: 1,
@@ -91,7 +228,7 @@ it("uses the client plan ID and returns a confirmed retry without creating anoth
 	jest
 		.mocked(prisma.constructionPlan.findFirst)
 		.mockResolvedValue(row as never);
-	expect(await persistVisualPlan("user", request)).toEqual(first);
+	expect((await persistVisualPlan("user", request)).plan).toEqual(first);
 	expect(prisma.constructionPlan.create).toHaveBeenCalledTimes(1);
 	expect(prisma.constructionPlanRevision.create).toHaveBeenCalledTimes(1);
 	expect(prisma.constructionPlan.updateMany).not.toHaveBeenCalled();
@@ -103,7 +240,7 @@ it("recognizes an update whose acknowledgement was lost without incrementing the
 	jest
 		.mocked(prisma.constructionPlan.findFirst)
 		.mockResolvedValue(row as never);
-	const result = await persistVisualPlan("user", {
+	const { plan: result } = await persistVisualPlan("user", {
 		...input,
 		id: planId,
 		version: 1,
@@ -234,7 +371,7 @@ it("stores organization contact references without creating duplicate project co
 		.mocked(prisma.constructionPlan.create)
 		.mockImplementation((async (args: { data: Record<string, unknown> }) =>
 			stored(args.data)) as never);
-	const result = await persistVisualPlan("user", {
+	const { plan: result } = await persistVisualPlan("user", {
 		...input,
 		contactId: "member:user-1",
 	});
@@ -283,7 +420,7 @@ it("preserves project section assignments in stored geometry and audit revisions
 		.mocked(prisma.constructionPlan.create)
 		.mockResolvedValue(stored({ visualAreas: selected }) as never);
 	expect(
-		await persistVisualPlan("user", { ...input, geometry: selected }),
+		(await persistVisualPlan("user", { ...input, geometry: selected })).plan,
 	).toMatchObject({ geometry: selected });
 	expect(prisma.constructionPlan.create).toHaveBeenCalledWith({
 		data: expect.objectContaining({ visualAreas: selected }),
@@ -308,7 +445,7 @@ it("rejects sections that do not belong to the project before any plan write", a
 });
 
 it("creates a visual milestone and its audit snapshot in one transaction", async () => {
-	const result = await persistVisualPlan("user", input);
+	const { plan: result } = await persistVisualPlan("user", input);
 	expect(result).toMatchObject({ id: planId, work: "XPS", quantity: 100 });
 	expect(prisma.constructionPlan.create).toHaveBeenCalledWith({
 		data: expect.objectContaining({
@@ -339,7 +476,10 @@ it("assigns only a contact that belongs to the same project", async () => {
 		.mocked(prisma.constructionPlan.create)
 		.mockResolvedValue(stored({ visualPlanningContactId: contactId }) as never);
 
-	const result = await persistVisualPlan("user", { ...input, contactId });
+	const { plan: result } = await persistVisualPlan("user", {
+		...input,
+		contactId,
+	});
 
 	expect(prisma.visualPlanningContact.findFirst).toHaveBeenCalledWith({
 		where: { id: contactId, siteId },
@@ -370,7 +510,7 @@ it("updates only the expected active version and records the new revision", asyn
 	jest
 		.mocked(prisma.constructionPlan.findUniqueOrThrow)
 		.mockResolvedValue(stored({ version: 2, quantity: 125 }) as never);
-	const result = await persistVisualPlan("user", {
+	const { plan: result } = await persistVisualPlan("user", {
 		...input,
 		id: planId,
 		version: 1,

@@ -9,6 +9,7 @@ import {
 	plannerToday,
 } from "@/flows/default-construction/planner/model";
 import { prisma } from "@/lib/utils/db";
+import { isAreaUnit } from "./drawing-scale";
 import { organizationPlanningContacts } from "./organization-contacts";
 import { organizationContactReferenceSchema } from "./planning-contact-reference";
 import { serializeVisualPlanningContact } from "./planning-contacts";
@@ -17,6 +18,7 @@ import {
 	findVisualPlanConflict,
 	VISUAL_PLAN_TYPE,
 	type VisualPlan,
+	type VisualPlanInput,
 	visualPlanAreasSchema,
 	visualPlanInputSchema,
 } from "./planning-model";
@@ -163,32 +165,34 @@ async function canonicalizeInput(
 		)
 	)
 		throw new Error("Izvēlieties projektā pieejamu sekciju.");
-	const workSetting = options.productivity.works.find(
-		(option) =>
-			normalizePlanText(option.work) === normalizePlanText(input.work),
-	);
-	if (!workSetting) throw new Error("Izvēlieties projektā pieejamu darbu.");
-	const unit = workSetting.unit
-		? canonicalOption(workSetting.unit, [input.unit])
-			? input.unit
-			: null
-		: canonicalOption(input.unit, options.units);
-	if (!unit)
-		throw new Error("Izvēlieties darbam projektā pieejamu mērvienību.");
+	const canonicalWork = ({
+		work,
+		unit,
+	}: Pick<VisualPlanInput, "work" | "unit">) => {
+		const setting = options.productivity.works.find(
+			(option) => normalizePlanText(option.work) === normalizePlanText(work),
+		);
+		if (!setting) throw new Error("Izvēlieties projektā pieejamu darbu.");
+		const canonicalUnit = setting.unit
+			? canonicalOption(setting.unit, [unit]) && setting.unit
+			: canonicalOption(unit, options.units);
+		if (!canonicalUnit)
+			throw new Error("Izvēlieties darbam projektā pieejamu mērvienību.");
+		return { work: setting.work, unit: canonicalUnit };
+	};
 	const geometry = { ...input.geometry };
 	delete geometry.organizationContact;
+	delete geometry.mutationId;
 	if (organizationContact.success)
 		geometry.organizationContact = organizationContact.data;
 	return {
 		...input,
 		geometry,
-		work: workSetting.work,
-		unit: workSetting.unit || unit,
-		workOptions: options.productivity.works.map((option) => ({
-			work: option.work,
-			unit: option.unit,
+		...canonicalWork(input),
+		additionalWorks: input.additionalWorks?.map((item) => ({
+			clientId: item.clientId,
+			...canonicalWork(item),
 		})),
-		unitOptions: options.units,
 		config: (site.siteDiaryRecordsMap ?? {}) as Record<string, unknown>,
 	};
 }
@@ -370,156 +374,231 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 		input.siteId,
 		input.drawingId,
 	);
-	if (!drawingRow.organizationId)
-		throw new Error("Rasējuma organizācija nav atrasta.");
-	if (
-		normalizePlanText(input.location) !==
-		normalizePlanText(drawing.state.location)
-	)
+	const organizationId = drawingRow.organizationId;
+	if (!organizationId) throw new Error("Rasējuma organizācija nav atrasta.");
+	const location = drawing.state.location;
+	if (normalizePlanText(input.location) !== normalizePlanText(location))
 		throw new Error("Plāna stāvs neatbilst izvēlētajam rasējumam.");
-	const canonical = await canonicalizeInput(input, drawingRow.organizationId);
-	const plan = await prisma.$transaction(
+	const canonical = await canonicalizeInput(input, organizationId);
+	const geometry = canonical.geometry;
+	const sharedZoneId = geometry.sharedZoneId;
+	const workItems = [
+		{
+			id: input.id ?? input.clientId,
+			work: canonical.work,
+			unit: canonical.unit,
+		},
+		...(canonical.additionalWorks ?? []).map(({ clientId, work, unit }) => ({
+			id: clientId,
+			work,
+			unit,
+		})),
+	].map((item) => ({
+		...item,
+		matchKey: planMatchKey(item.work, location, item.unit),
+	}));
+	if (
+		sharedZoneId &&
+		(geometry.quantitySource !== "area" ||
+			workItems.some((item) => !isAreaUnit(item.unit)))
+	)
+		throw new Error("Kopīgai zonai apjomu aprēķina no rasējuma laukuma (m²).");
+	if (new Set(workItems.map((item) => item.matchKey)).size !== workItems.length)
+		throw new Error("Katru darbu kopīgai zonai var izvēlēties vienreiz.");
+	if (!input.id && sharedZoneId && !input.additionalWorks)
+		throw new Error("Izvēlieties vismaz divus darbus kopīgai zonai.");
+
+	const scope = { siteId: input.siteId, planType: VISUAL_PLAN_TYPE };
+	const savedPlans = await prisma.$transaction(
 		async (tx) => {
-			await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`visual-plan:${input.siteId}:${planMatchKey(canonical.work, drawing.state.location, canonical.unit)}`}))`;
-			if (input.mutationId) {
-				const previous = await tx.constructionPlan.findFirst({
+			for (const matchKey of workItems.map((item) => item.matchKey).sort())
+				await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`visual-plan:${input.siteId}:${matchKey}`}))`;
+
+			const planId = input.id ?? input.clientId;
+			const previousRow =
+				planId && (input.id || input.mutationId)
+					? await tx.constructionPlan.findFirst({
+							where: { ...scope, id: planId },
+						})
+					: null;
+			const previous = previousRow ? serializeVisualPlan(previousRow) : null;
+			if (input.id && previous?.geometry.sharedZoneId !== sharedZoneId)
+				throw new Error(
+					"Kopīgās zonas piesaiste ir mainīta. Atjaunojiet skatu.",
+				);
+			if (input.id && sharedZoneId && previous?.drawingId !== input.drawingId)
+				throw new Error(
+					"Kopīgā zona pieder citam rasējumam. Atjaunojiet skatu.",
+				);
+			if (
+				sharedZoneId &&
+				previous &&
+				input.id &&
+				previous.work !== canonical.work
+			)
+				throw new Error("Kopīgās zonas plānam nevar mainīt darba veidu.");
+
+			const linkedRows =
+				sharedZoneId && previous
+					? await tx.constructionPlan.findMany({
+							where: {
+								...scope,
+								id: { not: previous.id },
+								visualDrawingId: input.drawingId,
+								visualAreas: { path: ["sharedZoneId"], equals: sharedZoneId },
+							},
+						})
+					: [];
+			const linkedPlans = linkedRows.map(serializeVisualPlan);
+			const inputAreas = JSON.stringify(geometry.areas);
+			if (
+				previous &&
+				input.mutationId &&
+				previous.geometry.mutationId === input.mutationId &&
+				previous.drawingId === input.drawingId &&
+				!previous.archivedAt &&
+				previous.work === canonical.work &&
+				previous.unit === canonical.unit &&
+				previous.quantity === input.quantity &&
+				previous.startDate === input.startDate &&
+				previous.endDate === input.endDate &&
+				previous.contactId === input.contactId &&
+				JSON.stringify(previous.geometry.areas) === inputAreas &&
+				(previous.geometry.section ?? null) === (geometry.section ?? null) &&
+				(previous.geometry.notes ?? "") === (geometry.notes ?? "") &&
+				previous.geometry.quantitySource === geometry.quantitySource &&
+				previous.geometry.sharedZoneId === sharedZoneId &&
+				(!canonical.additionalWorks ||
+					canonical.additionalWorks.every((item) =>
+						linkedPlans.some(
+							(linked) =>
+								linked.id === item.clientId &&
+								linked.work === item.work &&
+								linked.unit === item.unit &&
+								linked.geometry.mutationId === input.mutationId,
+						),
+					))
+			)
+				return [previous, ...linkedPlans];
+			if (previous && !input.id)
+				throw new Error(
+					"Plāns ar šo identifikatoru jau pastāv. Atjaunojiet skatu.",
+				);
+
+			const existing = (
+				await tx.constructionPlan.findMany({
 					where: {
-						id: input.id ?? input.clientId,
-						siteId: input.siteId,
-						planType: VISUAL_PLAN_TYPE,
+						...scope,
+						matchKey:
+							workItems.length === 1
+								? workItems[0].matchKey
+								: { in: workItems.map((item) => item.matchKey) },
+						archivedAt: null,
 					},
-				});
-				if (previous) {
-					const saved = serializeVisualPlan(
-						previous as unknown as StoredVisualPlan,
-					);
-					if (
-						saved.geometry.mutationId === input.mutationId &&
-						saved.drawingId === input.drawingId &&
-						!saved.archivedAt &&
-						saved.work === canonical.work &&
-						saved.unit === canonical.unit &&
-						saved.quantity === input.quantity &&
-						saved.startDate === input.startDate &&
-						saved.endDate === input.endDate &&
-						saved.contactId === input.contactId &&
-						JSON.stringify(saved.geometry.areas) ===
-							JSON.stringify(canonical.geometry.areas) &&
-						(saved.geometry.section ?? null) ===
-							(canonical.geometry.section ?? null)
-					)
-						return saved;
-					if (!input.id)
-						throw new Error(
-							"Plāns ar šo identifikatoru jau pastāv. Atjaunojiet skatu.",
-						);
-				}
+				})
+			).map(serializeVisualPlan);
+			for (const item of workItems) {
+				const conflict = findVisualPlanConflict(
+					{
+						id: item.id ?? "new",
+						work: item.work,
+						location,
+						unit: item.unit,
+						startDate: input.startDate,
+						endDate: input.endDate,
+					},
+					existing,
+				);
+				if (conflict) throw new VisualPlanConflictError(conflict);
 			}
-			const existingRows = await tx.constructionPlan.findMany({
-				where: {
-					siteId: input.siteId,
-					planType: VISUAL_PLAN_TYPE,
-					matchKey: planMatchKey(
-						canonical.work,
-						drawing.state.location,
-						canonical.unit,
-					),
-					archivedAt: null,
-				},
-			});
-			const candidate: VisualPlan = {
-				id: input.id ?? input.clientId ?? "new",
-				version: input.version ?? 1,
-				drawingId: input.drawingId,
-				work: canonical.work,
-				location: drawing.state.location,
-				unit: canonical.unit,
-				quantity: input.quantity,
-				startDate: input.startDate,
-				endDate: input.endDate,
-				contactId: input.contactId,
-				geometry: canonical.geometry,
-				geometryReviewRequired: false,
-				archivedAt: null,
-			};
-			const conflict = findVisualPlanConflict(
-				candidate,
-				(existingRows as unknown as StoredVisualPlan[]).map(
-					serializeVisualPlan,
-				),
-			);
-			if (conflict) throw new VisualPlanConflictError(conflict);
-			const data = {
+
+			const commonData = {
 				planType: VISUAL_PLAN_TYPE,
 				startDate: new Date(input.startDate),
 				date: new Date(input.endDate),
-				work: canonical.work,
-				location: drawing.state.location,
-				unit: canonical.unit,
+				location,
 				quantity: input.quantity,
-				matchKey: planMatchKey(
-					canonical.work,
-					drawing.state.location,
-					canonical.unit,
-				),
 				visualDrawingId: input.drawingId,
 				visualAreas: {
-					...canonical.geometry,
+					...geometry,
 					...(input.mutationId ? { mutationId: input.mutationId } : {}),
 				},
-				visualPlanningContactId: organizationContactReferenceSchema.safeParse(
-					input.contactId,
-				).success
+				visualPlanningContactId: geometry.organizationContact
 					? null
 					: input.contactId,
 				geometryReviewRequired: false,
 				updatedBy: userId,
 			};
-			let saved: StoredVisualPlan;
-			let action: "create" | "update";
-			if (!input.id) {
-				saved = (await tx.constructionPlan.create({
-					data: {
-						...data,
-						...(input.clientId ? { id: input.clientId } : {}),
-						siteId: input.siteId,
-						createdBy: userId,
-					},
-				})) as unknown as StoredVisualPlan;
-				action = "create";
-			} else {
-				if (!input.version)
-					throw new Error("Trūkst plāna versijas. Atjaunojiet skatu.");
-				const updated = await tx.constructionPlan.updateMany({
-					where: {
-						id: input.id,
-						siteId: input.siteId,
-						planType: VISUAL_PLAN_TYPE,
-						version: input.version,
-						archivedAt: null,
-					},
-					data: { ...data, version: { increment: 1 } },
-				});
-				if (updated.count !== 1)
-					throw new Error(
-						"Plāns jau ir mainīts vai arhivēts. Atjaunojiet skatu.",
+			const saved: VisualPlan[] = [];
+			for (const { id, work, unit, matchKey } of workItems) {
+				const data = { ...commonData, work, unit, matchKey };
+				let row: StoredVisualPlan;
+				if (input.id) {
+					if (!input.version)
+						throw new Error("Trūkst plāna versijas. Atjaunojiet skatu.");
+					row = await updatePlanningRow(
+						tx,
+						{
+							...scope,
+							id: input.id,
+							version: input.version,
+							archivedAt: null,
+						},
+						data,
 					);
-				saved = (await tx.constructionPlan.findUniqueOrThrow({
-					where: { id: input.id },
-				})) as unknown as StoredVisualPlan;
-				action = "update";
+				} else {
+					row = await tx.constructionPlan.create({
+						data: {
+							...data,
+							...(id ? { id } : {}),
+							siteId: input.siteId,
+							createdBy: userId,
+						},
+					});
+				}
+				await createRevision(tx, row, input.id ? "update" : "create", userId);
+				saved.push(serializeVisualPlan(row));
 			}
-			await createRevision(tx, saved, action, userId);
-			return serializeVisualPlan(saved);
+
+			for (const linked of linkedPlans) {
+				if (
+					linked.quantity === input.quantity &&
+					!linked.geometryReviewRequired &&
+					JSON.stringify(linked.geometry.areas) === inputAreas
+				)
+					continue;
+				const row = await updatePlanningRow(
+					tx,
+					{
+						...scope,
+						id: linked.id,
+						version: linked.version,
+					},
+					{
+						quantity: input.quantity,
+						visualAreas: { ...linked.geometry, areas: geometry.areas },
+						geometryReviewRequired: false,
+						updatedBy: userId,
+					},
+				);
+				await createRevision(tx, row, "update", userId);
+				saved.push(serializeVisualPlan(row));
+			}
+			return saved;
 		},
 		{ isolationLevel: "Serializable" },
 	);
+
 	const rows = await prisma.sitediaryrecords.findMany({
 		where: {
 			siteId: input.siteId,
-			organizationId: drawingRow.organizationId,
+			organizationId,
 			archivedAt: null,
-			Date: { gte: new Date(addDays(plan.startDate, -1)) },
+			Date: {
+				gte: new Date(
+					addDays(savedPlans.map((plan) => plan.startDate).sort()[0], -1),
+				),
+			},
 		},
 		select: {
 			id: true,
@@ -548,10 +627,26 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 			},
 		];
 	});
-	return {
-		...plan,
-		progress: compareVisualPlanProgress(plan, actuals, plannerToday()),
-	};
+	const today = plannerToday();
+	const [plan, ...linkedPlans] = savedPlans.map((item) => ({
+		...item,
+		progress: compareVisualPlanProgress(item, actuals, today),
+	}));
+	return { plan, linkedPlans };
+}
+
+async function updatePlanningRow(
+	tx: Prisma.TransactionClient,
+	where: Prisma.ConstructionPlanWhereInput & { id: string },
+	data: Prisma.ConstructionPlanUpdateManyMutationInput,
+) {
+	const updated = await tx.constructionPlan.updateMany({
+		where,
+		data: { ...data, version: { increment: 1 } },
+	});
+	if (updated.count !== 1)
+		throw new Error("Plāns jau ir mainīts vai arhivēts. Atjaunojiet skatu.");
+	return tx.constructionPlan.findUniqueOrThrow({ where: { id: where.id } });
 }
 
 const visualPlanMutationSchema = z

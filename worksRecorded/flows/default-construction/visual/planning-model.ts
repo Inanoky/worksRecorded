@@ -12,6 +12,7 @@ import { visualSectionSchema } from "./sections";
 
 export const VISUAL_PLAN_TYPE = "visual_milestone";
 export const VISUAL_PLAN_MAX_AREAS = 256;
+export const VISUAL_PLAN_MAX_LINKED_WORKS = 20;
 
 export const visualPlanAreaSchema = z
 	.object({
@@ -34,6 +35,8 @@ export const visualPlanAreasSchema = z
 		organizationContact: organizationContactReferenceSchema.optional(),
 		mutationId: z.string().uuid().optional(),
 		quantitySource: z.enum(["area", "manual"]).optional(),
+		sharedZoneId: z.string().uuid().optional(),
+		notes: z.string().trim().max(1000).optional(),
 	})
 	.strict();
 
@@ -53,6 +56,19 @@ export const visualPlanInputSchema = z
 		endDate: dateSchema,
 		contactId: planningContactReferenceSchema.nullable().default(null),
 		geometry: visualPlanAreasSchema,
+		additionalWorks: z
+			.array(
+				z
+					.object({
+						clientId: z.string().uuid(),
+						work: z.string().trim().min(1).max(200),
+						unit: z.string().trim().min(1).max(40),
+					})
+					.strict(),
+			)
+			.min(1)
+			.max(VISUAL_PLAN_MAX_LINKED_WORKS - 1)
+			.optional(),
 	})
 	.strict()
 	.refine((input) => !input.mutationId || !!(input.id ?? input.clientId), {
@@ -61,6 +77,22 @@ export const visualPlanInputSchema = z
 	.refine((input) => !(input.id && input.clientId), {
 		message: "Norādiet vienu plāna identifikatoru.",
 	})
+	.refine(
+		(input) =>
+			!input.additionalWorks ||
+			(!!input.clientId &&
+				!!input.mutationId &&
+				input.geometry.sharedZoneId === input.clientId &&
+				new Set([
+					input.clientId,
+					...input.additionalWorks.map((work) => work.clientId),
+				]).size ===
+					input.additionalWorks.length + 1),
+		{
+			message:
+				"Saistītos darbus var pievienot jaunam plānam ar atšķirīgiem identifikatoriem.",
+		},
+	)
 	.refine((input) => input.startDate <= input.endDate, {
 		message: "Beigu datumam jābūt vienādam ar sākuma datumu vai vēlākam.",
 		path: ["endDate"],

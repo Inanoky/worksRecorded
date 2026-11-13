@@ -18,7 +18,11 @@ import {
 } from "./actions";
 import type { VisualDrawing } from "./model";
 import { renderPlanningImages } from "./planning-image";
-import type { VisualPlan, VisualPlanArea } from "./planning-model";
+import type {
+	VisualPlan,
+	VisualPlanArea,
+	VisualPlanInput,
+} from "./planning-model";
 import { sendPlanningWhatsAppTask } from "./planning-whatsapp-send-client";
 import { fetchSectionDrawing } from "./section-drawing-client";
 import {
@@ -59,7 +63,10 @@ jest.mock("./VisualPdf", () => ({
 			>;
 			areaRequest?: number;
 			color?: string;
-			onAreaChange?: (squareMetres: number | null) => void;
+			onAreaChange?: (
+				squareMetres: number | null,
+				areas: VisualPlanArea[],
+			) => void;
 			onScaleChange?: (page: number, scale: number | null) => Promise<void>;
 			onChange: (areas: VisualPlanArea[]) => void;
 			onEditingChange?: (editing: boolean) => void;
@@ -105,7 +112,10 @@ jest.mock("./VisualPdf", () => ({
 				<button type="button" onClick={() => planning?.onEditingChange?.(true)}>
 					Sākt zonas rediģēšanu
 				</button>
-				<button type="button" onClick={() => planning?.onAreaChange?.(42.56)}>
+				<button
+					type="button"
+					onClick={() => planning?.onAreaChange?.(42.56, planning.areas)}
+				>
 					Laukuma priekšskatījums
 				</button>
 				<button
@@ -285,6 +295,97 @@ it("saves the calculated amount and remembers that it comes from geometry", asyn
 	);
 });
 
+it("plans one measured polygon for multiple works and sends each task separately", async () => {
+	jest.mocked(getVisualPlanning).mockResolvedValue({
+		...emptyIndex,
+		contacts: [planningContact],
+		workOptions: [...emptyIndex.workOptions, { work: "Betons", unit: "m3" }],
+	});
+	jest
+		.mocked(sendPlanningWhatsAppTask)
+		.mockRejectedValue(new Error("Testa sūtījums"));
+	const cache = new VisualClientCache("site");
+	render(
+		<VisualPlanningPanel
+			siteId="site"
+			drawing={drawing}
+			sidebarOpen
+			resourceCache={cache}
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	await waitFor(() => expect(sidebarAddTask()).toBeEnabled());
+	fireEvent.click(sidebarAddTask());
+	fireEvent.click(screen.getByRole("button", { name: "Uzzīmēt testu zonu" }));
+	fireEvent.click(
+		screen.getByRole("button", { name: "Laukuma priekšskatījums" }),
+	);
+	fireEvent.click(
+		screen.getByRole("button", { name: "Pievienot darbus šai zonai" }),
+	);
+	expect(
+		screen.queryByRole("checkbox", { name: "Betons" }),
+	).not.toBeInTheDocument();
+	fireEvent.change(screen.getByRole("textbox", { name: "Meklēt darbus" }), {
+		target: { value: "xp" },
+	});
+	fireEvent.click(screen.getByRole("checkbox", { name: "XPS" }));
+	fireEvent.click(screen.getByRole("button", { name: "Mainīt darbu izvēli" }));
+	expect(screen.queryByLabelText("Plānotais apjoms")).not.toBeInTheDocument();
+	expect(screen.getByText("Kopīgās zonas laukums")).toBeInTheDocument();
+	const contactSelect = screen
+		.getAllByRole("combobox")
+		.find((element) =>
+			within(element).queryByRole("option", { name: /Anna Bērziņa/ }),
+		);
+	expect(contactSelect).toBeDefined();
+	fireEvent.change(contactSelect as HTMLElement, {
+		target: { value: planningContact.id },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Saglabāt plānu" }));
+	const openSend = () =>
+		screen.getByRole("button", { name: "Nosūtīt uzdevumu" });
+	await waitFor(() => expect(openSend()).toBeEnabled());
+	expect(saveVisualPlanningItem).toHaveBeenCalledTimes(1);
+	const tasks = cache.peekPlanning(drawing.id)?.plans ?? [];
+	expect(tasks.map(({ work, quantity }) => ({ work, quantity }))).toEqual([
+		{ work: "Smilts", quantity: 42.56 },
+		{ work: "XPS", quantity: 42.56 },
+	]);
+	expect(tasks[0].geometry.areas).toEqual(tasks[1].geometry.areas);
+	expect(screen.getByTestId("planning-pdf")).toHaveTextContent("Fona plāni: 0");
+
+	for (const [index, task] of tasks.entries()) {
+		if (index > 0)
+			fireEvent.click(
+				within(
+					screen.getByRole("list", { name: "Kopīgās zonas darbi" }),
+				).getByRole("button", { name: task.work }),
+			);
+		fireEvent.click(openSend());
+		const dialog = await screen.findByRole("dialog", {
+			name: "Nosūtīt uzdevumu",
+		});
+		const send = within(dialog).getByRole("button", { name: "Nosūtīt" });
+		await waitFor(() => expect(send).toBeEnabled());
+		fireEvent.click(send);
+		await within(dialog).findByText("Testa sūtījums");
+		expect(sendPlanningWhatsAppTask).toHaveBeenNthCalledWith(
+			index + 1,
+			expect.objectContaining({
+				planId: task.id,
+				recipient: planningContact.phone,
+				message: expect.stringContaining(`*Darbs:* ${task.work}`),
+				images: [expect.objectContaining({ page: 1 })],
+			}),
+		);
+		expect(
+			jest.mocked(sendPlanningWhatsAppTask).mock.calls[index][0].message,
+		).toContain("42,56 m2");
+		fireEvent.click(within(dialog).getByRole("button", { name: "Atcelt" }));
+	}
+});
+
 it("applies a scale correction locally before its background save completes", async () => {
 	let finish!: (value: Record<string, number>) => void;
 	jest.mocked(saveVisualDrawingScale).mockImplementation(
@@ -357,16 +458,23 @@ beforeEach(() => {
 		]);
 	jest.mocked(getVisualPlanning).mockResolvedValue(emptyIndex);
 	jest.mocked(saveVisualPlanningItem).mockImplementation(async (raw) => {
-		const input = raw as typeof plan & { clientId?: string };
+		const input = raw as VisualPlanInput;
+		const saved = {
+			...plan,
+			...input,
+			id: input.id ?? input.clientId ?? plan.id,
+			version: input.id ? (input.version ?? 0) + 1 : 1,
+			progress: indexedPlan.progress,
+		};
 		return {
 			ok: true,
-			plan: {
-				...plan,
-				...input,
-				id: input.id ?? input.clientId ?? plan.id,
-				version: input.id ? input.version + 1 : 1,
-				progress: indexedPlan.progress,
-			},
+			plan: saved,
+			linkedPlans: input.additionalWorks?.map(({ clientId, work, unit }) => ({
+				...saved,
+				id: clientId,
+				work,
+				unit,
+			})),
 		};
 	});
 	jest.mocked(archiveVisualPlanningItem).mockResolvedValue({

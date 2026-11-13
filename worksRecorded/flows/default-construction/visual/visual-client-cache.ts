@@ -464,26 +464,32 @@ export class VisualClientCache {
 	) {
 		this.planningSaves ??= new PlanningSaveQueue(
 			transport,
-			(id, plan) => this.mergePlanningPlan(id, plan),
+			(id, plans) => this.mergePlanningPlans(id, plans),
 			this.siteId,
 		);
 		return this.planningSaves;
 	}
 
 	mergePlanningPlan(id: string, plan: Parameters<typeof planningItem>[0]) {
+		this.mergePlanningPlans(id, [plan]);
+	}
+
+	private mergePlanningPlans(
+		id: string,
+		saved: Parameters<typeof planningItem>[0][],
+	) {
 		const current = this.planning.get(id)?.value;
 		if (!current) return;
-		const previous = current.plans.find((item) => item.id === plan.id);
-		const item = {
-			...planningItem(plan, previous, current.today),
-			whatsAppSends: previous?.whatsAppSends ?? [],
-		};
-		this.rememberPlanning(id, {
-			...current,
-			plans: previous
-				? current.plans.map((entry) => (entry.id === plan.id ? item : entry))
-				: [...current.plans, item],
-		});
+		const plans = new Map(current.plans.map((plan) => [plan.id, plan]));
+		for (const plan of saved) {
+			const previous = plans.get(plan.id);
+			if (previous && previous.version > plan.version) continue;
+			plans.set(plan.id, {
+				...planningItem(plan, previous, current.today),
+				whatsAppSends: previous?.whatsAppSends ?? [],
+			});
+		}
+		this.rememberPlanning(id, { ...current, plans: [...plans.values()] });
 	}
 
 	private projectPlanning(id: string, value: VisualPlanningIndex) {
@@ -492,14 +498,33 @@ export class VisualClientCache {
 			.filter((item) => item.input.drawingId === id);
 		if (!pending?.length) return value;
 		const plans = [...value.plans];
-		for (const item of pending) {
-			const index = plans.findIndex((plan) => plan.id === item.id);
+		const project = (plan: Parameters<typeof planningItem>[0]) => {
+			const index = plans.findIndex((entry) => entry.id === plan.id);
 			const projected = {
-				...planningItem(item.plan, plans[index], value.today),
+				...planningItem(plan, plans[index], value.today),
 				whatsAppSends: plans[index]?.whatsAppSends ?? [],
 			};
 			if (index >= 0) plans[index] = projected;
 			else plans.push(projected);
+		};
+		for (const item of pending) {
+			const { plan } = item;
+			project(plan);
+			if (!plan.geometry.sharedZoneId) continue;
+			for (const linked of plans.filter(
+				(entry) =>
+					entry.id !== plan.id &&
+					entry.geometry.sharedZoneId === plan.geometry.sharedZoneId,
+			)) {
+				project({
+					...linked,
+					progress: undefined,
+					quantity: plan.quantity,
+					geometry: { ...linked.geometry, areas: plan.geometry.areas },
+				});
+			}
+			for (const { clientId, work, unit } of item.input.additionalWorks ?? [])
+				project({ ...plan, id: clientId, work, unit });
 		}
 		return { ...value, plans };
 	}
