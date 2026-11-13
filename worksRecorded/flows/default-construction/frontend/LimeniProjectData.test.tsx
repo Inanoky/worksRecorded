@@ -109,18 +109,66 @@ it("renders the streamed construction diary without a bootstrap request", async 
 	expect(global.fetch).not.toHaveBeenCalled();
 });
 
-it("loads one project snapshot and persists it under the authenticated scope", async () => {
-	jest.mocked(global.fetch).mockResolvedValue({
-		ok: true,
-		json: async () => project("fresh"),
-	} as Response);
-	render(<Workspace />);
+it("opens the Limeni journal while the full project is still loading in the background", async () => {
+	const bootstrap = { ...project("journal"), bootstrap: true };
+	let finish!: (response: Response) => void;
+	jest
+		.mocked(global.fetch)
+		.mockResolvedValueOnce({
+			ok: true,
+			json: async () => ({
+				kind: "construction-bootstrap",
+				snapshot: bootstrap,
+			}),
+		} as Response)
+		.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					finish = resolve;
+				}),
+		);
+	render(
+		<ProjectLoadingProgressProvider
+			enabled
+			visualPreloadEnabled
+			cacheScope="user:organization"
+		>
+			<LimeniProjectData siteId="site">
+				<VisualProjectView siteId="site">
+					<RetainedLimeniDiary siteId="site">
+						<Consumer />
+					</RetainedLimeniDiary>
+				</VisualProjectView>
+			</LimeniProjectData>
+		</ProjectLoadingProgressProvider>,
+	);
+	expect(await screen.findByText("Diary mounted")).toBeVisible();
+	expect(screen.getByText("journal")).toBeInTheDocument();
+	expect(screen.queryByText("Plans ready")).not.toBeInTheDocument();
+	await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+	expect(global.fetch).toHaveBeenNthCalledWith(
+		1,
+		"/api/sites/site/construction-project/bootstrap",
+		expect.anything(),
+	);
+	expect(global.fetch).toHaveBeenNthCalledWith(
+		2,
+		"/api/sites/site/limeni-project",
+		expect.anything(),
+	);
+	await act(async () =>
+		finish({
+			ok: true,
+			json: async () => project("fresh"),
+		} as Response),
+	);
 	expect(await screen.findByText("fresh")).toBeInTheDocument();
+	expect(await screen.findByText("Plans ready")).not.toBeVisible();
 	expect(PersistentProjectCache).toHaveBeenCalledWith(
 		"user:organization",
 		"site",
 	);
-	expect(global.fetch).toHaveBeenCalledTimes(1);
+	expect(mockWrite).toHaveBeenCalledWith("diary-bootstrap", bootstrap);
 	expect(mockWrite).toHaveBeenCalledWith("snapshot", project("fresh"));
 });
 it("restores standard construction projects without enabling the visual preload or downloading drawings", async () => {
@@ -141,6 +189,17 @@ it("restores standard construction projects without enabling the visual preload 
 			headers: { "If-None-Match": '"cached-construction"' },
 		}),
 	);
+});
+
+it("restores a partial Limeni diary when the browser closed before the full project loaded", async () => {
+	mockRead.mockImplementation(async (key) =>
+		key === "diary-bootstrap" ? { ...project("saved-journal"), bootstrap: true } : undefined,
+	);
+	jest.mocked(global.fetch).mockImplementation(() => new Promise(() => {}));
+	render(<Workspace />);
+	expect(await screen.findByText("saved-journal")).toBeInTheDocument();
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+	expect(global.fetch).toHaveBeenCalledWith("/api/sites/site/limeni-project", expect.anything());
 });
 
 it("throttles passive construction refreshes and ignores focusout", async () => {
@@ -312,7 +371,7 @@ it("leaves other organizations on their existing loading path", () => {
 	expect(mockRead).not.toHaveBeenCalled();
 });
 
-it("waits for the shared snapshot even when the server page registers diary settings first", async () => {
+it("waits for journal rows even when the server page registers diary settings first", async () => {
 	let finish!: (response: Response) => void;
 	jest.mocked(global.fetch).mockImplementation(
 		() =>
@@ -620,13 +679,10 @@ it("does not replace a cached project while a journal save is pending", async ()
 });
 
 it("pauses an inactive project and resumes without reading storage or resetting its draft", async () => {
-	jest
-		.mocked(global.fetch)
-		.mockResolvedValueOnce({
-			ok: true,
-			json: async () => project("ready"),
-		} as Response)
-		.mockResolvedValue({ status: 304 } as Response);
+	mockRead.mockImplementation(async (key) =>
+		key === "snapshot" ? project("ready") : undefined,
+	);
+	jest.mocked(global.fetch).mockResolvedValue({ status: 304 } as Response);
 	const protect = jest.fn();
 	const workspace = (active: boolean) => (
 		<WorkspaceActivityContext.Provider

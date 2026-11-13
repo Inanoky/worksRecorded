@@ -13,7 +13,11 @@ import {
 	openOzoluProject,
 } from "@/flows/demo/client/OzoluClient";
 import { DEMO_SITE_ID } from "@/flows/demo/constants";
-import { useProjectPreparationReset } from "./ProjectLoadingProgressProvider";
+import {
+	useProjectCacheScope,
+	useProjectPreparationReset,
+	useVisualProjectPreload,
+} from "./ProjectLoadingProgressProvider";
 
 type CommonProps = {
 	label?: string;
@@ -47,6 +51,8 @@ export default function OpenProjectButton({
 }: Props) {
 	const { setProject, projectId: currentProjectId } = useProject();
 	const resetProgress = useProjectPreparationReset(projectId ?? "");
+	const cacheScope = useProjectCacheScope();
+	const limeni = useVisualProjectPreload(projectId);
 	const [opening, setOpening] = useState(false);
 	const workspace = useWorkspaceNavigation();
 	const fallbackHref =
@@ -75,8 +81,10 @@ export default function OpenProjectButton({
 	};
 	const prepareBootstrap = () => {
 		clearIntentTimer();
-		if (canPrepareBootstrap && projectId)
-			void prefetchConstructionProjectBootstrap(projectId);
+		if (!canPrepareBootstrap || !projectId) return;
+		if (limeni && cacheScope)
+			void prefetchConstructionProjectBootstrap(projectId, cacheScope);
+		else void prefetchConstructionProjectBootstrap(projectId);
 	};
 	const scheduleBootstrap = () => {
 		clearIntentTimer();
@@ -164,7 +172,11 @@ export default function OpenProjectButton({
 				</FimaProjectNavigationLink>
 			</Button>
 			{opening ? (
-				<ProjectOpeningOverlay label={loadingLabel} siteId={projectId} />
+				<ProjectOpeningOverlay
+					label={loadingLabel}
+					siteId={projectId}
+					progress={limeni ? { completed: 0, total: 1 } : undefined}
+				/>
 			) : null}
 		</>
 	);

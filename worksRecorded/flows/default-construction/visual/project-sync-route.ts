@@ -58,9 +58,17 @@ export async function syncProjectRequest(
 			ETag: etag,
 			"Server-Timing": `project;dur=${(performance.now() - started).toFixed(1)}`,
 		};
-		if (request.headers.get("if-none-match") === etag) {
-			trace.end({ status: 304, extra: { notModified: true } });
-			return new Response(null, { status: 304, headers });
+		const postedRevision =
+			request.method === "POST"
+				? request.headers.get("x-project-revision")
+				: null;
+		if (
+			postedRevision === revision ||
+			request.headers.get("if-none-match") === etag
+		) {
+			const status = postedRevision ? 204 : 304;
+			trace.end({ status, extra: { notModified: true } });
+			return new Response(null, { status, headers });
 		}
 		let known = readProjectParts(request.headers.get("x-project-parts"));
 		let knownRows: Record<string, string> | undefined;
@@ -112,6 +120,8 @@ export async function syncProjectRequest(
 			const payload = await trace.measure("delta", () =>
 				loaders.delta(user.id, siteId, manifest, known, knownRows, sources),
 			);
+			headers["Server-Timing"] =
+				`project;dur=${(performance.now() - started).toFixed(1)}`;
 			trace.end({ status: 200, extra: { responseKind: "delta" } });
 			return Response.json(payload, { headers });
 		}

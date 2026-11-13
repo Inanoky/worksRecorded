@@ -55,6 +55,7 @@ export function RetainedLimeniDiary({
 	const projectData = useLimeniProjectData();
 	const visualPreload = useVisualProjectPreload(siteId);
 	const preload = visualPreload || projectData.enabled;
+	const journalProgress = visualPreload ? { completed: 0, total: 1 } : undefined;
 	const report = useProjectPreparationReporter(siteId);
 	const router = useRouter();
 	const backgroundRoutesPrefetched = useRef(false);
@@ -154,7 +155,7 @@ export function RetainedLimeniDiary({
 		<DiaryContext.Provider value={context}>
 			{children}
 			<section hidden={!active} aria-label="Būvdarbu žurnāls">
-				{projectData.mode === "construction" && settings?.bisUnavailable ? (
+				{settings?.bisUnavailable ? (
 					<output className="block rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
 						{settings.organizationLanguage === "en"
 							? "BIS is temporarily unavailable. You can continue using the diary; your BIS connection is retained. Try again in a minute."
@@ -166,6 +167,7 @@ export function RetainedLimeniDiary({
 						fallback={
 							active ? (
 								<ProjectOpeningOverlay
+									progress={journalProgress}
 									label={
 										settings.organizationLanguage === "en"
 											? "Loading construction diary…"
@@ -197,7 +199,10 @@ export function RetainedLimeniDiary({
 							atkārtoti.
 						</p>
 					) : (
-						<ProjectOpeningOverlay label="Ielādē būvdarbu žurnālu…" />
+						<ProjectOpeningOverlay
+							label="Ielādē būvdarbu žurnālu…"
+							progress={journalProgress}
+						/>
 					)
 				) : null}
 			</section>

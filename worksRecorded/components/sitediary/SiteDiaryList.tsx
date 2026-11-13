@@ -2219,13 +2219,18 @@ export default function SiteDiaryCalendar({
     if (!siteId || olderDaysLoading) return;
     setOlderDaysLoading(true);
     try {
-      await refreshRowsWithBisSync({ skipSync: true });
+      if (onRefreshCachedProject && !constructionClientDiary)
+        await onRefreshCachedProject();
+      else
+        await refreshRowsWithBisSync({ skipSync: true });
       setHistoryLoadedSiteId(siteId);
       clientPagination.expandFirstPage();
+    } catch {
+      toast.error(language === "lv" ? "Neizdevās ielādēt vecākus ierakstus." : "Could not load older records.");
     } finally {
       setOlderDaysLoading(false);
     }
-  }, [clientPagination, olderDaysLoading, refreshRowsWithBisSync, siteId]);
+  }, [clientPagination, constructionClientDiary, language, olderDaysLoading, onRefreshCachedProject, refreshRowsWithBisSync, siteId]);
   const keywordMatchedDayGroups = clientDiary ? clientPagination.groups : allKeywordMatchedDayGroups;
   const diaryPagePhotoUrls = React.useMemo(
     () => clientDiary && !constructionClientDiary ? getDiaryPagePhotoUrls(allKeywordMatchedDayGroups, clientMediaPhotos, clientPagination.page) : [],

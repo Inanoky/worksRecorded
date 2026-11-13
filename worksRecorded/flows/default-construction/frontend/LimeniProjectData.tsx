@@ -36,6 +36,7 @@ import {
 	type ConstructionProjectBootstrapPayload,
 	fetchConstructionProjectBootstrap,
 	fetchProjectSync,
+	LIMENI_DIARY_BOOTSTRAP_KEY,
 } from "../visual/project-sync-client";
 import { useDiarySaveQueue } from "./DiarySaveContext";
 import { FORMA2_CHANGED } from "./forma2-client-refresh";
@@ -44,8 +45,6 @@ type ProjectData = {
 	enabled: boolean;
 	mode?: "limeni" | "construction";
 	streamedTabs?: boolean;
-	checkingCache?: boolean;
-	restored?: boolean;
 	snapshot: LimeniProjectSnapshot | null;
 	persistence?: PersistentProjectCache;
 	refresh?: () => Promise<void>;
@@ -113,8 +112,6 @@ function ScopedLimeniProjectData({
 		() => (scope ? new PersistentProjectCache(scope, siteId) : undefined),
 		[scope, siteId],
 	);
-	const [restored, setRestored] = useState(false);
-	const [checkingCache, setCheckingCache] = useState(!initialDiary);
 	const current = useRef<LimeniProjectSnapshot | null>(initialDiary ?? null);
 	const displayed = useRef<LimeniProjectSnapshot | null>(initialDiary ?? null);
 	const deferred = useRef<LimeniProjectSnapshot | null>(null);
@@ -156,8 +153,10 @@ function ScopedLimeniProjectData({
 			);
 			if (!current.current.bootstrap)
 				void persistence.write(cacheKey, current.current);
+			else if (mode === "limeni")
+				void persistence.write(LIMENI_DIARY_BOOTSTRAP_KEY, current.current);
 		},
-		[siteId, persistence, publish, cacheKey],
+		[siteId, persistence, publish, cacheKey, mode],
 	);
 	useEffect(() => {
 		if (!enabled || !persistence || !workspaceActive) return;
@@ -178,7 +177,7 @@ function ScopedLimeniProjectData({
 		let inFlight: Promise<void> | undefined;
 		let initialized = false;
 		let firstSyncPending = true;
-		let lastPassiveSync = 0;
+		let lastPassiveSync = Number.NEGATIVE_INFINITY;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const flush = () => {
 			if (
@@ -205,10 +204,9 @@ function ScopedLimeniProjectData({
 			const cached = current.current;
 			try {
 				if (firstSyncPending) mark("sync-request-start");
-				const coldConstructionBootstrap =
-					mode === "construction" && !cached && firstSyncPending;
-				let deferCompleteSync = coldConstructionBootstrap;
-				let response = coldConstructionBootstrap
+				const coldBootstrap = !cached && firstSyncPending;
+				let deferCompleteSync = coldBootstrap;
+				let response = coldBootstrap
 					? await fetchConstructionProjectBootstrap(siteId, controller.signal)
 					: await fetchProjectSync(siteId, cached, controller.signal, mode);
 				if (firstSyncPending) {
@@ -229,7 +227,7 @@ function ScopedLimeniProjectData({
 					return true;
 				};
 				if (await deniedResponse()) return;
-				if (!response.ok && coldConstructionBootstrap) {
+				if (!response.ok && coldBootstrap) {
 					response = await fetchProjectSync(
 						siteId,
 						null,
@@ -239,7 +237,7 @@ function ScopedLimeniProjectData({
 					deferCompleteSync = false;
 					if (await deniedResponse()) return;
 				}
-				if (response.status === 304 && cached) {
+				if ((response.status === 304 || response.status === 204) && cached) {
 					if (before === interaction) {
 						flush();
 						if (manual && !cached.bootstrap)
@@ -295,8 +293,10 @@ function ScopedLimeniProjectData({
 					deferred.current = null;
 				} else deferred.current = next;
 				if (!next.bootstrap) await persistence.write(cacheKey, next);
+				else if (mode === "limeni")
+					await persistence.write(LIMENI_DIARY_BOOTSTRAP_KEY, next);
 				setFailed(false);
-				if (deferCompleteSync) schedule();
+				if (deferCompleteSync) schedule(mode === "limeni" ? 0 : undefined);
 			} catch (error) {
 				if (!controller.signal.aborted) setFailed(true);
 				if (manual) throw error;
@@ -304,13 +304,7 @@ function ScopedLimeniProjectData({
 		};
 		const refresh = async (manual = false, passive = false) => {
 			flush();
-			if (
-				!manual &&
-				passive &&
-				mode === "construction" &&
-				Date.now() - lastPassiveSync < 15000
-			)
-				return;
+			if (!manual && passive && Date.now() - lastPassiveSync < 15000) return;
 			if (manual) {
 				while (inFlight) await inFlight.catch(() => {});
 			} else if (inFlight || document.visibilityState === "hidden") return;
@@ -327,7 +321,7 @@ function ScopedLimeniProjectData({
 					throw new Error("Pabeidziet labojumus un atjaunojiet vēlreiz.");
 				return;
 			}
-			if (mode === "construction") lastPassiveSync = Date.now();
+			lastPassiveSync = Date.now();
 			inFlight = sync(manual);
 			try {
 				await inFlight;
@@ -336,9 +330,9 @@ function ScopedLimeniProjectData({
 			}
 		};
 		manualRefresh.current = () => refresh(true);
-		function schedule() {
+		function schedule(delay = 1500) {
 			if (timer) clearTimeout(timer);
-			timer = setTimeout(() => void refresh(), 1500);
+			timer = setTimeout(() => void refresh(), delay);
 		}
 		const changed = (event: Event) => {
 			if (
@@ -351,39 +345,41 @@ function ScopedLimeniProjectData({
 		const wake = () => {
 			if (document.visibilityState !== "hidden") void refresh(false, true);
 		};
+		const reconnect = () => void refresh();
 		for (const event of ["input", "submit", "pointerdown"])
 			document.addEventListener(event, edited, true);
 		for (const event of [PROJECT_CHANGED, DIARY_RECORD_UPDATED, FORMA2_CHANGED])
 			window.addEventListener(event, changed);
 		window.addEventListener(PROJECT_PATCH, patch);
 		window.addEventListener("focus", wake);
-		window.addEventListener("online", wake);
+		window.addEventListener("online", reconnect);
 		document.addEventListener("visibilitychange", wake);
-		if (mode !== "construction")
-			document.addEventListener("focusout", schedule);
 		const interval = setInterval(wake, 15000);
 		void (async () => {
 			if (!current.current && initialDiary) {
 				current.current = initialDiary;
 				publish(initialDiary);
-				setCheckingCache(false);
 			}
 			if (current.current) {
 				flush();
 				initialized = true;
-				if (!current.current.bootstrap) void refresh();
+				if (!current.current.bootstrap || mode === "limeni") void refresh();
 				return;
 			}
 			mark("cache-read-start");
-			const cached = await persistence.read<LimeniProjectSnapshot>(cacheKey);
+			const cached =
+				(await persistence.read<LimeniProjectSnapshot>(cacheKey)) ??
+				(mode === "limeni"
+					? await persistence.read<LimeniProjectSnapshot>(
+							LIMENI_DIARY_BOOTSTRAP_KEY,
+						)
+					: undefined);
 			mark("cache-read-end");
 			if (controller.signal.aborted) return;
 			if (cached?.settings?.siteId === siteId) {
 				current.current = hydrateProjectDates(cached);
-				setRestored(true);
 				publish(cached);
 			}
-			setCheckingCache(false);
 			initialized = true;
 			void refresh();
 		})();
@@ -402,10 +398,8 @@ function ScopedLimeniProjectData({
 				window.removeEventListener(event, changed);
 			window.removeEventListener(PROJECT_PATCH, patch);
 			window.removeEventListener("focus", wake);
-			window.removeEventListener("online", wake);
+			window.removeEventListener("online", reconnect);
 			document.removeEventListener("visibilitychange", wake);
-			if (mode !== "construction")
-				document.removeEventListener("focusout", schedule);
 		};
 	}, [
 		enabled,
@@ -453,8 +447,6 @@ function ScopedLimeniProjectData({
 			enabled,
 			mode,
 			streamedTabs: Boolean(initialDiary),
-			checkingCache,
-			restored,
 			snapshot,
 			persistence,
 			refresh: enabled ? refreshProject : undefined,
@@ -465,8 +457,6 @@ function ScopedLimeniProjectData({
 			enabled,
 			mode,
 			initialDiary,
-			checkingCache,
-			restored,
 			snapshot,
 			persistence,
 			refreshProject,

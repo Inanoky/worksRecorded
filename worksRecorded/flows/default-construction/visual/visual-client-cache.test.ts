@@ -59,7 +59,7 @@ afterEach(() => {
 	global.fetch = originalFetch;
 });
 
-it("starts every floor download and planning load together and retains all four parsed PDFs", async () => {
+it("limits concurrent floor downloads and retains all four parsed PDFs", async () => {
 	const cache = new VisualClientCache("site");
 	let finish!: (value: VisualPlanningIndex) => void;
 	const planning = new Promise<VisualPlanningIndex>((resolve) => {
@@ -69,14 +69,15 @@ it("starts every floor download and planning load together and retains all four 
 	const floors = [1, 2, 3, 4].map((floor) => ({ id: `floor-${floor}` }));
 	const prepared = cache.prepareProject(floors, load, jest.fn());
 	await waitForPreparation();
-	expect(load).toHaveBeenCalledTimes(4);
+	expect(load).toHaveBeenCalledTimes(3);
 	expect(
 		jest
 			.mocked(global.fetch)
 			.mock.calls.filter(([url]) => String(url).endsWith("?pdf=1")),
-	).toHaveLength(4);
+	).toHaveLength(3);
 	finish(planningIndex);
 	await prepared;
+	expect(load).toHaveBeenCalledTimes(4);
 	expect(mockGetDocument).toHaveBeenCalledTimes(4);
 	for (const floor of [...floors, ...floors].reverse()) {
 		const lease = cache.openPdf(`${cache.endpoint(floor.id)}?pdf=1`);
@@ -311,7 +312,9 @@ it("invalidates planning after mutations and retries a failed planning request",
 
 it("releases inactive render resources while retaining project data", async () => {
 	const cache = new VisualClientCache("site");
-	const load = jest.fn().mockResolvedValue({ drawings: [], locations: ["1. stāvs"] });
+	const load = jest
+		.fn()
+		.mockResolvedValue({ drawings: [], locations: ["1. stāvs"] });
 	await cache.loadIndex(load);
 	const source = document.createElement("canvas");
 	source.width = 1000;
@@ -348,9 +351,16 @@ it("can finish a full preload after a project is suspended and resumed partway t
 	const cache = new VisualClientCache("site");
 	let cancelled = false;
 	let finishPlanning: (value: VisualPlanningIndex) => void = () => {};
-	const planning = new Promise<VisualPlanningIndex>(resolve => { finishPlanning = resolve; });
+	const planning = new Promise<VisualPlanningIndex>((resolve) => {
+		finishPlanning = resolve;
+	});
 	const progress = jest.fn();
-	const first = cache.prepareProject([{ id: "drawing" }], () => planning, progress, () => cancelled);
+	const first = cache.prepareProject(
+		[{ id: "drawing" }],
+		() => planning,
+		progress,
+		() => cancelled,
+	);
 	await waitForPreparation();
 	cancelled = true;
 	cache.suspend();
@@ -358,8 +368,16 @@ it("can finish a full preload after a project is suspended and resumed partway t
 	await first;
 	cache.resume();
 	const resumed = jest.fn();
-	await cache.prepareProject([{ id: "drawing" }], async () => planningIndex, resumed);
-	for (const step of ["visual-drawing", "visual-planning", "visual-preview"]) expect(resumed).toHaveBeenCalledWith(step, "done", { completed: 1, total: 1 });
+	await cache.prepareProject(
+		[{ id: "drawing" }],
+		async () => planningIndex,
+		resumed,
+	);
+	for (const step of ["visual-drawing", "visual-planning", "visual-preview"])
+		expect(resumed).toHaveBeenCalledWith(step, "done", {
+			completed: 1,
+			total: 1,
+		});
 	cache.clear();
 });
 
@@ -674,15 +692,16 @@ it("loads visible tiles before queued prefetches and promotes a shared request",
 		],
 	};
 	const finish = new Map<string, () => void>();
-	const fetch = jest.fn((url: string) =>
-		new Promise((resolve) => {
-			finish.set(url, () =>
-				resolve({
-					ok: true,
-					blob: async () => new Blob(["tile"], { type: "image/png" }),
-				}),
-			);
-		}),
+	const fetch = jest.fn(
+		(url: string) =>
+			new Promise((resolve) => {
+				finish.set(url, () =>
+					resolve({
+						ok: true,
+						blob: async () => new Blob(["tile"], { type: "image/png" }),
+					}),
+				);
+			}),
 	);
 	global.fetch = fetch as unknown as typeof global.fetch;
 	const cache = new VisualClientCache("site");

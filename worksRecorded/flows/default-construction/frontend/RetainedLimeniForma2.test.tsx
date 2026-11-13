@@ -25,6 +25,7 @@ jest.mock("./DiarySaveProvider", () => ({
 jest.mock("./LimeniProjectData", () => ({
 	useLimeniProjectData: () => ({
 		enabled: true,
+		mode: mockMode,
 		snapshot: {
 			bootstrap: mockBootstrap,
 			version: "bootstrap:one",
@@ -40,6 +41,7 @@ jest.mock("./DefaultConstructionForma2View", () => ({
 }));
 
 let mockBootstrap = true;
+let mockMode: "limeni" | "construction" = "construction";
 let mockPathname = "/dashboard/sites/site/analytics";
 const mockReport = jest.fn();
 const originalFetch = global.fetch;
@@ -47,6 +49,7 @@ const originalFetch = global.fetch;
 beforeEach(() => {
 	mockPathname = "/dashboard/sites/site/analytics";
 	mockBootstrap = true;
+	mockMode = "construction";
 	jest.clearAllMocks();
 });
 
@@ -77,6 +80,17 @@ it("loads Forma 2 directly when the active project still has a bootstrap snapsho
 		expect.objectContaining({ cache: "no-cache" }),
 	);
 	await waitFor(() => expect(patchProject).not.toHaveBeenCalled());
+});
+
+it("uses the shared Limeni project update when Forma 2 opens during background loading", async () => {
+	mockMode = "limeni";
+	global.fetch = jest.fn();
+	const view = render(<RetainedLimeniForma2 siteId="site" />);
+	expect(screen.getByText("Ielādē Forma 2…")).toBeInTheDocument();
+	mockBootstrap = false;
+	view.rerender(<RetainedLimeniForma2 siteId="site" />);
+	await waitFor(() => expect(screen.queryByText("Ielādē Forma 2…")).not.toBeInTheDocument());
+	expect(global.fetch).not.toHaveBeenCalled();
 });
 
 it("retains the loaded empty result across tab switches and refreshes after a Forma2 change", async () => {

@@ -63,7 +63,10 @@ async function InvoiceRoute({
 }) {
 	const { siteId } = await params;
 	const routeContext = await getWorkspaceRouteContext(siteId);
-	if (routeContext.descriptor.constructionWorkspace) {
+	if (
+		routeContext.descriptor.constructionWorkspace ||
+		routeContext.descriptor.visualPreload
+	) {
 		const { descriptor, organizationLanguage } = routeContext;
 		if (descriptor.name) {
 			after(async () => {

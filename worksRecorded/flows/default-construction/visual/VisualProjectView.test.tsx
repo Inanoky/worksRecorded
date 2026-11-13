@@ -1,10 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
 import { getProjectNavLinks } from "@/components/dashboard/NavLinks";
-import {
-	ProjectLoadingProgressProvider,
-	useProjectPreparationReporter,
-} from "@/components/providers/ProjectLoadingProgressProvider";
+import { ProjectLoadingProgressProvider } from "@/components/providers/ProjectLoadingProgressProvider";
 
 let mockPathname = "/dashboard/sites/site/dashboard";
 jest.mock("next/navigation", () => ({ usePathname: () => mockPathname }));
@@ -108,83 +104,25 @@ it("preloads Limeni's hidden view when opening a project and reuses it on the fi
 			<Diary active />
 		</ProjectLoadingProgressProvider>,
 	);
-	const report = screen.queryByRole("status", { name: "Sagatavo projektu…" });
-	expect(report).toBeInTheDocument();
 	expect(screen.getByLabelText("Location")).toBe(input);
 	expect(mockMount).toHaveBeenCalledTimes(1);
 });
 
-function CompletePreparation({
-	ready,
-	failed = false,
-}: {
-	ready: boolean;
-	failed?: boolean;
-}) {
-	const report = useProjectPreparationReporter("site");
-	useEffect(() => {
-		for (const step of [
-			"settings",
-			"diary",
-			"visual-module",
-			"visual-index",
-			"visual-drawing",
-			"visual-planning",
-			"forma2",
-		])
-			report(step);
-		if (ready) report("visual-preview", failed ? "error" : "done");
-	}, [report, ready, failed]);
-	return <div>Project content</div>;
-}
-
-it("keeps the project blocked until all resources finish and does not block section switches again", async () => {
+it("keeps journal actions available while drawing previews are pending", async () => {
 	mockPathname = "/dashboard/sites/site/dashboard";
-	const content = (ready: boolean) => (
-		<ProjectLoadingProgressProvider enabled visualPreloadEnabled>
-			<VisualProjectView siteId="site">
-				<CompletePreparation ready={ready} />
-			</VisualProjectView>
-		</ProjectLoadingProgressProvider>
-	);
-	const view = render(content(false));
-	expect(
-		await screen.findByRole("status", { name: "Sagatavo projektu…" }),
-	).toBeInTheDocument();
-	expect(screen.getByText("Project content").parentElement).toHaveAttribute(
-		"inert",
-	);
-	view.rerender(content(true));
-	await waitFor(() =>
-		expect(
-			screen.queryByRole("status", { name: "Sagatavo projektu…" }),
-		).not.toBeInTheDocument(),
-	);
-	mockPathname = "/dashboard/sites/site/izpildshemas";
-	view.rerender(content(true));
-	expect(
-		screen.queryByRole("status", { name: "Sagatavo projektu…" }),
-	).not.toBeInTheDocument();
-});
-
-it("offers retry or an explicit partial opening when a preload fails", async () => {
-	mockPathname = "/dashboard/sites/site/dashboard";
+	const open = jest.fn();
 	render(
 		<ProjectLoadingProgressProvider enabled visualPreloadEnabled>
 			<VisualProjectView siteId="site">
-				<CompletePreparation ready failed />
+				<button type="button" onClick={open}>
+					Atvērt žurnālu
+				</button>
 			</VisualProjectView>
 		</ProjectLoadingProgressProvider>,
 	);
-	expect(
-		await screen.findByRole("button", { name: "Mēģināt vēlreiz" }),
-	).toBeInTheDocument();
-	fireEvent.click(
-		screen.getByRole("button", { name: "Atvērt ar pieejamajiem datiem" }),
-	);
-	expect(
-		screen.queryByRole("status", { name: "Sagatavo projektu…" }),
-	).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Atvērt žurnālu" }));
+	expect(open).toHaveBeenCalledTimes(1);
+	await waitFor(() => expect(mockMount).toHaveBeenCalledTimes(1));
 });
 
 it("preloads only eligible projects for an administrator visiting multiple organizations", async () => {

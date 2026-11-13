@@ -1,3 +1,4 @@
+import { PersistentProjectCache } from "./project-persistent-cache";
 import type { LimeniProjectSnapshot } from "./project-snapshot-store";
 
 export type ConstructionProjectBootstrapPayload = {
@@ -6,9 +7,10 @@ export type ConstructionProjectBootstrapPayload = {
 };
 
 const BOOTSTRAP_PREFETCH_TTL_MS = 15_000;
+export const LIMENI_DIARY_BOOTSTRAP_KEY = "diary-bootstrap";
 const bootstrapPrefetches = new Map<
 	string,
-	{ expiresAt: number; response: Promise<Response> }
+	{ expiresAt: number; response: Promise<Response | null> }
 >();
 
 function constructionBootstrapUrl(siteId: string) {
@@ -23,7 +25,10 @@ function getBootstrapPrefetch(siteId: string) {
 	return null;
 }
 
-export function prefetchConstructionProjectBootstrap(siteId: string) {
+export function prefetchConstructionProjectBootstrap(
+	siteId: string,
+	limeniCacheScope?: string,
+) {
 	const existing = getBootstrapPrefetch(siteId);
 	if (existing)
 		return existing.response.then(
@@ -31,14 +36,26 @@ export function prefetchConstructionProjectBootstrap(siteId: string) {
 			() => undefined,
 		);
 
+	const load = async () => {
+		if (limeniCacheScope) {
+			const cache = new PersistentProjectCache(limeniCacheScope, siteId);
+			const saved = await cache.read<LimeniProjectSnapshot>("snapshot");
+			if (saved?.settings?.siteId === siteId) return null;
+			const diary = await cache.read<LimeniProjectSnapshot>(
+				LIMENI_DIARY_BOOTSTRAP_KEY,
+			);
+			if (diary?.settings?.siteId === siteId) return null;
+		}
+		return fetch(constructionBootstrapUrl(siteId), { cache: "no-cache" });
+	};
 	const entry = {
 		expiresAt: Date.now() + BOOTSTRAP_PREFETCH_TTL_MS,
-		response: fetch(constructionBootstrapUrl(siteId), { cache: "no-cache" }),
+		response: load(),
 	};
 	bootstrapPrefetches.set(siteId, entry);
 	void entry.response.then(
 		(response) => {
-			if (!response.ok && bootstrapPrefetches.get(siteId) === entry)
+			if (response && !response.ok && bootstrapPrefetches.get(siteId) === entry)
 				bootstrapPrefetches.delete(siteId);
 		},
 		() => {
@@ -71,7 +88,13 @@ export async function fetchConstructionProjectBootstrap(
 	const response = await prefetched.response;
 	if (signal.aborted)
 		throw signal.reason ?? new DOMException("Aborted", "AbortError");
-	return response.clone();
+	return (
+		response?.clone() ??
+		fetch(constructionBootstrapUrl(siteId), {
+			cache: "no-cache",
+			signal,
+		})
+	);
 }
 
 export async function fetchProjectSync(
@@ -84,30 +107,45 @@ export async function fetchProjectSync(
 	const headers: Record<string, string> = cached
 		? { "If-None-Match": `"${cached.revision ?? cached.version}"` }
 		: {};
-	if (cached?.partVersions && cached.diaryRowVersions)
-		headers["X-Project-Sync"] = "records-v1";
-	else if (cached?.partVersions)
+	const inventory =
+		cached?.partVersions && cached.diaryRowVersions
+			? JSON.stringify({
+					parts: cached.partVersions,
+					rows: cached.diaryRowVersions,
+					sources: cached.sourceVersions,
+				})
+			: null;
+	const sendInventory = (body: string, cache: RequestCache) =>
+		fetch(url, {
+			method: "POST",
+			cache,
+			signal,
+			headers: { ...headers, "Content-Type": "application/json" },
+			body,
+		});
+	if (mode === "limeni" && inventory && cached?.sourceVersions)
+		return fetch(url, {
+			method: "POST",
+			cache: "no-store",
+			signal,
+			headers: {
+				"Content-Type": "application/json",
+				"X-Project-Revision": cached.revision ?? cached.version,
+			},
+			body: inventory,
+		});
+	if (inventory) {
+		const response = await fetch(url, {
+			cache: "no-cache",
+			signal,
+			headers: { ...headers, "X-Project-Sync": "records-v1" },
+		});
+		return response.status === 202 &&
+			response.headers.get("x-project-sync") === "records-v1"
+			? sendInventory(inventory, "no-cache")
+			: response;
+	}
+	if (cached?.partVersions)
 		headers["X-Project-Parts"] = JSON.stringify(cached.partVersions);
-	const response = await fetch(url, { cache: "no-cache", signal, headers });
-	if (
-		response.status !== 202 ||
-		response.headers.get("x-project-sync") !== "records-v1" ||
-		!cached?.diaryRowVersions ||
-		!cached.partVersions
-	)
-		return response;
-	return fetch(url, {
-		method: "POST",
-		cache: "no-cache",
-		signal,
-		headers: {
-			"Content-Type": "application/json",
-			"If-None-Match": headers["If-None-Match"],
-		},
-		body: JSON.stringify({
-			parts: cached.partVersions,
-			rows: cached.diaryRowVersions,
-			sources: cached.sourceVersions,
-		}),
-	});
+	return fetch(url, { cache: "no-cache", signal, headers });
 }

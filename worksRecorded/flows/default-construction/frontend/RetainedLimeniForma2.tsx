@@ -35,6 +35,7 @@ type Payload = {
 export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 	const visualPreload = useVisualProjectPreload(siteId);
 	const projectData = useLimeniProjectData();
+	const sharedSync = projectData.enabled && projectData.mode === "limeni";
 	const enabled = visualPreload || projectData.enabled;
 	const seeded = useRef("");
 	const active = usePathname() === `/dashboard/sites/${siteId}/analytics`;
@@ -100,7 +101,8 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 	}, [siteId, report, projectData.enabled, projectData.snapshot?.bootstrap]);
 	useEffect(() => {
 		if (projectData.enabled) {
-			void loadView().catch(() => report("forma2", "error"));
+			if (projectData.snapshot || active)
+				void loadView().catch(() => report("forma2", "error"));
 			if (
 				projectData.snapshot &&
 				!projectData.snapshot.bootstrap &&
@@ -124,11 +126,23 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 			controller.current?.abort();
 			pending.current = null;
 		};
-	}, [enabled, refresh, projectData.enabled, projectData.snapshot, report]);
+	}, [
+		active,
+		enabled,
+		refresh,
+		projectData.enabled,
+		projectData.snapshot,
+		report,
+	]);
 	useEffect(() => {
-		if (projectData.enabled && active && (!payload || lastLoaded.current === 0))
+		if (
+			projectData.enabled &&
+			!sharedSync &&
+			active &&
+			(!payload || lastLoaded.current === 0)
+		)
 			void refresh();
-	}, [active, payload, projectData.enabled, refresh]);
+	}, [active, payload, projectData.enabled, refresh, sharedSync]);
 	useEffect(() => {
 		if (snapshot.revision === lastDiaryRevision.current) return;
 		lastDiaryRevision.current = snapshot.revision;
@@ -180,7 +194,7 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 		};
 	}, [enabled, active, refresh, siteId, projectData.enabled]);
 	useEffect(() => {
-		if (!enabled || !projectData.enabled) return;
+		if (!enabled || !projectData.enabled || sharedSync) return;
 		const changed = (event: Event) => {
 			if ((event as CustomEvent<{ siteId?: string }>).detail?.siteId !== siteId)
 				return;
@@ -193,18 +207,26 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 			window.removeEventListener(FORMA2_CHANGED, changed);
 			window.removeEventListener(DIARY_RECORD_UPDATED, changed);
 		};
-	}, [enabled, projectData.enabled, active, refresh, siteId]);
+	}, [enabled, projectData.enabled, active, refresh, sharedSync, siteId]);
 
+	const refreshProject = projectData.refresh;
 	const update = useCallback(() => {
-		void refresh();
-	}, [refresh]);
+		if (sharedSync && refreshProject) {
+			void refreshProject().catch(() => setFailed(true));
+		} else {
+			void refresh();
+		}
+	}, [refresh, refreshProject, sharedSync]);
+	const loadFailed = sharedSync
+		? !payload && (projectData.failed || failed)
+		: failed;
 	if (!enabled) return null;
 	return (
 		<section hidden={!active} aria-label="Forma 2">
-			{active && projectData.enabled && !payload ? (
+			{active && projectData.enabled && !payload && !loadFailed ? (
 				<ProjectOpeningOverlay label="Ielādē Forma 2…" />
 			) : null}
-			{failed ? (
+			{loadFailed ? (
 				<output className="block rounded-md border p-3 text-sm">
 					Neizdevās atjaunot Forma 2.{" "}
 					<button type="button" className="underline" onClick={update}>

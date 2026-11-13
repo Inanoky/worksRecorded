@@ -72,6 +72,32 @@ it("requests row changes only after a changed revision, using the cached revisio
 	);
 });
 
+it("checks a complete Limeni cache in one request and accepts an empty response", async () => {
+	const response = { status: 204, json: jest.fn() } as unknown as Response;
+	const sourceVersions = { diary: "c".repeat(64) };
+	jest.mocked(global.fetch).mockResolvedValue(response);
+	const signal = new AbortController().signal;
+	expect(
+		await fetchProjectSync("site", { ...cached, sourceVersions }, signal),
+	).toBe(response);
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+	expect(global.fetch).toHaveBeenCalledWith("/api/sites/site/limeni-project", {
+		method: "POST",
+		cache: "no-store",
+		signal,
+		headers: {
+			"X-Project-Revision": "old-revision",
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			parts: cached.partVersions,
+			rows: cached.diaryRowVersions,
+			sources: sourceVersions,
+		}),
+	});
+	expect(response.json).not.toHaveBeenCalled();
+});
+
 it("negotiates before posting cached construction row versions", async () => {
 	const delta = { status: 200 } as Response;
 	jest

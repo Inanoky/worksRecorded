@@ -23,6 +23,7 @@ import {
 } from "./prepared-preview-model";
 import { previewSource } from "./preview-revision";
 import { ProjectAccessError } from "./project-access-error";
+import type { loadProjectManifest } from "./project-revision-store";
 import { requireVisualAccess, visualDrawingIndex } from "./store";
 
 export { ProjectAccessError };
@@ -140,13 +141,15 @@ export async function loadLimeniProjectSnapshot(
 	userId: string,
 	siteId: string,
 	trace?: ProjectSnapshotPerfTrace,
+	manifest?: Awaited<ReturnType<typeof loadProjectManifest>>,
 ) {
-	const access = await requireVisualAccess(userId, siteId).catch(
-		projectAccessFailure,
-	);
+	const organizationId =
+		manifest?.organizationId ??
+		(await requireVisualAccess(userId, siteId).catch(projectAccessFailure))
+			.organizationId;
 	const [assets, diary, config, forma2, bis, language] = await Promise.all([
 		measureSnapshotPhase(trace, "snapshotVisual", () =>
-			loadLimeniProjectAssets(userId, siteId, access.organizationId),
+			loadLimeniProjectAssets(userId, siteId, organizationId),
 		),
 		measureSnapshotPhase(trace, "snapshotDiary", () =>
 			getLimeniDiarySnapshot(siteId),
@@ -166,7 +169,7 @@ export async function loadLimeniProjectSnapshot(
 		settings: {
 			siteId,
 			userId,
-			organizationId: access.organizationId,
+			organizationId,
 			bisEnabled: bis.enabled,
 			organizationLanguage: language,
 		},

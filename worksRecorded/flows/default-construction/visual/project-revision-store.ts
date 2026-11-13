@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { createPerfTrace } from "@/lib/observability/perf";
 import { prisma } from "@/lib/utils/db";
 import { projectAccessFailure } from "./project-snapshot-store";
 import { requireVisualAccess } from "./store";
@@ -27,12 +28,15 @@ function buildProjectManifest(raw: RawProjectManifest, organizationId: string) {
 	};
 }
 
-export async function loadProjectManifest(userId: string, siteId: string) {
-	const access = await requireVisualAccess(userId, siteId).catch(
-		projectAccessFailure,
-	);
-	const organizationId = access.organizationId;
-	return readProjectManifest(userId, siteId, organizationId);
+export async function loadProjectManifest(
+	userId: string,
+	siteId: string,
+	trace?: ReturnType<typeof createPerfTrace>,
+) {
+	const authorize = () => requireVisualAccess(userId, siteId).catch(projectAccessFailure);
+	const access = await (trace ? trace.measure("manifestAccess", authorize) : authorize());
+	const read = () => readProjectManifest(userId, siteId, access.organizationId);
+	return trace ? trace.measure("manifestQuery", read) : read();
 }
 
 export async function readProjectManifest(
@@ -41,10 +45,18 @@ export async function readProjectManifest(
 	organizationId: string,
 ) {
 	const result = await prisma.$queryRaw<RawProjectManifest[]>`
+    WITH diary AS MATERIALIZED (
+      SELECT r.id, r."Date", r."createdAt",
+        md5(jsonb_build_array(r.xmin::text, r.ctid::text, u."firstName", u."lastName", w.name, w.surname)::text) AS version
+      FROM public.sitediaryrecords r
+      LEFT JOIN public."User" u ON u.id = r."userId"
+      LEFT JOIN public.workers w ON w.id = r."workerId"
+      WHERE r."siteId" = ${siteId} AND r."organizationId" = ${organizationId} AND r."archivedAt" IS NULL
+    )
     SELECT jsonb_build_object(
-'site',(SELECT md5(COALESCE(string_agg(md5(to_jsonb(t)::text),':' ORDER BY t.id),'')) FROM public."Site" t WHERE t.id = ${siteId} AND t."organizationId" = ${organizationId}),
-'documents',(SELECT md5(COALESCE(string_agg(md5(to_jsonb(t)::text),':' ORDER BY t.id),'')) FROM public."Documents" t WHERE t."siteId" = ${siteId} AND t."organizationId" = ${organizationId} AND t."documentType" IN ('limeni-visual-v1','limeni-visual-preview-v1')),
-'diary',(SELECT md5(COALESCE(string_agg(md5(to_jsonb(t)::text),':' ORDER BY t.id),'')) FROM public."sitediaryrecords" t WHERE t."siteId" = ${siteId} AND t."organizationId" = ${organizationId}),
+'site',(SELECT jsonb_build_array(t.id,t.xmin::text,t.ctid::text)::text FROM public."Site" t WHERE t.id = ${siteId} AND t."organizationId" = ${organizationId}),
+'documents',(SELECT md5(COALESCE(string_agg(jsonb_build_array(t.id,t.xmin::text,t.ctid::text)::text,':' ORDER BY t.id),'')) FROM public."Documents" t WHERE t."siteId" = ${siteId} AND t."organizationId" = ${organizationId} AND t."documentType" IN ('limeni-visual-v1','limeni-visual-preview-v1')),
+'diary',(SELECT md5(COALESCE(string_agg(jsonb_build_array(id,version)::text,':' ORDER BY id),'')) FROM diary),
 'media',(SELECT md5(COALESCE(string_agg(md5(to_jsonb(t)::text),':' ORDER BY t.id),'')) FROM public."photos" t WHERE t."siteId" = ${siteId} AND t."organizationId" = ${organizationId}),
 'plans',(SELECT md5(COALESCE(string_agg(md5(to_jsonb(t)::text),':' ORDER BY t.id),'')) FROM public."ConstructionPlan" t WHERE t."siteId" = ${siteId}),
 'contacts',(SELECT md5(COALESCE(string_agg(md5(to_jsonb(t)::text),':' ORDER BY t.id),'')) FROM public."VisualPlanningContact" t WHERE t."siteId" = ${siteId}),
@@ -58,9 +70,8 @@ export async function readProjectManifest(
 'bis',(SELECT md5(COALESCE(string_agg(md5(to_jsonb(t)::text),':' ORDER BY t.id),'')) FROM public."BisToken" t WHERE t."userId" = ${userId}),
       'day',to_char(now() AT TIME ZONE 'Europe/Riga','YYYY-MM-DD')
     ) AS sources,
-    (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',r.id,'version',md5(jsonb_build_array(to_jsonb(r),u."firstName",u."lastName",w.name,w.surname)::text)) ORDER BY r."Date" DESC,r."createdAt" DESC,r.id DESC),'[]'::jsonb)
-    FROM public.sitediaryrecords r LEFT JOIN public."User" u ON u.id=r."userId" LEFT JOIN public.workers w ON w.id=r."workerId"
-    WHERE r."siteId"=${siteId} AND r."organizationId"=${organizationId} AND r."archivedAt" IS NULL) AS rows
+    (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',id,'version',version) ORDER BY "Date" DESC,"createdAt" DESC,id DESC),'[]'::jsonb)
+    FROM diary) AS rows
   `;
 	return buildProjectManifest(result[0], organizationId);
 }

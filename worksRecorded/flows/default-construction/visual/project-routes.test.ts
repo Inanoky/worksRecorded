@@ -229,12 +229,12 @@ it("runs the client-to-route sync contract from first load through a row delta t
 		Comments: "Original WhatsApp message",
 	});
 	expect(updated.config).toBe(first.config);
-	expect((await fetchProjectSync("site", updated, signal)).status).toBe(304);
+	expect((await fetchProjectSync("site", updated, signal)).status).toBe(204);
 	expect(requests.map((request) => request.method)).toEqual([
 		"GET",
 		"GET",
 		"POST",
-		"GET",
+		"POST",
 	]);
 	expect(loadLimeniProjectSnapshot).toHaveBeenCalledTimes(2);
 });

@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
 import { useWorkspaceNavigation } from "@/components/projects/WorkspaceNavigation";
+import { useProjectCacheScope } from "@/components/providers/ProjectLoadingProgressProvider";
 import { useProject } from "@/components/providers/ProjectProvider";
 import {
 	DropdownMenu,
@@ -132,11 +133,15 @@ export function DashboardProjectNavigation({
 	const searchParams = useSearchParams();
 	const labels = getProjectNavigationLabels(organizationLanguage);
 	const { setProject } = useProject();
+	const cacheScope = useProjectCacheScope();
 	const isTgem = flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL;
 	const prefetchProjectBootstrap =
 		flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION
 			? (siteId: string) => {
-					void prefetchConstructionProjectBootstrap(siteId);
+					void prefetchConstructionProjectBootstrap(
+						siteId,
+						constructionBootstrapClickOnly ? undefined : cacheScope,
+					);
 				}
 			: undefined;
 	const prefetchProjectRoute = prefetchProjectBootstrap

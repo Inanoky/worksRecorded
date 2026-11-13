@@ -149,10 +149,10 @@ export default function VisualView({
 }) {
 	const reportPreparation = useProjectPreparationReporter(siteId);
 	const projectData = useLimeniProjectData();
-	const initialProject = useRef(projectData.snapshot);
-	if (!initialProject.current && projectData.snapshot)
-		initialProject.current = projectData.snapshot;
-	const projectReady = !projectData.enabled || !!projectData.snapshot;
+	const project = projectData.snapshot?.bootstrap ? null : projectData.snapshot;
+	const initialProject = useRef(project);
+	if (!initialProject.current && project) initialProject.current = project;
+	const projectReady = !projectData.enabled || !!project;
 	const appliedProjectVersion = useRef("");
 	useEffect(() => {
 		reportPreparation("visual-module");
@@ -893,7 +893,7 @@ export default function VisualView({
 				)
 			: null;
 	useEffect(() => {
-		const snapshot = projectData.snapshot;
+		const snapshot = project;
 		if (
 			!snapshot ||
 			snapshot.version === appliedProjectVersion.current ||
@@ -915,7 +915,7 @@ export default function VisualView({
 		);
 		if (selected) setDrawing(selected.drawing);
 	}, [
-		projectData.snapshot,
+		project,
 		projectData.persistence,
 		hasUnsavedPolygons,
 		planningSaveState.length,
