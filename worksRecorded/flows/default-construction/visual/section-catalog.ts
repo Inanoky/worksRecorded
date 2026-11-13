@@ -1,4 +1,5 @@
 import catalog from "@/assets/visual-sections/ar-701/catalog.json";
+import hipokratuCatalog from "@/assets/visual-sections/hipokratu-upb-bp8/catalog.json";
 import raudasCatalog from "@/assets/visual-sections/raudas-16/catalog.json";
 
 const key = (value: string) =>
@@ -8,6 +9,7 @@ function projectCatalog(projectName: string | undefined) {
 	if (!projectName) return;
 	const name = key(projectName);
 	if (name === key(catalog.projectName)) return catalog;
+	if (name === key(hipokratuCatalog.projectName)) return hipokratuCatalog;
 	if (
 		[raudasCatalog.projectName, ...raudasCatalog.projectAliases].some(
 			(alias) => key(alias) === name,

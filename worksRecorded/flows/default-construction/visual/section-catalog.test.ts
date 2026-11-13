@@ -77,3 +77,37 @@ it("loads every Raudas crop and retains its source drawing provenance", async ()
 		await readSectionDrawing("Raudas iela, Tukums", "../../ar-701/PA1.6.png"),
 	).toBeNull();
 });
+
+it("loads all eight UPB BP-8 details only for the Hipokrātu iela 2 project", async () => {
+	const project = "Hipokrātu iela 2, Rīga (UPB)";
+	const sections = sectionCatalogForProject(project);
+	expect(sections.map((section) => section.code)).toEqual([
+		"P-1.3",
+		"P-1.4",
+		"P-2.4",
+		"P-2.7",
+		"P-3.3",
+		"P-3.4",
+		"P-3.5",
+		"P-3.6",
+	]);
+	expect(readVisualSections({}, project)).toEqual(
+		sections.map((section) => section.code),
+	);
+	expect(sectionCatalogForProject("Hipokrātu iela")).toEqual([]);
+	expect(sectionDrawingForProject("Šmerļa iela 3", "P-2.4")).toBeUndefined();
+	for (const section of sections) {
+		const drawing = await readSectionDrawing(project, section.code);
+		expect(drawing?.code).toBe(section.code);
+		expect(drawing?.bytes.subarray(0, 8).toString("hex")).toBe(
+			"89504e470d0a1a0a",
+		);
+		expect(section).toEqual(
+			expect.objectContaining({
+				sourceSha256:
+					"f0ddde95a9badf081a65a4b2a269e327fac8610f37a1a93df361d2ec3832fc06",
+			}),
+		);
+	}
+	expect(await readSectionDrawing(project, "../../.env")).toBeNull();
+});
