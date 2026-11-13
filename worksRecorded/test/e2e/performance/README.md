@@ -26,14 +26,15 @@ session can be saved before testing continues. Set
 
 ## Run the journey
 
-Named targets keep the flow, project, scenario, expected project API, run count,
-and cycle count consistent. The first canonical target is
-`default-construction-core`, which measures the Pļavas iela 2 project using the
-`construction-project/bootstrap` API for its cold diary opening. It switches to
-the B68 project through the project dropdown and back to Pļavas iela 2, then
-checks Forma 2, warehouse materials, invoice summaries, invoice rows, and a
-cached invoice-row reopen. A full baseline uses five fresh browser contexts and
-three diary/warehouse cycles per context:
+Named targets keep the flow, project, scenario, run count, and cycle count
+consistent. The first canonical target is `default-construction-core`, which
+measures the Pļavas iela 2 cold diary opening by URL and usable-content
+readiness. The diary bootstrap may arrive in the server-rendered project route
+or through an explicit API request; all network activity is captured either
+way. The journey switches to B68 through the project dropdown and back to
+Pļavas iela 2, then checks Forma 2, warehouse materials, invoice summaries,
+invoice rows, and a cached invoice-row reopen. A full baseline uses five fresh
+browser contexts and three diary/warehouse cycles per context:
 
 ```sh
 PERF_RUN_LABEL=baseline-v1-2026-11-08 \

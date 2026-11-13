@@ -30,7 +30,10 @@ export async function loadConstructionProjectBootstrap(
 export async function readAuthorizedConstructionBootstrap(
 	userId: string,
 	siteId: string,
-	access: Awaited<ReturnType<typeof requireConstructionProjectAccess>>,
+	access: Pick<
+		Awaited<ReturnType<typeof requireConstructionProjectAccess>>,
+		"organizationId" | "organizationLanguage" | "bisCaseId" | "diaryConfig"
+	>,
 	trace?: ProjectBootstrapTrace,
 ): Promise<LimeniProjectSnapshot> {
 	const [diary, bis] = await Promise.all([

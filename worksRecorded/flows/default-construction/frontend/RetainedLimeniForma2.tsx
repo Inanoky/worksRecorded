@@ -67,7 +67,11 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 					if (request.signal.aborted) return;
 					etag.current = response.headers.get("etag") ?? "";
 					setPayload(next);
-					if (projectData.enabled && !projectData.snapshot?.bootstrap)
+					if (
+						next.data.document &&
+						projectData.enabled &&
+						!projectData.snapshot?.bootstrap
+					)
 						patchProject(siteId, (snapshot) => ({
 							...snapshot,
 							revision: undefined,
@@ -122,20 +126,9 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 		};
 	}, [enabled, refresh, projectData.enabled, projectData.snapshot, report]);
 	useEffect(() => {
-		if (
-			projectData.enabled &&
-			projectData.snapshot?.bootstrap &&
-			active &&
-			!payload
-		)
+		if (projectData.enabled && active && (!payload || lastLoaded.current === 0))
 			void refresh();
-	}, [
-		active,
-		payload,
-		projectData.enabled,
-		projectData.snapshot?.bootstrap,
-		refresh,
-	]);
+	}, [active, payload, projectData.enabled, refresh]);
 	useEffect(() => {
 		if (snapshot.revision === lastDiaryRevision.current) return;
 		lastDiaryRevision.current = snapshot.revision;
@@ -186,6 +179,22 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 			window.removeEventListener(DIARY_RECORD_UPDATED, changed);
 		};
 	}, [enabled, active, refresh, siteId, projectData.enabled]);
+	useEffect(() => {
+		if (!enabled || !projectData.enabled) return;
+		const changed = (event: Event) => {
+			if ((event as CustomEvent<{ siteId?: string }>).detail?.siteId !== siteId)
+				return;
+			lastLoaded.current = 0;
+			if (active) void refresh();
+		};
+		window.addEventListener(FORMA2_CHANGED, changed);
+		window.addEventListener(DIARY_RECORD_UPDATED, changed);
+		return () => {
+			window.removeEventListener(FORMA2_CHANGED, changed);
+			window.removeEventListener(DIARY_RECORD_UPDATED, changed);
+		};
+	}, [enabled, projectData.enabled, active, refresh, siteId]);
+
 	const update = useCallback(() => {
 		void refresh();
 	}, [refresh]);

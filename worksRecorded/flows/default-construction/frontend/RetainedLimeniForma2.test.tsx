@@ -1,16 +1,17 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { patchProject } from "../visual/project-sync";
+import { FORMA2_CHANGED } from "./forma2-client-refresh";
 import { RetainedLimeniForma2 } from "./RetainedLimeniForma2";
 
 jest.mock("next/navigation", () => ({
-	usePathname: () => "/dashboard/sites/site/analytics",
+	usePathname: () => mockPathname,
 }));
 jest.mock("@/components/projects/WorkspaceActivity", () => ({
 	WorkspaceView: ({ children }: { children: ReactNode }) => children,
 }));
 jest.mock("@/components/providers/ProjectLoadingProgressProvider", () => ({
-	useProjectPreparationReporter: () => jest.fn(),
+	useProjectPreparationReporter: () => mockReport,
 	useVisualProjectPreload: () => false,
 }));
 jest.mock("@/components/providers/ProjectOpeningOverlay", () => ({
@@ -25,7 +26,7 @@ jest.mock("./LimeniProjectData", () => ({
 	useLimeniProjectData: () => ({
 		enabled: true,
 		snapshot: {
-			bootstrap: true,
+			bootstrap: mockBootstrap,
 			version: "bootstrap:one",
 			forma2: { organizationLanguage: "lv", data: {} },
 		},
@@ -38,7 +39,16 @@ jest.mock("./DefaultConstructionForma2View", () => ({
 	),
 }));
 
+let mockBootstrap = true;
+let mockPathname = "/dashboard/sites/site/analytics";
+const mockReport = jest.fn();
 const originalFetch = global.fetch;
+
+beforeEach(() => {
+	mockPathname = "/dashboard/sites/site/analytics";
+	mockBootstrap = true;
+	jest.clearAllMocks();
+});
 
 afterEach(() => {
 	global.fetch = originalFetch;
@@ -67,4 +77,102 @@ it("loads Forma 2 directly when the active project still has a bootstrap snapsho
 		expect.objectContaining({ cache: "no-cache" }),
 	);
 	await waitFor(() => expect(patchProject).not.toHaveBeenCalled());
+});
+
+it("retains the loaded empty result across tab switches and refreshes after a Forma2 change", async () => {
+	global.fetch = jest.fn().mockResolvedValue({
+		ok: true,
+		status: 200,
+		headers: { get: () => '"empty"' },
+		json: async () => ({
+			data: {
+				siteName: "Empty Forma2",
+				document: null,
+				resultRows: [],
+				clientCosts: { positions: [], sources: [], allocations: [] },
+			},
+			organizationLanguage: "lv",
+		}),
+	});
+	const view = render(<RetainedLimeniForma2 siteId="site" />);
+	expect(await screen.findByText("Empty Forma2")).toBeInTheDocument();
+	mockPathname = "/dashboard/sites/site/dashboard";
+	view.rerender(<RetainedLimeniForma2 siteId="site" />);
+	mockPathname = "/dashboard/sites/site/analytics";
+	view.rerender(<RetainedLimeniForma2 siteId="site" />);
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+	await act(async () => {
+		window.dispatchEvent(
+			new CustomEvent(FORMA2_CHANGED, { detail: { siteId: "other" } }),
+		);
+	});
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+	await act(async () => {
+		window.dispatchEvent(
+			new CustomEvent(FORMA2_CHANGED, { detail: { siteId: "site" } }),
+		);
+	});
+	expect(global.fetch).toHaveBeenCalledTimes(2);
+	expect(global.fetch).toHaveBeenLastCalledWith(
+		"/api/sites/site/forma2/results",
+		expect.objectContaining({ headers: { "If-None-Match": '"empty"' } }),
+	);
+});
+
+it("revalidates an invalidated empty result on return to Forma2", async () => {
+	global.fetch = jest.fn().mockResolvedValue({
+		ok: true,
+		status: 200,
+		headers: { get: () => '"empty"' },
+		json: async () => ({
+			data: {
+				siteName: "Empty Forma2",
+				document: null,
+				resultRows: [],
+				clientCosts: { positions: [], sources: [], allocations: [] },
+			},
+			organizationLanguage: "lv",
+		}),
+	});
+	const view = render(<RetainedLimeniForma2 siteId="site" />);
+	expect(await screen.findByText("Empty Forma2")).toBeInTheDocument();
+	mockPathname = "/dashboard/sites/site/dashboard";
+	view.rerender(<RetainedLimeniForma2 siteId="site" />);
+	await act(async () => {
+		window.dispatchEvent(
+			new CustomEvent(FORMA2_CHANGED, { detail: { siteId: "site" } }),
+		);
+	});
+	expect(global.fetch).toHaveBeenCalledTimes(1);
+	mockPathname = "/dashboard/sites/site/analytics";
+	view.rerender(<RetainedLimeniForma2 siteId="site" />);
+	await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+});
+
+it("does not replace full spending sources with the empty screen response", async () => {
+	mockBootstrap = false;
+	global.fetch = jest
+		.fn()
+		.mockResolvedValue({
+			ok: true,
+			status: 200,
+			headers: { get: () => '"empty"' },
+			json: async () => ({
+				data: {
+					siteName: "Empty response",
+					document: null,
+					resultRows: [],
+					clientCosts: { positions: [], sources: [], allocations: [] },
+				},
+				organizationLanguage: "lv",
+			}),
+		});
+	render(<RetainedLimeniForma2 siteId="site" />);
+	await act(async () => {
+		window.dispatchEvent(
+			new CustomEvent(FORMA2_CHANGED, { detail: { siteId: "site" } }),
+		);
+	});
+	expect(await screen.findByText("Empty response")).toBeInTheDocument();
+	expect(patchProject).not.toHaveBeenCalled();
 });

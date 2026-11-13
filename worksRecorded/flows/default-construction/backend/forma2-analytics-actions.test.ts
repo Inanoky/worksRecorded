@@ -1,4 +1,6 @@
+import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { prisma } from "@/lib/utils/db";
+import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import type { Forma2Position } from "../lib/forma2-analytics";
 import * as drawingQuantities from "../lib/forma2-drawing-quantities";
@@ -10,6 +12,7 @@ import {
 	getDefaultConstructionForma2Results,
 	saveDefaultConstructionForma2Allocations,
 } from "./forma2-analytics-actions";
+import { readAuthorizedForma2Results } from "./forma2-data-read";
 
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 jest.mock("@/lib/utils/requireUser", () => ({
@@ -112,19 +115,81 @@ describe("Forma 2 diary quantity loaders", () => {
 		jest.mocked(prisma.bISmaterialRecords.count).mockResolvedValue(0);
 	});
 
+	it("returns a verified empty Forma2 without source reads or repeated access checks", async () => {
+		jest.mocked(prisma.analytics.findUnique).mockResolvedValue(null);
+		const trace = { measure: jest.fn(async (_phase, task) => task()) };
+		const result = await readAuthorizedForma2Results(
+			"site",
+			{ siteName: "Authorized site", siteDiaryRecordsMap: {} },
+			trace,
+		);
+		expect(result).toEqual({
+			siteName: "Authorized site",
+			document: null,
+			resultRows: [],
+			clientCosts: { positions: [], sources: [], allocations: [] },
+		});
+		expect(prisma.analytics.findUnique).toHaveBeenCalledTimes(1);
+		expect(prisma.site.findUnique).not.toHaveBeenCalled();
+		expect(prisma.sitediaryrecords.findMany).not.toHaveBeenCalled();
+		expect(prisma.bISmaterialRecords.findMany).not.toHaveBeenCalled();
+		expect(prisma.documents.findMany).not.toHaveBeenCalled();
+		expect(requireUser).not.toHaveBeenCalled();
+		expect(orgCheck).not.toHaveBeenCalled();
+		expect(resolveFlowModuleKeyForRuntime).not.toHaveBeenCalled();
+	});
+
+	it("preserves imported results and measures sources while reusing authorized context", async () => {
+		const expected = await getDefaultConstructionForma2Results("site");
+		jest.clearAllMocks();
+		const phases: string[] = [];
+		const trace = {
+			measure: async <T>(phase: string, task: () => T | Promise<T>) => {
+				phases.push(phase);
+				return task();
+			},
+		};
+		const result = await readAuthorizedForma2Results(
+			"site",
+			{ siteName: "Site", siteDiaryRecordsMap: {} },
+			trace,
+		);
+		expect(result).toEqual(expected);
+		expect(prisma.analytics.findUnique).toHaveBeenCalledTimes(1);
+		expect(prisma.site.findUnique).not.toHaveBeenCalled();
+		expect(orgCheck).not.toHaveBeenCalled();
+		expect(resolveFlowModuleKeyForRuntime).not.toHaveBeenCalled();
+		expect(phases).toEqual(
+			expect.arrayContaining([
+				"state",
+				"results",
+				"diarySources",
+				"materialSources",
+				"drawingQuantities",
+			]),
+		);
+	});
+
+	it("keeps full spending sources when the general reader has no imported document", async () => {
+		jest.mocked(prisma.analytics.findUnique).mockResolvedValue(null);
+		const result = await getDefaultConstructionForma2Results("site");
+		expect(result.document).toBeNull();
+		expect(result.clientCosts.sources).toHaveLength(1);
+		expect(prisma.sitediaryrecords.findMany).toHaveBeenCalledTimes(1);
+		expect(prisma.bISmaterialRecords.findMany).toHaveBeenCalledTimes(1);
+	});
+
 	it("includes unassigned invoices in the cached cost sources for project spending", async () => {
-		jest
-			.mocked(prisma.bISmaterialRecords.findMany)
-			.mockResolvedValue([
-				{
-					id: "unassigned-invoice",
-					name: "Invoice material",
-					cost: 123.45,
-					quantity: 10,
-					measurementUnit: "m2",
-					materialDate: new Date("2026-10-26"),
-				},
-			] as never);
+		jest.mocked(prisma.bISmaterialRecords.findMany).mockResolvedValue([
+			{
+				id: "unassigned-invoice",
+				name: "Invoice material",
+				cost: 123.45,
+				quantity: 10,
+				measurementUnit: "m2",
+				materialDate: new Date("2026-10-26"),
+			},
+		] as never);
 		const result = await getDefaultConstructionForma2Results("site");
 		expect(prisma.bISmaterialRecords.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({ where: { siteId: "site" } }),

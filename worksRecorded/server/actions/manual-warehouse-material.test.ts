@@ -31,14 +31,14 @@ const input = {
 beforeEach(() => {
 	jest.clearAllMocks();
 	jest.mocked(requireUser).mockResolvedValue({ id: "user" } as any);
-	jest
-		.mocked(requireConstructionProjectAccess)
-		.mockResolvedValue({
-			organizationId: "org",
-			bisCaseId: null,
-			organizationLanguage: "lv",
-			diaryConfig: {},
-		});
+	jest.mocked(requireConstructionProjectAccess).mockResolvedValue({
+		siteName: "Site",
+		siteDiaryRecordsMap: {},
+		organizationId: "org",
+		bisCaseId: null,
+		organizationLanguage: "lv",
+		diaryConfig: {},
+	});
 	jest
 		.mocked(prisma.bISmaterialRecords.createMany)
 		.mockResolvedValue({ count: 1 });

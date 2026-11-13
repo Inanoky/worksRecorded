@@ -35,6 +35,8 @@ beforeEach(() => {
 	jest.clearAllMocks();
 	jest.mocked(requireUser).mockResolvedValue({ id: "user" } as never);
 	jest.mocked(requireConstructionProjectAccess).mockResolvedValue({
+		siteName: "Project",
+		siteDiaryRecordsMap: {},
 		organizationId: "org",
 		bisCaseId: null,
 		organizationLanguage: "lv",
@@ -88,6 +90,8 @@ it("returns a three-day bootstrap without loading Forma2, BIS, or a manifest", a
 
 it("checks BIS only when the authorized project has a BIS case", async () => {
 	jest.mocked(requireConstructionProjectAccess).mockResolvedValue({
+		siteName: "Project",
+		siteDiaryRecordsMap: {},
 		organizationId: "org",
 		bisCaseId: "case",
 		organizationLanguage: "lv",

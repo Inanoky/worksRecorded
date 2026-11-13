@@ -35,7 +35,9 @@ it("loads access and project configuration in one organization-scoped query", as
 			name: true,
 			organizationId: true,
 			bisCaseId: true,
+			bisCaseNumber: true,
 			siteDiaryRecordsMap: true,
+			organization: { select: { orgLanguage: true } },
 		},
 	});
 });

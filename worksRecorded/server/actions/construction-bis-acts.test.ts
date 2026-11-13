@@ -55,14 +55,14 @@ beforeEach(() => {
 		list,
 		request,
 	} as any);
-	jest
-		.mocked(requireConstructionProjectAccess)
-		.mockResolvedValue({
-			organizationId: "org",
-			bisCaseId: "999",
-			organizationLanguage: "lv",
-			diaryConfig: {},
-		});
+	jest.mocked(requireConstructionProjectAccess).mockResolvedValue({
+		siteName: "Site",
+		siteDiaryRecordsMap: {},
+		organizationId: "org",
+		bisCaseId: "999",
+		organizationLanguage: "lv",
+		diaryConfig: {},
+	});
 	jest
 		.mocked(prisma.sitediaryrecords.findMany)
 		.mockResolvedValue([{ id: recordId, BISId: "10" }] as any);

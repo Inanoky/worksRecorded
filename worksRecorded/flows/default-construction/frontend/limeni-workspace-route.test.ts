@@ -3,8 +3,9 @@ import { GET as settings } from "@/app/api/sites/[siteId]/limeni-workspace/route
 import { GET as planning } from "@/app/api/sites/[siteId]/visual/[drawingId]/planning/route";
 import { GET as drawings } from "@/app/api/sites/[siteId]/visual/route";
 import { requireUser } from "@/lib/utils/requireUser";
+import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { requireConstructionProjectAccess } from "../backend/construction-project-access";
-import { getDefaultConstructionForma2Results } from "../backend/forma2-analytics-actions";
+import { readAuthorizedForma2Results } from "../backend/forma2-data-read";
 import { getVisualDrawings, getVisualPlanning } from "../visual/actions";
 import { requireVisualAccess } from "../visual/store";
 
@@ -21,15 +22,17 @@ jest.mock("../visual/store", () => ({ requireVisualAccess: jest.fn() }));
 jest.mock("../backend/construction-project-access", () => ({
 	requireConstructionProjectAccess: jest.fn(),
 }));
-jest.mock("../backend/forma2-analytics-actions", () => ({
-	getDefaultConstructionForma2Results: jest.fn(),
+jest.mock("../backend/forma2-data-read", () => ({
+	readAuthorizedForma2Results: jest.fn(),
 }));
 jest.mock("../visual/actions", () => ({
 	getVisualDrawings: jest.fn(),
 	getVisualPlanning: jest.fn(),
 }));
 jest.mock("@/server/actions/shared-actions", () => ({
-	getOrganizationLanguageByUserId: async () => "lv",
+	getOrganizationLanguageByUserId: jest.fn(() => {
+		throw new Error("Unexpected separate language read");
+	}),
 }));
 jest.mock("@/lib/bis/dashboard-status", () => ({
 	getDashboardBisStatus: async () => ({ enabled: false }),
@@ -39,17 +42,20 @@ const request = () =>
 	new Request("https://worksrecorded.test/api/sites/site/forma2/results");
 beforeEach(() => {
 	jest.resetAllMocks();
+	jest.mocked(getOrganizationLanguageByUserId).mockResolvedValue("lv");
 	jest.mocked(requireUser).mockResolvedValue({ id: "user" } as never);
 	jest
 		.mocked(requireVisualAccess)
 		.mockResolvedValue({ organizationId: "limeni" } as never);
 	jest.mocked(requireConstructionProjectAccess).mockResolvedValue({
+		siteName: "Project",
+		siteDiaryRecordsMap: {},
 		organizationId: "organization",
 		bisCaseId: null,
 		organizationLanguage: "lv",
 		diaryConfig: {},
 	});
-	jest.mocked(getDefaultConstructionForma2Results).mockResolvedValue({
+	jest.mocked(readAuthorizedForma2Results).mockResolvedValue({
 		siteName: "Project",
 		document: null,
 		resultRows: [],
@@ -78,18 +84,29 @@ it("rejects another organization before loading Forma 2 or serving a cached resp
 		.mockRejectedValue(new Error("Forbidden"));
 	expect((await settings(request(), context)).status).toBe(403);
 	expect((await results(request(), context)).status).toBe(403);
-	expect(getDefaultConstructionForma2Results).not.toHaveBeenCalled();
+	expect(readAuthorizedForma2Results).not.toHaveBeenCalled();
 });
 
 it("returns unchanged Forma 2 as 304 after rechecking access and sends changed results", async () => {
+	jest.mocked(getOrganizationLanguageByUserId).mockClear();
 	const first = await results(request(), context);
+	expect(getOrganizationLanguageByUserId).not.toHaveBeenCalled();
+	expect(readAuthorizedForma2Results).toHaveBeenCalledWith(
+		"site",
+		expect.objectContaining({
+			siteName: "Project",
+			organizationLanguage: "lv",
+		}),
+		expect.objectContaining({ measure: expect.any(Function) }),
+	);
+	expect((await first.clone().json()).organizationLanguage).toBe("lv");
 	const etag = first.headers.get("etag") ?? "";
 	const conditional = new Request(request(), {
 		headers: { "If-None-Match": etag },
 	});
 	expect((await results(conditional, context)).status).toBe(304);
 	expect(requireConstructionProjectAccess).toHaveBeenCalledTimes(2);
-	jest.mocked(getDefaultConstructionForma2Results).mockResolvedValue({
+	jest.mocked(readAuthorizedForma2Results).mockResolvedValue({
 		siteName: "Changed",
 		document: null,
 		resultRows: [],
@@ -124,4 +141,11 @@ it("uses the existing authorized drawing and planning readers for parallel GET r
 			})
 		).status,
 	).toBe(403);
+});
+
+it("does not read Forma2 data when authentication fails", async () => {
+	jest.mocked(requireUser).mockRejectedValue(new Error("Unauthorized"));
+	expect((await results(request(), context)).status).toBe(403);
+	expect(requireConstructionProjectAccess).not.toHaveBeenCalled();
+	expect(readAuthorizedForma2Results).not.toHaveBeenCalled();
 });

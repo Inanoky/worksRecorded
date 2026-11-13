@@ -63,6 +63,44 @@ statistical guarantee that these timings hold for 90% of all users, regions,
 devices, and production periods. Confirm durability with repeated equivalent
 5x3 reports; use a larger run count if a formal P90 service target is needed.
 
+## Latest measured candidate
+
+- Benchmark label: `prod-streamed-bootstrap-5x3-2026-11-12`
+- Runs: 5 independent cold browser contexts
+- Diary/warehouse cycles per run: 3
+- Report: `.performance-results/benchmark-default-construction-core-prod-streamed-bootstrap-5x3-2026-11-12.json`
+- Result: all journeys and readiness checks passed, with zero WorksRecorded
+  HTTP 4xx/5xx responses
+
+Candidate P75 values compared with the accepted benchmark:
+
+| Metric | Accepted | Candidate | Change |
+| --- | ---: | ---: | ---: |
+| Projects cold load | 3,549 ms | 3,586 ms | +1.0% |
+| Project first open | 3,543 ms | 6,094 ms | +72.0% |
+| Project client open to diary ready | 459 ms | 559 ms | +21.8% |
+| Primary to B68 project switch | 3,508 ms | 3,377 ms | -3.7% |
+| B68 to primary project switch | 429 ms | 439 ms | +2.3% |
+| Diary to Forma 2 | 4,425 ms | 5,480 ms | +23.8% |
+| Warehouse first open | 4,183 ms | 277 ms | -93.4% |
+| Warehouse hard reload | 4,009 ms | 5,093 ms | +27.0% |
+| Warehouse materials to invoices | 234 ms | 266 ms | +13.7% |
+| Cached invoice reopen | 829 ms | 861 ms | +3.9% |
+
+Do not promote this candidate over the accepted benchmark yet. The streamed
+workspace makes the first warehouse navigation nearly instant, but the initial
+project route now eagerly prepares diary, warehouse, and timesheets. The five
+runs show a bimodal project-first-open result (about 2.6 seconds in three runs
+and 6.1-6.8 seconds in two runs), and the project-first-open phase transferred
+3.49 MB across 148 successful requests in aggregate. Split or defer the
+non-diary streamed tabs, then repeat the same 5x3 production journey.
+
+The benchmark no longer requires a separate construction-bootstrap browser
+request for either project. The default-construction project page can deliver
+the authorized diary bootstrap through the server-rendered route; URL and
+usable-content readiness plus captured request failures remain the transport-
+independent acceptance contract.
+
 ## Active plan: cold diary bootstrap
 
 Status: the cold bootstrap API and client handoff are implemented, deployed,

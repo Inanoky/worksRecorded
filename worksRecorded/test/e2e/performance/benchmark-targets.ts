@@ -8,7 +8,7 @@ export type PerformanceBenchmarkTarget = {
 	secondaryProjectId?: string;
 	secondaryProjectName?: string;
 	scenario: string;
-	expectedProjectApiPath: string;
+	expectedProjectApiPath?: string;
 	secondaryExpectedProjectApiPath?: string;
 	defaultRuns: number;
 	defaultCycles: number;
@@ -29,10 +29,6 @@ const PERFORMANCE_BENCHMARK_TARGETS: Record<
 		secondaryProjectId: "bd829e5b-b4c7-4972-8e97-3820efa7d0d4",
 		secondaryProjectName: "B68",
 		scenario: "project-switch-forma2-warehouse-views",
-		expectedProjectApiPath:
-			"/api/sites/dcbdc6fd-ded4-46db-9ac6-e1489298cce0/construction-project/bootstrap",
-		secondaryExpectedProjectApiPath:
-			"/api/sites/bd829e5b-b4c7-4972-8e97-3820efa7d0d4/construction-project/bootstrap",
 		defaultRuns: 5,
 		defaultCycles: 3,
 	},

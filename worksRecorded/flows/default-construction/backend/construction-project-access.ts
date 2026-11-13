@@ -22,6 +22,8 @@ export async function requireConstructionProjectAccess(
 	if (site.bisCaseId && isFimaDiary(site.siteDiaryRecordsMap))
 		throw new ProjectAccessError("Construction workspace is unavailable");
 	return {
+		siteName: site.name,
+		siteDiaryRecordsMap: site.siteDiaryRecordsMap,
 		organizationId: site.organizationId,
 		bisCaseId: site.bisCaseId,
 		organizationLanguage: normalizeOrganizationLanguage(
