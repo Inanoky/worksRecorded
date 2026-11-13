@@ -134,7 +134,7 @@ afterEach(() => {
 	global.fetch = originalFetch;
 });
 
-it("starts independent preloads together, gates on every section, and keeps one progress-only screen", async () => {
+it("opens the journal while Forma 2 loads and preserves state on tab switches", async () => {
 	let finishSettings!: (value: Response) => void;
 	let finishForma2!: (value: Response) => void;
 	global.fetch = jest.fn(
@@ -146,17 +146,13 @@ it("starts independent preloads together, gates on every section, and keeps one 
 	);
 	const view = render(<Shell />);
 	await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
-	expect(screen.getAllByRole("progressbar")).toHaveLength(1);
-	expect(screen.getAllByRole("status")).toHaveLength(1);
-	expect(screen.queryByRole("list")).not.toBeInTheDocument();
-	await act(async () => finishForma2(response(result)));
-	expect(screen.getByRole("progressbar")).toBeInTheDocument();
 	await act(async () => finishSettings(response(settings)));
-	await waitFor(() =>
-		expect(screen.queryByRole("progressbar")).not.toBeInTheDocument(),
-	);
+	const journal = await screen.findByLabelText("Journal filter");
+	expect(journal).toBeVisible();
+	expect(screen.queryByLabelText("Forma 2 filter")).not.toBeInTheDocument();
+	expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+	await act(async () => finishForma2(response(result)));
 	expect(mockRouterPrefetch).not.toHaveBeenCalled();
-	const journal = screen.getByLabelText("Journal filter");
 	const drawing = screen.getByLabelText("Drawing floor");
 	const forma2 = screen.getByLabelText("Forma 2 filter");
 	fireEvent.change(journal, { target: { value: "concrete" } });

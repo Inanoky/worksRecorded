@@ -55,7 +55,9 @@ export function RetainedLimeniDiary({
 	const projectData = useLimeniProjectData();
 	const visualPreload = useVisualProjectPreload(siteId);
 	const preload = visualPreload || projectData.enabled;
-	const journalProgress = visualPreload ? { completed: 0, total: 1 } : undefined;
+	const journalProgress = visualPreload
+		? { completed: 0, total: 1 }
+		: undefined;
 	const report = useProjectPreparationReporter(siteId);
 	const router = useRouter();
 	const backgroundRoutesPrefetched = useRef(false);
@@ -167,6 +169,7 @@ export function RetainedLimeniDiary({
 						fallback={
 							active ? (
 								<ProjectOpeningOverlay
+									primary={visualPreload}
 									progress={journalProgress}
 									label={
 										settings.organizationLanguage === "en"
@@ -200,6 +203,7 @@ export function RetainedLimeniDiary({
 						</p>
 					) : (
 						<ProjectOpeningOverlay
+							primary={visualPreload}
 							label="Ielādē būvdarbu žurnālu…"
 							progress={journalProgress}
 						/>

@@ -114,7 +114,7 @@ beforeEach(() => {
 			organizationId: LIMENI_ORGANIZATION_ID,
 			name: "Project",
 			flowModuleKey: "default-construction",
-			visualPreload: true,
+			visualPreload: false,
 			fimaActs: false,
 			constructionWorkspace: false,
 		},
@@ -130,6 +130,19 @@ beforeEach(() => {
 	jest
 		.mocked(resolveFlowModuleKeyForRuntime)
 		.mockResolvedValue("default-construction");
+});
+
+it("registers the authorized Limeni dashboard without waiting for BIS or a diary snapshot", async () => {
+	const context = await mockWorkspaceRouteContext();
+	mockWorkspaceRouteContext.mockResolvedValue({
+		...context,
+		descriptor: { ...context.descriptor, visualPreload: true },
+	});
+	render(await Page({ params: Promise.resolve({ siteId: "site" }) }));
+	expect(getSiteBisConfig).not.toHaveBeenCalled();
+	expect(getUserBisTokenByUserId).not.toHaveBeenCalled();
+	expect(orgCheck).not.toHaveBeenCalled();
+	expect(screen.queryByTestId("standard")).not.toBeInTheDocument();
 });
 
 it.each([LIMENI_ORGANIZATION_ID, "other"])(

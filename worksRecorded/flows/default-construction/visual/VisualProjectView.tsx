@@ -64,7 +64,7 @@ export function VisualProjectView({
 				report(step, "error");
 	}, [projectData.failed, projectData.snapshot, report]);
 	return (
-		<ProjectPreparationScope siteId={siteId}>
+		<ProjectPreparationScope siteId={siteId} managed={preload}>
 			{children}
 			<section hidden={!active} aria-label="Izpildshēmas">
 				{active && projectData.failed && !preloadDrawings ? (

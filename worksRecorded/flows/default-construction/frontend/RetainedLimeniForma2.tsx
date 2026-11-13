@@ -101,7 +101,7 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 	}, [siteId, report, projectData.enabled, projectData.snapshot?.bootstrap]);
 	useEffect(() => {
 		if (projectData.enabled) {
-			if (projectData.snapshot || active)
+			if (projectData.snapshot)
 				void loadView().catch(() => report("forma2", "error"));
 			if (
 				projectData.snapshot &&
@@ -127,7 +127,6 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 			pending.current = null;
 		};
 	}, [
-		active,
 		enabled,
 		refresh,
 		projectData.enabled,
@@ -224,7 +223,10 @@ export function RetainedLimeniForma2({ siteId }: { siteId: string }) {
 	return (
 		<section hidden={!active} aria-label="Forma 2">
 			{active && projectData.enabled && !payload && !loadFailed ? (
-				<ProjectOpeningOverlay label="Ielādē Forma 2…" />
+				<ProjectOpeningOverlay
+					primary={visualPreload}
+					label="Ielādē Forma 2…"
+				/>
 			) : null}
 			{loadFailed ? (
 				<output className="block rounded-md border p-3 text-sm">
