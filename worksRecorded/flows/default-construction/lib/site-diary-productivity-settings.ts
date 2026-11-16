@@ -1,4 +1,8 @@
-import { getDefaultConstructionForma2SourceByWork } from "./forma2-work-options-manifest";
+import {
+	getDefaultConstructionForma2SourceByWork,
+	getDefaultConstructionForma2WorkSyncManifest,
+	normalizeForma2WorkOptionKey,
+} from "./forma2-work-options-manifest";
 import {
 	DEFAULT_CONSTRUCTION_ACTUAL_QUANTITY_FIELD,
 	hasDefaultConstructionQuantityProfile,
@@ -292,6 +296,25 @@ export function createDefaultConstructionRecordCostCalculator(
 			recordedCost: readDefaultConstructionRecordedCost(config, record),
 		});
 	};
+}
+
+export function createDefaultConstructionDiaryUnitResolver(
+	config: Record<string, unknown> | null | undefined,
+) {
+	const units = new Map<string, string>();
+	if (config) {
+		for (const { work, unit } of getDefaultConstructionProductivitySettings(
+			config,
+		).works) {
+			if (unit) units.set(normalizeForma2WorkOptionKey(work), unit);
+		}
+		for (const { work, unit } of getDefaultConstructionForma2WorkSyncManifest(
+			config,
+		)?.entries ?? []) {
+			if (unit) units.set(normalizeForma2WorkOptionKey(work), unit);
+		}
+	}
+	return (work: unknown) => units.get(normalizeForma2WorkOptionKey(work));
 }
 
 export function getDefaultConstructionProductivitySettings(

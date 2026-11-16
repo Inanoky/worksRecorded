@@ -425,6 +425,31 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     });
   });
 
+  it("saves the selected estimate's unit on extracted diary rows", async () => {
+    const work = "2.1.1 PP aku izbūve";
+    siteFindUniqueMock.mockResolvedValueOnce({
+      siteDiaryRecordsMap: {
+        Works: { DropDownOptions: { [work]: work } },
+        otherSettings: {
+          defaultConstructionProductivity: { works: [{ work, unit: "komplekts" }] },
+        },
+      },
+    });
+    const result = await saveSiteDiaryRecord({
+      rows: [
+        { Works: work, Amounts: 2, Units: "pcs" },
+        { Works: "Cits darbs", Amounts: 4, Units: "m" },
+      ],
+      userId: "user-1",
+      siteId: "site-1",
+    });
+    expectSuccessfulSave(result, 2);
+    expect(createMock.mock.calls.map(([{ data }]) => [data.Works, data.Amounts, data.Units])).toEqual([
+      [work, 2, "komplekts"],
+      ["Cits darbs", 4, "m"],
+    ]);
+  });
+
   it("links verified source photos to every row in the same report and not the next report", async () => {
     photosFindManyMock.mockResolvedValue([{ URL: "https://ut.test.ufs.sh/f/report.jpg", fileUrl: null }]);
     await runWithWhatsappSourceContext({ diaryPhotoIds: ["photo-1"], mediaPurpose: "site_diary_caption" }, () => saveSiteDiaryRecord({

@@ -2,7 +2,7 @@ export type BisDiaryReference = { id: string; label: string };
 export type BisDiaryReferences = {
 	scope: string;
 	drawings: BisDiaryReference[];
-	estimates: BisDiaryReference[];
+	estimates: (BisDiaryReference & { measurementId?: string })[];
 };
 
 export function bisNumericId(value: string): number {
@@ -27,14 +27,13 @@ export function performedWorkReferences(
 			);
 	}
 	const estimateId = selection.estimatePositionId;
-	if (
-		estimateId &&
-		!references.estimates.some((estimate) => estimate.id === estimateId)
-	)
+	const estimate = references.estimates.find((item) => item.id === estimateId);
+	if (estimateId && !estimate)
 		throw new Error(
 			"Tāmes pozīcija nav pieejama šajā BIS kārtā. Atjaunojiet BIS sarakstus.",
 		);
 	return {
+		measurementId: estimate?.measurementId,
 		attributes: ids.length
 			? { project_document_ids: ids.map(bisNumericId) }
 			: {},

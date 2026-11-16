@@ -1255,6 +1255,15 @@ export default function SiteDiaryCalendar({
   }, [constructionBisEnabled, bisSendOptions.responsiblePeople.data]);
   const [bisProjectDocumentIds, setBisProjectDocumentIds] = React.useState<string[]>([]);
   const [bisEstimatePositionId, setBisEstimatePositionId] = React.useState("");
+  const selectedEstimateMeasurementId = bisReferences.data?.estimates.find(
+    position => position.id === bisEstimatePositionId,
+  )?.measurementId;
+  const bisEstimateMeasurement = selectedEstimateMeasurementId
+    ? (bisMeasurementOptions.find(
+        (option) => option.id === selectedEstimateMeasurementId,
+      ) ?? { id: selectedEstimateMeasurementId, name: `BIS (${selectedEstimateMeasurementId})` })
+    : undefined;
+  const bisQuantityUnit = bisEstimateMeasurement?.name ?? selectedRowForBis?.Units;
   const isZtcSite = isZtcFlow;
   const siteDiaryFlowId = isZtcSite ? "ztc" : "default";
   React.useEffect(() => {
@@ -3260,7 +3269,7 @@ export default function SiteDiaryCalendar({
             : undefined,
         worksDescription: bisSubmitWorksRef.current,
         amount: Number.isFinite(parsedAmount) ? parsedAmount : undefined,
-        measurement: bisSubmitMeasurement,
+        measurement: bisEstimateMeasurement?.id ?? bisSubmitMeasurement,
         responsiblePersonId: selectedResponsiblePerson.responsiblePersonId,
         responsiblePersonType: selectedResponsiblePerson.responsiblePersonType,
       });
@@ -6823,9 +6832,7 @@ export default function SiteDiaryCalendar({
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-foreground">
                             Amount{" "}
-                            {selectedRowForBis?.Units
-                              ? `(${selectedRowForBis.Units})`
-                              : ""}
+                            {bisQuantityUnit ? `(${bisQuantityUnit})` : ""}
                           </label>
                           <Input
                             key={`amount-${bisInputResetKey}`}
@@ -6843,14 +6850,23 @@ export default function SiteDiaryCalendar({
                             {t.bisMeasurementUnit}
                           </label>
                           <Select
-                            value={bisSubmitMeasurement}
+                            value={bisEstimateMeasurement?.id ?? bisSubmitMeasurement}
                             onValueChange={setBisSubmitMeasurement}
-                            disabled={constructionBisEnabled && !bisSendOptions.measurements.data}
+                            disabled={
+                              !!bisEstimateMeasurement ||
+                              (constructionBisEnabled && !bisSendOptions.measurements.data)
+                            }
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select measurement" />
                             </SelectTrigger>
                             <SelectContent>
+                              {bisEstimateMeasurement &&
+                              !bisMeasurementOptions.includes(bisEstimateMeasurement) ? (
+                                <SelectItem value={bisEstimateMeasurement.id}>
+                                  {bisEstimateMeasurement.name}
+                                </SelectItem>
+                              ) : null}
                               {bisMeasurementOptions.map((option) => (
                                 <SelectItem key={option.id} value={option.id}>
                                   {option.name}

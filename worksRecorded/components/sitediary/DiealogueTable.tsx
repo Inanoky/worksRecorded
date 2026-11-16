@@ -35,6 +35,7 @@ import {
   hasDefaultConstructionQuantityProfile,
   normalizeActualQuantityForStorage,
 } from "@/flows/default-construction/lib/quantity-plan-actual";
+import { createDefaultConstructionDiaryUnitResolver } from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import {
   groupDefaultConstructionSiteDiaryWorks,
   sortDefaultConstructionSiteDiaryWorks,
@@ -408,6 +409,10 @@ export function DialogTable({
   const [dirtyRowIds, setDirtyRowIds] = useState<Set<string>>(new Set());
   const [tableHeads, setTableHeads] = useState<string[]>([]);
   const [defaultMap, setMap] = useState<Record<string, any>>(defaultConfig);
+  const unitForWork = React.useMemo(
+    () => createDefaultConstructionDiaryUnitResolver(defaultMap),
+    [defaultMap],
+  );
   const hasClientEditsRef = React.useRef(false);
   const draftTargetRef = React.useRef("");
   const uncontrolledFieldRefs = React.useRef(
@@ -502,11 +507,14 @@ export function DialogTable({
   const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
     if (savingRef.current) return;
     markRowDirty(rowIdOrTemp, field);
+    const unit =
+      field === "Works" && defaultMap.Units ? unitForWork(value) : undefined;
+    if (unit) markRowDirty(rowIdOrTemp, "Units");
 
     setRows((prev) =>
       prev.map((r) =>
         r.id === rowIdOrTemp || r._tempId === rowIdOrTemp
-          ? { ...r, [field]: value }
+          ? { ...r, [field]: value, ...(unit ? { Units: unit } : {}) }
           : r,
       ),
     );

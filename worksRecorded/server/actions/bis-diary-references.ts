@@ -56,13 +56,19 @@ export async function getBisDiaryReferences(
 					rounds.some((id: unknown) => String(id) === String(round))
 				);
 			})
-			.map((row) => ({
-				id: String(row.id),
-				label:
-					[row.attributes?.position_number, row.attributes?.description]
-						.filter(Boolean)
-						.join(" · ") || `Pozīcija ${row.id}`,
-			})),
+			.map((row) => {
+				const measurementId = String(row.attributes?.measure ?? "").trim();
+				return {
+					id: String(row.id),
+					label:
+						[row.attributes?.position_number, row.attributes?.description]
+							.filter(Boolean)
+							.join(" · ") || `Pozīcija ${row.id}`,
+					measurementId: /^[1-9]\d*$/.test(measurementId)
+						? measurementId
+						: undefined,
+				};
+			}),
 	}));
 	cache.set(scope, { expires: Date.now() + 10 * 60_000, promise });
 	if (cache.size > 100) cache.delete(cache.keys().next().value!);

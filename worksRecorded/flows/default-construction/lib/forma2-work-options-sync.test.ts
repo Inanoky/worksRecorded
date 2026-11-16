@@ -8,6 +8,7 @@ import {
 	syncDefaultConstructionForma2WorkOptions,
 } from "./forma2-work-options-sync";
 import {
+	createDefaultConstructionDiaryUnitResolver,
 	DEFAULT_CONSTRUCTION_SYSTEM_WORKS,
 	getDefaultConstructionProductivitySettings,
 } from "./site-diary-productivity-settings";
@@ -134,6 +135,9 @@ describe("Forma 2 Darbi option synchronization", () => {
 			work: "Manual work",
 			ownedByForma2: false,
 		});
+		expect(
+			createDefaultConstructionDiaryUnitResolver(synced.config)("Manual work"),
+		).toBe("m2");
 		const removed = removeDefaultConstructionForma2WorkOptions(synced.config);
 		expect(Object.values(removed.config.Works.DropDownOptions)).toEqual(
 			expect.arrayContaining([
