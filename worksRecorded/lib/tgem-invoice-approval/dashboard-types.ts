@@ -35,7 +35,7 @@ export type TgemDashboardInvoiceDocument = {
 		width: number | null;
 		height: number | null;
 		text: string | null;
-		blocks: TgemDashboardOcrBlock[];
+		blocks?: TgemDashboardOcrBlock[];
 		status: string;
 	}>;
 };
@@ -65,9 +65,9 @@ export type TgemDashboardInvoice = {
 	reference: string | null;
 	invoiceType: TgemInvoiceType;
 	costCode: string | null;
-	validationSummary: unknown;
-	extractionSummary: unknown;
-	fieldAnchors: Record<string, TgemDashboardSourceAnchor>;
+	validationSummary?: unknown;
+	extractionSummary?: unknown;
+	fieldAnchors?: Record<string, TgemDashboardSourceAnchor>;
 	receivedAt: string;
 	approvedAt: string | null;
 	paymentStatus: "unpaid" | "paid";

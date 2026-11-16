@@ -1,3 +1,4 @@
+import { normalizeForma2PositionCode } from "./forma2-position-code";
 import {
 	getForma2QuantityExclusion,
 	getForma2ReportedQuantity,
@@ -279,12 +280,12 @@ export function createForma2PositionId(args: {
 }
 
 function positionCode(value: unknown) {
-	const candidate = text(value);
+	const candidate = normalizeForma2PositionCode(value);
 	return /^\d+(?:\.\d+)+$/.test(candidate) ? candidate : "";
 }
 
 function categoryCode(value: unknown) {
-	const candidate = text(value);
+	const candidate = normalizeForma2PositionCode(value);
 	return /^\d+$/.test(candidate) ? candidate : "";
 }
 
@@ -589,7 +590,11 @@ export function normalizeDefaultConstructionForma2State(
 			fileName: text(document.fileName),
 			sheetName: text(document.sheetName),
 			importedAt: text(document.importedAt),
-			positions: positions as Forma2Position[],
+			positions: (positions as Forma2Position[]).map((position) => ({
+				...position,
+				code: normalizeForma2PositionCode(position.code),
+				categoryCode: normalizeForma2PositionCode(position.categoryCode),
+			})),
 		},
 		allocations: allocations as Forma2Allocation[],
 		materialRules: materialRules as Forma2MaterialRule[],

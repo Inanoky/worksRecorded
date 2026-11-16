@@ -497,7 +497,16 @@ export function useDefaultConstructionSiteDiarySummary(args: {
 		[args],
 	);
 
-	const clearSummary = React.useCallback(() => setSelection(null), []);
+	const clearSummary = React.useCallback(() => {
+		if (selection?.scope === "work" && args.workFilter === selection.value)
+			args.setWorkFilter("__ALL__");
+		if (
+			selection?.scope === "location" &&
+			args.locationFilter === selection.value
+		)
+			args.setLocationFilter("__ALL__");
+		setSelection(null);
+	}, [selection, args]);
 
 	return {
 		openLocationSummary,

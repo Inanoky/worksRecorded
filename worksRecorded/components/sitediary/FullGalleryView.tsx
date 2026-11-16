@@ -4,6 +4,7 @@ import { ImageOff } from "lucide-react";
 import Image from "next/image";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 
 // --- shadcn/ui Components ---
@@ -156,15 +157,21 @@ function GalleryPagination({
 }
 
 // --- Main Component: Exported Default Function ---
-export default function FullPhotoGallery({
-	siteId,
-	preloadAll = false,
-	onMediaChanged,
-}: {
+type FullPhotoGalleryProps = {
 	siteId: string;
 	preloadAll?: boolean;
 	onMediaChanged?: () => void | Promise<void>;
-}) {
+};
+
+export default function FullPhotoGallery(props: FullPhotoGalleryProps) {
+	return <SitePhotoGallery key={props.siteId} {...props} />;
+}
+
+function SitePhotoGallery({
+	siteId,
+	preloadAll = false,
+	onMediaChanged,
+}: FullPhotoGalleryProps) {
 	// --- State ---
 	const [photos, setPhotos] = useState<Photo[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -182,7 +189,18 @@ export default function FullPhotoGallery({
 	const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(
 		null,
 	);
+	const viewerOpen = selectedPhotoIndex !== null;
 	const [viewerLoadingUrl, setViewerLoadingUrl] = useState<string | null>(null);
+	const [viewerFailedUrl, setViewerFailedUrl] = useState<string | null>(null);
+	const [viewerAttempt, setViewerAttempt] = useState(0);
+	const thumbnailSources = useRef(new Map<string, string>());
+	const [originalThumbnailIds, setOriginalThumbnailIds] = useState<Set<string>>(
+		new Set(),
+	);
+	const requestRef = useRef<AbortController | null>(null);
+	const viewerRef = useRef<HTMLDivElement>(null);
+	const closeButtonRef = useRef<HTMLButtonElement>(null);
+	const backdropPress = useRef(false);
 	const [loadedThumbnailIds, setLoadedThumbnailIds] = useState<Set<string>>(
 		new Set(),
 	);
@@ -196,6 +214,8 @@ export default function FullPhotoGallery({
 	const [panY, setPanY] = useState(0);
 	const [isPanning, setIsPanning] = useState(false);
 	const [startPan, setStartPan] = useState({ x: 0, y: 0 });
+	const pointers = useRef(new Map<number, { x: number; y: number }>());
+	const pinchDistance = useRef<number | null>(null);
 
 	const imageRef = useRef<HTMLImageElement>(null);
 	const loadedFullSizeUrlsRef = useRef<Set<string>>(new Set());
@@ -255,6 +275,7 @@ export default function FullPhotoGallery({
 				loadedFullSizeUrlsRef.current.has(photo.fileUrl);
 
 			setViewerLoadingUrl(alreadyLoaded ? null : photo.fileUrl);
+			setViewerFailedUrl(null);
 			setSelectedPhotoIndex(index);
 		},
 		[photos, preloadedImages],
@@ -262,11 +283,15 @@ export default function FullPhotoGallery({
 
 	const closeViewer = useCallback(() => {
 		setViewerLoadingUrl(null);
+		setViewerFailedUrl(null);
 		setSelectedPhotoIndex(null);
 	}, []);
 
 	const fetchPhotos = useCallback(async () => {
 		if (!siteId) return;
+		requestRef.current?.abort();
+		const controller = new AbortController();
+		requestRef.current = controller;
 
 		try {
 			setLoading(true);
@@ -279,8 +304,10 @@ export default function FullPhotoGallery({
 
 			const response = await fetch(
 				`/api/sites/${encodeURIComponent(siteId)}/photos?page=${currentPage}`,
+				{ signal: controller.signal },
 			);
 			const result = await response.json();
+			if (controller.signal.aborted) return;
 			if (!response.ok) {
 				throw new Error(result?.error || "Failed to load photos");
 			}
@@ -288,10 +315,11 @@ export default function FullPhotoGallery({
 			setPhotos(result.photos as Photo[]);
 			setTotalPhotos(result.totalCount);
 		} catch (err) {
+			if (controller.signal.aborted) return;
 			setError("Error loading photos. Please try again.");
 			console.error(err);
 		} finally {
-			setLoading(false);
+			if (!controller.signal.aborted) setLoading(false);
 		}
 	}, [currentPage, siteId]);
 
@@ -299,27 +327,44 @@ export default function FullPhotoGallery({
 
 	// 1. Lock Body Scroll / Reset Zoom on Modal Change
 	useEffect(() => {
+		if (!viewerOpen) return;
+		const previousOverflow = document.body.style.overflow;
+		const previousFocus = document.activeElement;
+		document.body.style.overflow = "hidden";
+		closeButtonRef.current?.focus();
+		return () => {
+			document.body.style.overflow = previousOverflow;
+			if (previousFocus instanceof HTMLElement && previousFocus.isConnected)
+				previousFocus.focus();
+		};
+	}, [viewerOpen]);
+
+	useEffect(() => {
 		if (selectedPhotoIndex !== null) {
-			document.body.style.overflow = "hidden";
 			// Reset zoom/pan when modal opens
 			setZoomLevel(INITIAL_ZOOM);
 			setPanX(0);
 			setPanY(0);
-		} else {
-			document.body.style.overflow = "unset";
+			setIsPanning(false);
+			pointers.current.clear();
+			pinchDistance.current = null;
 		}
-		return () => {
-			document.body.style.overflow = "unset";
-		};
 	}, [selectedPhotoIndex]);
 
 	// 2. Data Fetching Logic (Triggers on siteId OR currentPage change)
 	useEffect(() => {
 		fetchPhotos();
+		return () => requestRef.current?.abort();
 	}, [fetchPhotos]);
 
 	useEffect(() => {
-		if (selectedPhotoIndex === null || photos.length < 2) return;
+		if (
+			selectedPhotoIndex === null ||
+			photos.length < 2 ||
+			viewerLoadingUrl ||
+			viewerFailedUrl
+		)
+			return;
 
 		const neighborIndexes = new Set([
 			(selectedPhotoIndex - 1 + photos.length) % photos.length,
@@ -328,7 +373,13 @@ export default function FullPhotoGallery({
 		neighborIndexes.forEach((index) => {
 			void preloadFullSizePhoto(photos[index]?.fileUrl ?? "");
 		});
-	}, [photos, preloadFullSizePhoto, selectedPhotoIndex]);
+	}, [
+		photos,
+		preloadFullSizePhoto,
+		selectedPhotoIndex,
+		viewerLoadingUrl,
+		viewerFailedUrl,
+	]);
 
 	useEffect(() => {
 		return () => {
@@ -345,6 +396,7 @@ export default function FullPhotoGallery({
 			setZoomLevel(INITIAL_ZOOM);
 			setPanX(0);
 			setPanY(0);
+			setViewerFailedUrl(null);
 
 			setSelectedPhotoIndex((currentIndex) => {
 				if (currentIndex === null || photos.length === 0) return currentIndex;
@@ -394,7 +446,7 @@ export default function FullPhotoGallery({
 	// 5. Zoom and Pan Handlers
 
 	const handleZoom = useCallback(
-		(event: React.WheelEvent<HTMLDivElement>) => {
+		(event: WheelEvent) => {
 			event.preventDefault();
 			let newZoomLevel = zoomLevel;
 			if (event.deltaY < 0) {
@@ -413,8 +465,15 @@ export default function FullPhotoGallery({
 		[zoomLevel],
 	);
 
+	useEffect(() => {
+		const element = viewerRef.current;
+		if (!element || !viewerOpen) return;
+		element.addEventListener("wheel", handleZoom, { passive: false });
+		return () => element.removeEventListener("wheel", handleZoom);
+	}, [handleZoom, viewerOpen]);
+
 	const startPanHandler = useCallback(
-		(event: React.MouseEvent) => {
+		(event: React.PointerEvent) => {
 			if (zoomLevel > INITIAL_ZOOM) {
 				setIsPanning(true);
 				setStartPan({
@@ -432,7 +491,7 @@ export default function FullPhotoGallery({
 	}, []);
 
 	const movePanHandler = useCallback(
-		(event: React.MouseEvent) => {
+		(event: React.PointerEvent) => {
 			if (!isPanning || zoomLevel === INITIAL_ZOOM) return;
 
 			let newPanX = event.clientX - startPan.x;
@@ -537,7 +596,13 @@ export default function FullPhotoGallery({
 	}, []);
 
 	// --- Render Status ---
-	if (error) return <p className="text-red-500 p-4">{error}</p>;
+	if (error)
+		return (
+			<div role="alert" className="space-y-2 p-4">
+				<p className="text-red-500">{error}</p>
+				<Button onClick={() => void fetchPhotos()}>Retry</Button>
+			</div>
+		);
 
 	const currentPhoto =
 		selectedPhotoIndex !== null ? photos[selectedPhotoIndex] : null;
@@ -641,9 +706,6 @@ export default function FullPhotoGallery({
 												className="relative block h-full w-full"
 												aria-label={photo.Comment || `Site Photo ${index + 1}`}
 												onClick={() => showPhotoAt(index)}
-												onPointerEnter={() => {
-													void preloadFullSizePhoto(photo.fileUrl);
-												}}
 											>
 												{!thumbnailLoaded && !thumbnailFailed ? (
 													<Skeleton
@@ -663,14 +725,21 @@ export default function FullPhotoGallery({
 														alt={photo.Comment || `Site Photo ${index + 1}`}
 														fill
 														sizes="(min-width: 1024px) 16vw, (min-width: 640px) 33vw, 50vw"
-														unoptimized={preloadAll}
+														unoptimized={
+															preloadAll || originalThumbnailIds.has(photo.id)
+														}
 														loading={preloadAll ? "eager" : "lazy"}
 														className={cn(
 															"object-cover",
 															!thumbnailLoaded && "opacity-0",
 														)}
 														title={photo.Comment || `Click to expand`}
-														onLoad={() => {
+														onLoad={(event) => {
+															thumbnailSources.current.set(
+																photo.fileUrl,
+																event.currentTarget.currentSrc ||
+																	event.currentTarget.src,
+															);
 															setLoadedThumbnailIds((current) => {
 																const next = new Set(current);
 																next.add(photo.id);
@@ -678,6 +747,15 @@ export default function FullPhotoGallery({
 															});
 														}}
 														onError={() => {
+															if (
+																!preloadAll &&
+																!originalThumbnailIds.has(photo.id)
+															) {
+																setOriginalThumbnailIds(
+																	(current) => new Set([...current, photo.id]),
+																);
+																return;
+															}
 															setFailedThumbnailIds((current) => {
 																const next = new Set(current);
 																next.add(photo.id);
@@ -716,166 +794,290 @@ export default function FullPhotoGallery({
 			</Card>
 
 			{/* Expanded View Modal with Zoom/Pan */}
-			{currentPhoto && (
-				<div
-					className="photo-modal-backdrop"
-					role="dialog"
-					aria-modal="true"
-					aria-label="Photo viewer"
-					onWheel={handleZoom}
-					onMouseDown={startPanHandler}
-					onMouseMove={movePanHandler}
-					onMouseUp={stopPanHandler}
-					onMouseLeave={stopPanHandler}
-					style={{
-						position: "fixed",
-						top: 0,
-						left: 0,
-						width: "100vw",
-						height: "100vh",
-						backgroundColor: "rgba(0, 0, 0, 0.9)",
-						zIndex: 1000,
-						display: "flex",
-						justifyContent: "center",
-						alignItems: "center",
-						flexDirection: "column",
-					}}
-				>
-					<section
-						className="photo-modal-content"
-						aria-label="Expanded photo"
+			{currentPhoto &&
+				createPortal(
+					<div
+						ref={viewerRef}
+						className="photo-modal-backdrop"
+						role="dialog"
+						aria-modal="true"
+						aria-label="Photo viewer"
+						onPointerDown={(event) => {
+							backdropPress.current = event.target === event.currentTarget;
+							if ((event.target as HTMLElement).closest("button")) return;
+							if (event.pointerType === "mouse" && event.button !== 0) return;
+							event.currentTarget.setPointerCapture?.(event.pointerId);
+							pointers.current.set(event.pointerId, {
+								x: event.clientX,
+								y: event.clientY,
+							});
+							startPanHandler(event);
+						}}
+						onPointerMove={(event) => {
+							if (!pointers.current.has(event.pointerId)) return;
+							pointers.current.set(event.pointerId, {
+								x: event.clientX,
+								y: event.clientY,
+							});
+							if (pointers.current.size === 2) {
+								const [first, second] = Array.from(pointers.current.values());
+								const distance = Math.hypot(
+									first.x - second.x,
+									first.y - second.y,
+								);
+								if (pinchDistance.current) {
+									const ratio = distance / pinchDistance.current;
+									setZoomLevel((value) =>
+										Math.max(INITIAL_ZOOM, Math.min(MAX_ZOOM, value * ratio)),
+									);
+								}
+								pinchDistance.current = distance;
+								stopPanHandler();
+							} else movePanHandler(event);
+						}}
+						onPointerUp={(event) => {
+							pointers.current.delete(event.pointerId);
+							pinchDistance.current = null;
+							stopPanHandler();
+						}}
+						onPointerCancel={() => {
+							pointers.current.clear();
+							pinchDistance.current = null;
+							stopPanHandler();
+						}}
+						onDragStart={(event) => event.preventDefault()}
+						onClick={(event) => {
+							if (event.target === event.currentTarget && backdropPress.current)
+								closeViewer();
+						}}
+						onKeyDown={(event) => {
+							if (event.key !== "Tab") return;
+							const buttons =
+								event.currentTarget.querySelectorAll<HTMLButtonElement>(
+									"button:not(:disabled)",
+								);
+							const first = buttons[0];
+							const last = buttons[buttons.length - 1];
+							if (event.shiftKey && document.activeElement === first) {
+								event.preventDefault();
+								last?.focus();
+							} else if (!event.shiftKey && document.activeElement === last) {
+								event.preventDefault();
+								first?.focus();
+							}
+						}}
 						style={{
-							maxWidth: "90%",
-							maxHeight: "90%",
-							width: "90vw",
-							height: "80vh",
-							position: "relative",
+							position: "fixed",
+							top: 0,
+							left: 0,
+							width: "100vw",
+							height: "100vh",
+							backgroundColor: "rgba(0, 0, 0, 0.9)",
+							zIndex: 1000,
 							display: "flex",
-							alignItems: "center",
 							justifyContent: "center",
-							cursor:
-								zoomLevel > INITIAL_ZOOM
-									? isPanning
-										? "grabbing"
-										: "grab"
-									: "default",
-							overflow: "hidden",
+							alignItems: "center",
+							flexDirection: "column",
+							touchAction: "none",
 						}}
 					>
-						{viewerIsTransitioning ? (
-							<output
-								className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/45 text-white"
-								aria-live="polite"
-							>
-								<div className="h-10 w-10 animate-spin rounded-full border-4 border-white/30 border-t-white" />
-								<span className="text-sm">Ielādē foto...</span>
-							</output>
-						) : null}
-						<Image
-							key={currentPhoto.id}
-							ref={imageRef}
-							src={currentPhoto.fileUrl}
-							alt={currentPhoto.Comment || "Expanded Site Photo"}
-							fill
-							sizes="90vw"
-							unoptimized
-							loading="eager"
-							onLoad={() => {
-								loadedFullSizeUrlsRef.current.add(currentPhoto.fileUrl);
-								setViewerLoadingUrl((current) =>
-									current === currentPhoto.fileUrl ? null : current,
-								);
-							}}
-							onError={() => {
-								setViewerLoadingUrl((current) =>
-									current === currentPhoto.fileUrl ? null : current,
-								);
-							}}
+						<section
+							className="photo-modal-content"
+							aria-label="Expanded photo"
 							style={{
-								objectFit: "contain",
-								opacity: currentPhotoIsLoading ? 0 : 1,
-								transform: `scale(${zoomLevel}) translate(${panX / zoomLevel}px, ${panY / zoomLevel}px)`,
-								transition: isPanning
-									? "none"
-									: "transform 0.1s ease, opacity 0.15s ease",
-								userSelect: "none",
-								transformOrigin: "center center",
+								maxWidth: "90%",
+								maxHeight: "90%",
+								width: "90vw",
+								height: "80vh",
+								position: "relative",
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "center",
+								cursor:
+									zoomLevel > INITIAL_ZOOM
+										? isPanning
+											? "grabbing"
+											: "grab"
+										: "default",
+								overflow: "hidden",
 							}}
-						/>
-
-						{/* Modal Close Button */}
-						<Button
-							onClick={closeViewer}
-							variant="secondary"
-							aria-label="Close photo viewer"
-							className="absolute top-4 right-4 z-20 rounded-full h-8 w-8 text-xl p-0 bg-black/50 text-white hover:bg-black/70"
 						>
-							&times;
-						</Button>
-						<Button
-							onClick={() => deletePhotos([currentPhoto.id])}
-							disabled={deleting}
-							variant="destructive"
-							className="absolute top-4 right-16 z-20 h-8"
-						>
-							Delete
-						</Button>
-
-						{/* Reset Zoom Button */}
-						{zoomLevel > INITIAL_ZOOM && (
-							<Button
-								onClick={() => {
-									setZoomLevel(INITIAL_ZOOM);
-									setPanX(0);
-									setPanY(0);
+							{currentPhotoIsLoading &&
+							thumbnailSources.current.has(currentPhoto.fileUrl) ? (
+								<Image
+									src={
+										thumbnailSources.current.get(currentPhoto.fileUrl) ??
+										currentPhoto.fileUrl
+									}
+									alt=""
+									aria-hidden="true"
+									fill
+									unoptimized
+									className="object-contain"
+								/>
+							) : null}
+							{viewerIsTransitioning ? (
+								<output
+									className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/20 text-white"
+									aria-live="polite"
+								>
+									<div className="h-10 w-10 animate-spin rounded-full border-4 border-white/30 border-t-white" />
+									<span className="text-sm">Ielādē foto...</span>
+								</output>
+							) : null}
+							{viewerFailedUrl === currentPhoto.fileUrl ? (
+								<div
+									role="alert"
+									className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 text-white"
+								>
+									<p>Could not load photo. Please try again.</p>
+									<Button
+										onClick={() => {
+											setViewerFailedUrl(null);
+											setViewerLoadingUrl(currentPhoto.fileUrl);
+											setViewerAttempt((value) => value + 1);
+										}}
+									>
+										Retry
+									</Button>
+								</div>
+							) : null}
+							<Image
+								key={`${currentPhoto.id}:${viewerAttempt}`}
+								ref={imageRef}
+								src={currentPhoto.fileUrl}
+								alt={currentPhoto.Comment || "Expanded Site Photo"}
+								fill
+								sizes="90vw"
+								unoptimized
+								loading="eager"
+								onLoad={() => {
+									loadedFullSizeUrlsRef.current.add(currentPhoto.fileUrl);
+									setViewerLoadingUrl((current) =>
+										current === currentPhoto.fileUrl ? null : current,
+									);
 								}}
+								onError={() => {
+									loadedFullSizeUrlsRef.current.delete(currentPhoto.fileUrl);
+									setViewerFailedUrl(currentPhoto.fileUrl);
+									setViewerLoadingUrl((current) =>
+										current === currentPhoto.fileUrl ? null : current,
+									);
+								}}
+								style={{
+									objectFit: "contain",
+									opacity: currentPhotoIsLoading ? 0 : 1,
+									transform: `scale(${zoomLevel}) translate(${panX / zoomLevel}px, ${panY / zoomLevel}px)`,
+									transition: isPanning
+										? "none"
+										: "transform 0.1s ease, opacity 0.15s ease",
+									userSelect: "none",
+									transformOrigin: "center center",
+								}}
+							/>
+
+							{/* Modal Close Button */}
+							<Button
+								ref={closeButtonRef}
+								onClick={closeViewer}
 								variant="secondary"
-								className="absolute bottom-4 left-4 z-20 bg-black/50 text-white hover:bg-black/70"
+								aria-label="Close photo viewer"
+								className="absolute top-4 right-4 z-20 rounded-full h-8 w-8 text-xl p-0 bg-black/50 text-white hover:bg-black/70"
 							>
-								Zoom Out (1x)
+								&times;
 							</Button>
+							<Button
+								onClick={() => deletePhotos([currentPhoto.id])}
+								disabled={deleting}
+								variant="destructive"
+								className="absolute top-4 right-16 z-20 h-8"
+							>
+								Delete
+							</Button>
+
+							{/* Reset Zoom Button */}
+							<div className="absolute bottom-4 right-4 z-20 flex items-center gap-2">
+								<Button
+									aria-label="Zoom out"
+									disabled={zoomLevel <= INITIAL_ZOOM}
+									onClick={() => {
+										setZoomLevel((value) =>
+											Math.max(INITIAL_ZOOM, value - 0.5),
+										);
+										setPanX(0);
+										setPanY(0);
+									}}
+								>
+									−
+								</Button>
+								<output className="text-white">
+									{Math.round(zoomLevel * 100)}%
+								</output>
+								<Button
+									aria-label="Zoom in"
+									disabled={zoomLevel >= MAX_ZOOM}
+									onClick={() =>
+										setZoomLevel((value) => Math.min(MAX_ZOOM, value + 0.5))
+									}
+								>
+									+
+								</Button>
+							</div>
+							{zoomLevel > INITIAL_ZOOM && (
+								<Button
+									onClick={() => {
+										setZoomLevel(INITIAL_ZOOM);
+										setPanX(0);
+										setPanY(0);
+									}}
+									variant="secondary"
+									className="absolute bottom-4 left-4 z-20 bg-black/50 text-white hover:bg-black/70"
+								>
+									Zoom Out (1x)
+								</Button>
+							)}
+						</section>
+
+						{/* Navigation Buttons (Anchored to Backdrop for fixed position) */}
+						{photos.length > 1 && (
+							<>
+								<button
+									type="button"
+									onClick={() => navigate("prev")}
+									aria-label="Previous photo"
+									style={navButtonStyle("left")}
+								>
+									&lt;
+								</button>
+								<button
+									type="button"
+									onClick={() => navigate("next")}
+									aria-label="Next photo"
+									style={navButtonStyle("right")}
+								>
+									&gt;
+								</button>
+							</>
 						)}
-					</section>
 
-					{/* Navigation Buttons (Anchored to Backdrop for fixed position) */}
-					{zoomLevel === INITIAL_ZOOM && (
-						<>
-							<button
-								type="button"
-								onClick={() => navigate("prev")}
-								aria-label="Previous photo"
-								style={navButtonStyle("left")}
-							>
-								&lt;
-							</button>
-							<button
-								type="button"
-								onClick={() => navigate("next")}
-								aria-label="Next photo"
-								style={navButtonStyle("right")}
-							>
-								&gt;
-							</button>
-						</>
-					)}
-
-					{/* Photo Info Display */}
-					<div
-						className="mt-4 p-2 bg-black/50 rounded-lg"
-						style={{ color: "white", textAlign: "center" }}
-					>
-						<p className="font-semibold">{currentPhoto.Comment}</p>
-						<p className="text-sm">
-							Taken: {formatPhotoDate(currentPhoto.Date)} at{" "}
-							{currentPhoto.Location || "N/A"}
-						</p>
-						<p className="text-xs mt-1">
-							Photo {selectedPhotoNumber} of {photos.length} (Page {currentPage}{" "}
-							of {totalPages})
-						</p>
-					</div>
-				</div>
-			)}
+						{/* Photo Info Display */}
+						<div
+							className="mt-4 p-2 bg-black/50 rounded-lg"
+							style={{ color: "white", textAlign: "center" }}
+						>
+							<p className="font-semibold">{currentPhoto.Comment}</p>
+							<p className="text-sm">
+								Taken: {formatPhotoDate(currentPhoto.Date)} at{" "}
+								{currentPhoto.Location || "N/A"}
+							</p>
+							<p className="text-xs mt-1">
+								Photo {selectedPhotoNumber} of {photos.length} (Page{" "}
+								{currentPage} of {totalPages})
+							</p>
+						</div>
+					</div>,
+					document.body,
+				)}
 		</>
 	);
 }

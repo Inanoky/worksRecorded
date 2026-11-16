@@ -74,9 +74,7 @@ describe("ImageGallery photo moves", () => {
 		await screen.findByRole("button", { name: "Progress photo" });
 		fireEvent.click(screen.getAllByRole("button", { name: "Delete photo" })[0]);
 		await waitFor(() => expect(onMediaChanged).toHaveBeenCalledTimes(1));
-		expect(
-			screen.queryByRole("button", { name: "Progress photo" }),
-		).toBeNull();
+		expect(screen.queryByRole("button", { name: "Progress photo" })).toBeNull();
 	});
 	beforeEach(() => {
 		jest.clearAllMocks();
@@ -316,6 +314,40 @@ describe("ImageGallery photo moves", () => {
 
 		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 		expect(screen.getByText("1 selected")).toBeInTheDocument();
+	});
+
+	it("recovers a failed lightbox image and prevents wheel scrolling while zooming", async () => {
+		render(
+			<ImageGallery
+				date={new Date("2026-08-05T12:00:00Z")}
+				siteId="site-1"
+				organizationLanguage="en"
+			/>,
+		);
+		fireEvent.click(
+			await screen.findByRole("button", { name: "Progress photo" }),
+		);
+		const viewer = screen.getByRole("dialog");
+		const image = viewer.querySelector("img");
+		if (!image) throw new Error("Missing viewer image");
+		fireEvent.error(image);
+		expect(screen.getByRole("alert")).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+		expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+		const retried = viewer.querySelector("img");
+		expect(retried).not.toBe(image);
+		if (!retried) throw new Error("Missing retried image");
+		fireEvent.load(retried);
+		expect(retried).toHaveStyle({ opacity: "1" });
+		const wheel = new WheelEvent("wheel", {
+			deltaY: -100,
+			cancelable: true,
+			bubbles: true,
+		});
+		act(() => {
+			retried.dispatchEvent(wheel);
+		});
+		expect(wheel.defaultPrevented).toBe(true);
 	});
 
 	it("requires confirmation before deleting a photo", async () => {

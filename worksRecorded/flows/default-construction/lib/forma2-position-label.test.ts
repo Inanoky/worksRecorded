@@ -4,6 +4,8 @@ it.each([
 	["18", "18. Concrete"],
 	["18.", "18. Concrete"],
 	["1.2", "1.2. Concrete"],
+	["1,10", "1.10. Concrete"],
+	["1,1,2", "1.1.2. Concrete"],
 	["", "Concrete"],
 	["A-1", "A-1 Concrete"],
 ])("formats estimate number %s", (code, expected) => {

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { invalidateTgemSettingsCaches } from "@/lib/tgem-invoice-approval/settings-cache";
 import { deleteTgemProject } from "@/server/actions/tgem-project-actions";
 
 function getCopy(language?: string | null) {
@@ -79,6 +80,7 @@ export function TgemProjectDeleteCard({
 				return;
 			}
 			setOpen(false);
+			invalidateTgemSettingsCaches();
 			router.push("/dashboard/sites");
 			router.refresh();
 		} catch {

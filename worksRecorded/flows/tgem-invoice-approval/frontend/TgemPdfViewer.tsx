@@ -13,9 +13,10 @@ import {
 	ZoomIn,
 	ZoomOut,
 } from "lucide-react";
-import type { PDFDocumentProxy } from "pdfjs-dist";
+import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 import * as React from "react";
 import { createPortal } from "react-dom";
+import { useDocumentWheelZoom } from "./useDocumentWheelZoom";
 
 type Props = {
 	documentPath: string;
@@ -41,7 +42,7 @@ function getCopy(language?: string | null) {
 			download: "Lejupielādēt",
 			open: "Atvērt jaunā cilnē",
 			page: "Lapa",
-			pan: "Velciet, lai pārvietotu dokumentu",
+			pan: "Ritiniet, lai mainītu mērogu. Velciet, lai pārvietotu dokumentu.",
 			selectText: "Kopēt PDF tekstu",
 			selectTextHint: "Iezīmējiet un kopējiet tekstu tieši dokumentā",
 			copyModeActive: "Kopēšanas režīms ieslēgts",
@@ -68,7 +69,7 @@ function getCopy(language?: string | null) {
 			download: "Скачать",
 			open: "Открыть в новой вкладке",
 			page: "Страница",
-			pan: "Перетащите, чтобы переместить документ",
+			pan: "Прокрутите для масштабирования. Перетащите для перемещения.",
 			selectText: "Выделять текст PDF",
 			selectTextHint: "Выделяйте и копируйте текст прямо в документе",
 			copyModeActive: "Режим копирования включен",
@@ -94,7 +95,7 @@ function getCopy(language?: string | null) {
 		download: "Download",
 		open: "Open in new tab",
 		page: "Page",
-		pan: "Drag to move the document",
+		pan: "Scroll to zoom. Drag to move the document.",
 		selectText: "Select PDF text",
 		selectTextHint: "Select and copy text directly in the document",
 		copyModeActive: "Copy mode is on",
@@ -116,6 +117,9 @@ export function TgemPdfViewer({ documentPath, filename, language }: Props) {
 	const pageSurfaceRef = React.useRef<HTMLDivElement>(null);
 	const textLayerRef = React.useRef<HTMLDivElement>(null);
 	const viewportRef = React.useRef<HTMLDivElement>(null);
+	const textContentCacheRef = React.useRef(
+		new Map<number, ReturnType<PDFPageProxy["getTextContent"]>>(),
+	);
 	const copyModeButtonRef = React.useRef<HTMLButtonElement>(null);
 	const copyModeStatusRef = React.useRef<HTMLOutputElement>(null);
 	const dragOriginRef = React.useRef<{
@@ -219,6 +223,7 @@ export function TgemPdfViewer({ documentPath, filename, language }: Props) {
 		const abortController = new AbortController();
 
 		setLoadState("loading");
+		textContentCacheRef.current.clear();
 		setPdfDocument(null);
 		setPageNumber(1);
 
@@ -330,7 +335,15 @@ export function TgemPdfViewer({ documentPath, filename, language }: Props) {
 				await renderTask.promise;
 
 				try {
-					const textContent = await page.getTextContent();
+					let textRequest = textContentCacheRef.current.get(pageNumber);
+					if (!textRequest) {
+						textRequest = page.getTextContent();
+						textContentCacheRef.current.set(pageNumber, textRequest);
+						textRequest.catch(() =>
+							textContentCacheRef.current.delete(pageNumber),
+						);
+					}
+					const textContent = await textRequest;
 					if (!active || !textLayerRef.current) return;
 					textLayerRef.current.replaceChildren();
 					const { TextLayer } = await import("pdfjs-dist");
@@ -385,6 +398,20 @@ export function TgemPdfViewer({ documentPath, filename, language }: Props) {
 		setCustomScale(Math.min(Math.max(renderedScale + delta, 0.5), 2.5));
 		setScaleMode("custom");
 	}
+
+	useDocumentWheelZoom({
+		viewportRef,
+		surfaceRef: pageSurfaceRef,
+		scale: renderedScale,
+		minScale: 0.5,
+		maxScale: 2.5,
+		enabled: loadState === "ready" && interactionMode === "pan",
+		delay: 80,
+		onZoom: (scale) => {
+			setCustomScale(scale);
+			setScaleMode("custom");
+		},
+	});
 
 	function startDragging(event: React.PointerEvent<HTMLDivElement>) {
 		if (interactionMode === "select") return;

@@ -10,11 +10,13 @@ import {
 	TGEM_PERMISSIONS,
 	type TgemPermission,
 } from "@/lib/tgem-invoice-approval/permissions";
+import { invalidateTgemSettingsCaches } from "@/lib/tgem-invoice-approval/settings-cache";
 import {
 	saveTgemAccessGroup,
 	saveTgemOrganizationAccessMemberships,
 	saveTgemSiteAccessMemberships,
 } from "@/server/actions/tgem-access-actions";
+import { useTgemSettingsRefresh } from "./TgemSettingsRefreshContext";
 
 type AccessGroup = {
 	id: string;
@@ -53,6 +55,7 @@ function MembershipRow({
 	siteId?: string;
 }) {
 	const router = useRouter();
+	const refreshSettings = useTgemSettingsRefresh();
 	const initial = groups
 		.filter((group) => group.memberUserIds.includes(user.id))
 		.map((group) => group.id);
@@ -92,7 +95,11 @@ function MembershipRow({
 					groupIds: selected,
 				});
 			}
-			router.refresh();
+			if (refreshSettings) await refreshSettings();
+			else {
+				invalidateTgemSettingsCaches();
+				router.refresh();
+			}
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : "Neizdevās saglabāt");
 		} finally {
@@ -200,6 +207,7 @@ export function TgemAccessGroupSettings({
 	canEditGroups: boolean;
 }) {
 	const router = useRouter();
+	const refreshSettings = useTgemSettingsRefresh();
 	const accessContentId = React.useId();
 	const groupNameInputId = React.useId();
 	const [accessOpen, setAccessOpen] = React.useState(false);
@@ -233,7 +241,11 @@ export function TgemAccessGroupSettings({
 			setSelectedGroupId("");
 			setName("");
 			setPermissions([]);
-			router.refresh();
+			if (refreshSettings) await refreshSettings();
+			else {
+				invalidateTgemSettingsCaches();
+				router.refresh();
+			}
 		} catch (caught) {
 			setError(caught instanceof Error ? caught.message : "Neizdevās saglabāt");
 		} finally {

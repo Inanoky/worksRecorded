@@ -14,8 +14,6 @@ import { createTgemInvoiceCaseRecord } from "@/lib/tgem-invoice-approval/create-
 import type {
 	TgemDashboardData,
 	TgemDashboardInvoice,
-	TgemDashboardOcrBlock,
-	TgemDashboardSourceAnchor,
 } from "@/lib/tgem-invoice-approval/dashboard-types";
 import {
 	ensureTgemInvoiceFixture,
@@ -275,99 +273,87 @@ function serializeDecimal(value: { toString(): string } | number | null) {
 	return value == null ? null : value.toString();
 }
 
-function serializeOcrBlocks(value: unknown): TgemDashboardOcrBlock[] {
-	if (!Array.isArray(value)) return [];
-
-	return value.flatMap((block, index): TgemDashboardOcrBlock[] => {
-		if (!block || typeof block !== "object") return [];
-		const candidate = block as Partial<TgemDashboardOcrBlock>;
-		if (
-			typeof candidate.text === "string" &&
-			typeof candidate.left === "number" &&
-			typeof candidate.top === "number" &&
-			typeof candidate.width === "number" &&
-			typeof candidate.height === "number"
-		) {
-			return [
-				{
-					text: candidate.text,
-					confidence:
-						typeof candidate.confidence === "number"
-							? candidate.confidence
-							: null,
-					kind: candidate.kind === "token" ? "token" : "line",
-					readingOrder:
-						typeof candidate.readingOrder === "number"
-							? candidate.readingOrder
-							: index,
-					left: candidate.left,
-					top: candidate.top,
-					width: candidate.width,
-					height: candidate.height,
-					polygon: Array.isArray(candidate.polygon) ? candidate.polygon : [],
+const dashboardInvoiceInclude = {
+	site: { select: { id: true, name: true } },
+	documents: {
+		select: {
+			id: true,
+			contentType: true,
+			originalFilename: true,
+			storageProvider: true,
+			ocrPages: {
+				select: {
+					id: true,
+					pageNumber: true,
+					width: true,
+					height: true,
+					text: true,
+					status: true,
 				},
-			];
-		}
-		return [];
-	});
-}
+				orderBy: { pageNumber: "asc" },
+			},
+		},
+		orderBy: { createdAt: "asc" },
+	},
+	lines: {
+		select: {
+			id: true,
+			lineNumber: true,
+			description: true,
+			quantity: true,
+			unit: true,
+			unitPrice: true,
+			total: true,
+			currency: true,
+			costCode: true,
+			category: true,
+			suggestedCostCode: true,
+			suggestedCategory: true,
+			aiConfidence: true,
+		},
+		orderBy: { lineNumber: "asc" },
+	},
+	approvalSteps: {
+		select: {
+			id: true,
+			stepOrder: true,
+			approvalRound: true,
+			roleKey: true,
+			role: true,
+			approverUserId: true,
+			approverName: true,
+			templateRevision: true,
+			minimumInvoiceTotal: true,
+			thresholdCurrency: true,
+			status: true,
+			comment: true,
+			decidedAt: true,
+		},
+		orderBy: [{ approvalRound: "asc" }, { stepOrder: "asc" }],
+	},
+	auditEvents: {
+		select: {
+			id: true,
+			actorType: true,
+			eventType: true,
+			fromStatus: true,
+			toStatus: true,
+			createdAt: true,
+		},
+		orderBy: { createdAt: "asc" },
+	},
+} satisfies Prisma.TgemInvoiceCaseInclude;
 
-function serializeFieldAnchors(
-	value: unknown,
-): Record<string, TgemDashboardSourceAnchor> {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-	const fields = (value as { fields?: unknown }).fields;
-	if (!fields || typeof fields !== "object" || Array.isArray(fields)) return {};
-
-	return Object.fromEntries(
-		Object.entries(fields).flatMap(([name, field]) => {
-			if (!field || typeof field !== "object" || Array.isArray(field))
-				return [];
-			const sourceAnchor = (field as { sourceAnchor?: unknown }).sourceAnchor;
-			if (
-				!sourceAnchor ||
-				typeof sourceAnchor !== "object" ||
-				Array.isArray(sourceAnchor)
-			) {
-				return [];
-			}
-			const anchor = sourceAnchor as Partial<TgemDashboardSourceAnchor>;
-			if (
-				typeof anchor.pageNumber !== "number" ||
-				typeof anchor.left !== "number" ||
-				typeof anchor.top !== "number" ||
-				typeof anchor.width !== "number" ||
-				typeof anchor.height !== "number"
-			) {
-				return [];
-			}
-
-			return [
-				[
-					name,
-					{
-						pageNumber: anchor.pageNumber,
-						left: anchor.left,
-						top: anchor.top,
-						width: anchor.width,
-						height: anchor.height,
-						polygon: Array.isArray(anchor.polygon) ? anchor.polygon : [],
-					},
-				],
-			];
-		}),
-	);
-}
-
-type TgemDashboardInvoiceRecord = Prisma.TgemInvoiceCaseGetPayload<{
-	include: {
-		site: { select: { id: true; name: true } };
-		documents: { include: { ocrPages: true } };
-		lines: true;
-		approvalSteps: true;
-		auditEvents: true;
-	};
-}>;
+type TgemDashboardInvoiceRecord = Omit<
+	Prisma.TgemInvoiceCaseGetPayload<{
+		include: typeof dashboardInvoiceInclude;
+	}>,
+	| "sourceContext"
+	| "projectMatchSummary"
+	| "approvalRouteSnapshot"
+	| "extractionSummary"
+	| "validationSummary"
+>;
 
 function serializeTgemDashboardInvoice(
 	invoiceCase: TgemDashboardInvoiceRecord,
@@ -401,9 +387,6 @@ function serializeTgemDashboardInvoice(
 				? invoiceCase.invoiceType
 				: "debit",
 		costCode: invoiceCase.costCode,
-		validationSummary: invoiceCase.validationSummary,
-		extractionSummary: invoiceCase.extractionSummary,
-		fieldAnchors: serializeFieldAnchors(invoiceCase.extractionSummary),
 		receivedAt: invoiceCase.receivedAt.toISOString(),
 		approvedAt: serializeDate(invoiceCase.approvedAt),
 		paymentStatus: invoiceCase.paymentStatus === "paid" ? "paid" : "unpaid",
@@ -429,7 +412,6 @@ function serializeTgemDashboardInvoice(
 				width: page.width,
 				height: page.height,
 				text: page.text,
-				blocks: serializeOcrBlocks(page.blocks),
 				status: page.status,
 			})),
 		})),
@@ -577,17 +559,13 @@ export async function getTgemInvoiceDashboardData(
 							: {}),
 				},
 				orderBy: { createdAt: "desc" },
-				include: {
-					site: { select: { id: true, name: true } },
-					documents: {
-						include: { ocrPages: true },
-						orderBy: { createdAt: "asc" },
-					},
-					lines: { orderBy: { lineNumber: "asc" } },
-					approvalSteps: {
-						orderBy: [{ approvalRound: "asc" }, { stepOrder: "asc" }],
-					},
-					auditEvents: { orderBy: { createdAt: "asc" } },
+				include: dashboardInvoiceInclude,
+				omit: {
+					extractionSummary: true,
+					validationSummary: true,
+					sourceContext: true,
+					projectMatchSummary: true,
+					approvalRouteSnapshot: true,
 				},
 			}),
 			prisma.tgemCostCode.findMany({
@@ -598,11 +576,13 @@ export async function getTgemInvoiceDashboardData(
 				orderBy: { code: "asc" },
 				select: { id: true, code: true, name: true },
 			}),
-			prisma.user.findMany({
-				where: { organizationId: dbUser.organizationId, status: "active" },
-				orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-				select: { id: true, firstName: true, lastName: true, role: true },
-			}),
+			selectedProject
+				? prisma.user.findMany({
+						where: { organizationId: dbUser.organizationId, status: "active" },
+						orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+						select: { id: true, firstName: true, lastName: true, role: true },
+					})
+				: Promise.resolve([]),
 			selectedProject
 				? prisma.tgemInvoiceApprovalTemplate.findFirst({
 						where: {
@@ -625,15 +605,17 @@ export async function getTgemInvoiceDashboardData(
 					})
 				: Promise.resolve([]),
 		]);
-	const duplicateCandidates = await prisma.tgemInvoiceCase.findMany({
-		where: {
-			organizationId: dbUser.organizationId,
-			archivedAt: null,
-			invoiceNumber: { not: null },
-			...visibleInvoiceWhere,
-		},
-		select: { id: true, invoiceNumber: true, createdAt: true },
-	});
+	const duplicateCandidates = projectFilter
+		? await prisma.tgemInvoiceCase.findMany({
+				where: {
+					organizationId: dbUser.organizationId,
+					archivedAt: null,
+					invoiceNumber: { not: null },
+					...visibleInvoiceWhere,
+				},
+				select: { id: true, invoiceNumber: true, createdAt: true },
+			})
+		: invoiceCases;
 	const isSiteOwner = selectedProject?.userId === user.id;
 	const newestDuplicateInvoiceIds =
 		getNewestDuplicateInvoiceIds(duplicateCandidates);

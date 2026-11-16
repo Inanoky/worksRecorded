@@ -7,6 +7,7 @@ import {
   ArrowUpDown,
   CalendarIcon,
   CameraOff,
+  ChevronDown,
   Download,
   Filter,
   Loader2,
@@ -31,6 +32,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import {
   Dialog,
   DialogContent,
@@ -576,6 +582,7 @@ export default function MaterialsTableClient({
   const pageCache = React.useRef(createWarehousePageCache<WarehouseMaterialPagination & { rows: MaterialRow[] }>())
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
   const [warehouseView, setWarehouseView] = React.useState<"materials" | "invoices">("materials")
+  const [filtersOpen, setFiltersOpen] = React.useState(false)
   const [previewRecordId, setPreviewRecordId] = React.useState<string | null>(null)
   const previewTriggerRef = React.useRef<HTMLButtonElement | null>(null)
   const previewPanelRef = React.useRef<HTMLDivElement | null>(null)
@@ -1674,6 +1681,18 @@ export default function MaterialsTableClient({
     [language, pagination.spendInsights],
   )
   const hasActiveFilters = filtersActive
+  const activeFilterCount = [
+    search.trim(),
+    invoiceNumber.trim(),
+    supplierFilter.trim(),
+    status !== "all",
+    configFilter !== "all",
+    invoiceDateFrom || invoiceDateTo,
+    forma2Enabled && (forma2Assignment !== "all" || forma2PositionId !== "all"),
+  ].filter(Boolean).length
+  const activeFilterLabel = language === "lv"
+    ? `${activeFilterCount} ${activeFilterCount === 1 ? "filtrs" : "filtri"}`
+    : `${activeFilterCount} ${activeFilterCount === 1 ? "filter" : "filters"}`
 
   const changeSupplierFilter = (nextSupplier: string) => {
     setSupplierFilter(nextSupplier)
@@ -2045,12 +2064,27 @@ export default function MaterialsTableClient({
           </div>
         </div>
 
-        <div className="mt-4 border-t pt-4">
-          <div className="mb-3 flex min-h-8 items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              {t.filters}
-            </div>
+        <Collapsible
+          open={!isDefaultConstructionFlow || filtersOpen}
+          onOpenChange={setFiltersOpen}
+          className="mt-4 border-t pt-3"
+        >
+          <div className="flex min-h-8 items-center justify-between gap-3">
+            {isDefaultConstructionFlow ? (
+              <CollapsibleTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className="gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  {t.filters}
+                  {activeFilterCount > 0 ? <Badge variant="secondary" aria-live="polite">{activeFilterLabel}</Badge> : null}
+                  <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+                </Button>
+              </CollapsibleTrigger>
+            ) : (
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                {t.filters}
+              </div>
+            )}
             {hasActiveFilters ? (
               <Button
                 type="button"
@@ -2064,7 +2098,8 @@ export default function MaterialsTableClient({
             ) : null}
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <CollapsibleContent>
+          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div className="space-y-1.5">
             <div className="text-xs font-medium text-muted-foreground">{t.status}</div>
             <Select
@@ -2295,7 +2330,8 @@ export default function MaterialsTableClient({
             </div>
           ) : null}
           </div>
-        </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         <div className="mt-4 flex flex-col gap-3 border-t pt-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-2">

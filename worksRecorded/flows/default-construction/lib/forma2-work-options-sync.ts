@@ -14,6 +14,7 @@ import {
 	setDefaultConstructionWorkDropdownOptions,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import { sortDefaultConstructionSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
+import { normalizeForma2PositionCode } from "./forma2-position-code";
 
 const MAX_WORK_LENGTH = 200;
 
@@ -54,7 +55,7 @@ function limitedName(base: string, suffix = "") {
 export function buildDefaultConstructionForma2WorkOptionName(
 	position: Forma2Position,
 ) {
-	const code = compactText(position.code);
+	const code = normalizeForma2PositionCode(position.code);
 	const categoryName = compactText(position.categoryName);
 	const name = compactText(position.name);
 	const description =

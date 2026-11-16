@@ -142,6 +142,28 @@ describe("TGEM invoice dashboard authorization data", () => {
 
 	it("loads one organization-wide invoice register without choosing a project", async () => {
 		const result = await getTgemInvoiceDashboardData();
+		expect(mockPrisma.tgemInvoiceCase.findMany).toHaveBeenCalledTimes(1);
+		expect(mockPrisma.user.findMany).not.toHaveBeenCalled();
+		expect(mockPrisma.tgemInvoiceCase.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				omit: expect.objectContaining({
+					extractionSummary: true,
+					validationSummary: true,
+				}),
+				include: expect.objectContaining({
+					auditEvents: expect.objectContaining({
+						select: {
+							id: true,
+							actorType: true,
+							eventType: true,
+							fromStatus: true,
+							toStatus: true,
+							createdAt: true,
+						},
+					}),
+				}),
+			}),
+		);
 
 		expect(mockPrisma.tgemInvoiceCase.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({

@@ -5,6 +5,52 @@ import {
 } from "./forma2-ai-extractor";
 
 describe("Forma 2 AI extraction", () => {
+	it("normalizes comma codes and parent references without changing decimal quantities or prices", () => {
+		const raw = {
+			sourceRow: 10,
+			code: "1,1,2",
+			categoryCode: "4,1,2",
+			categoryName: "Darbi",
+			name: "Caurule 2,5 mm",
+			kind: "work" as const,
+			parentCode: null,
+			unit: "m",
+			plannedQuantity: 10.5,
+			laborNormHoursPerUnit: 0.25,
+			hourlyRate: 12.75,
+			plannedWorkCost: 22.5,
+			plannedMaterialCost: 0,
+			plannedMechanismCost: 0,
+			plannedTotalCost: 22.5,
+		};
+		const positions = normalizeForma2AiExtraction({
+			sheets: [
+				{
+					sheetName: "Forma 2",
+					positions: [
+						raw,
+						{
+							...raw,
+							sourceRow: 11,
+							code: "",
+							name: "Materiāls",
+							kind: "material",
+							parentCode: "1.1,2",
+						},
+					],
+				},
+			],
+		})[0].positions;
+		expect(positions[0]).toMatchObject({
+			code: "1.1.2",
+			categoryCode: "4.1.2",
+			name: "Caurule 2,5 mm",
+			plannedQuantity: 10.5,
+			hourlyRate: 12.75,
+		});
+		expect(positions[1].parentId).toBe(positions[0].id);
+	});
+
 	it("normalizes structured positions and links nested rows to their parent", () => {
 		const sheets = normalizeForma2AiExtraction({
 			sheets: [

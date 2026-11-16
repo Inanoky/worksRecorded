@@ -8,6 +8,7 @@ import {
 	type ParsedForma2Sheet,
 } from "@/flows/default-construction/lib/forma2-analytics";
 import type { Forma2ExtractionProgress } from "@/flows/default-construction/lib/forma2-extraction-progress";
+import { normalizeForma2PositionCode } from "@/flows/default-construction/lib/forma2-position-code";
 
 const FORMA2_EXTRACTION_MODEL =
 	process.env.FORMA2_EXTRACTION_MODEL?.trim() || "gpt-5.6-terra";
@@ -93,7 +94,7 @@ Worksheet classification:
 
 Extraction rules:
 1. Extract EVERY individual coded work position and every readable nested labor, material, or mechanism/resource row belonging to it. Do not return section headers, subtotals, VAT rows, or grand totals as positions.
-2. Preserve codes, names, units, and category labels in the original language. Never translate or rename them.
+2. Preserve codes, names, units, and category labels in the original language. Never translate or rename them. Position and category codes are text identifiers: use dots between numeric code segments, converting commas in those codes to dots (1,10 becomes 1.10, never 1.1). Apply the same rule to parentCode. Preserve decimal values in quantities and costs.
 3. A coded work position has its exact code, kind=work, and parentCode=null. Never put punctuation placeholders such as "." or "-" into code or parentCode.
 4. A nested resource row has code="" and parentCode equal to the exact code of its coded work parent.
 5. plannedQuantity is the contracted quantity. laborNormHoursPerUnit is Laika norma in hours per unit. hourlyRate is the EUR hourly rate.
@@ -122,7 +123,7 @@ function nonNegative(value: unknown) {
 }
 
 function cleanCode(value: unknown) {
-	const result = cleanText(value, 40);
+	const result = normalizeForma2PositionCode(cleanText(value, 40));
 	return /^(?:[.\-–—]+|\/?null|none|n\/?a)$/i.test(result) ? "" : result;
 }
 
@@ -156,7 +157,9 @@ export function normalizeForma2AiExtraction(
 					return {
 						id,
 						code,
-						categoryCode: cleanText(raw.categoryCode, 40),
+						categoryCode: normalizeForma2PositionCode(
+							cleanText(raw.categoryCode, 40),
+						),
 						categoryName: cleanText(raw.categoryName, 300),
 						name,
 						kind: raw.kind,

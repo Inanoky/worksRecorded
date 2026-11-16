@@ -26,6 +26,7 @@ import {
 	saveTgemPersonApprovalFlow,
 	saveTgemSubmitterApprovalFlow,
 } from "@/server/actions/tgem-invoice-approval-actions";
+import { useTgemSettingsRefresh } from "./TgemSettingsRefreshContext";
 
 type Flow = TgemSubmitterApprovalFlowSettings["flows"][number];
 
@@ -165,6 +166,7 @@ export function TgemSubmitterFlowRouting({
 	organizationLanguage?: string | null;
 }) {
 	const copy = getCopy(organizationLanguage);
+	const refreshSettings = useTgemSettingsRefresh();
 	const libraryTitleId = React.useId();
 	const assignmentTitleId = React.useId();
 	const flowNameInputId = React.useId();
@@ -237,6 +239,7 @@ export function TgemSubmitterFlowRouting({
 				),
 			);
 			setDraft(null);
+			await refreshSettings?.();
 		} catch (saveError) {
 			setError(saveError instanceof Error ? saveError.message : copy.failed);
 		} finally {
@@ -260,6 +263,7 @@ export function TgemSubmitterFlowRouting({
 		try {
 			await saveTgemSubmitterApprovalFlow({ userId, flowId: next });
 			setSavedUserId(userId);
+			await refreshSettings?.();
 		} catch (saveError) {
 			setUsers((items) =>
 				items.map((item) =>

@@ -1,3 +1,5 @@
+import { normalizeForma2PositionCode } from "@/flows/default-construction/lib/forma2-position-code";
+
 export type WarehouseForma2Sort = "forma2Position_asc" | "forma2Position_desc";
 
 type WarehouseForma2SortableRow = {
@@ -13,7 +15,7 @@ type WarehouseForma2Position = {
 };
 
 export function getWarehouseForma2PositionLabel(position: WarehouseForma2Position) {
-  return [position.code, position.categoryName, position.name]
+  return [normalizeForma2PositionCode(position.code), position.categoryName, position.name]
     .map((value) => value?.trim())
     .filter(Boolean)
     .join(" · ");

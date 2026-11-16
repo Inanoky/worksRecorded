@@ -147,6 +147,17 @@ export function ImageGallery({
 	// Lightbox
 	const [isLightboxOpen, setIsLightboxOpen] = React.useState(false);
 	const [currentIndex, setCurrentIndex] = React.useState(0);
+	const [viewerLoadedSrc, setViewerLoadedSrc] = React.useState<string | null>(
+		null,
+	);
+	const [viewerFailedSrc, setViewerFailedSrc] = React.useState<string | null>(
+		null,
+	);
+	const [viewerAttempt, setViewerAttempt] = React.useState(0);
+	const thumbnailSources = React.useRef(new Map<string, string>());
+	const [originalThumbnailIds, setOriginalThumbnailIds] = React.useState<
+		Set<string>
+	>(() => new Set());
 
 	// Zoom/pan (Photos-like)
 	const [scale, setScale] = React.useState(1);
@@ -180,6 +191,8 @@ export function ImageGallery({
 	function openLightboxAt(index: number) {
 		if (!imageList.length) return;
 		setCurrentIndex(index);
+		setViewerLoadedSrc(null);
+		setViewerFailedSrc(null);
 		setScale(1);
 		setTx(0);
 		setTy(0);
@@ -193,6 +206,7 @@ export function ImageGallery({
 	const goPrev = React.useCallback(() => {
 		if (!imageList.length) return;
 		setCurrentIndex((i) => (i - 1 + imageList.length) % imageList.length);
+		setViewerFailedSrc(null);
 		setScale(1);
 		setTx(0);
 		setTy(0);
@@ -201,6 +215,7 @@ export function ImageGallery({
 	const goNext = React.useCallback(() => {
 		if (!imageList.length) return;
 		setCurrentIndex((i) => (i + 1) % imageList.length);
+		setViewerFailedSrc(null);
 		setScale(1);
 		setTx(0);
 		setTy(0);
@@ -397,9 +412,6 @@ export function ImageGallery({
 		const base = baseSizeRef.current;
 		if (!viewer || !base.w || !base.h) return { x: nx, y: ny };
 
-		const cover = getCoverScale();
-		if (nextScale <= Math.max(1, cover)) return { x: 0, y: 0 };
-
 		const vw = viewer.clientWidth;
 		const vh = viewer.clientHeight;
 		const dispW = base.w * nextScale;
@@ -421,10 +433,11 @@ export function ImageGallery({
 		const rect = img.getBoundingClientRect();
 		baseSizeRef.current = { w: rect.width, h: rect.height };
 		img.style.transform = prev || "";
+		setViewerLoadedSrc(imageList[currentIndex]?.src ?? null);
 	}
 
 	// Wheel zoom
-	function handleWheel(e: React.WheelEvent) {
+	function handleWheel(e: WheelEvent) {
 		e.preventDefault();
 		if (!viewerRef.current) return;
 
@@ -456,6 +469,13 @@ export function ImageGallery({
 		setTx(clamped.x);
 		setTy(clamped.y);
 	}
+
+	React.useEffect(() => {
+		const element = viewerRef.current;
+		if (!element || !isLightboxOpen) return;
+		element.addEventListener("wheel", handleWheel, { passive: false });
+		return () => element.removeEventListener("wheel", handleWheel);
+	});
 
 	// Double-click zoom
 	function handleDoubleClick(e: React.MouseEvent) {
@@ -495,8 +515,7 @@ export function ImageGallery({
 
 	// Mouse/touch pan
 	function startPan(clientX: number, clientY: number) {
-		const cover = Math.max(1, getCoverScale());
-		if (scale <= cover) return;
+		if (scale <= 1) return;
 		isPanningRef.current = true;
 		panStartRef.current = { x: clientX, y: clientY };
 		startTranslateRef.current = { tx, ty };
@@ -752,14 +771,21 @@ export function ImageGallery({
 																alt={p.Comment ?? t.photo}
 																fill
 																sizes="(min-width: 1024px) 20vw, (min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
-																unoptimized={preloadAll}
+																unoptimized={
+																	preloadAll || originalThumbnailIds.has(p.id)
+																}
 																loading={preloadAll ? "eager" : "lazy"}
 																className={cn(
 																	"object-cover transition-transform duration-200 group-hover:scale-105",
 																	!thumbnailLoaded && "opacity-0",
 																	isDeleting && "opacity-50",
 																)}
-																onLoad={() => {
+																onLoad={(event) => {
+																	thumbnailSources.current.set(
+																		src,
+																		event.currentTarget.currentSrc ||
+																			event.currentTarget.src,
+																	);
 																	setLoadedThumbnailIds((current) => {
 																		const next = new Set(current);
 																		next.add(p.id);
@@ -767,6 +793,15 @@ export function ImageGallery({
 																	});
 																}}
 																onError={() => {
+																	if (
+																		!preloadAll &&
+																		!originalThumbnailIds.has(p.id)
+																	) {
+																		setOriginalThumbnailIds(
+																			(current) => new Set([...current, p.id]),
+																		);
+																		return;
+																	}
 																	setFailedThumbnailIds((current) => {
 																		const next = new Set(current);
 																		next.add(p.id);
@@ -881,6 +916,7 @@ export function ImageGallery({
 				? createPortal(
 						<div
 							className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
+							style={{ pointerEvents: "auto" }}
 							onClick={(event) => {
 								if (event.target === event.currentTarget) closeLightbox();
 							}}
@@ -934,10 +970,8 @@ export function ImageGallery({
 
 							{/* Viewer */}
 							<section
-								ref={viewerRef}
 								aria-label={t.photo}
 								className="flex h-[92vh] w-[92vw] max-w-[1400px] flex-col p-2"
-								onWheel={handleWheel}
 								onDoubleClick={handleDoubleClick}
 								onMouseDown={(e) => {
 									if (e.button !== 0) return;
@@ -951,17 +985,65 @@ export function ImageGallery({
 								onTouchMove={handleTouchMove}
 								onTouchEnd={handleTouchEnd}
 							>
-								<div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-md">
+								<div
+									ref={viewerRef}
+									className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-md"
+								>
+									{viewerLoadedSrc !== imageList[currentIndex]?.src &&
+									thumbnailSources.current.has(imageList[currentIndex]?.src) ? (
+										<Image
+											src={
+												thumbnailSources.current.get(
+													imageList[currentIndex].src,
+												) ?? imageList[currentIndex].src
+											}
+											alt=""
+											aria-hidden="true"
+											fill
+											unoptimized
+											className="object-contain"
+										/>
+									) : null}
+									{viewerFailedSrc === imageList[currentIndex]?.src ? (
+										<div
+											role="alert"
+											className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 text-white"
+										>
+											<p>{t.failedLoadPhotos}</p>
+											<button
+												type="button"
+												className="rounded border px-3 py-2"
+												onClick={() => {
+													setViewerFailedSrc(null);
+													setViewerLoadedSrc(null);
+													setViewerAttempt((value) => value + 1);
+												}}
+											>
+												{normalizeOrganizationLanguage(organizationLanguage) ===
+												"lv"
+													? "Mēģināt vēlreiz"
+													: "Retry"}
+											</button>
+										</div>
+									) : null}
 									{/* biome-ignore lint/performance/noImgElement: Zoom and pan require direct transform control of the lightbox image. */}
 									<img
+										key={`${imageList[currentIndex]?.src}:${viewerAttempt}`}
 										ref={imgRef}
 										src={imageList[currentIndex]?.src}
 										alt={imageList[currentIndex]?.caption || t.photo}
 										onLoad={handleImgLoaded}
+										onError={() =>
+											setViewerFailedSrc(imageList[currentIndex]?.src ?? null)
+										}
 										className="select-none"
 										draggable={false}
 										style={{
 											transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`,
+											opacity:
+												viewerLoadedSrc === imageList[currentIndex]?.src
+													? 1
+													: 0,
 											transformOrigin: "center center",
 											maxHeight: "100%",
 											maxWidth: "100%",

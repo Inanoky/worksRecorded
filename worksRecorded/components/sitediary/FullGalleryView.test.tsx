@@ -4,6 +4,7 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import * as React from "react";
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
@@ -77,9 +78,7 @@ describe("FullPhotoGallery", () => {
 			<FullPhotoGallery siteId="site-1" onMediaChanged={onMediaChanged} />,
 		);
 		fireEvent.click(await screen.findByAltText("First photo"));
-		fireEvent.click(
-			screen.getByRole("button", { name: "Delete" }),
-		);
+		fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 		await waitFor(() => expect(onMediaChanged).toHaveBeenCalledTimes(1));
 		expect(mockDeletePhotoById).toHaveBeenCalledWith("photo-1", "site-1");
 	});
@@ -90,9 +89,7 @@ describe("FullPhotoGallery", () => {
 			<FullPhotoGallery siteId="site-1" onMediaChanged={onMediaChanged} />,
 		);
 		fireEvent.click(await screen.findByAltText("First photo"));
-		fireEvent.click(
-			screen.getByRole("button", { name: "Delete" }),
-		);
+		fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 		expect(mockDeletePhotoById).not.toHaveBeenCalled();
 		expect(onMediaChanged).not.toHaveBeenCalled();
 	});
@@ -105,9 +102,7 @@ describe("FullPhotoGallery", () => {
 			<FullPhotoGallery siteId="site-1" onMediaChanged={onMediaChanged} />,
 		);
 		fireEvent.click(await screen.findByAltText("First photo"));
-		fireEvent.click(
-			screen.getByRole("button", { name: "Delete" }),
-		);
+		fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 		await waitFor(() => expect(onMediaChanged).toHaveBeenCalledTimes(1));
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
 		expect(
@@ -143,13 +138,13 @@ describe("FullPhotoGallery", () => {
 			expect(
 				screen
 					.getByRole("dialog", { name: "Photo viewer" })
-					.querySelector("output"),
+					.querySelector('output[aria-live="polite"]'),
 			).toBeNull();
 			fireEvent.click(screen.getByRole("button", { name: "Next photo" }));
 			expect(
 				screen
 					.getByRole("dialog", { name: "Photo viewer" })
-					.querySelector("output"),
+					.querySelector('output[aria-live="polite"]'),
 			).toBeNull();
 		} finally {
 			spy.mockRestore();
@@ -214,6 +209,67 @@ describe("FullPhotoGallery", () => {
 		expect(screen.getByText("Photo 3 of 3 (Page 1 of 1)")).toBeInTheDocument();
 	});
 
+	it("portals the viewer, handles wheel zoom and keeps navigation available while zoomed", async () => {
+		const { container } = render(<FullPhotoGallery siteId="site-1" />);
+		fireEvent.click(await screen.findByAltText("First photo"));
+		const viewer = screen.getByRole("dialog", { name: "Photo viewer" });
+		expect(container.contains(viewer)).toBe(false);
+		const wheel = new WheelEvent("wheel", {
+			deltaY: -100,
+			cancelable: true,
+			bubbles: true,
+		});
+		act(() => {
+			viewer.dispatchEvent(wheel);
+		});
+		expect(wheel.defaultPrevented).toBe(true);
+		expect(screen.getByText("120%")).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Next photo" }));
+		expect(screen.getByText("Photo 2 of 3 (Page 1 of 1)")).toBeInTheDocument();
+	});
+
+	it("shows the loaded thumbnail during original loading and retries a failed original", async () => {
+		render(<FullPhotoGallery siteId="site-1" />);
+		const thumbnail = await screen.findByAltText("First photo");
+		fireEvent.load(thumbnail);
+		fireEvent.click(thumbnail);
+		const viewer = screen.getByRole("dialog", { name: "Photo viewer" });
+		expect(viewer.querySelector('img[aria-hidden="true"]')).toBeInTheDocument();
+		const original = within(viewer).getByAltText("First photo");
+		fireEvent.error(original);
+		expect(screen.getByRole("alert")).toHaveTextContent("Could not load photo");
+		fireEvent.click(screen.getByRole("button", { name: /Retry/ }));
+		expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+		const retried = within(viewer).getByAltText("First photo");
+		expect(retried).not.toBe(original);
+		fireEvent.load(retried);
+		expect(screen.queryByText("Ielādē foto...")).not.toBeInTheDocument();
+	});
+
+	it("ignores an old project response after switching projects", async () => {
+		let resolveOld!: (response: Response) => void;
+		global.fetch = jest
+			.fn()
+			.mockReturnValueOnce(
+				new Promise((resolve) => {
+					resolveOld = resolve;
+				}),
+			)
+			.mockResolvedValueOnce(
+				mockFetchResponse([
+					{ ...pageOnePhotos[1], Comment: "New project photo" },
+				]),
+			);
+		const { rerender } = render(<FullPhotoGallery siteId="old" />);
+		rerender(<FullPhotoGallery siteId="new" />);
+		expect(await screen.findByAltText("New project photo")).toBeInTheDocument();
+		await act(async () => {
+			resolveOld(mockFetchResponse());
+		});
+		expect(screen.queryByAltText("First photo")).not.toBeInTheDocument();
+		expect(screen.getByAltText("New project photo")).toBeInTheDocument();
+	});
+
 	it("clears the viewer loading overlay after the selected image loads", async () => {
 		render(<FullPhotoGallery siteId="site-1" />);
 
@@ -259,6 +315,7 @@ describe("FullPhotoGallery", () => {
 		await waitFor(() => {
 			expect(global.fetch).toHaveBeenCalledWith(
 				"/api/sites/site-1/photos?page=2",
+				expect.objectContaining({ signal: expect.any(AbortSignal) }),
 			);
 		});
 		expect(await screen.findByAltText("Page 2 photo")).toBeInTheDocument();
@@ -269,6 +326,7 @@ describe("FullPhotoGallery", () => {
 			expect(global.fetch).toHaveBeenCalledTimes(2);
 			expect(global.fetch).not.toHaveBeenCalledWith(
 				"/api/sites/site-1/photos?page=3",
+				expect.anything(),
 			);
 		});
 	});

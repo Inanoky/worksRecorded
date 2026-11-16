@@ -66,6 +66,19 @@ const rows = [
 ];
 
 describe("Forma 2 analytics", () => {
+	it("recognizes comma-separated position codes in the deterministic spreadsheet parser", () => {
+		const commaRows = rows.map((row) => [...row]);
+		commaRows[4][0] = "1,1,2";
+		const result = extractForma2PositionsFromRows(commaRows, "Test");
+		expect(result.positions[0]).toMatchObject({
+			code: "1.1.2",
+			plannedQuantity: 55,
+			hourlyRate: 15,
+			laborNormHoursPerUnit: 8.13,
+		});
+		expect(result.positions[1].parentId).toBe(result.positions[0].id);
+	});
+
 	it.each([67, 0, null])(
 		"uses the diary plan %p for reported totals without changing cost",
 		(reportedQuantity) => {

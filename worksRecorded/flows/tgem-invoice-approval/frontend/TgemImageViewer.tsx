@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import * as React from "react";
+import { useDocumentWheelZoom } from "./useDocumentWheelZoom";
 
 type Props = {
 	documentPath: string;
@@ -25,7 +26,7 @@ function getCopy(language?: string | null) {
 			zoomIn: "Palielināt",
 			zoomOut: "Samazināt",
 			fit: "Ietilpināt attēlu",
-			pan: "Velciet, lai pārvietotu attēlu",
+			pan: "Ritiniet, lai mainītu mērogu. Velciet, lai pārvietotu attēlu.",
 			loading: "Ielādē attēlu…",
 			failed: "Attēlu neizdevās ielādēt.",
 			retry: "Mēģināt vēlreiz",
@@ -38,7 +39,7 @@ function getCopy(language?: string | null) {
 			zoomIn: "Увеличить",
 			zoomOut: "Уменьшить",
 			fit: "Вписать изображение",
-			pan: "Перетащите, чтобы переместить изображение",
+			pan: "Прокрутите для масштабирования. Перетащите для перемещения.",
 			loading: "Загрузка изображения…",
 			failed: "Не удалось загрузить изображение.",
 			retry: "Повторить",
@@ -50,7 +51,7 @@ function getCopy(language?: string | null) {
 		zoomIn: "Zoom in",
 		zoomOut: "Zoom out",
 		fit: "Fit image",
-		pan: "Drag to move the image",
+		pan: "Scroll to zoom. Drag to move the image.",
 		loading: "Loading image…",
 		failed: "Could not load the image.",
 		retry: "Try again",
@@ -65,6 +66,7 @@ const toolbarButtonClass =
 export function TgemImageViewer({ documentPath, filename, language }: Props) {
 	const copy = getCopy(language);
 	const viewportRef = React.useRef<HTMLDivElement>(null);
+	const imageRef = React.useRef<HTMLImageElement>(null);
 	const dragOriginRef = React.useRef<{
 		pointerId: number;
 		x: number;
@@ -114,6 +116,16 @@ export function TgemImageViewer({ documentPath, filename, language }: Props) {
 				)
 			: 1;
 	const scale = customScale ?? fitScale;
+
+	useDocumentWheelZoom({
+		viewportRef,
+		surfaceRef: imageRef,
+		scale,
+		minScale: 0.1,
+		maxScale: 4,
+		enabled: loadState === "ready",
+		onZoom: setCustomScale,
+	});
 
 	function startDragging(event: React.PointerEvent<HTMLDivElement>) {
 		const viewport = event.currentTarget;
@@ -267,6 +279,7 @@ export function TgemImageViewer({ documentPath, filename, language }: Props) {
 				) : (
 					<div className="flex min-h-full w-max min-w-full items-center justify-center p-4">
 						<Image
+							ref={imageRef}
 							key={reloadKey}
 							src={documentPath}
 							alt={filename}

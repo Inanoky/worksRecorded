@@ -73,6 +73,19 @@ describe("TgemImageViewer", () => {
 		).toHaveAttribute("href", props.documentPath);
 	});
 
+	it("zooms images with the wheel and keeps the same document source", async () => {
+		render(<TgemImageViewer {...props} />);
+		const image = await loadImage();
+		const viewport = screen.getByTestId("tgem-image-viewport");
+		const source = image.getAttribute("src");
+		fireEvent.wheel(viewport, { deltaY: -100 });
+		expect(image.clientWidth).toBeGreaterThan(0);
+		expect(image.style.width).not.toBe("300px");
+		expect(image).toHaveAttribute("src", source);
+		fireEvent.click(screen.getByRole("button", { name: "Fit image" }));
+		expect(image).toHaveStyle({ width: "300px" });
+	});
+
 	it("fits landscape scans using their actual aspect ratio and follows viewport resizing", async () => {
 		render(<TgemImageViewer {...props} />);
 		const image = await loadImage(1600, 800);

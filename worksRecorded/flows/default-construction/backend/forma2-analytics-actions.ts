@@ -20,6 +20,7 @@ import {
 	normalizeForma2MaterialRuleName,
 	suggestForma2Position,
 } from "@/flows/default-construction/lib/forma2-analytics";
+import { normalizeForma2PositionCode } from "@/flows/default-construction/lib/forma2-position-code";
 import {
 	getForma2DiaryQuantity,
 	getForma2QuantityExclusion,
@@ -96,8 +97,8 @@ function normalizePositions(input: Forma2Position[]) {
 		ids.add(id);
 		return {
 			id,
-			code: text(raw.code, 40),
-			categoryCode: text(raw.categoryCode, 40),
+			code: normalizeForma2PositionCode(text(raw.code, 40)),
+			categoryCode: normalizeForma2PositionCode(text(raw.categoryCode, 40)),
 			categoryName: text(raw.categoryName, 300),
 			name,
 			kind: normalizeKind(raw.kind),

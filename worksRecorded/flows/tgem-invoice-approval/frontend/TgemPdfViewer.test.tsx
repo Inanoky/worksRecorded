@@ -137,6 +137,30 @@ describe("TgemPdfViewer", () => {
 		await waitFor(() => expect(mockRender).toHaveBeenCalledTimes(3));
 	});
 
+	it("zooms with the wheel without fetching the PDF again and preserves text-mode scrolling", async () => {
+		render(
+			<TgemPdfViewer
+				documentPath="/api/tgem/invoices/case-1/documents/document-1"
+				filename="invoice.pdf"
+				language="en"
+			/>,
+		);
+		await waitFor(() => expect(mockTextLayerRender).toHaveBeenCalled());
+		const viewport = screen.getByTestId("tgem-pdf-viewport");
+		fireEvent.wheel(viewport, { deltaY: -100, clientX: 200, clientY: 250 });
+		await waitFor(() =>
+			expect(screen.queryByText("77%")).not.toBeInTheDocument(),
+		);
+		expect(mockFetch).toHaveBeenCalledTimes(1);
+		expect(mockGetTextContent).toHaveBeenCalledTimes(1);
+		const renders = mockRender.mock.calls.length;
+		fireEvent.click(screen.getByRole("button", { name: "Select PDF text" }));
+		expect(fireEvent.wheel(viewport, { deltaY: 100, cancelable: true })).toBe(
+			true,
+		);
+		expect(mockRender).toHaveBeenCalledTimes(renders);
+	});
+
 	it("pans an overflowing document by dragging it", async () => {
 		render(
 			<TgemPdfViewer

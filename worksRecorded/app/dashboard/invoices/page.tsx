@@ -35,6 +35,8 @@ export default async function TgemInvoicesPage({
 
 	return (
 		<TgemInvoiceApprovalDashboard
+			cacheScope={JSON.stringify([user.id, dbUser.organizationId])}
+			key={JSON.stringify([user.id, dbUser.organizationId])}
 			initialProjectFilter={firstValue(rawSearchParams.project) ?? null}
 			initialView={
 				firstValue(rawSearchParams.view) === "approval"

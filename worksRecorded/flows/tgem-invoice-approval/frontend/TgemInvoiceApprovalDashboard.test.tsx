@@ -31,6 +31,7 @@ jest.mock("next/navigation", () => ({
 const mockStartUpload = jest.fn();
 const mockSaveApprovalTemplate = jest.fn();
 const mockSaveWorkflowManagers = jest.fn();
+const mockGetApprovalSetup = jest.fn();
 const mockSubmitForApproval = jest.fn();
 const mockResetApprovalFlow = jest.fn();
 const mockDecideApproval = jest.fn();
@@ -61,6 +62,8 @@ jest.mock("@/server/actions/tgem-invoice-actions", () => ({
 }));
 
 jest.mock("@/server/actions/tgem-invoice-approval-actions", () => ({
+	getTgemApprovalSetupData: (...args: unknown[]) =>
+		mockGetApprovalSetup(...args),
 	saveTgemApprovalTemplate: (...args: unknown[]) =>
 		mockSaveApprovalTemplate(...args),
 	saveTgemWorkflowManagers: (...args: unknown[]) =>
@@ -284,6 +287,10 @@ function approvalStep(
 describe("TgemInvoiceApprovalDashboard", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		mockGetApprovalSetup.mockResolvedValue({
+			project: { id: "site-2", name: "Jurmala warehouse" },
+			setup: baseApprovalSetup,
+		});
 		mockArchiveInvoices
 			.mockReset()
 			.mockImplementation(async (targets: { id: string }[]) => ({
@@ -1823,9 +1830,8 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		expect(screen.getByTestId("tgem-invoice-case-1")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Split invoice" })).toBeEnabled();
 		expect(window.location.search).toBe("?view=approval");
-		expect(mockReplace).toHaveBeenCalledWith("/?view=approval", {
-			scroll: false,
-		});
+		expect(mockReplace).not.toHaveBeenCalled();
+		expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(1);
 	});
 
 	it("warns on the newest invoice when its normalized number is duplicated", async () => {
@@ -2166,12 +2172,52 @@ describe("TgemInvoiceApprovalDashboard", () => {
 		}
 	});
 
+	it("shares a pending background refresh with a manual refresh", async () => {
+		jest.useFakeTimers();
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue(dashboardData);
+		const { unmount } = render(
+			<TgemInvoiceApprovalDashboard organizationLanguage="en" />,
+		);
+		try {
+			await act(async () => {
+				await Promise.resolve();
+			});
+			let resolveRefresh!: (data: TgemDashboardData) => void;
+			jest.mocked(getTgemInvoiceDashboardData).mockImplementationOnce(
+				() =>
+					new Promise((resolve) => {
+						resolveRefresh = resolve;
+					}),
+			);
+			await act(async () => {
+				jest.advanceTimersByTime(60_000);
+			});
+			fireEvent.click(screen.getByRole("button", { name: "Refresh invoices" }));
+			expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(2);
+			await act(async () => {
+				resolveRefresh(dashboardData);
+			});
+			expect(
+				screen.getByRole("button", { name: "Refresh invoices" }),
+			).toBeEnabled();
+		} finally {
+			unmount();
+			jest.useRealTimers();
+		}
+	});
+
 	it("switches one dashboard between all projects and a project-specific flow", async () => {
 		const allProjectsData: TgemDashboardData = {
 			...dashboardData,
 			approvalSetup: null,
 			invoices: [
 				dashboardData.invoices[0],
+				{
+					...dashboardData.invoices[0],
+					id: "case-site-2",
+					invoiceNumber: "TG-SITE-2",
+					project: { id: "site-2", name: "Jurmala warehouse" },
+				},
 				{
 					...dashboardData.invoices[0],
 					id: "case-unassigned",
@@ -2223,14 +2269,183 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			/>,
 		);
 		await waitFor(() => {
-			expect(getTgemInvoiceDashboardData).toHaveBeenLastCalledWith("site-2");
+			expect(mockGetApprovalSetup).toHaveBeenCalledWith("site-2");
 		});
-		expect(screen.getByLabelText("Choose invoice")).toBeEnabled();
+		expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(1);
+		expect(
+			screen.getByTestId("tgem-register-invoice-case-site-2"),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByTestId("tgem-register-invoice-case-1"),
+		).not.toBeInTheDocument();
+		expect(await screen.findByLabelText("Choose invoice")).toBeEnabled();
 		expect(screen.queryByRole("button", { name: "Approval setup" })).toBeNull();
 		expect(screen.getByTestId("tgem-invoice-scope")).toHaveTextContent(
 			"Invoice scope: Jurmala warehouse",
 		);
 		expect(window.location.search).toBe("?project=site-2");
+		rerender(
+			<TgemInvoiceApprovalDashboard
+				initialProjectFilter={null}
+				organizationLanguage="en"
+			/>,
+		);
+		expect(
+			await screen.findByTestId("tgem-register-invoice-case-unassigned"),
+		).toBeInTheDocument();
+		rerender(
+			<TgemInvoiceApprovalDashboard
+				initialProjectFilter="site-2"
+				organizationLanguage="en"
+			/>,
+		);
+		await waitFor(() =>
+			expect(screen.getByTestId("tgem-invoice-scope")).toHaveTextContent(
+				"Jurmala warehouse",
+			),
+		);
+		expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(1);
+		expect(mockGetApprovalSetup).toHaveBeenCalledTimes(1);
+	});
+
+	it("reuses project snapshots when switching between projects without an all-invoices snapshot", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue(dashboardData);
+		const { rerender } = render(
+			<TgemInvoiceApprovalDashboard
+				initialProjectFilter="site-1"
+				organizationLanguage="en"
+			/>,
+		);
+		await screen.findByTestId("tgem-register-invoice-case-1");
+		rerender(
+			<TgemInvoiceApprovalDashboard
+				initialProjectFilter="site-2"
+				organizationLanguage="en"
+			/>,
+		);
+		await waitFor(() =>
+			expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(2),
+		);
+		await screen.findByTestId("tgem-register-invoice-case-1");
+		rerender(
+			<TgemInvoiceApprovalDashboard
+				initialProjectFilter="site-1"
+				organizationLanguage="en"
+			/>,
+		);
+		await waitFor(() =>
+			expect(screen.getByTestId("tgem-invoice-scope")).toHaveTextContent(
+				"Riga office",
+			),
+		);
+		expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(2);
+	});
+
+	it("invalidates the all-invoices cache after archiving from a project", async () => {
+		jest
+			.mocked(getTgemInvoiceDashboardData)
+			.mockResolvedValueOnce(dashboardData)
+			.mockResolvedValue({ ...dashboardData, invoices: [] });
+		const { rerender } = render(
+			<TgemInvoiceApprovalDashboard organizationLanguage="en" />,
+		);
+		await screen.findByTestId("tgem-register-invoice-case-1");
+		rerender(
+			<TgemInvoiceApprovalDashboard
+				initialProjectFilter="site-1"
+				organizationLanguage="en"
+			/>,
+		);
+		await waitFor(() => expect(mockGetApprovalSetup).toHaveBeenCalled());
+		fireEvent.click(
+			within(screen.getByTestId("tgem-register-invoice-case-1")).getByRole(
+				"button",
+				{ name: "Archive invoice: TG-2026-0718" },
+			),
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Yes, archive" }));
+		await waitFor(() =>
+			expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(2),
+		);
+		await waitFor(() =>
+			expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+		);
+		rerender(
+			<TgemInvoiceApprovalDashboard
+				initialProjectFilter={null}
+				organizationLanguage="en"
+			/>,
+		);
+		await waitFor(() =>
+			expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(3),
+		);
+		expect(
+			screen.queryByTestId("tgem-register-invoice-case-1"),
+		).not.toBeInTheDocument();
+	});
+
+	it("retains cached invoices across remounts and isolates different accounts", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue(dashboardData);
+		const first = render(
+			<TgemInvoiceApprovalDashboard
+				cacheScope="cache-account-1"
+				organizationLanguage="en"
+			/>,
+		);
+		await screen.findByTestId("tgem-register-invoice-case-1");
+		first.unmount();
+		const second = render(
+			<TgemInvoiceApprovalDashboard
+				cacheScope="cache-account-1"
+				organizationLanguage="en"
+			/>,
+		);
+		expect(
+			screen.getByTestId("tgem-register-invoice-case-1"),
+		).toBeInTheDocument();
+		expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(1);
+		second.unmount();
+		render(
+			<TgemInvoiceApprovalDashboard
+				cacheScope="cache-account-2"
+				organizationLanguage="en"
+			/>,
+		);
+		await screen.findByTestId("tgem-register-invoice-case-1");
+		expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(2);
+	});
+
+	it("shows stale cached rows while revalidating in the background", async () => {
+		jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue(dashboardData);
+		const first = render(
+			<TgemInvoiceApprovalDashboard
+				cacheScope="cache-stale"
+				organizationLanguage="en"
+			/>,
+		);
+		await screen.findByTestId("tgem-register-invoice-case-1");
+		first.unmount();
+		const clock = jest.spyOn(Date, "now").mockReturnValue(Date.now() + 61_000);
+		jest
+			.mocked(getTgemInvoiceDashboardData)
+			.mockReturnValueOnce(new Promise(() => {}));
+		try {
+			render(
+				<TgemInvoiceApprovalDashboard
+					cacheScope="cache-stale"
+					organizationLanguage="en"
+				/>,
+			);
+			expect(
+				screen.getByTestId("tgem-register-invoice-case-1"),
+			).toBeInTheDocument();
+			expect(
+				screen.queryByLabelText("Loading invoices…"),
+			).not.toBeInTheDocument();
+			expect(getTgemInvoiceDashboardData).toHaveBeenCalledTimes(2);
+		} finally {
+			clock.mockRestore();
+		}
 	});
 
 	it("assigns an unassigned invoice to a project with its current version", async () => {

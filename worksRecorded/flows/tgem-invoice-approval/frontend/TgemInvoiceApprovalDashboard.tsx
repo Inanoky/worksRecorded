@@ -69,6 +69,11 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
+import {
+	getTgemDashboardCache,
+	TGEM_DASHBOARD_CACHE_FRESH_MS,
+	TgemDashboardCache,
+} from "@/lib/tgem-invoice-approval/dashboard-cache";
 import type {
 	TgemDashboardData,
 	TgemDashboardInvoice,
@@ -95,6 +100,7 @@ import { updateTgemInvoiceAccounting } from "@/server/actions/tgem-cost-code-act
 import { getTgemInvoiceDashboardData } from "@/server/actions/tgem-invoice-actions";
 import {
 	assignTgemInvoiceProject,
+	getTgemApprovalSetupData,
 	markTgemInvoicePaid,
 } from "@/server/actions/tgem-invoice-approval-actions";
 import { archiveTgemInvoices } from "@/server/actions/tgem-invoice-archive-actions";
@@ -107,6 +113,7 @@ import { TgemInvoiceUpload } from "./TgemInvoiceUpload";
 import { TgemPdfViewer } from "./TgemPdfViewer";
 
 type Props = {
+	cacheScope?: string;
 	siteId?: string;
 	initialProjectFilter?: string | null;
 	initialView?: "approval" | "register";
@@ -2786,6 +2793,7 @@ function InvoiceDetails({
 }
 
 export function TgemInvoiceApprovalDashboard({
+	cacheScope,
 	siteId,
 	initialProjectFilter,
 	initialView = "register",
@@ -2798,7 +2806,19 @@ export function TgemInvoiceApprovalDashboard({
 			? (initialProjectFilter ?? "all")
 			: (siteId ?? "all");
 	const [projectFilter, setProjectFilter] = React.useState(initialFilter);
-	const [data, setData] = React.useState<TgemDashboardData | null>(null);
+	const cache = React.useMemo(
+		() =>
+			cacheScope ? getTgemDashboardCache(cacheScope) : new TgemDashboardCache(),
+		[cacheScope],
+	);
+	const [data, setData] = React.useState<TgemDashboardData | null>(
+		() => cache.read(initialFilter)?.data ?? null,
+	);
+	const activeProjectRef = React.useRef(projectFilter);
+	activeProjectRef.current = projectFilter;
+	const pendingLoadsRef = React.useRef(
+		new Map<string, Promise<TgemDashboardData | null>>(),
+	);
 	const [selectedInvoiceId, setSelectedInvoiceId] = React.useState<
 		string | null
 	>(null);
@@ -2834,16 +2854,39 @@ export function TgemInvoiceApprovalDashboard({
 			const url = new URL(window.location.href);
 			if (nextView === "approval") url.searchParams.set("view", "approval");
 			else url.searchParams.delete("view");
-			router.replace(`${url.pathname}${url.search}`, { scroll: false });
+			window.history.replaceState(null, "", `${url.pathname}${url.search}`);
 		},
-		[router],
+		[],
 	);
 	const loadData = React.useCallback(
-		async (preferredInvoiceId?: string) => {
+		async (preferredInvoiceId?: string, invalidate = true) => {
 			setError(false);
-			const nextData = await getTgemInvoiceDashboardData(
-				projectFilter === "all" ? null : projectFilter,
-			);
+			if (invalidate) cache.clear();
+			const generation = cache.generation;
+			const requestKey = JSON.stringify([projectFilter, generation]);
+			let request = pendingLoadsRef.current.get(requestKey);
+			if (!request) {
+				request = getTgemInvoiceDashboardData(
+					projectFilter === "all" ? null : projectFilter,
+				);
+				pendingLoadsRef.current.set(requestKey, request);
+			}
+			let nextData: TgemDashboardData | null;
+			try {
+				nextData = await request;
+			} finally {
+				if (pendingLoadsRef.current.get(requestKey) === request)
+					pendingLoadsRef.current.delete(requestKey);
+			}
+			if (cache.generation !== generation) return;
+			if (nextData)
+				cache.put(projectFilter, {
+					data: nextData,
+					fetchedAt: Date.now(),
+					needsSetup: false,
+				});
+			else cache.clear();
+			if (activeProjectRef.current !== projectFilter) return;
 			setData(nextData);
 			setLastRefreshedAt(new Date());
 			setSelectedInvoiceId((currentId) => {
@@ -2864,7 +2907,7 @@ export function TgemInvoiceApprovalDashboard({
 				return nextData?.invoices[0]?.id ?? null;
 			});
 		},
-		[projectFilter],
+		[cache, projectFilter],
 	);
 
 	const refreshData = React.useCallback(async () => {
@@ -2872,7 +2915,7 @@ export function TgemInvoiceApprovalDashboard({
 		setRefreshing(true);
 		setRefreshError(false);
 		try {
-			await loadData(selectedInvoiceId ?? undefined);
+			await loadData(selectedInvoiceId ?? undefined, false);
 		} catch {
 			setRefreshError(true);
 			if (data === null) setError(true);
@@ -2899,40 +2942,59 @@ export function TgemInvoiceApprovalDashboard({
 	React.useEffect(() => {
 		let active = true;
 		let requestInFlight = false;
-		let hasLoaded = false;
+		const cached = cache.read(projectFilter);
+		let hasLoaded = Boolean(cached);
+		const generation = cache.generation;
 
 		async function refreshDashboard() {
 			if (requestInFlight) return;
 			requestInFlight = true;
 
 			try {
-				const nextData = await getTgemInvoiceDashboardData(
-					projectFilter === "all" ? null : projectFilter,
-				);
+				await loadData(undefined, false);
 				if (!active) return;
 
 				hasLoaded = true;
-				setError(false);
-				setData(nextData);
-				setLastRefreshedAt(new Date());
-				setSelectedInvoiceId((currentId) => {
-					if (
-						currentId &&
-						nextData?.invoices.some((invoice) => invoice.id === currentId)
-					) {
-						return currentId;
-					}
-					return nextData?.invoices[0]?.id ?? null;
-				});
 			} catch {
-				if (active && !hasLoaded) setError(true);
+				if (active) {
+					if (!hasLoaded) setError(true);
+					else setRefreshError(true);
+				}
 			} finally {
 				requestInFlight = false;
 			}
 		}
 
 		setError(false);
-		void refreshDashboard();
+		setRefreshError(false);
+		setData(cached?.data ?? null);
+		setLastRefreshedAt(cached ? new Date(cached.fetchedAt) : null);
+		setSelectedInvoiceId((current) =>
+			cached?.data.invoices.some((invoice) => invoice.id === current)
+				? current
+				: (cached?.data.invoices[0]?.id ?? null),
+		);
+		if (
+			!cached ||
+			Date.now() - cached.fetchedAt >= TGEM_DASHBOARD_CACHE_FRESH_MS
+		) {
+			void refreshDashboard();
+		} else if (cached.needsSetup) {
+			void getTgemApprovalSetupData(projectFilter)
+				.then(({ setup }) => {
+					if (!active || cache.generation !== generation) return;
+					const nextData = { ...cached.data, approvalSetup: setup };
+					cache.put(projectFilter, {
+						...cached,
+						data: nextData,
+						needsSetup: false,
+					});
+					setData(nextData);
+				})
+				.catch(() => {
+					if (active) setRefreshError(true);
+				});
+		}
 		const intervalId = window.setInterval(() => {
 			if (!document.hidden) void refreshDashboard();
 		}, DASHBOARD_REFRESH_INTERVAL_MS);
@@ -2941,7 +3003,7 @@ export function TgemInvoiceApprovalDashboard({
 			active = false;
 			window.clearInterval(intervalId);
 		};
-	}, [projectFilter]);
+	}, [cache, loadData, projectFilter]);
 
 	const selectedInvoice =
 		data?.invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null;
@@ -3039,8 +3101,10 @@ export function TgemInvoiceApprovalDashboard({
 								await loadData(invoiceCaseId);
 								return;
 							}
-							if (projectFilter !== projectId) changeProjectFilter(projectId);
-							else await loadData(invoiceCaseId);
+							if (projectFilter !== projectId) {
+								cache.clear();
+								changeProjectFilter(projectId);
+							} else await loadData(invoiceCaseId);
 						}}
 					/>
 					{dashboardView === "register" && data ? (
@@ -3128,6 +3192,7 @@ export function TgemInvoiceApprovalDashboard({
 										if (projectFilter === "all") {
 											await loadData(selectedInvoiceId ?? undefined);
 										} else {
+											cache.clear();
 											changeProjectFilter(projectId);
 										}
 									}}

@@ -28,6 +28,7 @@ import {
 } from "@/server/actions/tgem-cost-code-actions";
 import { TgemApprovalSetup } from "./TgemApprovalSetup";
 import { TgemProjectDeleteCard } from "./TgemProjectDeleteCard";
+import { useTgemSettingsRefresh } from "./TgemSettingsRefreshContext";
 import { TgemSubmitterFlowRouting } from "./TgemSubmitterFlowRouting";
 
 type CostCode = {
@@ -256,6 +257,7 @@ export function TgemCostCodeSettings({
 }) {
 	const copy = getCopy(organizationLanguage);
 	const router = useRouter();
+	const refreshSettings = useTgemSettingsRefresh();
 	const newCodeInputId = React.useId();
 	const newNameInputId = React.useId();
 	const activeTitleId = React.useId();
@@ -266,6 +268,7 @@ export function TgemCostCodeSettings({
 	const [approvalOpen, setApprovalOpen] = React.useState(false);
 	const [costCodesOpen, setCostCodesOpen] = React.useState(false);
 	const [costCodes, setCostCodes] = React.useState(initialCostCodes);
+	React.useEffect(() => setCostCodes(initialCostCodes), [initialCostCodes]);
 	const [code, setCode] = React.useState("");
 	const [name, setName] = React.useState("");
 	const [saving, setSaving] = React.useState(false);
@@ -279,6 +282,7 @@ export function TgemCostCodeSettings({
 				.map((item) => (item.id === next.id ? next : item))
 				.sort((left, right) => left.code.localeCompare(right.code)),
 		);
+		void refreshSettings?.();
 	}
 
 	async function addCostCode(event: React.FormEvent) {
@@ -294,6 +298,7 @@ export function TgemCostCodeSettings({
 			);
 			setCode("");
 			setName("");
+			await refreshSettings?.();
 		} catch (saveError) {
 			setError(saveError instanceof Error ? saveError.message : copy.failed);
 		} finally {
@@ -378,7 +383,10 @@ export function TgemCostCodeSettings({
 							siteId={selectedProject.id}
 							setup={approvalSetup}
 							organizationLanguage={organizationLanguage}
-							onSaved={async () => router.refresh()}
+							onSaved={async () => {
+								if (refreshSettings) await refreshSettings();
+								else router.refresh();
+							}}
 						/>
 					) : (
 						<Card className="border-dashed border-[#E1E6ED] bg-slate-50/40 dark:border-slate-700 dark:bg-slate-900/20">
