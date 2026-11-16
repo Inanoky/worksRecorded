@@ -500,3 +500,52 @@ it("does not resend unedited timestamps or hours when only the comment changes",
 		creates: [],
 	});
 });
+
+it("changes and saves Mērvienība when a diary work option is selected", async () => {
+	const work = "2.2.11 Tranšejas rakšana";
+	jest.mocked(saveDefaultConstructionDiaryEdits).mockResolvedValue({
+		rows: [],
+		createdIds: [],
+	});
+	render(
+		<DialogTable
+			date={date}
+			siteId="site"
+			initialRows={[{ id: hashId, Date: date, Works: "Piezīmes", Units: "m" }]}
+			initialConfig={{
+				Works: { Type: "dropdown", DropDownOptions: { [work]: work } },
+				Units: { Type: "dropdown", DropDownOptions: { m: "m", m3: "m3" } },
+				otherSettings: {
+					defaultConstructionForma2WorkSync: {
+						documentId: "estimate-1",
+						entries: [
+							{
+								positionId: "position-1",
+								work,
+								unit: "m3",
+								ownedByForma2: true,
+							},
+						],
+					},
+				},
+			}}
+			batchEditing
+			cachedWorkspace
+			organizationLanguage="lv"
+		/>,
+	);
+	fireEvent.click(screen.getByText("Piezīmes"));
+	fireEvent.click(await screen.findByRole("button", { name: work }));
+	const unitSelect = screen
+		.getAllByRole("combobox")
+		.find((element) => element.tagName === "SELECT");
+	expect(unitSelect).toHaveValue("m3");
+	fireEvent.click(screen.getByRole("button", { name: messages.saveDiary }));
+	await waitFor(() =>
+		expect(saveDefaultConstructionDiaryEdits).toHaveBeenCalledWith({
+			siteId: "site",
+			updates: [{ id: hashId, fields: { Works: work, Units: "m3" } }],
+			creates: [],
+		}),
+	);
+});

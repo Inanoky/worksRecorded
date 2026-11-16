@@ -3,7 +3,7 @@ import { performedWorkReferences } from "./diary-references";
 const references = {
 	scope: "user:case:round",
 	drawings: [{ id: "123", label: "BK-1" }],
-	estimates: [{ id: "456", label: "1.1 Betonēšana" }],
+	estimates: [{ id: "456", label: "1.1 Betonēšana", measurementId: "12" }],
 };
 
 test("sends page IDs as attributes and a single estimate as a relationship", () => {
@@ -13,6 +13,7 @@ test("sends page IDs as attributes and a single estimate as a relationship", () 
 			estimatePositionId: "456",
 		}),
 	).toEqual({
+		measurementId: "12",
 		attributes: { project_document_ids: [123] },
 		relationships: {
 			estimate_positions: { data: [{ type: "estimate_position", id: 456 }] },

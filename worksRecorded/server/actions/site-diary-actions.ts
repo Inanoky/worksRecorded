@@ -38,6 +38,7 @@ import {
   normalizeActualQuantityForStorage,
 } from "@/flows/default-construction/lib/quantity-plan-actual";
 import {
+  createDefaultConstructionDiaryUnitResolver,
   setDefaultConstructionWorkDropdownOptions,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import {
@@ -1521,9 +1522,11 @@ export async function saveSiteDiaryRecord({
         select: { siteDiaryRecordsMap: true },
       })
     : null;
-  const quantityProfileEnabled = hasDefaultConstructionQuantityProfile(
-    quantityProfileConfig?.siteDiaryRecordsMap as Record<string, any> | null,
-  );
+  const diaryConfig = quantityProfileConfig?.siteDiaryRecordsMap as
+    | Record<string, unknown>
+    | null;
+  const quantityProfileEnabled = hasDefaultConstructionQuantityProfile(diaryConfig);
+  const unitForWork = createDefaultConstructionDiaryUnitResolver(diaryConfig);
 
   // Make sure requireUser() is not triggering a redirect!
   // Defensive: Only save rows containing diary content.
@@ -1559,7 +1562,7 @@ export async function saveSiteDiaryRecord({
       originalAudioUrl:
         idx === 0 ? resolvedOriginalAudioUrl || undefined : undefined,
 
-      Units: row.Units || undefined,
+      Units: unitForWork(row.Works) ?? (row.Units || undefined),
       Amounts: toNullableNumber(row.Amounts),
       WorkersInvolved: toNullableNumber(row.WorkersInvolved),
       TimeInvolved: toNullableNumber(row.TimeInvolved),
@@ -1960,7 +1963,16 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
   if (!validRows.length)
     return { ok: false as const, reason: "no-records" as const };
 
-  const correctionPhotos = await getDiarySourcePhotoUrls(args);
+  const [correctionPhotos, site] = await Promise.all([
+    getDiarySourcePhotoUrls(args),
+    prisma.site.findUnique({
+      where: { id: args.siteId },
+      select: { siteDiaryRecordsMap: true },
+    }),
+  ]);
+  const unitForWork = createDefaultConstructionDiaryUnitResolver(
+    site?.siteDiaryRecordsMap as Record<string, unknown> | null,
+  );
 
   const result = await prisma.$transaction(async (tx) => {
     const activeBatch = await tx.siteDiarySaveBatch.findFirst({
@@ -2006,6 +2018,7 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
         await tx.sitediaryrecords.create({
           data: {
             ...row,
+            Units: unitForWork(row.Works) ?? row.Units,
             userId: args.userId,
             siteId: args.siteId,
             organizationId: first.organizationId,
@@ -3554,7 +3567,7 @@ export async function sendSiteDiaryRecordToBis(
   const references =
     options?.projectDocumentIds?.length || options?.estimatePositionId
       ? await validateBisDiaryReferences(recordSite.siteId, options)
-      : { attributes: {}, relationships: {} };
+      : { attributes: {}, relationships: {}, measurementId: undefined };
   const baseUrl = getBisBaseUrl();
   const selectedResponsiblePersonId = options?.responsiblePersonId;
   const selectedResponsiblePersonType = options?.responsiblePersonType;
@@ -3596,7 +3609,10 @@ export async function sendSiteDiaryRecordToBis(
     employees: Number(diaryRecord.WorkersInvolved ?? 1),
     quantity: Number.isFinite(amountValue) ? amountValue : 1,
     measurement: Number(
-      options?.measurement ?? process.env.BIS_DEFAULT_MEASUREMENT ?? 12,
+      references.measurementId ??
+        options?.measurement ??
+        process.env.BIS_DEFAULT_MEASUREMENT ??
+        12,
     ),
   };
 

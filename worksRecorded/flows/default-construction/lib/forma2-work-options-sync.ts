@@ -185,10 +185,12 @@ export function syncDefaultConstructionForma2WorkOptions(args: {
 		const existingManualWork = manualWorksByKey.get(generatedKey);
 		const ownedByForma2 = !existingManualWork;
 		const work = existingManualWork ?? candidate.work;
+		const estimateUnit = compactText(candidate.position.unit);
 		entries.push({
 			positionId: candidate.position.id,
 			work,
 			ownedByForma2,
+			...(estimateUnit ? { unit: estimateUnit } : {}),
 		});
 		if (!ownedByForma2) continue;
 		ownedWorks.push(work);
@@ -203,7 +205,7 @@ export function syncDefaultConstructionForma2WorkOptions(args: {
 		const hourlyRate = Number(candidate.position.hourlyRate);
 		importedSettingsByWork.set(generatedKey, {
 			work,
-			unit: compactText(candidate.position.unit) || previous?.unit || "",
+			unit: estimateUnit || previous?.unit || "",
 			laborNormHoursPerUnit:
 				candidate.position.laborNormHoursPerUnit != null &&
 				Number.isFinite(norm) &&

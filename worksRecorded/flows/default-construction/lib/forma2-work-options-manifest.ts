@@ -5,6 +5,7 @@ export type DefaultConstructionForma2WorkSyncEntry = {
 	positionId: string;
 	work: string;
 	ownedByForma2: boolean;
+	unit?: string;
 };
 
 export type DefaultConstructionForma2WorkSyncManifest = {
@@ -25,7 +26,8 @@ export const normalizeForma2WorkOptionKey = (value: unknown) =>
 export function getDefaultConstructionForma2WorkSyncManifest(
 	config: Record<string, any>,
 ): DefaultConstructionForma2WorkSyncManifest | null {
-	const raw = config?.otherSettings?.[DEFAULT_CONSTRUCTION_FORMA2_WORK_SYNC_KEY];
+	const raw =
+		config?.otherSettings?.[DEFAULT_CONSTRUCTION_FORMA2_WORK_SYNC_KEY];
 	const documentId = text(raw?.documentId, 180);
 	if (!documentId || !Array.isArray(raw?.entries)) return null;
 
@@ -33,6 +35,7 @@ export function getDefaultConstructionForma2WorkSyncManifest(
 	const entries = raw.entries.flatMap((entry: any) => {
 		const positionId = text(entry?.positionId, 180);
 		const work = text(entry?.work, 200);
+		const unit = text(entry?.unit, 40);
 		if (!positionId || !work || seenPositionIds.has(positionId)) return [];
 		seenPositionIds.add(positionId);
 		return [
@@ -40,6 +43,7 @@ export function getDefaultConstructionForma2WorkSyncManifest(
 				positionId,
 				work,
 				ownedByForma2: entry?.ownedByForma2 === true,
+				...(unit ? { unit } : {}),
 			},
 		];
 	});

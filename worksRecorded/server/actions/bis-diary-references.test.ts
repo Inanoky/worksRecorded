@@ -14,7 +14,7 @@ beforeEach(() => {
   list.mockImplementation(async (path: string) => path === "project" ? [{ id: "123", attributes: { name: "Plāns", drawing_design: "BK", revision: "1" } }] : [
     { id: "100", attributes: { type: "group", description: "Grupa" } },
     { id: "101", attributes: { type: "element", position_number: "1.1", description: "Global" } },
-    { id: "102", attributes: { type: "element", position_number: "1.2", description: "Current", related_case_construction_round_ids: [42] } },
+    { id: "102", attributes: { type: "element", position_number: "1.2", description: "Current", measure: 12, related_case_construction_round_ids: [42] } },
     { id: "103", attributes: { type: "element", description: "Other", case_construction_round_id: 43 } },
   ]);
 });
@@ -22,6 +22,7 @@ beforeEach(() => {
 test("reuses preloaded lists but authenticates every request", async () => {
   const first = await getBisDiaryReferences("site");
   expect(first.estimates.map((item) => item.id)).toEqual(["101", "102"]);
+  expect(first.estimates[1]).toMatchObject({ id: "102", measurementId: "12" });
   expect(first.drawings[0]).toMatchObject({ id: "123", label: "BK · Plāns · rev. 1" });
   expect(await getBisDiaryReferences("site")).toBe(first);
   expect(list).toHaveBeenCalledTimes(2);

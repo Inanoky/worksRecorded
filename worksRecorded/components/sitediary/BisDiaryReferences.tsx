@@ -1,10 +1,16 @@
 "use client";
 
+import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useProjectCacheScope } from "@/components/providers/ProjectLoadingProgressProvider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import type { BisDiaryReferences } from "@/lib/bis/diary-references";
 
 export function useBisDiaryReferences(
@@ -94,8 +100,26 @@ export function BisDiaryReferenceFields({
 }) {
 	const idPrefix = useId();
 	const [search, setSearch] = useState("");
+	const [estimatePickerOpen, setEstimatePickerOpen] = useState(false);
+	const [estimateSearch, setEstimateSearch] = useState("");
 	const drawings = references.data?.drawings ?? [];
 	const estimates = references.data?.estimates ?? [];
+	const estimatePickerDisabled =
+		disabled || references.loading || !estimates.length;
+	const estimateLabelId = `${idPrefix}-estimate-label`;
+	const estimateValueId = `${idPrefix}-estimate-value`;
+	const noEstimate = { id: "", label: "Nav izvēlēta" };
+	const selectedEstimate = estimates.find((item) => item.id === estimateId);
+	const estimateQuery = estimateSearch.trim().toLocaleLowerCase("lv");
+	const estimateOptions = estimateQuery
+		? estimates.filter((item) =>
+				item.label.toLocaleLowerCase("lv").includes(estimateQuery),
+			)
+		: [noEstimate, ...estimates];
+	const setEstimateOpen = (open: boolean) => {
+		setEstimatePickerOpen(open);
+		if (!open) setEstimateSearch("");
+	};
 	return (
 		<fieldset disabled={disabled} className="space-y-3 rounded-md border p-4">
 			<div className="flex items-center justify-between gap-2">
@@ -115,22 +139,79 @@ export function BisDiaryReferenceFields({
 					{references.error}
 				</p>
 			) : null}
-			<label className="block space-y-1 text-xs font-medium">
-				Tāmes pozīcija
-				<select
-					className="h-10 w-full rounded-md border bg-background px-3 text-sm font-normal"
-					value={estimateId}
-					disabled={!references.data || references.loading}
-					onChange={(event) => onEstimateChange(event.target.value)}
+			<div className="min-w-0 space-y-1">
+				<p id={estimateLabelId} className="text-xs font-medium">
+					Tāmes pozīcija
+				</p>
+				<Popover
+					modal
+					open={estimatePickerOpen && !estimatePickerDisabled}
+					onOpenChange={setEstimateOpen}
 				>
-					<option value="">Nav izvēlēta</option>
-					{estimates.map((item) => (
-						<option key={item.id} value={item.id}>
-							{item.label}
-						</option>
-					))}
-				</select>
-			</label>
+					<PopoverTrigger asChild>
+						<Button
+							type="button"
+							variant="outline"
+							disabled={estimatePickerDisabled}
+							aria-labelledby={`${estimateLabelId} ${estimateValueId}`}
+							className="h-10 w-full min-w-0 justify-between font-normal"
+						>
+							<span id={estimateValueId} className="truncate">
+								{selectedEstimate?.label ?? noEstimate.label}
+							</span>
+							<ChevronsUpDown
+								aria-hidden="true"
+								className="size-4 opacity-50"
+							/>
+						</Button>
+					</PopoverTrigger>
+					<PopoverContent
+						aria-labelledby={estimateLabelId}
+						align="start"
+						collisionPadding={12}
+						className="flex max-h-[min(21rem,var(--radix-popover-content-available-height))] w-[var(--radix-popover-trigger-width)] flex-col overflow-hidden p-0"
+					>
+						<div className="flex shrink-0 items-center border-b px-3">
+							<Search
+								aria-hidden="true"
+								className="mr-2 size-4 shrink-0 opacity-50"
+							/>
+							<Input
+								aria-label="Meklēt pēc pozīcijas numura vai teksta"
+								placeholder="Meklēt pēc numura vai teksta…"
+								value={estimateSearch}
+								onChange={(event) => setEstimateSearch(event.target.value)}
+								className="h-10 border-0 px-0 shadow-none focus-visible:ring-0"
+							/>
+						</div>
+						<div className="min-h-0 overflow-y-auto overscroll-contain p-1">
+							{estimateOptions.map((item) => (
+								<button
+									key={item.id}
+									type="button"
+									aria-pressed={item.id === estimateId}
+									className="flex w-full min-w-0 items-start gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent focus-visible:bg-accent"
+									onClick={() => {
+										onEstimateChange(item.id);
+										setEstimateOpen(false);
+									}}
+								>
+									<Check
+										aria-hidden="true"
+										className={`mt-0.5 size-4 shrink-0 ${item.id === estimateId ? "opacity-100" : "opacity-0"}`}
+									/>
+									<span className="min-w-0 break-words">{item.label}</span>
+								</button>
+							))}
+							{estimateOptions.length === 0 ? (
+								<output className="block px-3 py-6 text-center text-sm text-muted-foreground">
+									Nav atrasta neviena tāmes pozīcija.
+								</output>
+							) : null}
+						</div>
+					</PopoverContent>
+				</Popover>
+			</div>
 			{!references.loading && references.data && estimates.length === 0 ? (
 				<p className="text-xs text-muted-foreground">
 					BIS šai kārtai nav pieejamu tāmes pozīciju.
