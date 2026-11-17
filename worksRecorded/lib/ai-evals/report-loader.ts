@@ -294,6 +294,9 @@ function makeItem(
 		judge: item.judge ?? null,
 		artifacts: {
 			flow,
+			langsmithRunId: asString(item.langsmithRunId) || null,
+			langsmithUrl: asString(item.langsmithUrl) || null,
+			langsmithError: asString(item.langsmithError) || null,
 			graphMessages,
 			selectedRecord,
 			structuredSaveTrace,

@@ -171,8 +171,8 @@ jest.mock(
 );
 
 import { ChatOpenAI } from "@langchain/openai";
+import { SITE_MANAGER_AI_BUDGET_MS, SITE_MANAGER_MODEL_TIMEOUT_MS } from "@/flows/default-construction/backend/site-manager-agent/aiDeadline";
 import { getSiteManagerAgentRunContext } from "@/flows/default-construction/backend/site-manager-agent/runContext";
-
 import {
 	bisConnectionStatusTool,
 	bisMaterialRecordsTool,
@@ -182,6 +182,7 @@ import {
 	siteDiaryBisStatusesTool,
 	siteDiaryToDatabaseTool,
 } from "@/flows/default-construction/backend/site-manager-agent/tools";
+import { buildDefaultConstructionDiaryConfig } from "@/flows/default-construction/lib/diary-config";
 
 const toolInput = {
 	question: "poured 12.5 m3 concrete",
@@ -233,6 +234,14 @@ const siteConfig = {
 		DisplayName: "Hours",
 	},
 };
+
+const originalStructuredClone = globalThis.structuredClone;
+beforeAll(() => {
+  globalThis.structuredClone ??= <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+});
+afterAll(() => {
+  globalThis.structuredClone = originalStructuredClone;
+});
 
 describe("save_to_database site diary tool", () => {
 	beforeEach(() => {
@@ -414,7 +423,61 @@ describe("save_to_database site diary tool", () => {
 		);
 	});
 
-  const frozenContext = () => ({
+  it.each([
+    { siteId: "roof-project", field: "RoofTask", work: "Jumta siltumizolācijas ieklāšana", unit: "m2", source: "Ieklāta jumta siltumizolācija 45 m2.", amount: 45 },
+    { siteId: "pipe-project", field: "PipeTask", work: "Lietusūdens caurules montāža", unit: "m", source: "Samontēta lietusūdens caurule 22 metri.", amount: 22 },
+  ].flatMap((project) => ["accepted", "timeout"].map((outcome) => ({ ...project, outcome }))))(
+    "uses the selected project's schema and scope for $siteId with $outcome",
+    async (project) => {
+      const config = buildDefaultConstructionDiaryConfig({
+        siteDiaryRecordsMap: {
+          ...siteConfig,
+          Works: { Type: "dropdown", DisplayName: project.field, DropDownOptions: { projectWork: project.work } },
+          Units: { Type: "dropdown", DisplayName: "Mrv", DropDownOptions: { ownUnit: project.unit } },
+        },
+      });
+      getConfigMock.mockResolvedValue(config);
+      getSiteDiaryToolContextMock.mockReturnValue({ ...trustedContext, siteId: project.siteId, originalMessage: project.source });
+      structuredInvokeMock.mockReset();
+      if (project.outcome === "timeout") {
+        const error = new Error("provider timeout");
+        error.name = "APIConnectionTimeoutError";
+        structuredInvokeMock.mockRejectedValueOnce(error);
+      } else {
+        structuredInvokeMock.mockResolvedValueOnce({
+          records: [{ [project.field]: project.work, Quantity: project.amount, Mrv: project.unit }],
+        }).mockResolvedValueOnce({
+          parsed: {
+            verdict: "accept",
+            reason: "Pamatots",
+            repairActions: [],
+            repairInstructions: "",
+            badSplitSignals: [],
+            expectedRecordCount: 1,
+            coverageComplete: true,
+            rowReviews: [{ rowIndex: 0, status: "accept", reason: "Pamatots", sourceText: project.source }],
+          },
+        });
+      }
+      saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1, recordIds: ["saved"] });
+      const result = await extractAndSaveSiteDiary({ question: project.source, requestedDate: "2026-11-17" });
+      expect(result.ok).toBe(true);
+      expect(result.savedAsNote === true).toBe(project.outcome === "timeout");
+      expect(getConfigMock).toHaveBeenCalledWith(project.siteId);
+      expect(Object.values(config.Works.DropDownOptions as Record<string, string>)).toContain("Piezīmes");
+      expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+      expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith(expect.objectContaining({
+        siteId: project.siteId,
+        userId: trustedContext.userId,
+        rows: [expect.objectContaining(project.outcome === "timeout"
+          ? { Works: "Piezīmes", Comments: project.source, Amounts: null, Units: null }
+          : { Works: project.work, Amounts: project.amount, Units: project.unit })],
+      }));
+      expect(structuredInvokeMock).toHaveBeenCalledTimes(project.outcome === "timeout" ? 1 : 2);
+    },
+  );
+
+	const frozenContext = () => ({
     config: siteConfig,
     language: "lv" as const,
     extractionContext: {
@@ -557,7 +620,8 @@ describe("save_to_database site diary tool", () => {
 						onStep: (step) => steps.push(step),
 					},
 				});
-				expect(result.ok).toBe(verdict === "accept");
+				expect(result.ok).toBe(true);
+				expect(result.savedAsNote === true).toBe(verdict !== "accept");
 				expect(steps.map((step) => step.phase)).toEqual([
 					"extraction",
 					"normalization",
@@ -565,7 +629,7 @@ describe("save_to_database site diary tool", () => {
 					"extraction",
 					"normalization",
 					"checker",
-					...(verdict === "accept" ? [] : ["failure"]),
+					...(verdict === "accept" ? [] : ["failure", "note_fallback"]),
 				]);
 				expect(
 					steps.filter((step) => step.phase === "checker")[1],
@@ -579,6 +643,33 @@ describe("save_to_database site diary tool", () => {
 			}
 		},
 	);
+
+	it.each(["extraction", "checker", "repair"])("prepares a read-only fallback note when eval %s times out", async (stage) => {
+		const hook = jest.mocked(getSiteManagerAgentRunContext);
+		const implementation = hook.getMockImplementation();
+		const context = hook();
+		if (!context) throw new Error("Missing mock run context");
+		hook.mockReturnValue({ ...context, evalRecordMetadata: { isEval: true } });
+		const source = "Betonēšana 12,5 m3";
+		const steps: Record<string, unknown>[] = [];
+		const error = new Error("provider timeout");
+		error.name = "APIConnectionTimeoutError";
+		structuredInvokeMock.mockReset();
+		if (stage !== "extraction") structuredInvokeMock.mockResolvedValueOnce({ records: [{ Activity: "Concrete pour", Quantity: 12.5, Mrv: "m3" }] });
+		if (stage === "repair") structuredInvokeMock.mockResolvedValueOnce({ parsed: { verdict: "needs_model_repair", reason: "Jāprecizē komentārs", repairActions: [], repairInstructions: "Precizē komentāru, saglabājot apjomu.", expectedRecordCount: 1, badSplitSignals: [] } });
+		structuredInvokeMock.mockRejectedValueOnce(error);
+		try {
+			const result = await extractAndSaveSiteDiary({ question: source, requestedDate: "13-11-2026", persist: false, validateBeforeReturning: true, evaluationContext: { ...frozenContext(), onStep: (step) => steps.push(step) } });
+			expect(result).toMatchObject({ ok: true, count: 1, savedAsNote: true, rows: [{ Works: "Piezīmes", Comments: source, Amounts: null, Units: null, TimeInvolved: null, WorkersInvolved: null }] });
+			expect(steps.at(-1)).toMatchObject({ phase: "note_fallback", persisted: false });
+			expect(structuredInvokeMock).toHaveBeenCalledTimes(stage === "extraction" ? 1 : stage === "checker" ? 2 : 3);
+			expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+			expect(getConfigMock).not.toHaveBeenCalled();
+			expect(buildSiteDiaryExtractionContextMock).not.toHaveBeenCalled();
+		} finally {
+			if (implementation) hook.mockImplementation(implementation);
+		}
+	});
 
 	it("regresses trace 01a0aada: contradictory checker saves one original note without inferred hours", async () => {
 		const originalMessage = "strādājam no 7.00 - 18.00";
@@ -611,7 +702,7 @@ describe("save_to_database site diary tool", () => {
 			saveSiteDiaryRecordMock.mockImplementationOnce(async ({ rows }) => ({ ok: true, count: 1, records: rows, recordIds: ["timeout-note"] }));
 			const resultPromise = extractAndSaveSiteDiary({ question, allowFallback: true, requestedDate: "21-09-2026" });
 			const assertion = expect(resultPromise).resolves.toMatchObject({ ok: true, savedAsNote: true, count: 1 });
-			await jest.advanceTimersByTimeAsync(240_000);
+			await jest.advanceTimersByTimeAsync(SITE_MANAGER_MODEL_TIMEOUT_MS);
 			await assertion;
 			const result = await resultPromise;
 			expect(result).toMatchObject({ ok: true, savedAsNote: true, count: 1 });
@@ -629,6 +720,61 @@ describe("save_to_database site diary tool", () => {
 			jest.useRealTimers();
 		}
 	});
+
+  it("shares 90 seconds across extraction, checking and a stalled repair before saving one note", async () => {
+    jest.useFakeTimers();
+    try {
+      const question = "Šodien betonēšana 12,5 m3.";
+      const delayed = (value: unknown) =>
+        new Promise((resolve) => setTimeout(() => resolve(value), 15_000));
+      let resolveRepair!: (value: unknown) => void;
+      structuredInvokeMock.mockReset()
+        .mockImplementationOnce(() => delayed({
+          action: "save_new_report",
+          language: "lv",
+          records: [
+            { Activity: "Concrete pour", Quantity: 12.5, Mrv: "m3" },
+            { Activity: "Wall construction" },
+          ],
+        }))
+        .mockImplementationOnce(() => delayed({
+          parsed: {
+            verdict: "needs_model_repair",
+            reason: "Pievienots nepamatots otrais darbs.",
+            repairActions: [],
+            repairInstructions: "Saglabā tikai betonēšanu 12,5 m3.",
+            badSplitSignals: [],
+            expectedRecordCount: 1,
+          },
+        }))
+        .mockImplementationOnce(() => new Promise((resolve) => {
+          resolveRepair = resolve;
+        }));
+      saveSiteDiaryRecordMock.mockImplementationOnce(async ({ rows }) => ({
+        ok: true,
+        count: 1,
+        records: rows,
+        recordIds: ["repair-timeout-note"],
+      }));
+      const resultPromise = extractAndSaveSiteDiary({ question, allowFallback: true });
+      await jest.advanceTimersByTimeAsync(SITE_MANAGER_AI_BUDGET_MS - 1);
+      expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+      expect(structuredInvokeMock).toHaveBeenCalledTimes(3);
+      await jest.advanceTimersByTimeAsync(1);
+      await expect(resultPromise).resolves.toMatchObject({ ok: true, savedAsNote: true });
+      expect(structuredInvokeMock.mock.calls[2][1].signal.aborted).toBe(true);
+      expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+      expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+        expect.objectContaining({ Works: "Piezīmes", Comments: question, Amounts: null, Units: null }),
+      ]);
+      resolveRepair({ records: [{ Activity: "Concrete pour", Quantity: 12.5, Mrv: "m3" }] });
+      await jest.advanceTimersByTimeAsync(1);
+      expect(structuredInvokeMock).toHaveBeenCalledTimes(3);
+      expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 
 	it.each(["question", "correction", "reply", "shadow"])("does not retry AI or save a note after a timeout for %s", async (kind) => {
 		const error = new Error("provider timeout");
@@ -2818,6 +2964,47 @@ describe("replace_last_site_diary_batch correction operation", () => {
 		expect(messages[0].content).toContain("today is : 20-06-2026");
 		expect(messages[2].content).toContain("Date is : 20-06-2026");
 	});
+
+  it("uses current saved values as the baseline for a spoken follow-up correction", async () => {
+    getSiteDiaryCorrectionTargetMock.mockResolvedValue({
+      ...correctionTarget,
+      records: [
+        {
+          ...correctionTarget.records[0],
+          Works: "Repair works",
+          Amounts: 8,
+          Units: "gab.",
+          TimeInvolved: 2,
+          Comments: "Daudzums iepriekš precizēts uz 8 gab.",
+          originalAudioUrl: "https://private.example/original-audio",
+        },
+        {
+          id: "old-2",
+          Works: "Concrete pour",
+          Amounts: 12.5,
+          Units: "m3",
+          TimeInvolved: 4,
+          Comments: "Šo darbu nemainīt.",
+        },
+      ],
+    });
+    await replaceLastSiteDiaryBatchOperation({
+      correction: "Par tām durvīm, tur bija trīs stundas, daudzumu atstāj kā ir.",
+      language: "lv",
+    });
+    const source = String(structuredInvokeMock.mock.calls[0][0][2].content);
+    expect(source).toContain("CURRENT SAVED RECORDS (trusted baseline)");
+    expect(source).toContain('"Amounts":8');
+    expect(source).toContain('"Works":"Concrete pour"');
+    expect(source).toContain("12.5 m3");
+    expect(source).toContain("Saglabā pārējos darbus un neskartos laukus");
+    expect(source).toContain("tur bija trīs stundas");
+    expect(source).not.toContain("https://private.example");
+    expect(source).not.toContain('"id":"old-2"');
+    expect(archiveAndReplaceSiteDiaryBatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedTargetBatchId: "batch-1" }),
+    );
+  });
 
 	it("checks corrected rows before replacing the existing batch", async () => {
 		await replaceLastSiteDiaryBatchOperation({

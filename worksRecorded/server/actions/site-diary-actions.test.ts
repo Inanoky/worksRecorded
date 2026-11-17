@@ -1625,6 +1625,21 @@ describe("archiveAndReplaceSiteDiaryBatch correction guardrails", () => {
     });
   });
 
+  it("does not replace another report when the correction target changes during AI processing", async () => {
+    const result = await archiveAndReplaceSiteDiaryBatch({
+      siteId: "site-1",
+      userId: "user-1",
+      correctionMessageId: "wamid.correction-target-changed",
+      correctionText: "Caurulei bija 24 metri.",
+      expectedTargetBatchId: "the-batch-used-to-build-the-correction",
+      rows: [{ Works: "Concrete pour", Amounts: 24, Units: "m" }],
+    });
+    expect(result).toEqual({ ok: false, reason: "target-changed" });
+    expect(transactionMock).not.toHaveBeenCalled();
+    expect(createMock).not.toHaveBeenCalled();
+    expect(updateManyMock).not.toHaveBeenCalled();
+  });
+
   it("preserves report photos and adds the verified correction photo", async () => {
     siteDiaryFindManyMock.mockResolvedValue([{ ...originalRecord, Photos: ["https://utfs.io/f/original"] }]);
     photosFindManyMock.mockResolvedValue([{ URL: "https://utfs.io/f/correction", fileUrl: null }]);

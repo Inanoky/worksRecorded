@@ -42,9 +42,9 @@ jest.mock("@/server/actions/shared-actions", () => ({
   getOrganizationLanguageByUserId: getOrganizationLanguageByUserIdMock,
 }));
 
-import { handleAudio, storeWhatsAppAudioFromUrl } from "./handleAudio";
 import { fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
-import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import { getWhatsappSourceContext, runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import { handleAudio, storeWhatsAppAudioFromUrl } from "./handleAudio";
 
 describe("handleAudio", () => {
   beforeEach(() => {
@@ -173,5 +173,34 @@ describe("handleAudio", () => {
     expect(handled).toBe(true);
     expect(transcriptionCreateMock).toHaveBeenCalledTimes(1);
     expect(agent).toHaveBeenCalledWith("Test transcript", "site-1", "user-1", null);
+  });
+
+  it("keeps the original reply target and message identity when a voice correction reaches the agent", async () => {
+    const transcript = "Nē, tai caurulei bija divdesmit četri metri, pārējo atstāj tāpat.";
+    transcriptionCreateMock.mockResolvedValue({ text: transcript });
+    const agent = jest.fn(async () => {
+      expect(getWhatsappSourceContext()).toMatchObject({
+        messageId: "wamid.voice-correction",
+        replyToMessageId: "wamid.original-report",
+        messageType: "audio",
+        webhookStartedAtMs: 1000,
+        originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
+      });
+      return "Cauruļvada apjoms labots uz 24 m.";
+    });
+    await runWithWhatsappSourceContext({
+      messageId: "wamid.voice-correction",
+      replyToMessageId: "wamid.original-report",
+      messageType: "audio",
+      webhookStartedAtMs: 1000,
+    }, () => handleAudio({
+      formData: audioFormData(),
+      user: { id: "user-1", lastSelectedSiteIdforWhatsapp: "site-1" },
+      to: "whatsapp:+37120000001",
+      agent,
+    }));
+    expect(agent).toHaveBeenCalledWith(transcript, "site-1", "user-1", "https://ut.test.ufs.sh/f/voice.ogg");
+    expect(sendMessageMock).toHaveBeenCalledWith("whatsapp:+37120000001", "Cauruļvada apjoms labots uz 24 m.");
+    expect(getWhatsappSourceContext()).toEqual({});
   });
 });

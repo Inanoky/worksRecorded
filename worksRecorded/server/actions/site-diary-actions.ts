@@ -1977,6 +1977,7 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
   userId: string;
   correctionMessageId: string;
   correctionText: string;
+  expectedTargetBatchId?: string;
   rows: Record<string, any>[];
   replyToMessageId?: string | null;
   evalMetadata?: Record<string, unknown>;
@@ -2011,6 +2012,8 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
   const target = await getSiteDiaryCorrectionTarget(args);
   if (!target || !target.records.length)
     return { ok: false as const, reason: "no-eligible-batch" as const };
+  if (args.expectedTargetBatchId && target.batch.id !== args.expectedTargetBatchId)
+    return { ok: false as const, reason: "target-changed" as const };
   if (target.records.some((record) => Boolean(record.BISId))) {
     return { ok: false as const, reason: "bis-linked" as const };
   }

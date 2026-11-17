@@ -4,6 +4,7 @@ import {
 	invokeSiteManagerModel,
 	markSiteManagerSideEffectsStarted,
 	SITE_MANAGER_AI_BUDGET_MS,
+	SITE_MANAGER_MODEL_TIMEOUT_MS,
 	SiteManagerAiTimeoutError,
 	withSiteManagerAiBudget,
 } from "./aiDeadline";
@@ -29,10 +30,14 @@ describe("site manager AI deadline", () => {
 		const assertion = expect(result).rejects.toBeInstanceOf(
 			SiteManagerAiTimeoutError,
 		);
-		await jest.advanceTimersByTimeAsync(SITE_MANAGER_AI_BUDGET_MS);
+		await jest.advanceTimersByTimeAsync(SITE_MANAGER_MODEL_TIMEOUT_MS);
 		await assertion;
 		expect(signal?.aborted).toBe(true);
-		expect(metadata).toEqual({ siteManagerAiTimedOut: true });
+		expect(metadata).toEqual({
+			siteManagerAiTimedOut: true,
+			siteManagerAiTimeoutScope: "workflow",
+			siteManagerAiTimeoutLimitMs: SITE_MANAGER_MODEL_TIMEOUT_MS,
+		});
 		resolveModel("late model output");
 		await Promise.resolve();
 		expect(save).not.toHaveBeenCalled();
@@ -44,26 +49,26 @@ describe("site manager AI deadline", () => {
 		expect(jest.getTimerCount()).toBe(0);
 	});
 
-	it("allows one healthy model call to take longer than 60 seconds", async () => {
+	it("allows one healthy model call to complete within the shared 90 seconds", async () => {
 		const result = invokeSiteManagerModel(
 			() =>
 				new Promise<string>((resolve) => {
-					setTimeout(() => resolve("completed"), 120_000);
+					setTimeout(() => resolve("completed"), 75_000);
 				}),
 		);
-		await jest.advanceTimersByTimeAsync(120_000);
+		await jest.advanceTimersByTimeAsync(75_000);
 		await expect(result).resolves.toBe("completed");
 		expect(jest.getTimerCount()).toBe(0);
 	});
 
 	it("counts routing and preprocessing time from webhook arrival", async () => {
-		const webhookStartedAtMs = Date.now() - 200_000;
+		const webhookStartedAtMs = Date.now() - 20_000;
 		await runWithWhatsappSourceContext({ webhookStartedAtMs }, async () => {
 			const result = invokeSiteManagerModel(() => new Promise(() => {}));
 			const assertion = expect(result).rejects.toBeInstanceOf(
 				SiteManagerAiTimeoutError,
 			);
-			await jest.advanceTimersByTimeAsync(40_000);
+			await jest.advanceTimersByTimeAsync(SITE_MANAGER_AI_BUDGET_MS - 20_000);
 			await assertion;
 		});
 	});
@@ -74,7 +79,7 @@ describe("site manager AI deadline", () => {
 			await withSiteManagerAiBudget(() =>
 				invokeSiteManagerModel(async () => "first"),
 			);
-			await jest.advanceTimersByTimeAsync(230_000);
+			await jest.advanceTimersByTimeAsync(SITE_MANAGER_AI_BUDGET_MS - 10_000);
 			const result = withSiteManagerAiBudget(() =>
 				invokeSiteManagerModel(() => new Promise(() => {})),
 			);
@@ -88,7 +93,7 @@ describe("site manager AI deadline", () => {
 
 	it("does not start a model once the webhook AI deadline has passed", async () => {
 		await runWithWhatsappSourceContext(
-			{ webhookStartedAtMs: Date.now() - 241_000 },
+			{ webhookStartedAtMs: Date.now() - SITE_MANAGER_AI_BUDGET_MS - 1_000 },
 			async () => {
 				const invoke = jest.fn();
 				await expect(invokeSiteManagerModel(invoke)).rejects.toBeInstanceOf(
@@ -104,16 +109,17 @@ describe("site manager AI deadline", () => {
 			const extraction = invokeSiteManagerModel(
 				() =>
 					new Promise<string>((resolve) => {
-						setTimeout(() => resolve("rows"), 150_000);
+						setTimeout(() => resolve("rows"), 20_000);
 					}),
 			);
-			await jest.advanceTimersByTimeAsync(150_000);
+			await jest.advanceTimersByTimeAsync(20_000);
 			await expect(extraction).resolves.toBe("rows");
+			await jest.advanceTimersByTimeAsync(20_000);
 			const checker = invokeSiteManagerModel(() => new Promise(() => {}));
 			const assertion = expect(checker).rejects.toBeInstanceOf(
 				SiteManagerAiTimeoutError,
 			);
-			await jest.advanceTimersByTimeAsync(90_000);
+			await jest.advanceTimersByTimeAsync(SITE_MANAGER_AI_BUDGET_MS - 40_000);
 			await assertion;
 		});
 	});

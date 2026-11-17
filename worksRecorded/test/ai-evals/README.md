@@ -705,7 +705,35 @@ Abiem modeļiem GPT-6.1 Sol High:
 RUN_AI_EVALS=true AI_EVAL_AGENT_MODEL=gpt-6.1-sol AI_EVAL_REASONING_EFFORT=high AI_EVAL_CHECKER_MODEL=gpt-6.1-sol AI_EVAL_CHECKER_REASONING_EFFORT=high npm run eval:ai:ocelt
 ```
 
+Pilnas izpildes apskatei LangSmith pievieno `--trace`:
+
+```bash
+RUN_AI_EVALS=true AI_EVAL_LANGSMITH_PROJECT=AI-Evals AI_EVAL_AGENT_MODEL=gpt-6.1-sol AI_EVAL_REASONING_EFFORT=high AI_EVAL_CHECKER_MODEL=gpt-6.1-sol AI_EVAL_CHECKER_REASONING_EFFORT=high npm run eval:ai:ocelt -- --trace
+```
+
+Vajadzīgs `LANGSMITH_API_KEY` vai `LANGCHAIN_API_KEY`. Bez `--trace` šī palaidēja izsekošana paliek izslēgta. Katram gadījumam LangSmith veido vienu `DiaryReviewedEval: <case-id>` izpildi ar extractor/checker, iespējamo labošanas ceļu, Forma2 piesaisti un gala validatoru rezultātu. CLI, JSON un HTML rāda konkrētās izpildes saiti; palaidējs pirms beigām sagaida izsekošanas nosūtīšanu. `AI_EVAL_LANGSMITH_PROJECT` izvēlas projektu, nemainot `.env`. Izsekošana nemaina modeļa ievadi, sagaidāmos rezultātus vai datubāzes rakstīšanas aizliegumu.
+
 JSON un HTML sadaļā `stages` saglabājas sākotnējā un labotā izvilkšana, normalizētās rindas, katrs checker lēmums un gala atteikuma iemesls. Šie dati ir diagnostikai un nemaina sagaidāmos rezultātus vai saglabāšanas noteikumus. Modeļu metrikā uzskaita arī atkārtoto checker izsaukumu.
+
+Site-manager AI plūsmai kopā ir 90 sekundes no webhook saņemšanas; maršrutēšana, ekstraktors, checker un labošanas izsaukumi dala vienu budžetu. Katrs nākamais izsaukums saņem tikai atlikušo laiku. Datubāzes saglabāšana un WhatsApp atbildes nosūtīšana nav modeļa taimauta daļa. Pēc taimauta netiek sākta vēl viena modeļa izpilde. Ja jaunu darba atskaiti nevar droši strukturēt, īstā plūsma saglabā sākotnējo tekstu kā `Piezīmes` ar `needs_review`. Fiksētajā evalā identisku piezīmi tikai sagatavo atmiņā: `note_fallback` posmam ir `persisted: false`, un Forma2 matcher vairs netiek palaists. Tests joprojām neiziet, ja sagaidīts strukturēts darba ieraksts; avota saglabāšana netiek sajaukta ar precīzu ekstrakciju. Jautājumi, neskaidras atbildes un iepriekšējo ierakstu labojumi šādi netiek pārvērsti jaunās atskaitēs.
+
+
+Šis budžets attiecas uz esošo `site-manager-agent` ekstraktora/checker plūsmu. Atsevišķais Agents SDK pilots (`diary-intake`) un Forma2 automātiskās piesaistes serviss izmanto savus limitus. SDK pilotu izvēlas tikai pēc ieslēgta servera iestatījuma, atļautā projekta, projekta pilota konfigurācijas un atļautā lietotāja/telefona; parastās WhatsApp eval izpildes pilotu apiet. Audio lejupielāde un transkripcija notiek pirms šīs ekstrakcijas; tās var patērēt webhook budžetu, un šīs apstrādes savs laika ierobežojums šeit netiek mainīts.
+
+| Situācija esošajā dienasgrāmatas plūsmā | Rezultāts |
+| --- | --- |
+| Ekstrakcija un checker pieņem visus darbus | Saglabā pārbaudītās rindas; apstiprinājumu veido bez vēl viena modeļa izsaukuma. |
+| Checker norāda droši labojamus nepamatotus skaitļu laukus | Piemēro ierobežotu deterministisku labojumu. |
+| Vajadzīgs semantisks labojums | Atļauts viens atkārtots ekstraktors un checker tajā pašā budžetā. |
+| Tikai daļa rindu ir droši pamatota un pierādīts pilns ziņas pārklājums | Saglabā pieņemtās rindas; pārskatāmo daļu saglabā piezīmēs ar tās avota fragmentu. |
+| Jaunas atskaites ekstraktors/checker neizdodas vai iestājas taimauts | Ja izpildās avota un konteksta drošības nosacījumi, saglabā vienu sākotnējā teksta piezīmi ar `needs_review`. |
+| Jautājums, neskaidra atbilde vai vēsturiska ieraksta labojums | Nerada jaunu rezerves piezīmi; izmanto atbildes, precizējuma vai aizsargātā labojuma ceļu. Taimauts pirms saglabāšanas rīka dod taimauta atbildi. |
+| Nav uzticama lietotāja/projekta konteksta vai neizdodas ielādēt konfigurāciju | Nesaglabā datus ar izdomātu kontekstu. |
+| Neizdodas datubāzes saglabāšana | Neziņo par veiksmīgu saglabāšanu un nesāk otru saglabāšanu kā rezerves mēģinājumu. |
+
+Balss labojumi pēc transkripcijas izmanto tos pašus `start_site_diary_correction` un `replace_last_site_diary_batch` rīkus kā teksta labojumi. Labošanas ekstraktors saņem arī pašreiz saglabātās rindas kā pamatu, lai neatceltu agrākus labojumus, un norādi mainīt tikai pieprasītos faktus. Pirms arhivēšanas pārbauda, ka labojuma mērķa atskaite joprojām ir tā pati, kura izmantota AI apstrādē. `latvian-spoken-correction-without-command` pārbauda dabisku balss transkripta frāzi bez komandas “labot”; audio ceļa tests atsevišķi pārbauda sākotnējās ziņas atbildes konteksta saglabāšanu. Skaitļu pierādījumu pārbaude atpazīst arī latviski vārdos izteiktus veselus skaitļus, piemēram, “desmit gabali” un “divdesmit četri metri”; oriģinālais transkripts netiek pārrakstīts. Konteksta skaitļi par darbiniekiem, stundām vai materiāla dimensijām joprojām netiek pieņemti par būvapjomu. Pilnā pakete joprojām tiek ģenerēta un pārbaudīta no jauna; atsevišķu lauku deterministisks patch rīks šeit vēl netiek ieviests.
+
+Dažādu klientu pārbaudes izmanto izvēlētā projekta konfigurāciju ar atšķirīgiem darbu lauku nosaukumiem, kategorijām un mērvienībām. Jumta m2 un cauruļu m piemēros lokāli pārbaudīta gan pieņemta ekstrakcija, gan sākotnējā teksta piezīme pēc taimauta. Tas pārbauda kopīgo mehānismu; katra klienta reālo datu precizitātei jāpievieno attiecīgā klienta piemēri.
 
 `eval:ai:ocelt` izmanto to pašu `node --import ... --import tsx` palaišanas kārtību kā `eval:ai:dashboard` un `eval:ai:whatsapp-site-manager`. Tas tieši izsauc `run-reviewed-diary-eval.ts` ar `--tag ocelt`, un papildu `--case`, `--list` vai `--dry-run` argumentus var padot aiz `--`. `eval:ai:diary-reviewed` paliek pieejams visai pārskatīto ierakstu kopai; `ai:run` ir izvēles apvalks, kas papildus pārbauda jaunākās atskaites rezultātu.
 

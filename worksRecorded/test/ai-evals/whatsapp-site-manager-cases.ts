@@ -1337,6 +1337,38 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 			},
 		},
 		{
+			id: "latvian-spoken-correction-without-command",
+			intent: "Understand a spoken correction without a formal edit command and preserve the unrelated work duration and date.",
+			notes: "The follow-up represents a Latvian voice transcript. Audio reply context is tested separately in handleAudio.test.ts. A correction must replace the previous batch rather than create a new report.",
+			tags: ["correction", "save", "amount", "follow-up", "voice-transcript"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-spoken-correction",
+				body: "Saglabā par 2026. gada 15. jūniju: salabojām durvis 2. stāvā, 5 gab., 2h.",
+				timestamp: "1782197640",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: ["salab", "durv", "2", "stāv"],
+				amounts: 5,
+				timeInvolved: 2,
+				expectedDateISO: "2026-06-15",
+				minHeuristicScore: 0.75,
+			},
+			followUp: {
+				body: "Nē, par tām iepriekš minētajām durvīm otrajā stāvā, tur bija desmit gabali, nevis pieci. Pārējo atstāj tāpat.",
+				expected: {
+					expectedRecordCount: 1,
+					requiredTextSignals: ["salab", "durv", "2", "stāv"],
+					amounts: 10,
+					timeInvolved: 2,
+					expectedDateISO: "2026-06-15",
+					minHeuristicScore: 0.75,
+				},
+			},
+		},
+		{
 			id: "latvian-explicit-zero-workers",
 			intent:
 				"Verify an explicit zero worker count is persisted as 0 instead of null when the message says zero workers were involved.",

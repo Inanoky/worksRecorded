@@ -66,6 +66,16 @@ function rowTable(rows: unknown[]) {
 }
 
 function renderCase(item: NormalizedEvalItem, index: number) {
+	let traceLink = "";
+	try {
+		const url = new URL(String(item.artifacts.langsmithUrl ?? ""));
+		if (
+			url.protocol === "https:" &&
+			(url.hostname === "smith.langchain.com" ||
+				url.hostname === "eu.smith.langchain.com")
+		)
+			traceLink = `<p><a href="${escapeHtml(url.href)}" target="_blank" rel="noreferrer">Skatīt pilno izpildi LangSmith</a></p>`;
+	} catch {}
 	const traces = list(item.artifacts.structuredSaveTrace).map(record);
 	const expected = traces.flatMap((trace) => list(trace.expectedRecords));
 	const generated = traces.flatMap((trace) => list(trace.mappedRows));
@@ -81,6 +91,7 @@ function renderCase(item: NormalizedEvalItem, index: number) {
     <header class="case-heading"><h2>${index + 1}. ${escapeHtml(item.label)}</h2>${badge(item.status)}</header>
     <p class="meta">${(item.latencyMs / 1000).toFixed(2)} s · Tokeni: ${item.tokenTotal ?? "nav datu"} · Pieprasītais modelis: ${escapeHtml(item.requestedModel ?? "nav datu")} · Faktiskais modelis: ${escapeHtml(item.actualModel ?? "nav apstiprināts")}</p>
     <h3>Lietotāja pieprasījums</h3><pre class="source">${escapeHtml(item.input)}</pre>
+    ${traceLink}
     ${issues.length ? `<section class="issues"><h3>Kļūdas un brīdinājumi</h3><ul>${issues.map((issue) => `<li>${escapeHtml(issue)}</li>`).join("")}</ul></section>` : ""}
     ${expected.length ? `<h3>Sagaidāmie ieraksti (${expected.length})</h3>${rowTable(expected)}` : ""}
     ${traces.length ? `<h3>Ģenerētie ieraksti (${generated.length})</h3>${rowTable(generated)}` : ""}

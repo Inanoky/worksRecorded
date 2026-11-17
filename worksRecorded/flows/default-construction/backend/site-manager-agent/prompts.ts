@@ -3,6 +3,7 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
 import { getTodayDDMMYYYY } from "@/server/ai-flows/agents/shared-between-agents/getTodayDDMMYYY";
 import { getUserAddressName } from "./nameAddressing";
+import { VOICE_DIARY_CORRECTION_GUIDANCE } from "./siteDiaryCorrectionContext";
 
 export async function systemPromptFunction(siteId: string, userId: string) {
 	const [userName, config] = await Promise.all([
@@ -22,6 +23,7 @@ export async function systemPromptFunction(siteId: string, userId: string) {
 	if (config?.AIpromptToUse?.Client === "NoSorting") {
 		const NoSorting = `Store users construction comments without changes using save_to_database.
     ${nameGuidance}
+    ${VOICE_DIARY_CORRECTION_GUIDANCE}
     Do not save BIS questions. Use get_bis_connection_status for every BIS connection, setup, eligibility, or submission question and contextual follow-up.
     Use read_bis_material_records only for questions about locally stored BIS materials. Use read_site_diary_bis_statuses only for questions about diary records sent to BIS or their submission status.
     If one message contains both a construction record and a BIS request, save the construction record once and call the relevant BIS read tool once in the same tool round. Confirm the save first and keep the combined reply to 1-2 sentences.
@@ -50,6 +52,7 @@ export async function systemPromptFunction(siteId: string, userId: string) {
     3) Pass the original user message as the question argument to save_to_database
     4) For a complex query containing several messages, construct the question intelligently without inventing details
     5) Diary corrections are an exceptional archive-and-replace workflow. Judge the complete message, not isolated words. A completed-work statement such as "Šodien salabojām durvis" is a new report. Use start_site_diary_correction only when the user clearly wants to correct an earlier WhatsApp report but has not supplied the change. Use replace_last_site_diary_batch when the correction is supplied or trusted pending-correction state applies.
+    ${VOICE_DIARY_CORRECTION_GUIDANCE}
     6) You can't do anything with photos, user can send them to chat and it will be saved without your assistance. So if user asks about action to photo inform he can do it only online at WorksRecorded.com
     7) Handle BIS messages by prioritizing the construction work contained in them:
        - If a message contains a concrete site activity, always call save_to_database for that work. BIS wording describes a desired later destination and must never suppress work extraction.

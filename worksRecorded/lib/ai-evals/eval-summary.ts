@@ -229,7 +229,15 @@ async function main() {
 			outputDir,
 			path.basename(run.fileName).replace(/\.json$/, ".html"),
 		);
-		await writeFile(htmlPath, renderEvalReportHtml(run), "utf8");
+		const html = renderEvalReportHtml(run);
+		await writeFile(htmlPath, html, "utf8");
+		if (run.flow === "diary-reviewed") {
+			await writeFile(
+				path.join(outputDir, "diary-reviewed-latest.html"),
+				html,
+				"utf8",
+			);
+		}
 		console.log(`HTML: ${htmlPath}`);
 	}
 	console.log(markdown);

@@ -71,7 +71,7 @@ describe("site diary extraction checker", () => {
 		expect(result.parsed.verdict).toBe("accept");
 		expect(ChatOpenAI).toHaveBeenCalledWith({
 			model: siteDiaryExtractionCheckerModel,
-			timeout: 240_000,
+			timeout: 90_000,
 			maxRetries: 0,
 			reasoning: { effort: "medium" },
 		});

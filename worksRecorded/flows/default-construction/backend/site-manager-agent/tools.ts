@@ -62,6 +62,11 @@ import {
 	systemPromptSaveToDatabaseFunction,
 } from "./prompts";
 import {
+	CALCULATION_INSTRUCTIONS,
+	calculationEvidenceSchema,
+	hasSourceCalculation,
+} from "./quantityEvidence";
+import {
 	buildSiteManagerWorkflowTraceContext,
 	type FastPathTraceMetadata,
 	fastPathTraceConfig,
@@ -73,6 +78,7 @@ import {
 	recordSiteManagerTiming,
 	recordSiteManagerToolCall,
 } from "./runContext";
+import { buildSiteDiaryCorrectionQuestion, VOICE_DIARY_CORRECTION_GUIDANCE } from "./siteDiaryCorrectionContext";
 import {
 	invokeSiteDiaryExtractionChecker,
 	type SiteDiaryCheckerModelSettings,
@@ -84,22 +90,18 @@ import {
 	type SiteDiaryExtractionContext,
 } from "./siteDiaryExtractionContext";
 import {
-	acceptSourceBackedWorkdayNote,
-	normalizeWorkdayNoteRows,
-} from "./siteDiaryWorkdayNote";
-import {
-	hasStructuredSaveTraceContext,
-	recordStructuredSaveTrace,
-} from "./structuredSaveTrace";
-import {
 	preserveAcceptedDiaryRows,
 	recoverReviewedDiaryRows,
 } from "./siteDiaryRecovery";
 import {
-	calculationEvidenceSchema,
-	CALCULATION_INSTRUCTIONS,
-	hasSourceCalculation,
-} from "./quantityEvidence";
+	acceptSourceBackedWorkdayNote,
+	normalizeWorkdayNoteRows,
+} from "./siteDiaryWorkdayNote";
+import { normalizeLatvianNumberEvidence } from "./spokenNumberEvidence";
+import {
+	hasStructuredSaveTraceContext,
+	recordStructuredSaveTrace,
+} from "./structuredSaveTrace";
 
 function currentDiaryDate() {
 	const parts = new Intl.DateTimeFormat("en-GB", {
@@ -338,7 +340,7 @@ function hasNumberWithUnit(source: string, value: number, unitPattern: string) {
 	return new RegExp(
 		String.raw`(?:^|[^\d])${numberPattern}\s*${unitPattern}(?=$|[^\p{L}\p{N}_])`,
 		"iu",
-	).test(source);
+	).test(normalizeLatvianNumberEvidence(source));
 }
 
 function hasNumberEvidence(source: string, value: number) {
@@ -347,7 +349,7 @@ function hasNumberEvidence(source: string, value: number) {
 	return new RegExp(
 		String.raw`(?:^|[^\d])${numberPattern}(?![,.]?\d)`,
 		"iu",
-	).test(source);
+	).test(normalizeLatvianNumberEvidence(source));
 }
 
 function hasNumberWithContextLabel(
@@ -365,21 +367,23 @@ function hasNumberWithContextLabel(
 		String.raw`(?:^|[^\p{L}\p{N}_])${labelPattern}\s*[:.#-]?\s*${numberPattern}(?![,.]?\d)`,
 		"iu",
 	);
-	return afterNumber.test(source) || beforeNumber.test(source);
+	const evidenceSource = normalizeLatvianNumberEvidence(source);
+	return afterNumber.test(evidenceSource) || beforeNumber.test(evidenceSource);
 }
 
 function hasMaterialDimensionEvidence(source: string, value: number) {
 	if (!Number.isFinite(value)) return false;
 	const numberPattern = numberEvidencePattern(value);
+	const evidenceSource = normalizeLatvianNumberEvidence(source);
 	return (
 		new RegExp(
 			String.raw`(?:^|[^\d])${numberPattern}\s*(?:mm|cm|milimetr\p{L}*|centimetr\p{L}*)(?=$|[^\p{L}\p{N}_])`,
 			"iu",
-		).test(source) ||
+		).test(evidenceSource) ||
 		new RegExp(
 			String.raw`(?:^|[^\d])(?:${numberPattern}\s*[x×]\s*\d+|\d+\s*[x×]\s*${numberPattern})(?![,.]?\d)`,
 			"iu",
-		).test(source)
+		).test(evidenceSource)
 	);
 }
 
@@ -478,7 +482,7 @@ function hasWorkerEvidence(source: string, value: number) {
 	return new RegExp(
 		String.raw`(?:^|[^\d])(?:${numberPattern}\s*${workerUnitPattern}|${workerUnitPattern}\s*[:=-]?\s*${numberPattern})(?=$|[^\p{L}\p{N}_])`,
 		"iu",
-	).test(source);
+	).test(normalizeLatvianNumberEvidence(source));
 }
 
 function inferWorkerCountFromRoleEvidence(row: LooseRecord) {
@@ -656,7 +660,7 @@ function hasImplicitPieceCountEvidence(source: string, value: number) {
 		String.raw`(?:^|[^\d])${numberPattern}\s+([\p{L}][\p{L}-]*)(?=$|[^\p{L}\p{N}_-])`,
 		"giu",
 	);
-	return [...source.matchAll(pattern)].some(
+	return [...normalizeLatvianNumberEvidence(source).matchAll(pattern)].some(
 		(match) => !implicitPieceContextNounPattern.test(match[1]),
 	);
 }
@@ -997,7 +1001,7 @@ function buildStructuredExtractionMessages(args: {
 	intentContext?: { hasReplyContext: boolean; hasPendingCorrection: boolean };
 }) {
 	const fallbackInstructions = args.allowFallback
-		? `\nClassify the complete message, never isolated keywords. Set action=save_new_report only for a new site diary report. Set action=correct_existing_report when the user is asking to change a previous report. Set action=clarify when save-versus-correction intent is genuinely ambiguous. Set action=fallback for questions, greetings, BIS requests, project commands, or other conversation. Return no records unless action=save_new_report. Set correctionMode=not_applicable unless action=correct_existing_report. For correction intent, set correctionMode=intent_only when the user only asks to correct/change the earlier record but does not provide the new facts; set correctionMode=supplied when the message contains the requested change or trusted pending-correction state makes this message the supplied change. Latvian completed-work statements such as "Šodien salabojām durvis" are new reports, while imperatives referring to an earlier record such as "Salabo iepriekšējo ierakstu" are corrections. Trusted state: replyContext=${Boolean(args.intentContext?.hasReplyContext)}, pendingCorrection=${Boolean(args.intentContext?.hasPendingCorrection)}. Reply context and a pending correction are strong evidence, but still interpret the full message.`
+		? `\nClassify the complete message, never isolated keywords. Set action=save_new_report only for a new site diary report. Set action=correct_existing_report when the user is asking to change a previous report. Set action=clarify when save-versus-correction intent is genuinely ambiguous. Set action=fallback for questions, greetings, BIS requests, project commands, or other conversation. Return no records unless action=save_new_report. Set correctionMode=not_applicable unless action=correct_existing_report. For correction intent, set correctionMode=intent_only when the user only asks to correct/change the earlier record but does not provide the new facts; set correctionMode=supplied when the message contains the requested change or trusted pending-correction state makes this message the supplied change. Latvian completed-work statements such as "Šodien salabojām durvis" are new reports, while imperatives referring to an earlier record such as "Salabo iepriekšējo ierakstu" are corrections. Trusted state: replyContext=${Boolean(args.intentContext?.hasReplyContext)}, pendingCorrection=${Boolean(args.intentContext?.hasPendingCorrection)}. Reply context and a pending correction are strong evidence, but still interpret the full message. ${VOICE_DIARY_CORRECTION_GUIDANCE}`
 		: "";
 	const repairInstructions = args.repairInstructions
 		? `\nChecker repair is mandatory. The previous extraction was rejected by a checker. Rerun extraction once using these repair instructions. Keep only records supported by the original report. Do not create separate records for machinery, tools, operators, or sub-actions when they describe one real job. Apply field-level repair instructions exactly: if instructed to remove or noņemt a field value, set that field to null or omit it from the repaired row.\nRepair instructions: ${args.repairInstructions}`
@@ -1074,6 +1078,11 @@ async function extractAndSaveSiteDiaryCore(
 	const date = args.requestedDate ?? currentDiaryDate();
 	const whatsappSourceContext = getWhatsappSourceContext();
 	const runContext = getSiteManagerAgentRunContext();
+	const readOnlyNoteFallback = Boolean(
+		args.evaluationContext &&
+			args.persist === false &&
+			args.validateBeforeReturning,
+	);
 	const runMetrics = runContext?.metrics;
 	const senderTraceMetadata = getSiteManagerSenderTraceMetadata(runContext);
 	const senderTraceTags = getSiteManagerSenderTraceTags(runContext);
@@ -1255,6 +1264,7 @@ async function extractAndSaveSiteDiaryCore(
 			!canSaveDiaryFallbackNote({
 				source: noteSource,
 				persist: args.persist,
+				readOnlyEvaluation: readOnlyNoteFallback,
 				confirmedReport,
 				hasReplyContext: Boolean(
 					args.intentContext?.hasReplyContext ||
@@ -1280,15 +1290,21 @@ async function extractAndSaveSiteDiaryCore(
 		const started = Date.now();
 		let result: Awaited<ReturnType<typeof saveSiteDiaryRecord>>;
 		try {
-			markSiteManagerSideEffectsStarted();
-			result = await saveSiteDiaryRecord({
-				rows: [note],
-				userId,
-				siteId,
-				originalUserComment,
-				sourceMessageId: whatsappSourceContext.messageId,
-				evalMetadata: { ...runContext?.evalRecordMetadata, diaryQuality: { status: "needs_review", reason, sourceMessageId: whatsappSourceContext.messageId ?? null } },
-			});
+			if (args.persist !== false) markSiteManagerSideEffectsStarted();
+			result =
+				args.persist === false
+					? { ok: true, count: 1, records: [], recordIds: [], normalizedInsertRows: [] }
+					: await saveSiteDiaryRecord({
+						rows: [note],
+						userId,
+						siteId,
+						originalUserComment,
+						sourceMessageId: whatsappSourceContext.messageId,
+						evalMetadata: {
+							...runContext?.evalRecordMetadata,
+							diaryQuality: { status: "needs_review", reason, sourceMessageId: whatsappSourceContext.messageId ?? null },
+						},
+					});
 		} catch (error) {
 			console.warn("site diary note fallback persistence failed", error);
 			updateTraceOutcome("error");
@@ -1302,12 +1318,16 @@ async function extractAndSaveSiteDiaryCore(
 			ok,
 		});
 		const outcomeMetadata = {
-			siteDiaryNoteFallbackSaved: ok,
+			siteDiaryNoteFallbackSaved: ok && args.persist !== false,
+			siteDiaryNoteFallbackSimulated: ok && args.persist === false,
 			siteDiaryNoteFallbackRecordIds: result?.recordIds?.join(",") ?? "",
 		};
 		assignTraceMetadata(args.runnableConfig, outcomeMetadata);
 		assignTraceMetadata(aiContext.runnableConfig, outcomeMetadata);
 		updateTraceOutcome(ok ? "save" : "error");
+		if (ok) {
+			captureStep({ phase: "note_fallback", reason, rows: [note], persisted: args.persist !== false });
+		}
 		recordStructuredSaveTrace({
 			siteId,
 			userId,
@@ -1330,7 +1350,9 @@ async function extractAndSaveSiteDiaryCore(
 			savedAsNote: true,
 			records,
 			rows: [note],
-			content: "Saved 1 site diary record(s) successfully. Saved as a note.",
+			content: args.persist === false
+				? "Prepared 1 fallback note for evaluation. Database persistence is disabled."
+				: "Saved 1 site diary record(s) successfully. Saved as a note.",
 		};
 	};
 	const map = args.evaluationContext?.config ?? (await getConfig(siteId));
@@ -1443,6 +1465,7 @@ async function extractAndSaveSiteDiaryCore(
 				canSaveDiaryFallbackNote({
 					source: noteSource,
 					persist: args.persist,
+					readOnlyEvaluation: readOnlyNoteFallback,
 					confirmedReport: false,
 					hasReplyContext: Boolean(
 						args.intentContext?.hasReplyContext ||
@@ -1467,7 +1490,7 @@ async function extractAndSaveSiteDiaryCore(
 				count: 0,
 			};
 		}
-		if (args.persist === false) throw error;
+		if (args.persist === false && !readOnlyNoteFallback) throw error;
 		return saveFallbackNote(
 			`Extraction failed: ${error instanceof Error ? error.message : String(error)}`,
 			true,
@@ -1565,7 +1588,7 @@ async function extractAndSaveSiteDiaryCore(
 	});
 	if (!rawRecords.length) {
 		if (
-			args.persist !== false &&
+			(args.persist !== false || readOnlyNoteFallback) &&
 			(!args.allowFallback || responseAction === "save_new_report")
 		) {
 			return saveFallbackNote("Extraction returned no records", true);
@@ -2325,7 +2348,11 @@ export async function replaceLastSiteDiaryBatchOperation(args: {
 		const targetDiaryDate = target.records[0]?.Date ?? null;
 		const targetDiaryDateForPrompt = formatDiaryDateForPrompt(targetDiaryDate);
 		const extraction = await extractAndSaveSiteDiary({
-			question: `ORIGINAL REPORT (trusted):\n${target.batch.originalText}\n\nUSER CORRECTION (takes precedence):\n${args.correction}\n\nReturn the complete corrected diary batch.`,
+			question: buildSiteDiaryCorrectionQuestion({
+				originalText: target.batch.originalText,
+				records: target.records,
+				correction: args.correction,
+			}),
 			requestedDate: targetDiaryDateForPrompt,
 			persist: false,
 			validateBeforeReturning: true,
@@ -2359,6 +2386,7 @@ export async function replaceLastSiteDiaryBatchOperation(args: {
 			userId: context.userId,
 			correctionMessageId: source.messageId,
 			correctionText: args.correction,
+			expectedTargetBatchId: target.batch.id,
 			rows: correctionRows,
 			replyToMessageId: source.replyToMessageId,
 			evalMetadata: runContext?.evalRecordMetadata,

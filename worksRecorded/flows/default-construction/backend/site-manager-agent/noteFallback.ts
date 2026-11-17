@@ -7,11 +7,16 @@ import {
 export function canSaveDiaryFallbackNote(args: {
 	source: string;
 	persist?: boolean;
+	readOnlyEvaluation?: boolean;
 	hasReplyContext?: boolean;
 	hasPendingCorrection?: boolean;
 	confirmedReport: boolean;
 }) {
-	if (args.persist === false || !args.source.trim()) return false;
+	if (
+		(args.persist === false && !args.readOnlyEvaluation) ||
+		!args.source.trim()
+	)
+		return false;
 	if (args.hasReplyContext || args.hasPendingCorrection) return false;
 	if (hasExplicitSiteDiaryCorrectionIntent(args.source)) return false;
 	if (

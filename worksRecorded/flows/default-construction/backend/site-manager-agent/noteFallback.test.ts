@@ -60,6 +60,22 @@ it("does not persist shadow reports or ambiguous reply/correction context", () =
 	).toBe(false);
 });
 
+it("permits a read-only eval to prepare a fallback without weakening intent checks", () => {
+	const args = {
+		source: "Iebetonēti pamati.",
+		confirmedReport: true,
+		persist: false,
+		readOnlyEvaluation: true,
+	};
+	expect(canSaveDiaryFallbackNote(args)).toBe(true);
+	expect(
+		canSaveDiaryFallbackNote({ ...args, source: "Vai darbi pabeigti?" }),
+	).toBe(false);
+	expect(
+		canSaveDiaryFallbackNote({ ...args, hasPendingCorrection: true }),
+	).toBe(false);
+});
+
 it.each(["lv", "en", "ru"] as const)(
 	"confirms a saved note in %s without exposing technical reasons",
 	(language) => {

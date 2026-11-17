@@ -90,6 +90,21 @@ it("previews only locally registered image filenames", () => {
 	).toEqual([`./media/${name}`]);
 });
 
+it("links to the exact LangSmith run without accepting arbitrary executable URLs", () => {
+	const run = failedReport();
+	run.items[0].artifacts.langsmithUrl =
+		"https://smith.langchain.com/o/org/projects/p/project/r/run";
+	const page = new DOMParser().parseFromString(
+		renderEvalReportHtml(run),
+		"text/html",
+	);
+	expect(
+		page.querySelector('a[href^="https://smith.langchain.com"]')?.textContent,
+	).toContain("LangSmith");
+	run.items[0].artifacts.langsmithUrl = "javascript:alert(1)";
+	expect(renderEvalReportHtml(run)).not.toContain('href="javascript:');
+});
+
 it("escapes untrusted model text and does not load scripts, images or remote assets", () => {
 	const run = failedReport();
 	run.items[0].input = '</pre><script>alert("input")</script>';

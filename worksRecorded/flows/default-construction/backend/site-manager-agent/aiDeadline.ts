@@ -3,7 +3,8 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import type { SupportedReplyLanguage } from "./fastPath";
 
-export const SITE_MANAGER_AI_BUDGET_MS = 240_000;
+export const SITE_MANAGER_AI_BUDGET_MS = 90_000;
+export const SITE_MANAGER_MODEL_TIMEOUT_MS = SITE_MANAGER_AI_BUDGET_MS;
 
 type AiBudget = {
 	deadline: number;
@@ -14,7 +15,7 @@ type AiBudget = {
 const budgets = new AsyncLocalStorage<AiBudget>();
 
 export class SiteManagerAiTimeoutError extends Error {
-	constructor() {
+	constructor(readonly scope: "model_call" | "workflow" = "workflow") {
 		super("Site manager AI processing deadline exceeded");
 		this.name = "SiteManagerAiTimeoutError";
 	}
@@ -69,10 +70,18 @@ export async function invokeSiteManagerModel<T>(
 		const budget = budgets.getStore();
 		if (!budget) throw new Error("Site manager AI budget is unavailable");
 		if (budget.timeout) throw budget.timeout;
-		const timeoutMs = budget.deadline - Date.now();
+		const remainingMs = budget.deadline - Date.now();
+		const timeoutMs = Math.min(remainingMs, SITE_MANAGER_MODEL_TIMEOUT_MS);
+		const scope =
+			remainingMs <= SITE_MANAGER_MODEL_TIMEOUT_MS ? "workflow" : "model_call";
 		const markTimeout = () => {
-			budget.timeout = new SiteManagerAiTimeoutError();
-			if (config.metadata) config.metadata.siteManagerAiTimedOut = true;
+			budget.timeout = new SiteManagerAiTimeoutError(scope);
+			if (config.metadata)
+				Object.assign(config.metadata, {
+					siteManagerAiTimedOut: true,
+					siteManagerAiTimeoutScope: scope,
+					siteManagerAiTimeoutLimitMs: Math.max(0, timeoutMs),
+				});
 			return budget.timeout;
 		};
 		if (timeoutMs <= 0) throw markTimeout();
