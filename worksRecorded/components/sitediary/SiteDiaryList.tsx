@@ -28,6 +28,7 @@ import { FimaDiaryCell } from "@/components/sitediary/FimaDiaryCell";
 import { FimaActsRefreshButton } from "@/components/sitediary/FimaActsRefreshButton";
 import { fimaVirtualFields, type FimaCollaboration } from "@/lib/fima/diary-collaboration";
 import { getBisWorkDescription } from "@/lib/bis/work-description";
+import { reconcileDiaryQuantityUnit, normalizeDiaryQuantityUnit } from "@/flows/default-construction/lib/diary-quantity-units";
 import { DiaryPhotoUploadMenuItem, DiaryPhotoUploadProvider } from "@/flows/default-construction/frontend/DiaryPhotoActions";
 import { DiaryRecordPhotos } from "@/flows/default-construction/frontend/DiaryRecordPhotos";
 import { DiaryDayPagination } from "@/flows/default-construction/frontend/DiaryDayPagination";
@@ -1178,6 +1179,10 @@ export default function SiteDiaryCalendar({
   );
   const bisSubmitWorksRef = React.useRef("");
   const [bisSubmitAmount, setBisSubmitAmount] = React.useState<string>("1");
+  const [bisAmountUnit, setBisAmountUnit] = React.useState("");
+  const bisParsedAmount = bisSubmitAmount.trim()
+    ? Number(bisSubmitAmount.replace(",", "."))
+    : null;
   const [bisInputResetKey, setBisInputResetKey] = React.useState(0);
   const [bisSubmitMeasurement, setBisSubmitMeasurement] =
     React.useState<string>("12");
@@ -1240,10 +1245,14 @@ export default function SiteDiaryCalendar({
   React.useEffect(() => {
     if (!constructionBisEnabled || !bisSendOptions.measurements.data) return;
     const options = bisSendOptions.measurements.data;
-    setBisSubmitMeasurement(current =>
-      options.some(option => option.id === current) ? current : options[0]?.id ?? "12",
+    const matching = options.find(option =>
+      normalizeDiaryQuantityUnit(option.name) === normalizeDiaryQuantityUnit(bisAmountUnit),
     );
-  }, [constructionBisEnabled, bisSendOptions.measurements.data]);
+    setBisSubmitMeasurement(current => bisAmountUnit
+      ? matching?.id ?? ""
+      : options.some(option => option.id === current) ? current : options[0]?.id ?? "",
+    );
+  }, [constructionBisEnabled, bisSendOptions.measurements.data, bisAmountUnit]);
   React.useEffect(() => {
     if (!constructionBisEnabled || !bisSendOptions.responsiblePeople.data) return;
     const options = bisSendOptions.responsiblePeople.data;
@@ -1255,6 +1264,51 @@ export default function SiteDiaryCalendar({
   }, [constructionBisEnabled, bisSendOptions.responsiblePeople.data]);
   const [bisProjectDocumentIds, setBisProjectDocumentIds] = React.useState<string[]>([]);
   const [bisEstimatePositionId, setBisEstimatePositionId] = React.useState("");
+  const selectedEstimate = bisReferences.data?.estimates.find(
+    (position) => position.id === bisEstimatePositionId,
+  );
+  const selectedEstimateMeasurementId = selectedEstimate?.measurementId;
+  const bisEstimateMeasurement = selectedEstimateMeasurementId
+    ? (bisMeasurementOptions.find(
+        (option) => option.id === selectedEstimateMeasurementId,
+      ) ?? {
+        id: selectedEstimateMeasurementId,
+        name:
+          selectedEstimate?.measurementUnit ??
+          `BIS (${selectedEstimateMeasurementId})`,
+      })
+    : undefined;
+  const bisQuantityUnit =
+    bisEstimateMeasurement?.name ??
+    bisMeasurementOptions.find((option) => option.id === bisSubmitMeasurement)
+      ?.name ??
+    bisAmountUnit;
+  const applyBisQuantityUnit = (targetUnit: string | undefined) => {
+    const patch = reconcileDiaryQuantityUnit(
+      {
+        Units: bisAmountUnit,
+        Amounts: bisSubmitAmount,
+        Comments: bisSubmitWorksRef.current,
+      },
+      targetUnit,
+    );
+    if (Object.hasOwn(patch, "Amounts"))
+      setBisSubmitAmount(String(patch.Amounts ?? ""));
+    if (patch.Comments !== undefined) {
+      bisSubmitWorksRef.current = patch.Comments.slice(0, 200);
+      setBisInputResetKey((value) => value + 1);
+    }
+    if (targetUnit) setBisAmountUnit(targetUnit);
+  };
+  const handleBisEstimateChange = (id: string) => {
+    const estimate = bisReferences.data?.estimates.find((item) => item.id === id);
+    const measurementId = estimate?.measurementId ?? bisSubmitMeasurement;
+    const unit =
+      estimate?.measurementUnit ??
+      bisMeasurementOptions.find((item) => item.id === measurementId)?.name;
+    applyBisQuantityUnit(unit);
+    setBisEstimatePositionId(id);
+  };
   const isZtcSite = isZtcFlow;
   const siteDiaryFlowId = isZtcSite ? "ztc" : "default";
   React.useEffect(() => {
@@ -2813,7 +2867,14 @@ export default function SiteDiaryCalendar({
     setBisMultipleDayJob(false);
     setBisSubmitDateTo(null);
     bisSubmitWorksRef.current = getBisWorkDescription(row, defaultMap);
-    setBisSubmitAmount(String(row.Amounts ?? 1));
+    setBisSubmitAmount(String(row.Amounts ?? (constructionBisEnabled ? "" : 1)));
+    setBisAmountUnit(String(row.Units ?? ""));
+    if (constructionBisEnabled) {
+      const measurement = bisMeasurementOptions.find(option =>
+        normalizeDiaryQuantityUnit(option.name) === normalizeDiaryQuantityUnit(row.Units),
+      );
+      if (measurement) setBisSubmitMeasurement(measurement.id);
+    }
     setBisInputResetKey((value) => value + 1);
     setBisPickerOpen(true);
     if (constructionBisEnabled) {
@@ -3247,7 +3308,6 @@ export default function SiteDiaryCalendar({
       bisSendPending.current = true;
       setBisSendingRowId(selectedRowForBis.id);
 
-      const parsedAmount = Number(bisSubmitAmount);
       const result = await sendSiteDiaryRecordToBis(selectedRowForBis.id, {
         projectDocumentIds: bisProjectDocumentIds,
         estimatePositionId: bisEstimatePositionId || null,
@@ -3259,8 +3319,9 @@ export default function SiteDiaryCalendar({
             ? toLocalDateKey(bisSubmitDateTo)
             : undefined,
         worksDescription: bisSubmitWorksRef.current,
-        amount: Number.isFinite(parsedAmount) ? parsedAmount : undefined,
-        measurement: bisSubmitMeasurement,
+        amount: bisParsedAmount !== null && Number.isFinite(bisParsedAmount) ? bisParsedAmount : null,
+        measurement: bisEstimateMeasurement?.id ?? bisSubmitMeasurement,
+        quantityUnit: bisAmountUnit,
         responsiblePersonId: selectedResponsiblePerson.responsiblePersonId,
         responsiblePersonType: selectedResponsiblePerson.responsiblePersonType,
       });
@@ -6823,9 +6884,7 @@ export default function SiteDiaryCalendar({
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-foreground">
                             Amount{" "}
-                            {selectedRowForBis?.Units
-                              ? `(${selectedRowForBis.Units})`
-                              : ""}
+                            {bisQuantityUnit ? `(${bisQuantityUnit})` : ""}
                           </label>
                           <Input
                             key={`amount-${bisInputResetKey}`}
@@ -6843,14 +6902,26 @@ export default function SiteDiaryCalendar({
                             {t.bisMeasurementUnit}
                           </label>
                           <Select
-                            value={bisSubmitMeasurement}
-                            onValueChange={setBisSubmitMeasurement}
-                            disabled={constructionBisEnabled && !bisSendOptions.measurements.data}
+                            value={bisEstimateMeasurement?.id ?? bisSubmitMeasurement}
+                            onValueChange={(value) => {
+                              applyBisQuantityUnit(bisMeasurementOptions.find(item => item.id === value)?.name);
+                              setBisSubmitMeasurement(value);
+                            }}
+                            disabled={
+                              !!bisEstimateMeasurement ||
+                              (constructionBisEnabled && !bisSendOptions.measurements.data)
+                            }
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select measurement" />
                             </SelectTrigger>
                             <SelectContent>
+                              {bisEstimateMeasurement &&
+                              !bisMeasurementOptions.includes(bisEstimateMeasurement) ? (
+                                <SelectItem value={bisEstimateMeasurement.id}>
+                                  {bisEstimateMeasurement.name}
+                                </SelectItem>
+                              ) : null}
                               {bisMeasurementOptions.map((option) => (
                                 <SelectItem key={option.id} value={option.id}>
                                   {option.name}
@@ -6899,7 +6970,7 @@ export default function SiteDiaryCalendar({
                         documentIds={bisProjectDocumentIds}
                         estimateId={bisEstimatePositionId}
                         onDocumentsChange={setBisProjectDocumentIds}
-                        onEstimateChange={setBisEstimatePositionId}
+                        onEstimateChange={handleBisEstimateChange}
                         disabled={bisSendingRowId !== null}
                       />
                     ) : null}
@@ -7062,7 +7133,8 @@ export default function SiteDiaryCalendar({
                           selectedRowForBis?.id &&
                           bisSendingRowId === selectedRowForBis.id,
                         ) ||
-                        (Number.parseFloat(bisSubmitAmount || "") || 0) <= 0 ||
+                        (bisParsedAmount === null || !Number.isFinite(bisParsedAmount) || bisParsedAmount <= 0) ||
+                        (constructionBisEnabled && !bisEstimateMeasurement && !bisSubmitMeasurement) ||
                         (constructionBisEnabled && (!bisSendOptions.measurements.data?.length || !bisSendOptions.responsiblePeople.data?.length || !selectedBisResponsiblePersonKey)) ||
                         (bisMultipleDayJob && !bisSubmitDateTo)
                       }

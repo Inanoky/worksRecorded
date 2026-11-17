@@ -29,7 +29,10 @@ export async function getBisDiaryReferences(
 	const promise = Promise.all([
 		client.list("project"),
 		client.list("estimate_positions"),
-	]).then(([drawings, estimates]) => ({
+		client.list(
+			"/bisp/api/portal/classifiers?filter[typ_eq]=character_measures",
+		),
+	]).then(([drawings, estimates, measurements]) => ({
 		scope,
 		drawings: drawings.map((row) => ({
 			id: String(row.id),
@@ -56,13 +59,22 @@ export async function getBisDiaryReferences(
 					rounds.some((id: unknown) => String(id) === String(round))
 				);
 			})
-			.map((row) => ({
-				id: String(row.id),
-				label:
-					[row.attributes?.position_number, row.attributes?.description]
-						.filter(Boolean)
-						.join(" · ") || `Pozīcija ${row.id}`,
-			})),
+			.map((row) => {
+				const measurementId = String(row.attributes?.measure ?? "").trim();
+				return {
+					id: String(row.id),
+					label:
+						[row.attributes?.position_number, row.attributes?.description]
+							.filter(Boolean)
+							.join(" · ") || `Pozīcija ${row.id}`,
+					measurementId: /^[1-9]\d*$/.test(measurementId)
+						? measurementId
+						: undefined,
+					measurementUnit: measurements.find(
+						(item) => String(item.attributes?.code) === measurementId,
+					)?.attributes?.name,
+				};
+			}),
 	}));
 	cache.set(scope, { expires: Date.now() + 10 * 60_000, promise });
 	if (cache.size > 100) cache.delete(cache.keys().next().value!);

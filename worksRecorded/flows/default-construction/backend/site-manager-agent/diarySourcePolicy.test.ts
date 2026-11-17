@@ -72,7 +72,7 @@ describe("diary source safeguards", () => {
 				"Pārplanēti 440m2 balasta",
 				catalog,
 			)[0],
-		).toMatchObject({ Works: "Piezīmes", Amounts: 440, Units: "m2" });
+		).toMatchObject({ Works: "Piezīmes", Amounts: null, Units: "m3", Comments: expect.stringContaining("440 m2") });
 		expect(
 			normalizeDiarySourceRows(
 				[{ Works: "Balasts", Amounts: 200, Units: "m³" }],

@@ -118,6 +118,46 @@ it("saves a comment delta without remapping Forma 2 or overwriting hours and pho
 	});
 });
 
+it("clears incompatible plan and fact in the same guarded update and retains the reported values in comments", async () => {
+	stored.set(
+		hashId,
+		Object.assign(row(), { Units: "m2", Comments_Custom_1: "8" }),
+	);
+	jest.mocked(prisma.site.findUnique).mockResolvedValue({
+		siteDiaryRecordsMap: {
+			Works: { DropDownOptions: { Concrete: "Concrete" } },
+			otherSettings: {
+				defaultConstructionQuantityPlanActual: { enabled: true },
+				defaultConstructionProductivity: {
+					works: [{ work: "Concrete", unit: "m3" }],
+				},
+			},
+		},
+	} as never);
+	const result = await saveDefaultConstructionDiaryEdits({
+		siteId,
+		updates: [
+			{ id: hashId, fields: { Works: "Concrete" }, expected: { Works: "XPS" } },
+		],
+		creates: [],
+	});
+	const saved = result.rows[0];
+	expect(saved).toMatchObject({
+		Units: "m3",
+		Amounts: "",
+		Comments_Custom_1: "",
+		TimeInvolved: "5",
+	});
+	expect(saved.Comments).toContain("plāns 10 m2, fakts 8 m2");
+	expect(saved.Comments).toContain("Old comment");
+	expect(tx.sitediaryrecords.updateMany.mock.calls[0][0].where).toMatchObject({
+		Units: "m2",
+		Amounts: 10,
+		Comments_Custom_1: "8",
+		Comments: "Old comment",
+	});
+});
+
 it("rejects an old queued edit instead of overwriting a newer manual change", async () => {
 	await expect(
 		saveDefaultConstructionDiaryEdits({

@@ -500,3 +500,114 @@ it("does not resend unedited timestamps or hours when only the comment changes",
 		creates: [],
 	});
 });
+
+it("changes and saves Mērvienība when a diary work option is selected", async () => {
+	const work = "2.2.11 Tranšejas rakšana";
+	jest.mocked(saveDefaultConstructionDiaryEdits).mockResolvedValue({
+		rows: [],
+		createdIds: [],
+	});
+	render(
+		<DialogTable
+			date={date}
+			siteId="site"
+			initialRows={[{ id: hashId, Date: date, Works: "Piezīmes", Units: "m" }]}
+			initialConfig={{
+				Works: { Type: "dropdown", DropDownOptions: { [work]: work } },
+				Units: { Type: "dropdown", DropDownOptions: { m: "m", m3: "m3" } },
+				otherSettings: {
+					defaultConstructionForma2WorkSync: {
+						documentId: "estimate-1",
+						entries: [
+							{
+								positionId: "position-1",
+								work,
+								unit: "m3",
+								ownedByForma2: true,
+							},
+						],
+					},
+				},
+			}}
+			batchEditing
+			cachedWorkspace
+			organizationLanguage="lv"
+		/>,
+	);
+	fireEvent.click(screen.getByText("Piezīmes"));
+	fireEvent.click(await screen.findByRole("button", { name: work }));
+	const unitSelect = screen
+		.getAllByRole("combobox")
+		.find((element) => element.tagName === "SELECT");
+	expect(unitSelect).toHaveValue("m3");
+	fireEvent.click(screen.getByRole("button", { name: messages.saveDiary }));
+	await waitFor(() =>
+		expect(saveDefaultConstructionDiaryEdits).toHaveBeenCalledWith({
+			siteId: "site",
+			updates: [{ id: hashId, fields: { Works: work, Units: "m3" } }],
+			creates: [],
+		}),
+	);
+});
+
+it("clears an incompatible amount and saves its explanation together with unsaved comment text", async () => {
+	const work = "Tranšejas rakšana";
+	jest
+		.mocked(saveDefaultConstructionDiaryEdits)
+		.mockResolvedValue({ rows: [], createdIds: [] });
+	render(
+		<DialogTable
+			date={date}
+			siteId="site"
+			initialRows={[
+				{
+					id: hashId,
+					Date: date,
+					Works: "Piezīmes",
+					Units: "m2",
+					Amounts: 100,
+					Comments: "Original",
+				},
+			]}
+			initialConfig={{
+				Works: { Type: "dropdown", DropDownOptions: { [work]: work } },
+				Units: { Type: "dropdown", DropDownOptions: { m2: "m2", m3: "m3" } },
+				Amounts: { Type: "float" },
+				Comments: { Type: "textInput" },
+				otherSettings: {
+					defaultConstructionProductivity: { works: [{ work, unit: "m3" }] },
+				},
+			}}
+			batchEditing
+			cachedWorkspace
+			organizationLanguage="lv"
+		/>,
+	);
+	fireEvent.change(screen.getByDisplayValue("Original"), {
+		target: { value: "Edited comment" },
+	});
+	fireEvent.click(screen.getByText("Piezīmes"));
+	fireEvent.click(await screen.findByRole("button", { name: work }));
+	expect(screen.queryByDisplayValue("100")).not.toBeInTheDocument();
+	expect(
+		(screen.getByDisplayValue(/100 m2/) as HTMLTextAreaElement).value,
+	).toContain("Edited comment");
+	fireEvent.click(screen.getByRole("button", { name: messages.saveDiary }));
+	await waitFor(() =>
+		expect(saveDefaultConstructionDiaryEdits).toHaveBeenCalledWith({
+			siteId: "site",
+			creates: [],
+			updates: [
+				{
+					id: hashId,
+					fields: {
+						Works: work,
+						Units: "m3",
+						Amounts: null,
+						Comments: expect.stringContaining("100 m2"),
+					},
+				},
+			],
+		}),
+	);
+});
