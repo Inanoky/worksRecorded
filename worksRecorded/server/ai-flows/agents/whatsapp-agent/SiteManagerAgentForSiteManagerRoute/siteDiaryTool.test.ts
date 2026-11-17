@@ -721,7 +721,7 @@ describe("save_to_database site diary tool", () => {
 		}
 	});
 
-  it("shares 90 seconds across extraction, checking and a stalled repair before saving one note", async () => {
+  it("shares 120 seconds across extraction, checking and a stalled repair before saving one note", async () => {
     jest.useFakeTimers();
     try {
       const question = "Šodien betonēšana 12,5 m3.";

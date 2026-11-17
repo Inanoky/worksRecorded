@@ -3,7 +3,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import type { SupportedReplyLanguage } from "./fastPath";
 
-export const SITE_MANAGER_AI_BUDGET_MS = 90_000;
+export const SITE_MANAGER_AI_BUDGET_MS = 120_000;
 export const SITE_MANAGER_MODEL_TIMEOUT_MS = SITE_MANAGER_AI_BUDGET_MS;
 
 type AiBudget = {

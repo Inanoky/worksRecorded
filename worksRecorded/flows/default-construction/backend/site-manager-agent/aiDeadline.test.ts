@@ -49,14 +49,14 @@ describe("site manager AI deadline", () => {
 		expect(jest.getTimerCount()).toBe(0);
 	});
 
-	it("allows one healthy model call to complete within the shared 90 seconds", async () => {
+	it("allows one healthy model call to complete within the shared 120 seconds", async () => {
 		const result = invokeSiteManagerModel(
 			() =>
 				new Promise<string>((resolve) => {
-					setTimeout(() => resolve("completed"), 75_000);
+					setTimeout(() => resolve("completed"), 105_000);
 				}),
 		);
-		await jest.advanceTimersByTimeAsync(75_000);
+		await jest.advanceTimersByTimeAsync(105_000);
 		await expect(result).resolves.toBe("completed");
 		expect(jest.getTimerCount()).toBe(0);
 	});
