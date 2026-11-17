@@ -11,6 +11,7 @@ export type StructuredSaveTraceEntry = {
 	normalizedInsertRows?: Record<string, unknown>[];
 	persistedRecords?: Record<string, unknown>[];
 	noteFallbackReason?: string;
+	stages?: Record<string, unknown>[];
 	checker?: {
 		verdict:
 			| "accept"

@@ -2,6 +2,8 @@ import { AsyncLocalStorage } from "async_hooks";
 
 type WhatsappSourceContext = {
     webhookStartedAtMs?: number;
+    senderPhone?: string | null;
+    receivedAt?: string;
     diaryPhotoIds?: string[];
     originalAudioUrl?: string | null;
     messageId?: string | null;

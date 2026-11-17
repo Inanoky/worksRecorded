@@ -3,6 +3,11 @@ import { spawnSync } from "node:child_process";
 
 const FLOWS = [
 	{
+		aliases: ["diary-reviewed", "ocelt"],
+		flow: "diary-reviewed",
+		script: "eval:ai:diary-reviewed",
+	},
+	{
 		aliases: ["dashboard", "dashboard-chat"],
 		flow: "dashboard-chat",
 		script: "eval:ai:dashboard",
@@ -36,7 +41,7 @@ function usage() {
 		"  tag <name>",
 		"  tier <smoke|regression|extended>",
 		"  case <id>",
-		"  flow <dashboard|whatsapp-site-manager|whatsapp-worker|all>",
+		"  flow <dashboard|whatsapp-site-manager|whatsapp-worker|diary-reviewed|all>",
 	].join("\n");
 }
 

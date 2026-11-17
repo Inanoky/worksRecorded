@@ -11,6 +11,12 @@ import type { SupportedReplyLanguage } from "./fastPath";
 export const siteDiaryExtractionCheckerModel = "gpt-5.6-terra";
 export const siteDiaryExtractionCheckerReasoningEffort = "medium" as const;
 
+export type SiteDiaryCheckerModelSettings = {
+	model?: string;
+	reasoningEffort?: "low" | "medium" | "high";
+	useResponsesApi?: boolean;
+};
+
 export const siteDiaryExtractionCheckerSchema = z.object({
 	verdict: z.enum([
 		"accept",
@@ -40,6 +46,19 @@ export const siteDiaryExtractionCheckerSchema = z.object({
 		)
 		.max(20)
 		.default([]),
+	coverageComplete: z.boolean().nullable().optional(),
+	rowReviews: z
+		.array(
+			z.object({
+				rowIndex: z.number().int().min(0).max(24),
+				status: z.enum(["accept", "needs_review"]),
+				reason: z.string().max(500),
+				sourceText: z.string().min(1).max(2000),
+			}),
+		)
+		.max(25)
+		.nullable()
+		.optional(),
 });
 
 export type SiteDiaryExtractionCheckerResult = z.infer<
@@ -66,6 +85,7 @@ export function serializeRowsForSiteDiaryChecker(
 	return rows
 		.map((row, index) => {
 			const fields = [
+				["Date", row.Date],
 				["Works", row.Works],
 				["Location", row.Location],
 				["Comments", row.Comments],
@@ -87,12 +107,16 @@ export function buildSiteDiaryExtractionCheckerMessages(args: {
 	rows: SiteDiaryExtractionCheckerRow[];
 	language: SupportedReplyLanguage;
 	contextText?: string;
+	referenceDate?: string;
 }) {
 	return [
 		new SystemMessage(
 			`You are a strict construction site diary extraction checker.
 ${DIARY_SOURCE_POLICY}
-Coverage is mandatory: compare ALL source clauses with the proposed rows. Missing explicit completed quantities, cleaning work, worker groups or labour durations requires needs_model_repair; an ambiguous delivery must not erase the other supported facts. For unequal durations demand separate labour notes with each duration group, never an invented uniform duration or duplicated hours. Check corrected rows just as strictly as new rows.
+Coverage is mandatory: compare ALL source clauses with the proposed rows. Missing explicit completed quantities, cleaning work, worker groups or labour durations requires needs_model_repair; an ambiguous delivery must not erase the other supported facts. Preserve labour explicitly tied to its work row; demand separate labour notes for unequal duration groups only when the source does not assign them to specific works. Never invent a uniform duration or duplicate hours. Check corrected rows just as strictly as new rows.
+Always return coverageComplete and one rowReviews entry for every proposed row, using its zero-based rowIndex and an exact sourceText quote from the original message. Mark a row accept only when its category, facts, quantities, units, labour and date are supported. Mark only problematic rows needs_review; do not mark otherwise correct rows needs_review because a different row has an issue. coverageComplete is true only when all source events have a corresponding proposed row. Missing source events must set it false. Preserve valid rows during repair, and target repairInstructions to the affected rows and fields.
+Without an explicit worker count, WorkersInvolved may remain null. An unambiguously enumerated group of distinct workers can support a count, but a single machinery/operator role without a numeric count must not require WorkersInvolved=1. Preserve its supported hours independently.
+Explicit source length multiplied by an explicitly reported per-metre rate supports a calculated quantity, including rounding to two decimals. Validate the operands and equation rather than requiring the final number to occur literally in the message. The reference date is trusted application context for resolving today/yesterday and an omitted year. Preserve an explicit work day/month and output a complete ISO date using that context; do not remove a known year from the proposed date.
 Judge whether the proposed rows represent real separate diary events/jobs from the original WhatsApp message.
 The original message may explicitly refer to trusted reference items from the extraction context, for example same work, same place, yesterday, previous report, or continue. In that case, Works and Location may be supported by those reference items.
 If trusted extraction context says CurrentMessageHasExplicitContextReference=true and contains matching recent reference items, do not mark a row unsafe merely because Works or Location came from that context.
@@ -124,6 +148,8 @@ Use language=${args.language} for reason and repairInstructions when practical.`
 			`Original WhatsApp message:
 ${args.originalMessage}
 
+Trusted reference date: ${args.referenceDate ?? "not provided"}
+
 Trusted extraction context:
 ${args.contextText?.trim() || "(none provided)"}
 
@@ -138,13 +164,20 @@ export async function invokeSiteDiaryExtractionChecker(args: {
 	rows: SiteDiaryExtractionCheckerRow[];
 	language: SupportedReplyLanguage;
 	contextText?: string;
+	referenceDate?: string;
 	runnableConfig?: Record<string, unknown>;
+	evaluationModel?: SiteDiaryCheckerModelSettings;
 }) {
 	const llm = new ChatOpenAI({
-		model: siteDiaryExtractionCheckerModel,
+		model: args.evaluationModel?.model ?? siteDiaryExtractionCheckerModel,
 		timeout: SITE_MANAGER_AI_BUDGET_MS,
 		maxRetries: 0,
-		reasoning: { effort: siteDiaryExtractionCheckerReasoningEffort },
+		reasoning: {
+			effort:
+				args.evaluationModel?.reasoningEffort ??
+				siteDiaryExtractionCheckerReasoningEffort,
+		},
+		...(args.evaluationModel?.useResponsesApi ? { useResponsesApi: true } : {}),
 	});
 	const structured = llm.withStructuredOutput(
 		siteDiaryExtractionCheckerSchema,

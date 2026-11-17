@@ -26,6 +26,8 @@ import { ensureDiaryPhotoAttachments, ensureDiaryPhotoAttachmentsById } from "@/
 import { diaryDayPhotoWhere } from "@/lib/photos/diary-day-photo-where";
 import { auditZtcMutation } from "@/flows/ztc-production/lib/ztc-record-audit";
 import { getDiarySourcePhotoUrls } from "@/flows/default-construction/backend/diary-photo-source";
+import { prepareDiaryReviewScope } from "@/flows/default-construction/backend/diary-review-queue";
+import { diaryReviewSourceMetadata } from "@/flows/default-construction/lib/diary-review-pilot";
 import { hasInlineDiaryPhotos } from "@/flows/default-construction/lib/diary-photos";
 
 import { inspect } from "node:util";
@@ -1408,25 +1410,38 @@ export async function syncRecentActiveDaysWeather() {
 // Site diary records actions
 
 export async function saveSiteDiaryRecord({
-  rows,
-  userId,
-  workerId,
-  siteId,
-  originalUserComment,
-  originalAudioUrl,
-  evalMetadata,
-  sourceMessageId,
+	rows,
+	userId,
+	workerId,
+	siteId,
+	originalUserComment,
+	originalAudioUrl,
+	evalMetadata,
+	rowQuality,
+	sourceMessageId,
+	diaryIntakeRun,
 }: {
-  rows: any[];
-  userId?: string;
-  workerId?: string;
-  siteId?: string;
-  originalUserComment?: string;
-  originalAudioUrl?: string | null;
-  evalMetadata?: Record<string, unknown>;
-  sourceMessageId?: string | null;
+	rows: any[];
+	userId?: string;
+	workerId?: string;
+	siteId?: string;
+	originalUserComment?: string;
+	originalAudioUrl?: string | null;
+	evalMetadata?: Record<string, unknown>;
+	rowQuality?: Array<{ status: "accepted" | "needs_review"; reason: string }>;
+	sourceMessageId?: string | null;
+	diaryIntakeRun?: {
+		id: string;
+		leaseToken: string;
+		reply: string;
+		positionIds: Array<string | null>;
+		positions: Array<{ id: string; code: string; name: string }>;
+	};
 }) {
-  const validRows = rows.filter(hasMeaningfulSiteDiaryContent);
+	const validRows = rows.filter(hasMeaningfulSiteDiaryContent);
+	const qualities = new Map(
+		rows.map((row, index) => [row, rowQuality?.[index]]),
+	);
 
   if (!validRows.length) {
     const rawOriginalAudioUrlPreview =
@@ -1559,13 +1574,15 @@ export async function saveSiteDiaryRecord({
       originalAudioUrl:
         idx === 0 ? resolvedOriginalAudioUrl || undefined : undefined,
 
-      Units: row.Units || undefined,
-      Amounts: toNullableNumber(row.Amounts),
-      WorkersInvolved: toNullableNumber(row.WorkersInvolved),
-      TimeInvolved: toNullableNumber(row.TimeInvolved),
-      evalMetadata: evalMetadata ?? undefined,
-      Photos: sourcePhotoUrls,
-    };
+			Units: row.Units || undefined,
+			Amounts: toNullableNumber(row.Amounts),
+			WorkersInvolved: toNullableNumber(row.WorkersInvolved),
+			TimeInvolved: toNullableNumber(row.TimeInvolved),
+			evalMetadata: qualities.get(row)
+				? { ...evalMetadata, diaryQuality: qualities.get(row) }
+				: (evalMetadata ?? undefined),
+			Photos: sourcePhotoUrls,
+		};
 
     // 🪵 LOG: Transformed row object
     console.log(
@@ -1586,6 +1603,15 @@ export async function saveSiteDiaryRecord({
   });
 
   try {
+    const reviewScope = await prepareDiaryReviewScope({
+      siteId,
+      userId,
+      organizationId: org,
+      isEval: evalMetadata?.isEval === true,
+      senderPhone: getWhatsappSourceContext().senderPhone,
+      sourceMessageId: resolvedSourceMessageId,
+    });
+    if (diaryIntakeRun && !reviewScope) throw new Error("INTAKE_SCOPE_LOST");
     const records = await prisma.$transaction(async (tx) => {
       const insertedRecords: any[] = [];
       const batch =
@@ -1603,7 +1629,11 @@ export async function saveSiteDiaryRecord({
 
       for (const row of toInsert) {
         const created = await tx.sitediaryrecords.create({
-          data: { ...row, saveBatchId: batch?.id },
+          data: {
+            ...row,
+            saveBatchId: batch?.id,
+            evalMetadata: diaryReviewSourceMetadata(row.evalMetadata, reviewScope),
+          },
           select: savedSiteDiaryRecordSelect,
         });
 
@@ -1642,8 +1672,36 @@ export async function saveSiteDiaryRecord({
         insertedRecords.push(repaired);
       }
 
+      if (diaryIntakeRun && reviewScope) {
+        const completed = await tx.constructionDiaryReviewRun.updateMany({
+          where: {
+            id: diaryIntakeRun.id,
+            leaseToken: diaryIntakeRun.leaseToken,
+            status: "running",
+            siteId: reviewScope.siteId,
+            userId: reviewScope.userId,
+            organizationId: reviewScope.organizationId,
+          },
+          data: {
+            status: "completed",
+            finishedAt: new Date(),
+            recordIds: insertedRecords.map((record) => record.id),
+            snapshot: JSON.parse(JSON.stringify({
+              mode: "direct",
+              sourceText: originalUserComment,
+              reply: diaryIntakeRun.reply,
+              positions: diaryIntakeRun.positions,
+              generatedRecords: insertedRecords.map((record, index) => ({
+                ...record,
+                positionId: diaryIntakeRun.positionIds[index] ?? null,
+              })),
+            })),
+          },
+        });
+        if (completed.count !== 1) throw new Error("INTAKE_RUN_CHANGED");
+      }
       return insertedRecords;
-    });
+    }, diaryIntakeRun ? { timeout: 15000 } : undefined);
     const finalCount = records.length;
 
     console.log("[originalAudioUrl][saveSiteDiaryRecord] completion", {
@@ -1961,6 +2019,14 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
     return { ok: false as const, reason: "no-records" as const };
 
   const correctionPhotos = await getDiarySourcePhotoUrls(args);
+  const reviewScope = await prepareDiaryReviewScope({
+    siteId: args.siteId,
+    userId: args.userId,
+    organizationId: target.records[0].organizationId,
+    isEval: args.evalMetadata?.isEval === true,
+    senderPhone: getWhatsappSourceContext().senderPhone,
+    sourceMessageId: getWhatsappSourceContext().messageId,
+  });
 
   const result = await prisma.$transaction(async (tx) => {
     const activeBatch = await tx.siteDiarySaveBatch.findFirst({
@@ -2012,7 +2078,7 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
             saveBatchId: newBatch.id,
             originalUserComment: `${target.batch.originalText}\nCorrection: ${args.correctionText}`,
             originalAudioUrl: index === 0 ? first.originalAudioUrl : null,
-            evalMetadata: (args.evalMetadata ?? undefined) as any,
+            evalMetadata: diaryReviewSourceMetadata(args.evalMetadata, reviewScope),
             Photos: [...new Set([...locked.flatMap((record) => record.Photos ?? []), ...correctionPhotos])],
           },
           select: savedSiteDiaryRecordSelect,

@@ -65,6 +65,7 @@ jest.mock(
 	"@/flows/default-construction/backend/site-manager-agent/prompts",
 	() => ({
 		systemPromptSaveToDatabaseFunction: systemPromptMock,
+    buildSiteDiaryExtractionPrompt: jest.fn(() => "Frozen eval extraction prompt"),
 	}),
 );
 
@@ -72,6 +73,7 @@ jest.mock(
 	"@/flows/default-construction/backend/site-manager-agent/structuredSaveTrace",
 	() => ({
 		recordStructuredSaveTrace: recordTraceMock,
+		hasStructuredSaveTraceContext: jest.fn(() => true),
 	}),
 );
 
@@ -168,10 +170,14 @@ jest.mock(
 	}),
 );
 
+import { ChatOpenAI } from "@langchain/openai";
+import { getSiteManagerAgentRunContext } from "@/flows/default-construction/backend/site-manager-agent/runContext";
+
 import {
 	bisConnectionStatusTool,
 	bisMaterialRecordsTool,
 	extractAndSaveSiteDiary,
+	normalizeUnknownNumericFields,
 	replaceLastSiteDiaryBatchOperation,
 	siteDiaryBisStatusesTool,
 	siteDiaryToDatabaseTool,
@@ -244,6 +250,335 @@ describe("save_to_database site diary tool", () => {
 			},
 		});
 	});
+
+	it("restores only a uniquely supported missing quantity unit", () => {
+		expect(
+			normalizeUnknownNumericFields(
+				{ Works: "Grunts izvešana", Amounts: 110, Units: null },
+				"Izvesta grunts 110 kubi.",
+			),
+		).toMatchObject({ Amounts: 110, Units: "m3" });
+		expect(
+			normalizeUnknownNumericFields(
+				{ Works: "Darbs", Amounts: 110, Units: null },
+				"Iebūvēti 110 metri un izvesti 110 kubi.",
+			),
+		).toMatchObject({ Units: null });
+		expect(
+			normalizeUnknownNumericFields(
+				{ Works: "Caurule", Amounts: 220, Units: null },
+				"Iebūvēta OD 220 mm caurule.",
+			),
+		).toMatchObject({ Amounts: null, Units: null });
+	});
+
+	it("retains a verified calculated volume through normalization", () => {
+		const source =
+			"Iebūvēta caurule 22 metri. Tranšejas rakšana, pozīcija 2.2.11, 3,33 kubikmetri uz tekošo metru.";
+		const row = {
+			Works: "2.11 Tranšejas rakšana",
+			Amounts: 73.26,
+			Units: null,
+			calculationEvidence: {
+				lengthQuote: "Iebūvēta caurule 22 metri.",
+				rateQuote:
+					"Tranšejas rakšana, pozīcija 2.2.11, 3,33 kubikmetri uz tekošo metru.",
+			},
+		};
+		expect(normalizeUnknownNumericFields(row, source)).toMatchObject({
+			Amounts: 73.26,
+			Units: "m3",
+		});
+		expect(
+			normalizeUnknownNumericFields(
+				{ ...row, calculationEvidence: null },
+				source,
+			),
+		).toMatchObject({ Amounts: null, Units: null });
+	});
+
+	it("saves accepted work rows and a separately marked unresolved row", async () => {
+		const originalMessage =
+			"Iebetonēti 12 m3 betona. Samontētas 3 sienas. Veikti citi neskaidri darbi.";
+		getSiteDiaryToolContextMock.mockReturnValue({
+			...trustedContext,
+			originalMessage,
+		});
+		getConfigMock.mockResolvedValue({
+			...siteConfig,
+			Date: { Type: "textInput", DisplayName: "Date" },
+			Works: {
+				...siteConfig.Works,
+				DropDownOptions: {
+					...siteConfig.Works.DropDownOptions,
+					notes: "Piezīmes",
+				},
+			},
+		});
+		structuredInvokeMock
+			.mockReset()
+			.mockResolvedValueOnce({
+				action: "save_new_report",
+				language: "lv",
+				records: [
+					{
+						Date: "2026-11-17",
+						Activity: "Concrete pour",
+						Quantity: 12,
+						Mrv: "m3",
+					},
+					{
+						Date: "2026-11-17",
+						Activity: "Wall construction",
+						Quantity: 3,
+						Mrv: "pcs",
+					},
+					{
+						Date: "2026-11-17",
+						Activity: "Piezīmes",
+						Comments: "Veikti citi neskaidri darbi.",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "unsafe",
+					reason: "Pēdējais darbs jāprecizē",
+					badSplitSignals: [],
+					repairActions: [],
+					repairInstructions: "",
+					expectedRecordCount: 3,
+					coverageComplete: true,
+					rowReviews: [
+						{
+							rowIndex: 0,
+							status: "accept",
+							reason: "Pamatots",
+							sourceText: "Iebetonēti 12 m3 betona.",
+						},
+						{
+							rowIndex: 1,
+							status: "accept",
+							reason: "Pamatots",
+							sourceText: "Samontētas 3 sienas.",
+						},
+						{
+							rowIndex: 2,
+							status: "needs_review",
+							reason: "Jāprecizē darbs",
+							sourceText: "Veikti citi neskaidri darbi.",
+						},
+					],
+				},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 3,
+			recordIds: ["a", "b", "c"],
+		});
+		const result = await extractAndSaveSiteDiary({
+			question: originalMessage,
+			requestedDate: "2026-11-17",
+		});
+		expect(result).toMatchObject({ ok: true, count: 3 });
+		expect(result.content).toContain("pārskatīšanai");
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				sourceMessageId: "wamid.test-correction",
+				rows: [
+					expect.objectContaining({
+						Works: "Concrete pour",
+						Amounts: 12,
+						Units: "m3",
+					}),
+					expect.objectContaining({
+						Works: "Wall construction",
+						Amounts: 3,
+						Units: "pcs",
+					}),
+					expect.objectContaining({
+						Works: "Piezīmes",
+						Comments:
+							"Jāpārskata: Jāprecizē darbs\nVeikti citi neskaidri darbi.",
+						Amounts: null,
+						Units: null,
+					}),
+				],
+				rowQuality: [
+					{ status: "accepted", reason: "Pamatots" },
+					{ status: "accepted", reason: "Pamatots" },
+					{ status: "needs_review", reason: "Jāprecizē darbs" },
+				],
+			}),
+		);
+	});
+
+  const frozenContext = () => ({
+    config: siteConfig,
+    language: "lv" as const,
+    extractionContext: {
+      text: "Frozen project units: Concrete pour → m3",
+      metadata: {
+        recentRecordCount: 0,
+        hasExplicitContextReference: false,
+        schemaOptionCount: 2,
+        truncated: false,
+      },
+    },
+  });
+
+  it("rejects frozen context for normal runs and for any run that permits persistence", async () => {
+    const args = {
+      question: "Betonēšana 12,5 m3",
+      evaluationContext: frozenContext(),
+      persist: false,
+    };
+    await expect(extractAndSaveSiteDiary(args)).rejects.toThrow(
+      "read-only eval run",
+    );
+    const hook = jest.mocked(getSiteManagerAgentRunContext);
+    const implementation = hook.getMockImplementation();
+    const context = hook();
+    if (!context) throw new Error("Missing mock run context");
+    hook.mockReturnValue({ ...context, evalRecordMetadata: { isEval: true } });
+    try {
+      await expect(
+        extractAndSaveSiteDiary({ ...args, persist: true }),
+      ).rejects.toThrow("read-only eval run");
+    } finally {
+      if (implementation) hook.mockImplementation(implementation);
+    }
+    expect(getConfigMock).not.toHaveBeenCalled();
+    expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+  });
+
+	it("runs the actual extractor and checker with frozen data without database reads or writes", async () => {
+		const hook = jest.mocked(getSiteManagerAgentRunContext);
+		const implementation = hook.getMockImplementation();
+		const context = hook();
+		if (!context) throw new Error("Missing mock run context");
+		hook.mockReturnValue({ ...context, evalRecordMetadata: { isEval: true } });
+		structuredInvokeMock
+			.mockReset()
+			.mockResolvedValueOnce({
+				records: [{ Activity: "Concrete pour", Quantity: 12.5, Mrv: "m3" }],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "accept",
+					reason: "Pamatots",
+					repairActions: [],
+					repairInstructions: "",
+					badSplitSignals: [],
+					expectedRecordCount: 1,
+				},
+			});
+		try {
+			const result = await extractAndSaveSiteDiary({
+				question: "Betonēšana 12,5 m3",
+				persist: false,
+				validateBeforeReturning: true,
+				evaluationContext: {
+					...frozenContext(),
+					model: "gpt-6.1-sol",
+					reasoningEffort: "high",
+					useResponsesApi: true,
+				},
+			});
+			expect(result).toMatchObject({ ok: true, count: 1 });
+			expect(ChatOpenAI).toHaveBeenCalledWith(
+				expect.objectContaining({
+					model: "gpt-6.1-sol",
+					reasoning: { effort: "high" },
+					useResponsesApi: true,
+				}),
+			);
+			expect(structuredInvokeMock).toHaveBeenCalledTimes(2);
+			expect(getConfigMock).not.toHaveBeenCalled();
+			expect(systemPromptMock).not.toHaveBeenCalled();
+			expect(buildSiteDiaryExtractionContextMock).not.toHaveBeenCalled();
+			expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+		} finally {
+			if (implementation) hook.mockImplementation(implementation);
+		}
+	});
+
+	it.each(["accept", "needs_model_repair"])(
+		"captures the full frozen checker repair path ending in %s",
+		async (verdict) => {
+			const steps: Record<string, unknown>[] = [];
+			const hook = jest.mocked(getSiteManagerAgentRunContext);
+			const implementation = hook.getMockImplementation();
+			const context = hook();
+			if (!context) throw new Error("Missing mock run context");
+			hook.mockReturnValue({
+				...context,
+				evalRecordMetadata: { isEval: true },
+			});
+			structuredInvokeMock
+				.mockReset()
+				.mockResolvedValueOnce({
+					records: [
+						{ Activity: "Concrete pour", Quantity: 12.5, Mrv: "m3" },
+						{ Activity: "Wall construction" },
+					],
+				})
+				.mockResolvedValueOnce({
+					parsed: {
+						verdict: "needs_model_repair",
+						reason: "Viena darbība",
+						repairActions: [],
+						repairInstructions: "Saglabā tikai vienu betonēšanas darbu.",
+						badSplitSignals: [],
+						expectedRecordCount: 1,
+					},
+				})
+				.mockResolvedValueOnce({
+					records: [{ Activity: "Concrete pour", Quantity: 12.5, Mrv: "m3" }],
+				})
+				.mockResolvedValueOnce({
+					parsed: {
+						verdict,
+						reason: "Pamatots",
+						repairActions: [],
+						repairInstructions: "",
+						badSplitSignals: [],
+						expectedRecordCount: 1,
+					},
+				});
+			try {
+				const result = await extractAndSaveSiteDiary({
+					question: "Betonēšana 12,5 m3",
+					persist: false,
+					validateBeforeReturning: true,
+					evaluationContext: {
+						...frozenContext(),
+						onStep: (step) => steps.push(step),
+					},
+				});
+				expect(result.ok).toBe(verdict === "accept");
+				expect(steps.map((step) => step.phase)).toEqual([
+					"extraction",
+					"normalization",
+					"checker",
+					"extraction",
+					"normalization",
+					"checker",
+					...(verdict === "accept" ? [] : ["failure"]),
+				]);
+				expect(
+					steps.filter((step) => step.phase === "checker")[1],
+				).toMatchObject({ repair: true, result: { verdict } });
+				expect(structuredInvokeMock).toHaveBeenCalledTimes(4);
+				expect(getConfigMock).not.toHaveBeenCalled();
+				expect(buildSiteDiaryExtractionContextMock).not.toHaveBeenCalled();
+				expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+			} finally {
+				if (implementation) hook.mockImplementation(implementation);
+			}
+		},
+	);
 
 	it("regresses trace 01a0aada: contradictory checker saves one original note without inferred hours", async () => {
 		const originalMessage = "strādājam no 7.00 - 18.00";

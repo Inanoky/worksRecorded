@@ -190,6 +190,16 @@ describe("site-manager material image upload extraction", () => {
 	});
 
 	it("uploads a repo invoice image fixture, extracts material rows, and acknowledges it", async () => {
+		mockUserFindFirst.mockImplementationOnce(async ({ where }) =>
+			where.id === "user-1"
+				? {
+						id: "user-1",
+						organizationId: "org-1",
+						lastSelectedSiteIdforWhatsapp: "site-1",
+						siteManagerSelectIdforWhatsapp: null,
+					}
+				: null,
+		);
 		const formData = new FormData();
 		formData.set("Body", "Rēķins materiāliem");
 		formData.set("NumMedia", "1");
@@ -212,6 +222,9 @@ describe("site-manager material image upload extraction", () => {
 			"https://meta.test/material-invoice.jpg",
 		);
 		expect(mockUploadFiles).toHaveBeenCalledTimes(1);
+		expect(mockUserFindFirst).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { id: "user-1" } }),
+		);
 
 		const uploadedFile = mockUploadFiles.mock.calls[0][0][0] as File;
 		expect(uploadedFile).toEqual(
@@ -232,7 +245,7 @@ describe("site-manager material image upload extraction", () => {
 			image_url: { url: mockUploadedPublicUrl },
 		});
 		expect(mockStructuredInvoke.mock.calls[0][1]).toMatchObject({
-			runName: "MetaMaterialImageClassification - Jānis Bērziņš",
+			runName: "Meta Image Classification - Jānis Bērziņš",
 			metadata: {
 				senderFirstName: "Jānis",
 				senderLastName: "Bērziņš",
@@ -242,7 +255,7 @@ describe("site-manager material image upload extraction", () => {
 			},
 		});
 		expect(mockStructuredInvoke.mock.calls[1][1]).toMatchObject({
-			runName: "MetaMaterialInvoiceExtraction - Jānis Bērziņš",
+			runName: "Meta Invoice Extraction - Jānis Bērziņš",
 			metadata: {
 				senderFirstName: "Jānis",
 				senderLastName: "Bērziņš",

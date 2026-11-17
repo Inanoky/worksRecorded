@@ -16,6 +16,7 @@ const ExpectedSiteDiaryRecordSchema = z.object({
 });
 
 const ExpectedSavedRecordSchema = z.object({
+	allowNeedsReview: z.boolean().default(false),
 	shouldCreateRecord: z.boolean().default(true),
 	expectedRecordCount: z.number().int().nonnegative().optional(),
 	expectedPhotoCount: z.number().int().nonnegative().optional(),

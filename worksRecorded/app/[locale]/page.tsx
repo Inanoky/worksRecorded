@@ -1,4 +1,7 @@
-import { permanentRedirect } from "next/navigation";
+import { redirect } from "next/navigation";
+import { getHomeDestination } from "@/lib/auth/home-entry";
+
+export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -6,5 +9,5 @@ type PageProps = {
 
 export default async function LocaleHomePage({ params }: PageProps) {
   const { locale } = await params;
-  permanentRedirect(`/${locale}/Landing`);
+  redirect(await getHomeDestination(locale));
 }

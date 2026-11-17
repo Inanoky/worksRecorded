@@ -1,0 +1,1903 @@
+{
+  "version": 1,
+  "provenance": {
+    "organization": "Ocelt",
+    "project": "Testa projekts Ocelt",
+    "periodStart": "2026-11-10",
+    "periodEnd": "2026-11-13",
+    "snapshotDate": "2026-11-16",
+    "sourceSiteFingerprint": "87846983851c81f005bf3ddeb7426aedd81868dc0f9303e187921a0716ac234c",
+    "reviewBasis": "Lietotājs norādīja, ka šī perioda pašreizējie ieraksti ir manuāli izlaboti. method=manual pats par sevi netiek uzskatīts par apstiprinājuma pierādījumu.",
+    "redactions": [
+      "author name prefix",
+      "user IDs",
+      "phone numbers",
+      "WhatsApp IDs",
+      "business record IDs",
+      "BIS IDs",
+      "photos/audio URLs"
+    ]
+  },
+  "project": {
+    "documentId": "ocelt-reviewed-catalog-v1",
+    "config": {
+      "AIpromptToUse": {
+        "Client": "DEPROM",
+        "Type": "noRender"
+      },
+      "Amounts": {
+        "DisplayName": "Daudzums",
+        "Type": "float"
+      },
+      "Comments": {
+        "DisplayName": "Comments",
+        "Type": "textInput"
+      },
+      "Comments_Custom_1": {
+        "DisplayName": "textInput",
+        "Type": "noRender"
+      },
+      "Comments_Custom_2": {
+        "DisplayName": "textInput",
+        "Type": "noRender"
+      },
+      "Date": {
+        "DisplayName": "Date",
+        "Type": "fixed"
+      },
+      "Date_Custom_1": {
+        "DisplayName": "Date_Custom_1",
+        "Type": "noRender"
+      },
+      "Date_Custom_2": {
+        "DisplayName": "Date_Custom_2",
+        "Type": "noRender"
+      },
+      "Location": {
+        "DisplayName": "Lokācija",
+        "DropDownOptions": {
+          "K1": "K1",
+          "LKT": "LKT",
+          "U1": "U1"
+        },
+        "Type": "dropdown"
+      },
+      "Location_Custom_1": {
+        "DisplayName": "Location_Custom_1",
+        "DropDownOptions": {
+          "Location_Custom_1_1": "Location_Custom_1_1",
+          "Location_Custom_1_2": "Location_Custom_1_2"
+        },
+        "Type": "noRender"
+      },
+      "Location_Custom_2": {
+        "DisplayName": "Location_Custom_2",
+        "DropDownOptions": {
+          "Location_Custom_2_1": "Location_Custom_2_1",
+          "Location_Custom_2_2": "Location_Custom_2_2"
+        },
+        "Type": "noRender"
+      },
+      "TimeInvolved": {
+        "DisplayName": "Stundas",
+        "Type": "float",
+        "customSettings": {
+          "integer": true
+        }
+      },
+      "Units": {
+        "DisplayName": "Mērv.",
+        "DropDownOptions": {
+          "gab.": "gab.",
+          "kg": "kg",
+          "kompl": "kompl",
+          "m": "m",
+          "m2": "m2",
+          "m3": "m3",
+          "minute": "minute",
+          "pacelšana": "pacelšana",
+          "projekts": "projekts",
+          "set": "set",
+          "stunda": "stunda",
+          "tn": "tn",
+          "vieta": "vieta"
+        },
+        "Type": "dropdown"
+      },
+      "WorkersInvolved": {
+        "DisplayName": "Strādnieki",
+        "Type": "float",
+        "customSettings": {
+          "integer": true
+        }
+      },
+      "Works": {
+        "DisplayName": "Darbi",
+        "DropDownOptions": {
+          "1.1 Ūdensvads - PEH spiedvadu caurule PE100, OD63x3,8, PN10, SDR17, EN12201 iebūvējama ar tranšejas rakšnaas metodi": "1.1 Ūdensvads - PEH spiedvadu caurule PE100, OD63x3,8, PN10, SDR17, EN12201 iebūvējama ar tranšejas rakšnaas metodi",
+          "1.10 Ūdensvads - EM gala pāreja D63": "1.10 Ūdensvads - EM gala pāreja D63",
+          "1.11 Ūdensvads - EM gala noslēgs D32": "1.11 Ūdensvads - EM gala noslēgs D32",
+          "1.12 Ūdensvads - Aizsargčaula PE caurulei DN63": "1.12 Ūdensvads - Aizsargčaula PE caurulei DN63",
+          "1.13 Ūdensvads - Aizsargčaula PE caurulei DN32": "1.13 Ūdensvads - Aizsargčaula PE caurulei DN32",
+          "1.14 Ūdensvads - Sistēmas skalošana, dezinfekcija, testēšana, hidrauliskā pārbaude": "1.14 Ūdensvads - Sistēmas skalošana, dezinfekcija, testēšana, hidrauliskā pārbaude",
+          "1.15 Ūdensvads - Pievienojums pie esošā ūdensvada": "1.15 Ūdensvads - Pievienojums pie esošā ūdensvada",
+          "1.16 Ūdensvads - Krustojumi inženierkomunikācijām": "1.16 Ūdensvads - Krustojumi inženierkomunikācijām",
+          "1.17 Ūdensvads - Dalīta aizsargcaurule D110": "1.17 Ūdensvads - Dalīta aizsargcaurule D110",
+          "1.2 Ūdensvads - PEH spiedvadu caurule PE80, OD32x3,0, PN12,5, SDR11, EN12201 iebūvējama ar tranšejas rakšnaas metodi": "1.2 Ūdensvads - PEH spiedvadu caurule PE80, OD32x3,0, PN12,5, SDR11, EN12201 iebūvējama ar tranšejas rakšnaas metodi",
+          "1.3 Ūdensvads - PEH spiedvadu caurule PE80, OD32x3,0, PN12,5, SDR11, EN12201 iebūvējama ar caurduršanu": "1.3 Ūdensvads - PEH spiedvadu caurule PE80, OD32x3,0, PN12,5, SDR11, EN12201 iebūvējama ar caurduršanu",
+          "1.4 Ūdensvads - Skataka DN1000 no saliekamiem dz/b elementiem": "1.4 Ūdensvads - Skataka DN1000 no saliekamiem dz/b elementiem",
+          "1.5 Ūdensvads - Servisa ventilis ar uzmavām PE caurulei DN50": "1.5 Ūdensvads - Servisa ventilis ar uzmavām PE caurulei DN50",
+          "1.6 Ūdensvads - Servisa ventilis ar uzmavām PE caurulei DN25": "1.6 Ūdensvads - Servisa ventilis ar uzmavām PE caurulei DN25",
+          "1.7 Ūdensvads - Sistēmas tukšonas krāns": "1.7 Ūdensvads - Sistēmas tukšonas krāns",
+          "1.8 Ūdensvads - Sedlu uzmava 160/63": "1.8 Ūdensvads - Sedlu uzmava 160/63",
+          "1.9 Ūdensvads - Sedlu uzmava 63/32": "1.9 Ūdensvads - Sedlu uzmava 63/32",
+          "2.1 Sadzīves kanalizācija - PP skataka DN600 no saliekamiem PP elementiem": "2.1 Sadzīves kanalizācija - PP skataka DN600 no saliekamiem PP elementiem",
+          "2.10 Sadzīves kanalizācija - Krītcaurules ierīkošana": "2.10 Sadzīves kanalizācija - Krītcaurules ierīkošana",
+          "2.11 Sadzīves kanalizācija - Tranšejas rakšana": "2.11 Sadzīves kanalizācija - Tranšejas rakšana",
+          "2.12 Sadzīves kanalizācija - Liekās smilts izvešana": "2.12 Sadzīves kanalizācija - Liekās smilts izvešana",
+          "2.13 Sadzīves kanalizācija - Smilts apbērums": "2.13 Sadzīves kanalizācija - Smilts apbērums",
+          "2.14 Sadzīves kanalizācija - Tranšejas aizbēršana ar smilts-grants maisījumu (filtr.koef.>1m/dnn)blietējot pa kārtām (kārtas biezums 30 cm)": "2.14 Sadzīves kanalizācija - Tranšejas aizbēršana ar smilts-grants maisījumu (filtr.koef.>1m/dnn)blietējot pa kārtām (kārtas biezums 30 cm)",
+          "2.15 Sadzīves kanalizācija - Pievienojums pie esošās kanalizācijas": "2.15 Sadzīves kanalizācija - Pievienojums pie esošās kanalizācijas",
+          "2.16 Sadzīves kanalizācija - Krustojumi inženierkomunikācijām": "2.16 Sadzīves kanalizācija - Krustojumi inženierkomunikācijām",
+          "2.17 Sadzīves kanalizācija - kanalizācijas tīklu skalošana": "2.17 Sadzīves kanalizācija - kanalizācijas tīklu skalošana",
+          "2.18 Sadzīves kanalizācija - Asotes ielas asfaltbetona seguma atjaunošana": "2.18 Sadzīves kanalizācija - Asotes ielas asfaltbetona seguma atjaunošana",
+          "2.2 Sadzīves kanalizācija - PP skataka DN1000 no saliekamiem PP elementiem": "2.2 Sadzīves kanalizācija - PP skataka DN1000 no saliekamiem PP elementiem",
+          "2.3 Sadzīves kanalizācija - PP daudzslaņu kanalizācijas caurule D160": "2.3 Sadzīves kanalizācija - PP daudzslaņu kanalizācijas caurule D160",
+          "2.4 Sadzīves kanalizācija - PP daudzslaņu kanalizācijas caurule D200": "2.4 Sadzīves kanalizācija - PP daudzslaņu kanalizācijas caurule D200",
+          "2.5 Sadzīves kanalizācija - PE spiedvadu caurule PE100, OD63x3,8, P10 (ierīkot ar caurdur.metodi)": "2.5 Sadzīves kanalizācija - PE spiedvadu caurule PE100, OD63x3,8, P10 (ierīkot ar caurdur.metodi)",
+          "2.6 Sadzīves kanalizācija - Spiediena dzēšanas uzgaļa ierīkošana": "2.6 Sadzīves kanalizācija - Spiediena dzēšanas uzgaļa ierīkošana",
+          "2.7 Sadzīves kanalizācija - Aizsargčaula D200": "2.7 Sadzīves kanalizācija - Aizsargčaula D200",
+          "2.8 Sadzīves kanalizācija - Gala noslēgs D160": "2.8 Sadzīves kanalizācija - Gala noslēgs D160",
+          "2.9 Sadzīves kanalizācija - Gala noslēgs D63": "2.9 Sadzīves kanalizācija - Gala noslēgs D63",
+          "3.1 Lietus kanalizācija - Gūlija 400/315 ar čuguna rāmi un restēm ar 70l nosēddaļu": "3.1 Lietus kanalizācija - Gūlija 400/315 ar čuguna rāmi un restēm ar 70l nosēddaļu",
+          "3.10 Lietus kanalizācija - Tranšejas rakšana": "3.10 Lietus kanalizācija - Tranšejas rakšana",
+          "3.11 Lietus kanalizācija - Liekās smilts izvešana": "3.11 Lietus kanalizācija - Liekās smilts izvešana",
+          "3.12 Lietus kanalizācija - Smilts apbērums": "3.12 Lietus kanalizācija - Smilts apbērums",
+          "3.13 Lietus kanalizācija - Tranšejas aizbēršana ar smilts-grants maisījumu (filtr.koef.>1m/dnn)blietējot pa kārtām (kārtas biezums 30 cm)": "3.13 Lietus kanalizācija - Tranšejas aizbēršana ar smilts-grants maisījumu (filtr.koef.>1m/dnn)blietējot pa kārtām (kārtas biezums 30 cm)",
+          "3.14 Lietus kanalizācija - Pievienojums pie esošās kanalizācijas": "3.14 Lietus kanalizācija - Pievienojums pie esošās kanalizācijas",
+          "3.15 Lietus kanalizācija - Krustojumi ar inženierkomunikācijām": "3.15 Lietus kanalizācija - Krustojumi ar inženierkomunikācijām",
+          "3.16 Lietus kanalizācija - Izlaides ierīkošana": "3.16 Lietus kanalizācija - Izlaides ierīkošana",
+          "3.17 Lietus kanalizācija - kanalizācijas tīklu skalošana": "3.17 Lietus kanalizācija - kanalizācijas tīklu skalošana",
+          "3.2 Lietus kanalizācija - PP skataka DN1500 no saliekamiem PP elementiem": "3.2 Lietus kanalizācija - PP skataka DN1500 no saliekamiem PP elementiem",
+          "3.3 Lietus kanalizācija - PEH gludsienu aka 560/500 ar peldošā tipa ķeta rāmi un D400 lūku": "3.3 Lietus kanalizācija - PEH gludsienu aka 560/500 ar peldošā tipa ķeta rāmi un D400 lūku",
+          "3.4 Lietus kanalizācija - LK kanalizācijas caurules D200": "3.4 Lietus kanalizācija - LK kanalizācijas caurules D200",
+          "3.6 Lietus kanalizācija - Krītcaurules ierīkošana": "3.6 Lietus kanalizācija - Krītcaurules ierīkošana",
+          "3.7 Lietus kanalizācija - UGD-PP aizsargčaula D200": "3.7 Lietus kanalizācija - UGD-PP aizsargčaula D200",
+          "3.8 Lietus kanalizācija - Drenāžas aka 400/315": "3.8 Lietus kanalizācija - Drenāžas aka 400/315",
+          "3.9 Lietus kanalizācija - PP aizbāznis Ø160,": "3.9 Lietus kanalizācija - PP aizbāznis Ø160,",
+          "47 Ceļu daļa (Lokālā tāme Nr.1) - Drenāžas kolektora D160 būvniecība": "47 Ceļu daļa (Lokālā tāme Nr.1) - Drenāžas kolektora D160 būvniecība",
+          "Apdares darbi": "Apdares darbi",
+          "Apgaismojuma montāža": "Apgaismojuma montāža",
+          "Apkures sistēmas un ventilācijas darbi": "Apkures sistēmas un ventilācijas darbi",
+          "Apkures sistēmu montāža": "Apkures sistēmu montāža",
+          "Balkonu montāža": "Balkonu montāža",
+          "Betonēšanas darbi": "Betonēšanas darbi",
+          "Drenāžas izbūve": "Drenāžas izbūve",
+          "Dūmu detektoru montāža": "Dūmu detektoru montāža",
+          "Elektroinstalācijas darbi": "Elektroinstalācijas darbi",
+          "Elektroinstalācijas izbūve": "Elektroinstalācijas izbūve",
+          "Gaisa kondicionēšanas montāža": "Gaisa kondicionēšanas montāža",
+          "Iekārtu montāža": "Iekārtu montāža",
+          "Iekārtu piegāde": "Iekārtu piegāde",
+          "Inspekcija": "Inspekcija",
+          "Inženierkomunikāciju cauruļu ieklāšana": "Inženierkomunikāciju cauruļu ieklāšana",
+          "Kabeļu kanālu montāža": "Kabeļu kanālu montāža",
+          "Kavējums": "Kavējums",
+          "Kavēšanās": "Kavēšanās",
+          "Krāsošanas darbi": "Krāsošanas darbi",
+          "Kāpņu montāža": "Kāpņu montāža",
+          "Materiālu piegāde": "Materiālu piegāde",
+          "Mūrēšanas darbi": "Mūrēšanas darbi",
+          "Papildu darbi": "Papildu darbi",
+          "Piezīmes": "Piezīmes",
+          "Pārsegumu montāža": "Pārsegumu montāža",
+          "Rakšanas darbi": "Rakšanas darbi",
+          "Remonta darbi": "Remonta darbi",
+          "Sadales paneļu montāža": "Sadales paneļu montāža",
+          "Saliekamo elementu montāža": "Saliekamo elementu montāža",
+          "Santehnikas darbi": "Santehnikas darbi",
+          "Santehnikas montāža": "Santehnikas montāža",
+          "Sienu izbūve": "Sienu izbūve",
+          "Sprinkleru montāža": "Sprinkleru montāža",
+          "Stiegrošanas darbi": "Stiegrošanas darbi",
+          "Testēšana un nodošana ekspluatācijā": "Testēšana un nodošana ekspluatācijā",
+          "Tranšeju rakšana": "Tranšeju rakšana",
+          "Tērauda konstrukciju montāža": "Tērauda konstrukciju montāža",
+          "Tīrīšana": "Tīrīšana",
+          "Ugunsdrošā blīvēšana": "Ugunsdrošā blīvēšana",
+          "Ugunsdzēsības cauruļvadu montāža": "Ugunsdzēsības cauruļvadu montāža",
+          "Ugunsgrēka signalizācijas montāža": "Ugunsgrēka signalizācijas montāža",
+          "Uzkopšanas darbi": "Uzkopšanas darbi",
+          "Uzturēšanas darbi": "Uzturēšanas darbi",
+          "Veidņu montāža": "Veidņu montāža",
+          "Ventilācijas montāža": "Ventilācijas montāža",
+          "Zemes darbi": "Zemes darbi"
+        },
+        "Type": "dropdown"
+      },
+      "Works_Custom_1": {
+        "DisplayName": "Works_Custom_1",
+        "DropDownOptions": {
+          "Works_Custom_1_1": "Works_Custom_1_1",
+          "Works_Custom_1_2": "Works_Custom_1_2"
+        },
+        "Type": "noRender"
+      },
+      "Works_Custom_2": {
+        "DisplayName": "Works_Custom_2",
+        "DropDownOptions": {
+          "Works_Custom_2_1": "Works_Custom_2_1",
+          "Works_Custom_2_2": "Works_Custom_2_2"
+        },
+        "Type": "noRender"
+      },
+      "otherSettings": {
+        "Type": "noRender",
+        "defaultConstructionForma2WorkSync": {
+          "documentId": "ocelt-reviewed-catalog-v1",
+          "entries": [
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-1:peh-spiedvadu-caurule-pe100-od63x3-8-pn10-sdr17-:15",
+              "work": "1.1 Ūdensvads - PEH spiedvadu caurule PE100, OD63x3,8, PN10, SDR17, EN12201 iebūvējama ar tranšejas rakšnaas metodi"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-2:peh-spiedvadu-caurule-pe80-od32x3-0-pn12-5-sdr11:16",
+              "work": "1.2 Ūdensvads - PEH spiedvadu caurule PE80, OD32x3,0, PN12,5, SDR11, EN12201 iebūvējama ar tranšejas rakšnaas metodi"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-3:peh-spiedvadu-caurule-pe80-od32x3-0-pn12-5-sdr11:17",
+              "work": "1.3 Ūdensvads - PEH spiedvadu caurule PE80, OD32x3,0, PN12,5, SDR11, EN12201 iebūvējama ar caurduršanu"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-4:skataka-dn1000-no-saliekamiem-dz-b-elementiem:18",
+              "work": "1.4 Ūdensvads - Skataka DN1000 no saliekamiem dz/b elementiem"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-5:servisa-ventilis-ar-uzmavam-pe-caurulei-dn50:19",
+              "work": "1.5 Ūdensvads - Servisa ventilis ar uzmavām PE caurulei DN50"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-6:servisa-ventilis-ar-uzmavam-pe-caurulei-dn25:20",
+              "work": "1.6 Ūdensvads - Servisa ventilis ar uzmavām PE caurulei DN25"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-7:sistemas-tuksonas-krans:21",
+              "work": "1.7 Ūdensvads - Sistēmas tukšonas krāns"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-8:sedlu-uzmava-160-63:22",
+              "work": "1.8 Ūdensvads - Sedlu uzmava 160/63"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-9:sedlu-uzmava-63-32:23",
+              "work": "1.9 Ūdensvads - Sedlu uzmava 63/32"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-10:em-gala-pareja-d63:24",
+              "work": "1.10 Ūdensvads - EM gala pāreja D63"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-11:em-gala-noslegs-d32:25",
+              "work": "1.11 Ūdensvads - EM gala noslēgs D32"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-12:aizsargcaula-pe-caurulei-dn63:26",
+              "work": "1.12 Ūdensvads - Aizsargčaula PE caurulei DN63"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-13:aizsargcaula-pe-caurulei-dn32:27",
+              "work": "1.13 Ūdensvads - Aizsargčaula PE caurulei DN32"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-14:sistemas-skalosana-dezinfekcija-testesana-hidrau:28",
+              "work": "1.14 Ūdensvads - Sistēmas skalošana, dezinfekcija, testēšana, hidrauliskā pārbaude"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-15:pievienojums-pie-esosa-udensvada:29",
+              "work": "1.15 Ūdensvads - Pievienojums pie esošā ūdensvada"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-16:krustojumi-inzenierkomunikacijam:30",
+              "work": "1.16 Ūdensvads - Krustojumi inženierkomunikācijām"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:1-17:dalita-aizsargcaurule-d110:31",
+              "work": "1.17 Ūdensvads - Dalīta aizsargcaurule D110"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-1:pp-skataka-dn600-no-saliekamiem-pp-elementiem:33",
+              "work": "2.1 Sadzīves kanalizācija - PP skataka DN600 no saliekamiem PP elementiem"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-2:pp-skataka-dn1000-no-saliekamiem-pp-elementiem:34",
+              "work": "2.2 Sadzīves kanalizācija - PP skataka DN1000 no saliekamiem PP elementiem"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-3:pp-daudzslanu-kanalizacijas-caurule-d160:35",
+              "work": "2.3 Sadzīves kanalizācija - PP daudzslaņu kanalizācijas caurule D160"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-4:pp-daudzslanu-kanalizacijas-caurule-d200:36",
+              "work": "2.4 Sadzīves kanalizācija - PP daudzslaņu kanalizācijas caurule D200"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-5:pe-spiedvadu-caurule-pe100-od63x3-8-p10-ierikot-:37",
+              "work": "2.5 Sadzīves kanalizācija - PE spiedvadu caurule PE100, OD63x3,8, P10 (ierīkot ar caurdur.metodi)"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-6:spiediena-dzesanas-uzgala-ierikosana:38",
+              "work": "2.6 Sadzīves kanalizācija - Spiediena dzēšanas uzgaļa ierīkošana"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-7:aizsargcaula-d200:39",
+              "work": "2.7 Sadzīves kanalizācija - Aizsargčaula D200"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-8:gala-noslegs-d160:40",
+              "work": "2.8 Sadzīves kanalizācija - Gala noslēgs D160"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-9:gala-noslegs-d63:41",
+              "work": "2.9 Sadzīves kanalizācija - Gala noslēgs D63"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-10:kritcaurules-ierikosana:42",
+              "work": "2.10 Sadzīves kanalizācija - Krītcaurules ierīkošana"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-11:transejas-raksana:43",
+              "work": "2.11 Sadzīves kanalizācija - Tranšejas rakšana"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-12:liekas-smilts-izvesana:44",
+              "work": "2.12 Sadzīves kanalizācija - Liekās smilts izvešana"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-13:smilts-apberums:45",
+              "work": "2.13 Sadzīves kanalizācija - Smilts apbērums"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-14:transejas-aizbersana-ar-smilts-grants-maisijumu-:46",
+              "work": "2.14 Sadzīves kanalizācija - Tranšejas aizbēršana ar smilts-grants maisījumu (filtr.koef.>1m/dnn)blietējot pa kārtām (kārtas biezums 30 cm)"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-15:pievienojums-pie-esosas-kanalizacijas:47",
+              "work": "2.15 Sadzīves kanalizācija - Pievienojums pie esošās kanalizācijas"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-16:krustojumi-inzenierkomunikacijam:48",
+              "work": "2.16 Sadzīves kanalizācija - Krustojumi inženierkomunikācijām"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-17:kanalizacijas-tiklu-skalosana:49",
+              "work": "2.17 Sadzīves kanalizācija - kanalizācijas tīklu skalošana"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:2-18:asotes-ielas-asfaltbetona-seguma-atjaunosana:50",
+              "work": "2.18 Sadzīves kanalizācija - Asotes ielas asfaltbetona seguma atjaunošana"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-1:gulija-400-315-ar-cuguna-rami-un-restem-ar-70l-n:52",
+              "work": "3.1 Lietus kanalizācija - Gūlija 400/315 ar čuguna rāmi un restēm ar 70l nosēddaļu"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-2:pp-skataka-dn1500-no-saliekamiem-pp-elementiem:53",
+              "work": "3.2 Lietus kanalizācija - PP skataka DN1500 no saliekamiem PP elementiem"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-3:peh-gludsienu-aka-560-500-ar-peldosa-tipa-keta-r:54",
+              "work": "3.3 Lietus kanalizācija - PEH gludsienu aka 560/500 ar peldošā tipa ķeta rāmi un D400 lūku"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-4:lk-kanalizacijas-caurules-d200:55",
+              "work": "3.4 Lietus kanalizācija - LK kanalizācijas caurules D200"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-6:kritcaurules-ierikosana:56",
+              "work": "3.6 Lietus kanalizācija - Krītcaurules ierīkošana"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-7:ugd-pp-aizsargcaula-d200:57",
+              "work": "3.7 Lietus kanalizācija - UGD-PP aizsargčaula D200"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-8:drenazas-aka-400-315:58",
+              "work": "3.8 Lietus kanalizācija - Drenāžas aka 400/315"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-9:pp-aizbaznis-160:59",
+              "work": "3.9 Lietus kanalizācija - PP aizbāznis Ø160,"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-10:transejas-raksana:60",
+              "work": "3.10 Lietus kanalizācija - Tranšejas rakšana"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-11:liekas-smilts-izvesana:61",
+              "work": "3.11 Lietus kanalizācija - Liekās smilts izvešana"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-12:smilts-apberums:62",
+              "work": "3.12 Lietus kanalizācija - Smilts apbērums"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-13:transejas-aizbersana-ar-smilts-grants-maisijumu-:63",
+              "work": "3.13 Lietus kanalizācija - Tranšejas aizbēršana ar smilts-grants maisījumu (filtr.koef.>1m/dnn)blietējot pa kārtām (kārtas biezums 30 cm)"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-14:pievienojums-pie-esosas-kanalizacijas:64",
+              "work": "3.14 Lietus kanalizācija - Pievienojums pie esošās kanalizācijas"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-15:krustojumi-ar-inzenierkomunikacijam:65",
+              "work": "3.15 Lietus kanalizācija - Krustojumi ar inženierkomunikācijām"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-16:izlaides-ierikosana:66",
+              "work": "3.16 Lietus kanalizācija - Izlaides ierīkošana"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:3-17:kanalizacijas-tiklu-skalosana:67",
+              "work": "3.17 Lietus kanalizācija - kanalizācijas tīklu skalošana"
+            },
+            {
+              "ownedByForma2": true,
+              "positionId": "work:47:drenazas-kolektora-d160-buvnieciba:69",
+              "work": "47 Ceļu daļa (Lokālā tāme Nr.1) - Drenāžas kolektora D160 būvniecība"
+            }
+          ],
+          "version": 1
+        },
+        "defaultConstructionProductivity": {
+          "works": [
+            {
+              "work": "1.1 Ūdensvads - PEH spiedvadu caurule PE100, OD63x3,8, PN10, SDR17, EN12201 iebūvējama ar tranšejas rakšnaas metodi",
+              "unit": "m"
+            },
+            {
+              "work": "1.2 Ūdensvads - PEH spiedvadu caurule PE80, OD32x3,0, PN12,5, SDR11, EN12201 iebūvējama ar tranšejas rakšnaas metodi",
+              "unit": "m"
+            },
+            {
+              "work": "1.3 Ūdensvads - PEH spiedvadu caurule PE80, OD32x3,0, PN12,5, SDR11, EN12201 iebūvējama ar caurduršanu",
+              "unit": "m"
+            },
+            {
+              "work": "1.4 Ūdensvads - Skataka DN1000 no saliekamiem dz/b elementiem",
+              "unit": "kompl"
+            },
+            {
+              "work": "1.5 Ūdensvads - Servisa ventilis ar uzmavām PE caurulei DN50",
+              "unit": "gab."
+            },
+            {
+              "work": "1.6 Ūdensvads - Servisa ventilis ar uzmavām PE caurulei DN25",
+              "unit": "gab."
+            },
+            {
+              "work": "2.1 Sadzīves kanalizācija - PP skataka DN600 no saliekamiem PP elementiem",
+              "unit": "kompl"
+            },
+            {
+              "work": "2.2 Sadzīves kanalizācija - PP skataka DN1000 no saliekamiem PP elementiem",
+              "unit": "kompl"
+            },
+            {
+              "work": "2.3 Sadzīves kanalizācija - PP daudzslaņu kanalizācijas caurule D160",
+              "unit": "m"
+            },
+            {
+              "work": "2.4 Sadzīves kanalizācija - PP daudzslaņu kanalizācijas caurule D200",
+              "unit": "m"
+            },
+            {
+              "work": "2.5 Sadzīves kanalizācija - PE spiedvadu caurule PE100, OD63x3,8, P10 (ierīkot ar caurdur.metodi)",
+              "unit": "m"
+            },
+            {
+              "work": "2.6 Sadzīves kanalizācija - Spiediena dzēšanas uzgaļa ierīkošana",
+              "unit": "gab."
+            },
+            {
+              "work": "2.7 Sadzīves kanalizācija - Aizsargčaula D200",
+              "unit": "gab."
+            },
+            {
+              "work": "2.8 Sadzīves kanalizācija - Gala noslēgs D160",
+              "unit": "gab."
+            },
+            {
+              "work": "2.9 Sadzīves kanalizācija - Gala noslēgs D63",
+              "unit": "gab."
+            },
+            {
+              "work": "2.18 Sadzīves kanalizācija - Asotes ielas asfaltbetona seguma atjaunošana",
+              "unit": "m2"
+            },
+            {
+              "work": "3.1 Lietus kanalizācija - Gūlija 400/315 ar čuguna rāmi un restēm ar 70l nosēddaļu",
+              "unit": "kompl"
+            },
+            {
+              "work": "3.2 Lietus kanalizācija - PP skataka DN1500 no saliekamiem PP elementiem",
+              "unit": "kompl"
+            },
+            {
+              "work": "3.3 Lietus kanalizācija - PEH gludsienu aka 560/500 ar peldošā tipa ķeta rāmi un D400 lūku",
+              "unit": "kompl"
+            },
+            {
+              "work": "3.4 Lietus kanalizācija - LK kanalizācijas caurules D200",
+              "unit": "m"
+            },
+            {
+              "work": "3.6 Lietus kanalizācija - Krītcaurules ierīkošana",
+              "unit": "gab."
+            },
+            {
+              "work": "1.7 Ūdensvads - Sistēmas tukšonas krāns",
+              "unit": "gab."
+            },
+            {
+              "work": "1.8 Ūdensvads - Sedlu uzmava 160/63",
+              "unit": "gab."
+            },
+            {
+              "work": "1.9 Ūdensvads - Sedlu uzmava 63/32",
+              "unit": "gab."
+            },
+            {
+              "work": "1.10 Ūdensvads - EM gala pāreja D63",
+              "unit": "gab."
+            },
+            {
+              "work": "1.11 Ūdensvads - EM gala noslēgs D32",
+              "unit": "gab."
+            },
+            {
+              "work": "1.12 Ūdensvads - Aizsargčaula PE caurulei DN63",
+              "unit": "gab."
+            },
+            {
+              "work": "1.13 Ūdensvads - Aizsargčaula PE caurulei DN32",
+              "unit": "gab."
+            },
+            {
+              "work": "1.14 Ūdensvads - Sistēmas skalošana, dezinfekcija, testēšana, hidrauliskā pārbaude",
+              "unit": "m"
+            },
+            {
+              "work": "1.15 Ūdensvads - Pievienojums pie esošā ūdensvada",
+              "unit": "vieta"
+            },
+            {
+              "work": "1.16 Ūdensvads - Krustojumi inženierkomunikācijām",
+              "unit": "vieta"
+            },
+            {
+              "work": "1.17 Ūdensvads - Dalīta aizsargcaurule D110",
+              "unit": "m"
+            },
+            {
+              "work": "2.10 Sadzīves kanalizācija - Krītcaurules ierīkošana",
+              "unit": "gab."
+            },
+            {
+              "work": "2.11 Sadzīves kanalizācija - Tranšejas rakšana",
+              "unit": "m3"
+            },
+            {
+              "work": "2.12 Sadzīves kanalizācija - Liekās smilts izvešana",
+              "unit": "m3"
+            },
+            {
+              "work": "2.13 Sadzīves kanalizācija - Smilts apbērums",
+              "unit": "m3"
+            },
+            {
+              "work": "2.14 Sadzīves kanalizācija - Tranšejas aizbēršana ar smilts-grants maisījumu (filtr.koef.>1m/dnn)blietējot pa kārtām (kārtas biezums 30 cm)",
+              "unit": "m3"
+            },
+            {
+              "work": "2.15 Sadzīves kanalizācija - Pievienojums pie esošās kanalizācijas",
+              "unit": "vieta"
+            },
+            {
+              "work": "2.16 Sadzīves kanalizācija - Krustojumi inženierkomunikācijām",
+              "unit": "vieta"
+            },
+            {
+              "work": "2.17 Sadzīves kanalizācija - kanalizācijas tīklu skalošana",
+              "unit": "m"
+            },
+            {
+              "work": "3.7 Lietus kanalizācija - UGD-PP aizsargčaula D200",
+              "unit": "gab."
+            },
+            {
+              "work": "3.8 Lietus kanalizācija - Drenāžas aka 400/315",
+              "unit": "kompl"
+            },
+            {
+              "work": "3.9 Lietus kanalizācija - PP aizbāznis Ø160,",
+              "unit": "gab."
+            },
+            {
+              "work": "3.10 Lietus kanalizācija - Tranšejas rakšana",
+              "unit": "m3"
+            },
+            {
+              "work": "3.11 Lietus kanalizācija - Liekās smilts izvešana",
+              "unit": "m3"
+            },
+            {
+              "work": "3.12 Lietus kanalizācija - Smilts apbērums",
+              "unit": "m3"
+            },
+            {
+              "work": "3.13 Lietus kanalizācija - Tranšejas aizbēršana ar smilts-grants maisījumu (filtr.koef.>1m/dnn)blietējot pa kārtām (kārtas biezums 30 cm)",
+              "unit": "m3"
+            },
+            {
+              "work": "3.14 Lietus kanalizācija - Pievienojums pie esošās kanalizācijas",
+              "unit": "vieta"
+            },
+            {
+              "work": "3.15 Lietus kanalizācija - Krustojumi ar inženierkomunikācijām",
+              "unit": "vieta"
+            },
+            {
+              "work": "3.16 Lietus kanalizācija - Izlaides ierīkošana",
+              "unit": "vieta"
+            },
+            {
+              "work": "3.17 Lietus kanalizācija - kanalizācijas tīklu skalošana",
+              "unit": "m"
+            },
+            {
+              "work": "47 Ceļu daļa (Lokālā tāme Nr.1) - Drenāžas kolektora D160 būvniecība",
+              "unit": "m"
+            },
+            {
+              "work": "Apdares darbi",
+              "unit": ""
+            },
+            {
+              "work": "Apgaismojuma montāža",
+              "unit": ""
+            },
+            {
+              "work": "Apkures sistēmu montāža",
+              "unit": ""
+            },
+            {
+              "work": "Balkonu montāža",
+              "unit": ""
+            },
+            {
+              "work": "Betonēšanas darbi",
+              "unit": ""
+            },
+            {
+              "work": "Drenāžas izbūve",
+              "unit": ""
+            },
+            {
+              "work": "Dūmu detektoru montāža",
+              "unit": ""
+            },
+            {
+              "work": "Elektroinstalācijas izbūve",
+              "unit": ""
+            },
+            {
+              "work": "Gaisa kondicionēšanas montāža",
+              "unit": ""
+            },
+            {
+              "work": "Iekārtu montāža",
+              "unit": ""
+            },
+            {
+              "work": "Iekārtu piegāde",
+              "unit": ""
+            },
+            {
+              "work": "Inspekcija",
+              "unit": ""
+            },
+            {
+              "work": "Inženierkomunikāciju cauruļu ieklāšana",
+              "unit": ""
+            },
+            {
+              "work": "Kabeļu kanālu montāža",
+              "unit": ""
+            },
+            {
+              "work": "Kavējums",
+              "unit": ""
+            },
+            {
+              "work": "Kāpņu montāža",
+              "unit": ""
+            },
+            {
+              "work": "Krāsošanas darbi",
+              "unit": ""
+            },
+            {
+              "work": "Mūrēšanas darbi",
+              "unit": ""
+            },
+            {
+              "work": "Pārsegumu montāža",
+              "unit": ""
+            },
+            {
+              "work": "Rakšanas darbi",
+              "unit": ""
+            },
+            {
+              "work": "Remonta darbi",
+              "unit": ""
+            },
+            {
+              "work": "Sadales paneļu montāža",
+              "unit": ""
+            },
+            {
+              "work": "Saliekamo elementu montāža",
+              "unit": ""
+            },
+            {
+              "work": "Santehnikas montāža",
+              "unit": ""
+            },
+            {
+              "work": "Sienu izbūve",
+              "unit": ""
+            },
+            {
+              "work": "Sprinkleru montāža",
+              "unit": ""
+            },
+            {
+              "work": "Stiegrošanas darbi",
+              "unit": ""
+            },
+            {
+              "work": "Testēšana un nodošana ekspluatācijā",
+              "unit": ""
+            },
+            {
+              "work": "Tērauda konstrukciju montāža",
+              "unit": ""
+            },
+            {
+              "work": "Tīrīšana",
+              "unit": ""
+            },
+            {
+              "work": "Tranšeju rakšana",
+              "unit": ""
+            },
+            {
+              "work": "Ugunsdrošā blīvēšana",
+              "unit": ""
+            },
+            {
+              "work": "Ugunsdzēsības cauruļvadu montāža",
+              "unit": ""
+            },
+            {
+              "work": "Ugunsgrēka signalizācijas montāža",
+              "unit": ""
+            },
+            {
+              "work": "Uzturēšanas darbi",
+              "unit": ""
+            },
+            {
+              "work": "Veidņu montāža",
+              "unit": ""
+            },
+            {
+              "work": "Ventilācijas montāža",
+              "unit": ""
+            },
+            {
+              "work": "Zemes darbi",
+              "unit": ""
+            },
+            {
+              "work": "Apkures sistēmas un ventilācijas darbi",
+              "unit": ""
+            },
+            {
+              "work": "Elektroinstalācijas darbi",
+              "unit": ""
+            },
+            {
+              "work": "Kavēšanās",
+              "unit": ""
+            },
+            {
+              "work": "Materiālu piegāde",
+              "unit": ""
+            },
+            {
+              "work": "Papildu darbi",
+              "unit": ""
+            },
+            {
+              "work": "Piezīmes",
+              "unit": ""
+            },
+            {
+              "work": "Santehnikas darbi",
+              "unit": ""
+            },
+            {
+              "work": "Uzkopšanas darbi",
+              "unit": ""
+            }
+          ]
+        }
+      }
+    },
+    "positions": [
+      {
+        "id": "work:1-1:peh-spiedvadu-caurule-pe100-od63x3-8-pn10-sdr17-:15",
+        "code": "1.1",
+        "name": "PEH spiedvadu caurule PE100, OD63x3,8, PN10, SDR17, EN12201 iebūvējama ar tranšejas rakšnaas metodi",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 15,
+        "unit": "m"
+      },
+      {
+        "id": "work:1-2:peh-spiedvadu-caurule-pe80-od32x3-0-pn12-5-sdr11:16",
+        "code": "1.2",
+        "name": "PEH spiedvadu caurule PE80, OD32x3,0, PN12,5, SDR11, EN12201 iebūvējama ar tranšejas rakšnaas metodi",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 16,
+        "unit": "m"
+      },
+      {
+        "id": "work:1-3:peh-spiedvadu-caurule-pe80-od32x3-0-pn12-5-sdr11:17",
+        "code": "1.3",
+        "name": "PEH spiedvadu caurule PE80, OD32x3,0, PN12,5, SDR11, EN12201 iebūvējama ar caurduršanu",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 17,
+        "unit": "m"
+      },
+      {
+        "id": "work:1-4:skataka-dn1000-no-saliekamiem-dz-b-elementiem:18",
+        "code": "1.4",
+        "name": "Skataka DN1000 no saliekamiem dz/b elementiem",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 18,
+        "unit": "kompl"
+      },
+      {
+        "id": "work:1-5:servisa-ventilis-ar-uzmavam-pe-caurulei-dn50:19",
+        "code": "1.5",
+        "name": "Servisa ventilis ar uzmavām PE caurulei DN50",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 19,
+        "unit": "gab."
+      },
+      {
+        "id": "work:1-6:servisa-ventilis-ar-uzmavam-pe-caurulei-dn25:20",
+        "code": "1.6",
+        "name": "Servisa ventilis ar uzmavām PE caurulei DN25",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 20,
+        "unit": "gab."
+      },
+      {
+        "id": "work:1-7:sistemas-tuksonas-krans:21",
+        "code": "1.7",
+        "name": "Sistēmas tukšonas krāns",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 21,
+        "unit": "gab."
+      },
+      {
+        "id": "work:1-8:sedlu-uzmava-160-63:22",
+        "code": "1.8",
+        "name": "Sedlu uzmava 160/63",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 22,
+        "unit": "gab."
+      },
+      {
+        "id": "work:1-9:sedlu-uzmava-63-32:23",
+        "code": "1.9",
+        "name": "Sedlu uzmava 63/32",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 23,
+        "unit": "gab."
+      },
+      {
+        "id": "work:1-10:em-gala-pareja-d63:24",
+        "code": "1.10",
+        "name": "EM gala pāreja D63",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 24,
+        "unit": "gab."
+      },
+      {
+        "id": "work:1-11:em-gala-noslegs-d32:25",
+        "code": "1.11",
+        "name": "EM gala noslēgs D32",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 25,
+        "unit": "gab."
+      },
+      {
+        "id": "work:1-12:aizsargcaula-pe-caurulei-dn63:26",
+        "code": "1.12",
+        "name": "Aizsargčaula PE caurulei DN63",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 26,
+        "unit": "gab."
+      },
+      {
+        "id": "work:1-13:aizsargcaula-pe-caurulei-dn32:27",
+        "code": "1.13",
+        "name": "Aizsargčaula PE caurulei DN32",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 27,
+        "unit": "gab."
+      },
+      {
+        "id": "work:1-14:sistemas-skalosana-dezinfekcija-testesana-hidrau:28",
+        "code": "1.14",
+        "name": "Sistēmas skalošana, dezinfekcija, testēšana, hidrauliskā pārbaude",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 28,
+        "unit": "m"
+      },
+      {
+        "id": "work:1-15:pievienojums-pie-esosa-udensvada:29",
+        "code": "1.15",
+        "name": "Pievienojums pie esošā ūdensvada",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 29,
+        "unit": "vieta"
+      },
+      {
+        "id": "work:1-16:krustojumi-inzenierkomunikacijam:30",
+        "code": "1.16",
+        "name": "Krustojumi inženierkomunikācijām",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 30,
+        "unit": "vieta"
+      },
+      {
+        "id": "work:1-17:dalita-aizsargcaurule-d110:31",
+        "code": "1.17",
+        "name": "Dalīta aizsargcaurule D110",
+        "categoryName": "Ūdensvads",
+        "categoryCode": "1",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 31,
+        "unit": "m"
+      },
+      {
+        "id": "work:2-1:pp-skataka-dn600-no-saliekamiem-pp-elementiem:33",
+        "code": "2.1",
+        "name": "PP skataka DN600 no saliekamiem PP elementiem",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 33,
+        "unit": "kompl"
+      },
+      {
+        "id": "work:2-2:pp-skataka-dn1000-no-saliekamiem-pp-elementiem:34",
+        "code": "2.2",
+        "name": "PP skataka DN1000 no saliekamiem PP elementiem",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 34,
+        "unit": "kompl"
+      },
+      {
+        "id": "work:2-3:pp-daudzslanu-kanalizacijas-caurule-d160:35",
+        "code": "2.3",
+        "name": "PP daudzslaņu kanalizācijas caurule D160",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 35,
+        "unit": "m"
+      },
+      {
+        "id": "work:2-4:pp-daudzslanu-kanalizacijas-caurule-d200:36",
+        "code": "2.4",
+        "name": "PP daudzslaņu kanalizācijas caurule D200",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 36,
+        "unit": "m"
+      },
+      {
+        "id": "work:2-5:pe-spiedvadu-caurule-pe100-od63x3-8-p10-ierikot-:37",
+        "code": "2.5",
+        "name": "PE spiedvadu caurule PE100, OD63x3,8, P10 (ierīkot ar caurdur.metodi)",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 37,
+        "unit": "m"
+      },
+      {
+        "id": "work:2-6:spiediena-dzesanas-uzgala-ierikosana:38",
+        "code": "2.6",
+        "name": "Spiediena dzēšanas uzgaļa ierīkošana",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 38,
+        "unit": "gab."
+      },
+      {
+        "id": "work:2-7:aizsargcaula-d200:39",
+        "code": "2.7",
+        "name": "Aizsargčaula D200",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 39,
+        "unit": "gab."
+      },
+      {
+        "id": "work:2-8:gala-noslegs-d160:40",
+        "code": "2.8",
+        "name": "Gala noslēgs D160",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 40,
+        "unit": "gab."
+      },
+      {
+        "id": "work:2-9:gala-noslegs-d63:41",
+        "code": "2.9",
+        "name": "Gala noslēgs D63",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 41,
+        "unit": "gab."
+      },
+      {
+        "id": "work:2-10:kritcaurules-ierikosana:42",
+        "code": "2.10",
+        "name": "Krītcaurules ierīkošana",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 42,
+        "unit": "gab."
+      },
+      {
+        "id": "work:2-11:transejas-raksana:43",
+        "code": "2.11",
+        "name": "Tranšejas rakšana",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 43,
+        "unit": "m3"
+      },
+      {
+        "id": "work:2-12:liekas-smilts-izvesana:44",
+        "code": "2.12",
+        "name": "Liekās smilts izvešana",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 44,
+        "unit": "m3"
+      },
+      {
+        "id": "work:2-13:smilts-apberums:45",
+        "code": "2.13",
+        "name": "Smilts apbērums",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 45,
+        "unit": "m3"
+      },
+      {
+        "id": "work:2-14:transejas-aizbersana-ar-smilts-grants-maisijumu-:46",
+        "code": "2.14",
+        "name": "Tranšejas aizbēršana ar smilts-grants maisījumu (filtr.koef.>1m/dnn)blietējot pa kārtām (kārtas biezums 30 cm)",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 46,
+        "unit": "m3"
+      },
+      {
+        "id": "work:2-15:pievienojums-pie-esosas-kanalizacijas:47",
+        "code": "2.15",
+        "name": "Pievienojums pie esošās kanalizācijas",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 47,
+        "unit": "vieta"
+      },
+      {
+        "id": "work:2-16:krustojumi-inzenierkomunikacijam:48",
+        "code": "2.16",
+        "name": "Krustojumi inženierkomunikācijām",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 48,
+        "unit": "vieta"
+      },
+      {
+        "id": "work:2-17:kanalizacijas-tiklu-skalosana:49",
+        "code": "2.17",
+        "name": "kanalizācijas tīklu skalošana",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 49,
+        "unit": "m"
+      },
+      {
+        "id": "work:2-18:asotes-ielas-asfaltbetona-seguma-atjaunosana:50",
+        "code": "2.18",
+        "name": "Asotes ielas asfaltbetona seguma atjaunošana",
+        "categoryName": "Sadzīves kanalizācija",
+        "categoryCode": "2",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 50,
+        "unit": "m2"
+      },
+      {
+        "id": "work:3-1:gulija-400-315-ar-cuguna-rami-un-restem-ar-70l-n:52",
+        "code": "3.1",
+        "name": "Gūlija 400/315 ar čuguna rāmi un restēm ar 70l nosēddaļu",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 52,
+        "unit": "kompl"
+      },
+      {
+        "id": "work:3-2:pp-skataka-dn1500-no-saliekamiem-pp-elementiem:53",
+        "code": "3.2",
+        "name": "PP skataka DN1500 no saliekamiem PP elementiem",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 53,
+        "unit": "kompl"
+      },
+      {
+        "id": "work:3-3:peh-gludsienu-aka-560-500-ar-peldosa-tipa-keta-r:54",
+        "code": "3.3",
+        "name": "PEH gludsienu aka 560/500 ar peldošā tipa ķeta rāmi un D400 lūku",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 54,
+        "unit": "kompl"
+      },
+      {
+        "id": "work:3-4:lk-kanalizacijas-caurules-d200:55",
+        "code": "3.4",
+        "name": "LK kanalizācijas caurules D200",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 55,
+        "unit": "m"
+      },
+      {
+        "id": "work:3-6:kritcaurules-ierikosana:56",
+        "code": "3.6",
+        "name": "Krītcaurules ierīkošana",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 56,
+        "unit": "gab."
+      },
+      {
+        "id": "work:3-7:ugd-pp-aizsargcaula-d200:57",
+        "code": "3.7",
+        "name": "UGD-PP aizsargčaula D200",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 57,
+        "unit": "gab."
+      },
+      {
+        "id": "work:3-8:drenazas-aka-400-315:58",
+        "code": "3.8",
+        "name": "Drenāžas aka 400/315",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 58,
+        "unit": "kompl"
+      },
+      {
+        "id": "work:3-9:pp-aizbaznis-160:59",
+        "code": "3.9",
+        "name": "PP aizbāznis Ø160,",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 59,
+        "unit": "gab."
+      },
+      {
+        "id": "work:3-10:transejas-raksana:60",
+        "code": "3.10",
+        "name": "Tranšejas rakšana",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 60,
+        "unit": "m3"
+      },
+      {
+        "id": "work:3-11:liekas-smilts-izvesana:61",
+        "code": "3.11",
+        "name": "Liekās smilts izvešana",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 61,
+        "unit": "m3"
+      },
+      {
+        "id": "work:3-12:smilts-apberums:62",
+        "code": "3.12",
+        "name": "Smilts apbērums",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 62,
+        "unit": "m3"
+      },
+      {
+        "id": "work:3-13:transejas-aizbersana-ar-smilts-grants-maisijumu-:63",
+        "code": "3.13",
+        "name": "Tranšejas aizbēršana ar smilts-grants maisījumu (filtr.koef.>1m/dnn)blietējot pa kārtām (kārtas biezums 30 cm)",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 63,
+        "unit": "m3"
+      },
+      {
+        "id": "work:3-14:pievienojums-pie-esosas-kanalizacijas:64",
+        "code": "3.14",
+        "name": "Pievienojums pie esošās kanalizācijas",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 64,
+        "unit": "vieta"
+      },
+      {
+        "id": "work:3-15:krustojumi-ar-inzenierkomunikacijam:65",
+        "code": "3.15",
+        "name": "Krustojumi ar inženierkomunikācijām",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 65,
+        "unit": "vieta"
+      },
+      {
+        "id": "work:3-16:izlaides-ierikosana:66",
+        "code": "3.16",
+        "name": "Izlaides ierīkošana",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 66,
+        "unit": "vieta"
+      },
+      {
+        "id": "work:3-17:kanalizacijas-tiklu-skalosana:67",
+        "code": "3.17",
+        "name": "kanalizācijas tīklu skalošana",
+        "categoryName": "Lietus kanalizācija",
+        "categoryCode": "3",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 67,
+        "unit": "m"
+      },
+      {
+        "id": "work:47:drenazas-kolektora-d160-buvnieciba:69",
+        "code": "47",
+        "name": "Drenāžas kolektora D160 būvniecība",
+        "categoryName": "Ceļu daļa (Lokālā tāme Nr.1)",
+        "categoryCode": "4",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 69,
+        "unit": "m"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "ocelt-1110-four-earthworks-calculation",
+      "intent": "Četri skaidri zemes darbi: norma reizināta ar 22 m un datums atpakaļ uz 10.11.",
+      "tags": [
+        "ocelt",
+        "reviewed",
+        "forma2",
+        "multi-work",
+        "calculation",
+        "backdated",
+        "spoken-latvian"
+      ],
+      "tier": "regression",
+      "priority": "critical",
+      "receivedDateISO": "2026-11-12",
+      "sourceText": "Nepieciešams pievienot ikdienas darbu ierakstus 10. novembrī, kur pie K1 sadzīves kanalizācijas ir jāpievieno tranšejas rakšana ar tāmes pozīciju 2.2.11, kur apjoms ir 3,33 kubikmetri grunts uz tekošo metru, un kopējais ieraktais caurules garums mums bija 22 metri. Tad papildus pievieno smilts aizvešanu, kas tāmes pozīcija ir 2.2.12, apjoms uz vienu metru arī ir 3,33 kubikmetri, un smilts apbērumu ap caurulēm no tāmes pozīcijas 2.2.13, kur apjoms uz vienu metru ir 0,3 kubikmetri, kā arī vēl vienu ierakstu ar tāmes pozīciju 2.2.14, tranšejas aizbēršana ar apjomu 2,87 kubikmetrus tekošo metru. Un šeit sareķini, cik tad ir gan grunts, gan smilts uz iepriekš izveidoto ierakstu 22 metriem ieguldītās caurules.",
+      "sourceFingerprint": "db35336b6d410dfcc7fc5d3843bab4dd6543887b813792edd221669814296161",
+      "expectedRecords": [
+        {
+          "id": "ocelt-1110-four-earthworks-calculation-row-1",
+          "dateISO": "2026-11-10",
+          "work": "2.14 Sadzīves kanalizācija - Tranšejas aizbēršana ar smilts-grants maisījumu (filtr.koef.>1m/dnn)blietējot pa kārtām (kārtas biezums 30 cm)",
+          "location": "K1",
+          "commentSignals": [],
+          "amount": 63.14,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:2-14:transejas-aizbersana-ar-smilts-grants-maisijumu-:46",
+          "provenance": {
+            "recordFingerprint": "10c6fb4aa6a26efbf389fe49139c98c2760bac6fae01184fa28a3afb53f11787",
+            "assignmentBasis": "stored-allocation"
+          },
+          "reviewedComment": "Aizbērta tranšeja 22 m garā K1 cauruļvada posmā, rēķinot 2,87 m³ uz cauruļvada metru."
+        },
+        {
+          "id": "ocelt-1110-four-earthworks-calculation-row-2",
+          "dateISO": "2026-11-10",
+          "work": "2.12 Sadzīves kanalizācija - Liekās smilts izvešana",
+          "location": "K1",
+          "commentSignals": [],
+          "amount": 73.26,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:2-12:liekas-smilts-izvesana:44",
+          "provenance": {
+            "recordFingerprint": "6a68aa90079988f970120f53f0ad5aee2424ffbcd69495a457390af59b03824b",
+            "assignmentBasis": "stored-allocation"
+          },
+          "reviewedComment": "Izvesta liekā smilts no 22 m garā K1 cauruļvada posma, rēķinot 3,33 m³ uz cauruļvada metru."
+        },
+        {
+          "id": "ocelt-1110-four-earthworks-calculation-row-3",
+          "dateISO": "2026-11-10",
+          "work": "2.13 Sadzīves kanalizācija - Smilts apbērums",
+          "location": "K1",
+          "commentSignals": [],
+          "amount": 6.6,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:2-13:smilts-apberums:45",
+          "provenance": {
+            "recordFingerprint": "487e58984d8cfa7cc8b474d39ec8ba1315315c6c5af8856805c1774067258fbb",
+            "assignmentBasis": "stored-allocation"
+          },
+          "reviewedComment": "Veikts smilts apbērums ap cauruli 22 m garā K1 posmā, rēķinot 0,30 m³ uz cauruļvada metru."
+        },
+        {
+          "id": "ocelt-1110-four-earthworks-calculation-row-4",
+          "dateISO": "2026-11-10",
+          "work": "2.11 Sadzīves kanalizācija - Tranšejas rakšana",
+          "location": "K1",
+          "commentSignals": [],
+          "amount": 73.26,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:2-11:transejas-raksana:43",
+          "provenance": {
+            "recordFingerprint": "13a7f1c6edbff6c4e74fbb7c693a5a45fa71e139d30ab8d25094defa20ae0750",
+            "assignmentBasis": "stored-allocation"
+          },
+          "reviewedComment": "Izrakta tranšeja 22 m garā K1 cauruļvada posmā, rēķinot 3,33 m³ grunts uz cauruļvada metru."
+        }
+      ]
+    },
+    {
+      "id": "ocelt-1112-six-sewer-activities",
+      "intent": "Sešas atsevišķas darbības: DN600 aka, D200 caurule un četri zemes darbi.",
+      "tags": [
+        "ocelt",
+        "reviewed",
+        "forma2",
+        "multi-work",
+        "calculation",
+        "spoken-latvian"
+      ],
+      "tier": "regression",
+      "priority": "critical",
+      "receivedDateISO": "2026-11-12",
+      "sourceText": "Tātad šodien ir iebūvēta sadzīves kanalizācijas aka, AK1, svītriņa 6, 600 diametrā, un iebūvēts OD 200 kanalizācijas cauruļvads posmā no akas AK1, svītriņa 7, līdz AK1, svītriņa 6, 22,09 metru apjomā. Un tāmes pozīcija šim darbam ir 2.2.4. Papildus šim darbam tātad ir veikta tranšejas rakšana, ar tāmes pozīciju 2.2.11, kur uz tekošo metru ir 3,33 kubikmetri grunts. Tālāk ir smilts, liekās smilts aizvešana, tāmes pozīcija 2.2.12, apjoms uz tekošo metru 3,33 kubikmetri. Tad ir smilts apbēršana, tāmes pozīcija 2.2.13, kur ir 0,3 kubikmetri smilts uz tekošo iebūvēto caurules metru. Kā arī tranšejas aizbēršana, ar tāmes pozīciju 2.2.14, ar apjomu 2,87 kubikmetri uz tekošo iebūvēto caurules metru.",
+      "sourceFingerprint": "73029dee679d60dedddf4e9f0181e588a3c3e613f22ad5d7c15a30f7bdcdea18",
+      "expectedRecords": [
+        {
+          "id": "ocelt-1112-six-sewer-activities-row-1",
+          "dateISO": "2026-11-12",
+          "work": "2.1 Sadzīves kanalizācija - PP skataka DN600 no saliekamiem PP elementiem",
+          "location": "K1",
+          "commentSignals": [],
+          "amount": 1,
+          "unit": "kompl",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:2-1:pp-skataka-dn600-no-saliekamiem-pp-elementiem:33",
+          "provenance": {
+            "recordFingerprint": "8fec8149b8d2fc47c7a83f5bac04a39d3931ce856dd5aa826c210abe4b655474",
+            "assignmentBasis": "stored-allocation"
+          },
+          "reviewedComment": "Izbūvēta sadzīves kanalizācijas aka AK1-6, DN600."
+        },
+        {
+          "id": "ocelt-1112-six-sewer-activities-row-2",
+          "dateISO": "2026-11-12",
+          "work": "2.4 Sadzīves kanalizācija - PP daudzslaņu kanalizācijas caurule D200",
+          "location": "K1",
+          "commentSignals": [],
+          "amount": 22.09,
+          "unit": "m",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:2-4:pp-daudzslanu-kanalizacijas-caurule-d200:36",
+          "provenance": {
+            "recordFingerprint": "a0abdd0d93be18c983b992bb0b8b77ca1f3da568623036f290b58ec3b7dd9bbd",
+            "assignmentBasis": "journal-work-selection"
+          },
+          "reviewedComment": "Iebūvēts OD200 kanalizācijas cauruļvads posmā no AK1-7 līdz AK1-6."
+        },
+        {
+          "id": "ocelt-1112-six-sewer-activities-row-3",
+          "dateISO": "2026-11-12",
+          "work": "2.11 Sadzīves kanalizācija - Tranšejas rakšana",
+          "location": "K1",
+          "commentSignals": [],
+          "amount": 73.56,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:2-11:transejas-raksana:43",
+          "provenance": {
+            "recordFingerprint": "787d8e692b531f189c9d41cab8c8c47866ce9130d93a788058d9b975d07abc03",
+            "assignmentBasis": "journal-work-selection"
+          },
+          "reviewedComment": "Izrakta tranšeja 22,09 m cauruļvada posmam; norma 3,33 m3 uz tekošo metru."
+        },
+        {
+          "id": "ocelt-1112-six-sewer-activities-row-4",
+          "dateISO": "2026-11-12",
+          "work": "2.12 Sadzīves kanalizācija - Liekās smilts izvešana",
+          "location": "K1",
+          "commentSignals": [],
+          "amount": 73.56,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:2-12:liekas-smilts-izvesana:44",
+          "provenance": {
+            "recordFingerprint": "28b05241ef96b690dea43330ec485ab5af7ec748758e9d76bfa4c1a648464d58",
+            "assignmentBasis": "journal-work-selection"
+          },
+          "reviewedComment": "Izvesta liekā smilts 22,09 m cauruļvada posmam; norma 3,33 m3 uz tekošo metru."
+        },
+        {
+          "id": "ocelt-1112-six-sewer-activities-row-5",
+          "dateISO": "2026-11-12",
+          "work": "2.13 Sadzīves kanalizācija - Smilts apbērums",
+          "location": "K1",
+          "commentSignals": [],
+          "amount": 6.63,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:2-13:smilts-apberums:45",
+          "provenance": {
+            "recordFingerprint": "727bdee02885da4bb66c0471c8c72a1542ccb641b5f69effe6a92e9336a908c1",
+            "assignmentBasis": "journal-work-selection"
+          },
+          "reviewedComment": "Veikts smilts apbērums 22,09 m cauruļvada posmam; norma 0,3 m3 uz tekošo metru."
+        },
+        {
+          "id": "ocelt-1112-six-sewer-activities-row-6",
+          "dateISO": "2026-11-12",
+          "work": "2.14 Sadzīves kanalizācija - Tranšejas aizbēršana ar smilts-grants maisījumu (filtr.koef.>1m/dnn)blietējot pa kārtām (kārtas biezums 30 cm)",
+          "location": "K1",
+          "commentSignals": [],
+          "amount": 63.4,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:2-14:transejas-aizbersana-ar-smilts-grants-maisijumu-:46",
+          "provenance": {
+            "recordFingerprint": "fd045c0ee6e8313cb4d1649aa959ebef01d40edd1c485daea80951ea8cb30349",
+            "assignmentBasis": "journal-work-selection"
+          },
+          "reviewedComment": "Aizbērta tranšeja 22,09 m cauruļvada posmam; norma 2,87 m3 uz tekošo metru."
+        }
+      ]
+    },
+    {
+      "id": "ocelt-1113-pe100-od63-trench",
+      "intent": "PE100 OD63 ūdensvads tranšejā, 60,87 m; izmēri nav darba apjoms.",
+      "tags": [
+        "ocelt",
+        "reviewed",
+        "forma2",
+        "single-work",
+        "water",
+        "dimensions"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-11-13",
+      "sourceText": "2.1.1 PEH spiedvadu caurule PE100, OD63x3,8, PN10, SDR17, EN12201 iebūvējama ar tranšejas rakšnaas metodi 60.87m",
+      "sourceFingerprint": "e52703b0ec80c0518be4e557c7ada696b0a9e73a574facc80ae3dde0fd004cc4",
+      "expectedRecords": [
+        {
+          "id": "ocelt-1113-pe100-od63-trench-row-1",
+          "dateISO": "2026-11-13",
+          "work": "1.1 Ūdensvads - PEH spiedvadu caurule PE100, OD63x3,8, PN10, SDR17, EN12201 iebūvējama ar tranšejas rakšnaas metodi",
+          "location": null,
+          "commentSignals": [],
+          "amount": 60.87,
+          "unit": "m",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:1-1:peh-spiedvadu-caurule-pe100-od63x3-8-pn10-sdr17-:15",
+          "provenance": {
+            "recordFingerprint": "168a85a1a4ff8dd3f145f0e16e0203c8a68b9653e7df8a697639f92b7fe9e482",
+            "assignmentBasis": "journal-work-selection"
+          },
+          "reviewedComment": "Ar tranšejas rakšanas metodi izbūvēta PE100 spiedvada caurule OD63x3,8, PN10, SDR17 — 60,87 m."
+        }
+      ]
+    },
+    {
+      "id": "ocelt-1113-concrete-well-dn1000",
+      "intent": "DN1000 dzelzsbetona aka; diametrs un apzīmējums nerada izdomātu skaitu.",
+      "tags": [
+        "ocelt",
+        "reviewed",
+        "forma2",
+        "single-work",
+        "water",
+        "unknown-quantity",
+        "dimensions"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-11-13",
+      "sourceText": "2.1.4 Skataka DN1000 no saliekamiem dz/b elementiem AŪ1-1",
+      "sourceFingerprint": "b0520a696b38c376b0c8e6088d78699345082a4acfba743a22a0345d69dead78",
+      "expectedRecords": [
+        {
+          "id": "ocelt-1113-concrete-well-dn1000-row-1",
+          "dateISO": "2026-11-13",
+          "work": "1.4 Ūdensvads - Skataka DN1000 no saliekamiem dz/b elementiem",
+          "location": null,
+          "commentSignals": [],
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:1-4:skataka-dn1000-no-saliekamiem-dz-b-elementiem:18",
+          "provenance": {
+            "recordFingerprint": "2acc0816029bc3a9b7d2ca843ec12489d2ecc2e72371e795284bd46890d4cb27",
+            "assignmentBasis": "journal-work-selection"
+          },
+          "reviewedComment": "Izbūvēta DN1000 skatakas no saliekamiem dzelzsbetona elementiem AŪ1-1."
+        }
+      ]
+    },
+    {
+      "id": "ocelt-1113-pp-well-dn600",
+      "intent": "PP skataka DN600, 1 komplekts; nesajaukt ar ūdensvada dzelzsbetona aku.",
+      "tags": [
+        "ocelt",
+        "reviewed",
+        "forma2",
+        "single-work",
+        "sewer",
+        "dimensions"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-11-13",
+      "sourceText": "2.1.1 PP skataka DN600 no saliekamiem PP elementiem AK1-6 1kompl.",
+      "sourceFingerprint": "45138774e33f5e92e0d2384511734079f68cb0a0ab71212fe9532c19b63c8188",
+      "expectedRecords": [
+        {
+          "id": "ocelt-1113-pp-well-dn600-row-1",
+          "dateISO": "2026-11-13",
+          "work": "2.1 Sadzīves kanalizācija - PP skataka DN600 no saliekamiem PP elementiem",
+          "location": null,
+          "commentSignals": [],
+          "amount": 1,
+          "unit": "kompl",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:2-1:pp-skataka-dn600-no-saliekamiem-pp-elementiem:33",
+          "provenance": {
+            "recordFingerprint": "a1775c70c85436aff84683e408dd4109aeeedc84c43a2097dcc05f26d2c0b9a5",
+            "assignmentBasis": "journal-work-selection"
+          },
+          "reviewedComment": "Izbūvēta PP skatakas DN600 no saliekamiem PP elementiem AK1-6."
+        }
+      ]
+    },
+    {
+      "id": "ocelt-1113-pp-sewer-d200",
+      "intent": "PP kanalizācijas caurule D200, 69,85 m; neizvēlēties ūdensvada pozīciju.",
+      "tags": [
+        "ocelt",
+        "reviewed",
+        "forma2",
+        "single-work",
+        "sewer",
+        "dimensions"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-11-13",
+      "sourceText": "2.1.4 PP daudzslaņu kanalizācijas caurule D200  69.85m",
+      "sourceFingerprint": "5db1da6f4ead31b062329ec9d78993ee9b313b3b9657e71e7ca9c3c7998a93e9",
+      "expectedRecords": [
+        {
+          "id": "ocelt-1113-pp-sewer-d200-row-1",
+          "dateISO": "2026-11-13",
+          "work": "2.4 Sadzīves kanalizācija - PP daudzslaņu kanalizācijas caurule D200",
+          "location": null,
+          "commentSignals": [],
+          "amount": 69.85,
+          "unit": "m",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:2-4:pp-daudzslanu-kanalizacijas-caurule-d200:36",
+          "provenance": {
+            "recordFingerprint": "998f5389a8367906d2aecb00df68b30ed852e34ec799fe9de9e198b661381852",
+            "assignmentBasis": "journal-work-selection"
+          },
+          "reviewedComment": "Ieklāta PP daudzslāņu kanalizācijas caurule D200."
+        }
+      ]
+    },
+    {
+      "id": "ocelt-1113-sewer-excavation",
+      "intent": "Tranšejas rakšana, 232,55 m³, ar lietotāja norādīto pozīcijas kodu.",
+      "tags": [
+        "ocelt",
+        "reviewed",
+        "forma2",
+        "single-work",
+        "sewer",
+        "estimate-code"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-11-13",
+      "sourceText": "2.1.11 Tranšejas rakšana 232.55m3",
+      "sourceFingerprint": "ae5d0778f6fa26bdd38a8c484204aa702909488ea2b14cef07cb210b75895002",
+      "expectedRecords": [
+        {
+          "id": "ocelt-1113-sewer-excavation-row-1",
+          "dateISO": "2026-11-13",
+          "work": "2.11 Sadzīves kanalizācija - Tranšejas rakšana",
+          "location": null,
+          "commentSignals": [],
+          "amount": 232.55,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:2-11:transejas-raksana:43",
+          "provenance": {
+            "recordFingerprint": "b0b1bae5a7a9776aa9c859f08875f9ff759b94f1d622aa2b37df55d7d7e9d0fc",
+            "assignmentBasis": "journal-work-selection"
+          },
+          "reviewedComment": "Izrakta sadzīves kanalizācijas tranšeja 232,55 m3 apjomā."
+        }
+      ]
+    },
+    {
+      "id": "ocelt-1113-compacted-backfill",
+      "intent": "Smilts-grants tranšejas aizbēršana, 200,56 m³; 30 cm ir slāņa biezums.",
+      "tags": [
+        "ocelt",
+        "reviewed",
+        "forma2",
+        "single-work",
+        "sewer",
+        "dimensions"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-11-13",
+      "sourceText": "2.1.14 Tranšejas aizbēršana  ar smilts-grants maisījumu (filtr.koef.>1m/dnn)blietējot pa kārtām (kārtas biezums 30 cm) 200.56m3",
+      "sourceFingerprint": "6b5376faff6a90b75a6283425835448004081138bbd483314ea4442a25bf9f0a",
+      "expectedRecords": [
+        {
+          "id": "ocelt-1113-compacted-backfill-row-1",
+          "dateISO": "2026-11-13",
+          "work": "2.14 Sadzīves kanalizācija - Tranšejas aizbēršana ar smilts-grants maisījumu (filtr.koef.>1m/dnn)blietējot pa kārtām (kārtas biezums 30 cm)",
+          "location": null,
+          "commentSignals": [],
+          "amount": 200.56,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "work:2-14:transejas-aizbersana-ar-smilts-grants-maisijumu-:46",
+          "provenance": {
+            "recordFingerprint": "e14cb4e65c804ddb613106d35c6a6473d5343976a4744c1d8f7ab59b52c5ec93",
+            "assignmentBasis": "journal-work-selection"
+          },
+          "reviewedComment": "Sadzīves kanalizācijas tranšeja aizbērta ar smilts-grants maisījumu, blietējot 30 cm kārtās, 200,56 m3 apjomā."
+        }
+      ]
+    }
+  ]
+}

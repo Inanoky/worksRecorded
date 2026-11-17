@@ -741,6 +741,50 @@ model ConstructionPlanRevision {
   @@index([planId, createdAt])
 }
 
+model ConstructionDiaryReviewQueue {
+  id               String   @id @default(uuid())
+  siteId           String
+  organizationId   String
+  userId           String
+  recordIds        Json     @default("[]")
+  revision         Int      @default(0)
+  firstReceivedAt  DateTime?
+  lastReceivedAt   DateTime?
+  processAfter     DateTime?
+  leaseToken       String?
+  leaseUntil       DateTime?
+  activeRunId      String?
+  failures         Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([siteId, userId])
+  @@index([processAfter, leaseUntil])
+}
+
+model ConstructionDiaryReviewRun {
+  id               String   @id @default(uuid())
+  queueId          String
+  siteId           String
+  organizationId   String
+  userId           String
+  status           String   @default("running")
+  recordIds        Json
+  snapshot         Json?
+  proposal         Json?
+  sessionItems     Json     @default("[]")
+  metrics          Json?
+  errorCode        String?
+  leaseToken       String
+  decidedBy        String?
+  decidedAt        DateTime?
+  createdAt        DateTime @default(now())
+  finishedAt       DateTime?
+
+  @@index([siteId, createdAt])
+  @@index([queueId, status])
+}
+
 model SiteDiarySaveBatch {
   id                 String   @id @default(uuid())
   siteId             String

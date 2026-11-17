@@ -318,6 +318,21 @@ export function validateWhatsappSiteManagerRecord(args: {
 		userId,
 	} = args;
 	const results: WhatsAppValidatorResult[] = [];
+	const reviewedRecords = records ?? (record ? [record] : []);
+	if (!evalCase.expected.allowNeedsReview) {
+		const pending = reviewedRecords.filter((row) => {
+			const metadata = row.evalMetadata as {
+				diaryQuality?: { status?: string };
+			} | null;
+			return metadata?.diaryQuality?.status === "needs_review";
+		});
+		results.push({
+			name: "no-unresolved-review",
+			status: pending.length ? "fail" : "pass",
+			severity: "critical",
+			message: `${pending.length} ieraksti vēl jāizskata.`,
+		});
+	}
 	const heuristicResults: WhatsAppValidatorResult[] = [];
 	const searchText = (records ?? (record ? [record] : []))
 		.map(recordSearchText)

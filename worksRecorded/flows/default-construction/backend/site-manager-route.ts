@@ -21,12 +21,15 @@ import type { AgentFn } from "@/lib/utils/whatsapp-helpers/shared/types";
 import { processMaterialDocumentImageFromPublicUrl } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
+import { withDiaryIntakePilot } from "./diary-intake-dispatch";
 import { classifyRegularSiteDiaryImageCaption } from "./site-manager-image-date-intent";
 
-const currentAgent: AgentFn = async (input, siteId, userId, originalAudioUrl) =>
-  (await talkToWhatsappAgent(input, siteId, userId, originalAudioUrl)) ?? "";
+const currentAgent: AgentFn = withDiaryIntakePilot(
+  async (input, siteId, userId, originalAudioUrl) =>
+    (await talkToWhatsappAgent(input, siteId, userId, originalAudioUrl)) ?? "",
+);
 
-function buildTraceAwareAgent(user: any): AgentFn {
+function buildTraceAwareAgent(user: any, receivedAt: Date): AgentFn {
   const senderTraceContext = buildSiteManagerSenderTraceContext({
     firstName: user?.firstName,
     lastName: user?.lastName,
@@ -35,12 +38,18 @@ function buildTraceAwareAgent(user: any): AgentFn {
   return async (input, siteId, userId, originalAudioUrl) => {
     if (getSiteManagerAgentRunContext()) {
       setSiteManagerSenderTraceContext(senderTraceContext);
-      return currentAgent(input, siteId, userId, originalAudioUrl);
+      return runWithWhatsappSourceContext(
+        { receivedAt: receivedAt.toISOString() },
+        () => currentAgent(input, siteId, userId, originalAudioUrl),
+      );
     }
 
     const run = await runWithSiteManagerAgentEvalContext(
       senderTraceContext,
-      () => currentAgent(input, siteId, userId, originalAudioUrl),
+      () => runWithWhatsappSourceContext(
+        { receivedAt: receivedAt.toISOString() },
+        () => currentAgent(input, siteId, userId, originalAudioUrl),
+      ),
     );
     return run.result;
   };
@@ -98,11 +107,11 @@ export async function handleSiteManagerRoute(args: {
   const { from, formData, user } = args;
 
   const userName = await getUserFirstNameById(user.id);
-  const traceAwareAgent = buildTraceAwareAgent(user);
 
   const body = (getString(formData, "Body") || "").trim();
   const numMedia = parseInt(getString(formData, "NumMedia") || "0", 10) || 0;
   const messageTimestampDate = getMessageTimestampDate(formData);
+  const traceAwareAgent = buildTraceAwareAgent(user, messageTimestampDate);
 
   // 1) Project selector can reply & exit early
   const handledSelection = await handleProjectSelector({
@@ -152,44 +161,45 @@ export async function handleSiteManagerRoute(args: {
         photoId: string | null;
       }> = [];
 
-      for (const [batchPosition, imageIndex] of imageIndexes.entries()) {
-        const mediaBodyKey = `MediaBody${imageIndex}`;
-        const imageBody = (
-          formData.has(mediaBodyKey)
-            ? getString(formData, mediaBodyKey) || ""
-            : batchPosition === 0
-              ? body
-              : ""
-        ).trim();
-        const imageDateIntent = classifyRegularSiteDiaryImageCaption({
-          caption: imageBody,
-          now: messageTimestampDate,
-        });
-        const imageTargetDate =
-          imageDateIntent.targetDate ?? batchDateIntent.targetDate;
-        const img = await handleImage({
-          formData,
-          numMedia,
-          imageIndex,
-          siteId: user.lastSelectedSiteIdforWhatsapp,
-          userId: user.id,
-          workerId: null,
-          to: from,
-          body: imageBody,
-          date: imageTargetDate ?? undefined,
-          photographerName: [user.firstName, user.lastName]
-            .filter(Boolean)
-            .join(" "),
-          acknowledgeSavedPhoto: false,
-          onUploadedImage: async ({ publicUrl }) => {
-            try {
-              const handledAsMaterialDocument =
-                await processMaterialDocumentImageFromPublicUrl({
-                  publicUrl,
-                  senderPhone: user.phone ?? from,
-                  senderFirstName: user.firstName,
-                  senderLastName: user.lastName,
-                });
+			for (const [batchPosition, imageIndex] of imageIndexes.entries()) {
+				const mediaBodyKey = `MediaBody${imageIndex}`;
+				const imageBody = (
+					formData.has(mediaBodyKey)
+						? getString(formData, mediaBodyKey) || ""
+						: batchPosition === 0
+							? body
+							: ""
+				).trim();
+				const imageDateIntent = classifyRegularSiteDiaryImageCaption({
+					caption: imageBody,
+					now: messageTimestampDate,
+				});
+				const imageTargetDate =
+					imageDateIntent.targetDate ?? batchDateIntent.targetDate;
+				const img = await handleImage({
+					formData,
+					numMedia,
+					imageIndex,
+					siteId: user.lastSelectedSiteIdforWhatsapp,
+					userId: user.id,
+					workerId: null,
+					to: from,
+					body: imageBody,
+					date: imageTargetDate ?? undefined,
+					photographerName: [user.firstName, user.lastName]
+						.filter(Boolean)
+						.join(" "),
+					acknowledgeSavedPhoto: false,
+					onUploadedImage: async ({ publicUrl }) => {
+						try {
+							const handledAsMaterialDocument =
+								await processMaterialDocumentImageFromPublicUrl({
+									publicUrl,
+									resolvedUserId: user.id,
+									senderPhone: user.phone ?? from,
+									senderFirstName: user.firstName,
+									senderLastName: user.lastName,
+								});
 
               if (handledAsMaterialDocument) {
                 await sendMessage(
@@ -260,32 +270,33 @@ export async function handleSiteManagerRoute(args: {
       return;
     }
 
-    const imageDateIntent = classifyRegularSiteDiaryImageCaption({
-      caption: body,
-      now: messageTimestampDate,
-    });
-    const img = await handleImage({
-      formData,
-      numMedia,
-      siteId: user.lastSelectedSiteIdforWhatsapp,
-      userId: user.id, // ✅ used inside savePhoto as userId
-      workerId: null, // ✅ make sure org lookup uses userId path
-      to: from,
-      body,
-      date: imageDateIntent.targetDate ?? undefined,
-      photographerName: [user.firstName, user.lastName]
-        .filter(Boolean)
-        .join(" "),
-      acknowledgeSavedPhoto: false,
-      onUploadedImage: async ({ publicUrl }) => {
-        try {
-          const handledAsMaterialDocument =
-            await processMaterialDocumentImageFromPublicUrl({
-              publicUrl,
-              senderPhone: user.phone ?? from,
-              senderFirstName: user.firstName,
-              senderLastName: user.lastName,
-            });
+		const imageDateIntent = classifyRegularSiteDiaryImageCaption({
+			caption: body,
+			now: messageTimestampDate,
+		});
+		const img = await handleImage({
+			formData,
+			numMedia,
+			siteId: user.lastSelectedSiteIdforWhatsapp,
+			userId: user.id, // ✅ used inside savePhoto as userId
+			workerId: null, // ✅ make sure org lookup uses userId path
+			to: from,
+			body,
+			date: imageDateIntent.targetDate ?? undefined,
+			photographerName: [user.firstName, user.lastName]
+				.filter(Boolean)
+				.join(" "),
+			acknowledgeSavedPhoto: false,
+			onUploadedImage: async ({ publicUrl }) => {
+				try {
+					const handledAsMaterialDocument =
+						await processMaterialDocumentImageFromPublicUrl({
+							publicUrl,
+							resolvedUserId: user.id,
+							senderPhone: user.phone ?? from,
+							senderFirstName: user.firstName,
+							senderLastName: user.lastName,
+						});
 
           if (handledAsMaterialDocument) {
             await sendMessage(

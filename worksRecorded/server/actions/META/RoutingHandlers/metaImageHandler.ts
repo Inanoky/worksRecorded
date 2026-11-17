@@ -605,17 +605,24 @@ export function normalizeExtractedInvoiceDate(args: {
 
 async function resolveMetaMaterialContext(
 	senderPhone?: string | null,
+	resolvedUserId?: string,
 ): Promise<MetaMaterialContext | null> {
-	if (!senderPhone) return null;
+	if (!senderPhone && !resolvedUserId) return null;
 
 	const candidates = Array.from(
-		new Set([senderPhone, `+${senderPhone}`, `whatsapp:+${senderPhone}`]),
+		new Set(
+			senderPhone
+				? [senderPhone, `+${senderPhone}`, `whatsapp:+${senderPhone}`]
+				: [],
+		),
 	);
 
 	const user = await prisma.user.findFirst({
-		where: {
-			phone: { in: candidates },
-		},
+		where: resolvedUserId
+			? { id: resolvedUserId }
+			: {
+					phone: { in: candidates },
+				},
 		select: {
 			id: true,
 			firstName: true,
@@ -1061,6 +1068,7 @@ Use an empty string when the supplier cannot be identified confidently.`,
 
 export async function processMaterialDocumentImageFromPublicUrl(args: {
 	publicUrl: string;
+	resolvedUserId?: string;
 	senderPhone?: string | null;
 	senderFirstName?: string | null;
 	senderLastName?: string | null;
@@ -1079,7 +1087,7 @@ export async function processMaterialDocumentImageFromPublicUrl(args: {
 	}
 
 	const context = mergeMetaMaterialSenderTraceContext(
-		await resolveMetaMaterialContext(args.senderPhone),
+		await resolveMetaMaterialContext(args.senderPhone, args.resolvedUserId),
 		{
 			senderFirstName: args.senderFirstName,
 			senderLastName: args.senderLastName,
@@ -1135,6 +1143,7 @@ export async function extractAndSaveBISMaterialsFromPublicUrl(
 		return false;
 	}
 
+	if (!context?.siteId) return false;
 	await saveBISMaterialPayloadToDatabase(payload, publicUrl, context);
 
 	return true;

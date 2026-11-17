@@ -8,6 +8,7 @@ jest.mock("@langchain/openai", () => ({
 }));
 
 import { ChatOpenAI } from "@langchain/openai";
+import { zodResponseFormat } from "openai/helpers/zod";
 import {
 	buildSiteDiaryExtractionCheckerMessages,
 	invokeSiteDiaryExtractionChecker,
@@ -17,6 +18,25 @@ import {
 } from "./siteDiaryExtractionChecker";
 
 describe("site diary extraction checker", () => {
+	it("converts the complete checker schema to strict API structured output", () => {
+		expect(() =>
+			zodResponseFormat(siteDiaryExtractionCheckerSchema, "extract"),
+		).not.toThrow();
+	});
+
+	it("passes trusted date context and dates for every row to the checker", () => {
+		const messages = buildSiteDiaryExtractionCheckerMessages({
+			originalMessage: "Darbi 10. novembrī",
+			language: "lv",
+			referenceDate: "2026-11-17",
+			rows: [{ Date: "2026-11-10", Works: "Tranšejas rakšana" }],
+		});
+		expect(String(messages[1].content)).toContain(
+			"Trusted reference date: 2026-11-17",
+		);
+		expect(String(messages[1].content)).toContain("Date: 2026-11-10");
+	});
+
 	beforeEach(() => {
 		jest.clearAllMocks();
 		mockInvoke.mockReset();
@@ -55,6 +75,27 @@ describe("site diary extraction checker", () => {
 			maxRetries: 0,
 			reasoning: { effort: "medium" },
 		});
+	});
+
+	it("uses the selected eval checker model and Responses API", async () => {
+		mockInvoke.mockResolvedValue({ parsed: { verdict: "accept" }, raw: {} });
+		await invokeSiteDiaryExtractionChecker({
+			originalMessage: "Betonēšana 12 m3",
+			language: "lv",
+			rows: [{ Works: "Betonēšana", Amounts: 12, Units: "m3" }],
+			evaluationModel: {
+				model: "gpt-6.1-sol",
+				reasoningEffort: "high",
+				useResponsesApi: true,
+			},
+		});
+		expect(ChatOpenAI).toHaveBeenCalledWith(
+			expect.objectContaining({
+				model: "gpt-6.1-sol",
+				reasoning: { effort: "high" },
+				useResponsesApi: true,
+			}),
+		);
 	});
 
 	it("accepts many clear full-day tasks", async () => {
@@ -386,30 +427,33 @@ describe("site diary extraction checker", () => {
 		expect(result.parsed.repairInstructions).toContain("Backfilling");
 	});
 
-	it.each(["TimeInvolved", "Location"])("parses structured checker repairs for %s", (field) => {
-		expect(
-			siteDiaryExtractionCheckerSchema.parse({
-				verdict: "repairable",
-				reason: "Unsupported copied hours.",
-				badSplitSignals: [],
-				repairInstructions: "Set unsupported hours to null.",
-				expectedRecordCount: 1,
-				repairActions: [
-					{
-						rowIndex: 0,
-						field,
-						operation: "set_null",
-						reason: "No source-backed time evidence.",
-					},
-				],
-			}),
-		).toEqual(
-			expect.objectContaining({
-				verdict: "repairable",
-				repairActions: [expect.objectContaining({ field })],
-			}),
-		);
-	});
+	it.each(["TimeInvolved", "Location"])(
+		"parses structured checker repairs for %s",
+		(field) => {
+			expect(
+				siteDiaryExtractionCheckerSchema.parse({
+					verdict: "repairable",
+					reason: "Unsupported copied hours.",
+					badSplitSignals: [],
+					repairInstructions: "Set unsupported hours to null.",
+					expectedRecordCount: 1,
+					repairActions: [
+						{
+							rowIndex: 0,
+							field,
+							operation: "set_null",
+							reason: "No source-backed time evidence.",
+						},
+					],
+				}),
+			).toEqual(
+				expect.objectContaining({
+					verdict: "repairable",
+					repairActions: [expect.objectContaining({ field })],
+				}),
+			);
+		},
+	);
 
 	it("accepts split delivery and placed work when labor stays on the work row", async () => {
 		mockInvoke.mockResolvedValue({
@@ -541,10 +585,14 @@ describe("site diary extraction checker", () => {
 		);
 		expect(system).toContain("return verdict=repairable");
 		expect(system).toContain("repairActions are only for safe nulling");
-		expect(system).toContain("If the only unsupported field is Location, return verdict=repairable");
+		expect(system).toContain(
+			"If the only unsupported field is Location, return verdict=repairable",
+		);
 		expect(system).toContain("set_null repairAction for Location, not unsafe");
 		expect(system).toContain("even as the only option, is not evidence");
-		expect(system).toContain("Preserve locations supported by the current message");
+		expect(system).toContain(
+			"Preserve locations supported by the current message",
+		);
 		expect(system).toContain("split into specific separate jobs");
 		expect(human).toContain("Original WhatsApp message");
 		expect(human).toContain("Trusted extraction context");

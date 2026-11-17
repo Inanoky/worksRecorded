@@ -57,7 +57,10 @@ import {
 	buildDiaryFallbackNote,
 	canSaveDiaryFallbackNote,
 } from "./noteFallback";
-import { systemPromptSaveToDatabaseFunction } from "./prompts";
+import {
+	buildSiteDiaryExtractionPrompt,
+	systemPromptSaveToDatabaseFunction,
+} from "./prompts";
 import {
 	buildSiteManagerWorkflowTraceContext,
 	type FastPathTraceMetadata,
@@ -72,15 +75,31 @@ import {
 } from "./runContext";
 import {
 	invokeSiteDiaryExtractionChecker,
+	type SiteDiaryCheckerModelSettings,
 	type SiteDiaryExtractionCheckerResult,
 	siteDiaryExtractionCheckerModel,
 } from "./siteDiaryExtractionChecker";
-import { buildSiteDiaryExtractionContext } from "./siteDiaryExtractionContext";
+import {
+	buildSiteDiaryExtractionContext,
+	type SiteDiaryExtractionContext,
+} from "./siteDiaryExtractionContext";
 import {
 	acceptSourceBackedWorkdayNote,
 	normalizeWorkdayNoteRows,
 } from "./siteDiaryWorkdayNote";
-import { recordStructuredSaveTrace } from "./structuredSaveTrace";
+import {
+	hasStructuredSaveTraceContext,
+	recordStructuredSaveTrace,
+} from "./structuredSaveTrace";
+import {
+	preserveAcceptedDiaryRows,
+	recoverReviewedDiaryRows,
+} from "./siteDiaryRecovery";
+import {
+	calculationEvidenceSchema,
+	CALCULATION_INSTRUCTIONS,
+	hasSourceCalculation,
+} from "./quantityEvidence";
 
 function currentDiaryDate() {
 	const parts = new Intl.DateTimeFormat("en-GB", {
@@ -557,6 +576,11 @@ function classifyAmountEvidence(
 	if (typeof row.Amounts !== "number") {
 		return { status: "supported", reason: "no numeric amount" };
 	}
+	if (hasSourceCalculation(row, source))
+		return {
+			status: "supported",
+			reason: "verified source length and per-metre volume calculation",
+		};
 	if (isContextOnlyDiaryAmount(row, source)) {
 		return { status: "known_invalid", reason: "amount belongs to weather, labour or ordinal context" };
 	}
@@ -653,7 +677,9 @@ function hasLiteralAmountUnitEvidence(row: LooseRecord, source: string) {
 
 function hasSourceBackedAmountUnitPair(row: LooseRecord, source: string) {
 	return (
-		typeof row.Amounts === "number" && hasLiteralAmountUnitEvidence(row, source)
+		typeof row.Amounts === "number" &&
+		(hasLiteralAmountUnitEvidence(row, source) ||
+			hasSourceCalculation(row, source))
 	);
 }
 
@@ -670,6 +696,27 @@ function normalizeUnknownNumericFieldsWithAmountEvidence(
 	rowIndex: number,
 ) {
 	const normalized = { ...row };
+	if (
+		!normalized.Units &&
+		hasSourceCalculation({ ...normalized, Units: "m3" }, source)
+	)
+		normalized.Units = "m3";
+	if (
+		typeof normalized.Amounts === "number" &&
+		!normalized.Units &&
+		!isContextOnlyDiaryAmount(normalized, source)
+	) {
+		const units = (
+			Object.keys(amountUnitPatternsByFamily) as AmountUnitFamily[]
+		).filter((family) =>
+			hasNumberWithUnit(
+				source,
+				normalized.Amounts as number,
+				amountUnitPatternsByFamily[family],
+			),
+		);
+		if (units.length === 1) normalized.Units = units[0];
+	}
 	const amountEvidenceWarnings: AmountEvidenceWarning[] = [];
 	if (typeof normalized.TimeInvolved === "number") {
 		if (normalized.TimeInvolved < 0) {
@@ -958,7 +1005,7 @@ function buildStructuredExtractionMessages(args: {
 
 	return [
 		new SystemMessage(
-			`${args.systemPrompt}\n${DIARY_SOURCE_POLICY}\ntoday is : ${args.date}\n${args.siteId}${fallbackInstructions}${repairInstructions}`,
+			`${args.systemPrompt}\n${DIARY_SOURCE_POLICY}\n${CALCULATION_INSTRUCTIONS}\ntoday is : ${args.date}\n${args.siteId}${fallbackInstructions}${repairInstructions}`,
 		),
 		new SystemMessage(args.extractionContextText),
 		new HumanMessage(`${args.question} Date is : ${args.date}`),
@@ -976,12 +1023,39 @@ type ExtractAndSaveSiteDiaryArgs = {
 	fastPathTrace?: FastPathTraceMetadata;
 	intentContext?: { hasReplyContext: boolean; hasPendingCorrection: boolean };
 	runnableConfig?: RunnableConfig;
+	evaluationContext?: {
+		config: ConfigMap;
+		language: SupportedReplyLanguage;
+		extractionContext: SiteDiaryExtractionContext;
+		model?: string;
+		reasoningEffort?: "low" | "medium" | "high";
+		useResponsesApi?: boolean;
+		checkerModel?: SiteDiaryCheckerModelSettings;
+		onStep?: (step: Record<string, unknown>) => void;
+	};
 };
 
 async function extractAndSaveSiteDiaryCore(
 	args: ExtractAndSaveSiteDiaryArgs,
 ): Promise<StructuredSaveResult> {
+	if (
+		args.evaluationContext &&
+		(args.persist !== false ||
+			getSiteManagerAgentRunContext()?.evalRecordMetadata?.isEval !== true)
+	) {
+		throw new Error(
+			"Frozen diary context requires an explicit read-only eval run",
+		);
+	}
 	const toolStarted = Date.now();
+	const extractionModel =
+		args.evaluationContext?.model ?? structuredSiteDiaryModel;
+	const extractionReasoningEffort =
+		args.evaluationContext?.reasoningEffort ??
+		structuredSiteDiaryReasoningEffort;
+	const checkerModel =
+		args.evaluationContext?.checkerModel?.model ??
+		siteDiaryExtractionCheckerModel;
 	const toolContext = getSiteManagerToolContext();
 	if (!toolContext) {
 		return {
@@ -1034,7 +1108,7 @@ async function extractAndSaveSiteDiaryCore(
 		siteId,
 		userId,
 		channel: "tool",
-		model: structuredSiteDiaryModel,
+		model: extractionModel,
 		metadata: {
 			date,
 			hasOriginalAudioUrl: Boolean(whatsappSourceContext.originalAudioUrl),
@@ -1068,11 +1142,18 @@ async function extractAndSaveSiteDiaryCore(
 	};
 
 	const contextStarted = Date.now();
+	const stages: Record<string, unknown>[] = [];
+	const captureStep = (step: Record<string, unknown>) => {
+		if (hasStructuredSaveTraceContext()) stages.push(step);
+		args.evaluationContext?.onStep?.(step);
+	};
 	const noteSource = toolContext.originalMessage ?? args.question;
+	let partialCandidate: ReturnType<typeof recoverReviewedDiaryRows> = null;
 	const saveFallbackNote = async (
 		reason: string,
 		confirmedReport: boolean,
 	): Promise<StructuredSaveResult> => {
+		captureStep({ phase: "failure", reason });
 		const language = detectReplyLanguage(noteSource);
 		const failed: StructuredSaveResult = {
 			action: "save_new_report",
@@ -1088,6 +1169,88 @@ async function extractAndSaveSiteDiaryCore(
 			if (timeout) throw timeout;
 			return failed;
 		};
+		if (
+			partialCandidate &&
+			confirmedReport &&
+			canSaveDiaryFallbackNote({
+				source: noteSource,
+				confirmedReport,
+				persist: true,
+				hasReplyContext: Boolean(
+					args.intentContext?.hasReplyContext ||
+						whatsappSourceContext.replyToMessageId,
+				),
+				hasPendingCorrection:
+					args.intentContext?.hasPendingCorrection ||
+					toolContext.hasPendingCorrection,
+			})
+		) {
+			const candidate = partialCandidate;
+			const started = Date.now();
+			let result: Awaited<ReturnType<typeof saveSiteDiaryRecord>>;
+			try {
+				if (args.persist !== false) markSiteManagerSideEffectsStarted();
+				result =
+					args.persist === false
+						? {
+								ok: true,
+								count: candidate.rows.length,
+								recordIds: [],
+								records: [],
+								normalizedInsertRows: [],
+							}
+						: await saveSiteDiaryRecord({
+								rows: candidate.rows,
+								rowQuality: candidate.qualities,
+								userId,
+								siteId,
+								originalUserComment,
+								sourceMessageId: whatsappSourceContext.messageId,
+								evalMetadata: runContext?.evalRecordMetadata,
+							});
+			} catch (error) {
+				console.warn("site diary partial recovery persistence failed", error);
+				updateTraceOutcome("error");
+				return fail();
+			}
+			recordSiteManagerTiming("persistenceMs", Date.now() - started);
+			if (!result.ok || result.count !== candidate.rows.length) return fail();
+			const metadata = {
+				siteDiaryPartialRecovery: true,
+				siteDiaryNeedsReviewCount: candidate.reviewCount,
+			};
+			assignTraceMetadata(args.runnableConfig, metadata);
+			assignTraceMetadata(aiContext.runnableConfig, metadata);
+			addTraceTags(aiContext.runnableConfig, ["site-diary:partial-recovery"]);
+			recordSiteManagerToolCall({
+				name: "save_partial_recovery",
+				durationMs: Date.now() - started,
+				ok: true,
+			});
+			recordStructuredSaveTrace({
+				siteId,
+				userId,
+				date,
+				originalUserComment,
+				rawRecords: [],
+				mappedRows: candidate.rows,
+				persistedRecords: result.records ?? [],
+				noteFallbackReason: `Partial recovery: ${reason}`,
+				stages,
+			});
+			const records = toConfirmationRecords(result.records);
+			setSiteManagerSavedConfirmationRecords(records);
+			return {
+				action: "save_new_report",
+				correctionMode: "not_applicable",
+				language,
+				ok: true,
+				count: candidate.rows.length,
+				rows: candidate.rows,
+				records,
+				content: `Saglabāti ${candidate.rows.length} ieraksti. ${candidate.reviewCount} ieraksti ir atzīmēti pārskatīšanai.`,
+			};
+		}
 		if (
 			!canSaveDiaryFallbackNote({
 				source: noteSource,
@@ -1155,6 +1318,7 @@ async function extractAndSaveSiteDiaryCore(
 			normalizedInsertRows: result?.normalizedInsertRows ?? [],
 			persistedRecords: result?.records ?? [],
 			noteFallbackReason: reason,
+			stages,
 		});
 		if (!ok) return fail();
 		const records = toConfirmationRecords(result.records);
@@ -1169,7 +1333,7 @@ async function extractAndSaveSiteDiaryCore(
 			content: "Saved 1 site diary record(s) successfully. Saved as a note.",
 		};
 	};
-	const map = await getConfig(siteId);
+	const map = args.evaluationContext?.config ?? (await getConfig(siteId));
 	const mapObject =
 		map && typeof map === "object" && !Array.isArray(map)
 			? (map as ConfigMap)
@@ -1178,17 +1342,18 @@ async function extractAndSaveSiteDiaryCore(
 	const aiPromptToUse = asLooseRecord(mapObject?.AIpromptToUse);
 	const clientPrompt =
 		typeof aiPromptToUse.Client === "string" ? aiPromptToUse.Client : undefined;
-	const systemPrompt = await systemPromptSaveToDatabaseFunction(
-		userId,
-		clientPrompt,
-	);
-	const extractionContext = await buildSiteDiaryExtractionContext({
-		siteId,
-		userId,
-		requestedDate: date,
-		sourceText: args.question,
-		config: mapToUse,
-	});
+	const systemPrompt = args.evaluationContext
+		? buildSiteDiaryExtractionPrompt(args.evaluationContext.language, clientPrompt)
+		: await systemPromptSaveToDatabaseFunction(userId, clientPrompt);
+	const extractionContext =
+		args.evaluationContext?.extractionContext ??
+		(await buildSiteDiaryExtractionContext({
+			siteId,
+			userId,
+			requestedDate: date,
+			sourceText: args.question,
+			config: mapToUse,
+		}));
 	Object.assign(aiContext.runnableConfig.metadata, {
 		extractionContextRecentRecordCount:
 			extractionContext.metadata.recentRecordCount,
@@ -1205,7 +1370,10 @@ async function extractAndSaveSiteDiaryCore(
 		fieldMap,
 		dropdownValueMaps,
 	} = buildZodSchemaFromConfig(mapToUse);
-	const baseSchema = z.object({ records: z.array(recordSchema) });
+	const extractionRecordSchema = recordSchema.extend({
+		calculationEvidence: calculationEvidenceSchema,
+	});
+	const baseSchema = z.object({ records: z.array(extractionRecordSchema) });
 	const responseSchema = args.allowFallback
 		? z.object({
 				action: z.enum([
@@ -1216,17 +1384,20 @@ async function extractAndSaveSiteDiaryCore(
 				]),
 				correctionMode: z.enum(["not_applicable", "intent_only", "supplied"]),
 				language: z.enum(["lv", "en", "ru"]),
-				records: z.array(recordSchema),
+				records: z.array(extractionRecordSchema),
 				intentReason: z.string().max(240),
 				intentConfidence: z.number().min(0).max(1),
 			})
 		: baseSchema;
 
 	const llm = new ChatOpenAI({
-		model: structuredSiteDiaryModel,
+		model: extractionModel,
 		timeout: SITE_MANAGER_AI_BUDGET_MS,
 		maxRetries: 0,
-		reasoning: { effort: structuredSiteDiaryReasoningEffort },
+		reasoning: { effort: extractionReasoningEffort },
+		...(args.evaluationContext?.useResponsesApi
+			? { useResponsesApi: true }
+			: {}),
 	});
 	const structuredLlm = llm.withStructuredOutput(responseSchema, {
 		includeRaw: true,
@@ -1260,7 +1431,7 @@ async function extractAndSaveSiteDiaryCore(
 				: args.allowFallback
 					? "fast-path-extraction"
 					: "structured-extraction",
-			model: structuredSiteDiaryModel,
+			model: extractionModel,
 			actualModel: null,
 			durationMs,
 			inputTokens: 0,
@@ -1319,7 +1490,7 @@ async function extractAndSaveSiteDiaryCore(
 			: args.allowFallback
 				? "fast-path-extraction"
 				: "structured-extraction",
-		model: structuredSiteDiaryModel,
+		model: extractionModel,
 		actualModel,
 		durationMs: extractionDurationMs,
 		...usage,
@@ -1387,6 +1558,11 @@ async function extractAndSaveSiteDiaryCore(
 	const rawRecords = Array.isArray(response.records)
 		? response.records.filter(isLooseRecord)
 		: [];
+	captureStep({
+		phase: "extraction",
+		repair: Boolean(args.repairInstructions),
+		records: rawRecords,
+	});
 	if (!rawRecords.length) {
 		if (
 			args.persist !== false &&
@@ -1413,9 +1589,12 @@ async function extractAndSaveSiteDiaryCore(
 	}
 
 	const normalizedRows = normalizeUnknownNumericRows(
-		rawRecords.map((record) =>
-			mapToDbFields(record, fieldMap, dropdownValueMaps),
-		),
+		rawRecords.map((record) => ({
+			...mapToDbFields(record, fieldMap, dropdownValueMaps),
+			...(record.calculationEvidence
+				? { calculationEvidence: record.calculationEvidence }
+				: {}),
+		})),
 		args.question,
 	);
 	const rows =
@@ -1423,6 +1602,12 @@ async function extractAndSaveSiteDiaryCore(
 			? normalizedRows.rows
 			: normalizeDiarySourceRows(normalizeWorkdayNoteRows(normalizedRows.rows, args.question, mapToUse), args.question, mapToUse);
 	let amountEvidenceWarnings = normalizedRows.amountEvidenceWarnings;
+	captureStep({
+		phase: "normalization",
+		repair: Boolean(args.repairInstructions),
+		rows,
+		amountEvidenceWarnings,
+	});
 	if (amountEvidenceWarnings.length > 0) {
 		Object.assign(aiContext.runnableConfig.metadata, {
 			amountEvidenceWarningCount: amountEvidenceWarnings.length,
@@ -1493,7 +1678,7 @@ async function extractAndSaveSiteDiaryCore(
 				siteId,
 				userId,
 				channel: "tool",
-				model: siteDiaryExtractionCheckerModel,
+				model: checkerModel,
 				metadata: {
 					date,
 					proposedRecordCount: rows.length,
@@ -1518,7 +1703,15 @@ async function extractAndSaveSiteDiaryCore(
 				rows,
 				language,
 				contextText: extractionContext.text,
+				referenceDate: date,
 				runnableConfig: checkerTrace.runnableConfig,
+				evaluationModel: args.evaluationContext?.checkerModel,
+			});
+			captureStep({
+				phase: "checker",
+				repair: false,
+				rows,
+				result: checker.parsed,
 			});
 			const checkerDurationMs = Date.now() - checkerStarted;
 			const checkerUsage = usageFromMessage(checker.raw);
@@ -1526,7 +1719,7 @@ async function extractAndSaveSiteDiaryCore(
 			recordSiteManagerTiming("structuredCheckerMs", checkerDurationMs);
 			recordSiteManagerModelCall({
 				purpose: "site_diary_extraction_checker",
-				model: siteDiaryExtractionCheckerModel,
+				model: checkerModel,
 				actualModel: typeof checkerMetadata.model_name === "string"
 					? checkerMetadata.model_name
 					: null,
@@ -1539,6 +1732,15 @@ async function extractAndSaveSiteDiaryCore(
 				ok: true,
 			});
 			const checkerVerdict = checker.parsed.verdict ?? "accept";
+			partialCandidate = recoverReviewedDiaryRows({
+				rows,
+				checker: checker.parsed,
+				source: noteSource,
+				notesCategory: Object.values(
+					mapToUse.Works?.DropDownOptions ?? {},
+				).find((work) => /^(?:Piezīmes|Notes)$/iu.test(work)),
+				measurementIsSupported: hasLiteralAmountUnitEvidence,
+			});
 			Object.assign(aiContext.runnableConfig.metadata, {
 				extractionCheckerVerdict: checkerVerdict,
 				extractionCheckerReason: summarizeForTrace(checker.parsed.reason),
@@ -1644,6 +1846,7 @@ async function extractAndSaveSiteDiaryCore(
 						fastPathTrace: args.fastPathTrace,
 						intentContext: args.intentContext,
 						runnableConfig: args.runnableConfig,
+						evaluationContext: args.evaluationContext,
 					});
 					if (!repair.ok || !repair.rows?.length) {
 						updateTraceOutcome("error", "extraction-error");
@@ -1664,6 +1867,12 @@ async function extractAndSaveSiteDiaryCore(
 							true,
 						);
 					}
+					if (partialCandidate)
+						repair.rows = preserveAcceptedDiaryRows(
+							rows,
+							repair.rows,
+							partialCandidate.qualities,
+						);
 					rowsToSave = repair.rows;
 					rawRecordsToTrace = repair.rawRecords ?? repair.rows;
 					amountEvidenceWarnings = repair.amountEvidenceWarnings ?? [];
@@ -1681,14 +1890,46 @@ async function extractAndSaveSiteDiaryCore(
 						["site-diary-checker:repair-applied"],
 					);
 					if (repair.rows.length >= 1) {
+						const repairCheckerStarted = Date.now();
 						const repairChecker = await invokeSiteDiaryExtractionChecker({
 							originalMessage: args.question,
 							rows: repair.rows,
 							language,
 							contextText: extractionContext.text,
+							referenceDate: date,
 							runnableConfig: checkerTrace.runnableConfig,
+							evaluationModel: args.evaluationContext?.checkerModel,
+						});
+						captureStep({
+							phase: "checker",
+							repair: true,
+							rows: repair.rows,
+							result: repairChecker.parsed,
+						});
+						const repairMetadata = asLooseRecord(
+							repairChecker.raw?.response_metadata,
+						);
+						recordSiteManagerModelCall({
+							purpose: "site_diary_extraction_repair_checker",
+							model: checkerModel,
+							actualModel:
+								typeof repairMetadata.model_name === "string"
+									? repairMetadata.model_name
+									: null,
+							durationMs: Date.now() - repairCheckerStarted,
+							...usageFromMessage(repairChecker.raw),
 						});
 						checkerToTrace.repairVerdict = repairChecker.parsed.verdict;
+						partialCandidate =
+							recoverReviewedDiaryRows({
+								rows: repair.rows,
+								checker: repairChecker.parsed,
+								source: noteSource,
+								notesCategory: Object.values(
+									mapToUse.Works?.DropDownOptions ?? {},
+								).find((work) => /^(?:Piezīmes|Notes)$/iu.test(work)),
+								measurementIsSupported: hasLiteralAmountUnitEvidence,
+							}) ?? partialCandidate;
 						checkerToTrace.repairReason = repairChecker.parsed.reason;
 						Object.assign(aiContext.runnableConfig.metadata, {
 							extractionRepairCheckerVerdict: repairChecker.parsed.verdict,
@@ -1774,7 +2015,7 @@ async function extractAndSaveSiteDiaryCore(
 			recordSiteManagerTiming("structuredCheckerMs", checkerDurationMs);
 			recordSiteManagerModelCall({
 				purpose: "site_diary_extraction_checker",
-				model: siteDiaryExtractionCheckerModel,
+				model: checkerModel,
 				actualModel: null,
 				durationMs: checkerDurationMs,
 				inputTokens: 0,
@@ -1852,6 +2093,7 @@ async function extractAndSaveSiteDiaryCore(
 		normalizedInsertRows: result?.normalizedInsertRows ?? [],
 		persistedRecords: result?.records ?? [],
 		checker: checkerToTrace,
+		stages,
 	});
 
 	const content = formatSiteDiarySaveToolResult(result, rowsToSave.length);

@@ -23,6 +23,7 @@ const siteDiaryFindManyMock = jest.fn();
 const siteDiaryFindUniqueMock = jest.fn();
 const siteDiaryFindFirstMock = jest.fn();
 const batchCreateMock = jest.fn();
+const intakeRunUpdateManyMock = jest.fn();
 const batchFindFirstMock = jest.fn();
 const batchFindUniqueMock = jest.fn();
 const batchUpdateManyMock = jest.fn();
@@ -145,6 +146,7 @@ import { getSitePhotoStore } from "@/lib/photos/flow-photo-store";
 import { prisma } from "@/lib/utils/db";
 import { orgCheck } from "./shared-actions";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import * as diaryReviewQueue from "@/flows/default-construction/backend/diary-review-queue";
 
 function buildCreatedRow(row: any, index = createdRowIndex++) {
   return {
@@ -180,6 +182,35 @@ function expectSuccessfulSave(result: unknown, count: number) {
 }
 
 describe("saveSiteDiaryRecord originalAudioUrl", () => {
+  it("keeps trusted provenance without scheduling a delayed review", async () => {
+    const prepare = jest.spyOn(diaryReviewQueue, "prepareDiaryReviewScope").mockResolvedValue({ siteId: "site-1", userId: "user-1", organizationId: "org-1", senderPhone: "37120000001", sourceMessageId: "wamid.pilot" });
+    const enqueue = jest.spyOn(diaryReviewQueue, "enqueueDiaryReview").mockRejectedValue(new Error("must not enqueue"));
+    try {
+      const result = await saveSiteDiaryRecord({ rows: [{ Works: "Betonēšana", Amounts: 12, Units: "m3" }], siteId: "site-1", userId: "user-1", originalUserComment: "Betonēšana 12 m3" });
+      expect(result.ok).toBe(true);
+      expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ evalMetadata: expect.objectContaining({ diaryReviewSource: expect.objectContaining({ senderPhone: "37120000001" }) }) }) }));
+      expect(enqueue).not.toHaveBeenCalled();
+    } finally { prepare.mockRestore(); enqueue.mockRestore(); }
+  });
+
+  it("completes a direct SDK run inside the same transaction as business records", async () => {
+    const prepare = jest.spyOn(diaryReviewQueue, "prepareDiaryReviewScope").mockResolvedValue({ siteId: "site-1", userId: "user-1", organizationId: "org-1", senderPhone: "37120000001", sourceMessageId: "wamid.pilot" });
+    try {
+      const result = await saveSiteDiaryRecord({ rows: [{ Works: "Betonēšana", Amounts: 12, Units: "m3" }], siteId: "site-1", userId: "user-1", originalUserComment: "Betonēšana 12 m3", sourceMessageId: "wamid.pilot", diaryIntakeRun: { id: "run", leaseToken: "lease", reply: "Saglabāts", positionIds: ["concrete"], positions: [{ id: "concrete", code: "1", name: "Betonēšana" }] } });
+      expect(result.ok).toBe(true);
+      expect(intakeRunUpdateManyMock).toHaveBeenCalledWith({ where: { id: "run", leaseToken: "lease", status: "running", siteId: "site-1", userId: "user-1", organizationId: "org-1" }, data: expect.objectContaining({ status: "completed", recordIds: result.recordIds, snapshot: expect.objectContaining({ generatedRecords: [expect.objectContaining({ positionId: "concrete", Amounts: 12 })] }) }) });
+    } finally { prepare.mockRestore(); }
+  });
+
+  it("aborts the business transaction when its direct SDK run cannot be completed", async () => {
+    const prepare = jest.spyOn(diaryReviewQueue, "prepareDiaryReviewScope").mockResolvedValue({ siteId: "site-1", userId: "user-1", organizationId: "org-1", senderPhone: "37120000001", sourceMessageId: "wamid.pilot" });
+    intakeRunUpdateManyMock.mockResolvedValue({ count: 0 });
+    try {
+      const result = await saveSiteDiaryRecord({ rows: [{ Works: "Betonēšana" }], siteId: "site-1", userId: "user-1", originalUserComment: "Betonēšana", diaryIntakeRun: { id: "run", leaseToken: "lease", reply: "Saglabāts", positionIds: [null], positions: [] } });
+      expect(result).toMatchObject({ ok: false, message: "INTAKE_RUN_CHANGED" });
+    } finally { prepare.mockRestore(); }
+  });
+
 	it("uses actual Act matches and BIS status in project Excel exports", async () => {
 		queryRawMock.mockResolvedValueOnce([{ id: "site-1", bisCaseId: "668714", coverage: { version: 1, caseId: "668714", fetchedAt: "2026-10-29T10:00:00Z", acts: [{ id: "900", collection: "other_acceptance_acts", number: "KT-668714-2026-00021", status: "approved", works: [{ id: "100", quantity: 1 }] }] } }]);
 		queryRawMock.mockResolvedValueOnce([{ id: "matched-record", siteId: "site-1", BISId: "100", metadata: null }]);
@@ -336,8 +367,10 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
         id: where.id,
       }),
     );
+    intakeRunUpdateManyMock.mockResolvedValue({ count: 1 });
     transactionMock.mockImplementation((callback) =>
       callback({
+        constructionDiaryReviewRun: { updateMany: intakeRunUpdateManyMock },
         sitediaryrecords: {
           create: createMock,
           findMany: siteDiaryFindManyMock,
@@ -521,6 +554,21 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     });
     expect((result as any).records[0].evalMetadata).toEqual(evalMetadata);
     expect((result as any).normalizedInsertRows[0].evalMetadata).toEqual(evalMetadata);
+  });
+
+  it("keeps each row quality attached after empty rows are removed", async () => {
+    const accepted = { status: "accepted" as const, reason: "Pamatots" };
+    const pending = { status: "needs_review" as const, reason: "Jāprecizē" };
+    const result = await saveSiteDiaryRecord({
+      rows: [{ Works: "Concrete pour" }, {}, { Works: "Piezīmes", Comments: "Jāpārskata" }],
+      rowQuality: [accepted, { status: "needs_review", reason: "Empty" }, pending],
+      userId: "user-1", siteId: "site-1", originalUserComment: "Darbi", evalMetadata: { isEval: true, runId: "run-1" },
+    });
+    expectSuccessfulSave(result, 2);
+    expect(createMock.mock.calls.map(([args]) => args.data.evalMetadata)).toEqual([
+      { isEval: true, runId: "run-1", diaryQuality: accepted },
+      { isEval: true, runId: "run-1", diaryQuality: pending },
+    ]);
   });
 
   it("normalizes blank and invalid numeric fields to null", async () => {

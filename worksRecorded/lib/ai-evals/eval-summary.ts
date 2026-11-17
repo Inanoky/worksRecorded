@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { renderEvalReportHtml } from "./html-report";
 import {
 	loadEvalReports,
 	type NormalizedEvalItem,
@@ -223,6 +224,14 @@ async function main() {
 
 	await mkdir(outputDir, { recursive: true });
 	await writeFile(path.join(outputDir, "summary.md"), markdown, "utf8");
+	for (const run of selected) {
+		const htmlPath = path.join(
+			outputDir,
+			path.basename(run.fileName).replace(/\.json$/, ".html"),
+		);
+		await writeFile(htmlPath, renderEvalReportHtml(run), "utf8");
+		console.log(`HTML: ${htmlPath}`);
+	}
 	console.log(markdown);
 }
 

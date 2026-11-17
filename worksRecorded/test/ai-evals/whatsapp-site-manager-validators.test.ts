@@ -183,6 +183,37 @@ describe("WhatsApp site-manager eval validators", () => {
 		};
 	}
 
+	it("does not score a review note as fully resolved unless the fixture explicitly allows it", () => {
+		const record = {
+			...workerlessRecord(null),
+			evalMetadata: {
+				diaryQuality: { status: "needs_review", reason: "Jāprecizē" },
+			},
+		};
+		const args = { evalCase, record, siteId: "site-1", userId: "user-1" };
+		const result = validateWhatsappSiteManagerRecord(args);
+		expect(result.results).toContainEqual(
+			expect.objectContaining({
+				name: "no-unresolved-review",
+				status: "fail",
+				severity: "critical",
+			}),
+		);
+		const allowed = validateWhatsappSiteManagerRecord({
+			...args,
+			evalCase: {
+				...evalCase,
+				expected: { ...evalCase.expected, allowNeedsReview: true },
+			},
+		});
+		expect(
+			allowed.results.some(
+				(check) =>
+					check.name === "no-unresolved-review" && check.status === "fail",
+			),
+		).toBe(false);
+	});
+
 	it("passes a saved record that preserves the text webhook facts", () => {
 		const result = validateWhatsappSiteManagerRecord({
 			evalCase,

@@ -74,7 +74,8 @@ export type SiteManagerModelCallMetric = {
     | "structured-extraction"
     | "structured-repair-extraction"
     | "fast-path-extraction"
-    | "site_diary_extraction_checker";
+    | "site_diary_extraction_checker"
+    | "site_diary_extraction_repair_checker";
   model: string;
   actualModel: string | null;
   durationMs: number;

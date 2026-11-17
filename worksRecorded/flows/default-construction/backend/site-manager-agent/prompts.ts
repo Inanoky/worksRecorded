@@ -95,8 +95,15 @@ export async function systemPromptFunction(siteId: string, userId: string) {
 	return prompt;
 }
 
-export async function systemPromptSaveToDatabaseFunction(userId, client) {
+export async function systemPromptSaveToDatabaseFunction(
+	userId: string,
+	client?: string,
+) {
 	const language = await getOrganizationLanguageByUserId(userId);
+	return buildSiteDiaryExtractionPrompt(language, client);
+}
+
+export function buildSiteDiaryExtractionPrompt(language: string, client?: string) {
 
 	//nothing
 

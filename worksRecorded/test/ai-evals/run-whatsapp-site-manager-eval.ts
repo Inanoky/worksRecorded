@@ -14,6 +14,7 @@ import { inspectCheckpointShape } from "@/server/ai-flows/ai-context-inspection"
 import { siteManagerAgentForSiteManagerRouteModelModel } from "@/server/ai-flows/ai-models-settings";
 import { getSiteManagerThreadId } from "@/server/ai-flows/ai-run-context";
 import { runWithLangSmithTraceFlush } from "./ai-eval-runner-lifecycle";
+import { createLocalEvalMedia } from "./local-media";
 import {
 	formatEvalSelectionSummary,
 	selectEvalCases,
@@ -118,6 +119,7 @@ type LatencyCaseSummary = {
 };
 
 type WhatsAppSiteManagerEvalReport = {
+	localMedia: Array<{ url: string; path: string }>;
 	runId: string;
 	flow: "whatsapp-site-manager";
 	model: string;
@@ -154,6 +156,9 @@ const EVAL_IMAGE_MEDIA_URL =
 	"https://eval.test/meta-media/site-manager-image-caption.jpg";
 const EVAL_UPLOADED_IMAGE_URL =
 	"https://eval.test/uploads/site-manager-image-caption.jpg";
+const localMedia = createLocalEvalMedia(
+	path.join(process.cwd(), ".ai-eval-results", "media"),
+);
 const EVAL_PROGRESS_IMAGE_MEDIA_ID = "eval-image-media-progress-report-normal";
 const EVAL_PROGRESS_IMAGE_MEDIA_URL =
 	"https://eval.test/meta-media/progress-report-normal-image.jpg";
@@ -322,16 +327,14 @@ async function getUploadedImageUrlForCase(
 	evalCase: WebhookWhatsAppSiteManagerEvalCase,
 ) {
 	if (hasMaterialRecordExpectation(evalCase)) {
-		const bytes = await readMaterialLatvianDateFixtureBytes();
-		return `data:image/jpeg;base64,${bytes.toString("base64")}`;
+		return localMedia.add(EVAL_MATERIAL_LATVIAN_DATE_FIXTURE_PATH);
 	}
 
 	if (evalCase.expected.expectedPhotoPurpose === "site_diary") {
-		const bytes = await readProgressImageFixtureBytes();
-		return `data:image/jpeg;base64,${bytes.toString("base64")}`;
+		return localMedia.add(EVAL_PROGRESS_IMAGE_FIXTURE_PATH);
 	}
 
-	return EVAL_UPLOADED_IMAGE_URL;
+	return localMedia.add(EVAL_PROGRESS_IMAGE_FIXTURE_PATH);
 }
 
 function shouldRunImageClassifierForCase(
@@ -521,7 +524,8 @@ function installGraphApiFetchMock() {
 			throw new Error(`No fetch implementation available for ${url}.`);
 		}
 
-		return originalFetch(input, init);
+		const rewritten = await localMedia.rewrite(input, init);
+		return originalFetch(rewritten.input, rewritten.init);
 	}) as typeof fetch;
 
 	return () => {
@@ -797,6 +801,7 @@ async function findCorrectionAuditRecords(args: {
 async function cleanupPreviousEvalCaseRows(args: {
 	siteId: string;
 	userId: string;
+	notBefore: Date;
 	inputText: string;
 	caseId: string;
 	includeTextFallback?: boolean;
@@ -807,6 +812,7 @@ async function cleanupPreviousEvalCaseRows(args: {
 		where: {
 			siteId: args.siteId,
 			userId: args.userId,
+			createdAt: { gte: args.notBefore },
 			AND: [
 				{ evalMetadata: { path: ["isEval"], equals: true } },
 				{ evalMetadata: { path: ["flow"], equals: "whatsapp-site-manager" } },
@@ -820,6 +826,7 @@ async function cleanupPreviousEvalCaseRows(args: {
 			where: {
 				siteId: args.siteId,
 				userId: args.userId,
+				createdAt: { gte: args.notBefore },
 				originalUserComment: {
 					contains: args.inputText,
 				},
@@ -829,6 +836,7 @@ async function cleanupPreviousEvalCaseRows(args: {
 			where: {
 				siteId: args.siteId,
 				userId: args.userId,
+				createdAt: { gte: args.notBefore },
 				Comment: {
 					contains: args.inputText,
 				},
@@ -841,6 +849,7 @@ async function cleanupPreviousEvalCaseRows(args: {
 			where: {
 				siteId: args.siteId,
 				userId: args.userId,
+				createdAt: { gte: args.notBefore },
 				sourcePhoto: args.materialSourcePhoto,
 				...(args.materialInvoiceNr
 					? { invoiceNr: args.materialInvoiceNr }
@@ -853,6 +862,7 @@ async function cleanupPreviousEvalCaseRows(args: {
 async function cleanupEvalRows(args: {
 	siteId: string;
 	userId: string;
+	notBefore: Date;
 	businessPhoneNumberId: string;
 	recordIds: string[];
 	photoIds: string[];
@@ -892,6 +902,7 @@ async function cleanupEvalRows(args: {
 			where: {
 				siteId: args.siteId,
 				userId: args.userId,
+				createdAt: { gte: args.notBefore },
 				sourcePhoto: args.materialSourcePhoto,
 			},
 		});
@@ -1204,6 +1215,7 @@ async function main() {
 					await cleanupPreviousEvalCaseRows({
 						siteId,
 						userId,
+						notBefore: new Date(startedAt),
 						inputText: preparedForCase.inputText,
 						caseId: evalCase.id,
 						materialSourcePhoto: webhookEvalCase.expected.materialRecords
@@ -1216,6 +1228,7 @@ async function main() {
 						await cleanupPreviousEvalCaseRows({
 							siteId,
 							userId,
+							notBefore: new Date(startedAt),
 							inputText: webhookEvalCase.followUp.body,
 							caseId: `${webhookEvalCase.id}-follow-up`,
 							includeTextFallback: false,
@@ -1624,6 +1637,7 @@ async function main() {
 						cleanupEvalRows({
 							siteId,
 							userId,
+							notBefore: new Date(startedAt),
 							businessPhoneNumberId,
 							recordIds: createdRecordIds,
 							photoIds: createdPhotoIds,
@@ -1674,6 +1688,7 @@ async function main() {
 		userId,
 		startedAt,
 		finishedAt: new Date().toISOString(),
+		localMedia: localMedia.entries(),
 		results,
 		latency,
 		summary: {

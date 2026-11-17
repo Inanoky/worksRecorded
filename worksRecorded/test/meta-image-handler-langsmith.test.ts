@@ -136,11 +136,14 @@ describe("meta image handler LangSmith tracing", () => {
 			image_url: { url: publicUrl },
 		});
 		expect(config).toMatchObject({
-			runName: "MetaMaterialImageClassification - Anna Bērziņa",
+			runName: "Meta Image Classification - Anna Bērziņa",
 			tags: [
 				"whatsapp-site-manager",
 				"meta-image",
 				"material-document",
+				"workflow:meta-material:image-classification",
+				"message-type:image",
+				"media-purpose:material_invoice",
 				"image-classification",
 				"sender:Anna-B_rzi_a",
 			],
@@ -215,11 +218,14 @@ describe("meta image handler LangSmith tracing", () => {
 		expect(messages[0].content[0].text).toContain("Today is");
 		expect(messages[0].content[0].text).toContain("Europe/Riga");
 		expect(config).toMatchObject({
-			runName: "MetaMaterialInvoiceExtraction - Anna Bērziņa",
+			runName: "Meta Invoice Extraction - Anna Bērziņa",
 			tags: [
 				"whatsapp-site-manager",
 				"meta-image",
 				"material-document",
+				"workflow:meta-material:invoice-extraction",
+				"message-type:image",
+				"media-purpose:material_invoice",
 				"invoice-extraction",
 				"sender:Anna-B_rzi_a",
 			],
@@ -393,10 +399,10 @@ describe("meta image handler LangSmith tracing", () => {
 		expect(mockUserFindFirst).toHaveBeenCalledTimes(1);
 		expect(mockStructuredInvoke).toHaveBeenCalledTimes(2);
 		expect(mockStructuredInvoke.mock.calls[0][1].runName).toBe(
-			"MetaMaterialImageClassification - Anna Bērziņa",
+			"Meta Image Classification - Anna Bērziņa",
 		);
 		expect(mockStructuredInvoke.mock.calls[1][1].runName).toBe(
-			"MetaMaterialInvoiceExtraction - Anna Bērziņa",
+			"Meta Invoice Extraction - Anna Bērziņa",
 		);
 		expect(mockStructuredInvoke.mock.calls[0][1].metadata).toMatchObject({
 			siteId: "site-1",
@@ -466,7 +472,7 @@ describe("meta image handler LangSmith tracing", () => {
 
 		expect(handled).toBe(true);
 		expect(mockStructuredInvoke.mock.calls[0][1]).toMatchObject({
-			runName: "MetaMaterialImageClassification - Jānis Bērziņš",
+			runName: "Meta Image Classification - Jānis Bērziņš",
 			metadata: {
 				siteId: "site-1",
 				userId: "user-1",
@@ -479,7 +485,7 @@ describe("meta image handler LangSmith tracing", () => {
 			},
 		});
 		expect(mockStructuredInvoke.mock.calls[1][1]).toMatchObject({
-			runName: "MetaMaterialInvoiceExtraction - Jānis Bērziņš",
+			runName: "Meta Invoice Extraction - Jānis Bērziņš",
 			metadata: {
 				siteId: "site-1",
 				userId: "user-1",

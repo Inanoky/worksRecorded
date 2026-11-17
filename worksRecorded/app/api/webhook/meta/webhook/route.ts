@@ -1279,13 +1279,16 @@ async function runResolvedWhatsappRoutingForMeta(args: {
 		}
 
 		const handlerStartedAt = Date.now();
-		routeOutcome = await routeRegisteredWhatsappUserByFlow({
-			flowModuleKey:
-				siteManagerFlowModuleKey ?? FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION,
-			from,
-			formData,
-			user,
-		});
+		routeOutcome = await runWithWhatsappSourceContext(
+			{ senderPhone: resolved.webhookIdentity.phone ?? null },
+			() => routeRegisteredWhatsappUserByFlow({
+				flowModuleKey:
+					siteManagerFlowModuleKey ?? FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION,
+				from,
+				formData,
+				user,
+			}),
+		);
 		logMetaWebhookTiming(`${routeOutcome}_route`, handlerStartedAt, {
 			messageId,
 			userId: user.id,
