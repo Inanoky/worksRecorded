@@ -29,7 +29,10 @@ export async function getBisDiaryReferences(
 	const promise = Promise.all([
 		client.list("project"),
 		client.list("estimate_positions"),
-	]).then(([drawings, estimates]) => ({
+		client.list(
+			"/bisp/api/portal/classifiers?filter[typ_eq]=character_measures",
+		),
+	]).then(([drawings, estimates, measurements]) => ({
 		scope,
 		drawings: drawings.map((row) => ({
 			id: String(row.id),
@@ -67,6 +70,9 @@ export async function getBisDiaryReferences(
 					measurementId: /^[1-9]\d*$/.test(measurementId)
 						? measurementId
 						: undefined,
+					measurementUnit: measurements.find(
+						(item) => String(item.attributes?.code) === measurementId,
+					)?.attributes?.name,
 				};
 			}),
 	}));

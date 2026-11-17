@@ -2,7 +2,10 @@ export type BisDiaryReference = { id: string; label: string };
 export type BisDiaryReferences = {
 	scope: string;
 	drawings: BisDiaryReference[];
-	estimates: (BisDiaryReference & { measurementId?: string })[];
+	estimates: (BisDiaryReference & {
+		measurementId?: string;
+		measurementUnit?: string;
+	})[];
 };
 
 export function bisNumericId(value: string): number {
@@ -34,6 +37,7 @@ export function performedWorkReferences(
 		);
 	return {
 		measurementId: estimate?.measurementId,
+		measurementUnit: estimate?.measurementUnit,
 		attributes: ids.length
 			? { project_document_ids: ids.map(bisNumericId) }
 			: {},

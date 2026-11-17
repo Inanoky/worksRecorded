@@ -19,10 +19,12 @@ import {
 	diaryEditInputSchema as inputSchema,
 	sameDiaryValue,
 } from "../lib/diary-edit-input";
+import { reconcileDiaryQuantityUnit } from "../lib/diary-quantity-units";
 import {
 	hasDefaultConstructionQuantityProfile,
 	normalizeActualQuantityForStorage,
 } from "../lib/quantity-plan-actual";
+import { createDefaultConstructionDiaryUnitResolver } from "../lib/site-diary-productivity-settings";
 import { syncDiaryEditAssignments } from "./diary-forma2-sync";
 
 export async function saveDefaultConstructionDiaryEdits(
@@ -54,9 +56,12 @@ export async function saveDefaultConstructionDiaryEdits(
 			where: { id: input.siteId },
 			select: { siteDiaryRecordsMap: true },
 		});
-		const quantityProfile = hasDefaultConstructionQuantityProfile(
-			config?.siteDiaryRecordsMap as Record<string, unknown> | null,
-		);
+		const diaryConfig = config?.siteDiaryRecordsMap as Record<
+			string,
+			unknown
+		> | null;
+		const quantityProfile = hasDefaultConstructionQuantityProfile(diaryConfig);
+		const unitForWork = createDefaultConstructionDiaryUnitResolver(diaryConfig);
 		const ids = [
 			...input.updates.map((row) => row.id),
 			...input.creates.map((row) => row.clientId),
@@ -72,6 +77,19 @@ export async function saveDefaultConstructionDiaryEdits(
 					data.Comments_Custom_1,
 				);
 			return data;
+		};
+		const normalizeCreate = (
+			value: z.output<typeof fields>,
+		): Record<string, unknown> => {
+			const data = normalize(value);
+			return {
+				...data,
+				...reconcileDiaryQuantityUnit(
+					data,
+					unitForWork(data.Works),
+					quantityProfile,
+				),
+			};
 		};
 		const result = await prisma.$transaction(
 			async (tx) => {
@@ -115,7 +133,7 @@ export async function saveDefaultConstructionDiaryEdits(
 						if (prior.userId !== user.id)
 							throw new Error("Jaunā ieraksta identifikators jau izmantots.");
 						if (
-							Object.entries(normalize(row.fields)).some(
+							Object.entries(normalizeCreate(row.fields)).some(
 								([key, value]) =>
 									!sameDiaryValue(key, prior[key as keyof typeof prior], value),
 							)
@@ -124,7 +142,7 @@ export async function saveDefaultConstructionDiaryEdits(
 								"Ieraksts jau saglabāts un vēlāk mainīts. Pārskatiet izmaiņas pirms atkārtotas saglabāšanas.",
 							);
 					} else {
-						const data = normalize(row.fields);
+						const data = normalizeCreate(row.fields);
 						if (!(data.Date instanceof Date))
 							throw new Error("Jaunam ierakstam jānorāda datums.");
 						creates.push({
@@ -165,8 +183,26 @@ export async function saveDefaultConstructionDiaryEdits(
 						throw new Error(
 							"Ieraksts pa šo laiku mainīts. Jūsu izmaiņas saglabātas pārlūkā; pārskatiet tās pirms atkārtotas saglabāšanas.",
 						);
+					const submitted = normalize(row.fields);
+					const merged = { ...prior, ...submitted };
+					const unitPatch = [
+						"Works",
+						"Units",
+						"Amounts",
+						...(quantityProfile ? ["Comments_Custom_1"] : []),
+					].some((key) => Object.hasOwn(submitted, key))
+						? reconcileDiaryQuantityUnit(
+								merged,
+								unitForWork(merged.Works),
+								quantityProfile,
+							)
+						: {};
+					const normalized: Record<string, unknown> = {
+						...submitted,
+						...unitPatch,
+					};
 					const data = Object.fromEntries(
-						Object.entries(normalize(row.fields)).filter(([key, value]) => {
+						Object.entries(normalized).filter(([key, value]) => {
 							const previous = prior[key as keyof typeof prior];
 							return previous instanceof Date && value instanceof Date
 								? previous.getTime() !== value.getTime()

@@ -36,11 +36,13 @@ import {
   DEFAULT_CONSTRUCTION_ACTUAL_QUANTITY_FIELD,
   hasDefaultConstructionQuantityProfile,
   normalizeActualQuantityForStorage,
+  parseDefaultConstructionQuantity,
 } from "@/flows/default-construction/lib/quantity-plan-actual";
 import {
   createDefaultConstructionDiaryUnitResolver,
   setDefaultConstructionWorkDropdownOptions,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
+import { reconcileDiaryQuantityUnit } from "@/flows/default-construction/lib/diary-quantity-units";
 import {
   type ZtcRateProject,
   ztcRowMatchesConfiguredWorkFilter,
@@ -1530,7 +1532,11 @@ export async function saveSiteDiaryRecord({
 
   // Make sure requireUser() is not triggering a redirect!
   // Defensive: Only save rows containing diary content.
-  const toInsert: NormalizedSiteDiaryInsertRow[] = validRows.map((row, idx) => {
+  const toInsert: NormalizedSiteDiaryInsertRow[] = validRows.map((sourceRow, idx) => {
+    const row = {
+      ...sourceRow,
+      ...reconcileDiaryQuantityUnit(sourceRow, unitForWork(sourceRow.Works), quantityProfileEnabled),
+    };
     const out = {
       // UPDATE: Conditionally set userId or workerId
       userId: userId ?? undefined,
@@ -1562,7 +1568,7 @@ export async function saveSiteDiaryRecord({
       originalAudioUrl:
         idx === 0 ? resolvedOriginalAudioUrl || undefined : undefined,
 
-      Units: unitForWork(row.Works) ?? (row.Units || undefined),
+      Units: row.Units || undefined,
       Amounts: toNullableNumber(row.Amounts),
       WorkersInvolved: toNullableNumber(row.WorkersInvolved),
       TimeInvolved: toNullableNumber(row.TimeInvolved),
@@ -1677,9 +1683,16 @@ export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
   const quantityProfileEnabled = hasDefaultConstructionQuantityProfile(
     site?.siteDiaryRecordsMap as Record<string, any> | null,
   );
+  const unitForWork = createDefaultConstructionDiaryUnitResolver(
+    site?.siteDiaryRecordsMap as Record<string, unknown> | null,
+  );
 
   // Defensive: Only save if at least one row with location or works
-  const toInsert = rows.map((row, idx) => {
+  const toInsert = rows.map((sourceRow: Record<string, any>, idx: number) => {
+    const row: Record<string, any> = {
+      ...sourceRow,
+      ...reconcileDiaryQuantityUnit(sourceRow, unitForWork(sourceRow.Works), quantityProfileEnabled),
+    };
     const out = {
       userId: user.id ?? undefined,
       siteId: siteId ?? undefined,
@@ -1756,6 +1769,11 @@ export async function updateSiteDiaryRecord({ id, ...fields }) {
       where: { id },
       select: {
         siteId: true,
+        Works: true,
+        Units: true,
+        Amounts: true,
+        Comments: true,
+        Comments_Custom_1: true,
         Site: { select: { siteDiaryRecordsMap: true } },
       },
     });
@@ -1765,6 +1783,17 @@ export async function updateSiteDiaryRecord({ id, ...fields }) {
     }
 
     const nextFields = { ...fields, siteId: current.siteId };
+    const diaryConfig = current.Site?.siteDiaryRecordsMap as Record<string, unknown> | null;
+    let unitGuard: Record<string, unknown> = {};
+    if (["Works", "Units", "Amounts", "Comments_Custom_1"].some(key => Object.hasOwn(fields, key))) {
+      const merged = { ...current, ...fields };
+      const unitForWork = createDefaultConstructionDiaryUnitResolver(diaryConfig);
+      const patch = reconcileDiaryQuantityUnit(merged, unitForWork(merged.Works), hasDefaultConstructionQuantityProfile(diaryConfig));
+      Object.assign(nextFields, patch);
+      if (Object.keys(patch).length) {
+        unitGuard = Object.fromEntries([...new Set(["Works", "Units", ...Object.keys(patch)])].map(key => [key, current[key as keyof typeof current] ?? null]));
+      }
+    }
     if (
       hasDefaultConstructionQuantityProfile(
         current.Site?.siteDiaryRecordsMap as Record<string, any> | null,
@@ -1778,7 +1807,7 @@ export async function updateSiteDiaryRecord({ id, ...fields }) {
     }
 
     const updated = await prisma.sitediaryrecords.update({
-      where: { id },
+      where: { id, ...unitGuard },
       data: nextFields,
     });
     if (updated.siteId) {
@@ -1796,7 +1825,7 @@ export async function updateSiteDiaryRecord({ id, ...fields }) {
     return { ok: true, record: updated };
   } catch (err: any) {
     console.error("Error updating record:", err);
-    return { ok: false, message: err.message };
+    return { ok: false, message: err.code === "P2025" ? "Ieraksts pa šo laiku mainīts. Atjaunojiet žurnālu un pārskatiet izmaiņas." : err.message };
   }
 }
 
@@ -1973,6 +2002,9 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
   const unitForWork = createDefaultConstructionDiaryUnitResolver(
     site?.siteDiaryRecordsMap as Record<string, unknown> | null,
   );
+	const correctionQuantityProfile = hasDefaultConstructionQuantityProfile(
+		site?.siteDiaryRecordsMap as Record<string, unknown> | null,
+	);
 
   const result = await prisma.$transaction(async (tx) => {
     const activeBatch = await tx.siteDiarySaveBatch.findFirst({
@@ -2018,7 +2050,7 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
         await tx.sitediaryrecords.create({
           data: {
             ...row,
-            Units: unitForWork(row.Works) ?? row.Units,
+            ...reconcileDiaryQuantityUnit(row, unitForWork(row.Works), correctionQuantityProfile),
             userId: args.userId,
             siteId: args.siteId,
             organizationId: first.organizationId,
@@ -3524,8 +3556,9 @@ export async function sendSiteDiaryRecordToBis(
     eventDate?: string;
     eventDateTo?: string;
     worksDescription?: string;
-    amount?: number;
+    amount?: number | null;
     measurement?: string;
+    quantityUnit?: string;
     responsiblePersonId?: number;
     responsiblePersonType?: string;
   },
@@ -3557,6 +3590,7 @@ export async function sendSiteDiaryRecordToBis(
       Comments: true,
       WorkersInvolved: true,
       Amounts: true,
+      Units: true,
     },
   });
 
@@ -3567,7 +3601,7 @@ export async function sendSiteDiaryRecordToBis(
   const references =
     options?.projectDocumentIds?.length || options?.estimatePositionId
       ? await validateBisDiaryReferences(recordSite.siteId, options)
-      : { attributes: {}, relationships: {}, measurementId: undefined };
+      : { attributes: {}, relationships: {}, measurementId: undefined, measurementUnit: undefined };
   const baseUrl = getBisBaseUrl();
   const selectedResponsiblePersonId = options?.responsiblePersonId;
   const selectedResponsiblePersonType = options?.responsiblePersonType;
@@ -3590,7 +3624,22 @@ export async function sendSiteDiaryRecordToBis(
   }
   const multiDayWork = Boolean(eventDateTo);
   const eventTimeFrom = new Date().toTimeString().slice(0, 5);
-  const amountValue = Number(options?.amount ?? diaryRecord.Amounts ?? 1);
+  const submittedAmount = options?.amount !== undefined ? options.amount : diaryRecord.Amounts;
+  const quantityPatch = references.measurementUnit
+    ? reconcileDiaryQuantityUnit({
+        Units: options?.quantityUnit ?? diaryRecord.Units,
+        Amounts: submittedAmount,
+      }, references.measurementUnit)
+    : {};
+  if (references.measurementId && !references.measurementUnit) {
+    throw new Error("Neizdevās noteikt BIS tāmes mērvienību. Atjaunojiet BIS sarakstus.");
+  }
+  const amountValue = parseDefaultConstructionQuantity(
+    Object.hasOwn(quantityPatch, "Amounts") ? quantityPatch.Amounts : submittedAmount,
+  );
+  if (amountValue === null || amountValue <= 0) {
+    throw new Error("Pirms sūtīšanas uz BIS norādiet daudzumu izvēlētajā mērvienībā.");
+  }
   const descriptionOverride = options?.worksDescription?.trim().slice(0, 200);
 
   const bisWeather = await getBisWeatherSummaryForSiteDay(
@@ -3607,7 +3656,7 @@ export async function sendSiteDiaryRecordToBis(
   const detailAttributes: Record<string, unknown> = {
     multi_day_work: multiDayWork,
     employees: Number(diaryRecord.WorkersInvolved ?? 1),
-    quantity: Number.isFinite(amountValue) ? amountValue : 1,
+    quantity: amountValue,
     measurement: Number(
       references.measurementId ??
         options?.measurement ??

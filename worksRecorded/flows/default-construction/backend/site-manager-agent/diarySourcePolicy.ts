@@ -1,4 +1,7 @@
 import type { ConfigMap } from "./AIschemas";
+import { reconcileDiaryQuantityUnit } from "../../lib/diary-quantity-units";
+import { hasDefaultConstructionQuantityProfile } from "../../lib/quantity-plan-actual";
+import { createDefaultConstructionDiaryUnitResolver } from "../../lib/site-diary-productivity-settings";
 
 type DiaryRow = Record<string, unknown>;
 
@@ -121,34 +124,14 @@ export function normalizeDiarySourceRows(
 				}
 			: row,
 	);
-	const settings = config.otherSettings as unknown as
-		| {
-				defaultConstructionProductivity?: {
-					works?: Array<{ work: string; unit: string }>;
-				};
-		  }
-		| undefined;
-	const unitKey = (value: unknown) =>
-		String(value ?? "")
-			.trim()
-			.toLowerCase()
-			.replace(/²/g, "2")
-			.replace(/³/g, "3");
+	const unitForWork = createDefaultConstructionDiaryUnitResolver(config);
+	const quantityProfile = hasDefaultConstructionQuantityProfile(config);
 	rows = rows.map((row) => {
-		const rule = settings?.defaultConstructionProductivity?.works?.find(
-			(rule) => rule.work === row.Works,
-		);
-		if (
-			!notes ||
-			!rule?.unit ||
-			!row.Units ||
-			unitKey(rule.unit) === unitKey(row.Units)
-		)
-			return row;
+		const patch = reconcileDiaryQuantityUnit(row, unitForWork(row.Works), quantityProfile);
 		return {
 			...row,
-			Works: notes,
-			Comments: `Jāprecizē darba piesaiste: apjoms norādīts ${row.Units}, bet likmei ir ${rule.unit}. ${String(row.Comments ?? "")}`,
+			...patch,
+			...(notes && patch.Amounts === null ? { Works: notes } : {}),
 		};
 	});
 	if (rows.length !== 1) return rows;

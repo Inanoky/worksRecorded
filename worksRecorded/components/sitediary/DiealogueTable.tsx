@@ -36,6 +36,7 @@ import {
   normalizeActualQuantityForStorage,
 } from "@/flows/default-construction/lib/quantity-plan-actual";
 import { createDefaultConstructionDiaryUnitResolver } from "@/flows/default-construction/lib/site-diary-productivity-settings";
+import { reconcileDiaryQuantityUnit } from "@/flows/default-construction/lib/diary-quantity-units";
 import {
   groupDefaultConstructionSiteDiaryWorks,
   sortDefaultConstructionSiteDiaryWorks,
@@ -259,11 +260,13 @@ const DiaryRowSchema = z.object({
   _tempId: z.string().optional(), // UI id (always present for new rows)
   // numbers in your table are strings while editing, so allow "" and coerce
   Amounts: z
-    .union([z.coerce.number().finite(), z.literal("")])
-    .optional()
+    .preprocess(
+      (value) => value == null || (typeof value === "string" && value.trim() === "") ? null : value,
+      z.coerce.number().finite().nullable().optional(),
+    )
     .refine(
       (v) =>
-        v === "" ||
+        v === null ||
         v === undefined ||
         (typeof v === "number" && Math.abs(v) <= MAX_NUM),
       { message: `Amounts must be a number <= ${MAX_NUM}` },
@@ -294,7 +297,7 @@ const DiaryRowSchema = z.object({
     ),
 
   Comments: z.string().max(1500).optional().or(z.literal("")),
-  Comments_Custom_1: z.string().max(1500).optional().or(z.literal("")),
+  Comments_Custom_1: z.string().max(1500).nullable().optional().or(z.literal("")),
   Comments_Custom_2: z.string().max(1500).optional().or(z.literal("")),
 
   // allow any strings but cap length if provided
@@ -506,15 +509,25 @@ export function DialogTable({
 
   const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
     if (savingRef.current) return;
+    const current = getRowsWithUncontrolledValues().find(
+      (row) => row.id === rowIdOrTemp || row._tempId === rowIdOrTemp,
+    );
+    if (!current) return;
     markRowDirty(rowIdOrTemp, field);
-    const unit =
-      field === "Works" && defaultMap.Units ? unitForWork(value) : undefined;
-    if (unit) markRowDirty(rowIdOrTemp, "Units");
+    const patch = field === "Works" && defaultMap.Units
+      ? reconcileDiaryQuantityUnit(current, unitForWork(value), hasDefaultConstructionQuantityProfile(defaultMap))
+      : {};
+    for (const [key, nextValue] of Object.entries(patch)) {
+      if (sameDiaryValue(key, current[key], nextValue)) continue;
+      markRowDirty(rowIdOrTemp, key);
+      const element = uncontrolledFieldRefs.current.get(`${current.id ?? current._tempId}:${key}`);
+      if (element) element.value = String(nextValue ?? "");
+    }
 
     setRows((prev) =>
       prev.map((r) =>
         r.id === rowIdOrTemp || r._tempId === rowIdOrTemp
-          ? { ...r, [field]: value, ...(unit ? { Units: unit } : {}) }
+          ? { ...current, [field]: value, ...patch }
           : r,
       ),
     );

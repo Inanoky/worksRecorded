@@ -103,6 +103,9 @@ jest.mock("@/server/actions/BIS/service", () => ({
 jest.mock("@/server/actions/BIS/TestBisEnv/relay", () => ({
   bisFetch: jest.fn(),
 }));
+jest.mock("@/server/actions/bis-diary-references", () => ({
+  validateBisDiaryReferences: jest.fn(),
+}));
 
 jest.mock("./shared-actions", () => ({
   getOrganizationIdByUserId: jest.fn(async () => "org-1"),
@@ -139,13 +142,144 @@ import {
   movePhotoToDate,
   movePhotosToDate,
   saveSiteDiaryRecord,
+  sendSiteDiaryRecordToBis,
+  updateSiteDiaryRecord,
 } from "./site-diary-actions";
+import { validateBisDiaryReferences } from "./bis-diary-references";
+import { requireBisAccessTokenForSite, getBisBaseUrl } from "./BIS/service";
+import { bisFetch } from "./BIS/TestBisEnv/relay";
 import { requireUser } from "@/lib/utils/requireUser";
 import { getSitePhotoStore } from "@/lib/photos/flow-photo-store";
 import { prisma } from "@/lib/utils/db";
 import { orgCheck } from "./shared-actions";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
+describe("BIS estimate quantity units", () => {
+	const options = {
+		estimatePositionId: "10",
+		responsiblePersonId: 1,
+		responsiblePersonType: "person",
+	};
+	beforeEach(() => {
+		jest.clearAllMocks();
+		siteDiaryFindUniqueMock.mockResolvedValue({
+			id: "record-1",
+			siteId: "site-1",
+			Amounts: 100,
+			Units: "cm",
+			Comments: "Darbs",
+		});
+		jest.mocked(requireBisAccessTokenForSite).mockResolvedValue({
+			accessToken: "test-token",
+			bisCaseId: "1",
+			site: {},
+		} as never);
+		jest.mocked(getBisBaseUrl).mockReturnValue("https://bis.test");
+		jest.mocked(validateBisDiaryReferences).mockResolvedValue({
+			attributes: {},
+			relationships: {},
+			measurementId: "12",
+			measurementUnit: "m",
+		});
+		siteFindUniqueMock.mockResolvedValue({});
+		jest.mocked(bisFetch).mockResolvedValue({
+			ok: true,
+			text: async () => JSON.stringify({ data: { id: "123" } }),
+		} as never);
+		updateMock.mockResolvedValue({});
+	});
+	test("converts source quantity together with its unit before sending", async () => {
+		await sendSiteDiaryRecordToBis("record-1", options);
+		const payload = JSON.parse(
+			jest.mocked(bisFetch).mock.calls[0][2]!.body as string,
+		);
+		expect(payload.data.relationships.detail.data.attributes).toMatchObject({
+			quantity: 1,
+			measurement: 12,
+		});
+	});
+	test("accepts a quantity already entered in the estimate unit without converting it twice", async () => {
+		await sendSiteDiaryRecordToBis("record-1", {
+			...options,
+			amount: 1,
+			quantityUnit: "m",
+		});
+		const payload = JSON.parse(
+			jest.mocked(bisFetch).mock.calls[0][2]!.body as string,
+		);
+		expect(payload.data.relationships.detail.data.attributes.quantity).toBe(1);
+	});
+	test.each([null, 0])(
+		"keeps invalid quantity %s from being replaced with a fallback value",
+		async (amount) => {
+			await expect(
+				sendSiteDiaryRecordToBis("record-1", { ...options, amount }),
+			).rejects.toThrow("norādiet daudzumu");
+			expect(bisFetch).not.toHaveBeenCalled();
+		},
+	);
+	test("rejects incompatible quantities before making a BIS request", async () => {
+		jest.mocked(validateBisDiaryReferences).mockResolvedValue({
+			attributes: {},
+			relationships: {},
+			measurementId: "12",
+			measurementUnit: "m3",
+		});
+		siteDiaryFindUniqueMock.mockResolvedValue({
+			siteId: "site-1",
+			Amounts: 100,
+			Units: "m2",
+		});
+		await expect(sendSiteDiaryRecordToBis("record-1", options)).rejects.toThrow(
+			"norādiet daudzumu",
+		);
+		expect(bisFetch).not.toHaveBeenCalled();
+	});
+});
+test("guards the source amount and comment when clearing incompatible units in a legacy edit", async () => {
+	jest.clearAllMocks();
+	jest.mocked(requireUser).mockResolvedValue({ id: "user-1" } as never);
+	jest
+		.mocked(orgCheck)
+		.mockResolvedValue({ id: "site-1", organizationId: "org-1" } as never);
+	siteDiaryFindUniqueMock.mockResolvedValue({
+		siteId: "site-1",
+		Works: "Concrete",
+		Units: "m2",
+		Amounts: 100,
+		Comments: "Original",
+		Site: {
+			siteDiaryRecordsMap: {
+				Works: { DropDownOptions: { Concrete: "Concrete" } },
+				otherSettings: {
+					defaultConstructionProductivity: {
+						works: [{ work: "Concrete", unit: "m3" }],
+					},
+				},
+			},
+		},
+	});
+	updateMock.mockResolvedValue({});
+	await expect(
+		updateSiteDiaryRecord({ id: "record-1", Works: "Concrete" }),
+	).resolves.toMatchObject({ ok: true });
+	expect(updateMock).toHaveBeenCalledWith({
+		where: {
+			id: "record-1",
+			Works: "Concrete",
+			Units: "m2",
+			Amounts: 100,
+			Comments: "Original",
+		},
+		data: {
+			siteId: "site-1",
+			Works: "Concrete",
+			Units: "m3",
+			Amounts: null,
+			Comments: expect.stringContaining("100 m2"),
+		},
+	});
+});
 function buildCreatedRow(row: any, index = createdRowIndex++) {
   return {
     ...row,
@@ -445,9 +579,10 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     });
     expectSuccessfulSave(result, 2);
     expect(createMock.mock.calls.map(([{ data }]) => [data.Works, data.Amounts, data.Units])).toEqual([
-      [work, 2, "komplekts"],
+      [work, null, "komplekts"],
       ["Cits darbs", 4, "m"],
     ]);
+    expect(createMock.mock.calls[0][0].data.Comments).toContain("2 pcs");
   });
 
   it("links verified source photos to every row in the same report and not the next report", async () => {
