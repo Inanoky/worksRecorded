@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { groundDiarySourceQuotes } from "./diarySourceQuotes";
 
 export const calculationEvidenceSchema = z
 	.object({
@@ -22,6 +23,16 @@ function numbers(text: string, pattern: RegExp) {
 }
 
 function identifiesWork(work: string, quote: string) {
+	const genericWorkEvidence: Record<string, RegExp> = {
+		excavation:
+			/(?:(?:grunts|grunti|tranšej\p{L}*).{0,80}(?:rakšan\p{L}*|izrak\p{L}*)|(?:rakšan\p{L}*|izrak\p{L}*).{0,80}(?:grunts|grunti|tranšej\p{L}*)|\bexcavat\p{L}*)/iu,
+		trenching:
+			/(?:tranšej\p{L}*.{0,60}(?:rakšan\p{L}*|izrak\p{L}*)|(?:rakšan\p{L}*|izrak\p{L}*).{0,60}tranšej\p{L}*|\btrenching\b)/iu,
+		backfilling:
+			/(?:tranšej\p{L}*.{0,60}aizbēr\p{L}*|aizbēr\p{L}*.{0,60}tranšej\p{L}*|\bbackfilling\b)/iu,
+	};
+	if (genericWorkEvidence[work.trim().toLocaleLowerCase("lv")]?.test(quote))
+		return true;
 	const code = work.match(/^\d+(?:\.\d+)*/)?.[0];
 	if (
 		code &&
@@ -64,13 +75,13 @@ export function hasSourceCalculation(
 	if (!/^m(?:3|³)$/i.test(String(row.Units))) return false;
 	const { lengthQuote, rateQuote } = parsed.data;
 	if (
-		!source.includes(lengthQuote) ||
-		!source.includes(rateQuote) ||
+		!groundDiarySourceQuotes(source, [lengthQuote], 1) ||
+		!groundDiarySourceQuotes(source, [rateQuote], 1) ||
 		!identifiesWork(String(row.Works ?? ""), rateQuote)
 	)
 		return false;
 	if (
-		!/(?:uz\s+(?:(?:vienu|tekošo|tekošā|iebūvēto|caurules)\s+){0,4}metru\b|(?:m[3³]|kubikmetr\p{L}*)\s+(?:(?:vienu|tekošo|tekošā|iebūvēto|caurules)\s+){1,4}metru\b|m[3³]\s*\/\s*m\b)/iu.test(
+		!/(?:uz\s+(?:(?:vienu|tekošo|tekošā|iebūvēto|caurules)\s+){0,4}metru\b|uz\s+katru(?:\s+no\s+šiem)?(?:\s+\d+(?:[,.]\d+)?)?\s+(?:metru|metriem)\b|(?:m[3³]|kubikmetr\p{L}*)\s+(?:(?:vienu|tekošo|tekošā|iebūvēto|caurules)\s+){1,4}metru\b|m[3³]\s*\/\s*m\b)/iu.test(
 			rateQuote,
 		)
 	)
@@ -88,6 +99,14 @@ export function hasSourceCalculation(
 		rates.length !== 1 ||
 		lengths[0] <= 0 ||
 		rates[0] <= 0
+	)
+		return false;
+	const referencedLength = rateQuote.match(
+		/uz\s+katru(?:\s+no\s+šiem)?\s+(\d+(?:[,.]\d+)?)\s+metriem/iu,
+	);
+	if (
+		referencedLength &&
+		Number(referencedLength[1].replace(",", ".")) !== lengths[0]
 	)
 		return false;
 	return Math.abs(row.Amounts - lengths[0] * rates[0]) < 0.005;

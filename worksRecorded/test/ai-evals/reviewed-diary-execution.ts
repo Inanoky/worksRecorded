@@ -8,6 +8,7 @@ import {
 	getSiteManagerMetricsSnapshot,
 	runWithSiteManagerAgentEvalContext,
 } from "@/flows/default-construction/backend/site-manager-agent/runContext";
+import type { SiteDiaryExtractionContext } from "@/flows/default-construction/backend/site-manager-agent/siteDiaryExtractionContext";
 import { extractAndSaveSiteDiary } from "@/flows/default-construction/backend/site-manager-agent/tools";
 import type {
 	DefaultConstructionForma2State,
@@ -18,7 +19,7 @@ import { normalizeForma2WorkOptionKey } from "@/flows/default-construction/lib/f
 import { runWithSiteManagerToolContext } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/siteDiaryToolContext";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import {
-	type ReviewedDiaryCase,
+	type DiaryExtractionEvalCase,
 	reviewedDiaryCorpus,
 } from "./reviewed-diary-cases";
 import { getReviewedDiaryModelSettings } from "./reviewed-diary-environment";
@@ -40,8 +41,18 @@ const date = (value: unknown) => {
 		: parsed.toISOString().slice(0, 10);
 };
 export async function executeReviewedDiaryCase(
-	evalCase: ReviewedDiaryCase,
-	scope: { siteId: string; userId: string; runId: string; trace?: boolean },
+	evalCase: DiaryExtractionEvalCase,
+	scope: {
+		siteId: string;
+		userId: string;
+		runId: string;
+		trace?: boolean;
+		environment?: {
+			config: ConfigMap;
+			extractionContext: SiteDiaryExtractionContext;
+		};
+		matchForma2?: boolean;
+	},
 ) {
 	const steps: Record<string, unknown>[] = [];
 	const positions: Forma2Position[] = reviewedDiaryCorpus.project.positions.map(
@@ -57,7 +68,7 @@ export async function executeReviewedDiaryCase(
 		}),
 	);
 	const config = structuredClone(
-		reviewedDiaryCorpus.project.config,
+		scope.environment?.config ?? reviewedDiaryCorpus.project.config,
 	) as ConfigMap;
 	const state: DefaultConstructionForma2State = {
 		version: 1,
@@ -117,7 +128,7 @@ export async function executeReviewedDiaryCase(
 										steps.push(JSON.parse(JSON.stringify(step))),
 									config,
 									language: "lv",
-									extractionContext: {
+									extractionContext: scope.environment?.extractionContext ?? {
 										text: `Projekta Forma2 darbu mērvienības:\n${unitContext}\nNav iepriekšējo ziņu vai izlaboto atbilžu piemēru. Iepriekšējās atbildes nav šīs atskaites faktu avots.`,
 										metadata: {
 											recentRecordCount: 0,
@@ -185,7 +196,9 @@ export async function executeReviewedDiaryCase(
 			openai: matcherClient,
 		});
 	const allocations =
-		run.result.extraction.ok && !run.result.extraction.savedAsNote
+		run.result.extraction.ok &&
+		!run.result.extraction.savedAsNote &&
+		scope.matchForma2 !== false
 			? await (scope.trace
 					? traceable(assign, { name: "Forma2Assignment", run_type: "chain" })({
 							sources,

@@ -156,10 +156,9 @@ Please follow the guidelines below:
 
 
 
-- When multiple works are mentioned in the same text, create separate diary entries for each.
-- If total task duration/workers is given, don't split the record. For example records like : "Ūdens trubas plus kanalizācija, ūdens radiatori, divpadsmit stundas." we don't split, as total time is given and we don't know how to split time
+- Atsevišķi aprakstītus paveiktos darbus saglabā atsevišķi arī tad, ja brigāde vai kopējais ilgums ir kopīgi. Kopīgo laiku un brigādi bez skaidras piesaistes konkrētam darbam saglabā vienreiz atsevišķā piezīmē; darbu rindās atstāj šos laukus null. Neskaidrs tēmu uzskaitījums bez atsevišķi aprakstītām darbībām var palikt viena piezīme.
 - Additional works are works which are usually not part of the construction contract works (reworks, change orders, delays). Only mare additional work if certain
-- If there is no information how to split amounts, Units,	Amounts	,Workers or	Hours between tasks - then don't split. 
+- Ja konkrētam darbam nav zināms apjoms, mērvienība vai ilgums, atstāj attiecīgo lauku null. Neapvieno pārējos skaidri aprakstītos darbus un neizdomā kopīgo skaitļu sadalījumu.
 - Exception: split material delivery from installed/placed work when the source gives separate action+quantity evidence for each, for example "ievesta smilts 160m3, iestrādāti 140m3". Put the delivery quantity on the Material delivery row and the installed/placed quantity plus shared work labor/hours on the work row. Leave delivery Workers and Hours null unless labor/time is explicitly tied to delivery, unloading, or transport.
 - Start times are not durations. Phrases such as "No plkst. 15.00" must not become Hours, and one actor/machine doing conjoined in-progress sub-actions in one sentence should stay one diary row.
 - If there is relevant information present, include it.

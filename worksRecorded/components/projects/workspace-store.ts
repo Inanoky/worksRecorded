@@ -107,7 +107,9 @@ export function createWorkspaceStore(
 				routes: existing?.routes ?? new Map(),
 				lastHref: existing?.lastHref ?? "",
 				authorizedAt: Date.now(),
-				initialDiary: descriptor.constructionWorkspace ? existing?.initialDiary : undefined,
+				initialDiary: descriptor.constructionWorkspace
+					? existing?.initialDiary
+					: undefined,
 			};
 			snapshot = existing
 				? snapshot.map((value) => (value === existing ? entry : value))
@@ -134,7 +136,13 @@ export function createWorkspaceStore(
 			const routes = new Map(entry.routes);
 			routes.set(href, { href, content });
 			snapshot = snapshot.map((value) =>
-				value === entry ? { ...entry, routes, initialDiary: initialDiary ?? entry.initialDiary } : value,
+				value === entry
+					? {
+							...entry,
+							routes,
+							initialDiary: initialDiary ?? entry.initialDiary,
+						}
+					: value,
 			);
 			notify();
 		},
@@ -162,7 +170,7 @@ export function createWorkspaceStore(
 					(entry.descriptor.constructionWorkspace &&
 						["dashboard", "analytics"].some((view) => href === base + view)) ||
 					(entry.descriptor.visualPreload &&
-						["dashboard", "izpildshemas", "analytics", "spending"].some(
+						["dashboard", "izpildshemas", "analytics"].some(
 							(view) => href === base + view,
 						)) ||
 					(entry.descriptor.fimaActs &&

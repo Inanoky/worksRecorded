@@ -75,6 +75,23 @@ describe("frozen diary eval environment", () => {
 			useResponsesApi: true,
 		});
 	});
+	it("uses the production extractor and checker defaults when eval overrides are absent", () => {
+		for (const key of [
+			"AI_EVAL_AGENT_MODEL",
+			"AI_EVAL_REASONING_EFFORT",
+			"AI_EVAL_CHECKER_MODEL",
+			"AI_EVAL_CHECKER_REASONING_EFFORT",
+		])
+			delete process.env[key];
+		expect(getReviewedDiaryModelSettings()).toEqual({
+			model: "gpt-6.1-sol",
+			reasoningEffort: "medium",
+			useResponsesApi: true,
+		});
+		expect(getReviewedDiaryModelSettings("checker")).toEqual(
+			getReviewedDiaryModelSettings(),
+		);
+	});
 
 	it("rejects invalid reasoning settings before model calls", () => {
 		process.env.AI_EVAL_REASONING_EFFORT = "invalid";

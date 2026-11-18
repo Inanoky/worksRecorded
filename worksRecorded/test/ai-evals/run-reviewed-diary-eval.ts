@@ -8,6 +8,12 @@ import {
 	selectEvalCases,
 } from "./eval-case-selection";
 import {
+	productionDiaryCases,
+	productionDiaryEnvironment,
+	productionDiaryProvenance,
+} from "./production-diary-cases";
+import {
+	type DiaryExtractionEvalCase,
 	reviewedDiaryCases,
 	reviewedDiaryCorpus,
 } from "./reviewed-diary-cases";
@@ -19,8 +25,16 @@ import {
 import { validateReviewedDiaryCase } from "./reviewed-diary-validators";
 
 async function main() {
-	const selection = selectEvalCases({ cases: reviewedDiaryCases });
-	console.log("Pārskatīto dienasgrāmatas ierakstu/Forma2 eval kopa:");
+	const productionReplay = process.argv.includes("--production-replay");
+	const cases: DiaryExtractionEvalCase[] = productionReplay
+		? productionDiaryCases
+		: reviewedDiaryCases;
+	const selection = selectEvalCases({ cases });
+	console.log(
+		productionReplay
+			? "Produkcijas dienasgrāmatas plūsmas regresiju kopa:"
+			: "Pārskatīto dienasgrāmatas ierakstu/Forma2 eval kopa:",
+	);
 	for (const line of formatEvalSelectionSummary(selection)) console.log(line);
 	if (process.argv.includes("--dry-run") || process.argv.includes("--list")) {
 		for (const evalCase of selection.selectedCases)
@@ -53,7 +67,7 @@ async function main() {
 	const { executeReviewedDiaryCase } = await import(
 		"./reviewed-diary-execution"
 	);
-	const runId = `reviewed-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+	const runId = `${productionReplay ? "production" : "reviewed"}-${new Date().toISOString().replace(/[:.]/g, "-")}`;
 	const startedAt = new Date().toISOString();
 	const results = [];
 	for (const evalCase of selection.selectedCases) {
@@ -69,6 +83,12 @@ async function main() {
 					userId,
 					runId,
 					trace: tracing.enabled,
+					...(productionReplay
+						? {
+								environment: productionDiaryEnvironment(evalCase),
+								matchForma2: false,
+							}
+						: {}),
 				});
 				const deterministic = validateReviewedDiaryCase(
 					evalCase,
@@ -226,7 +246,12 @@ async function main() {
 		checkerModelSettings: checkerSettings,
 		whatsappReplies: false,
 		langsmith: tracing,
-		corpusProvenance: reviewedDiaryCorpus.provenance,
+		corpusProvenance: productionReplay
+			? productionDiaryProvenance
+			: reviewedDiaryCorpus.provenance,
+		forma2AssignmentMode: productionReplay
+			? "configured-works-only"
+			: "automatic-assignment",
 		summary: {
 			cases: results.length,
 			deterministicFailures: failures,
@@ -251,7 +276,12 @@ async function main() {
 		normalizeEvalReport(report, path.basename(file)),
 	);
 	const htmlFile = file.replace(/\.json$/, ".html");
-	const latestHtmlFile = path.join(directory, "diary-reviewed-latest.html");
+	const latestHtmlFile = path.join(
+		directory,
+		productionReplay
+			? "diary-production-latest.html"
+			: "diary-reviewed-latest.html",
+	);
 	await writeFile(htmlFile, html);
 	await writeFile(latestHtmlFile, html);
 	console.log(`Report: ${file}`);

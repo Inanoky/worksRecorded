@@ -114,6 +114,20 @@ it("reuses authorized preloaded Limeni and FIMA views without inventing other ca
 	expect(store.hasRoute("/dashboard/sites/fima/acts")).toBe(true);
 	expect(store.hasRoute("/dashboard/sites/limeni/settings")).toBe(false);
 });
+it("loads spending through its route before retaining it for later visits", () => {
+	const store = createWorkspaceStore("user", "org");
+	const project = descriptor("limeni", { visualPreload: true });
+	const spending = "/dashboard/sites/limeni/spending";
+	store.registerRoute(project, href("limeni"), "diary");
+	expect(store.hasRoute(spending)).toBe(false);
+	store.registerRoute(project, spending, "financial analytics");
+	store.visit(href("limeni"));
+	expect(store.hasRoute(spending)).toBe(true);
+	expect(store.getSnapshot()[0].routes.get(spending)?.content).toBe(
+		"financial analytics",
+	);
+	expect(store.hasRoute(`${spending}?section=PA1.1`)).toBe(false);
+});
 it("clears retained content and protections when access is removed or identity ends", () => {
 	const store = createWorkspaceStore("user", "org");
 	store.registerRoute(descriptor("a"), href("a"), "private");

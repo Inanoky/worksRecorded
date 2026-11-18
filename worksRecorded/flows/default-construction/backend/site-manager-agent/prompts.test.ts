@@ -10,8 +10,8 @@ jest.mock("@/server/actions/shared-actions", () => ({
   getOrganizationLanguageByUserId: jest.fn(),
 }));
 
-import { getConfig } from "@/server/actions/site-diary-actions";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
+import { getConfig } from "@/server/actions/site-diary-actions";
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
 import {
   systemPromptFunction,
@@ -105,5 +105,13 @@ describe("site-manager BIS routing prompt", () => {
     expect(prompt).toContain('"No plkst. 15.00" states a start time, not a duration');
     expect(prompt).toContain("one actor or one machine is performing conjoined in-progress sub-actions");
     expect(prompt).toContain("should be one note/work row with both actions in Comments");
+  });
+
+  it("splits distinct works while recording shared labour once", async () => {
+    const prompt = await systemPromptSaveToDatabaseFunction("user-1", undefined);
+    expect(prompt).toContain("Atsevišķi aprakstītus paveiktos darbus saglabā atsevišķi");
+    expect(prompt).toContain("vienreiz atsevišķā piezīmē");
+    expect(prompt).not.toContain("If total task duration/workers is given, don't split");
+    expect(prompt).not.toContain("If there is no information how to split amounts");
   });
 });

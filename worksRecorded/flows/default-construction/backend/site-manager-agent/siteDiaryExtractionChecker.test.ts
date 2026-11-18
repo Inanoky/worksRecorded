@@ -11,6 +11,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import {
 	buildSiteDiaryExtractionCheckerMessages,
+	buildSiteDiaryWorkCatalog,
 	invokeSiteDiaryExtractionChecker,
 	serializeRowsForSiteDiaryChecker,
 	siteDiaryExtractionCheckerModel,
@@ -74,7 +75,63 @@ describe("site diary extraction checker", () => {
 			timeout: 120_000,
 			maxRetries: 0,
 			reasoning: { effort: "medium" },
+			useResponsesApi: true,
 		});
+	});
+
+	it("retains the entire configured catalog despite truncated historical context", () => {
+		const works = Object.fromEntries(
+			Array.from({ length: 130 }, (_, index) => [
+				`work-${index}`,
+				`Darbs ${index}`,
+			]),
+		);
+		works.trenching = "Trenching";
+		works.sewer = "2.11 Kanalizācijas tranšejas rakšana";
+		const catalog = buildSiteDiaryWorkCatalog({
+			Works: { Type: "dropdown", DisplayName: "Darbi", DropDownOptions: works },
+		});
+		const messages = buildSiteDiaryExtractionCheckerMessages({
+			originalMessage: "Ūdensvada tranšejas rakšana",
+			rows: [],
+			language: "lv",
+			contextText: "[context truncated to bounded extraction budget]",
+			workCatalog: catalog,
+		});
+		expect(String(messages[1].content)).toContain("Darbs 129");
+		expect(String(messages[1].content)).toContain("Trenching");
+		expect(String(messages[1].content)).toContain(
+			"2.11 Kanalizācijas tranšejas rakšana",
+		);
+	});
+
+	it("gives the repair checker its previous decision without treating it as source evidence", () => {
+		const previousReview = {
+			verdict: "needs_model_repair" as const,
+			reason: "Sadalīt darbus",
+			badSplitSignals: [],
+			repairActions: [],
+			repairInstructions: "Rakšanai izvēlēties 2.11",
+			expectedRecordCount: 2,
+		};
+		const messages = buildSiteDiaryExtractionCheckerMessages({
+			originalMessage: "Ūdensvads 22 metri un tranšeja",
+			language: "lv",
+			rows: [{ Works: "2.11" }],
+			repairContext: { previousRows: [{ Works: "Piezīmes" }], previousReview },
+		});
+		expect(String(messages[1].content)).toContain(
+			JSON.stringify(previousReview),
+		);
+		expect(String(messages[1].content)).toContain(
+			"Previous rows before repair",
+		);
+		expect(String(messages[0].content)).toContain(
+			"prior instructions never override source evidence",
+		);
+		expect(String(messages[0].content)).toContain(
+			"Water-pipe excavation must not be assigned to a sewer-specific position",
+		);
 	});
 
 	it("uses the selected eval checker model and Responses API", async () => {
@@ -265,22 +322,22 @@ describe("site diary extraction checker", () => {
 		expect(result.parsed.badSplitSignals).toContain("start time only");
 	});
 
-	it("rejects shared-hours rows that were split unsafely", async () => {
+	it("rejects duplicated shared hours while preserving distinct completed works", async () => {
 		mockInvoke.mockResolvedValue({
 			parsed: {
 				verdict: "retry",
 				reason: "Kopējās stundas nav sadalāmas pa atsevišķiem darbiem.",
 				badSplitSignals: ["shared total hours"],
 				repairInstructions:
-					"Saglabā kā vienu kopsavilkuma ierakstu ar kopējām 12 stundām.",
-				expectedRecordCount: 1,
+					"Saglabā trīs atsevišķus darbus ar null stundām un kopējās 12 stundas vienreiz atsevišķā darba laika piezīmē.",
+				expectedRecordCount: 4,
 			},
 			raw: {},
 		});
 
 		const result = await invokeSiteDiaryExtractionChecker({
 			originalMessage:
-				"Ūdens trubas plus kanalizācija, ūdens radiatori, divpadsmit stundas.",
+				"Iebūvēts ūdensvads. Iebūvēta kanalizācijas caurule. Uzstādīti radiatori. Visus trīs darbus kopā veica divpadsmit stundās.",
 			language: "lv",
 			rows: [
 				{ Works: "Ūdens trubas", TimeInvolved: 12 },
@@ -554,6 +611,27 @@ describe("site diary extraction checker", () => {
 		expect(serialized).not.toContain("hidden");
 	});
 
+	it("shows complete proposed facts and explicit null fields to prevent unnecessary repair", () => {
+		const comment = `${"Pamatots komentārs. ".repeat(20)}Amounts paliek null līdz precizējumam.`;
+		const work = `1.1 ${"Pilns darbu apraksts ".repeat(12)}`;
+		const serialized = serializeRowsForSiteDiaryChecker([
+			{
+				Works: work,
+				Comments: comment,
+				Amounts: null,
+				Units: "m3",
+				WorkersInvolved: null,
+				TimeInvolved: null,
+			},
+		]);
+		expect(serialized).toContain(work);
+		expect(serialized).toContain(comment);
+		expect(serialized).toContain("Amounts: null");
+		expect(serialized).toContain("Units: m3");
+		expect(serialized).toContain("WorkersInvolved: null");
+		expect(serialized).toContain("TimeInvolved: null");
+	});
+
 	it("prompts the checker to judge real jobs rather than machinery or sub-actions", () => {
 		const messages = buildSiteDiaryExtractionCheckerMessages({
 			originalMessage: "Frēzēšana ar tehniku un operatoru.",
@@ -575,7 +653,9 @@ describe("site diary extraction checker", () => {
 			"multiple distinct source-backed diary events/jobs",
 		);
 		expect(system).toContain("merged them into one broad row");
-		expect(system).toContain("one-row summaries");
+		expect(system).toContain(
+			"Shared workers or total hours never justify merging distinct completed works",
+		);
 		expect(system).toContain(
 			"material delivery with actual installed/placed work",
 		);

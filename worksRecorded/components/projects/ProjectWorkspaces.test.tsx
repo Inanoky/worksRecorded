@@ -6,6 +6,7 @@ import {
 	waitFor,
 } from "@testing-library/react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
 import OpenProjectButton from "@/components/providers/ButtonClient";
 import {
 	ProjectProvider,
@@ -17,6 +18,7 @@ const mockRefresh = jest.fn();
 const mockReplace = jest.fn();
 const mockLoad = jest.fn();
 const mockDispose = jest.fn();
+const mockRouteLoad = jest.fn();
 jest.mock("next/link", () => ({
 	__esModule: true,
 	default: ({
@@ -45,6 +47,7 @@ jest.mock("next/link", () => ({
 				)
 					return;
 				onNavigate?.({ preventDefault: () => event.preventDefault() });
+				if (!event.defaultPrevented) mockRouteLoad(href);
 				event.preventDefault();
 			}}
 		>
@@ -167,6 +170,9 @@ function Navigation() {
 	return (
 		<>
 			<OpenProjectButton projectId="a" projectName="a" label="Open cached a" />
+			<FimaProjectNavigationLink href={href("a", "spending")}>
+				Izmaksu dinamika
+			</FimaProjectNavigationLink>
 			{["a", "b"].map((id) => (
 				<button
 					key={id}
@@ -177,11 +183,18 @@ function Navigation() {
 		</>
 	);
 }
-function ServerContent({ id }: { id: string }) {
-	const content = useMemo(() => <StatefulScreen id={id} />, [id]);
+function ServerContent({
+	id,
+	view = "dashboard",
+}: {
+	id: string;
+	view?: string;
+}) {
+	const screenId = view === "dashboard" ? id : `${id}-${view}`;
+	const content = useMemo(() => <StatefulScreen id={screenId} />, [screenId]);
 	return (
 		<RegisterProjectWorkspace descriptor={descriptor(id)}>
-			<RegisterProjectPage siteId={id} href={href(id)}>
+			<RegisterProjectPage siteId={id} href={href(id, view)}>
 				{content}
 			</RegisterProjectPage>
 		</RegisterProjectWorkspace>
@@ -189,9 +202,11 @@ function ServerContent({ id }: { id: string }) {
 }
 function App({
 	serverId,
+	serverView,
 	userId = "user",
 }: {
 	serverId: string;
+	serverView?: string;
 	userId?: string;
 }) {
 	return (
@@ -199,7 +214,7 @@ function App({
 			<ProjectWorkspaceProvider userId={userId} organizationId="org">
 				<Navigation />
 				<ProjectWorkspaceViewport>
-					<ServerContent id={serverId} />
+					<ServerContent id={serverId} view={serverView} />
 				</ProjectWorkspaceViewport>
 			</ProjectWorkspaceProvider>
 		</ProjectProvider>
@@ -212,6 +227,7 @@ function changeUrl(url: string) {
 let push: typeof window.history.pushState;
 beforeEach(() => {
 	jest.clearAllMocks();
+	descriptors.clear();
 	window.scrollTo = jest.fn();
 	window.history.replaceState(null, "", href("a"));
 	push = window.history.pushState.bind(window.history);
@@ -223,6 +239,29 @@ beforeEach(() => {
 		});
 });
 afterEach(() => jest.restoreAllMocks());
+
+it("loads the financial route on its first visit and then restores its filters without another route load", () => {
+	descriptors.set("a", { ...descriptor("a"), visualPreload: true });
+	const app = render(<App serverId="a" />);
+	fireEvent.click(screen.getByRole("link", { name: "Izmaksu dinamika" }));
+	expect(mockRouteLoad).toHaveBeenCalledWith(href("a", "spending"));
+	act(() => changeUrl(href("a", "spending")));
+	app.rerender(<App serverId="a" serverView="spending" />);
+	const filter = screen.getByLabelText("edit-a-spending");
+	fireEvent.change(filter, { target: { value: "PA1.1" } });
+	fireEvent.click(screen.getByText("a-spending:page=1"));
+	fireEvent.click(screen.getByText("back-a"));
+	expect(filter).not.toBeVisible();
+	fireEvent.click(screen.getByRole("link", { name: "Izmaksu dinamika" }));
+	expect(filter).toBeVisible();
+	expect(filter).toHaveValue("PA1.1");
+	expect(screen.getByText("a-spending:page=2")).toBeVisible();
+	expect(mockRouteLoad).toHaveBeenCalledTimes(1);
+	expect(
+		mockLoad.mock.calls.filter(([id]) => id === "a-spending"),
+	).toHaveLength(1);
+	expect(mockRefresh).not.toHaveBeenCalled();
+});
 
 it("switches back without mounting or loading again and preserves edits, pagination and the project scope", () => {
 	const app = render(<App serverId="a" />);

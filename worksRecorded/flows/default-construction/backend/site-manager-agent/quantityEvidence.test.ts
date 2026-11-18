@@ -76,3 +76,58 @@ it.each([
 	if (kind === "wrong-unit") invalid.Units = "m2";
 	expect(hasSourceCalculation(invalid, input)).toBe(false);
 });
+
+it("supports an English generic trenching category with explicit Latvian per-metre evidence", () => {
+	const source =
+		"Ūdensvads 22,09 metri. Ūdensvada tranšejai izrakti 3 kubikmetri grunts uz katru no šiem 22,09 metriem.";
+	const calculated = {
+		Works: "Trenching",
+		Amounts: 66.27,
+		Units: "m3",
+		calculationEvidence: {
+			lengthQuote: "22,09 metri",
+			rateQuote:
+				"Ūdensvada tranšejai izrakti 3 kubikmetri grunts uz katru no šiem 22,09 metriem.",
+		},
+	};
+	expect(hasSourceCalculation(calculated, source)).toBe(true);
+	expect(
+		hasSourceCalculation({ ...calculated, Works: "Excavation" }, source),
+	).toBe(true);
+	expect(
+		hasSourceCalculation({ ...calculated, Works: "Backfilling" }, source),
+	).toBe(false);
+	expect(hasSourceCalculation({ ...calculated, Amounts: 68.7 }, source)).toBe(
+		false,
+	);
+	expect(
+		hasSourceCalculation(
+			calculated,
+			source.replace("3 kubikmetri", "4 kubikmetri"),
+		),
+	).toBe(false);
+	const differentLength = source.replace("šiem 22,09", "šiem 25");
+	expect(
+		hasSourceCalculation(
+			{
+				...calculated,
+				calculationEvidence: {
+					...calculated.calculationEvidence,
+					rateQuote: calculated.calculationEvidence.rateQuote.replace(
+						"šiem 22,09",
+						"šiem 25",
+					),
+				},
+			},
+			differentLength,
+		),
+	).toBe(false);
+});
+
+it("allows punctuation-only differences in calculation quotes", () => {
+	const punctuated = source.replace("22 metri.", "22 metri,");
+	expect(hasSourceCalculation(row, punctuated)).toBe(true);
+	expect(
+		hasSourceCalculation(row, punctuated.replace("22 metri", "23 metri")),
+	).toBe(false);
+});

@@ -1,3 +1,4 @@
+import { groundDiarySourceQuotes } from "./diarySourceQuotes";
 import type { SiteDiaryExtractionCheckerResult } from "./siteDiaryExtractionChecker";
 
 type Row = Record<string, unknown>;
@@ -51,17 +52,8 @@ export function recoverReviewedDiaryRows(args: {
 	if (
 		byIndex.size !== rows.length ||
 		reviews.some(
-			(review) =>
-				review.rowIndex < 0 ||
-				review.rowIndex >= rows.length ||
-				review.sourceText.length < 10 ||
-				!source.includes(review.sourceText),
+			(review) => review.rowIndex < 0 || review.rowIndex >= rows.length,
 		)
-	)
-		return null;
-	if (
-		!reviews.some((review) => review.status === "accept") ||
-		!reviews.some((review) => review.status === "needs_review")
 	)
 		return null;
 	if (
@@ -77,17 +69,31 @@ export function recoverReviewedDiaryRows(args: {
 	const recovered = rows.map((row, index) => {
 		const review = byIndex.get(index);
 		if (!review) throw new Error("Missing reviewed row");
-		if (review.status === "accept") {
+		const groundedSource = groundDiarySourceQuotes(
+			source,
+			review.sourceSpans?.length ? review.sourceSpans : [review.sourceText],
+		);
+		if (review.status === "accept" && groundedSource) {
 			qualities.push({ status: "accepted", reason: review.reason });
 			return { ...row };
 		}
-		qualities.push({ status: "needs_review", reason: review.reason });
+		const reason = groundedSource
+			? review.reason
+			: `Nav pārbaudāma precīza saite uz avota tekstu. ${review.reason}`;
+		qualities.push({ status: "needs_review", reason });
 		const measured =
-			args.measurementIsSupported?.(row, review.sourceText) === true;
+			groundedSource !== null &&
+			!checker.repairActions?.some(
+				(action) =>
+					action.rowIndex === index &&
+					(action.field === "Amounts" || action.field === "Units") &&
+					action.operation === "set_null",
+			) &&
+			args.measurementIsSupported?.(row, groundedSource) === true;
 		return {
 			Date: row.Date,
 			Works: notesCategory,
-			Comments: `Jāpārskata: ${review.reason}\n${review.sourceText}`,
+			Comments: `Jāpārskata: ${reason}\n${groundedSource ?? source}`,
 			Location: null,
 			Amounts: measured ? row.Amounts : null,
 			Units: measured ? row.Units : null,
@@ -95,6 +101,11 @@ export function recoverReviewedDiaryRows(args: {
 			TimeInvolved: null,
 		};
 	});
+	if (
+		!qualities.some((quality) => quality.status === "accepted") ||
+		!qualities.some((quality) => quality.status === "needs_review")
+	)
+		return null;
 	return {
 		rows: recovered,
 		qualities,

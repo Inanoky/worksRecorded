@@ -37,15 +37,22 @@ export function getReviewedDiaryModelSettings(
 		role === "checker"
 			? "AI_EVAL_CHECKER_REASONING_EFFORT"
 			: "AI_EVAL_REASONING_EFFORT";
-	const model = process.env[modelKey]?.trim() || undefined;
+	const model =
+		process.env[modelKey]?.trim() ||
+		(role === "checker"
+			? siteDiaryExtractionCheckerModel
+			: structuredSiteDiaryModel);
 	const effort = process.env[effortKey];
 	if (effort && !["low", "medium", "high"].includes(effort)) {
 		throw new Error(`${effortKey} must be low, medium or high.`);
 	}
 	return {
 		model,
-		reasoningEffort: effort as "low" | "medium" | "high" | undefined,
-		useResponsesApi: model === "gpt-6.1-sol" || undefined,
+		reasoningEffort: (effort ||
+			(role === "checker"
+				? siteDiaryExtractionCheckerReasoningEffort
+				: structuredSiteDiaryReasoningEffort)) as "low" | "medium" | "high",
+		useResponsesApi: diaryModelUsesResponsesApi(model) || undefined,
 	};
 }
 
@@ -59,3 +66,11 @@ export function assertReviewedDiaryEnvironment() {
 	console.log("AI eval environment guard: PASS (frozen corpus, no database)");
 	return reviewedDiaryScope;
 }
+
+import {
+	diaryModelUsesResponsesApi,
+	siteDiaryExtractionCheckerModel,
+	siteDiaryExtractionCheckerReasoningEffort,
+	structuredSiteDiaryModel,
+	structuredSiteDiaryReasoningEffort,
+} from "@/flows/default-construction/backend/site-manager-agent/diaryModelSettings";

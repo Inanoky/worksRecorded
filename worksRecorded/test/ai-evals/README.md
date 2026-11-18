@@ -693,7 +693,7 @@ RUN_AI_EVALS=true npm run eval:ai:ocelt
 open .ai-eval-results/diary-reviewed-latest.html
 ```
 
-Extractor modeļa salīdzinājumam var norādīt `AI_EVAL_AGENT_MODEL` un `AI_EVAL_REASONING_EFFORT` (`low`, `medium`, `high`). Tie attiecas arī uz extractor labošanas izsaukumiem. Checker var atsevišķi izvēlēties ar `AI_EVAL_CHECKER_MODEL` un `AI_EVAL_CHECKER_REASONING_EFFORT`; bez tiem tas izmanto esošo `gpt-5.6-terra` ar `medium`. Izvēlētais checker modelis darbojas arī atkārtotajā pārbaudē pēc labošanas. GPT-6.1 Sol eval izsaukumos izmanto Responses API. Abu modeļu iestatījumus saglabā rezultātu JSON.
+Extractor modeļa salīdzinājumam var norādīt `AI_EVAL_AGENT_MODEL` un `AI_EVAL_REASONING_EFFORT` (`low`, `medium`, `high`). Tie attiecas arī uz extractor labošanas izsaukumiem. Checker var atsevišķi izvēlēties ar `AI_EVAL_CHECKER_MODEL` un `AI_EVAL_CHECKER_REASONING_EFFORT`; bez tiem tas izmanto produkcijas noklusējumu `gpt-6.1-sol` ar `medium`. Izvēlētais checker modelis darbojas arī atkārtotajā pārbaudē pēc labošanas. GPT-6.1 Sol izsaukumos izmanto Responses API. Abu modeļu iestatījumus saglabā rezultātu JSON.
 
 ```bash
 RUN_AI_EVALS=true AI_EVAL_AGENT_MODEL=gpt-6.1-sol AI_EVAL_REASONING_EFFORT=high npm run eval:ai:ocelt
@@ -736,6 +736,20 @@ Balss labojumi pēc transkripcijas izmanto tos pašus `start_site_diary_correcti
 Dažādu klientu pārbaudes izmanto izvēlētā projekta konfigurāciju ar atšķirīgiem darbu lauku nosaukumiem, kategorijām un mērvienībām. Jumta m2 un cauruļu m piemēros lokāli pārbaudīta gan pieņemta ekstrakcija, gan sākotnējā teksta piezīme pēc taimauta. Tas pārbauda kopīgo mehānismu; katra klienta reālo datu precizitātei jāpievieno attiecīgā klienta piemēri.
 
 `eval:ai:ocelt` izmanto to pašu `node --import ... --import tsx` palaišanas kārtību kā `eval:ai:dashboard` un `eval:ai:whatsapp-site-manager`. Tas tieši izsauc `run-reviewed-diary-eval.ts` ar `--tag ocelt`, un papildu `--case`, `--list` vai `--dry-run` argumentus var padot aiz `--`. `eval:ai:diary-reviewed` paliek pieejams visai pārskatīto ierakstu kopai; `ai:run` ir izvēles apvalks, kas papildus pārbauda jaunākās atskaites rezultātu.
+
+Produkcijas ekstraktora un pārbaudītāja modeļus nosaka `flows/default-construction/backend/site-manager-agent/diaryModelSettings.ts`: abiem `gpt-6.1-sol`, `medium`, Responses API. Tie ir koda noklusējumi, kas produkcijā stājas spēkā pēc izvietošanas. `AI_EVAL_AGENT_MODEL`, `AI_EVAL_REASONING_EFFORT`, `AI_EVAL_CHECKER_MODEL` un `AI_EVAL_CHECKER_REASONING_EFFORT` maina tikai testu izpildi. WhatsApp maršrutēšanas modeļa konfigurācija paliek `server/ai-flows/ai-models-settings.ts`.
+
+Produkcijas kļūmju atkārtošanai ir atsevišķa kopa; tā nemaina manuāli pārskatīto Ocelt vēsturisko datu kopu:
+
+```bash
+npm run eval:ai:diary-production -- --dry-run
+RUN_AI_EVALS=true AI_EVAL_LANGSMITH_PROJECT=AI-Evals npm run eval:ai:diary-production -- --trace
+open .ai-eval-results/diary-production-latest.html
+```
+
+Šie četri piemēri ietver divas 17. novembra produkcijas transkripcijas un divas skaidras regresijas darba laika piesaistei. Sagaidāmie rezultāti ir testa prasības, nevis apgalvojums, ka tos jau manuāli pārskatījis klients. Saglabāti 101 produkcijas darbu izvēles varianti, angļu vispārīgās kategorijas un Forma2 mērvienību konfigurācija; vēsturiskās atskaites aizvietotas ar testa datiem, konteksts ierobežots līdz 12 000 rakstzīmēm. Atskaitē ir LangSmith saites un ekstraktora, normalizācijas, pārbaudītāja un labošanas posmi. Šī kopa pārbauda piesaisti Forma2 ar konfigurēto darba izvēli; atsevišķais automātisko Forma2 piesaistes ieteikumu modelis šajā kopā netiek palaists. Nav datubāzes lasījumu, ierakstu vai WhatsApp atbilžu.
+
+Kopējais darba laiks bez sadalījuma tiek saglabāts vienreiz atsevišķā piezīmē. Atsevišķi aprakstītos darbus saglabā savās rindās; konkrētam darbam skaidri piesaistītos darbiniekus un ilgumu saglabā uz šī darba rindas. Pārbaudītājs saņem pilnu darbu un mērvienību katalogu arī tad, ja vēsturiskais konteksts ir saīsināts, un pēc labošanas redz savu iepriekšējo vērtējumu. Avota citātu pārbaude pieļauj pieturzīmju un atstarpju atšķirības, bet nemaina vārdus, skaitļus, mērvienības vai identifikatorus. Vairākas avota vietas jānorāda kā atsevišķi `sourceSpans`; kļūdaina saite uz avotu vienā rindā pati par sevi neatceļ pārējās pamatotās rindas.
 
 Pilnajiem `whatsapp-site-manager` evaliem izolētās datubāzes vides pārbaude paliek spēkā. Ja `AI_EVAL_USER_ID` pieder citai organizācijai nekā `AI_EVAL_ALLOWED_ORGANIZATION_ID` vai lietotājam nav izvēlēts testa projekts WhatsApp kontekstā, vispirms jānorāda atbilstošs testa lietotājs. Šāda neatbilstība netiek apieta ar Ocelt fiksētās kopas palaidēju.
 

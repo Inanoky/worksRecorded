@@ -46,7 +46,13 @@ import {
 	SiteManagerAiTimeoutError,
 	withSiteManagerAiBudget,
 } from "./aiDeadline";
+import {
+	diaryModelUsesResponsesApi,
+	structuredSiteDiaryModel,
+	structuredSiteDiaryReasoningEffort,
+} from "./diaryModelSettings";
 import { DIARY_SOURCE_POLICY, isContextOnlyDiaryAmount, normalizeDiarySourceRows } from "./diarySourcePolicy";
+import { groundDiarySourceQuotes } from "./diarySourceQuotes";
 import {
 	detectReplyLanguage,
 	type SiteDiaryCorrectionResult,
@@ -80,9 +86,11 @@ import {
 } from "./runContext";
 import { buildSiteDiaryCorrectionQuestion, VOICE_DIARY_CORRECTION_GUIDANCE } from "./siteDiaryCorrectionContext";
 import {
+	buildSiteDiaryWorkCatalog,
 	invokeSiteDiaryExtractionChecker,
 	type SiteDiaryCheckerModelSettings,
 	type SiteDiaryExtractionCheckerResult,
+	serializeRowsForSiteDiaryChecker,
 	siteDiaryExtractionCheckerModel,
 } from "./siteDiaryExtractionChecker";
 import {
@@ -165,9 +173,6 @@ export const allowedUnits = [
 	"minute",
 	"lifts",
 ] as const;
-
-const structuredSiteDiaryModel = "gpt-5.6-sol";
-const structuredSiteDiaryReasoningEffort = "medium" as const;
 
 type LooseRecord = Record<string, unknown>;
 
@@ -824,6 +829,61 @@ const safeCheckerNullRepairFields = new Set([
 	"Location",
 ]);
 
+function isReviewedDuplicateNoteQuantity(
+	rows: LooseRecord[],
+	checker: SiteDiaryExtractionCheckerResult,
+	rowIndex: number,
+	source: string,
+) {
+	const row = rows[rowIndex];
+	if (
+		checker.verdict !== "repairable" ||
+		checker.coverageComplete !== true ||
+		!/^(?:notes?|piezīmes)$/iu.test(String(row.Works ?? ""))
+	)
+		return false;
+	const review = checker.rowReviews?.find(
+		(review) => review.rowIndex === rowIndex,
+	);
+	if (
+		review?.status !== "needs_review" ||
+		!groundDiarySourceQuotes(
+			source,
+			review.sourceSpans?.length ? review.sourceSpans : [review.sourceText],
+		)
+	)
+		return false;
+	if (
+		!["Amounts", "Units"].every((field) =>
+			checker.repairActions?.some(
+				(action) =>
+					action.rowIndex === rowIndex &&
+					action.field === field &&
+					action.operation === "set_null",
+			),
+		)
+	)
+		return false;
+	return rows.some((candidate, index) => {
+		if (
+			index === rowIndex ||
+			/^(?:notes?|piezīmes)$/iu.test(String(candidate.Works ?? "")) ||
+			candidate.Amounts !== row.Amounts ||
+			normalizeAmountUnitFamily(candidate.Units) !== normalizeAmountUnitFamily(row.Units)
+		)
+			return false;
+		const accepted = checker.rowReviews?.find(
+			(review) => review.rowIndex === index && review.status === "accept",
+		);
+		if (!accepted) return false;
+		const evidence = groundDiarySourceQuotes(
+			source,
+			accepted.sourceSpans?.length ? accepted.sourceSpans : [accepted.sourceText],
+		);
+		return evidence !== null && hasSourceBackedAmountUnitPair(candidate, evidence);
+	});
+}
+
 function applyStructuredCheckerFieldRepair(args: {
 	rows: LooseRecord[];
 	checker: SiteDiaryExtractionCheckerResult;
@@ -851,7 +911,8 @@ function applyStructuredCheckerFieldRepair(args: {
 		const row = repairedRows[action.rowIndex];
 		if (
 			(action.field === "Amounts" || action.field === "Units") &&
-			hasSourceBackedAmountUnitPair(row, source)
+			hasSourceBackedAmountUnitPair(row, source) &&
+			!isReviewedDuplicateNoteQuantity(rows, checker, action.rowIndex, source)
 		) {
 			protectedSourceBackedAmountActions += 1;
 			continue;
@@ -1231,6 +1292,13 @@ async function extractAndSaveSiteDiaryCore(
 			assignTraceMetadata(args.runnableConfig, metadata);
 			assignTraceMetadata(aiContext.runnableConfig, metadata);
 			addTraceTags(aiContext.runnableConfig, ["site-diary:partial-recovery"]);
+			captureStep({
+				phase: "partial_recovery",
+				rows: candidate.rows,
+				rowQuality: candidate.qualities,
+				reviewCount: candidate.reviewCount,
+				persisted: args.persist !== false,
+			});
 			recordSiteManagerToolCall({
 				name: "save_partial_recovery",
 				durationMs: Date.now() - started,
@@ -1417,9 +1485,8 @@ async function extractAndSaveSiteDiaryCore(
 		timeout: SITE_MANAGER_AI_BUDGET_MS,
 		maxRetries: 0,
 		reasoning: { effort: extractionReasoningEffort },
-		...(args.evaluationContext?.useResponsesApi
-			? { useResponsesApi: true }
-			: {}),
+		useResponsesApi:
+			args.evaluationContext?.useResponsesApi ?? diaryModelUsesResponsesApi(extractionModel),
 	});
 	const structuredLlm = llm.withStructuredOutput(responseSchema, {
 		includeRaw: true,
@@ -1726,6 +1793,7 @@ async function extractAndSaveSiteDiaryCore(
 				rows,
 				language,
 				contextText: extractionContext.text,
+				workCatalog: buildSiteDiaryWorkCatalog(mapToUse),
 				referenceDate: date,
 				runnableConfig: checkerTrace.runnableConfig,
 				evaluationModel: args.evaluationContext?.checkerModel,
@@ -1865,7 +1933,7 @@ async function extractAndSaveSiteDiaryCore(
 						persist: false,
 						runExtractionChecker: false,
 						repairInstructions:
-							checker.parsed.repairInstructions || checker.parsed.reason,
+							`${checker.parsed.repairInstructions || checker.parsed.reason}\nIepriekšējās rindas (labo tikai norādītos trūkumus, saglabā pārējos avota faktus):\n${serializeRowsForSiteDiaryChecker(rows)}`,
 						fastPathTrace: args.fastPathTrace,
 						intentContext: args.intentContext,
 						runnableConfig: args.runnableConfig,
@@ -1914,13 +1982,26 @@ async function extractAndSaveSiteDiaryCore(
 					);
 					if (repair.rows.length >= 1) {
 						const repairCheckerStarted = Date.now();
+						const repairCheckerConfig = {
+							...checkerTrace.runnableConfig,
+							metadata: {
+								...checkerTrace.runnableConfig.metadata,
+								proposedRecordCount: repair.rows.length,
+								repair: true,
+							},
+						};
 						const repairChecker = await invokeSiteDiaryExtractionChecker({
 							originalMessage: args.question,
 							rows: repair.rows,
 							language,
 							contextText: extractionContext.text,
+							workCatalog: buildSiteDiaryWorkCatalog(mapToUse),
+							repairContext: {
+								previousRows: rows,
+								previousReview: checker.parsed,
+							},
 							referenceDate: date,
-							runnableConfig: checkerTrace.runnableConfig,
+							runnableConfig: repairCheckerConfig,
 							evaluationModel: args.evaluationContext?.checkerModel,
 						});
 						captureStep({
@@ -2032,7 +2113,7 @@ async function extractAndSaveSiteDiaryCore(
 		} catch (error) {
 			const checkerDurationMs = Date.now() - checkerStarted;
 			console.warn(
-				"site diary extraction checker failed; falling back to original message note",
+				"site diary validation failed; attempting partial recovery or an original-message note",
 				error,
 			);
 			recordSiteManagerTiming("structuredCheckerMs", checkerDurationMs);

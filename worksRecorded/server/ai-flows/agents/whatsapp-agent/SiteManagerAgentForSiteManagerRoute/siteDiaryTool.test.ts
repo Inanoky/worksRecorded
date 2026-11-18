@@ -635,6 +635,10 @@ describe("save_to_database site diary tool", () => {
 					steps.filter((step) => step.phase === "checker")[1],
 				).toMatchObject({ repair: true, result: { verdict } });
 				expect(structuredInvokeMock).toHaveBeenCalledTimes(4);
+				const repairCheckerMessages = structuredInvokeMock.mock.calls[3][0];
+				expect(String(repairCheckerMessages[1].content)).toContain("Previous checker review");
+				expect(String(repairCheckerMessages[1].content)).toContain("Saglabā tikai vienu betonēšanas darbu.");
+				expect(String(repairCheckerMessages[1].content)).toContain("Complete configured work catalog");
 				expect(getConfigMock).not.toHaveBeenCalled();
 				expect(buildSiteDiaryExtractionContextMock).not.toHaveBeenCalled();
 				expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
@@ -1726,6 +1730,29 @@ describe("save_to_database site diary tool", () => {
 				}),
 			}),
 		);
+	});
+
+	it.each([true, false])("clears a duplicated note quantity only with grounded checker evidence: %s", async (grounded) => {
+		const question = "Iebetonēti 12 m3 betona. Rakšanas apjoms jāprecizē.";
+		structuredInvokeMock.mockResolvedValueOnce({ records: [
+			{ Activity: "Concrete pour", Quantity: 12, Mrv: "m3" },
+			{ Activity: "Piezīmes", Quantity: 12, Mrv: "m3", Comments: "Rakšanas apjoms jāprecizē." },
+		] }).mockResolvedValueOnce({ parsed: {
+			verdict: "repairable", reason: "Piezīmei nokopēts betonēšanas apjoms", badSplitSignals: [], repairInstructions: "Piezīmes apjomu un mērvienību atstāt null", expectedRecordCount: 2, coverageComplete: true,
+			repairActions: ["Amounts", "Units"].map((field) => ({ rowIndex: 1, field, operation: "set_null", reason: "Cita darba apjoms" })),
+			rowReviews: [
+				{ rowIndex: 0, status: "accept", reason: "Pamatots", sourceText: grounded ? "Iebetonēti 12 m3 betona." : "Iebetonēti 99 m3 betona." },
+				{ rowIndex: 1, status: "needs_review", reason: "Nav rakšanas apjoma", sourceText: "Rakšanas apjoms jāprecizē." },
+			],
+		} });
+		saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 2, recordIds: ["work", "note"] });
+		const result = await extractAndSaveSiteDiary({ question, requestedDate: "17-11-2026" });
+		expect(result.ok).toBe(true);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+			expect.objectContaining({ Works: "Concrete pour", Amounts: 12, Units: "m3" }),
+			expect.objectContaining({ Works: "Piezīmes", Amounts: grounded ? null : 12, Units: grounded ? null : "m3" }),
+		]);
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(2);
 	});
 
 	it("nulls wrong amount unit pairs before checker and does not protect checker repair", async () => {

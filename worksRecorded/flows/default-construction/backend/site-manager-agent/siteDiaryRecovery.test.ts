@@ -89,25 +89,87 @@ it("protects accepted rows when repair rewrites or drops them", () => {
 	).toEqual(rows);
 });
 
-it.each([
-	"coverage",
-	"count",
-	"duplicate",
-	"quote",
-	"all-unsafe",
-	"all-accepted",
-])("refuses partial approval without reliable %s", (kind) => {
-	const review = JSON.parse(JSON.stringify(checker));
-	if (kind === "coverage") review.coverageComplete = false;
-	if (kind === "count") review.expectedRecordCount = 4;
-	if (kind === "duplicate") review.rowReviews[1].rowIndex = 0;
-	if (kind === "quote")
-		review.rowReviews[0].sourceText = "Šāds darbs nav veikts";
-	if (kind === "all-unsafe")
-		for (const item of review.rowReviews) item.status = "needs_review";
-	if (kind === "all-accepted")
-		for (const item of review.rowReviews) item.status = "accept";
-	expect(recover(review)).toBeNull();
+it.each(["coverage", "count", "duplicate", "all-unsafe", "all-accepted"])(
+	"refuses partial approval without reliable %s",
+	(kind) => {
+		const review = JSON.parse(JSON.stringify(checker));
+		if (kind === "coverage") review.coverageComplete = false;
+		if (kind === "count") review.expectedRecordCount = 4;
+		if (kind === "duplicate") review.rowReviews[1].rowIndex = 0;
+		if (kind === "all-unsafe")
+			for (const item of review.rowReviews) item.status = "needs_review";
+		if (kind === "all-accepted")
+			for (const item of review.rowReviews) item.status = "accept";
+		expect(recover(review)).toBeNull();
+	},
+);
+
+it("quarantines a bad quote without discarding other accepted works", () => {
+	const review: SiteDiaryExtractionCheckerResult = JSON.parse(
+		JSON.stringify(checker),
+	);
+	if (!review.rowReviews) throw new Error("Missing reviews");
+	review.rowReviews[0].sourceText = "Iebetonēti pamati 99 m3.";
+	const result = recover(review);
+	expect(result?.rows[1]).toEqual(rows[1]);
+	expect(result?.rows[0]).toMatchObject({
+		Works: "Piezīmes",
+		Amounts: null,
+		Units: null,
+	});
+	expect(result?.rows[0].Comments).toContain(source);
+	expect(result?.qualities.map((quality) => quality.status)).toEqual([
+		"needs_review",
+		"accepted",
+		"needs_review",
+	]);
+});
+
+it("recovers labour when the checker changes a transcript comma to a period", () => {
+	const source =
+		"Ūdensvads 22 metri. Darbus veica divi cilvēki, astoņas stundas, un veikta rakšana.";
+	const result = recoverReviewedDiaryRows({
+		source,
+		notesCategory: "Piezīmes",
+		rows: [
+			{ Date: "2026-11-17", Works: "Ūdensvads", Amounts: 22, Units: "m" },
+			{
+				Date: "2026-11-17",
+				Works: "Piezīmes",
+				WorkersInvolved: 2,
+				TimeInvolved: 8,
+			},
+			{ Date: "2026-11-17", Works: "Rakšana" },
+		],
+		checker: {
+			...checker,
+			rowReviews: [
+				{
+					rowIndex: 0,
+					status: "accept",
+					reason: "Pamatots",
+					sourceText: "Ūdensvads 22 metri.",
+				},
+				{
+					rowIndex: 1,
+					status: "accept",
+					reason: "Kopīgais laiks",
+					sourceText: "Darbus veica divi cilvēki, astoņas stundas.",
+				},
+				{
+					rowIndex: 2,
+					status: "needs_review",
+					reason: "Nav apjoma",
+					sourceText: "un veikta rakšana.",
+				},
+			],
+		},
+	});
+	expect(result?.reviewCount).toBe(1);
+	expect(result?.rows[1]).toMatchObject({
+		WorkersInvolved: 2,
+		TimeInvolved: 8,
+	});
 });
 
 it("does not pass an unparseable date through partial recovery", () => {
@@ -117,4 +179,65 @@ it("does not pass an unparseable date through partial recovery", () => {
 			rows.map((row) => ({ ...row, Date: "10. novembris" })),
 		),
 	).toBeNull();
+});
+
+it("does not restore a quantity explicitly rejected on the review row", () => {
+	const result = recoverReviewedDiaryRows({
+		rows,
+		source,
+		notesCategory: "Piezīmes",
+		measurementIsSupported: () => true,
+		checker: {
+			...checker,
+			repairActions: ["Amounts", "Units"].map((field) => ({
+				rowIndex: 2,
+				field: field as "Amounts" | "Units",
+				operation: "set_null",
+				reason: "Cita darba apjoms",
+			})),
+		},
+	});
+	expect(result?.rows[2]).toMatchObject({ Amounts: null, Units: null });
+});
+
+it("protects a work clarified by a later nonadjacent source passage", () => {
+	const source =
+		"Iebūvēts ūdensvads D63. Iebūvēta aka AU1-4. Ūdensvads 22 metri.";
+	const rows = [
+		{ Date: "2026-11-17", Works: "Ūdensvads D63", Amounts: 22, Units: "m" },
+		{ Date: "2026-11-17", Works: "Neskaidra aka" },
+	];
+	const result = recoverReviewedDiaryRows({
+		source,
+		rows,
+		notesCategory: "Piezīmes",
+		checker: {
+			...checker,
+			expectedRecordCount: 2,
+			rowReviews: [
+				{
+					rowIndex: 0,
+					status: "accept",
+					reason: "Atsevišķs precizējums",
+					sourceText: "Iebūvēts ūdensvads D63. Ūdensvads 22 metri.",
+					sourceSpans: ["Iebūvēts ūdensvads D63.", "Ūdensvads 22 metri."],
+				},
+				{
+					rowIndex: 1,
+					status: "needs_review",
+					reason: "Nav akas specifikācijas",
+					sourceText: "Iebūvēta aka AU1-4.",
+				},
+			],
+		},
+	});
+	expect(result?.rows[0]).toEqual(rows[0]);
+	expect(result?.qualities[0].status).toBe("accepted");
+	expect(
+		preserveAcceptedDiaryRows(
+			rows,
+			rows.map((row) => ({ ...row, Amounts: 999 })),
+			result?.qualities ?? [],
+		)[0],
+	).toEqual(rows[0]);
 });
