@@ -235,6 +235,21 @@ const siteConfig = {
 	},
 };
 
+
+function targetedRepairFixture(records: Array<Record<string, unknown>>) {
+ return (messages: Array<{content: unknown}>) => {
+  const request = JSON.parse(String(messages[1].content));
+  const anchor = String(request.referenceDate);
+  const parts = anchor.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  const date = parts ? [parts[3], parts[2], parts[1]].join("-") : anchor.slice(0, 10);
+  return { changes: [], additions: [], unresolvedRowIds: [], reason: "Izlabotas norādītās rindas", replacements: [{ rowIds: request.targets.map((target: {rowId: string}) => target.rowId), rows: records.map((record) => ({
+   workCandidateId: request.candidates.find((candidate: {work: string}) => candidate.work === record.Activity)?.id ?? "missing-work",
+   Date: date, Location: record.Area ?? null, Comments: record.Comments ?? "", Amounts: record.Quantity ?? null, Units: record.Mrv ?? null, WorkersInvolved: record.Workers ?? null, TimeInvolved: record.Hours ?? null, calculationEvidence: null,
+   sourceSpans: [request.targets[0].source],
+  })) }] };
+ };
+}
+
 const originalStructuredClone = globalThis.structuredClone;
 beforeAll(() => {
   globalThis.structuredClone ??= <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -246,6 +261,7 @@ afterAll(() => {
 describe("save_to_database site diary tool", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		structuredInvokeMock.mockReset();
 		saveSiteDiaryRecordMock.mockReset();
 		getConfigMock.mockResolvedValue(siteConfig);
 		systemPromptMock.mockResolvedValue("Extract site diary records");
@@ -554,6 +570,7 @@ describe("save_to_database site diary tool", () => {
 				expect.objectContaining({
 					model: "gpt-6.1-sol",
 					reasoning: { effort: "high" },
+					modelKwargs: { reasoning: { effort: "high" } },
 					useResponsesApi: true,
 				}),
 			);
@@ -597,9 +614,7 @@ describe("save_to_database site diary tool", () => {
 						expectedRecordCount: 1,
 					},
 				})
-				.mockResolvedValueOnce({
-					records: [{ Activity: "Concrete pour", Quantity: 12.5, Mrv: "m3" }],
-				})
+				.mockImplementationOnce(targetedRepairFixture([{ Activity: "Concrete pour", Quantity: 12.5, Mrv: "m3" }]))
 				.mockResolvedValueOnce({
 					parsed: {
 						verdict,
@@ -626,7 +641,7 @@ describe("save_to_database site diary tool", () => {
 					"extraction",
 					"normalization",
 					"checker",
-					"extraction",
+					"repair",
 					"normalization",
 					"checker",
 					...(verdict === "accept" ? [] : ["failure", "note_fallback"]),
@@ -638,7 +653,7 @@ describe("save_to_database site diary tool", () => {
 				const repairCheckerMessages = structuredInvokeMock.mock.calls[3][0];
 				expect(String(repairCheckerMessages[1].content)).toContain("Previous checker review");
 				expect(String(repairCheckerMessages[1].content)).toContain("Saglabā tikai vienu betonēšanas darbu.");
-				expect(String(repairCheckerMessages[1].content)).toContain("Complete configured work catalog");
+				expect(String(repairCheckerMessages[1].content)).toContain("Relevant configured work catalog for repair");
 				expect(getConfigMock).not.toHaveBeenCalled();
 				expect(buildSiteDiaryExtractionContextMock).not.toHaveBeenCalled();
 				expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
@@ -725,7 +740,7 @@ describe("save_to_database site diary tool", () => {
 		}
 	});
 
-  it("shares 120 seconds across extraction, checking and a stalled repair before saving one note", async () => {
+  it("shares 180 seconds across extraction, checking and a stalled repair before saving one note", async () => {
     jest.useFakeTimers();
     try {
       const question = "Šodien betonēšana 12,5 m3.";
@@ -1143,7 +1158,61 @@ describe("save_to_database site diary tool", () => {
 		);
 	});
 
+	it("repairs only the seventh row, preserving six accepted rows and project speech mappings", async () => {
+		const work = "1.1 Ūdensvada OD63 montāža";
+		const clauses = Array.from({ length: 6 }, (_, index) => `Iebetonēti ${index + 1} m3 betona.`);
+		const pipeSource = "Iebūvēta zilā truba viens, 22 metri.";
+		const source = [...clauses, pipeSource].join(" ");
+		getConfigMock.mockResolvedValue({
+			...siteConfig,
+			Comments: { Type: "textInput" },
+			Date: { Type: "datePicker" },
+			Works: { ...siteConfig.Works, DropDownOptions: { ...siteConfig.Works.DropDownOptions, water: work, notes: "Piezīmes" } },
+			otherSettings: { defaultConstructionWorkAliases: { entries: [{ alias: "zilā truba viens", work }] } },
+		});
+		structuredInvokeMock
+			.mockResolvedValueOnce({ records: [...clauses.map((Comments, index) => ({ Activity: "Concrete pour", Comments, Quantity: index + 1, Mrv: "m3", Date: "2026-11-18" })), { Activity: "Piezīmes", Comments: pipeSource, Quantity: 22, Mrv: "m", Date: "2026-11-18" }] })
+			.mockResolvedValueOnce({ parsed: {
+				verdict: "needs_model_repair", reason: "Pēdējai rindai jāmaina kategorija", badSplitSignals: [], repairActions: [], repairInstructions: "Maini tikai septītās rindas darbu.", expectedRecordCount: 7, coverageComplete: true,
+				rowReviews: [...clauses, pipeSource].map((sourceText, rowIndex) => ({ rowIndex, status: rowIndex === 6 ? "needs_review" : "accept", sourceText, reason: "Pārbaudīts" })),
+				modelRepairTargets: [{ rowIndex: 6, fields: ["Works"], allowStructuralChanges: false }],
+			} })
+			.mockImplementationOnce((messages) => {
+				const request = JSON.parse(String(messages[1].content));
+				expect(request.targets.map((target: { rowId: string }) => target.rowId)).toEqual(["row-7"]);
+				return { changes: [{ rowId: "row-7", field: "Works", value: request.candidates.find((candidate: { work: string }) => candidate.work === work).id, sourceSpans: [pipeSource], calculationEvidence: null }], replacements: [], additions: [], unresolvedRowIds: [], reason: "Mainīta kategorija" };
+			})
+			.mockResolvedValueOnce({ parsed: { verdict: "accept", reason: "Visas rindas ir pamatotas", badSplitSignals: [], repairActions: [], repairInstructions: "", expectedRecordCount: 7 } });
+		saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 7, recordIds: Array.from({ length: 7 }, (_, i) => `record-${i}`) });
+		const result = await extractAndSaveSiteDiary({ question: source, requestedDate: "18-11-2026" });
+		expect(result.ok).toBe(true);
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(4);
+		expect(getConfigMock).toHaveBeenCalledTimes(1);
+		expect(buildSiteDiaryExtractionContextMock).toHaveBeenCalledTimes(1);
+		const trace = recordTraceMock.mock.calls[0][0];
+		const original = trace.stages.find((stage: { phase: string; repair: boolean }) => stage.phase === "normalization" && !stage.repair).rows;
+		const saved = saveSiteDiaryRecordMock.mock.calls[0][0].rows;
+		expect(saved.slice(0, 6)).toEqual(original.slice(0, 6));
+		expect(saved[6]).toEqual({ ...original[6], Works: work });
+		expect(String(structuredInvokeMock.mock.calls[0][0][1].content)).toContain("Configured project speech mappings");
+		expect(String(structuredInvokeMock.mock.calls[1][0][1].content)).toContain("speechAliases");
+	});
+
+	it("preserves NoSorting source notes without invoking targeted restructuring", async () => {
+		const source = "Šodien iebūvētas durvis un nokrāsotas sienas.";
+		getConfigMock.mockResolvedValue({ ...siteConfig, AIpromptToUse: { Client: "NoSorting" } });
+		structuredInvokeMock
+			.mockResolvedValueOnce({ records: [{ Activity: "Concrete pour" }, { Activity: "Wall construction" }] })
+			.mockResolvedValueOnce({ parsed: { verdict: "needs_model_repair", reason: "Jāsaglabā sākotnējā piezīme", badSplitSignals: [], repairInstructions: "Apvieno rindas", expectedRecordCount: 1 } });
+		saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1, recordIds: ["note-1"] });
+		const result = await extractAndSaveSiteDiary({ question: source });
+		expect(result).toMatchObject({ ok: true, savedAsNote: true });
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(2);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([expect.objectContaining({ Works: "Piezīmes", Comments: source, Amounts: null, Units: null })]);
+	});
+
 	it("repairs a one-row under-split extraction before saving", async () => {
+		getConfigMock.mockResolvedValue({ ...siteConfig, Works: { ...siteConfig.Works, DropDownOptions: { ...siteConfig.Works.DropDownOptions, ...Object.fromEntries(["Door installation","Wall painting"].map((work) => [work, work])) } } });
 		structuredInvokeMock
 			.mockResolvedValueOnce({
 				records: [
@@ -1166,8 +1235,7 @@ describe("save_to_database site diary tool", () => {
 				},
 				raw: {},
 			})
-			.mockResolvedValueOnce({
-				records: [
+			.mockImplementationOnce(targetedRepairFixture([
 					{
 						Area: "1. stāvs",
 						Activity: "Door installation",
@@ -1178,8 +1246,7 @@ describe("save_to_database site diary tool", () => {
 						Activity: "Wall painting",
 						Hours: 3,
 					},
-				],
-			})
+				]))
 			.mockResolvedValueOnce({
 				parsed: {
 					verdict: "accept",
@@ -1204,8 +1271,8 @@ describe("save_to_database site diary tool", () => {
 
 		const [, extractionConfig] = structuredInvokeMock.mock.calls[0];
 		const [repairMessages] = structuredInvokeMock.mock.calls[2];
-		expect(repairMessages[0].content).toContain("Checker repair is mandatory");
-		expect(repairMessages[0].content).toContain("Split into two rows");
+		expect(repairMessages[0].content).toContain("jau apstiprinātās rindas ir nemaināmas");
+		expect(repairMessages[1].content).toContain("Split into two rows");
 		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
 			expect.objectContaining({
 				Location: "1. stāvs",
@@ -1248,6 +1315,7 @@ describe("save_to_database site diary tool", () => {
 	});
 
 	it("repairs merged material delivery and backfill rows before saving", async () => {
+		getConfigMock.mockResolvedValue({ ...siteConfig, Works: { ...siteConfig.Works, DropDownOptions: { ...siteConfig.Works.DropDownOptions, ...Object.fromEntries(["Material delivery","Backfilling"].map((work) => [work, work])) } } });
 		structuredInvokeMock
 			.mockResolvedValueOnce({
 				records: [
@@ -1275,8 +1343,7 @@ describe("save_to_database site diary tool", () => {
 				},
 				raw: {},
 			})
-			.mockResolvedValueOnce({
-				records: [
+			.mockImplementationOnce(targetedRepairFixture([
 					{
 						Activity: "Material delivery",
 						Area: "Project",
@@ -1296,8 +1363,7 @@ describe("save_to_database site diary tool", () => {
 						Comments:
 							"Iestrādāti 140 m3 smilts. Strādāja 10h ekskavatora operators, 2 būvstrādnieki, brigadieris un būvdarbu vadītāja palīgs.",
 					},
-				],
-			})
+				]))
 			.mockResolvedValueOnce({
 				parsed: {
 					verdict: "accept",
@@ -1321,8 +1387,8 @@ describe("save_to_database site diary tool", () => {
 		});
 
 		const [repairMessages] = structuredInvokeMock.mock.calls[2];
-		expect(repairMessages[0].content).toContain("Checker repair is mandatory");
-		expect(repairMessages[0].content).toContain("Material delivery");
+		expect(repairMessages[0].content).toContain("jau apstiprinātās rindas ir nemaināmas");
+		expect(repairMessages[1].content).toContain("Material delivery");
 		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
 			expect.objectContaining({
 				Works: "Material delivery",
@@ -1943,6 +2009,7 @@ describe("save_to_database site diary tool", () => {
 	});
 //2
 	it("saves only the original note when checker-guided repair is still rejected", async () => {
+		getConfigMock.mockResolvedValue({ ...siteConfig, Works: { ...siteConfig.Works, DropDownOptions: { ...siteConfig.Works.DropDownOptions, ...Object.fromEntries(["Material delivery","Sand installation"].map((work) => [work, work])) } } });
 		saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1, recordIds: ["note-1"] });
 		structuredInvokeMock
 			.mockResolvedValueOnce({
@@ -1971,8 +2038,7 @@ describe("save_to_database site diary tool", () => {
 				},
 				raw: {},
 			})
-			.mockResolvedValueOnce({
-				records: [
+			.mockImplementationOnce(targetedRepairFixture(([
 					{
 						Activity: "Material delivery",
 						Quantity: 180,
@@ -1985,8 +2051,7 @@ describe("save_to_database site diary tool", () => {
 						Mrv: "m3",
 						Hours: 10,
 					},
-				],
-			})
+				]).slice(0, 1)))
 			.mockResolvedValueOnce({
 				parsed: {
 					verdict: "retry",
@@ -2029,6 +2094,7 @@ describe("save_to_database site diary tool", () => {
 	});
 
 	it("saves model-repaired rows after a final structured field repair", async () => {
+		getConfigMock.mockResolvedValue({ ...siteConfig, Works: { ...siteConfig.Works, DropDownOptions: { ...siteConfig.Works.DropDownOptions, ...Object.fromEntries(["Material delivery","Backfilling"].map((work) => [work, work])) } } });
 		structuredInvokeMock
 			.mockResolvedValueOnce({
 				records: [
@@ -2054,8 +2120,7 @@ describe("save_to_database site diary tool", () => {
 				},
 				raw: {},
 			})
-			.mockResolvedValueOnce({
-				records: [
+			.mockImplementationOnce(targetedRepairFixture([
 					{
 						Activity: "Material delivery",
 						Area: "Project",
@@ -2070,8 +2135,7 @@ describe("save_to_database site diary tool", () => {
 						Mrv: "m3",
 						Hours: 10,
 					},
-				],
-			})
+				]))
 			.mockResolvedValueOnce({
 				parsed: {
 					verdict: "repairable",
@@ -2164,6 +2228,7 @@ describe("save_to_database site diary tool", () => {
 	});
 
 	it("repairs one-machine in-progress sub-actions back into one row before saving", async () => {
+		getConfigMock.mockResolvedValue({ ...siteConfig, Works: { ...siteConfig.Works, DropDownOptions: { ...siteConfig.Works.DropDownOptions, excavation: "Excavation", backfill: "Backfilling" } } });
 		structuredInvokeMock
 			.mockResolvedValueOnce({
 				records: [
@@ -2193,16 +2258,14 @@ describe("save_to_database site diary tool", () => {
 				},
 				raw: {},
 			})
-			.mockResolvedValueOnce({
-				records: [
+			.mockImplementationOnce(targetedRepairFixture([
 					{
 						Area: "Project",
 						Activity: "Excavation",
 						Comments:
 							"No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu un šķembošanu.",
 					},
-				],
-			})
+				]))
 			.mockResolvedValueOnce({
 				parsed: {
 					verdict: "accept",
@@ -2234,9 +2297,7 @@ describe("save_to_database site diary tool", () => {
 				Works: "Excavation",
 			}),
 		]);
-		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0]).not.toHaveProperty(
-			"TimeInvolved",
-		);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0].TimeInvolved).toBeNull();
 		expect(recordTraceMock).toHaveBeenCalledWith(
 			expect.objectContaining({
 				checker: expect.objectContaining({

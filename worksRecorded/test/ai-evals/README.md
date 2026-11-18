@@ -62,6 +62,22 @@ Supported selectors are `critical`, `tag <name>`, `tier <smoke|regression|extend
 
 Dashboard and WhatsApp webhook evals run against the normal application tables, but only through a dedicated eval organization/site/user/worker. Their environment guard refuses to run unless `AI_EVAL_ALLOW_SINGLE_DB=true`, `AI_EVAL_ALLOWED_ORGANIZATION_ID` is set, and the configured eval site/user/worker all belong to that organization. The organization, site, user, and worker names must be clearly marked with `eval`, `test`, or `ai` unless `AI_EVAL_REQUIRE_MARKED_NAMES=false` is set. The `diary-reviewed` frozen-corpus runner has its own guard requiring only `RUN_AI_EVALS=true` and `OPENAI_API_KEY`; it uses synthetic scope IDs and cannot persist diary records.
 
+The shared default-construction diary pipeline performs extraction, checking, at most one targeted repair call, then a final check. It uses the same 180-second workflow deadline throughout. Repair replaces the former full extraction retry: accepted source-backed rows are locked, while the model receives editable row IDs, allowed fields, relevant project work candidates and source passages. It returns field patches or explicit row replacements/additions; application code merges them with the locked rows. Numeric evidence, candidate membership and source quotes are validated before the final check. Failure retains the existing partial-recovery/original-note behavior. `NoSorting` reports are not restructured by this model.
+
+JSON/HTML reports include the `repair` stage, including rejected model patches and their validation error. LangSmith names the call `SiteDiaryTargetedRepair`; model usage is recorded under `site_diary_targeted_repair`, with separate repair and final-check timings. Extraction/checker/repair currently default to GPT-6.1 Sol Medium. Eval overrides use the existing extractor/checker model settings.
+
+Optional project speech mappings can be configured in `siteDiaryRecordsMap.otherSettings.defaultConstructionWorkAliases`; no database migration is required. `work` must exactly match an existing project `Works.DropDownOptions` value. These mappings are supplied to extraction, checking and targeted repair as vocabulary, without supplying quantities or labour. There is no alias editing UI yet.
+
+```json
+{
+  "entries": [
+    { "alias": "zilā truba", "work": "1.1 Ūdensvada OD63 montāža" }
+  ]
+}
+```
+
+Repair candidates prioritize exact position references, compatible dimensions, work wording and configured speech mappings. A configured category explicitly named in the checker's repair plan is retained even in a crowded catalog; a dimensional contradiction still excludes it. Slang is not learned automatically from an unverified model output.
+
 Run the full safe local suite:
 
 ```bash
@@ -715,7 +731,7 @@ Vajadzīgs `LANGSMITH_API_KEY` vai `LANGCHAIN_API_KEY`. Bez `--trace` šī palai
 
 JSON un HTML sadaļā `stages` saglabājas sākotnējā un labotā izvilkšana, normalizētās rindas, katrs checker lēmums un gala atteikuma iemesls. Šie dati ir diagnostikai un nemaina sagaidāmos rezultātus vai saglabāšanas noteikumus. Modeļu metrikā uzskaita arī atkārtoto checker izsaukumu.
 
-Site-manager AI plūsmai kopā ir 120 sekundes no webhook saņemšanas; maršrutēšana, ekstraktors, checker un labošanas izsaukumi dala vienu budžetu. Katrs nākamais izsaukums saņem tikai atlikušo laiku. Datubāzes saglabāšana un WhatsApp atbildes nosūtīšana nav modeļa taimauta daļa. Pēc taimauta netiek sākta vēl viena modeļa izpilde. Ja jaunu darba atskaiti nevar droši strukturēt, īstā plūsma saglabā sākotnējo tekstu kā `Piezīmes` ar `needs_review`. Fiksētajā evalā identisku piezīmi tikai sagatavo atmiņā: `note_fallback` posmam ir `persisted: false`, un Forma2 matcher vairs netiek palaists. Tests joprojām neiziet, ja sagaidīts strukturēts darba ieraksts; avota saglabāšana netiek sajaukta ar precīzu ekstrakciju. Jautājumi, neskaidras atbildes un iepriekšējo ierakstu labojumi šādi netiek pārvērsti jaunās atskaitēs.
+Site-manager AI plūsmai kopā ir 180 sekundes no webhook saņemšanas; maršrutēšana, ekstraktors, checker un labošanas izsaukumi dala vienu budžetu. Katrs nākamais izsaukums saņem tikai atlikušo laiku. Datubāzes saglabāšana un WhatsApp atbildes nosūtīšana nav modeļa taimauta daļa. Pēc taimauta netiek sākta vēl viena modeļa izpilde. Ja jaunu darba atskaiti nevar droši strukturēt, īstā plūsma saglabā sākotnējo tekstu kā `Piezīmes` ar `needs_review`. Fiksētajā evalā identisku piezīmi tikai sagatavo atmiņā: `note_fallback` posmam ir `persisted: false`, un Forma2 matcher vairs netiek palaists. Tests joprojām neiziet, ja sagaidīts strukturēts darba ieraksts; avota saglabāšana netiek sajaukta ar precīzu ekstrakciju. Jautājumi, neskaidras atbildes un iepriekšējo ierakstu labojumi šādi netiek pārvērsti jaunās atskaitēs.
 
 
 Šis budžets attiecas uz esošo `site-manager-agent` ekstraktora/checker plūsmu. Atsevišķais Agents SDK pilots (`diary-intake`) un Forma2 automātiskās piesaistes serviss izmanto savus limitus. SDK pilotu izvēlas tikai pēc ieslēgta servera iestatījuma, atļautā projekta, projekta pilota konfigurācijas un atļautā lietotāja/telefona; parastās WhatsApp eval izpildes pilotu apiet. Audio lejupielāde un transkripcija notiek pirms šīs ekstrakcijas; tās var patērēt webhook budžetu, un šīs apstrādes savs laika ierobežojums šeit netiek mainīts.

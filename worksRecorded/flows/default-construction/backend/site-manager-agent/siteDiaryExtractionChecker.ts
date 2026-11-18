@@ -8,12 +8,17 @@ import {
 	SITE_MANAGER_AI_BUDGET_MS,
 } from "./aiDeadline";
 import {
+	diaryModelReasoningOptions,
 	diaryModelUsesResponsesApi,
 	siteDiaryExtractionCheckerModel,
 	siteDiaryExtractionCheckerReasoningEffort,
 } from "./diaryModelSettings";
 import { DIARY_SOURCE_POLICY } from "./diarySourcePolicy";
 import type { SupportedReplyLanguage } from "./fastPath";
+import {
+	diaryRepairFieldSchema,
+	getSiteDiaryWorkAliases,
+} from "./siteDiaryRepair";
 
 export {
 	siteDiaryExtractionCheckerModel,
@@ -55,6 +60,17 @@ export const siteDiaryExtractionCheckerSchema = z.object({
 		)
 		.max(20)
 		.default([]),
+	modelRepairTargets: z
+		.array(
+			z.object({
+				rowIndex: z.number().int().min(0).max(24),
+				fields: z.array(diaryRepairFieldSchema).min(1).max(8),
+				allowStructuralChanges: z.boolean(),
+			}),
+		)
+		.max(25)
+		.nullable()
+		.optional(),
 	coverageComplete: z.boolean().nullable().optional(),
 	rowReviews: z
 		.array(
@@ -89,8 +105,18 @@ export type SiteDiaryCheckerRepairContext = {
 
 export function buildSiteDiaryWorkCatalog(config: ConfigMap) {
 	const unitForWork = createDefaultConstructionDiaryUnitResolver(config);
+	const aliases = getSiteDiaryWorkAliases(config);
 	return Array.from(new Set(Object.values(config.Works?.DropDownOptions ?? {})))
-		.map((work) => JSON.stringify({ work, unit: unitForWork(work) ?? null }))
+		.map((work) => {
+			const speechAliases = aliases
+				.filter((entry) => entry.work === work)
+				.map((entry) => entry.alias);
+			return JSON.stringify({
+				work,
+				unit: unitForWork(work) ?? null,
+				...(speechAliases.length ? { speechAliases } : {}),
+			});
+		})
 		.join("\n");
 }
 
@@ -124,6 +150,7 @@ export function buildSiteDiaryExtractionCheckerMessages(args: {
 	language: SupportedReplyLanguage;
 	contextText?: string;
 	workCatalog?: string;
+	workCatalogScope?: "complete" | "repair";
 	repairContext?: SiteDiaryCheckerRepairContext;
 	referenceDate?: string;
 }) {
@@ -159,9 +186,10 @@ Do not reject merely because there are many rows. Full-day reports can legitimat
 A row can be a site-diary-relevant note, weather entry, material delivery, machinery note, or work item when it is a real diary event.
 Site-related factual reports without a specific construction task are valid diary notes by default. Missing a specific task, location, quantity, or worker count is not a reason to reject such a note. Return verdict=accept for "strādājam no 7.00 - 18.00" represented as one Notes/Piezīmes row with the working-time interval in Comments, null Location/Amounts/Units/WorkersInvolved, and TimeInvolved=11 or null. A complete start-end interval supports elapsed duration; a start time alone does not. If the report has an invented construction category or incorrect interval duration, use needs_model_repair to request one source-backed note. Questions, greetings, and commands without a diary fact are not diary events and must not become notes.
 Check category and configured measurement-unit compatibility as well as splitting. Do not accept a measurable completed work classified as Notes merely because the material is omitted: request clarification if context cannot safely resolve it. Do not guess a different material, category or unit to force a match.
-Use the complete configured work catalog below for category decisions, even if historical context is truncated. Prefer a compatible specific Forma2 position; otherwise use a compatible configured generic category. If no category is supported, mark only that activity needs_review. Water-pipe excavation must not be assigned to a sewer-specific position merely because its name mentions excavation. Never change OD220 to D200, a material, or a utility system without explicit source evidence or a verified project mapping. A nearby well identifier is location evidence, not proof that a water work is sewer work. Conflicting lengths such as 22.09 and 22.9 require review of the affected calculation; do not silently choose an operand.
+Configured speechAliases are project-specific vocabulary mappings, not evidence of completed quantities or labour. Use the configured work catalog below for category decisions, even if historical context is truncated. A repair check receives relevant candidates and the categories already used; this scoped catalog is not the full project catalog. Do not demand unrelated category changes in a repair check. Prefer a compatible specific Forma2 position; otherwise use a compatible configured generic category. If no category is supported, mark only that activity needs_review. Water-pipe excavation must not be assigned to a sewer-specific position merely because its name mentions excavation. Never change OD220 to D200, a material, or a utility system without explicit source evidence or a verified project mapping. A nearby well identifier is location evidence, not proof that a water work is sewer work. Conflicting lengths such as 22.09 and 22.9 require review of the affected calculation; do not silently choose an operand.
 For a repair check, first compare the previous rows, your previous review and the repaired rows. Verify the requested changes and preserve unchanged accepted rows. Do not introduce a new category preference for an unchanged supported fact. If the previous recommendation was unsafe, explicitly explain the source/catalog contradiction and mark only affected rows needs_review; prior instructions never override source evidence. Give a complete actionable repair plan in the first check, including category and unit issues, because only one model repair is available.
-If model repair is needed, write concrete repairInstructions for the extractor. The instruction must say which rows should be split into specific separate jobs, merged, dropped, or preserved, and why.
+Ja vajadzīgs modeļa labojums, atgriez modelRepairTargets katrai labojamai rindai: rowIndex, tieši maināmie fields un allowStructuralChanges. Apstiprinātām rindām labojumus neprasi. allowStructuralChanges=true tikai rindām, kuras jāsadala, jāapvieno vai jāizņem kā nepamatotas. Trūkstošai darbībai coverageComplete=false; pārējās pamatotās rindas paliek nemainītas. Labotājs saņems atlasītās rindas un atbilstošos kataloga kandidātus, nevis atkārtoti veiks visu ekstrakciju.
+If model repair is needed, write concrete repairInstructions for the targeted repair step. The instruction must say which rows should be split into specific separate jobs, merged, dropped, or preserved, and why.
 Use language=${args.language} for reason and repairInstructions when practical.`,
 		),
 		new HumanMessage(
@@ -170,7 +198,7 @@ ${args.originalMessage}
 
 Trusted reference date: ${args.referenceDate ?? "not provided"}
 
-Complete configured work catalog (category vocabulary and units, not evidence of completed work):
+${args.workCatalogScope === "repair" ? "Relevant configured work catalog for repair" : "Complete configured work catalog"} (category vocabulary and units, not evidence of completed work):
 ${args.workCatalog?.trim() || "(not provided)"}
 
 Trusted extraction context:
@@ -188,25 +216,25 @@ export async function invokeSiteDiaryExtractionChecker(args: {
 	language: SupportedReplyLanguage;
 	contextText?: string;
 	workCatalog?: string;
+	workCatalogScope?: "complete" | "repair";
 	repairContext?: SiteDiaryCheckerRepairContext;
 	referenceDate?: string;
 	runnableConfig?: Record<string, unknown>;
 	evaluationModel?: SiteDiaryCheckerModelSettings;
 }) {
+	const model = args.evaluationModel?.model ?? siteDiaryExtractionCheckerModel;
+	const useResponsesApi =
+		args.evaluationModel?.useResponsesApi ?? diaryModelUsesResponsesApi(model);
 	const llm = new ChatOpenAI({
-		model: args.evaluationModel?.model ?? siteDiaryExtractionCheckerModel,
+		model,
 		timeout: SITE_MANAGER_AI_BUDGET_MS,
 		maxRetries: 0,
-		reasoning: {
-			effort:
-				args.evaluationModel?.reasoningEffort ??
+		...diaryModelReasoningOptions(
+			args.evaluationModel?.reasoningEffort ??
 				siteDiaryExtractionCheckerReasoningEffort,
-		},
-		useResponsesApi:
-			args.evaluationModel?.useResponsesApi ??
-			diaryModelUsesResponsesApi(
-				args.evaluationModel?.model ?? siteDiaryExtractionCheckerModel,
-			),
+			useResponsesApi,
+		),
+		useResponsesApi,
 	});
 	const structured = llm.withStructuredOutput(
 		siteDiaryExtractionCheckerSchema,

@@ -44,6 +44,37 @@ describe("site diary extraction checker", () => {
 		mockWithStructuredOutput.mockClear();
 	});
 
+	it("provides project speech mappings and labels a scoped repair catalog", () => {
+		const config = {
+			Works: {
+				Type: "dropdown",
+				DropDownOptions: { pipe: "1.1 Ūdensvada OD63 montāža" },
+			},
+			otherSettings: {
+				defaultConstructionWorkAliases: {
+					entries: [
+						{ alias: "zilā truba", work: "1.1 Ūdensvada OD63 montāža" },
+					],
+				},
+			},
+		} as unknown as Parameters<typeof buildSiteDiaryWorkCatalog>[0];
+		const catalog = buildSiteDiaryWorkCatalog(config);
+		expect(catalog).toContain('"speechAliases":["zilā truba"]');
+		const messages = buildSiteDiaryExtractionCheckerMessages({
+			originalMessage: "Iebūvēta zilā truba",
+			rows: [],
+			language: "lv",
+			workCatalog: catalog,
+			workCatalogScope: "repair",
+		});
+		expect(String(messages[1].content)).toContain(
+			"Relevant configured work catalog for repair",
+		);
+		expect(String(messages[1].content)).not.toContain(
+			"Complete configured work catalog",
+		);
+	});
+
 	it("accepts one clear task", async () => {
 		mockInvoke.mockResolvedValue({
 			parsed: {
@@ -72,9 +103,10 @@ describe("site diary extraction checker", () => {
 		expect(result.parsed.verdict).toBe("accept");
 		expect(ChatOpenAI).toHaveBeenCalledWith({
 			model: siteDiaryExtractionCheckerModel,
-			timeout: 120_000,
+			timeout: 180_000,
 			maxRetries: 0,
 			reasoning: { effort: "medium" },
+			modelKwargs: { reasoning: { effort: "medium" } },
 			useResponsesApi: true,
 		});
 	});
