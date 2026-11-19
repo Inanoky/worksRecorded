@@ -1,7 +1,12 @@
 import { z } from "zod";
+import {
+	constructionWorkConflicts,
+	constructionWorkSimilarity,
+} from "../../lib/forma2-work-matching";
 import { createDefaultConstructionDiaryUnitResolver } from "../../lib/site-diary-productivity-settings";
 import type { ConfigMap } from "./AIschemas";
 import { groundDiarySourceQuotes } from "./diarySourceQuotes";
+import { buildDiaryPositionCatalog } from "./diaryWorkCatalog";
 import { calculationEvidenceSchema } from "./quantityEvidence";
 import type { SiteDiaryExtractionCheckerResult } from "./siteDiaryExtractionChecker";
 import { normalizeLatvianNumberEvidence } from "./spokenNumberEvidence";
@@ -91,6 +96,73 @@ export type SiteDiaryRepairRequest = {
 	locations: string[];
 	locationIsDropdown: boolean;
 };
+
+export function buildSiteDiaryRepairSchema(request: SiteDiaryRepairRequest) {
+	const ids = (values: string[]) => z.enum(values as [string, ...string[]]);
+	const alternatives: z.ZodTypeAny[] = request.targets.flatMap((target) =>
+		target.fields.flatMap((field) => {
+			if (field === "Works" && !target.candidateIds.length) return [];
+			const value =
+				field === "Works"
+					? ids(target.candidateIds)
+					: ["Amounts", "WorkersInvolved", "TimeInvolved"].includes(field)
+						? number()
+						: text();
+			return [
+				z.object({
+					rowId: z.literal(target.rowId),
+					field: z.literal(field),
+					value,
+					sourceSpans: sourceSpans(),
+					calculationEvidence: calculationEvidence(),
+				}),
+			];
+		}),
+	);
+	const change =
+		alternatives.length > 1
+			? z.union(alternatives as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]])
+			: (alternatives[0] ?? siteDiaryRepairSchema.shape.changes.element);
+	const structuralIds = request.targets
+		.filter((target) => target.structural)
+		.map((target) => target.rowId);
+	const candidateIds = request.candidates.map((candidate) => candidate.id);
+	const row = repairedRowSchema().extend({
+		workCandidateId: candidateIds.length ? ids(candidateIds) : z.string(),
+	});
+	return z.object({
+		...(alternatives.length
+			? { changes: z.array(change).max(Math.min(alternatives.length, 100)) }
+			: {}),
+		...(structuralIds.length
+			? {
+					replacements: z
+						.array(
+							z.object({
+								rowIds: z
+									.array(structuralIds.length ? ids(structuralIds) : z.string())
+									.min(1)
+									.max(25),
+								rows: z.array(row).max(25),
+							}),
+						)
+						.max(structuralIds.length),
+				}
+			: {}),
+		...(request.allowAdditions ? { additions: z.array(row).max(25) } : {}),
+		...(request.targets.length
+			? {
+					unresolvedRowIds: z
+						.array(
+							request.targets.length
+								? ids(request.targets.map((target) => target.rowId))
+								: z.string(),
+						)
+						.max(request.targets.length),
+				}
+			: {}),
+	});
+}
 
 function normalized(value: unknown) {
 	return normalizeLatvianNumberEvidence(String(value ?? ""))
@@ -195,6 +267,12 @@ export function selectDiaryRepairCandidates(
 	];
 	const unitForWork = createDefaultConstructionDiaryUnitResolver(config);
 	const aliases = getSiteDiaryWorkAliases(config);
+	const positionIds = new Map(
+		buildDiaryPositionCatalog(config).map((entry) => [
+			entry.work,
+			entry.positionId,
+		]),
+	);
 	const query = words(`${source} ${hint}`);
 	const specs = dimensions(source);
 	const codes = references(source);
@@ -203,6 +281,7 @@ export function selectDiaryRepairCandidates(
 		.trim();
 	return works
 		.map((work, index) => {
+			if (constructionWorkConflicts(source, work).length) return null;
 			const workSpecs = dimensions(work);
 			if (
 				specs.length &&
@@ -226,12 +305,13 @@ export function selectDiaryRepairCandidates(
 					` ${normalized(work).replace(/[^\p{L}\p{N}]+/gu, " ")} `,
 				);
 			const score =
+				constructionWorkSimilarity(source, work) * 20 +
 				[...workWords].filter((word) => query.has(word)).length * 5 +
 				(code && codes.has(code) ? 100 : 0) +
 				matchingAliases.length * 100 +
 				(namedInPlan ? 100 : 0);
 			return {
-				id: `work-${index + 1}`,
+				id: positionIds.get(work) ?? `work-${index + 1}`,
 				work,
 				unit: unitForWork(work) ?? null,
 				aliases: matchingAliases.map((entry) => entry.alias),
@@ -245,7 +325,8 @@ export function selectDiaryRepairCandidates(
 		.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
 		.filter(
 			(candidate, index) =>
-				(candidate.score > 0 && index < 10) ||
+				works.length <= 128 ||
+				(candidate.score > 0 && index < 48) ||
 				/^(?:notes?|piezīmes)$/iu.test(candidate.work),
 		)
 		.map(({ score: _score, ...candidate }) => candidate);
@@ -284,6 +365,12 @@ export function buildSiteDiaryRepairRequest(args: {
 			config,
 			targetSource,
 			`${row.Works ?? ""} ${review?.reason ?? checker.reason} ${checker.repairInstructions}`,
+		).filter(
+			(candidate) =>
+				!plan ||
+				plan.fields.includes("Works") ||
+				candidate.work === row.Works ||
+				/^(?:notes?|piezīmes)$/iu.test(candidate.work),
 		);
 		for (const candidate of selected) candidates.set(candidate.id, candidate);
 		targets.push({

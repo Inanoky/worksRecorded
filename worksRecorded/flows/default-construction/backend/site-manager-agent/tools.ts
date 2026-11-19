@@ -1529,7 +1529,16 @@ async function extractAndSaveSiteDiaryCore(
 		schema: recordSchema,
 		fieldMap,
 		dropdownValueMaps,
-	} = buildZodSchemaFromConfig(mapToUse);
+		workCatalog: positionCatalog,
+	} = buildZodSchemaFromConfig(mapToUse, {
+		useWorkPositionIds: clientPrompt !== "NoSorting",
+	});
+	Object.assign(aiContext.runnableConfig.metadata, {
+		diaryWorkSelectionMode: positionCatalog.length
+			? "position-id"
+			: "configured-work",
+		diaryPositionCatalogCount: positionCatalog.length,
+	});
 	const extractionRecordSchema = recordSchema.extend({
 		calculationEvidence: calculationEvidenceSchema,
 	});
@@ -1582,9 +1591,12 @@ async function extractAndSaveSiteDiaryCore(
 	)
 		.filter((candidate) => candidate.aliases.length)
 		.map(({ work, aliases }) => ({ work, aliases }));
-	const extractionContextText = projectSpeechAliases.length
+	const sourceContextText = projectSpeechAliases.length
 		? `${extractionContext.text}\nConfigured project speech mappings (vocabulary only, not completed quantities or labour):\n${JSON.stringify(projectSpeechAliases)}`
 		: extractionContext.text;
+	const extractionContextText = positionCatalog.length
+		? `${sourceContextText}\nProjekta pozīciju katalogs. Laukā positionId atgriez tikai izvēlētās pozīcijas ID; pilno Works nosaukumu atjaunos kods. Izvēlies pēc darba būtības, sistēmas, materiāla un izmēra. category: ID ir projekta vispārīgās kategorijas. Koda un apraksta pretrunu saglabā pārbaudāmā piezīmē.\n${JSON.stringify(positionCatalog)}`
+		: sourceContextText;
 	let extractionStarted = Date.now();
 	let extractionAttempt = 0;
 	let envelope: StructuredLlmEnvelope;

@@ -4,6 +4,10 @@ import {
 	getForma2ReportedQuantity,
 } from "./forma2-quantities";
 import { calculateForma2Split, type Forma2Split } from "./forma2-splits";
+import {
+	constructionWorkConflicts,
+	constructionWorkReference,
+} from "./forma2-work-matching";
 
 export const DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY =
 	"defaultConstructionForma2";
@@ -508,7 +512,23 @@ export function suggestForma2Position(
 		(position) =>
 			position.kind === compatibleKind && !position.manualAssignmentOnly,
 	);
-	const code = sourceCode(source.label);
+	const code =
+		source.type === "work"
+			? constructionWorkReference(source.label)
+			: sourceCode(source.label);
+	if (
+		source.type === "work" &&
+		code &&
+		candidates.some(
+			(position) =>
+				position.code === code &&
+				constructionWorkConflicts(
+					source.label,
+					`${position.categoryName} ${position.name}`,
+				).length,
+		)
+	)
+		return null;
 	let best:
 		| {
 				positionId: string;
@@ -518,6 +538,14 @@ export function suggestForma2Position(
 		| undefined;
 
 	for (const position of candidates) {
+		if (
+			source.type === "work" &&
+			constructionWorkConflicts(
+				source.label,
+				`${position.categoryName} ${position.name}`,
+			).length
+		)
+			continue;
 		let confidence = 0;
 		let reason: "code" | "name" | "similarity" = "similarity";
 		if (code && position.code === code) {

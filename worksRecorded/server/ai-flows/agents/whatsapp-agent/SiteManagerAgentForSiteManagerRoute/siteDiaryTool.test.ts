@@ -600,6 +600,98 @@ describe("save_to_database site diary tool", () => {
 		);
 	});
 
+	it("preserves two accepted works after repair fails while merging two unresolved rows", async () => {
+		const good = ["Iebetonēti 12 m3 betona.", "Samontētas 3 sienas."];
+		const unclear =
+			"Veikti citi neskaidri darbi. Šiem darbiem nepareiza pozīcija 2.4.";
+		const originalMessage = [...good, unclear].join(" ");
+		getSiteDiaryToolContextMock.mockReturnValue({
+			...trustedContext,
+			originalMessage,
+		});
+		getConfigMock.mockResolvedValue({
+			...siteConfig,
+			Date: { Type: "textInput", DisplayName: "Date" },
+			Works: {
+				...siteConfig.Works,
+				DropDownOptions: {
+					...siteConfig.Works.DropDownOptions,
+					notes: "Piezīmes",
+				},
+			},
+		});
+		structuredInvokeMock
+			.mockReset()
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Date: "2026-11-17",
+						Activity: "Concrete pour",
+						Quantity: 12,
+						Mrv: "m3",
+					},
+					{
+						Date: "2026-11-17",
+						Activity: "Wall construction",
+						Quantity: 3,
+						Mrv: "pcs",
+					},
+					{ Date: "2026-11-17", Activity: "Piezīmes", Comments: unclear },
+					{ Date: "2026-11-17", Activity: "Piezīmes", Comments: unclear },
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "needs_model_repair",
+					reason: "Apvienot pēdējās divas rindas",
+					repairInstructions: "Apvieno trešo un ceturto rindu",
+					repairActions: [],
+					badSplitSignals: [],
+					coverageComplete: true,
+					expectedRecordCount: 3,
+					rowReviews: [...good, unclear, unclear].map(
+						(sourceText, rowIndex) => ({
+							rowIndex,
+							sourceText,
+							status: rowIndex < 2 ? "accept" : "needs_review",
+							reason: "Avota pārbaude",
+						}),
+					),
+					modelRepairTargets: [2, 3].map((rowIndex) => ({
+						rowIndex,
+						fields: ["Comments"],
+						allowStructuralChanges: true,
+					})),
+				},
+			})
+			.mockRejectedValueOnce(new SyntaxError("Incomplete repair JSON"));
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 3,
+			recordIds: ["a", "b", "c"],
+		});
+		const result = await extractAndSaveSiteDiary({
+			question: originalMessage,
+			requestedDate: "2026-11-17",
+		});
+		expect(result).toMatchObject({ ok: true, count: 3, hasReviewNotes: true });
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+		const saved = saveSiteDiaryRecordMock.mock.calls[0][0];
+		expect(saved.rows).toHaveLength(3);
+		expect(saved.rows[0]).toMatchObject({
+			Works: "Concrete pour",
+			Amounts: 12,
+		});
+		expect(saved.rows[1]).toMatchObject({
+			Works: "Wall construction",
+			Amounts: 3,
+		});
+		expect(saved.rows[2]).toMatchObject({
+			Works: "Piezīmes",
+			Comments: `Jāpārbauda.\n${unclear}`,
+		});
+	});
+
 	it("saves accepted work rows and a separately marked unresolved row", async () => {
 		const originalMessage =
 			"Iebetonēti 12 m3 betona. Samontētas 3 sienas. Veikti citi neskaidri darbi.";

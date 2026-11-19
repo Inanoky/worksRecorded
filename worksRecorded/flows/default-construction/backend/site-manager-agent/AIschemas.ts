@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { buildDiaryPositionCatalog } from "./diaryWorkCatalog";
 
 export type FieldType =
 	| "fixed"
@@ -173,17 +174,43 @@ function buildFieldSchema(
 	}
 }
 
-export function buildZodSchemaFromConfig(config: ConfigMap) {
+export function buildZodSchemaFromConfig(
+	config: ConfigMap,
+	options?: { useWorkPositionIds?: boolean },
+) {
 	const shape: Record<string, z.ZodTypeAny> = {};
 	const fieldMap: Record<string, string> = {}; // displayKey -> dbKey
 	const dropdownValueMaps: Record<string, Record<string, string>> = {};
+	const workCatalog =
+		options?.useWorkPositionIds && config.Works?.Type === "dropdown"
+			? buildDiaryPositionCatalog(config)
+			: [];
 
 	for (const [dbKey, field] of Object.entries(config)) {
-		const fieldSchema = buildFieldSchema(field, dbKey);
+		const usePositionId =
+			dbKey === "Works" && field.Type === "dropdown" && workCatalog.length > 0;
+		const fieldSchema = usePositionId
+			? {
+					schema: z
+						.union([
+							z.null(),
+							z.enum(
+								workCatalog.map((entry) => entry.positionId) as [
+									string,
+									...string[],
+								],
+							),
+						])
+						.optional(),
+					valueMap: Object.fromEntries(
+						workCatalog.map((entry) => [entry.positionId, entry.work]),
+					),
+				}
+			: buildFieldSchema(field, dbKey);
 		if (!fieldSchema) continue;
 
 		const displayRaw = field.DisplayName?.trim() || dbKey;
-		const displayKey = safeKey(displayRaw);
+		const displayKey = usePositionId ? "positionId" : safeKey(displayRaw);
 
 		shape[displayKey] = withFieldDescription(
 			fieldSchema.schema,
@@ -201,6 +228,7 @@ export function buildZodSchemaFromConfig(config: ConfigMap) {
 		schema: z.object(shape),
 		fieldMap,
 		dropdownValueMaps,
+		workCatalog,
 	};
 }
 

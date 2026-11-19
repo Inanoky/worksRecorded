@@ -41,17 +41,11 @@ export function recoverReviewedDiaryRows(args: {
 }) {
 	const { rows, checker, source, notesCategory } = args;
 	const reviews = checker.rowReviews ?? [];
-	if (
-		!notesCategory ||
-		rows.length < 2 ||
-		checker.coverageComplete !== true ||
-		checker.expectedRecordCount !== rows.length ||
-		reviews.length !== rows.length
-	)
+	if (!notesCategory || !rows.length || reviews.length > rows.length)
 		return null;
 	const byIndex = new Map(reviews.map((review) => [review.rowIndex, review]));
 	if (
-		byIndex.size !== rows.length ||
+		byIndex.size !== reviews.length ||
 		reviews.some(
 			(review) => review.rowIndex < 0 || review.rowIndex >= rows.length,
 		)
@@ -66,52 +60,109 @@ export function recoverReviewedDiaryRows(args: {
 		)
 	)
 		return null;
-	const qualities: DiaryRowQuality[] = [];
-	const recovered = rows.map((row, index) => {
+	const grounded = rows.map((_, index) => {
 		const review = byIndex.get(index);
-		if (!review) throw new Error("Missing reviewed row");
-		const groundedSource = groundDiarySourceQuotes(
-			source,
-			review.sourceSpans?.length ? review.sourceSpans : [review.sourceText],
-		);
-		if (review.status === "accept" && groundedSource) {
-			qualities.push({ status: "accepted", reason: review.reason });
-			return { ...row };
+		return review
+			? groundDiarySourceQuotes(
+					source,
+					review.sourceSpans?.length ? review.sourceSpans : [review.sourceText],
+				)
+			: null;
+	});
+	const accepted = rows.map(
+		(_, index) =>
+			byIndex.get(index)?.status === "accept" && grounded[index] !== null,
+	);
+	if (!accepted.some(Boolean)) return null;
+	const recovered: Row[] = [];
+	const qualities: DiaryRowQuality[] = [];
+	const notes = new Map<
+		string,
+		{ index: number; passages: string[]; count: number }
+	>();
+	const addNote = (
+		date: string,
+		passage: string,
+		reason: string,
+		measuredRow?: Row,
+	) => {
+		const key = date.slice(0, 10);
+		const group = notes.get(key);
+		if (group) {
+			group.passages.push(passage);
+			group.count++;
+			recovered[group.index].Amounts = null;
+			recovered[group.index].Units = null;
+			qualities[group.index].reason += ` ${reason}`;
+			return;
 		}
-		const reason = groundedSource
-			? review.reason
-			: `Nav pārbaudāma precīza saite uz avota tekstu. ${review.reason}`;
+		notes.set(key, { index: recovered.length, passages: [passage], count: 1 });
+		recovered.push({
+			Date: date,
+			Works: notesCategory,
+			Comments: "",
+			Location: null,
+			Amounts: measuredRow?.Amounts ?? null,
+			Units: measuredRow?.Units ?? null,
+			WorkersInvolved: null,
+			TimeInvolved: null,
+		});
 		qualities.push({ status: "needs_review", reason });
+	};
+	for (const [index, row] of rows.entries()) {
+		const review = byIndex.get(index);
+		if (accepted[index]) {
+			recovered.push({ ...row });
+			qualities.push({
+				status: "accepted",
+				reason: review?.reason ?? "Avotā pamatots darbs",
+			});
+			continue;
+		}
+		const evidence = grounded[index];
 		const measured =
-			groundedSource !== null &&
+			evidence !== null &&
 			!checker.repairActions?.some(
 				(action) =>
 					action.rowIndex === index &&
 					(action.field === "Amounts" || action.field === "Units") &&
 					action.operation === "set_null",
 			) &&
-			args.measurementIsSupported?.(row, groundedSource) === true;
-		return {
-			Date: row.Date,
-			Works: notesCategory,
-			Comments: buildDiaryReviewComment(groundedSource ?? source),
-			Location: null,
-			Amounts: measured ? row.Amounts : null,
-			Units: measured ? row.Units : null,
-			WorkersInvolved: null,
-			TimeInvolved: null,
-		};
-	});
-	if (
-		!qualities.some((quality) => quality.status === "accepted") ||
-		!qualities.some((quality) => quality.status === "needs_review")
-	)
-		return null;
-	return {
-		rows: recovered,
-		qualities,
-		reviewCount: qualities.filter(
-			(quality) => quality.status === "needs_review",
-		).length,
-	};
+			args.measurementIsSupported?.(row, evidence) === true;
+		addNote(
+			String(row.Date),
+			evidence ?? source,
+			review?.reason ?? "Rinda nav pilnīgi pārbaudīta",
+			measured ? row : undefined,
+		);
+	}
+	if (checker.coverageComplete !== true) {
+		let remainder = source;
+		for (const [index, evidence] of grounded.entries()) {
+			if (!accepted[index] || !evidence) continue;
+			for (const passage of evidence.split("\n"))
+				remainder = remainder.replace(passage, "");
+		}
+		addNote(
+			String(rows[0].Date),
+			remainder.trim() || source,
+			"Avota pārklājums nav pilnīgi pārbaudīts",
+		);
+	}
+	for (const { index, passages } of notes.values()) {
+		const fragments = [
+			...new Set(passages.flatMap((passage) => passage.split("\n"))),
+		];
+		const unique = fragments.filter(
+			(fragment, index) =>
+				!fragments.some(
+					(other, otherIndex) =>
+						index !== otherIndex && other.includes(fragment),
+				),
+		);
+		unique.sort((a, b) => source.indexOf(a) - source.indexOf(b));
+		recovered[index].Comments = buildDiaryReviewComment(unique.join("\n"));
+	}
+	if (!notes.size) return null;
+	return { rows: recovered, qualities, reviewCount: notes.size };
 }

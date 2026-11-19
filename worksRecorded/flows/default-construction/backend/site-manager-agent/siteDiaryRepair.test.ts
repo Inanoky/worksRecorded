@@ -130,10 +130,8 @@ describe("targeted diary repair", () => {
 			selectDiaryRepairCandidates(config, "Pabeigta pozīcija 1.10.")[0].work,
 		).toBe(config.Works.DropDownOptions?.other);
 		expect(
-			selectDiaryRepairCandidates(config, "Pabeigti 1.1 metri.").map(
-				(c) => c.work,
-			),
-		).toEqual(["Piezīmes"]);
+			selectDiaryRepairCandidates(config, "Pabeigti 1.1 metri."),
+		).toHaveLength(5);
 	});
 	it("retrieves Latvian speech and generic English work names, respecting dimensions", () => {
 		const candidates = selectDiaryRepairCandidates(config, source);

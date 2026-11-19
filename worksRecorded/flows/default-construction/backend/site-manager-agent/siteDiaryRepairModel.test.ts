@@ -9,6 +9,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import {
 	buildSiteDiaryRepairRequest,
+	buildSiteDiaryRepairSchema,
 	siteDiaryRepairSchema,
 } from "./siteDiaryRepair";
 import {
@@ -92,8 +93,12 @@ describe("targeted repair model", () => {
 		expect(JSON.stringify(payload)).not.toContain(
 			"Slepenas iepriekšējās piezīmes",
 		);
-		expect(JSON.stringify(payload)).not.toContain("Jumta segums");
-		expect(String(messages[0].content).length).toBeLessThan(2300);
+		expect(
+			payload.candidates.some(
+				(candidate: { work: string }) => candidate.work === "Jumta segums",
+			),
+		).toBe(true);
+		expect(String(messages[0].content).length).toBeLessThan(2800);
 	});
 	it("includes the full source only when the checker found missing activities", () => {
 		const scoped = request();
@@ -129,7 +134,7 @@ describe("targeted repair model", () => {
 				metadata: { targetCount: 1 },
 			},
 		});
-		expect(result.parsed).toEqual(output);
+		expect(result.parsed).toEqual({ ...output, reason: "Mērķēts labojums." });
 		expect(ChatOpenAI).toHaveBeenCalledWith(
 			expect.objectContaining({
 				model: "gpt-6.1-sol",
@@ -149,5 +154,51 @@ describe("targeted repair model", () => {
 		await expect(
 			invokeSiteDiaryTargetedRepair({ request: request() }),
 		).rejects.toThrow();
+	});
+	it("excludes locked rows and forbidden fields from the actual response schema", () => {
+		const schema = buildSiteDiaryRepairSchema(request());
+		expect(Object.keys(schema.shape)).toEqual(["changes", "unresolvedRowIds"]);
+		const empty = {
+			changes: [],
+			replacements: [],
+			additions: [],
+			unresolvedRowIds: [],
+			reason: "Pārbaude",
+		};
+		expect(
+			schema.safeParse({ ...empty, unresolvedRowIds: ["row-1"] }).success,
+		).toBe(false);
+		expect(
+			schema.safeParse({ ...empty, unresolvedRowIds: ["row-2"] }).success,
+		).toBe(true);
+		expect(
+			schema.safeParse({
+				...empty,
+				changes: [
+					{
+						rowId: "row-2",
+						field: "Amounts",
+						value: 999,
+						sourceSpans: [source],
+						calculationEvidence: null,
+					},
+				],
+			}).success,
+		).toBe(false);
+		expect(
+			schema.safeParse({
+				...empty,
+				changes: [
+					{
+						rowId: "row-2",
+						field: "Works",
+						value: "foreign-project",
+						sourceSpans: [source],
+						calculationEvidence: null,
+					},
+				],
+			}).success,
+		).toBe(false);
+		expect(() => zodResponseFormat(schema, "scoped_repair")).not.toThrow();
 	});
 });

@@ -52,6 +52,60 @@ const materialSource: Forma2ActualSource = {
 };
 
 describe("Forma 2 automatic assignment", () => {
+	it("quarantines an explicit code that contradicts the described work before either assignment path", async () => {
+		const pipe = {
+			...workPosition,
+			id: "sewer-pipe",
+			code: "2.4",
+			categoryName: "Sadzīves kanalizācija",
+			name: "PP kanalizācijas caurule D200",
+			unit: "m",
+		};
+		const well = {
+			...workPosition,
+			id: "water-well",
+			code: "1.4",
+			categoryName: "Ūdensvads",
+			name: "Dzelzsbetona skataka DN1000",
+			unit: "kompl",
+		};
+		const source = {
+			...materialSource,
+			type: "work" as const,
+			label: "2.4 Ūdensvada dzelzsbetona skataka DN1000",
+			unit: "kompl",
+		};
+		const parse = jest.fn();
+		expect(suggestForma2Position(source, [pipe, well])).toBeNull();
+		expect(
+			await automaticallyAssignForma2Sources({
+				sources: [source],
+				positions: [pipe, well],
+				existingAllocations: [],
+				openai: { responses: { parse } } as never,
+			}),
+		).toEqual([]);
+		expect(parse).not.toHaveBeenCalled();
+	});
+
+	it("keeps a small work catalog available even when the spoken label has no shared words", () => {
+		const positions = Array.from({ length: 60 }, (_, index) => ({
+			...workPosition,
+			id: `work-${index}`,
+			code: `1.${index}`,
+			name: `Darbs ${index}`,
+			categoryName: "Būvdarbi",
+			sourceRow: index,
+		}));
+		const candidates = getForma2AssignmentCandidates(
+			{ ...materialSource, type: "work", label: "Sagatavots būvlaukums" },
+			positions,
+		);
+		expect(candidates).toHaveLength(60);
+		expect(candidates.some((candidate) => candidate.id === "work-59")).toBe(
+			true,
+		);
+	});
 	it("passes only the matching brain guidance to each source type", async () => {
 		const parse = jest.fn().mockResolvedValue({
 			output_parsed: {
@@ -86,7 +140,15 @@ describe("Forma 2 automatic assignment", () => {
 			openai: { responses: { parse } } as never,
 			feedback: { material: "WAREHOUSE ONLY", work: "DIARY ONLY" },
 		});
-		const input = JSON.parse(parse.mock.calls[0][0].input);
+		const payload = JSON.parse(parse.mock.calls[0][0].input);
+		const input = payload.sources;
+		expect(
+			new Set(
+				payload.candidates.map(
+					(candidate: { positionId: string }) => candidate.positionId,
+				),
+			).size,
+		).toBe(payload.candidates.length);
 		expect(
 			input.find((item: { type: string }) => item.type === "material")
 				.projectGuidance,

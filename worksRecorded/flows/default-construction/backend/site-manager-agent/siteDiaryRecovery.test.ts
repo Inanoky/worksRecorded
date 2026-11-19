@@ -109,12 +109,10 @@ it("protects accepted rows when repair rewrites or drops them", () => {
 	).toEqual(rows);
 });
 
-it.each(["coverage", "count", "duplicate", "all-unsafe", "all-accepted"])(
+it.each(["duplicate", "all-unsafe", "all-accepted"])(
 	"refuses partial approval without reliable %s",
 	(kind) => {
 		const review = JSON.parse(JSON.stringify(checker));
-		if (kind === "coverage") review.coverageComplete = false;
-		if (kind === "count") review.expectedRecordCount = 4;
 		if (kind === "duplicate") review.rowReviews[1].rowIndex = 0;
 		if (kind === "all-unsafe")
 			for (const item of review.rowReviews) item.status = "needs_review";
@@ -123,6 +121,51 @@ it.each(["coverage", "count", "duplicate", "all-unsafe", "all-accepted"])(
 		expect(recover(review)).toBeNull();
 	},
 );
+
+it.each([false, true])(
+	"keeps grounded accepted works when expected row count changes and coverage is %s",
+	(coverageComplete) => {
+		const result = recover({
+			...checker,
+			expectedRecordCount: 2,
+			coverageComplete,
+		});
+		expect(result?.rows.slice(0, 2)).toEqual(rows.slice(0, 2));
+		expect(result?.rows[2].Comments).toBe(
+			"Jāpārbauda.\nPiegādāts nezināms materiāls.",
+		);
+		expect(result?.reviewCount).toBe(1);
+	},
+);
+
+it("combines overlapping unresolved work and reference passages without duplicating them", () => {
+	const well = "Iebūvēta ūdensvada aka DN1000. Šai akai norādu pozīciju 2.4.";
+	const result = recoverReviewedDiaryRows({
+		source: `${source} ${well}`,
+		notesCategory: "Piezīmes",
+		rows: [
+			...rows.slice(0, 2),
+			{ Date: "2026-11-17", Works: "Aka" },
+			{ Date: "2026-11-17", Works: "Piezīmes" },
+		],
+		checker: {
+			...checker,
+			expectedRecordCount: 3,
+			rowReviews: [
+				...(checker.rowReviews ?? []).slice(0, 2),
+				...[2, 3].map((rowIndex) => ({
+					rowIndex,
+					status: "needs_review" as const,
+					reason: "Pretrunīgs kods",
+					sourceText: well,
+				})),
+			],
+		},
+	});
+	expect(result?.rows).toHaveLength(3);
+	expect(result?.rows.slice(0, 2)).toEqual(rows.slice(0, 2));
+	expect(result?.rows[2].Comments).toBe(`Jāpārbauda.\n${well}`);
+});
 
 it("quarantines a bad quote without discarding other accepted works", () => {
 	const review: SiteDiaryExtractionCheckerResult = JSON.parse(
@@ -141,7 +184,6 @@ it("quarantines a bad quote without discarding other accepted works", () => {
 	expect(result?.qualities.map((quality) => quality.status)).toEqual([
 		"needs_review",
 		"accepted",
-		"needs_review",
 	]);
 });
 

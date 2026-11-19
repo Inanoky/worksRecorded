@@ -7,8 +7,8 @@ export function ekstrakcijas_kategorijas(): DiaryPromptSection {
 		title: "Projekta darbu un Forma2 piesaiste",
 		description:
 			"Izvēlas darbu no konkrētā projekta kataloga pēc darbības, materiāla un izmēra.",
-		version: 2,
-		text: `Works vērtību izvēlies tikai no dotās shēmas opcijām. Projekta kataloga kodi, nosaukumi, vienības un konfigurētie runas saīsinājumi ir vārdnīca, nevis paveikta darba pierādījums.
+		version: 3,
+		text: `Darba lauks ir positionId, ja dots pozīciju ID katalogs, citādi Works. Izvēlies tikai dotās shēmas atļauto vērtību; nosaukumu pēc ID atjaunos kods. Projekta kataloga kodi, nosaukumi, vienības un konfigurētie runas saīsinājumi ir vārdnīca, nevis paveikta darba pierādījums.
 ${DIARY_ADDITIONAL_WORK_POLICY}
 Salīdzini darbības būtību, sistēmu, materiālu un izmēru. Precīza Forma2 pozīcijas atsauce palīdz atrast darbu, taču pretrunu starp kodu un aprakstu nedrīkst paslēpt. Nesaderīgu kodu, diametru vai vienību nepielāgo izvēlētai pozīcijai; neskaidro daļu saglabā pārbaudāmā piezīmē.
 Piegādi, iestrādi un rakšanu nejauc. Ūdensvada darbs nav kanalizācijas darbs tikai līdzīgu vārdu dēļ. Vispārīgo projekta kategoriju lieto, ja tā precīzāk atbilst avotam nekā konkrētā Forma2 pozīcija. Trūkstošs apjoms neliedz izvēlēties skaidri aprakstīta darba kategoriju.`,
