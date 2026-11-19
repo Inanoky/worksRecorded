@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import defaultConfigLV from "@/components/sitediary/configs/defaultConfigLV_27042026.json";
 import { enableDefaultConstructionQuantityProfile } from "@/flows/default-construction/lib/quantity-plan-actual";
+import { browserMaterialMetadata } from "@/lib/material-consumption/browser-import";
 import { defaultProgram } from "@/lib/utils/DefaultProgram";
 import { prisma } from "@/lib/utils/db";
 import { type BrowserDiaryParser, createBrowserDiaryParser } from "./parser";
@@ -380,6 +381,12 @@ export async function ingestBrowserWhatsappMessage(
 						Comments: buildComments({ entry, actualArea, selectedWork }),
 						originalUserComment,
 						Photos: photoUrls,
+						evalMetadata: browserMaterialMetadata({
+							site,
+							entries: extraction.entries,
+							payload,
+							originalText: originalUserComment,
+						}) as Prisma.InputJsonValue,
 					},
 					select: { id: true },
 				});

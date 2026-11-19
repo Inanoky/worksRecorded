@@ -61,6 +61,18 @@ export function getNavLinks(
 		...(isTgem
 			? []
 			: [{ name: t.projects, href: "/dashboard/sites", icon: HardHat }]),
+		...(options?.flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION
+			? [
+					{
+						name:
+							normalizeOrganizationLanguage(language) === "lv"
+								? "Materiālu patēriņš"
+								: "Material consumption",
+						href: "/dashboard/material-consumption",
+						icon: Package,
+					},
+				]
+			: []),
 		{ name: t.organizationSettings, href: "/dashboard/settings", icon: Wrench },
 	];
 
