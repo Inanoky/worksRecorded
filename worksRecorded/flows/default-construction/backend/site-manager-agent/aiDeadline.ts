@@ -47,6 +47,13 @@ export function getSiteManagerAiTimeout() {
 	return budgets.getStore()?.timeout;
 }
 
+export function getRemainingSiteManagerAiBudgetMs() {
+	const deadline = budgets.getStore()?.deadline;
+	return deadline === undefined
+		? SITE_MANAGER_AI_BUDGET_MS
+		: Math.max(0, deadline - Date.now());
+}
+
 export function getSiteManagerTimeoutReply(language: SupportedReplyLanguage) {
 	if (budgets.getStore()?.sideEffectsStarted) {
 		return language === "lv"

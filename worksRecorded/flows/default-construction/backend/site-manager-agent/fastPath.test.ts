@@ -1,3 +1,4 @@
+import { DIARY_PARTIAL_REVIEW_MESSAGE } from "./diaryReviewNotes";
 import {
   debugSiteDiaryFastPathCandidate,
   detectReplyLanguage,
@@ -12,6 +13,26 @@ import {
   serializeCorrectionToolResult,
   shouldAcceptFastPathCorrectionIntent,
 } from "./fastPath";
+
+it.each(["lv", "en", "ru"] as const)("uses one concise partial-save confirmation in %s without exposing row diagnostics", (language) => {
+  const reply = formatDeterministicSaveReply(language, {
+    ok: true,
+    count: 3,
+    hasReviewNotes: true,
+    records: [{ Works: "Piezīmes", Comments: "Checker instructions: change row-2 Works, retry save_to_database" }],
+  });
+  expect(reply).not.toContain("Checker");
+  expect(reply).not.toContain("save_to_database");
+  expect(reply).not.toContain("row-2");
+  expect(reply).toContain("3");
+  if (language === "lv") expect(reply).toContain(DIARY_PARTIAL_REVIEW_MESSAGE);
+});
+
+it("recognizes partial recovery as a successful save in the legacy tool confirmation path", () => {
+  const outcome = parseSaveToolOutcome(`Saved 3 site diary record(s) successfully. ${DIARY_PARTIAL_REVIEW_MESSAGE}`);
+  expect(outcome).toEqual({ ok: true, count: 3, hasReviewNotes: true });
+  expect(formatDeterministicSaveReply("lv", outcome)).toContain(DIARY_PARTIAL_REVIEW_MESSAGE);
+});
 
 function expectFastPathCandidate(message: string, expected: boolean) {
   const actual = isSiteDiaryFastPathCandidate(message);

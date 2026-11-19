@@ -1,5 +1,5 @@
 "use server"
-import {AIMessage, BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
+import {AIMessage, type BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
 import { type RunnableConfig, RunnableLambda } from "@langchain/core/runnables";
 import {Annotation, END, messagesStateReducer, START, StateGraph } from "@langchain/langgraph";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
@@ -389,6 +389,7 @@ async function talkToWhatsappAgentCore(
                     message: fastPathResult.ok ? undefined : parseSaveToolOutcome(fastPathResult.content).message,
                     records: fastPathResult.records,
                     savedAsNote: fastPathResult.savedAsNote,
+                    hasReviewNotes: fastPathResult.hasReviewNotes,
                 },
                 includeAddressName
                     ? getUserAddressName(userFirstName, fastPathResult.language)

@@ -206,6 +206,10 @@ export async function executeReviewedDiaryCase(
 						})
 					: assign({ sources, positions }))
 			: [];
+	const recovery = steps.findLast((step) => step.phase === "partial_recovery");
+	const rowQualities = Array.isArray(recovery?.rowQuality)
+		? (recovery.rowQuality as Array<{ status?: string }>)
+		: [];
 	const rows: ReviewedDiaryActualRow[] = sources.map((source, index) => ({
 		id: source.id,
 		dateISO: source.date,
@@ -216,6 +220,9 @@ export async function executeReviewedDiaryCase(
 		unit: text(rawRows[index].Units),
 		workers: number(rawRows[index].WorkersInvolved),
 		hours: source.hours,
+		needsReview:
+			run.result.extraction.savedAsNote === true ||
+			rowQualities[index]?.status === "needs_review",
 		forma2PositionId:
 			source.selectedPositionId ??
 			allocations.find((allocation) => allocation.sourceId === source.id)
@@ -236,9 +243,18 @@ export async function executeReviewedDiaryCase(
 			modelCalls: [...metrics.modelCalls, ...matcherCalls],
 			aggregateTokenUsage: matcherCalls.reduce(
 				(total, call) => ({
-					inputTokens: total.inputTokens + call.inputTokens,
-					outputTokens: total.outputTokens + call.outputTokens,
-					totalTokens: total.totalTokens + call.totalTokens,
+					inputTokens:
+						total.inputTokens === null
+							? null
+							: total.inputTokens + call.inputTokens,
+					outputTokens:
+						total.outputTokens === null
+							? null
+							: total.outputTokens + call.outputTokens,
+					totalTokens:
+						total.totalTokens === null
+							? null
+							: total.totalTokens + call.totalTokens,
 				}),
 				metrics.aggregateTokenUsage,
 			),

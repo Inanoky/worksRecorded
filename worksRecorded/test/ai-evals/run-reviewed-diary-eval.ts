@@ -8,6 +8,10 @@ import {
 	selectEvalCases,
 } from "./eval-case-selection";
 import {
+	oceltScenarioCases,
+	oceltScenarioProvenance,
+} from "./ocelt-scenario-cases";
+import {
 	productionDiaryCases,
 	productionDiaryEnvironment,
 	productionDiaryProvenance,
@@ -26,14 +30,33 @@ import { validateReviewedDiaryCase } from "./reviewed-diary-validators";
 
 async function main() {
 	const productionReplay = process.argv.includes("--production-replay");
-	const cases: DiaryExtractionEvalCase[] = productionReplay
-		? productionDiaryCases
-		: reviewedDiaryCases;
+	const oceltScenarios = process.argv.includes("--ocelt-scenarios");
+	const ocelt = process.argv.includes("--ocelt");
+	if ([productionReplay, oceltScenarios, ocelt].filter(Boolean).length > 1)
+		throw new Error(
+			"Choose only one of --production-replay, --ocelt-scenarios or --ocelt.",
+		);
+	const cases: DiaryExtractionEvalCase[] = ocelt
+		? [
+				...reviewedDiaryCases.filter((evalCase) =>
+					evalCase.tags.includes("ocelt"),
+				),
+				...oceltScenarioCases,
+			]
+		: oceltScenarios
+			? oceltScenarioCases
+			: productionReplay
+				? productionDiaryCases
+				: reviewedDiaryCases;
 	const selection = selectEvalCases({ cases });
 	console.log(
-		productionReplay
-			? "Produkcijas dienasgrāmatas plūsmas regresiju kopa:"
-			: "Pārskatīto dienasgrāmatas ierakstu/Forma2 eval kopa:",
+		ocelt
+			? "Ocelt: pārskatītie piemēri un jaunie vairāku darbu scenāriji:"
+			: oceltScenarios
+				? "Ocelt jaunie vairāku darbu scenāriji:"
+				: productionReplay
+					? "Produkcijas dienasgrāmatas plūsmas regresiju kopa:"
+					: "Pārskatīto dienasgrāmatas ierakstu/Forma2 eval kopa:",
 	);
 	for (const line of formatEvalSelectionSummary(selection)) console.log(line);
 	if (process.argv.includes("--dry-run") || process.argv.includes("--list")) {
@@ -67,10 +90,14 @@ async function main() {
 	const { executeReviewedDiaryCase } = await import(
 		"./reviewed-diary-execution"
 	);
-	const runId = `${productionReplay ? "production" : "reviewed"}-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+	const runId = `${ocelt ? "ocelt" : oceltScenarios ? "ocelt-scenarios" : productionReplay ? "production" : "reviewed"}-${new Date().toISOString().replace(/[:.]/g, "-")}`;
 	const startedAt = new Date().toISOString();
 	const results = [];
 	for (const evalCase of selection.selectedCases) {
+		const isOceltScenario = oceltScenarioCases.some(
+			(scenario) => scenario.id === evalCase.id,
+		);
+		const matchForma2 = !(productionReplay || isOceltScenario);
 		const started = Date.now();
 		const langsmithRunId = langsmith?.uuid7() ?? null;
 		try {
@@ -83,6 +110,7 @@ async function main() {
 					userId,
 					runId,
 					trace: tracing.enabled,
+					matchForma2,
 					...(productionReplay
 						? {
 								environment: productionDiaryEnvironment(evalCase),
@@ -112,6 +140,14 @@ async function main() {
 				}
 				return {
 					caseId: evalCase.id,
+					corpusKind: isOceltScenario
+						? "derived-scenario"
+						: productionReplay
+							? "production-replay"
+							: "reviewed",
+					forma2AssignmentMode: matchForma2
+						? "automatic-assignment"
+						: "configured-works-only",
 					turnIndex: 0,
 					inputPreview: evalCase.sourceText,
 					answer: JSON.stringify(result.rows),
@@ -246,12 +282,22 @@ async function main() {
 		checkerModelSettings: checkerSettings,
 		whatsappReplies: false,
 		langsmith: tracing,
-		corpusProvenance: productionReplay
-			? productionDiaryProvenance
-			: reviewedDiaryCorpus.provenance,
-		forma2AssignmentMode: productionReplay
-			? "configured-works-only"
-			: "automatic-assignment",
+		corpusProvenance: ocelt
+			? {
+					kind: "reviewed-and-derived-scenarios",
+					reviewed: reviewedDiaryCorpus.provenance,
+					scenarios: oceltScenarioProvenance,
+				}
+			: oceltScenarios
+				? oceltScenarioProvenance
+				: productionReplay
+					? productionDiaryProvenance
+					: reviewedDiaryCorpus.provenance,
+		forma2AssignmentMode: ocelt
+			? "per-case"
+			: productionReplay || oceltScenarios
+				? "configured-works-only"
+				: "automatic-assignment",
 		summary: {
 			cases: results.length,
 			deterministicFailures: failures,
@@ -278,9 +324,13 @@ async function main() {
 	const htmlFile = file.replace(/\.json$/, ".html");
 	const latestHtmlFile = path.join(
 		directory,
-		productionReplay
-			? "diary-production-latest.html"
-			: "diary-reviewed-latest.html",
+		ocelt
+			? "diary-ocelt-latest.html"
+			: oceltScenarios
+				? "diary-ocelt-scenarios-latest.html"
+				: productionReplay
+					? "diary-production-latest.html"
+					: "diary-reviewed-latest.html",
 	);
 	await writeFile(htmlFile, html);
 	await writeFile(latestHtmlFile, html);

@@ -70,7 +70,7 @@ jest.mock("./AIschemas", () => ({
 }));
 
 jest.mock("./prompts", () => ({
-	systemPromptSaveToDatabaseFunction: jest.fn(),
+	getSiteDiaryExtractorPromptForUser: jest.fn(),
 }));
 
 jest.mock("./runContext", () => ({
@@ -105,25 +105,39 @@ jest.mock("./structuredSaveTrace", () => ({
 import { normalizeUnknownNumericFields } from "./tools";
 
 describe("normalizeUnknownNumericFields", () => {
-  it.each([
-    ["Nē, durvīm bija desmit gabali, nevis pieci.", 10, "pcs"],
-    ["Caurulei bija divdesmit četri metri.", 24, "m"],
-    ["Iebūvēti divi simti trīsdesmit divi kubikmetri grunts.", 232, "m3"],
-  ])("preserves a source-backed spoken quantity: %s", (source, amount, unit) => {
-    expect(normalizeUnknownNumericFields({ Works: "Darbs", Amounts: amount, Units: unit }, source))
-      .toMatchObject({ Amounts: amount, Units: unit });
-  });
+	it.each([
+		["Nē, durvīm bija desmit gabali, nevis pieci.", 10, "pcs"],
+		["Caurulei bija divdesmit četri metri.", 24, "m"],
+		["Iebūvēti divi simti trīsdesmit divi kubikmetri grunts.", 232, "m3"],
+	])(
+		"preserves a source-backed spoken quantity: %s",
+		(source, amount, unit) => {
+			expect(
+				normalizeUnknownNumericFields(
+					{ Works: "Darbs", Amounts: amount, Units: unit },
+					source,
+				),
+			).toMatchObject({ Amounts: amount, Units: unit });
+		},
+	);
 
-  it.each([
-    ["Caurulei bija divdesmit četri metri.", 4, "m"],
-    ["Vads ir divdesmit četri milimetri diametrā.", 24, "m"],
-    ["Darbus veica desmit strādnieki.", 10, "pcs"],
-    ["Darbs ilga desmit stundas.", 10, "pcs"],
-    ["Reģipsis ieklāts divās kārtās.", 2, "pcs"],
-  ])("does not turn spoken context numbers or partial numerals into quantities: %s", (source, amount, unit) => {
-    expect(normalizeUnknownNumericFields({ Works: "Darbs", Amounts: amount, Units: unit }, source))
-      .toMatchObject({ Amounts: null, Units: null });
-  });
+	it.each([
+		["Caurulei bija divdesmit četri metri.", 4, "m"],
+		["Vads ir divdesmit četri milimetri diametrā.", 24, "m"],
+		["Darbus veica desmit strādnieki.", 10, "pcs"],
+		["Darbs ilga desmit stundas.", 10, "pcs"],
+		["Reģipsis ieklāts divās kārtās.", 2, "pcs"],
+	])(
+		"does not turn spoken context numbers or partial numerals into quantities: %s",
+		(source, amount, unit) => {
+			expect(
+				normalizeUnknownNumericFields(
+					{ Works: "Darbs", Amounts: amount, Units: unit },
+					source,
+				),
+			).toMatchObject({ Amounts: null, Units: null });
+		},
+	);
 
 	it("does not save temperature or a copied ordinal as a work amount", () => {
 		const source =

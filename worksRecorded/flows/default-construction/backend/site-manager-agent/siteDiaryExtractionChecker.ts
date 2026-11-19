@@ -1,20 +1,23 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { createDefaultConstructionDiaryUnitResolver } from "../../lib/site-diary-productivity-settings";
 import type { ConfigMap } from "./AIschemas";
+import { SITE_MANAGER_AI_BUDGET_MS } from "./aiDeadline";
+import { composeSiteDiaryCheckerPrompt } from "./diary-prompts/composeCheckerPrompt";
 import {
-	invokeSiteManagerModel,
-	SITE_MANAGER_AI_BUDGET_MS,
-} from "./aiDeadline";
-import {
+	diaryModelOutputTokenLimit,
 	diaryModelReasoningOptions,
 	diaryModelUsesResponsesApi,
 	siteDiaryExtractionCheckerModel,
 	siteDiaryExtractionCheckerReasoningEffort,
 } from "./diaryModelSettings";
-import { DIARY_SOURCE_POLICY } from "./diarySourcePolicy";
 import type { SupportedReplyLanguage } from "./fastPath";
+import {
+	assertCompleteModelResponse,
+	createModelRequestDiagnostics,
+} from "./modelRequestDiagnostics";
 import {
 	diaryRepairFieldSchema,
 	getSiteDiaryWorkAliases,
@@ -144,56 +147,31 @@ export function serializeRowsForSiteDiaryChecker(
 		.join("\n");
 }
 
-export function buildSiteDiaryExtractionCheckerMessages(args: {
+export type SiteDiaryCheckerMessageArgs = {
 	originalMessage: string;
 	rows: SiteDiaryExtractionCheckerRow[];
 	language: SupportedReplyLanguage;
 	contextText?: string;
 	workCatalog?: string;
+	projectConfig?: ConfigMap;
 	workCatalogScope?: "complete" | "repair";
 	repairContext?: SiteDiaryCheckerRepairContext;
 	referenceDate?: string;
-}) {
-	return [
-		new SystemMessage(
-			`You are a strict construction site diary extraction checker.
-${DIARY_SOURCE_POLICY}
-Coverage is mandatory: compare ALL source clauses with the proposed rows. Missing explicit completed quantities, cleaning work, worker groups or labour durations requires needs_model_repair; an ambiguous delivery must not erase the other supported facts. Preserve labour explicitly tied to its work row; demand separate labour notes for unequal duration groups only when the source does not assign them to specific works. Never invent a uniform duration or duplicate hours. Check corrected rows just as strictly as new rows.
-Always return coverageComplete and one rowReviews entry for every proposed row, using its zero-based rowIndex and a sourceText quote from the original message. Also return sourceSpans: one to five verbatim passages in source order supporting the row. Use multiple sourceSpans when a later sentence clarifies a work mentioned earlier; do not concatenate nonadjacent passages into a fake continuous quote. Copy all words, numbers, negation, units and identifiers exactly. Punctuation and whitespace differences alone are not factual errors. Mark a row accept only when its category, facts, quantities, units, labour and date are supported. Mark only problematic rows needs_review; do not mark otherwise correct rows needs_review because a different row has an issue. coverageComplete is true only when all source events have a corresponding proposed row. Missing source events must set it false. Preserve valid rows during repair, and target repairInstructions to the affected rows and fields.
-Without an explicit worker count, WorkersInvolved may remain null. An unambiguously enumerated group of distinct workers can support a count, but a single machinery/operator role without a numeric count must not require WorkersInvolved=1. Preserve its supported hours independently.
-Explicit source length multiplied by an explicitly reported per-metre rate supports a calculated quantity, including rounding to two decimals. Validate the operands and equation rather than requiring the final number to occur literally in the message. The reference date is trusted application context for resolving today/yesterday and an omitted year. Preserve an explicit work day/month and output a complete ISO date using that context; do not remove a known year from the proposed date.
-Judge whether the proposed rows represent real separate diary events/jobs from the original WhatsApp message.
-The original message may explicitly refer to trusted reference items from the extraction context, for example same work, same place, yesterday, previous report, or continue. In that case, Works and Location may be supported by those reference items.
-If trusted extraction context says CurrentMessageHasExplicitContextReference=true and contains matching recent reference items, do not mark a row unsafe merely because Works or Location came from that context.
-Numeric fields still need current-message support unless the current message explicitly references that number. A phrase like "vēl 3h" supports TimeInvolved=3 for the new row, but does not support copying previous WorkersInvolved.
-Amounts and Units are first-class fields to validate. Preserve proposed Amounts/Units when the current message explicitly states a completed work quantity or delivered/placed material quantity, for example "45 m2 ieklāts OSB", "ievesta smilts 180 kubi", or "iestrādāti 140 m3".
-When the message contains both a completed scope quantity and material/resource dimensions, prefer the completed scope quantity for Amounts/Units and keep dimensions only in Comments. For example, in "OSB 22 mm, ieklāti 45 m2", Amounts=45 and Units=m2 are supported; "22 mm" is material specification, not completed quantity.
-A number directly counting completed construction objects implies pieces even when the source does not literally say pcs or gab. Preserve Amounts=10 and Units=pcs for "10 sienas", Amounts=5 and Units=pcs for "5 durvis", and equivalent explicit object counts.
-Reject or repair unsupported Amounts/Units only when they came from context numbers, apartment/floor numbers, layer counts, worker counts, hours, start times, or material dimensions/specifications such as "22 mm" or "45x45 latojums".
-Return verdict=accept when the row count and split are safe enough to save automatically.
-Return verdict=repairable when the row count and split are safe, but a small field-level issue can be fixed by setting nullable fields to null. Include repairActions for every field to null.
-If the only unsupported field is Location, return verdict=repairable with a set_null repairAction for Location, not unsafe or needs_model_repair. Keep the source-backed work, quantity, units, comments, workers, and hours unchanged. A location appearing in dropdown options, even as the only option, is not evidence that it applies. Preserve locations supported by the current message or an allowed explicit reference to trusted context.
-Return verdict=needs_model_repair when one real job was split into artificial rows, when machinery/tools/operators/sub-actions were turned into separate jobs, when shared workers/hours/quantity were split without source evidence, or when the original message clearly contains multiple distinct source-backed diary events/jobs but the proposed output merged them into one broad row.
-Return verdict=unsafe when the proposed rows are too ambiguous or unsupported to save automatically and a deterministic field repair or one model repair would be unsafe.
-Use verdict=retry only as a legacy alias for needs_model_repair when needed.
-Shared workers or total hours never justify merging distinct completed works. Split independently described works even if some quantities or labour allocations are unknown. Keep an unallocated shared team/duration once in a separate labour note with null Amounts/Units and null labour on the work rows. A vague list without distinct completed activities may remain one summary note.
-Return verdict=needs_model_repair when one actor or one machine performing conjoined in-progress sub-actions in a single sentence is split into separate rows. For example, "No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu un šķembošanu" should be one note/work row with both actions in Comments, expectedRecordCount=1, and no TimeInvolved inferred from the start time.
-Treat "No plkst. HH.MM" and similar "from time" phrases as start times only, not durations. If rows invented TimeInvolved from a start time, return repairable with set_null repairActions when the split is otherwise safe, or needs_model_repair when the row count/split is also wrong.
-Shared duration or worker count does not justify merging material delivery with actual installed/placed work when the source gives separate action+quantity evidence for each, such as "ievesta smilts 160m3" and "iestrādāti 140m3". If a proposed row merges those into one broad row, return verdict=needs_model_repair with expectedRecordCount=2 and instruct the extractor to create one Material delivery row for the delivered quantity and one work row for the installed/placed quantity.
-When material delivery and installed/placed work are already split, reject unsupported delivery WorkersInvolved or TimeInvolved copied from shared work labor/hours. Delivery rows should keep WorkersInvolved and TimeInvolved null unless the source explicitly ties labor/time to delivery, unloading, or transport. If only the delivery fields are wrong, keep expectedRecordCount unchanged, return verdict=repairable, and include set_null repairActions for those delivery fields while preserving the work row labor/hours.
-repairActions are only for safe nulling: rowIndex is zero-based and field must be Amounts, Units, WorkersInvolved, TimeInvolved, or Location. Do not use repairActions to rewrite text, change row categories, invent values, split rows, merge rows, drop rows, or replace a source-backed completed quantity with null.
-Do not reject merely because there are many rows. Full-day reports can legitimately create many rows when each row has distinct source evidence.
-A row can be a site-diary-relevant note, weather entry, material delivery, machinery note, or work item when it is a real diary event.
-Site-related factual reports without a specific construction task are valid diary notes by default. Missing a specific task, location, quantity, or worker count is not a reason to reject such a note. Return verdict=accept for "strādājam no 7.00 - 18.00" represented as one Notes/Piezīmes row with the working-time interval in Comments, null Location/Amounts/Units/WorkersInvolved, and TimeInvolved=11 or null. A complete start-end interval supports elapsed duration; a start time alone does not. If the report has an invented construction category or incorrect interval duration, use needs_model_repair to request one source-backed note. Questions, greetings, and commands without a diary fact are not diary events and must not become notes.
-Check category and configured measurement-unit compatibility as well as splitting. Do not accept a measurable completed work classified as Notes merely because the material is omitted: request clarification if context cannot safely resolve it. Do not guess a different material, category or unit to force a match.
-Configured speechAliases are project-specific vocabulary mappings, not evidence of completed quantities or labour. Use the configured work catalog below for category decisions, even if historical context is truncated. A repair check receives relevant candidates and the categories already used; this scoped catalog is not the full project catalog. Do not demand unrelated category changes in a repair check. Prefer a compatible specific Forma2 position; otherwise use a compatible configured generic category. If no category is supported, mark only that activity needs_review. Water-pipe excavation must not be assigned to a sewer-specific position merely because its name mentions excavation. Never change OD220 to D200, a material, or a utility system without explicit source evidence or a verified project mapping. A nearby well identifier is location evidence, not proof that a water work is sewer work. Conflicting lengths such as 22.09 and 22.9 require review of the affected calculation; do not silently choose an operand.
-For a repair check, first compare the previous rows, your previous review and the repaired rows. Verify the requested changes and preserve unchanged accepted rows. Do not introduce a new category preference for an unchanged supported fact. If the previous recommendation was unsafe, explicitly explain the source/catalog contradiction and mark only affected rows needs_review; prior instructions never override source evidence. Give a complete actionable repair plan in the first check, including category and unit issues, because only one model repair is available.
-Ja vajadzīgs modeļa labojums, atgriez modelRepairTargets katrai labojamai rindai: rowIndex, tieši maināmie fields un allowStructuralChanges. Apstiprinātām rindām labojumus neprasi. allowStructuralChanges=true tikai rindām, kuras jāsadala, jāapvieno vai jāizņem kā nepamatotas. Trūkstošai darbībai coverageComplete=false; pārējās pamatotās rindas paliek nemainītas. Labotājs saņems atlasītās rindas un atbilstošos kataloga kandidātus, nevis atkārtoti veiks visu ekstrakciju.
-If model repair is needed, write concrete repairInstructions for the targeted repair step. The instruction must say which rows should be split into specific separate jobs, merged, dropped, or preserved, and why.
-Use language=${args.language} for reason and repairInstructions when practical.`,
-		),
-		new HumanMessage(
-			`Original WhatsApp message:
+};
+
+function buildCheckerInput(args: SiteDiaryCheckerMessageArgs) {
+	const composition = composeSiteDiaryCheckerPrompt({
+		language: args.language,
+		projectConfig: args.projectConfig,
+		rows: args.rows,
+		repair: Boolean(args.repairContext),
+	});
+	return {
+		promptComposition: composition.manifest,
+		messages: [
+			new SystemMessage(composition.systemText),
+			new HumanMessage(
+				`Original WhatsApp message:
 ${args.originalMessage}
 
 Trusted reference date: ${args.referenceDate ?? "not provided"}
@@ -206,29 +184,38 @@ ${args.contextText?.trim() || "(none provided)"}
 
 Proposed rows:
 ${serializeRowsForSiteDiaryChecker(args.rows)}${args.repairContext ? `\n\nPrevious rows before repair:\n${serializeRowsForSiteDiaryChecker(args.repairContext.previousRows)}\n\nPrevious checker review (audit context, not new source facts):\n${JSON.stringify(args.repairContext.previousReview)}` : ""}`,
-		),
-	];
+			),
+		],
+	};
 }
 
-export async function invokeSiteDiaryExtractionChecker(args: {
-	originalMessage: string;
-	rows: SiteDiaryExtractionCheckerRow[];
-	language: SupportedReplyLanguage;
-	contextText?: string;
-	workCatalog?: string;
-	workCatalogScope?: "complete" | "repair";
-	repairContext?: SiteDiaryCheckerRepairContext;
-	referenceDate?: string;
-	runnableConfig?: Record<string, unknown>;
-	evaluationModel?: SiteDiaryCheckerModelSettings;
-}) {
+export function buildSiteDiaryExtractionCheckerMessages(
+	args: SiteDiaryCheckerMessageArgs,
+) {
+	return buildCheckerInput(args).messages;
+}
+
+export async function invokeSiteDiaryExtractionChecker(
+	args: SiteDiaryCheckerMessageArgs & {
+		runnableConfig?: RunnableConfig;
+		evaluationModel?: SiteDiaryCheckerModelSettings;
+	},
+) {
 	const model = args.evaluationModel?.model ?? siteDiaryExtractionCheckerModel;
 	const useResponsesApi =
 		args.evaluationModel?.useResponsesApi ?? diaryModelUsesResponsesApi(model);
+	const diagnostics = createModelRequestDiagnostics({
+		model,
+		purpose: args.repairContext
+			? "site_diary_extraction_repair_checker"
+			: "site_diary_extraction_checker",
+	});
 	const llm = new ChatOpenAI({
 		model,
 		timeout: SITE_MANAGER_AI_BUDGET_MS,
 		maxRetries: 0,
+		maxTokens: diaryModelOutputTokenLimit(args.originalMessage),
+		configuration: diagnostics.configuration,
 		...diaryModelReasoningOptions(
 			args.evaluationModel?.reasoningEffort ??
 				siteDiaryExtractionCheckerReasoningEffort,
@@ -240,13 +227,27 @@ export async function invokeSiteDiaryExtractionChecker(args: {
 		siteDiaryExtractionCheckerSchema,
 		{ includeRaw: true },
 	);
-	const envelope = await invokeSiteManagerModel(
-		(config) =>
-			structured.invoke(buildSiteDiaryExtractionCheckerMessages(args), config),
-		args.runnableConfig,
-	);
+	const input = buildCheckerInput(args);
+	const runnableConfig = {
+		...args.runnableConfig,
+		metadata: {
+			...args.runnableConfig?.metadata,
+			diaryCheckerPrompt: input.promptComposition,
+		},
+	};
+	const result = await diagnostics.run(async (config) => {
+		const envelope = await structured.invoke(input.messages, config);
+		assertCompleteModelResponse(envelope?.raw);
+		return {
+			parsed: siteDiaryExtractionCheckerSchema.parse(
+				envelope?.parsed ?? envelope,
+			),
+			raw: envelope?.raw ?? null,
+		};
+	}, runnableConfig);
 	return {
-		parsed: (envelope?.parsed ?? envelope) as SiteDiaryExtractionCheckerResult,
-		raw: envelope?.raw ?? null,
+		...result,
+		promptComposition: input.promptComposition,
+		diagnostics: diagnostics.snapshot(),
 	};
 }

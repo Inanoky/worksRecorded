@@ -2,10 +2,14 @@ import { reconcileDiaryQuantityUnit } from "../../lib/diary-quantity-units";
 import { hasDefaultConstructionQuantityProfile } from "../../lib/quantity-plan-actual";
 import { createDefaultConstructionDiaryUnitResolver } from "../../lib/site-diary-productivity-settings";
 import type { ConfigMap } from "./AIschemas";
+import { DIARY_REVIEW_NOTE_POLICY } from "./diaryReviewNotes";
 
 type DiaryRow = Record<string, unknown>;
 
 export const DIARY_WORK_SPLIT_POLICY = `Atsevišķi aprakstītus paveiktos darbus sadali atsevišķos dienasgrāmatas ierakstos arī tad, ja tiem ir kopīgi darbinieki vai kopējais ilgums. Nezināms apjoms vai darba laika sadalījums nav iemesls apvienot dažādus darbus. Katram darbam izvēlies tā avotam un mērvienībai atbilstošu projekta kategoriju. Kopīgo brigādi un kopējo ilgumu, piemēram, "divi cilvēki, astoņas stundas kopā", saglabā vienreiz atsevišķā darba laika piezīmē; darbu rindās neatkārto un patvaļīgi nedali šīs stundas vai darbiniekus. Ja ziņā laiks un brigāde skaidri piesaistīti konkrētam darbam, saglabā tos uz šī darba rindas. Ja skaidri pateikts "katru darbu veica divi cilvēki astoņas stundas", šie dati attiecas uz katru norādīto darbu. Neskaidrs tēmu uzskaitījums bez atsevišķi aprakstītām darbībām var palikt viena piezīme. Vienas darbības aprīkojums, operators un saistītas apakšdarbības paši par sevi nav atsevišķi paveikti darbi.`;
+
+export const DIARY_ADDITIONAL_WORK_POLICY =
+	"Papildu darbi/Additional works un CE nav vispārīgas nezināma darba kategorijas. Tās izvēlies tikai tad, ja avots pamato papildu vai ārpus sākotnējā darba apjoma veikta darba statusu. Parasta grunts izvešana ir zemes darbs; bez papildu darbu statusa pierādījuma lieto saderīgo zemes darbu kategoriju. Konkrēta kataloga darba neatrašana pati par sevi nenozīmē papildu darbu.";
 
 const planned =
 	/(?:^|[^\p{L}])(?:rīt|plānojam|plānots|plānoti|tomorrow|planned|will\s+be)(?=$|[^\p{L}])/iu;
@@ -16,10 +20,11 @@ export const DIARY_SOURCE_POLICY = `Except in explicit NoSorting/comment-only mo
 ${DIARY_WORK_SPLIT_POLICY}
 Future intentions such as "rīt jāizplanē 60m3" are planning notes, not factual completed quantities. Keep them as Notes/Piezīmes with planned scope in Comments and null Amounts/Units/Workers/Hours; do not count them again when completion is reported. In a mixed report preserve today's completed work separately from tomorrow's plan.
 Extract all unambiguous clauses even when another clause lacks a material or unit. Do not turn an entire measurable report into a raw note solely because one delivery is ambiguous. Preserve the ambiguous clause as a review note without guessing its unit or material.
-Ja vienam aprēķinam avotā ir pretrunīgi skaitļi, piemēram, garums 22,09 un vēlāk 22,9 metri, neizvēlies vienu no tiem kā apstiprinātu aprēķina pamatu. Saglabā pārējos pamatotos darbus un tikai pretrunīgo aprēķinu atsevišķā pārskatāmā piezīmē ar null Amounts/Units, komentārā paskaidrojot, kas jāprecizē. Darba laiks, kas tieši piesaistīts konkrētam darbam, paliek uz tā rindas; atsevišķa kopīgā laika piezīme vajadzīga, ja brigāde un kopējais ilgums attiecināti uz vairākiem darbiem bez sadalījuma.
+Ja vienam aprēķinam avotā ir pretrunīgi skaitļi, piemēram, garums 22,09 un vēlāk 22,9 metri, neizvēlies vienu no tiem kā apstiprinātu aprēķina pamatu. Saglabā pārējos pamatotos darbus un tikai pretrunīgo aprēķinu atsevišķā pārskatāmā piezīmē ar null Amounts/Units, komentārā saglabājot avota fragmentu un īsu norādi “Jāpārbauda.”. Darba laiks, kas tieši piesaistīts konkrētam darbam, paliek uz tā rindas; atsevišķa kopīgā laika piezīme vajadzīga, ja brigāde un kopējais ilgums attiecināti uz vairākiem darbiem bez sadalījuma.
 Preserve every explicitly stated labour duration in structured fields. When the source explicitly ties a worker group and duration to a specific work, keep that labour on the corresponding work row even when another work has a different duration. Use separate labour notes for duration groups only when their work assignment is not explicit, with null Amounts/Units and no duplicate labour on work rows. Never use the longest duration for everyone and never invent how shared labour was split between jobs. A compound role such as "būvdarbu vad. palīgs" is one person, not a manager plus an assistant.
 Use an explicitly reported activity/completion date, not the receipt date, for a retrospective report. A correction changes only its requested facts; preserve unrelated dates, quantities and activities. Verify work category AND configured unit; never convert m2 to m3 without explicit dimensional evidence. If no compatible estimate position exists, retain the measured scope in a review note rather than claiming it belongs to an incompatible estimate position.
-A short material-only reply, such as "Balasta", may clarify a preceding unclassified report; it is not evidence of a new completed job. Resolve it through the correction flow only when the target is unambiguous, otherwise ask which report it clarifies.`;
+A short material-only reply, such as "Balasta", may clarify a preceding unclassified report; it is not evidence of a new completed job. Resolve it through the correction flow only when the target is unambiguous, otherwise ask which report it clarifies.
+${DIARY_REVIEW_NOTE_POLICY}`;
 
 export function isOnlyPlannedDiaryReport(source: string) {
 	return planned.test(source) && !completed.test(source);
@@ -131,7 +136,11 @@ export function normalizeDiarySourceRows(
 	const unitForWork = createDefaultConstructionDiaryUnitResolver(config);
 	const quantityProfile = hasDefaultConstructionQuantityProfile(config);
 	rows = rows.map((row) => {
-		const patch = reconcileDiaryQuantityUnit(row, unitForWork(row.Works), quantityProfile);
+		const patch = reconcileDiaryQuantityUnit(
+			row,
+			unitForWork(row.Works),
+			quantityProfile,
+		);
 		return {
 			...row,
 			...patch,

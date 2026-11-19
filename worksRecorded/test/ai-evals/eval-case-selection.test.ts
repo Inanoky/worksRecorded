@@ -104,6 +104,36 @@ describe("AI eval case selection", () => {
 		]);
 	});
 
+	it("requires manual opt-in even when an image case matches critical, tag or case filters", () => {
+		const manualCase = {
+			...cases[0],
+			id: "invoice-image",
+			tags: ["image", "invoice"],
+			manualOnly: true,
+		};
+		const corpus = [...cases, manualCase];
+		for (const argv of [[], ["--critical"]]) {
+			const selected = selectEvalCases({ cases: corpus, argv });
+			expect(selected.selectedCaseIds).not.toContain(manualCase.id);
+			expect(formatEvalSelectionSummary(selected).join("\n")).toContain(
+				"Manual-only cases excluded: invoice-image",
+			);
+		}
+		for (const argv of [
+			["--tag", "image"],
+			["--case", manualCase.id],
+		]) {
+			expect(() => selectEvalCases({ cases: corpus, argv })).toThrow(
+				"No eval cases matched filters",
+			);
+			const selected = selectEvalCases({
+				cases: corpus,
+				argv: [...argv, "--include-manual"],
+			});
+			expect(selected.selectedCaseIds).toEqual([manualCase.id]);
+		}
+	});
+
 	it("fails when filters match no cases", () => {
 		expect(() =>
 			selectEvalCases({ cases, argv: ["--tag", "missing"] }),

@@ -1,4 +1,5 @@
 import type { SiteDiaryConfirmationRecord } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/siteDiaryToolContext";
+import { DIARY_PARTIAL_REVIEW_MESSAGE } from "./diaryReviewNotes";
 
 export type SupportedReplyLanguage = "lv" | "en" | "ru";
 
@@ -8,6 +9,7 @@ export type SiteDiarySaveOutcome = {
   message?: string;
   records?: SiteDiaryConfirmationRecord[];
   savedAsNote?: boolean;
+  hasReviewNotes?: boolean;
 };
 
 export type SiteDiaryCorrectionStatus =
@@ -255,6 +257,11 @@ export function formatDeterministicSaveReply(
     confirmation = `${prefix}${name ? "saved" : "Saved"} ${count} work ${count === 1 ? "record" : "records"} in WorksRecorded.`;
   }
 
+  if (outcome.hasReviewNotes) {
+    const reviewMessage = language === "lv" ? DIARY_PARTIAL_REVIEW_MESSAGE : language === "ru" ? "Часть работ сохранена в заметках. Пожалуйста, проверьте их." : "Some works were saved as notes. Please review them.";
+    return `${confirmation}\n${reviewMessage}`;
+  }
+
   const formattedRecords = formatSavedDiaryRecords(outcome.records ?? [], language);
   return formattedRecords ? `${confirmation}\n\n${formattedRecords}` : confirmation;
 }
@@ -264,7 +271,7 @@ export function parseSaveToolOutcome(content: string): SiteDiarySaveOutcome {
   const failed = content.match(/^Failed to save site diary entry\. Reason:\s*(.*)$/i);
   if (failed) return { ok: false, count: 0, message: failed[1] || "Unknown error" };
   const saved = content.match(/^Saved\s+(\d+)\s+site diary record\(s\) successfully\./i);
-  if (saved) return { ok: true, count: Number(saved[1]) || 1 };
+  if (saved) return { ok: true, count: Number(saved[1]) || 1, ...(content.includes(DIARY_PARTIAL_REVIEW_MESSAGE) ? { hasReviewNotes: true } : {}) };
   return { ok: false, count: 0, message: "Unexpected save result" };
 }
 

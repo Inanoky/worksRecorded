@@ -1,374 +1,425 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import type { ModelRequestDiagnostics } from "./modelRequestDiagnostics";
 
 export type SiteManagerAgentRunDetails = {
-  content: string;
-  requestedModel: string;
-  actualModel: string | null;
-  tokenUsage: unknown;
-  usageMetadata: unknown;
-  responseMetadata: unknown;
-  finishReason: string | null;
-  executionPath: "legacy-agent" | "fast-path" | "correction-path";
-  fastPathMode: "off" | "shadow" | "on";
-  timings: Record<string, number>;
-  modelCalls: SiteManagerModelCallMetric[];
-  toolCalls: SiteManagerToolCallMetric[];
-  aggregateTokenUsage: {
-    inputTokens: number;
-    outputTokens: number;
-    totalTokens: number;
-  };
+	content: string;
+	requestedModel: string;
+	actualModel: string | null;
+	tokenUsage: unknown;
+	usageMetadata: unknown;
+	responseMetadata: unknown;
+	finishReason: string | null;
+	executionPath: "legacy-agent" | "fast-path" | "correction-path";
+	fastPathMode: "off" | "shadow" | "on";
+	timings: Record<string, number>;
+	modelCalls: SiteManagerModelCallMetric[];
+	toolCalls: SiteManagerToolCallMetric[];
+	aggregateTokenUsage: {
+		inputTokens: number | null;
+		outputTokens: number | null;
+		totalTokens: number | null;
+	};
 };
 
 export type FastPathMode = "off" | "shadow" | "on";
-export type SiteManagerExecutionPath = "legacy-agent" | "fast-path" | "correction-path";
-export type FastPathOutcome = "save" | "correction" | "clarify" | "fallback" | "skipped" | "error";
+export type SiteManagerExecutionPath =
+	| "legacy-agent"
+	| "fast-path"
+	| "correction-path";
+export type FastPathOutcome =
+	| "save"
+	| "correction"
+	| "clarify"
+	| "fallback"
+	| "skipped"
+	| "error";
 export type FastPathFallbackReason =
-  | "ineligible"
-  | "model-fallback"
-  | "no-records"
-  | "extraction-error";
+	| "ineligible"
+	| "model-fallback"
+	| "no-records"
+	| "extraction-error";
 
 export type FastPathTraceMetadata = {
-  fastPathMode: FastPathMode;
-  fastPathCandidate: boolean;
-  executionPath: SiteManagerExecutionPath;
-  fastPathAttempted: boolean;
-  fastPathOutcome: FastPathOutcome;
-  fallbackReason?: FastPathFallbackReason;
+	fastPathMode: FastPathMode;
+	fastPathCandidate: boolean;
+	executionPath: SiteManagerExecutionPath;
+	fastPathAttempted: boolean;
+	fastPathOutcome: FastPathOutcome;
+	fallbackReason?: FastPathFallbackReason;
 };
 
 export type SiteManagerWorkflowId =
-  | "whatsapp-site-manager:text"
-  | "whatsapp-site-manager:image-caption"
-  | "whatsapp-site-manager:audio"
-  | "meta-material:image-classification"
-  | "meta-material:invoice-extraction";
+	| "whatsapp-site-manager:text"
+	| "whatsapp-site-manager:image-caption"
+	| "whatsapp-site-manager:audio"
+	| "meta-material:image-classification"
+	| "meta-material:invoice-extraction";
 
 export type SiteManagerMessageType = "text" | "image" | "audio";
 
 export type SiteManagerMediaPurpose =
-  | "site_diary_caption"
-  | "material_invoice"
-  | "unknown";
+	| "site_diary_caption"
+	| "material_invoice"
+	| "unknown";
 
 type SiteManagerWorkflowDefinition = {
-  workflowId: SiteManagerWorkflowId;
-  workflowName: string;
-  runLabel: string;
-  messageType: SiteManagerMessageType | null;
-  mediaPurpose: SiteManagerMediaPurpose;
+	workflowId: SiteManagerWorkflowId;
+	workflowName: string;
+	runLabel: string;
+	messageType: SiteManagerMessageType | null;
+	mediaPurpose: SiteManagerMediaPurpose;
 };
 
 export function fastPathTraceConfig(metadata: FastPathTraceMetadata) {
-  return {
-    metadata,
-    tags: [`execution-path:${metadata.executionPath}`],
-  };
+	return {
+		metadata,
+		tags: [`execution-path:${metadata.executionPath}`],
+	};
 }
 
 export type SiteManagerModelCallMetric = {
-  purpose:
-    | "routing"
-    | "final-response"
-    | "structured-extraction"
-    | "structured-repair-extraction"
-    | "fast-path-extraction"
-    | "site_diary_extraction_checker"
-    | "site_diary_extraction_repair_checker"
-    | "site_diary_targeted_repair";
-  model: string;
-  actualModel: string | null;
-  durationMs: number;
-  inputTokens: number;
-  outputTokens: number;
-  totalTokens: number;
+	purpose:
+		| "routing"
+		| "final-response"
+		| "structured-extraction"
+		| "structured-repair-extraction"
+		| "fast-path-extraction"
+		| "site_diary_extraction_checker"
+		| "site_diary_extraction_repair_checker"
+		| "site_diary_targeted_repair";
+	model: string;
+	actualModel: string | null;
+	durationMs: number;
+	inputTokens: number | null;
+	outputTokens: number | null;
+	totalTokens: number | null;
+	reasoningTokens?: number | null;
+	cachedInputTokens?: number | null;
+	diagnostics?: ModelRequestDiagnostics;
 };
 
 export type SiteManagerToolCallMetric = {
-  name: string;
-  durationMs: number;
-  ok: boolean;
+	name: string;
+	durationMs: number;
+	ok: boolean;
 };
 
 type SiteManagerRunMetrics = {
-  executionPath: SiteManagerExecutionPath;
-  fastPathMode: FastPathMode;
-  timings: Record<string, number>;
-  modelCalls: SiteManagerModelCallMetric[];
-  toolCalls: SiteManagerToolCallMetric[];
+	executionPath: SiteManagerExecutionPath;
+	fastPathMode: FastPathMode;
+	timings: Record<string, number>;
+	modelCalls: SiteManagerModelCallMetric[];
+	toolCalls: SiteManagerToolCallMetric[];
 };
 
 export type SiteManagerAgentRunOptions = {
-  threadId?: string;
-  traceMetadata?: Record<string, string | number | boolean | null | undefined>;
-  traceTags?: string[];
-  workflowId?: SiteManagerWorkflowId;
-  workflowName?: string;
-  workflowRunLabel?: string;
-  messageType?: SiteManagerMessageType | null;
-  mediaPurpose?: SiteManagerMediaPurpose;
-  senderFirstName?: string | null;
-  senderLastName?: string | null;
-  senderName?: string | null;
-  senderInitials?: string | null;
-  senderLabel?: string | null;
-  evalRecordMetadata?: Record<string, unknown>;
-  model?: string;
-  bisConnectionOverride?: {
-    status: "not-connected" | "case-not-selected" | "ready";
-    siteName?: string;
-    caseNumber?: string;
-    caseName?: string;
-  };
+	threadId?: string;
+	traceMetadata?: Record<string, string | number | boolean | null | undefined>;
+	traceTags?: string[];
+	workflowId?: SiteManagerWorkflowId;
+	workflowName?: string;
+	workflowRunLabel?: string;
+	messageType?: SiteManagerMessageType | null;
+	mediaPurpose?: SiteManagerMediaPurpose;
+	senderFirstName?: string | null;
+	senderLastName?: string | null;
+	senderName?: string | null;
+	senderInitials?: string | null;
+	senderLabel?: string | null;
+	evalRecordMetadata?: Record<string, unknown>;
+	model?: string;
+	bisConnectionOverride?: {
+		status: "not-connected" | "case-not-selected" | "ready";
+		siteName?: string;
+		caseNumber?: string;
+		caseName?: string;
+	};
 };
 
 export type SiteManagerAgentRunContext = SiteManagerAgentRunOptions & {
-  details: SiteManagerAgentRunDetails | null;
-  metrics: SiteManagerRunMetrics;
-  fastPathTrace?: FastPathTraceMetadata;
+	details: SiteManagerAgentRunDetails | null;
+	metrics: SiteManagerRunMetrics;
+	fastPathTrace?: FastPathTraceMetadata;
 };
 
-const siteManagerAgentRunStorage = new AsyncLocalStorage<SiteManagerAgentRunContext>();
+const siteManagerAgentRunStorage =
+	new AsyncLocalStorage<SiteManagerAgentRunContext>();
 
 function normalizeTraceNamePart(value: unknown) {
-  return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+	return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }
 
 function buildInitials(parts: string[]) {
-  const initials = parts
-    .map((part) => [...part][0])
-    .filter(Boolean)
-    .join("")
-    .toUpperCase();
-  return initials || null;
+	const initials = parts
+		.map((part) => [...part][0])
+		.filter(Boolean)
+		.join("")
+		.toUpperCase();
+	return initials || null;
 }
 
-const WORKFLOW_DEFINITIONS: Record<SiteManagerWorkflowId, SiteManagerWorkflowDefinition> = {
-  "whatsapp-site-manager:text": {
-    workflowId: "whatsapp-site-manager:text",
-    workflowName: "WhatsApp site-manager text",
-    runLabel: "WhatsApp Text",
-    messageType: "text",
-    mediaPurpose: "unknown",
-  },
-  "whatsapp-site-manager:image-caption": {
-    workflowId: "whatsapp-site-manager:image-caption",
-    workflowName: "WhatsApp site-manager image caption",
-    runLabel: "WhatsApp Image Caption",
-    messageType: "image",
-    mediaPurpose: "site_diary_caption",
-  },
-  "whatsapp-site-manager:audio": {
-    workflowId: "whatsapp-site-manager:audio",
-    workflowName: "WhatsApp site-manager audio",
-    runLabel: "WhatsApp Audio",
-    messageType: "audio",
-    mediaPurpose: "unknown",
-  },
-  "meta-material:image-classification": {
-    workflowId: "meta-material:image-classification",
-    workflowName: "Meta material image classification",
-    runLabel: "Meta Image Classification",
-    messageType: "image",
-    mediaPurpose: "material_invoice",
-  },
-  "meta-material:invoice-extraction": {
-    workflowId: "meta-material:invoice-extraction",
-    workflowName: "Meta material invoice extraction",
-    runLabel: "Meta Invoice Extraction",
-    messageType: "image",
-    mediaPurpose: "material_invoice",
-  },
+const WORKFLOW_DEFINITIONS: Record<
+	SiteManagerWorkflowId,
+	SiteManagerWorkflowDefinition
+> = {
+	"whatsapp-site-manager:text": {
+		workflowId: "whatsapp-site-manager:text",
+		workflowName: "WhatsApp site-manager text",
+		runLabel: "WhatsApp Text",
+		messageType: "text",
+		mediaPurpose: "unknown",
+	},
+	"whatsapp-site-manager:image-caption": {
+		workflowId: "whatsapp-site-manager:image-caption",
+		workflowName: "WhatsApp site-manager image caption",
+		runLabel: "WhatsApp Image Caption",
+		messageType: "image",
+		mediaPurpose: "site_diary_caption",
+	},
+	"whatsapp-site-manager:audio": {
+		workflowId: "whatsapp-site-manager:audio",
+		workflowName: "WhatsApp site-manager audio",
+		runLabel: "WhatsApp Audio",
+		messageType: "audio",
+		mediaPurpose: "unknown",
+	},
+	"meta-material:image-classification": {
+		workflowId: "meta-material:image-classification",
+		workflowName: "Meta material image classification",
+		runLabel: "Meta Image Classification",
+		messageType: "image",
+		mediaPurpose: "material_invoice",
+	},
+	"meta-material:invoice-extraction": {
+		workflowId: "meta-material:invoice-extraction",
+		workflowName: "Meta material invoice extraction",
+		runLabel: "Meta Invoice Extraction",
+		messageType: "image",
+		mediaPurpose: "material_invoice",
+	},
 };
 
 function workflowIdFromMessageType(
-  messageType?: SiteManagerMessageType | string | null,
+	messageType?: SiteManagerMessageType | string | null,
 ): SiteManagerWorkflowId {
-  if (messageType === "image") return "whatsapp-site-manager:image-caption";
-  if (messageType === "audio") return "whatsapp-site-manager:audio";
-  return "whatsapp-site-manager:text";
+	if (messageType === "image") return "whatsapp-site-manager:image-caption";
+	if (messageType === "audio") return "whatsapp-site-manager:audio";
+	return "whatsapp-site-manager:text";
 }
 
 function normalizeMediaPurpose(
-  mediaPurpose: SiteManagerMediaPurpose | string | null | undefined,
+	mediaPurpose: SiteManagerMediaPurpose | string | null | undefined,
 ): SiteManagerMediaPurpose | null {
-  if (
-    mediaPurpose === "site_diary_caption" ||
-    mediaPurpose === "material_invoice" ||
-    mediaPurpose === "unknown"
-  ) {
-    return mediaPurpose;
-  }
-  return null;
+	if (
+		mediaPurpose === "site_diary_caption" ||
+		mediaPurpose === "material_invoice" ||
+		mediaPurpose === "unknown"
+	) {
+		return mediaPurpose;
+	}
+	return null;
 }
 
 export function getSiteManagerWorkflowDefinition(
-  workflowId?: SiteManagerWorkflowId | null,
+	workflowId?: SiteManagerWorkflowId | null,
 ) {
-  return WORKFLOW_DEFINITIONS[workflowId ?? "whatsapp-site-manager:text"];
+	return WORKFLOW_DEFINITIONS[workflowId ?? "whatsapp-site-manager:text"];
 }
 
 export function buildSiteManagerWorkflowTraceContext(args: {
-  workflowId?: SiteManagerWorkflowId | null;
-  messageType?: SiteManagerMessageType | string | null;
-  mediaPurpose?: SiteManagerMediaPurpose | string | null;
+	workflowId?: SiteManagerWorkflowId | null;
+	messageType?: SiteManagerMessageType | string | null;
+	mediaPurpose?: SiteManagerMediaPurpose | string | null;
 }) {
-  const definition = getSiteManagerWorkflowDefinition(
-    args.workflowId ?? workflowIdFromMessageType(args.messageType),
-  );
-  const messageType = definition.messageType;
-  const mediaPurpose = normalizeMediaPurpose(args.mediaPurpose) ?? definition.mediaPurpose;
+	const definition = getSiteManagerWorkflowDefinition(
+		args.workflowId ?? workflowIdFromMessageType(args.messageType),
+	);
+	const messageType = definition.messageType;
+	const mediaPurpose =
+		normalizeMediaPurpose(args.mediaPurpose) ?? definition.mediaPurpose;
 
-  return {
-    workflowId: definition.workflowId,
-    workflowName: definition.workflowName,
-    workflowRunLabel: definition.runLabel,
-    messageType,
-    mediaPurpose,
-    metadata: {
-      workflowId: definition.workflowId,
-      workflowName: definition.workflowName,
-      messageType,
-      mediaPurpose,
-    },
-    tags: [
-      `workflow:${definition.workflowId}`,
-      messageType ? `message-type:${messageType}` : null,
-      mediaPurpose && mediaPurpose !== "unknown" ? `media-purpose:${mediaPurpose}` : null,
-    ].filter((tag): tag is string => Boolean(tag)),
-  };
+	return {
+		workflowId: definition.workflowId,
+		workflowName: definition.workflowName,
+		workflowRunLabel: definition.runLabel,
+		messageType,
+		mediaPurpose,
+		metadata: {
+			workflowId: definition.workflowId,
+			workflowName: definition.workflowName,
+			messageType,
+			mediaPurpose,
+		},
+		tags: [
+			`workflow:${definition.workflowId}`,
+			messageType ? `message-type:${messageType}` : null,
+			mediaPurpose && mediaPurpose !== "unknown"
+				? `media-purpose:${mediaPurpose}`
+				: null,
+		].filter((tag): tag is string => Boolean(tag)),
+	};
 }
 
 export function formatSiteManagerWorkflowRunName(args: {
-  prefix?: string;
-  workflowRunLabel?: string | null;
-  senderLabel?: string | null;
-  fallback: string;
+	prefix?: string;
+	workflowRunLabel?: string | null;
+	senderLabel?: string | null;
+	fallback: string;
 }) {
-  const base = [args.prefix, args.workflowRunLabel].filter(Boolean).join(" - ");
-  const label = base || args.fallback;
-  return args.senderLabel ? `${label} - ${args.senderLabel}` : label;
+	const base = [args.prefix, args.workflowRunLabel].filter(Boolean).join(" - ");
+	const label = base || args.fallback;
+	return args.senderLabel ? `${label} - ${args.senderLabel}` : label;
 }
 
 export function buildSiteManagerSenderTraceContext(args: {
-  firstName?: string | null;
-  lastName?: string | null;
+	firstName?: string | null;
+	lastName?: string | null;
 }) {
-  const firstName = normalizeTraceNamePart(args.firstName);
-  const lastName = normalizeTraceNamePart(args.lastName);
-  const nameParts = [firstName, lastName].filter(Boolean);
-  const senderName = nameParts.join(" ") || null;
-  const senderInitials = buildInitials(nameParts);
-  const senderLabel = senderName ?? senderInitials;
+	const firstName = normalizeTraceNamePart(args.firstName);
+	const lastName = normalizeTraceNamePart(args.lastName);
+	const nameParts = [firstName, lastName].filter(Boolean);
+	const senderName = nameParts.join(" ") || null;
+	const senderInitials = buildInitials(nameParts);
+	const senderLabel = senderName ?? senderInitials;
 
-  return {
-    senderFirstName: firstName || null,
-    senderLastName: lastName || null,
-    senderName,
-    senderInitials,
-    senderLabel,
-  };
+	return {
+		senderFirstName: firstName || null,
+		senderLastName: lastName || null,
+		senderName,
+		senderInitials,
+		senderLabel,
+	};
 }
 
 export function getSiteManagerSenderTraceMetadata(
-  context: Pick<SiteManagerAgentRunOptions, "senderFirstName" | "senderLastName" | "senderName" | "senderInitials" | "senderLabel"> | null | undefined,
+	context:
+		| Pick<
+				SiteManagerAgentRunOptions,
+				| "senderFirstName"
+				| "senderLastName"
+				| "senderName"
+				| "senderInitials"
+				| "senderLabel"
+		  >
+		| null
+		| undefined,
 ) {
-  return {
-    senderFirstName: context?.senderFirstName ?? undefined,
-    senderLastName: context?.senderLastName ?? undefined,
-    senderName: context?.senderName ?? undefined,
-    senderInitials: context?.senderInitials ?? undefined,
-    senderLabel: context?.senderLabel ?? undefined,
-  };
+	return {
+		senderFirstName: context?.senderFirstName ?? undefined,
+		senderLastName: context?.senderLastName ?? undefined,
+		senderName: context?.senderName ?? undefined,
+		senderInitials: context?.senderInitials ?? undefined,
+		senderLabel: context?.senderLabel ?? undefined,
+	};
 }
 
 export function getSiteManagerSenderTraceTags(
-  context: Pick<SiteManagerAgentRunOptions, "senderLabel"> | null | undefined,
+	context: Pick<SiteManagerAgentRunOptions, "senderLabel"> | null | undefined,
 ) {
-  return context?.senderLabel ? [`sender:${context.senderLabel}`] : [];
+	return context?.senderLabel ? [`sender:${context.senderLabel}`] : [];
 }
 
 export function setSiteManagerSenderTraceContext(
-  senderContext: Pick<SiteManagerAgentRunOptions, "senderFirstName" | "senderLastName" | "senderName" | "senderInitials" | "senderLabel">,
+	senderContext: Pick<
+		SiteManagerAgentRunOptions,
+		| "senderFirstName"
+		| "senderLastName"
+		| "senderName"
+		| "senderInitials"
+		| "senderLabel"
+	>,
 ) {
-  const context = getSiteManagerAgentRunContext();
-  if (!context) return false;
-  context.senderFirstName = senderContext.senderFirstName;
-  context.senderLastName = senderContext.senderLastName;
-  context.senderName = senderContext.senderName;
-  context.senderInitials = senderContext.senderInitials;
-  context.senderLabel = senderContext.senderLabel;
-  return true;
+	const context = getSiteManagerAgentRunContext();
+	if (!context) return false;
+	context.senderFirstName = senderContext.senderFirstName;
+	context.senderLastName = senderContext.senderLastName;
+	context.senderName = senderContext.senderName;
+	context.senderInitials = senderContext.senderInitials;
+	context.senderLabel = senderContext.senderLabel;
+	return true;
 }
 
 export async function runWithSiteManagerAgentEvalContext<T>(
-  options: SiteManagerAgentRunOptions,
-  fn: () => Promise<T>,
+	options: SiteManagerAgentRunOptions,
+	fn: () => Promise<T>,
 ) {
-  const context: SiteManagerAgentRunContext = {
-    ...options,
-    details: null,
-    metrics: {
-      executionPath: "legacy-agent",
-      fastPathMode: "off",
-      timings: {},
-      modelCalls: [],
-      toolCalls: [],
-    },
-  };
+	const context: SiteManagerAgentRunContext = {
+		...options,
+		details: null,
+		metrics: {
+			executionPath: "legacy-agent",
+			fastPathMode: "off",
+			timings: {},
+			modelCalls: [],
+			toolCalls: [],
+		},
+	};
 
-  const result = await siteManagerAgentRunStorage.run(context, fn);
-  return {
-    result,
-    details: context.details,
-  };
+	const result = await siteManagerAgentRunStorage.run(context, fn);
+	return {
+		result,
+		details: context.details,
+	};
 }
 
 export function getSiteManagerAgentRunContext() {
-  return siteManagerAgentRunStorage.getStore();
+	return siteManagerAgentRunStorage.getStore();
 }
 
 export function setSiteManagerExecutionPath(
-  executionPath: SiteManagerRunMetrics["executionPath"],
-  fastPathMode: SiteManagerRunMetrics["fastPathMode"],
+	executionPath: SiteManagerRunMetrics["executionPath"],
+	fastPathMode: SiteManagerRunMetrics["fastPathMode"],
 ) {
-  const context = getSiteManagerAgentRunContext();
-  if (!context) return;
-  context.metrics.executionPath = executionPath;
-  context.metrics.fastPathMode = fastPathMode;
+	const context = getSiteManagerAgentRunContext();
+	if (!context) return;
+	context.metrics.executionPath = executionPath;
+	context.metrics.fastPathMode = fastPathMode;
 }
 
 export function recordSiteManagerTiming(name: string, durationMs: number) {
-  const context = getSiteManagerAgentRunContext();
-  if (!context) return;
-  context.metrics.timings[name] = (context.metrics.timings[name] ?? 0) + durationMs;
+	const context = getSiteManagerAgentRunContext();
+	if (!context) return;
+	context.metrics.timings[name] =
+		(context.metrics.timings[name] ?? 0) + durationMs;
 }
 
 export function recordSiteManagerModelCall(metric: SiteManagerModelCallMetric) {
-  getSiteManagerAgentRunContext()?.metrics.modelCalls.push(metric);
+	getSiteManagerAgentRunContext()?.metrics.modelCalls.push(metric);
 }
 
 export function recordSiteManagerToolCall(metric: SiteManagerToolCallMetric) {
-  getSiteManagerAgentRunContext()?.metrics.toolCalls.push(metric);
+	getSiteManagerAgentRunContext()?.metrics.toolCalls.push(metric);
 }
 
 export function getSiteManagerMetricsSnapshot() {
-  const metrics = getSiteManagerAgentRunContext()?.metrics;
-  const modelCalls = [...(metrics?.modelCalls ?? [])];
-  return {
-    executionPath: metrics?.executionPath ?? "legacy-agent" as const,
-    fastPathMode: metrics?.fastPathMode ?? "off" as const,
-    timings: { ...(metrics?.timings ?? {}) },
-    modelCalls,
-    toolCalls: [...(metrics?.toolCalls ?? [])],
-    aggregateTokenUsage: modelCalls.reduce(
-      (total, call) => ({
-        inputTokens: total.inputTokens + call.inputTokens,
-        outputTokens: total.outputTokens + call.outputTokens,
-        totalTokens: total.totalTokens + call.totalTokens,
-      }),
-      { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-    ),
-  };
+	const metrics = getSiteManagerAgentRunContext()?.metrics;
+	const modelCalls = [...(metrics?.modelCalls ?? [])];
+	return {
+		executionPath: metrics?.executionPath ?? ("legacy-agent" as const),
+		fastPathMode: metrics?.fastPathMode ?? ("off" as const),
+		timings: { ...(metrics?.timings ?? {}) },
+		modelCalls,
+		toolCalls: [...(metrics?.toolCalls ?? [])],
+		aggregateTokenUsage: modelCalls.reduce(
+			(total, call) => ({
+				inputTokens:
+					total.inputTokens === null || call.inputTokens === null
+						? null
+						: total.inputTokens + call.inputTokens,
+				outputTokens:
+					total.outputTokens === null || call.outputTokens === null
+						? null
+						: total.outputTokens + call.outputTokens,
+				totalTokens:
+					total.totalTokens === null || call.totalTokens === null
+						? null
+						: total.totalTokens + call.totalTokens,
+			}),
+			{ inputTokens: 0, outputTokens: 0, totalTokens: 0 } as {
+				inputTokens: number | null;
+				outputTokens: number | null;
+				totalTokens: number | null;
+			},
+		),
+	};
 }

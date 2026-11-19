@@ -67,6 +67,86 @@ it("shows the original input, reviewed rows, generated rows and exact failures",
 	expect(page.body.textContent).toContain("Jāatjauno aprēķinātais apjoms");
 });
 
+it("shows request timing and unknown usage for a timed-out model call without executing model data", () => {
+	const run = failedReport();
+	run.items[0].artifacts.modelCalls = [
+		{
+			purpose: "fast-path-extraction",
+			model: "test-model",
+			totalTokens: null,
+			diagnostics: {
+				outcome: "timeout",
+				phase: "waiting_for_headers",
+				clientRequestId: "client-local",
+				requestId: null,
+				httpStatus: null,
+				headersMs: null,
+				firstBodyByteMs: null,
+				bodyCompleteMs: null,
+				serverProcessingMs: null,
+				errorName: "SiteManagerAiTimeoutError",
+				errorCode: '<script>alert("error")</script>',
+			},
+		},
+	];
+	const page = new DOMParser().parseFromString(
+		renderEvalReportHtml(run),
+		"text/html",
+	);
+	const diagnostic = page.querySelector(".model-diagnostics");
+	expect(diagnostic?.textContent).toContain("waiting_for_headers");
+	expect(diagnostic?.textContent).toContain("client-local");
+	expect(diagnostic?.textContent).toContain("nav datu");
+	expect(diagnostic?.querySelectorAll("script")).toHaveLength(0);
+});
+
+it("explains included and omitted checker prompt parts without executing their text", () => {
+	const run = failedReport();
+	run.items[0].artifacts.structuredSaveTrace = [
+		{
+			stages: [
+				{
+					phase: "checker",
+					promptComposition: {
+						version: 1,
+						profile: "construction",
+						sections: [
+							{
+								id: "mervienibas_buvnieciba",
+								title: "Mērvienības",
+								description: "Atšķir izmēru no paveiktā apjoma",
+								version: 2,
+								included: true,
+								reason: "Projektā ieslēgts daudzums",
+							},
+							{
+								id: "forma2_piesaiste",
+								title: "Forma2",
+								description: '<script>alert("part")</script>',
+								version: 1,
+								included: false,
+								reason: "Projektā nav tāmes pozīciju",
+							},
+						],
+					},
+				},
+			],
+		},
+	];
+	const page = new DOMParser().parseFromString(
+		renderEvalReportHtml(run),
+		"text/html",
+	);
+	const parts = page.querySelector(".prompt-composition");
+	expect(parts?.querySelectorAll("tbody tr")).toHaveLength(2);
+	expect(parts?.textContent).toContain("mervienibas_buvnieciba (v2)");
+	expect(parts?.textContent).toContain("Iekļauta");
+	expect(parts?.textContent).toContain("Izlaista");
+	expect(parts?.textContent).toContain("Projektā nav tāmes pozīciju");
+	expect(parts?.textContent).toContain('<script>alert("part")</script>');
+	expect(page.querySelector("script")).toBeNull();
+});
+
 it("previews only locally registered image filenames", () => {
 	const run = failedReport();
 	const name = `${"a".repeat(64)}.jpg`;

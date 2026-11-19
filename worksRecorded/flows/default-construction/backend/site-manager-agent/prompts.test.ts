@@ -1,117 +1,107 @@
 jest.mock("@/server/actions/site-diary-actions", () => ({
-  getConfig: jest.fn(),
+	getConfig: jest.fn(),
 }));
 
 jest.mock("@/server/actions/whatsapp-actions", () => ({
-  getUserFirstNameById: jest.fn(),
+	getUserFirstNameById: jest.fn(),
 }));
 
 jest.mock("@/server/actions/shared-actions", () => ({
-  getOrganizationLanguageByUserId: jest.fn(),
+	getOrganizationLanguageByUserId: jest.fn(),
 }));
 
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
 import {
-  systemPromptFunction,
-  systemPromptSaveToDatabaseFunction,
+	systemPromptFunction,
+	systemPromptSaveToDatabaseFunction,
 } from "./prompts";
 
 describe("site-manager BIS routing prompt", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    (getConfig as jest.Mock).mockResolvedValue(null);
-    (getUserFirstNameById as jest.Mock).mockResolvedValue("Deivids");
-    (getOrganizationLanguageByUserId as jest.Mock).mockResolvedValue("Latvian");
-  });
+	beforeEach(() => {
+		jest.clearAllMocks();
+		(getConfig as jest.Mock).mockResolvedValue(null);
+		(getUserFirstNameById as jest.Mock).mockResolvedValue("Deivids");
+		(getOrganizationLanguageByUserId as jest.Mock).mockResolvedValue("Latvian");
+	});
 
-  it("provides canonical and Latvian greeting-only address names", async () => {
-    const prompt = await systemPromptFunction("site-1", "user-1");
+	it("provides canonical and Latvian greeting-only address names", async () => {
+		const prompt = await systemPromptFunction("site-1", "user-1");
 
-    expect(prompt).toContain("The user's first name is Deivids");
-    expect(prompt).toContain("In Latvian greetings use the vocative form Deivid");
-    expect(prompt).toContain("Do not repeat the user's name in ordinary answers or save confirmations");
-  });
+		expect(prompt).toContain("The user's first name is Deivids");
+		expect(prompt).toContain(
+			"In Latvian greetings use the vocative form Deivid",
+		);
+		expect(prompt).toContain(
+			"Do not repeat the user's name in ordinary answers or save confirmations",
+		);
+	});
 
-  it("routes BIS questions and contextual follow-ups to direct read tools", async () => {
-    const prompt = await systemPromptFunction("site-1", "user-1");
+	it("routes BIS questions and contextual follow-ups to direct read tools", async () => {
+		const prompt = await systemPromptFunction("site-1", "user-1");
 
-    expect(prompt).toContain("only a BIS connection, setup, eligibility, or submission question");
-    expect(prompt).toContain('contextual follow-up such as "how do I connect it?"');
-    expect(prompt).toContain("call get_bis_connection_status");
-    expect(prompt).toContain("without saving a diary record");
-    expect(prompt).toContain("read_bis_material_records");
-    expect(prompt).toContain("read_site_diary_bis_statuses");
-  });
+		expect(prompt).toContain(
+			"only a BIS connection, setup, eligibility, or submission question",
+		);
+		expect(prompt).toContain(
+			'contextual follow-up such as "how do I connect it?"',
+		);
+		expect(prompt).toContain("call get_bis_connection_status");
+		expect(prompt).toContain("without saving a diary record");
+		expect(prompt).toContain("read_bis_material_records");
+		expect(prompt).toContain("read_site_diary_bis_statuses");
+	});
 
-  it("requires mixed work-and-BIS messages to save work and delegate guidance separately", async () => {
-    const prompt = await systemPromptFunction("site-1", "user-1");
+	it("requires mixed work-and-BIS messages to save work and delegate guidance separately", async () => {
+		const prompt = await systemPromptFunction("site-1", "user-1");
 
-    expect(prompt).toContain("always call save_to_database for that work");
-    expect(prompt).toContain("reply in 1-2 sentences");
-    expect(prompt).toContain("First confirm what was saved in WorksRecorded");
-    expect(prompt).toContain("Pievieno BIS sistēmā, ka šodien iztīrījām telpu");
-    expect(prompt).toContain('Say "saved work records are eligible", not "all messages are eligible"');
-  });
+		expect(prompt).toContain("always call save_to_database for that work");
+		expect(prompt).toContain("reply in 1-2 sentences");
+		expect(prompt).toContain("First confirm what was saved in WorksRecorded");
+		expect(prompt).toContain("Pievieno BIS sistēmā, ka šodien iztīrījām telpu");
+		expect(prompt).toContain(
+			'Say "saved work records are eligible", not "all messages are eligible"',
+		);
+	});
 
-  it("preserves direct BIS routing for NoSorting site configurations", async () => {
-    (getConfig as jest.Mock).mockResolvedValue({ AIpromptToUse: { Client: "NoSorting" } });
+	it("preserves direct BIS routing for NoSorting site configurations", async () => {
+		(getConfig as jest.Mock).mockResolvedValue({
+			AIpromptToUse: { Client: "NoSorting" },
+		});
 
-    const prompt = await systemPromptFunction("site-1", "user-1");
+		const prompt = await systemPromptFunction("site-1", "user-1");
 
-    expect(prompt).toContain("Do not save BIS questions");
-    expect(prompt).toContain("get_bis_connection_status");
-    expect(prompt).toContain("read_bis_material_records");
-    expect(prompt).toContain("Confirm the save first");
-    expect(prompt).toContain("1-2 sentences");
-  });
+		expect(prompt).toContain("Do not save BIS questions");
+		expect(prompt).toContain("get_bis_connection_status");
+		expect(prompt).toContain("read_bis_material_records");
+		expect(prompt).toContain("Confirm the save first");
+		expect(prompt).toContain("1-2 sentences");
+	});
 
-  it("keeps construction context numbers out of structured amounts", async () => {
-    const prompt = await systemPromptSaveToDatabaseFunction("user-1", undefined);
+	it("keeps dimensions, floors, roles and durations separate from work quantities", async () => {
+		const prompt = await systemPromptSaveToDatabaseFunction("user-1");
+		expect(prompt).toContain("OSB 22 mm, ieklāti 45 m2");
+		expect(prompt).toContain("reģipsis 2 kārtās");
+		expect(prompt).toContain("Dz5f durvju aile demontāža");
+		expect(prompt).toContain("Viens operators pats par sevi nedod Workers=1");
+		expect(prompt).toContain("Location=null");
+		expect(prompt).toContain("No plkst. 15.00");
+		expect(prompt).toContain(
+			"Vienīgā konfigurācijas opcija nav vietas pierādījums",
+		);
+	});
 
-    expect(prompt).toContain("Amounts/Daudzums and Units/Mrv are for completed work quantity only");
-    expect(prompt).toContain('"10 sienas" → Amounts: 10, Units: "pcs"');
-    expect(prompt).toContain("Do not use apartment numbers, floor numbers, layer counts, worker counts, hours");
-    expect(prompt).toContain("Prefer \"45 m2\" completed scope over \"22 mm\" OSB thickness");
-    expect(prompt).toContain('"OSB 22 mm, ieklāti 45 m2" → Amounts: 45, Units: "m2"');
-    expect(prompt).toContain('"reģipsis 2 kārtās" → Amounts: null, Units: null');
-    expect(prompt).toContain('"Dz 6 45m2 vate, osb" → Amounts: 45, Units: "m2"');
-    expect(prompt).toContain('"Dz 6, 2 cilvēki, 3h" → Workers: 2, Hours: 3, Amounts: null, Units: null');
-    expect(prompt).toContain('"Dz5f durvju aile demontāža" → Amounts: null, Units: null');
-  });
-
-  it("leaves unsupported locations empty instead of defaulting to the only option", async () => {
-    const prompt = await systemPromptSaveToDatabaseFunction("user-1", undefined);
-
-    expect(prompt).toContain("Otherwise leave Location null");
-    expect(prompt).toContain("only dropdown option or appeared in a previous report");
-    expect(prompt).toContain("allowed explicit reference to trusted context");
-    expect(prompt).toContain("Preserve explicitly stated locations");
-  });
-
-  it("counts multi-role worker evidence without inferring a lone operator", async () => {
-    const prompt = await systemPromptSaveToDatabaseFunction("user-1", undefined);
-
-    expect(prompt).toContain("Count explicitly listed human roles as Workers");
-    expect(prompt).toContain("ekskavatora operators, strādāja arī palīgstrādnieks");
-    expect(prompt).toContain("Bobcat operatoru, 9,5 stundas");
-    expect(prompt).toContain("should keep Workers null");
-  });
-
-  it("keeps start-time conjoined machinery sub-actions in one structured row", async () => {
-    const prompt = await systemPromptSaveToDatabaseFunction("user-1", undefined);
-
-    expect(prompt).toContain('"No plkst. 15.00" states a start time, not a duration');
-    expect(prompt).toContain("one actor or one machine is performing conjoined in-progress sub-actions");
-    expect(prompt).toContain("should be one note/work row with both actions in Comments");
-  });
-
-  it("splits distinct works while recording shared labour once", async () => {
-    const prompt = await systemPromptSaveToDatabaseFunction("user-1", undefined);
-    expect(prompt).toContain("Atsevišķi aprakstītus paveiktos darbus saglabā atsevišķi");
-    expect(prompt).toContain("vienreiz atsevišķā piezīmē");
-    expect(prompt).not.toContain("If total task duration/workers is given, don't split");
-    expect(prompt).not.toContain("If there is no information how to split amounts");
-  });
+	it("splits distinct works and keeps machinery resource lists together", async () => {
+		const prompt = await systemPromptSaveToDatabaseFunction("user-1");
+		expect(prompt).toContain(
+			"Atsevišķi aprakstītus paveiktos darbus sadali atsevišķos",
+		);
+		expect(prompt).toContain("vienreiz atsevišķā darba laika piezīmē");
+		expect(prompt).toContain("ekskavators 3 h un Manitou 1 h");
+		expect(prompt).toContain("Neveido atsevišķus tehnikas ierakstus");
+		expect(prompt).not.toContain("HCS 220");
+		expect(prompt).not.toContain("Assembly Walls");
+		expect(prompt).not.toContain("checklist");
+	});
 });

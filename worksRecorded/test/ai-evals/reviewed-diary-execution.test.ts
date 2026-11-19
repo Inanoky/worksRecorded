@@ -2,6 +2,7 @@ import { automaticallyAssignForma2Sources } from "@/flows/default-construction/b
 import { getCurrentForma2WorkSelections } from "@/flows/default-construction/backend/forma2-data-read";
 import { getSiteManagerAgentRunContext } from "@/flows/default-construction/backend/site-manager-agent/runContext";
 import { extractAndSaveSiteDiary } from "@/flows/default-construction/backend/site-manager-agent/tools";
+import { oceltScenarioCases } from "./ocelt-scenario-cases";
 import { reviewedDiaryCases } from "./reviewed-diary-cases";
 import { executeReviewedDiaryCase } from "./reviewed-diary-execution";
 
@@ -36,6 +37,44 @@ beforeEach(() => {
 		.mocked(getCurrentForma2WorkSelections)
 		.mockReturnValue({ positionByWorkKey: new Map(), workOptions: [] });
 	jest.mocked(automaticallyAssignForma2Sources).mockResolvedValue([]);
+});
+
+it("scores review state from application recovery metadata and skips the extra Forma2 model for scenario runs", async () => {
+	jest.mocked(extractAndSaveSiteDiary).mockImplementation(async (args) => {
+		args.evaluationContext?.onStep?.({
+			phase: "partial_recovery",
+			rowQuality: [
+				{ status: "accepted" },
+				{ status: "accepted" },
+				{ status: "needs_review" },
+			],
+		});
+		return {
+			ok: true,
+			rows: [
+				{ Works: "Ūdensvads", Date: "2026-11-13" },
+				{ Works: "PP skataka", Date: "2026-11-13" },
+				{
+					Works: "Piezīmes",
+					Date: "2026-11-13",
+					Comments: "Jāpārbauda. Avota fakti.",
+				},
+			],
+		} as never;
+	});
+	const result = await executeReviewedDiaryCase(oceltScenarioCases[1], {
+		siteId: "eval-site",
+		userId: "eval-user",
+		runId: "eval-scenario",
+		matchForma2: false,
+	});
+	expect(result.rows.map((row) => row.needsReview)).toEqual([
+		false,
+		false,
+		true,
+	]);
+	expect(result.extractionSucceeded).toBe(true);
+	expect(automaticallyAssignForma2Sources).not.toHaveBeenCalled();
 });
 it("passes only frozen project input to the existing extractor/checker without leaking gold answers or backdated labels", async () => {
 	const evalCase = structuredClone(reviewedDiaryCases[0]);

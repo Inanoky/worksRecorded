@@ -6,6 +6,7 @@ export type SelectableEvalCase = {
 	tags?: string[];
 	tier?: EvalCaseTier;
 	priority?: EvalCasePriority;
+	manualOnly?: boolean;
 };
 
 type EvalSelectionFilters = {
@@ -13,6 +14,7 @@ type EvalSelectionFilters = {
 	tags: string[];
 	tiers: EvalCaseTier[];
 	priorities: EvalCasePriority[];
+	includeManual: boolean;
 };
 
 type EvalSelectionOptions<TCase extends SelectableEvalCase> = {
@@ -29,6 +31,7 @@ type EvalSelection<TCase extends SelectableEvalCase> = {
 	totalCases: number;
 	totalInteractions: number;
 	selectedInteractions: number;
+	manualOnlyCaseIds: string[];
 	tagCounts: Record<string, number>;
 	tierCounts: Record<EvalCaseTier, number>;
 	priorityCounts: Record<EvalCasePriority, number>;
@@ -141,6 +144,7 @@ export function selectEvalCases<TCase extends SelectableEvalCase>(
 			...getArgValues(argv, "--priority"),
 			...(argv.includes("--critical") ? ["critical"] : []),
 		]),
+		includeManual: argv.includes("--include-manual"),
 	};
 	const allInteractionIds = options.cases.flatMap((evalCase) =>
 		getCaseInteractionIds(evalCase, options.getInteractionIds),
@@ -181,7 +185,14 @@ export function selectEvalCases<TCase extends SelectableEvalCase>(
 			filters.priorities.length === 0 ||
 			filters.priorities.includes(evalCase.priority ?? "standard");
 
-		return caseMatches && tagMatches && tierMatches && priorityMatches;
+		const manualMatches = !evalCase.manualOnly || filters.includeManual;
+		return (
+			caseMatches &&
+			tagMatches &&
+			tierMatches &&
+			priorityMatches &&
+			manualMatches
+		);
 	});
 
 	if (selectedCases.length === 0) {
@@ -204,6 +215,9 @@ export function selectEvalCases<TCase extends SelectableEvalCase>(
 		totalCases: options.cases.length,
 		totalInteractions: allInteractionIds.length,
 		selectedInteractions: selectedInteractionIds.length,
+		manualOnlyCaseIds: options.cases
+			.filter((evalCase) => evalCase.manualOnly)
+			.map((evalCase) => evalCase.id),
 		tagCounts,
 		tierCounts,
 		priorityCounts,
@@ -218,6 +232,7 @@ export function formatEvalSelectionFilters(filters: EvalSelectionFilters) {
 		filters.priorities.length
 			? `priority=${filters.priorities.join(",")}`
 			: null,
+		filters.includeManual ? "include-manual=true" : null,
 	].filter((item): item is string => Boolean(item));
 	return parts.length > 0 ? parts.join(" ") : "none";
 }
@@ -238,5 +253,10 @@ export function formatEvalSelectionSummary<TCase extends SelectableEvalCase>(
 				.map(([tag, count]) => `${tag}=${count}`)
 				.join(", ") || "none"
 		}`,
+		...(selection.manualOnlyCaseIds.length && !selection.filters.includeManual
+			? [
+					`Manual-only cases excluded: ${selection.manualOnlyCaseIds.join(", ")} (use --include-manual).`,
+				]
+			: []),
 	];
 }

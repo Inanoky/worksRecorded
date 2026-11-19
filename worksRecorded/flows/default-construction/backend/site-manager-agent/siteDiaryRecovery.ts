@@ -1,3 +1,4 @@
+import { buildDiaryReviewComment } from "./diaryReviewNotes";
 import { groundDiarySourceQuotes } from "./diarySourceQuotes";
 import type { SiteDiaryExtractionCheckerResult } from "./siteDiaryExtractionChecker";
 
@@ -93,7 +94,7 @@ export function recoverReviewedDiaryRows(args: {
 		return {
 			Date: row.Date,
 			Works: notesCategory,
-			Comments: `Jāpārskata: ${reason}\n${groundedSource ?? source}`,
+			Comments: buildDiaryReviewComment(groundedSource ?? source),
 			Location: null,
 			Amounts: measured ? row.Amounts : null,
 			Units: measured ? row.Units : null,

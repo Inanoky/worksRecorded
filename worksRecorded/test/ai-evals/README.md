@@ -5,7 +5,7 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 ## Current State
 
 - Jest covers deterministic application and eval infrastructure behavior. Use the command output as the source of truth as this count grows.
-- AI eval fixtures currently contain 58 cases / 65 evaluated interactions: 7 dashboard cases (10 turns), 37 WhatsApp site-manager cases (41 interactions), 6 WhatsApp worker cases, and 8 reviewed diary/Forma2 cases. Use `--list` output as the current count.
+- Use `--list` output for current fixture counts. The Ocelt suite includes eight reviewed diary/Forma2 cases and two derived scenarios. WhatsApp image cases require manual opt-in.
 - Dashboard chat flow: `dashboard-chat` / `OrchestratingAgentV2`.
 - WhatsApp site-manager flow: `whatsapp-site-manager` via the real Meta webhook route.
 - WhatsApp worker flow: `whatsapp-worker` / `ClockinAgentForWorkerRoute` via the real Meta webhook route.
@@ -31,14 +31,16 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 | --- | --- | --- |
 | All safe local checks | `npm run test:all` | None |
 | All Jest tests | `npm run test:unit` | None |
-| Image extraction Jest tests | `npm run test:image-extraction` | None |
+| Manual image extraction Jest tests | `npm run eval:ai:image-extraction` | None |
 | Eval validator/runner unit tests | `npm run test:ai:validators` | None |
 | Validate all eval fixtures | `npm run test:ai:dry-run` | None |
 | List reviewed Ocelt diary cases | `npm run ai:list -- flow diary-reviewed` | None |
-| Run reviewed Ocelt diary/Forma2 evals directly | `npm run eval:ai:ocelt` | Models only; frozen corpus; no database access |
+| Run all ten Ocelt diary/Forma2 evals | `npm run eval:ai:ocelt` | Models only; frozen corpus; no database access |
+| Run only the two derived Ocelt scenarios | `npm run eval:ai:ocelt:scenarios` | Models only; frozen corpus; no database access |
 | Generate HTML from saved reports | `npm run eval:ai:summary -- --flow whatsapp-site-manager` | None |
 | Validate critical eval fixtures | `npm run test:ai:critical-dry-run` | None |
-| Real image extraction eval | `npm run test:image-extraction:real` | Image model and LangSmith if tracing is enabled |
+| Manual WhatsApp image evals | `npm run eval:ai:whatsapp-site-manager:images` | Models and eval database |
+| Manual real image extraction eval | `npm run eval:ai:image-extraction:real` | Image model and LangSmith if tracing is enabled |
 | Run all real deterministic evals | `npm run eval:ai:deterministic` | Models and eval database |
 | Run real critical evals only | `npm run eval:ai:critical` | Models and eval database |
 | Run supported judges plus worker deterministic evals | `npm run eval:ai:judge` | Agent models, judge model, and eval database |
@@ -47,6 +49,8 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 | CI real eval gate | `npm run eval:ci` | Models and eval database |
 
 `test:all` is intentionally safe for local development and CI: it runs Jest and all fixture dry-runs, but does not call models or write eval database rows. Real eval commands require the environment variables listed below. The worker suite has deterministic and heuristic checks but no LLM judge, so `eval:ai:judge` runs it without `--judge`.
+
+The four WhatsApp image cases, including the material invoice, are marked `manualOnly`. Default, critical, deterministic, judge, CI and pre-push selections exclude them. Even explicit `--case` or `--tag image` selections require `--include-manual`; the `:images` command supplies it. Meta image Jest files also use a separate `jest.image-extraction.config.js` and are excluded from ordinary `test`, `test:unit` and `test:all` discovery. Their dedicated commands remain available; environment variables alone cannot add them to default discovery.
 
 Simplified local aliases wrap the same runners and load `.env` automatically:
 
@@ -58,13 +62,17 @@ npm run ai:list -- tag bis
 npm run ai:run -- flow whatsapp-site-manager tag correction
 ```
 
-Supported selectors are `critical`, `tag <name>`, `tier <smoke|regression|extended>`, `case <id>`, and `flow <dashboard|whatsapp-site-manager|whatsapp-worker|diary-reviewed|all>`. For real runs, `ai:run` verifies the selected eval target first, runs matching flows, then gates the newest selected reports.
+Supported selectors are `critical`, `tag <name>`, `tier <smoke|regression|extended>`, `case <id>`, `--include-manual`, and `flow <dashboard|whatsapp-site-manager|whatsapp-worker|diary-reviewed|ocelt|all>`. `flow ocelt` selects all ten Ocelt cases; `flow diary-reviewed` retains the eight reviewed examples. For real runs, `ai:run` verifies the selected eval target first, runs matching flows, then gates the newest selected reports.
 
 Dashboard and WhatsApp webhook evals run against the normal application tables, but only through a dedicated eval organization/site/user/worker. Their environment guard refuses to run unless `AI_EVAL_ALLOW_SINGLE_DB=true`, `AI_EVAL_ALLOWED_ORGANIZATION_ID` is set, and the configured eval site/user/worker all belong to that organization. The organization, site, user, and worker names must be clearly marked with `eval`, `test`, or `ai` unless `AI_EVAL_REQUIRE_MARKED_NAMES=false` is set. The `diary-reviewed` frozen-corpus runner has its own guard requiring only `RUN_AI_EVALS=true` and `OPENAI_API_KEY`; it uses synthetic scope IDs and cannot persist diary records.
 
 The shared default-construction diary pipeline performs extraction, checking, at most one targeted repair call, then a final check. It uses the same 180-second workflow deadline throughout. Repair replaces the former full extraction retry: accepted source-backed rows are locked, while the model receives editable row IDs, allowed fields, relevant project work candidates and source passages. It returns field patches or explicit row replacements/additions; application code merges them with the locked rows. Numeric evidence, candidate membership and source quotes are validated before the final check. Failure retains the existing partial-recovery/original-note behavior. `NoSorting` reports are not restructured by this model.
 
 JSON/HTML reports include the `repair` stage, including rejected model patches and their validation error. LangSmith names the call `SiteDiaryTargetedRepair`; model usage is recorded under `site_diary_targeted_repair`, with separate repair and final-check timings. Extraction/checker/repair currently default to GPT-6.1 Sol Medium. Eval overrides use the existing extractor/checker model settings.
+
+Each `checker` stage also includes `promptComposition`: named/versioned rule sections, their purpose, enabled project fields and inclusion/omission reasons. The same manifest appears in LangSmith model metadata as `diaryCheckerPrompt`; the system input contains the assembled sections with headings. See [checker prompt modules](../../flows/default-construction/backend/site-manager-agent/diary-prompts/README.md). Partial-recovery notes expose only a short review label and source facts; checker repair instructions remain diagnostic data.
+
+`npm run eval:ai:ocelt -- --dry-run` lists all ten Ocelt cases; `RUN_AI_EVALS=true npm run eval:ai:ocelt` runs them and generates `diary-ocelt-latest.html`. Add `--trace` only when LangSmith uploads are intended. The two source-derived scenarios remain distinguishable from the eight reviewed examples through report provenance and per-case assignment metadata. Select only the new scenarios with `npm run eval:ai:ocelt:scenarios`. They use the frozen Ocelt configuration, resolve Forma2 only from configured work selections and perform no database writes or WhatsApp sends. Scenario-only reports use `ocelt-scenarios` run IDs and `diary-ocelt-scenarios-latest.html`. The conflicting-reference case explicitly expects two accepted works and a marked review note; its note may preserve the explicitly reported 1 kompl quantity or leave its measurement pair blank. Other cases continue to reject review rows by default.
 
 Optional project speech mappings can be configured in `siteDiaryRecordsMap.otherSettings.defaultConstructionWorkAliases`; no database migration is required. `work` must exactly match an existing project `Works.DropDownOptions` value. These mappings are supplied to extraction, checking and targeted repair as vocabulary, without supplying quantities or labour. There is no alias editing UI yet.
 
@@ -169,7 +177,7 @@ npm run test:ai:validators
 Run safe image extraction tests:
 
 ```bash
-npm run test:image-extraction
+npm run eval:ai:image-extraction
 ```
 
 This runs only the mocked LangSmith/image-handler test and the mocked upload-to-material-extraction route test. It does not call models and does not import the real image extraction eval file.
@@ -180,7 +188,7 @@ Run the real material invoice image extraction eval after loading `.env`:
 set -a
 source .env
 set +a
-npm run test:image-extraction:real
+npm run eval:ai:image-extraction:real
 ```
 
 This is the only image extraction test script that imports the real image extraction eval file. It calls the image extraction model against `test/fixtures/meta-webhook/material-invoice.jpg` and compares the extracted rows with `test/fixtures/meta-webhook/material-invoice.expected.json`. It prints a row-by-row, field-by-field comparison for `name`, `cost`, `invoiceNr`, `invoiceDate`, `costCode`, `quantity`, and `construction_material_id`, including missing and extra extracted rows. It does not write BIS records or send WhatsApp messages.

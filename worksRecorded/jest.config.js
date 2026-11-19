@@ -11,9 +11,14 @@ module.exports = {
 		...tsJestTransformCfg,
 	},
 	setupFilesAfterEnv: ["./jest.setup.ts"],
+	testPathIgnorePatterns: [
+		"/node_modules/",
+		"<rootDir>/test/meta-image-.*\\.test\\.ts$",
+	],
 
 	moduleNameMapper: {
-		"^server-only$": "<rootDir>/node_modules/next/dist/compiled/server-only/empty.js",
+		"^server-only$":
+			"<rootDir>/node_modules/next/dist/compiled/server-only/empty.js",
 		// 👇 match SVGs FIRST so alias doesn't short-circuit
 		"^.+\\.svg$": "<rootDir>/__mocks__/svgMock.ts",
 		// keep other static assets

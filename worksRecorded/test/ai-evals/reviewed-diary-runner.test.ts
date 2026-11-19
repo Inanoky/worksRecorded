@@ -49,6 +49,39 @@ it("lists production replay cases separately from the human-reviewed corpus", ()
 	);
 	expect(result.stdout).not.toContain("ocelt-1110-four-earthworks-calculation");
 });
+
+it("lists only the two new Ocelt scenarios when explicitly selected", () => {
+	const result = run("--dry-run", "--ocelt-scenarios");
+	expect(result.status).toBe(0);
+	expect(result.stdout).toContain("Selected 2/2 cases");
+	expect(result.stdout).toContain(
+		"ocelt-scenario-three-works-calculated-volumes",
+	);
+	expect(result.stdout).toContain(
+		"ocelt-scenario-two-works-conflicting-reference",
+	);
+	expect(result.stdout).not.toContain("ocelt-1110-four-earthworks-calculation");
+});
+
+it("includes the eight reviewed cases and both derived scenarios in the Ocelt suite", () => {
+	const result = run("--dry-run", "--ocelt");
+	expect(result.status).toBe(0);
+	expect(result.stdout).toContain("Selected 10/10 cases");
+	expect(result.stdout).toContain("ocelt-1110-four-earthworks-calculation");
+	expect(result.stdout).toContain(
+		"ocelt-scenario-three-works-calculated-volumes",
+	);
+	expect(result.stdout).toContain(
+		"ocelt-scenario-two-works-conflicting-reference",
+	);
+	expect(result.stdout).not.toContain("production-four-utilities");
+});
+
+it("rejects mixing different corpus modes", () => {
+	const result = run("--dry-run", "--ocelt", "--production-replay");
+	expect(result.status).toBe(1);
+	expect(result.stderr).toContain("Choose only one");
+});
 it("requires explicit live-eval opt-in before importing any database or model execution", () => {
 	const result = run("--case", "ocelt-1113-pp-sewer-d200");
 	expect(result.status).toBe(1);

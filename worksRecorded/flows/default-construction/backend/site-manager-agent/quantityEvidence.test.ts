@@ -48,6 +48,72 @@ it("accepts an explicit spoken rate with omitted uz before tekošo metru", () =>
 });
 
 it.each([
+	[
+		"uz katru iebūvēto caurules metru",
+		"2.11 Sadzīves kanalizācija - Tranšejas rakšana",
+		"3,33",
+		73.56,
+	],
+	[
+		"uz katru šī paša posma metru",
+		"2.13 Sadzīves kanalizācija - Smilts apbērums",
+		"0,3",
+		6.63,
+	],
+	[
+		"uz katru šīs pašas tranšejas metru",
+		"2.11 Sadzīves kanalizācija - Tranšejas rakšana",
+		"3,33",
+		73.56,
+	],
+])(
+	"accepts the source-backed rate phrase %s and still verifies operands, work and arithmetic",
+	(phrase, work, rate, amount) => {
+		const lengthQuote = "Iebūvēta caurule 22,09 metri.";
+		const rateQuote = `${work}, ${rate} kubikmetri ${phrase}.`;
+		const input = `${lengthQuote} ${rateQuote}`;
+		const calculated = {
+			Works: work,
+			Amounts: amount,
+			Units: "m3",
+			calculationEvidence: { lengthQuote, rateQuote },
+		};
+		expect(hasSourceCalculation(calculated, input)).toBe(true);
+		expect(hasSourceCalculation({ ...calculated, Amounts: 999 }, input)).toBe(
+			false,
+		);
+		expect(
+			hasSourceCalculation(calculated, input.replace("22,09", "23,09")),
+		).toBe(false);
+		expect(
+			hasSourceCalculation({ ...calculated, Works: "Ūdensvada aka" }, input),
+		).toBe(false);
+	},
+);
+
+it.each([
+	"uz katru otro metru",
+	"uz katriem 2 metriem",
+	"uz katru iebūvēto caurules kvadrātmetru",
+	"uz tekošo metru²",
+	"m3/m²",
+	"m3/m3",
+])("does not treat %s as a rate per one metre", (phrase) => {
+	const lengthQuote = "Iebūvēta caurule 22,09 metri.";
+	const rateQuote = `Tranšejas rakšana, pozīcija 2.11, 3,33 kubikmetri ${phrase}.`;
+	expect(
+		hasSourceCalculation(
+			{
+				...row,
+				Amounts: 73.56,
+				calculationEvidence: { lengthQuote, rateQuote },
+			},
+			`${lengthQuote} ${rateQuote}`,
+		),
+	).toBe(false);
+});
+
+it.each([
 	"wrong-amount",
 	"unquoted",
 	"wrong-work",

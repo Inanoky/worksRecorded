@@ -39,20 +39,27 @@ import {
 	mapToDbFields,
 } from "./AIschemas";
 import {
+	getRemainingSiteManagerAiBudgetMs,
 	getSiteManagerAiTimeout,
-	invokeSiteManagerModel,
 	markSiteManagerSideEffectsStarted,
 	SITE_MANAGER_AI_BUDGET_MS,
 	SiteManagerAiTimeoutError,
 	withSiteManagerAiBudget,
 } from "./aiDeadline";
+import { composeSiteDiaryExtractorPrompt } from "./diary-prompts/composeExtractorPrompt";
+import { roundDiaryAmounts } from "./diaryAmountRounding";
 import {
+	diaryModelOutputTokenLimit,
 	diaryModelReasoningOptions,
 	diaryModelUsesResponsesApi,
 	structuredSiteDiaryModel,
 	structuredSiteDiaryReasoningEffort,
 } from "./diaryModelSettings";
-import { DIARY_SOURCE_POLICY, isContextOnlyDiaryAmount, normalizeDiarySourceRows } from "./diarySourcePolicy";
+import { DIARY_PARTIAL_REVIEW_MESSAGE } from "./diaryReviewNotes";
+import {
+	isContextOnlyDiaryAmount,
+	normalizeDiarySourceRows,
+} from "./diarySourcePolicy";
 import { groundDiarySourceQuotes } from "./diarySourceQuotes";
 import {
 	detectReplyLanguage,
@@ -61,15 +68,18 @@ import {
 	serializeCorrectionToolResult,
 } from "./fastPath";
 import {
+	assertCompleteModelResponse,
+	canRetryIncompleteModelResponse,
+	createModelRequestDiagnostics,
+	getModelFailureDiagnostics,
+	getModelFailureTokenUsage,
+} from "./modelRequestDiagnostics";
+import {
 	buildDiaryFallbackNote,
 	canSaveDiaryFallbackNote,
 } from "./noteFallback";
+import { getSiteDiaryExtractorPromptForUser } from "./prompts";
 import {
-	buildSiteDiaryExtractionPrompt,
-	systemPromptSaveToDatabaseFunction,
-} from "./prompts";
-import {
-	CALCULATION_INSTRUCTIONS,
 	calculationEvidenceSchema,
 	hasSourceCalculation,
 } from "./quantityEvidence";
@@ -85,7 +95,10 @@ import {
 	recordSiteManagerTiming,
 	recordSiteManagerToolCall,
 } from "./runContext";
-import { buildSiteDiaryCorrectionQuestion, VOICE_DIARY_CORRECTION_GUIDANCE } from "./siteDiaryCorrectionContext";
+import {
+	buildSiteDiaryCorrectionQuestion,
+	VOICE_DIARY_CORRECTION_GUIDANCE,
+} from "./siteDiaryCorrectionContext";
 import {
 	buildSiteDiaryWorkCatalog,
 	invokeSiteDiaryExtractionChecker,
@@ -200,6 +213,7 @@ type StructuredSaveResult = {
 	intentReason?: string;
 	intentConfidence?: number;
 	savedAsNote?: boolean;
+	hasReviewNotes?: boolean;
 };
 
 type StructuredLlmEnvelope = {
@@ -217,24 +231,20 @@ type StructuredLlmInvoker = {
 type StructuredSaveAction = StructuredSaveResult["action"];
 type StructuredCorrectionMode = StructuredSaveResult["correctionMode"];
 
-const structuredSaveActions = new Set<StructuredSaveAction>([
+const structuredSaveActions = new Set<string>([
 	"save_new_report",
 	"correct_existing_report",
 	"fallback",
 	"clarify",
 ]);
 
-const structuredCorrectionModes = new Set<StructuredCorrectionMode>([
+const structuredCorrectionModes = new Set<string>([
 	"not_applicable",
 	"intent_only",
 	"supplied",
 ]);
 
-const supportedReplyLanguages = new Set<SupportedReplyLanguage>([
-	"lv",
-	"en",
-	"ru",
-]);
+const supportedReplyLanguages = new Set<string>(["lv", "en", "ru"]);
 
 function isLooseRecord(value: unknown): value is LooseRecord {
 	return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -266,15 +276,29 @@ function usageFromMessage(message: unknown) {
 	const usage = asLooseRecord(
 		messageObject.usage_metadata ?? responseMetadata.tokenUsage,
 	);
-	const inputTokens = Number(usage.input_tokens ?? usage.promptTokens ?? 0);
-	const outputTokens = Number(
-		usage.output_tokens ?? usage.completionTokens ?? 0,
+	const tokenCount = (value: unknown) =>
+		typeof value === "number" && Number.isFinite(value) && value >= 0
+			? value
+			: null;
+	const inputTokens = tokenCount(usage.input_tokens ?? usage.promptTokens);
+	const outputTokens = tokenCount(
+		usage.output_tokens ?? usage.completionTokens,
 	);
 	return {
 		inputTokens,
 		outputTokens,
-		totalTokens: Number(
-			usage.total_tokens ?? usage.totalTokens ?? inputTokens + outputTokens,
+		totalTokens:
+			tokenCount(usage.total_tokens ?? usage.totalTokens) ??
+			(inputTokens !== null && outputTokens !== null
+				? inputTokens + outputTokens
+				: null),
+		reasoningTokens: tokenCount(
+			asLooseRecord(usage.output_token_details).reasoning ??
+				asLooseRecord(usage.output_tokens_details).reasoning_tokens,
+		),
+		cachedInputTokens: tokenCount(
+			asLooseRecord(usage.input_token_details).cache_read ??
+				asLooseRecord(usage.input_tokens_details).cached_tokens,
 		),
 	};
 }
@@ -597,7 +621,10 @@ function classifyAmountEvidence(
 			reason: "verified source length and per-metre volume calculation",
 		};
 	if (isContextOnlyDiaryAmount(row, source)) {
-		return { status: "known_invalid", reason: "amount belongs to weather, labour or ordinal context" };
+		return {
+			status: "known_invalid",
+			reason: "amount belongs to weather, labour or ordinal context",
+		};
 	}
 	const unitFamily = normalizeAmountUnitFamily(row.Units);
 	if (
@@ -875,7 +902,8 @@ function isReviewedDuplicateNoteQuantity(
 			index === rowIndex ||
 			/^(?:notes?|piezīmes)$/iu.test(String(candidate.Works ?? "")) ||
 			candidate.Amounts !== row.Amounts ||
-			normalizeAmountUnitFamily(candidate.Units) !== normalizeAmountUnitFamily(row.Units)
+			normalizeAmountUnitFamily(candidate.Units) !==
+				normalizeAmountUnitFamily(row.Units)
 		)
 			return false;
 		const accepted = checker.rowReviews?.find(
@@ -884,9 +912,13 @@ function isReviewedDuplicateNoteQuantity(
 		if (!accepted) return false;
 		const evidence = groundDiarySourceQuotes(
 			source,
-			accepted.sourceSpans?.length ? accepted.sourceSpans : [accepted.sourceText],
+			accepted.sourceSpans?.length
+				? accepted.sourceSpans
+				: [accepted.sourceText],
 		);
-		return evidence !== null && hasSourceBackedAmountUnitPair(candidate, evidence);
+		return (
+			evidence !== null && hasSourceBackedAmountUnitPair(candidate, evidence)
+		);
 	});
 }
 
@@ -1076,10 +1108,10 @@ function buildStructuredExtractionMessages(args: {
 
 	return [
 		new SystemMessage(
-			`${args.systemPrompt}\n${DIARY_SOURCE_POLICY}\n${CALCULATION_INSTRUCTIONS}\ntoday is : ${args.date}\n${args.siteId}${fallbackInstructions}${repairInstructions}`,
+			`${args.systemPrompt}\nAtsauces datums: ${args.date}.${fallbackInstructions}${repairInstructions}`,
 		),
 		new SystemMessage(args.extractionContextText),
-		new HumanMessage(`${args.question} Date is : ${args.date}`),
+		new HumanMessage(args.question),
 	];
 }
 
@@ -1261,7 +1293,10 @@ async function extractAndSaveSiteDiaryCore(
 					toolContext.hasPendingCorrection,
 			})
 		) {
-			const candidate = partialCandidate;
+			const candidate = {
+				...partialCandidate,
+				rows: roundDiaryAmounts(partialCandidate.rows),
+			};
 			const started = Date.now();
 			let result: Awaited<ReturnType<typeof saveSiteDiaryRecord>>;
 			try {
@@ -1331,7 +1366,8 @@ async function extractAndSaveSiteDiaryCore(
 				count: candidate.rows.length,
 				rows: candidate.rows,
 				records,
-				content: `Saglabāti ${candidate.rows.length} ieraksti. ${candidate.reviewCount} ieraksti ir atzīmēti pārskatīšanai.`,
+				hasReviewNotes: true,
+				content: `Saved ${candidate.rows.length} site diary record(s) successfully. ${DIARY_PARTIAL_REVIEW_MESSAGE}`,
 			};
 		}
 		if (
@@ -1367,18 +1403,28 @@ async function extractAndSaveSiteDiaryCore(
 			if (args.persist !== false) markSiteManagerSideEffectsStarted();
 			result =
 				args.persist === false
-					? { ok: true, count: 1, records: [], recordIds: [], normalizedInsertRows: [] }
+					? {
+							ok: true,
+							count: 1,
+							records: [],
+							recordIds: [],
+							normalizedInsertRows: [],
+						}
 					: await saveSiteDiaryRecord({
-						rows: [note],
-						userId,
-						siteId,
-						originalUserComment,
-						sourceMessageId: whatsappSourceContext.messageId,
-						evalMetadata: {
-							...runContext?.evalRecordMetadata,
-							diaryQuality: { status: "needs_review", reason, sourceMessageId: whatsappSourceContext.messageId ?? null },
-						},
-					});
+							rows: [note],
+							userId,
+							siteId,
+							originalUserComment,
+							sourceMessageId: whatsappSourceContext.messageId,
+							evalMetadata: {
+								...runContext?.evalRecordMetadata,
+								diaryQuality: {
+									status: "needs_review",
+									reason,
+									sourceMessageId: whatsappSourceContext.messageId ?? null,
+								},
+							},
+						});
 		} catch (error) {
 			console.warn("site diary note fallback persistence failed", error);
 			updateTraceOutcome("error");
@@ -1400,7 +1446,12 @@ async function extractAndSaveSiteDiaryCore(
 		assignTraceMetadata(aiContext.runnableConfig, outcomeMetadata);
 		updateTraceOutcome(ok ? "save" : "error");
 		if (ok) {
-			captureStep({ phase: "note_fallback", reason, rows: [note], persisted: args.persist !== false });
+			captureStep({
+				phase: "note_fallback",
+				reason,
+				rows: [note],
+				persisted: args.persist !== false,
+			});
 		}
 		recordStructuredSaveTrace({
 			siteId,
@@ -1424,9 +1475,10 @@ async function extractAndSaveSiteDiaryCore(
 			savedAsNote: true,
 			records,
 			rows: [note],
-			content: args.persist === false
-				? "Prepared 1 fallback note for evaluation. Database persistence is disabled."
-				: "Saved 1 site diary record(s) successfully. Saved as a note.",
+			content:
+				args.persist === false
+					? "Prepared 1 fallback note for evaluation. Database persistence is disabled."
+					: "Saved 1 site diary record(s) successfully. Saved as a note.",
 		};
 	};
 	const map = args.evaluationContext?.config ?? (await getConfig(siteId));
@@ -1438,9 +1490,21 @@ async function extractAndSaveSiteDiaryCore(
 	const aiPromptToUse = asLooseRecord(mapObject?.AIpromptToUse);
 	const clientPrompt =
 		typeof aiPromptToUse.Client === "string" ? aiPromptToUse.Client : undefined;
-	const systemPrompt = args.evaluationContext
-		? buildSiteDiaryExtractionPrompt(args.evaluationContext.language, clientPrompt)
-		: await systemPromptSaveToDatabaseFunction(userId, clientPrompt);
+	const extractionPrompt = args.evaluationContext
+		? composeSiteDiaryExtractorPrompt({
+				language: args.evaluationContext.language,
+				client: clientPrompt,
+				projectConfig: mapToUse,
+			})
+		: await getSiteDiaryExtractorPromptForUser(userId, clientPrompt, mapToUse);
+	const systemPrompt = extractionPrompt.systemText;
+	captureStep({
+		phase: "extraction_prompt",
+		promptComposition: extractionPrompt.manifest,
+	});
+	Object.assign(aiContext.runnableConfig.metadata, {
+		diaryExtractorPrompt: extractionPrompt.manifest,
+	});
 	const extractionContext =
 		args.evaluationContext?.extractionContext ??
 		(await buildSiteDiaryExtractionContext({
@@ -1486,94 +1550,148 @@ async function extractAndSaveSiteDiaryCore(
 			})
 		: baseSchema;
 
-	const useResponsesApi = args.evaluationContext?.useResponsesApi ?? diaryModelUsesResponsesApi(extractionModel);
-	const llm = new ChatOpenAI({
+	const useResponsesApi =
+		args.evaluationContext?.useResponsesApi ??
+		diaryModelUsesResponsesApi(extractionModel);
+	let extractionDiagnostics = createModelRequestDiagnostics({
 		model: extractionModel,
-		timeout: SITE_MANAGER_AI_BUDGET_MS,
-		maxRetries: 0,
-		...diaryModelReasoningOptions(extractionReasoningEffort, useResponsesApi),
-		useResponsesApi,
+		purpose: args.allowFallback
+			? "fast-path-extraction"
+			: "structured-extraction",
 	});
-	const structuredLlm = llm.withStructuredOutput(responseSchema, {
-		includeRaw: true,
-	}) as StructuredLlmInvoker;
-	const projectSpeechAliases = selectDiaryRepairCandidates(mapToUse, args.question)
+	const createStructuredExtractor = (
+		diagnostics: ReturnType<typeof createModelRequestDiagnostics>,
+	) => {
+		const llm = new ChatOpenAI({
+			model: extractionModel,
+			timeout: SITE_MANAGER_AI_BUDGET_MS,
+			maxRetries: 0,
+			maxTokens: diaryModelOutputTokenLimit(args.question),
+			configuration: diagnostics.configuration,
+			...diaryModelReasoningOptions(extractionReasoningEffort, useResponsesApi),
+			useResponsesApi,
+		});
+		return llm.withStructuredOutput(responseSchema, {
+			includeRaw: true,
+		}) as StructuredLlmInvoker;
+	};
+	let structuredLlm = createStructuredExtractor(extractionDiagnostics);
+	const projectSpeechAliases = selectDiaryRepairCandidates(
+		mapToUse,
+		args.question,
+	)
 		.filter((candidate) => candidate.aliases.length)
 		.map(({ work, aliases }) => ({ work, aliases }));
 	const extractionContextText = projectSpeechAliases.length
 		? `${extractionContext.text}\nConfigured project speech mappings (vocabulary only, not completed quantities or labour):\n${JSON.stringify(projectSpeechAliases)}`
 		: extractionContext.text;
-	const extractionStarted = Date.now();
+	let extractionStarted = Date.now();
+	let extractionAttempt = 0;
 	let envelope: StructuredLlmEnvelope;
-	try {
-		envelope = await invokeSiteManagerModel(
-			(config) => structuredLlm.invoke(
-				buildStructuredExtractionMessages({
-					question: args.question,
-					date,
-					siteId,
-					systemPrompt,
-					extractionContextText,
-					allowFallback: args.allowFallback,
-					repairInstructions: args.repairInstructions,
-					intentContext: args.intentContext,
-				}),
-				config,
-			),
-			aiContext.runnableConfig,
-		);
-	} catch (error) {
-		updateTraceOutcome("error", "extraction-error");
-		const durationMs = Date.now() - extractionStarted;
-		recordSiteManagerTiming("structuredExtractionMs", durationMs);
-		recordSiteManagerModelCall({
-			purpose: args.repairInstructions
-				? "structured-repair-extraction"
-				: args.allowFallback
-					? "fast-path-extraction"
-					: "structured-extraction",
-			model: extractionModel,
-			actualModel: null,
-			durationMs,
-			inputTokens: 0,
-			outputTokens: 0,
-			totalTokens: 0,
-		});
-		if (args.allowFallback) {
-			if (
-				canSaveDiaryFallbackNote({
-					source: noteSource,
-					persist: args.persist,
-					readOnlyEvaluation: readOnlyNoteFallback,
-					confirmedReport: false,
-					hasReplyContext: Boolean(
-						args.intentContext?.hasReplyContext ||
-							whatsappSourceContext.replyToMessageId,
-					),
-					hasPendingCorrection:
-						args.intentContext?.hasPendingCorrection ||
-						toolContext.hasPendingCorrection,
-				})
-			)
-				return saveFallbackNote(
-					`Extraction failed: ${error instanceof Error ? error.message : String(error)}`,
-					false,
+	while (true) {
+		try {
+			envelope = await extractionDiagnostics.run(async (config) => {
+				const result = await structuredLlm.invoke(
+					buildStructuredExtractionMessages({
+						question: args.question,
+						date,
+						siteId,
+						systemPrompt,
+						extractionContextText,
+						allowFallback: args.allowFallback,
+						repairInstructions: args.repairInstructions,
+						intentContext: args.intentContext,
+					}),
+					config,
 				);
-			if (error instanceof SiteManagerAiTimeoutError) throw error;
-			return {
-				action: "fallback",
-				correctionMode: "not_applicable",
-				language: detectReplyLanguage(args.question),
-				content: "",
-				ok: false,
-				count: 0,
-			};
+				assertCompleteModelResponse(result.raw);
+				return result;
+			}, aiContext.runnableConfig);
+			break;
+		} catch (error) {
+			updateTraceOutcome("error", "extraction-error");
+			const durationMs = Date.now() - extractionStarted;
+			recordSiteManagerTiming("structuredExtractionMs", durationMs);
+			recordSiteManagerModelCall({
+				purpose: args.repairInstructions
+					? "structured-repair-extraction"
+					: args.allowFallback
+						? "fast-path-extraction"
+						: "structured-extraction",
+				model: extractionModel,
+				actualModel: null,
+				durationMs,
+				...extractionDiagnostics.snapshot().usage,
+				diagnostics: extractionDiagnostics.snapshot(),
+			});
+			captureStep({
+				phase: "model_failure",
+				purpose: "extraction",
+				diagnostics: extractionDiagnostics.snapshot(),
+			});
+			if (
+				canRetryIncompleteModelResponse(
+					extractionDiagnostics.snapshot(),
+					extractionAttempt,
+					getRemainingSiteManagerAiBudgetMs(),
+				)
+			) {
+				extractionAttempt += 1;
+				recordSiteManagerTiming("structuredExtractionRetries", 1);
+				captureStep({
+					phase: "extraction_retry",
+					attempt: extractionAttempt + 1,
+					previousRequest: extractionDiagnostics.snapshot(),
+					remainingBudgetMs: getRemainingSiteManagerAiBudgetMs(),
+				});
+				Object.assign(aiContext.runnableConfig.metadata, {
+					siteDiaryExtractionRetryCount: extractionAttempt,
+				});
+				extractionDiagnostics = createModelRequestDiagnostics({
+					model: extractionModel,
+					purpose: "structured-extraction-retry",
+				});
+				structuredLlm = createStructuredExtractor(extractionDiagnostics);
+				extractionStarted = Date.now();
+				continue;
+			}
+
+			if (args.allowFallback) {
+				if (
+					canSaveDiaryFallbackNote({
+						source: noteSource,
+						persist: args.persist,
+						readOnlyEvaluation: readOnlyNoteFallback,
+						confirmedReport: false,
+						hasReplyContext: Boolean(
+							args.intentContext?.hasReplyContext ||
+								whatsappSourceContext.replyToMessageId,
+						),
+						hasPendingCorrection:
+							args.intentContext?.hasPendingCorrection ||
+							toolContext.hasPendingCorrection,
+					})
+				)
+					return saveFallbackNote(
+						`Extraction failed: ${error instanceof Error ? error.message : String(error)}`,
+						false,
+					);
+				if (error instanceof SiteManagerAiTimeoutError) throw error;
+				return {
+					action: "fallback",
+					correctionMode: "not_applicable",
+					language: detectReplyLanguage(args.question),
+					content: "",
+					ok: false,
+					count: 0,
+				};
+			}
+			if (args.persist === false && !readOnlyNoteFallback) throw error;
+			return saveFallbackNote(
+				`Extraction failed: ${error instanceof Error ? error.message : String(error)}`,
+				true,
+			);
 		}
-		if (args.persist === false && !readOnlyNoteFallback) throw error;
-		return saveFallbackNote(
-			`Extraction failed: ${error instanceof Error ? error.message : String(error)}`,
-			true,
-		);
 	}
 	const extractionDurationMs = Date.now() - extractionStarted;
 	const response = asLooseRecord(envelope.parsed ?? envelope);
@@ -1596,6 +1714,7 @@ async function extractAndSaveSiteDiaryCore(
 		actualModel,
 		durationMs: extractionDurationMs,
 		...usage,
+		diagnostics: extractionDiagnostics.snapshot(),
 	});
 
 	const responseAction = isStructuredSaveAction(response.action)
@@ -1702,7 +1821,15 @@ async function extractAndSaveSiteDiaryCore(
 	const rows =
 		clientPrompt === "NoSorting"
 			? normalizedRows.rows
-			: normalizeDiarySourceRows(normalizeWorkdayNoteRows(normalizedRows.rows, args.question, mapToUse), args.question, mapToUse);
+			: normalizeDiarySourceRows(
+					normalizeWorkdayNoteRows(
+						normalizedRows.rows,
+						args.question,
+						mapToUse,
+					),
+					args.question,
+					mapToUse,
+				);
 	let amountEvidenceWarnings = normalizedRows.amountEvidenceWarnings;
 	captureStep({
 		phase: "normalization",
@@ -1729,7 +1856,7 @@ async function extractAndSaveSiteDiaryCore(
 			content: "",
 			ok: true,
 			count: rows.length,
-			rows,
+			rows: roundDiaryAmounts(rows),
 			rawRecords,
 			amountEvidenceWarnings,
 		};
@@ -1764,7 +1891,8 @@ async function extractAndSaveSiteDiaryCore(
 		let validationStage: "checker" | "repair" | "repair_checker" = "checker";
 		let activeModelPurpose:
 			| "site_diary_extraction_checker"
-			| "site_diary_extraction_repair_checker" = "site_diary_extraction_checker";
+			| "site_diary_extraction_repair_checker" =
+			"site_diary_extraction_checker";
 		let activeModelStarted = checkerStarted;
 		try {
 			updateCheckerTrace({
@@ -1812,6 +1940,7 @@ async function extractAndSaveSiteDiaryCore(
 				language,
 				contextText: extractionContext.text,
 				workCatalog: buildSiteDiaryWorkCatalog(mapToUse),
+				projectConfig: mapToUse,
 				referenceDate: date,
 				runnableConfig: checkerTrace.runnableConfig,
 				evaluationModel: args.evaluationContext?.checkerModel,
@@ -1821,6 +1950,7 @@ async function extractAndSaveSiteDiaryCore(
 				repair: false,
 				rows,
 				result: checker.parsed,
+				promptComposition: checker.promptComposition,
 			});
 			const checkerDurationMs = Date.now() - checkerStarted;
 			const checkerUsage = usageFromMessage(checker.raw);
@@ -1829,11 +1959,13 @@ async function extractAndSaveSiteDiaryCore(
 			recordSiteManagerModelCall({
 				purpose: "site_diary_extraction_checker",
 				model: checkerModel,
-				actualModel: typeof checkerMetadata.model_name === "string"
-					? checkerMetadata.model_name
-					: null,
+				actualModel:
+					typeof checkerMetadata.model_name === "string"
+						? checkerMetadata.model_name
+						: null,
 				durationMs: checkerDurationMs,
 				...checkerUsage,
+				diagnostics: checker.diagnostics,
 			});
 			checkerModelRecorded = true;
 			recordSiteManagerToolCall({
@@ -1969,7 +2101,9 @@ async function extractAndSaveSiteDiaryCore(
 							repairLockedRowCount: repairRequest.lockedRowIds.length,
 						},
 					};
-					let repairResult: Awaited<ReturnType<typeof invokeSiteDiaryTargetedRepair>>;
+					let repairResult: Awaited<
+						ReturnType<typeof invokeSiteDiaryTargetedRepair>
+					>;
 					try {
 						repairResult = await invokeSiteDiaryTargetedRepair({
 							request: repairRequest,
@@ -1981,20 +2115,27 @@ async function extractAndSaveSiteDiaryCore(
 							},
 						});
 					} catch (error) {
-						recordSiteManagerTiming("structuredRepairMs", Date.now() - repairStarted);
+						recordSiteManagerTiming(
+							"structuredRepairMs",
+							Date.now() - repairStarted,
+						);
 						recordSiteManagerModelCall({
 							purpose: "site_diary_targeted_repair",
 							model: extractionModel,
 							actualModel: null,
 							durationMs: Date.now() - repairStarted,
-							inputTokens: 0,
-							outputTokens: 0,
-							totalTokens: 0,
+							...getModelFailureTokenUsage(error),
+							diagnostics: getModelFailureDiagnostics(error),
 						});
 						throw error;
 					}
-					recordSiteManagerTiming("structuredRepairMs", Date.now() - repairStarted);
-					const repairMetadata = asLooseRecord(repairResult.raw?.response_metadata);
+					recordSiteManagerTiming(
+						"structuredRepairMs",
+						Date.now() - repairStarted,
+					);
+					const repairMetadata = asLooseRecord(
+						repairResult.raw?.response_metadata,
+					);
 					recordSiteManagerModelCall({
 						purpose: "site_diary_targeted_repair",
 						model: extractionModel,
@@ -2004,6 +2145,7 @@ async function extractAndSaveSiteDiaryCore(
 								: null,
 						durationMs: Date.now() - repairStarted,
 						...usageFromMessage(repairResult.raw),
+						diagnostics: repairResult.diagnostics,
 					});
 					const validRepairValue = (
 						row: LooseRecord,
@@ -2011,18 +2153,26 @@ async function extractAndSaveSiteDiaryCore(
 						evidence: string,
 					) => {
 						if (row[field] == null) return true;
-						if (field === "Amounts" || (field === "Units" && row.Amounts != null))
+						if (
+							field === "Amounts" ||
+							(field === "Units" && row.Amounts != null)
+						)
 							return hasSourceBackedAmountUnitPair(row, evidence);
 						if (field === "WorkersInvolved")
 							return (
 								hasWorkerEvidence(evidence, Number(row.WorkersInvolved)) ||
-								inferWorkerCountFromRoleEvidence({ ...row, Comments: evidence }) ===
-									row.WorkersInvolved
+								inferWorkerCountFromRoleEvidence({
+									...row,
+									Comments: evidence,
+								}) === row.WorkersInvolved
 							);
 						if (field === "TimeInvolved")
 							return (
-								parseTimeInvolvedFromSource(evidence, Number(row.TimeInvolved)) !==
-									null || acceptSourceBackedWorkdayNote([row], evidence) !== null
+								parseTimeInvolvedFromSource(
+									evidence,
+									Number(row.TimeInvolved),
+								) !== null ||
+								acceptSourceBackedWorkdayNote([row], evidence) !== null
 							);
 						return true;
 					};
@@ -2038,7 +2188,8 @@ async function extractAndSaveSiteDiaryCore(
 							phase: "repair",
 							repair: true,
 							changes: repairResult.parsed,
-							validationError: error instanceof Error ? error.message : String(error),
+							validationError:
+								error instanceof Error ? error.message : String(error),
 							lockedRowIds: repairRequest.lockedRowIds,
 							candidateCount: repairRequest.candidates.length,
 						});
@@ -2109,9 +2260,26 @@ async function extractAndSaveSiteDiaryCore(
 							originalMessage: args.question,
 							rows: repair.rows,
 							language,
-							contextText: extractionContext.metadata.hasExplicitContextReference ? extractionContext.text : "Pārbaudi tikai mērķētos labojumus un avota pilnīgu pārklājumu. Iepriekš apstiprinātās rindas saglabātas kodā.",
-							workCatalog: buildSiteDiaryWorkCatalog({ ...mapToUse, Works: { ...mapToUse.Works, DropDownOptions: Object.fromEntries([...repairRequest.candidates.map((candidate) => candidate.work), ...repair.rows.map((row) => String(row.Works ?? ""))].map((work) => [work, work])) } }),
+							contextText: extractionContext.metadata
+								.hasExplicitContextReference
+								? extractionContext.text
+								: "Pārbaudi tikai mērķētos labojumus un avota pilnīgu pārklājumu. Iepriekš apstiprinātās rindas saglabātas kodā.",
+							workCatalog: buildSiteDiaryWorkCatalog({
+								...mapToUse,
+								Works: {
+									...mapToUse.Works,
+									DropDownOptions: Object.fromEntries(
+										[
+											...repairRequest.candidates.map(
+												(candidate) => candidate.work,
+											),
+											...repair.rows.map((row) => String(row.Works ?? "")),
+										].map((work) => [work, work]),
+									),
+								},
+							}),
 							workCatalogScope: "repair",
+							projectConfig: mapToUse,
 							repairContext: {
 								previousRows: rows,
 								previousReview: checker.parsed,
@@ -2125,6 +2293,7 @@ async function extractAndSaveSiteDiaryCore(
 							repair: true,
 							rows: repair.rows,
 							result: repairChecker.parsed,
+							promptComposition: repairChecker.promptComposition,
 						});
 						const repairMetadata = asLooseRecord(
 							repairChecker.raw?.response_metadata,
@@ -2138,8 +2307,12 @@ async function extractAndSaveSiteDiaryCore(
 									: null,
 							durationMs: Date.now() - repairCheckerStarted,
 							...usageFromMessage(repairChecker.raw),
+							diagnostics: repairChecker.diagnostics,
 						});
-						recordSiteManagerTiming("structuredRepairCheckerMs", Date.now() - repairCheckerStarted);
+						recordSiteManagerTiming(
+							"structuredRepairCheckerMs",
+							Date.now() - repairCheckerStarted,
+						);
 						checkerModelRecorded = true;
 						checkerToTrace.repairVerdict = repairChecker.parsed.verdict;
 						partialCandidate =
@@ -2247,10 +2420,14 @@ async function extractAndSaveSiteDiaryCore(
 					model: checkerModel,
 					actualModel: null,
 					durationMs: Date.now() - activeModelStarted,
-					inputTokens: 0,
-					outputTokens: 0,
-					totalTokens: 0,
+					...getModelFailureTokenUsage(error),
+					diagnostics: getModelFailureDiagnostics(error),
 				});
+			captureStep({
+				phase: "model_failure",
+				purpose: validationStage,
+				diagnostics: getModelFailureDiagnostics(error),
+			});
 			recordSiteManagerToolCall({
 				name: "site_diary_extraction_checker",
 				durationMs: checkerDurationMs,
@@ -2276,8 +2453,19 @@ async function extractAndSaveSiteDiaryCore(
 			siteDiaryCheckerPersistedAfterRepair: false,
 		});
 	}
+	rowsToSave = roundDiaryAmounts(rowsToSave);
 	if (args.persist === false) {
-		return { action: "save_new_report", correctionMode: "not_applicable", language, content: "", ok: true, count: rowsToSave.length, rows: rowsToSave, rawRecords: rawRecordsToTrace, amountEvidenceWarnings };
+		return {
+			action: "save_new_report",
+			correctionMode: "not_applicable",
+			language,
+			content: "",
+			ok: true,
+			count: rowsToSave.length,
+			rows: rowsToSave,
+			rawRecords: rawRecordsToTrace,
+			amountEvidenceWarnings,
+		};
 	}
 	const persistenceStarted = Date.now();
 	let result: Awaited<ReturnType<typeof saveSiteDiaryRecord>> | undefined;
@@ -2388,7 +2576,10 @@ export function extractAndSaveSiteDiary(
 			...(runnableConfig ?? {}),
 			runName,
 			tags: [
-				...new Set([...(runnableConfig?.tags ?? []), "site-diary-save-pipeline"]),
+				...new Set([
+					...(runnableConfig?.tags ?? []),
+					"site-diary-save-pipeline",
+				]),
 			],
 		}),
 	);

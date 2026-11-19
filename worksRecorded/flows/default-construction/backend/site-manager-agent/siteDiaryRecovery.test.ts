@@ -78,6 +78,26 @@ it("keeps accepted records unchanged and quarantines only the unresolved source 
 	expect(result?.reviewCount).toBe(1);
 });
 
+it("keeps checker instructions in audit data and uses only a short label with source facts in the note", () => {
+	const technicalReason =
+		"Izsauc labotāju, nomaini row-3 Works un pārbaudi payload pirms save_to_database.";
+	const review: SiteDiaryExtractionCheckerResult = JSON.parse(
+		JSON.stringify(checker),
+	);
+	if (!review.rowReviews) throw new Error("Missing row reviews");
+	review.rowReviews[2].reason = technicalReason;
+	const result = recover(review);
+	expect(result?.rows[2].Comments).toBe(
+		"Jāpārbauda.\nPiegādāts nezināms materiāls.",
+	);
+	expect(result?.rows[2].Comments).not.toContain(technicalReason);
+	expect(result?.qualities[2]).toEqual({
+		status: "needs_review",
+		reason: technicalReason,
+	});
+	expect(result?.rows.slice(0, 2)).toEqual(rows.slice(0, 2));
+});
+
 it("protects accepted rows when repair rewrites or drops them", () => {
 	const qualities = recover()?.qualities ?? [];
 	const rewritten = rows.map((row) => ({ ...row, Amounts: 9999 }));

@@ -2,6 +2,8 @@ import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
 import { getTodayDDMMYYYY } from "@/server/ai-flows/agents/shared-between-agents/getTodayDDMMYYY";
+import type { ConfigMap } from "./AIschemas";
+import { composeSiteDiaryExtractorPrompt } from "./diary-prompts/composeExtractorPrompt";
 import { getUserAddressName } from "./nameAddressing";
 import { VOICE_DIARY_CORRECTION_GUIDANCE } from "./siteDiaryCorrectionContext";
 
@@ -98,163 +100,30 @@ export async function systemPromptFunction(siteId: string, userId: string) {
 	return prompt;
 }
 
+export async function getSiteDiaryExtractorPromptForUser(
+	userId: string,
+	client?: string,
+	projectConfig?: ConfigMap,
+) {
+	const language = await getOrganizationLanguageByUserId(userId);
+	return composeSiteDiaryExtractorPrompt({ language, client, projectConfig });
+}
+
 export async function systemPromptSaveToDatabaseFunction(
 	userId: string,
 	client?: string,
+	projectConfig?: ConfigMap,
 ) {
-	const language = await getOrganizationLanguageByUserId(userId);
-	return buildSiteDiaryExtractionPrompt(language, client);
+	return (
+		await getSiteDiaryExtractorPromptForUser(userId, client, projectConfig)
+	).systemText;
 }
 
-export function buildSiteDiaryExtractionPrompt(language: string, client?: string) {
-
-	//nothing
-
-	const systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activities on site. Analyze and map Location and Works
-  according to the zod schema you are given
-
-  Set Location only when supported by the current message or an allowed explicit reference to trusted context. Otherwise leave Location null. Never select a location merely because it is the only dropdown option or appeared in a previous report. Preserve explicitly stated locations using the matching schema option.
-
-  Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
-  For comments describe what was completed, where and with what labor in ${language} if information present. 
-  
-  Make comment concise, don't add from yourself additional information or explain your decision.
-  Fill structured Workers and Hours fields from information in the source, not only Comments. Workers means the count of people/workers involved, not named worker records. Extract explicit worker counts from phrases like "2 cilvēki", "2 strādnieki", "2 darbinieki", "trīs strādnieki", "2 workers", or "2 people". If no worker count is stated, leave Workers null. Do not use 0 for Workers or Hours unless the source explicitly says zero.
-  Count explicitly listed human roles as Workers only when at least two people are tied to the same work row. Example: "grunts rakšana veica ekskavatora operators, strādāja arī palīgstrādnieks 8 stundas" → Workers: 2, Hours: 8. A single machinery operator mention by itself, for example "Bobcat operatoru, 9,5 stundas", is machinery context and should keep Workers null.
-  Example:
-  Input: "Šodien tika ieklātas grīdas 3 stāvā, 2 cilvēki, 3h"
-  Expected structured fields: Workers: 2, Hours: 3, and Comments mention floor laying on the 3rd floor.
-  Input: "Šodien apmestas sienas 2 stāvā, 4h"
-  Expected structured fields: Workers: null, Hours: 4, and Comments mention wall plastering on the 2nd floor.
-
-  Material delivery and actual installed/placed work are separate diary events when both are stated in the same message. Separate quantities such as "ievesta smilts 160m3" and "iestrādāti 140m3" are source evidence for two records: one Material delivery row with Amounts 160, Units m3, and one work row such as Backfilling with Amounts 140, Units m3. Shared labor or hours after the work statement should be attached only to the actual work row unless the source explicitly ties that labor/time to the delivery row. For Material delivery rows, set Workers and Hours to null unless the source explicitly says the delivery/unloading/transport itself used those workers or hours. Do not infer Workers: 1 from "ekskavators ar operatoru" on a delivery row when the work row describes placement/installation.
-
-  A clock phrase like "No plkst. 15.00" states a start time, not a duration. Do not convert it into Hours. When one actor or one machine is performing conjoined in-progress sub-actions in a single sentence, keep them in one diary row instead of splitting the sub-actions. Example: "No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu un šķembošanu" should be one note/work row with both actions in Comments, Hours null, Workers null, and Amounts null.
-
-  Completion status is not a quantity. Never set Amounts to 1 merely because one work is mentioned or described as completed. Populate Amounts only when the source explicitly states a real completed work quantity or measured completed scope; otherwise set both Amounts and Units to null.
-  Amounts/Daudzums and Units/Mrv are for completed work quantity only, for example "52 m2 osb", "5 gab. durvis", or "10 m3 betons".
-  Do not use apartment numbers, floor numbers, layer counts, worker counts, hours, or other construction-method/context numbers as Amounts.
-  A number directly counting completed construction objects implies pieces even when "gab." is omitted. Example: "10 sienas" → Amounts: 10, Units: "pcs"; "5 durvis" → Amounts: 5, Units: "pcs".
-  If a number describes context, construction method, or material/resource specification, keep it in Comments only and leave Amounts and Units null unless the same phrase also has a separate completed scope quantity.
-  When both material/resource dimensions and completed scope quantity are present, use the completed scope quantity for Amounts/Units and keep the dimensions only in Comments. Prefer "45 m2" completed scope over "22 mm" OSB thickness or "45x45" lath dimensions.
-  Example: "Pabeigta siltinājuma montāža" → Amounts: null, Units: null.
-  Example: "Pabeigta 10 m2 siltinājuma montāža" → Amounts: 10, Units: "m2".
-  Example: "OSB 22 mm, ieklāti 45 m2" → Amounts: 45, Units: "m2", Comments mention OSB 22 mm.
-  Example: "reģipsis 2 kārtās" → Amounts: null, Units: null.
-  Example: "Dz 6 45m2 vate, osb" → Amounts: 45, Units: "m2".
-  Example: "Dz 6, 2 cilvēki, 3h" → Workers: 2, Hours: 3, Amounts: null, Units: null.
-  Example: "Dz5f durvju aile demontāža" → Amounts: null, Units: null.
-  
-  `;
-
-	const glossary_08_05_2026 = `
-# Glossary and Mapping Instructions
-
-This document provides instructions to improve mapping accuracy.
-
-Please follow the guidelines below:
-
-
-
-- Atsevišķi aprakstītus paveiktos darbus saglabā atsevišķi arī tad, ja brigāde vai kopējais ilgums ir kopīgi. Kopīgo laiku un brigādi bez skaidras piesaistes konkrētam darbam saglabā vienreiz atsevišķā piezīmē; darbu rindās atstāj šos laukus null. Neskaidrs tēmu uzskaitījums bez atsevišķi aprakstītām darbībām var palikt viena piezīme.
-- Additional works are works which are usually not part of the construction contract works (reworks, change orders, delays). Only mare additional work if certain
-- Ja konkrētam darbam nav zināms apjoms, mērvienība vai ilgums, atstāj attiecīgo lauku null. Neapvieno pārējos skaidri aprakstītos darbus un neizdomā kopīgo skaitļu sadalījumu.
-- Exception: split material delivery from installed/placed work when the source gives separate action+quantity evidence for each, for example "ievesta smilts 160m3, iestrādāti 140m3". Put the delivery quantity on the Material delivery row and the installed/placed quantity plus shared work labor/hours on the work row. Leave delivery Workers and Hours null unless labor/time is explicitly tied to delivery, unloading, or transport.
-- Start times are not durations. Phrases such as "No plkst. 15.00" must not become Hours, and one actor/machine doing conjoined in-progress sub-actions in one sentence should stay one diary row.
-- If there is relevant information present, include it.
-- Any actions with floor slabs including formworks and rebars good match will be Works to Pārseguma paneļu montāža – HCS 220, tajā skaitā šuvju betonēšana (Pamatu pārsegums).
-- HCS stands for 'hollow core slabs' or 'floor slabs' or "Pārseguma paneļis" .
-- CSW means 'concrete sandwich walls'.
-- Choose the best fitting works enum
-- Amounts - means amount of work completed. If not clear - leave blank.
-- Units  - units of works completed. For example m3, tn, m2, m, gab. Leave blank if not clear.
-- Amounts and Units don't guess. Do not use apartment numbers, floor numbers, layer counts, workers, hours, or method/context/material-specification numbers as Amounts. When material/resource dimensions such as "22 mm" or "45x45" appear together with completed scope such as "45 m2", use the completed scope and keep dimensions in comments.
-- All units convert to standarts units (m,kg,m2,m3,tn., gab, komplekts, stunda, pacelšana, minute, projekt )
-
-
-When mapping, try to select the most suitable work category from the provided Zod schema. After each mapping action, briefly validate the outcome in 1–2 lines and proceed or self-correct if necessary.
-
-## Examples
-
-- **Example 1:**
-  - Work: "Shoring props (Doka) were dismantled on the 2nd floor by 2 workers over 3 hours."
-  - Mapping: Mark as 'Assembly Walls'.
-
-- **Example 2:**
-  - Text: "Kāpņu laukumu liešanas darbi, darbinieki: 1, laiks: 08:00–15:00 (7 h)"
-  - Mapping: Mark as 'Stairs assembly'.
-
-- **Example 3:**
-  - Text: "Welding and painting rebars for balconies, darbinieki: 1, laiks: 08:00–15:00 (7 h)"
-  - Mapping: Mark as 'Balcony'.
-
-
-
-`;
-
-	const NoSortingPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activities on site. Save the message in comments.
-
-  Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
-  `;
-
-	const NoSorting = `
-# Glossary and Mapping Instructions
-
-This document provides instructions to improve mapping accuracy.
-
-Please follow the guidelines below:
-
-Store message as it is without changes. Do not extract locations, mark records as note. Do not split the message.
-
-
-`;
-
-	const GMCIRL_systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activities on site. Analyze and map according to the zod schema you are given
-
-  Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
-  For comments describe what was completed, where and with what labor in ${language}, and then include original log in brackets (without change)`;
-
-	const GMCIRL_glossary = `
-# Glossary and Mapping Instructions
-
-This document provides instructions to improve mapping accuracy. Begin with a concise checklist (3–7 bullets) of the steps you will take before mapping, to ensure clarity and completeness.
-
-Please follow the guidelines below:
-
-
-
-- If there is relevant information present, include it.
-- When multiple works are mentioned in the same text, create separate diary entries for each.
-- Works Category - if work is about some changes or something unexpected - mark it CE
-- Amounts - means amount of work completed. If not clear - leave blank.
-- Units  - units of works completed. For example m3, tn, m2, m, gab. Leave blank if not clear.
-- Amounts and Units don't guess. Do not use apartment numbers, floor numbers, layer counts, workers, hours, or method/context numbers as Amounts.
-
-
-When mapping, try to select the most suitable work category from the provided Zod schema. After each mapping action, briefly validate the outcome in 1–2 lines and proceed or self-correct if necessary.
-
-
-
-
-
-
-
-
-
-  }
-
-
-`;
-
-	let systemPromptSaveToDatabase = `${systemPromptSaveToDatabase_02_01_2026}\n ${glossary_08_05_2026}`;
-
-	if (client === "GMCIRL") {
-		systemPromptSaveToDatabase = `${GMCIRL_systemPromptSaveToDatabase_02_01_2026}\n ${GMCIRL_glossary}`;
-	}
-
-	if (client === "NoSorting") {
-		systemPromptSaveToDatabase = `${NoSortingPromptSaveToDatabase_02_01_2026}\n ${NoSorting}`;
-	}
-
-	return `${systemPromptSaveToDatabase}\nFor site-related factual reports without a specific construction task, save one Notes/Piezīmes record using the matching schema category by default. Missing work details, location, quantity, or worker count do not prevent saving a note. Preserve the reported facts in Comments and leave unsupported fields null. Example: "strādājam no 7.00 - 18.00" is one Notes/Piezīmes record, Comments preserve the working-time interval, Location/Amounts/Units/Workers are null, and Hours is 11 when the schema supports duration extraction. A complete start-end interval supports elapsed hours; a start time alone does not. Do not invent a construction task or split the interval into multiple rows. For NoSorting, retain the existing comment-only behavior.`;
+export function buildSiteDiaryExtractionPrompt(
+	language: string,
+	client?: string,
+	projectConfig?: ConfigMap,
+) {
+	return composeSiteDiaryExtractorPrompt({ language, client, projectConfig })
+		.systemText;
 }

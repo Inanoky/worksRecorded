@@ -12,6 +12,16 @@ export const calculationEvidenceSchema = z
 export const CALCULATION_INSTRUCTIONS =
 	"For a quantity calculated from an explicitly reported pipe length and a volume-per-metre rate, populate calculationEvidence with lengthQuote and rateQuote copied exactly from the original message. rateQuote must identify this work and its rate, including per-metre wording. Put the calculated total in the configured quantity field, m3 in units and the equation in Comments. Do not use workers, hours, dimensions, history or catalogue norms as calculation operands. Otherwise calculationEvidence is null.";
 
+const perMetreRatePattern = new RegExp(
+	[
+		String.raw`uz\s+(?:(?:vienu|katru|tekošo|tekošā|iebūvēto|iebūvētās|caurules|šī|šīs|paša|pašas|posma|tranšejas)\s+){0,5}metru(?![\p{L}\p{N}_²³])`,
+		String.raw`uz\s+katru(?:\s+no\s+šiem)?(?:\s+\d+(?:[,.]\d+)?)?\s+(?:metru|metriem)(?![\p{L}\p{N}_²³])`,
+		String.raw`(?:m[3³]|kubikmetr\p{L}*)\s+(?:(?:vienu|tekošo|tekošā|iebūvēto|caurules)\s+){1,4}metru(?![\p{L}\p{N}_²³])`,
+		String.raw`m[3³]\s*\/\s*m(?![\p{L}\p{N}_²³])`,
+	].join("|"),
+	"iu",
+);
+
 function numbers(text: string, pattern: RegExp) {
 	return [
 		...new Set(
@@ -80,12 +90,7 @@ export function hasSourceCalculation(
 		!identifiesWork(String(row.Works ?? ""), rateQuote)
 	)
 		return false;
-	if (
-		!/(?:uz\s+(?:(?:vienu|tekošo|tekošā|iebūvēto|caurules)\s+){0,4}metru\b|uz\s+katru(?:\s+no\s+šiem)?(?:\s+\d+(?:[,.]\d+)?)?\s+(?:metru|metriem)\b|(?:m[3³]|kubikmetr\p{L}*)\s+(?:(?:vienu|tekošo|tekošā|iebūvēto|caurules)\s+){1,4}metru\b|m[3³]\s*\/\s*m\b)/iu.test(
-			rateQuote,
-		)
-	)
-		return false;
+	if (!perMetreRatePattern.test(rateQuote)) return false;
 	const lengths = numbers(
 		lengthQuote,
 		/(\d+(?:[,.]\d+)?)\s*(?:metriem|metrus|metru|metri|metrs|m)(?![\p{L}\p{N}²³])/giu,

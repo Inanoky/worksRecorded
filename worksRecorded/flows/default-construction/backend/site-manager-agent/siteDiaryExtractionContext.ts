@@ -2,11 +2,8 @@
 
 import { prisma } from "@/lib/utils/db";
 import { getDiaryFeedbackContext } from "../diary-feedback";
-import {
-	type ConfigMap,
-	getAiFieldDescription,
-	type MapField,
-} from "./AIschemas";
+import type { ConfigMap, MapField } from "./AIschemas";
+import { selectDiaryRepairCandidates } from "./siteDiaryRepair";
 
 type SiteDiaryExtractionContextArgs = {
 	siteId: string;
@@ -32,7 +29,6 @@ const TIME_ZONE = "Europe/Riga";
 const MAX_RECENT_RECORDS = 5;
 const MAX_FIELD_CHARS = 500;
 const MAX_CONTEXT_CHARS = 12_000;
-const MAX_DROPDOWN_OPTIONS_PER_FIELD = 120;
 const EXPLICIT_CONTEXT_REFERENCE_PATTERN =
 	/\b(tas pats|tajā pašā|tai pašā|to pašu|tā pati|tāpat|turpat|vēl|kā vakar|vakarēj|iepriekšēj|turpin(?:āj|a|āt|ām)?|same work|same place|same as yesterday|previous|continue)\b/iu;
 
@@ -42,10 +38,6 @@ function compact(value: unknown, maxLength = MAX_FIELD_CHARS) {
 		.trim();
 	if (text.length <= maxLength) return text;
 	return `${text.slice(0, maxLength - 3).trimEnd()}...`;
-}
-
-function safeDisplayKey(value: string) {
-	return value.trim().replace(/\s+/g, "_").replace(/[^\w]/g, "");
 }
 
 function getLocalDateParts(date: Date) {
@@ -155,24 +147,14 @@ function formatSchemaDigest(config: ConfigMap) {
 	for (const [dbKey, field] of Object.entries(config)) {
 		if (!isRenderableField(field)) continue;
 		const label = fieldLabel(dbKey, field);
-		const displayKey = safeDisplayKey(label || dbKey);
-		const description = getAiFieldDescription(field, dbKey, displayKey);
 		const options = field.DropDownOptions
 			? Object.values(field.DropDownOptions)
 			: [];
 		schemaOptionCount += options.length;
 
 		const parts = [`- ${dbKey} (${label}, ${field.Type})`];
-		if (description) parts.push(`guidance: ${compact(description, 300)}`);
 		if (options.length) {
-			parts.push(
-				`options: ${options
-					.slice(0, MAX_DROPDOWN_OPTIONS_PER_FIELD)
-					.map((option) => compact(option, 120))
-					.join(
-						" | ",
-					)}${options.length > MAX_DROPDOWN_OPTIONS_PER_FIELD ? " | ..." : ""}`,
-			);
+			parts.push(`${options.length} options supplied in the output schema`);
 		}
 		lines.push(parts.join("; "));
 	}
@@ -247,54 +229,72 @@ export async function buildSiteDiaryExtractionContext({
 	const start = addDaysToLocalDate(anchor, -1);
 	const end = anchor;
 	const explicitContextReference = hasExplicitContextReference(sourceText);
-	const recentRecords = await prisma.sitediaryrecords.findMany({
-		where: {
-			siteId,
-			userId,
-			archivedAt: null,
-			Date: {
-				gte: dayStartUtc(start),
-				lte: dayEndUtc(end),
-			},
-		},
-		orderBy: [{ createdAt: "desc" as const }],
-		take: MAX_RECENT_RECORDS,
-		select: {
-			Date: true,
-			createdAt: true,
-			Location: true,
-			Works: true,
-			Comments: true,
-			Units: true,
-			Amounts: true,
-			WorkersInvolved: true,
-			TimeInvolved: true,
-			originalUserComment: true,
-		},
-	});
+	const commentOnly =
+		(config.AIpromptToUse as unknown as { Client?: string })?.Client ===
+		"NoSorting";
+	const recentRecords =
+		explicitContextReference && !commentOnly
+			? await prisma.sitediaryrecords.findMany({
+					where: {
+						siteId,
+						userId,
+						archivedAt: null,
+						Date: {
+							gte: dayStartUtc(start),
+							lte: dayEndUtc(end),
+						},
+					},
+					orderBy: [{ createdAt: "desc" as const }],
+					take: MAX_RECENT_RECORDS,
+					select: {
+						Date: true,
+						createdAt: true,
+						Location: true,
+						Works: true,
+						Comments: true,
+						Units: true,
+						Amounts: true,
+						WorkersInvolved: true,
+						TimeInvolved: true,
+						originalUserComment: true,
+					},
+				})
+			: [];
 	const schemaDigest = formatSchemaDigest(config);
-	const feedbackContext = await getDiaryFeedbackContext(siteId);
+	const feedbackContext = commentOnly
+		? ""
+		: await getDiaryFeedbackContext(siteId);
 	const settings = config.otherSettings as unknown as {
 		defaultConstructionProductivity?: {
 			works?: Array<{ work: string; unit: string }>;
 		};
 	};
+	const candidateWorks = new Set(
+		selectDiaryRepairCandidates(config, sourceText).map(
+			(candidate) => candidate.work,
+		),
+	);
 	const workUnits =
 		settings?.defaultConstructionProductivity?.works
 			?.filter((item) => item.unit)
+			.toSorted(
+				(a, b) =>
+					Number(candidateWorks.has(b.work)) -
+					Number(candidateWorks.has(a.work)),
+			)
 			.map((item) => `${compact(item.work, 180)} → ${compact(item.unit, 30)}`)
 			.slice(0, 300) ?? [];
 	const rawText = [
 		"Trusted extraction context:",
-		`Current message preview: ${compact(sourceText, 500) || "(empty)"}`,
 		`CurrentMessageHasExplicitContextReference: ${explicitContextReference}`,
 		schemaDigest.text,
-		...(workUnits.length
-			? [
-					"Configured estimate work units (do not convert incompatible dimensions):",
-					...workUnits,
-				]
-			: []),
+		"Context use policy:",
+		"- Use reference items only for an explicit same-work, same-place or numeric reference in the current message. Current source values take precedence.",
+		"- If CurrentMessageHasExplicitContextReference=false, ignore reference items for field values.",
+		"- Historical quantities, workers and hours are not facts of a new report. Project guidance is vocabulary/interpretation, not new completed work.",
+		feedbackContext
+			? `Project guidance (not current report facts):\n${compact(feedbackContext, 2_000)}`
+			: "",
 		"Recent trusted reference items for this site/user:",
 		recentRecords.length
 			? recentRecords
@@ -306,21 +306,22 @@ export async function buildSiteDiaryExtractionContext({
 					)
 					.join("\n")
 			: "- none found for today or yesterday",
-		"Context use policy:",
-		"- Use reference items only when CurrentMessageHasExplicitContextReference=true and the current message says same work, same place, yesterday, previous report, correction, continue, or similar.",
-		"- For explicit same-work or same-place follow-ups, Works and Location may come from the most recent eligible reference item.",
-		"- Numeric values from reference items must not be copied unless the current message explicitly references them; new values like 'vēl 3h' come from the current message.",
-		"- If CurrentMessageHasExplicitContextReference=false, ignore reference items for field values.",
+		...(workUnits.length && !commentOnly
+			? [
+					"Configured estimate work units (do not convert incompatible dimensions):",
+					...workUnits,
+				]
+			: []),
 	].join("\n");
 	const bounded = truncateContext(rawText);
 
 	return {
-		text: [bounded.text, feedbackContext].filter(Boolean).join("\n"),
+		text: bounded.text,
 		metadata: {
 			recentRecordCount: recentRecords.length,
 			hasExplicitContextReference: explicitContextReference,
 			schemaOptionCount: schemaDigest.schemaOptionCount,
-			truncated: bounded.truncated,
+			truncated: bounded.truncated || feedbackContext.length > 2_000,
 		},
 	};
 }

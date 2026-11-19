@@ -1,202 +1,224 @@
 import { z } from "zod";
 
 export type FieldType =
-  | "fixed"
-  | "timePicker"
-  | "datePicker"
-  | "dropdown"
-  | "textInput"
-  | "float"
-  | "noRender";
+	| "fixed"
+	| "timePicker"
+	| "datePicker"
+	| "dropdown"
+	| "textInput"
+	| "float"
+	| "noRender";
 
 export type MapField = {
-  Type: FieldType | string;
-  DisplayName?: string;
-  DropDownOptions?: Record<string, string>;
-  customSettings?: {
-    integer?: boolean;
-    aiDescription?: string;
-  };
+	Type: FieldType | string;
+	DisplayName?: string;
+	DropDownOptions?: Record<string, string>;
+	customSettings?: {
+		integer?: boolean;
+		aiDescription?: string;
+	};
 };
 
 export type ConfigMap = Record<string, MapField>;
 
 function isSafeStructuredOutputEnumValue(value: string) {
-  return !/["\\\u0000-\u001f]/.test(value);
+	return Array.from(value).every(
+		(character) =>
+			character !== '"' && character !== "\\" && character.charCodeAt(0) >= 32,
+	);
 }
 
 function makeSafeStructuredOutputEnumValue(value: string, index: number) {
-  const safeValue = value
-    .replace(/"/g, " inch")
-    .replace(/\\/g, "/")
-    .replace(/[\u0000-\u001f]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+	const safeValue = Array.from(value, (character) =>
+		character.charCodeAt(0) < 32 ? " " : character,
+	)
+		.join("")
+		.replace(/"/g, " inch")
+		.replace(/\\/g, "/")
+		.replace(/\s+/g, " ")
+		.trim();
 
-  return safeValue || `Option ${index + 1}`;
+	return safeValue || `Option ${index + 1}`;
 }
 
 function enumFromDropdown(field: MapField) {
-  const values = Object.values(field.DropDownOptions ?? {});
-  if (!values.length) {
-    return {
-      schema: z.string(),
-      valueMap: {} as Record<string, string>,
-    };
-  }
+	const values = Object.values(field.DropDownOptions ?? {});
+	if (!values.length) {
+		return {
+			schema: z.string(),
+			valueMap: {} as Record<string, string>,
+		};
+	}
 
-  const usedAliases = new Set<string>();
-  const valueMap: Record<string, string> = {};
-  const aliases = values.map((value, index) => {
-    const baseAlias = isSafeStructuredOutputEnumValue(value)
-      ? value
-      : makeSafeStructuredOutputEnumValue(value, index);
-    let alias = baseAlias;
-    let suffix = 2;
+	const usedAliases = new Set<string>();
+	const valueMap: Record<string, string> = {};
+	const aliases = values.map((value, index) => {
+		const baseAlias = isSafeStructuredOutputEnumValue(value)
+			? value
+			: makeSafeStructuredOutputEnumValue(value, index);
+		let alias = baseAlias;
+		let suffix = 2;
 
-    while (usedAliases.has(alias.toLowerCase())) {
-      alias = `${baseAlias} (${suffix})`;
-      suffix += 1;
-    }
+		while (usedAliases.has(alias.toLowerCase())) {
+			alias = `${baseAlias} (${suffix})`;
+			suffix += 1;
+		}
 
-    usedAliases.add(alias.toLowerCase());
-    valueMap[alias] = value;
-    return alias;
-  });
+		usedAliases.add(alias.toLowerCase());
+		valueMap[alias] = value;
+		return alias;
+	});
 
-  return {
-    schema: z.enum(aliases as [string, ...string[]]),
-    valueMap,
-  };
+	return {
+		schema: z.enum(aliases as [string, ...string[]]),
+		valueMap,
+	};
 }
 
 export function defaultAiDescription(dbKey: string, displayKey: string) {
-  const normalizedDbKey = dbKey.toLowerCase();
-  const normalizedDisplayKey = displayKey.toLowerCase();
+	const normalizedDbKey = dbKey.toLowerCase();
+	const normalizedDisplayKey = displayKey.toLowerCase();
 
-  if (normalizedDbKey === "workersinvolved" || normalizedDisplayKey === "workers") {
-    return "Number of workers or people involved in this activity, not named worker records. Extract explicit counts from phrases like '2 workers', '2 people', '2 cilvēki', '2 strādnieki', 'trīs strādnieki', or 'darbinieki: 2'. Count explicitly listed human roles when at least two participants are tied to the same activity, for example 'ekskavatora operators un palīgstrādnieks' means Workers: 2. Leave null if the worker count is unknown. Do not infer Workers: 1 from one machinery operator mention such as 'Bobcat operatoru'. Do not use 0 unless the source explicitly says zero workers.";
-  }
+	if (
+		normalizedDbKey === "workersinvolved" ||
+		normalizedDisplayKey === "workers"
+	) {
+		return "Number of workers or people involved in this activity, not named worker records. Extract explicit counts from phrases like '2 workers', '2 people', '2 cilvēki', '2 strādnieki', 'trīs strādnieki', or 'darbinieki: 2'. Count explicitly listed human roles when at least two participants are tied to the same activity, for example 'ekskavatora operators un palīgstrādnieks' means Workers: 2. Leave null if the worker count is unknown. Do not infer Workers: 1 from one machinery operator mention such as 'Bobcat operatoru'. Do not use 0 unless the source explicitly says zero workers.";
+	}
 
-  if (normalizedDbKey === "timeinvolved" || normalizedDisplayKey === "hours") {
-    return "Total work duration in hours for this activity. Extract from phrases like '3h', '3 h', '3 hours', or '7 h'. Leave null if unknown.";
-  }
+	if (normalizedDbKey === "timeinvolved" || normalizedDisplayKey === "hours") {
+		return "Total work duration in hours for this activity. Extract from phrases like '3h', '3 h', '3 hours', or '7 h'. Leave null if unknown.";
+	}
 
-  if (normalizedDbKey === "amounts" || normalizedDisplayKey === "amounts") {
-    return "Completed work quantity or amount, for example '45 m2', '180 kubi', or '10 m3'. This is not worker count, work duration hours, apartment/floor number, layer count, or material/resource dimension such as '22 mm' or '45x45'. When both material dimensions and completed scope appear, use the completed scope quantity. Leave null if the completed quantity is unknown.";
-  }
+	if (normalizedDbKey === "amounts" || normalizedDisplayKey === "amounts") {
+		return "Completed work quantity or amount, for example '45 m2', '180 kubi', or '10 m3'. This is not worker count, work duration hours, apartment/floor number, layer count, or material/resource dimension such as '22 mm' or '45x45'. When both material dimensions and completed scope appear, use the completed scope quantity. Leave null if the completed quantity is unknown.";
+	}
 
-  return null;
+	return null;
 }
 
 export function getAiFieldDescription(
-  field: MapField,
-  dbKey: string,
-  displayKey: string,
+	field: MapField,
+	dbKey: string,
+	displayKey: string,
 ) {
-  return field.customSettings?.aiDescription?.trim() || defaultAiDescription(dbKey, displayKey);
+	return (
+		field.customSettings?.aiDescription?.trim() ||
+		defaultAiDescription(dbKey, displayKey)
+	);
 }
 
 function withFieldDescription(
-  schema: z.ZodTypeAny,
-  field: MapField,
-  dbKey: string,
-  displayKey: string,
+	schema: z.ZodTypeAny,
+	field: MapField,
+	dbKey: string,
+	displayKey: string,
 ) {
-  const description = getAiFieldDescription(field, dbKey, displayKey);
-  return description ? schema.describe(description) : schema;
+	const description = getAiFieldDescription(field, dbKey, displayKey);
+	return description ? schema.describe(description) : schema;
 }
 
 function safeKey(name: string) {
-  return name.trim().replace(/\s+/g, "_").replace(/[^\w]/g, "");
+	return name.trim().replace(/\s+/g, "_").replace(/[^\w]/g, "");
 }
 
-function buildFieldSchema(field: MapField, dbKey: string): {
-  schema: z.ZodTypeAny;
-  valueMap?: Record<string, string>;
+function buildFieldSchema(
+	field: MapField,
+	dbKey: string,
+): {
+	schema: z.ZodTypeAny;
+	valueMap?: Record<string, string>;
 } | null {
-  switch (field.Type) {
-    case "noRender":
-      return null;
+	switch (field.Type) {
+		case "noRender":
+			return null;
 
-    case "fixed":
-      return {
-        schema: z.union([z.coerce.date(), z.string()]).nullable().optional(),
-      };
+		case "fixed":
+			return {
+				schema: z.union([z.coerce.date(), z.string()]).nullable().optional(),
+			};
 
-    case "datePicker":
-    case "timePicker":
-      return { schema: z.coerce.date().nullable().optional() };
+		case "datePicker":
+		case "timePicker":
+			return { schema: z.coerce.date().nullable().optional() };
 
-    case "dropdown": {
-      const dropdown = enumFromDropdown(field);
-      return {
-        schema: dropdown.schema.nullable().optional(),
-        valueMap: dropdown.valueMap,
-      };
-    }
+		case "dropdown": {
+			const dropdown = enumFromDropdown(field);
+			return {
+				schema: dropdown.schema.nullable().optional(),
+				valueMap: dropdown.valueMap,
+			};
+		}
 
-    case "textInput":
-      return { schema: z.string().max(2000).nullable().optional() };
+		case "textInput":
+			return { schema: z.string().max(2000).nullable().optional() };
 
-    case "float": {
-      const base = z.coerce.number();
-      const displayKey = field.DisplayName?.trim() || "";
-      const isHoursField =
-        dbKey.toLowerCase() === "timeinvolved" ||
-        displayKey.toLowerCase() === "hours" ||
-        displayKey.toLowerCase() === "timeinvolved";
-      const bounded = isHoursField ? base.nonnegative() : base;
-      const num = field.customSettings?.integer && !isHoursField ? bounded.int() : bounded;
-      return { schema: num.nullable().optional() };
-    }
+		case "float": {
+			const base = z.coerce.number();
+			const displayKey = field.DisplayName?.trim() || "";
+			const isHoursField =
+				dbKey.toLowerCase() === "timeinvolved" ||
+				displayKey.toLowerCase() === "hours" ||
+				displayKey.toLowerCase() === "timeinvolved";
+			const bounded = isHoursField ? base.nonnegative() : base;
+			const num =
+				field.customSettings?.integer && !isHoursField
+					? bounded.int()
+					: bounded;
+			return { schema: z.union([z.null(), num]).optional() };
+		}
 
-    default:
-      return { schema: z.any().nullable().optional() };
-  }
+		default:
+			return { schema: z.any().nullable().optional() };
+	}
 }
 
 export function buildZodSchemaFromConfig(config: ConfigMap) {
-  const shape: Record<string, z.ZodTypeAny> = {};
-  const fieldMap: Record<string, string> = {}; // displayKey -> dbKey
-  const dropdownValueMaps: Record<string, Record<string, string>> = {};
+	const shape: Record<string, z.ZodTypeAny> = {};
+	const fieldMap: Record<string, string> = {}; // displayKey -> dbKey
+	const dropdownValueMaps: Record<string, Record<string, string>> = {};
 
-  for (const [dbKey, field] of Object.entries(config)) {
-    const fieldSchema = buildFieldSchema(field, dbKey);
-    if (!fieldSchema) continue;
+	for (const [dbKey, field] of Object.entries(config)) {
+		const fieldSchema = buildFieldSchema(field, dbKey);
+		if (!fieldSchema) continue;
 
-    const displayRaw = field.DisplayName?.trim() || dbKey;
-    const displayKey = safeKey(displayRaw);
+		const displayRaw = field.DisplayName?.trim() || dbKey;
+		const displayKey = safeKey(displayRaw);
 
-    shape[displayKey] = withFieldDescription(fieldSchema.schema, field, dbKey, displayKey);
-    fieldMap[displayKey] = dbKey;
-    if (fieldSchema.valueMap && Object.keys(fieldSchema.valueMap).length > 0) {
-      dropdownValueMaps[displayKey] = fieldSchema.valueMap;
-    }
-  }
+		shape[displayKey] = withFieldDescription(
+			fieldSchema.schema,
+			field,
+			dbKey,
+			displayKey,
+		);
+		fieldMap[displayKey] = dbKey;
+		if (fieldSchema.valueMap && Object.keys(fieldSchema.valueMap).length > 0) {
+			dropdownValueMaps[displayKey] = fieldSchema.valueMap;
+		}
+	}
 
-  return {
-    schema: z.object(shape),
-    fieldMap,
-    dropdownValueMaps,
-  };
+	return {
+		schema: z.object(shape),
+		fieldMap,
+		dropdownValueMaps,
+	};
 }
 
 export function mapToDbFields(
-  data: Record<string, any>,
-  fieldMap: Record<string, string>,
-  dropdownValueMaps: Record<string, Record<string, string>> = {},
+	data: Record<string, any>,
+	fieldMap: Record<string, string>,
+	dropdownValueMaps: Record<string, Record<string, string>> = {},
 ) {
-  const out: Record<string, any> = {};
+	const out: Record<string, any> = {};
 
-  for (const [displayKey, value] of Object.entries(data)) {
-    const dbKey = fieldMap[displayKey];
-    if (!dbKey) continue;
-    out[dbKey] =
-      typeof value === "string"
-        ? dropdownValueMaps[displayKey]?.[value] ?? value
-        : value;
-  }
+	for (const [displayKey, value] of Object.entries(data)) {
+		const dbKey = fieldMap[displayKey];
+		if (!dbKey) continue;
+		out[dbKey] =
+			typeof value === "string"
+				? (dropdownValueMaps[displayKey]?.[value] ?? value)
+				: value;
+	}
 
-  return out;
+	return out;
 }

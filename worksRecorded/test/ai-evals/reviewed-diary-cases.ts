@@ -110,7 +110,15 @@ export type DiaryExtractionEvalCase = Omit<
 		Omit<
 			ReviewedDiaryCase["expectedRecords"][number],
 			"provenance" | "forma2PositionId"
-		> & { forma2PositionId: string | null; workAlternatives?: string[] }
+		> & {
+			forma2PositionId: string | null;
+			workAlternatives?: string[];
+			reviewRequired?: boolean;
+			quantityAlternatives?: Array<{
+				amount: number | null;
+				unit: string | null;
+			}>;
+		}
 	>;
 };
 export const reviewedDiaryCorpus = ReviewedDiaryCorpusSchema.parse(fixture);

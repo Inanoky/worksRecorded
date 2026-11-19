@@ -65,6 +65,28 @@ function rowTable(rows: unknown[]) {
 		.join("")}</tbody></table></div>`;
 }
 
+function renderPromptComposition(value: unknown, phase: unknown) {
+	const composition = record(value);
+	const sections = list(composition.sections).map(record);
+	if (!sections.length) return "";
+	return `<section class="prompt-composition"><h4>${phase === "extraction_prompt" ? "Ekstraktora" : "Checker"} prompta daļas</h4><p>Profils: ${escapeHtml(composition.profile)} · Versija: ${escapeHtml(composition.version)}</p><div class="table-scroll"><table><thead><tr><th>Daļa</th><th>Mērķis</th><th>Izvēle</th><th>Pamatojums</th></tr></thead><tbody>${sections.map((section) => `<tr><td><strong>${escapeHtml(section.title)}</strong><br><code>${escapeHtml(section.id)} (v${escapeHtml(section.version)})</code></td><td>${escapeHtml(section.description)}</td><td>${section.included === true ? "Iekļauta" : "Izlaista"}</td><td>${escapeHtml(section.reason)}</td></tr>`).join("")}</tbody></table></div></section>`;
+}
+
+function renderModelDiagnostics(item: NormalizedEvalItem) {
+	const calls = list(item.artifacts.modelCalls)
+		.map(record)
+		.filter((call) => Object.keys(record(call.diagnostics)).length);
+	if (!calls.length) return "";
+	const display = (value: unknown) =>
+		value == null ? "nav datu" : escapeHtml(value);
+	return `<section class="model-diagnostics"><h3>Modeļu API diagnostika</h3><p class="muted">Pirmais datu baits nenozīmē pirmo atbildes tokenu. Nezināms tokenu patēriņš nav nulle.</p><div class="table-scroll"><table><thead><tr><th>Izsaukums</th><th>Rezultāts / posms</th><th>HTTP</th><th>Galvenes / pirmais baits / pilna atbilde, ms</th><th>OpenAI apstrāde, ms</th><th>Tokeni</th><th>Pieprasījumu ID</th></tr></thead><tbody>${calls
+		.map((call) => {
+			const diagnostic = record(call.diagnostics);
+			return `<tr><td>${display(call.purpose)}<br>${display(call.model)}</td><td>${display(diagnostic.outcome)} / ${display(diagnostic.phase)}<br>OpenAI: ${display(diagnostic.responseStatus)} / ${display(diagnostic.incompleteReason)}<br>${display(diagnostic.errorName)} / ${display(diagnostic.errorCode)}</td><td>${display(diagnostic.httpStatus)}</td><td>${display(diagnostic.headersMs)} / ${display(diagnostic.firstBodyByteMs)} / ${display(diagnostic.bodyCompleteMs)}</td><td>${display(diagnostic.serverProcessingMs)}</td><td>${display(call.totalTokens)}<br>Reasoning: ${display(call.reasoningTokens ?? record(diagnostic.usage).reasoningTokens)}</td><td>Klienta: ${display(diagnostic.clientRequestId)}<br>OpenAI: ${display(diagnostic.requestId)}</td></tr>`;
+		})
+		.join("")}</tbody></table></div></section>`;
+}
+
 function renderCase(item: NormalizedEvalItem, index: number) {
 	let traceLink = "";
 	try {
@@ -95,7 +117,8 @@ function renderCase(item: NormalizedEvalItem, index: number) {
     ${issues.length ? `<section class="issues"><h3>Kļūdas un brīdinājumi</h3><ul>${issues.map((issue) => `<li>${escapeHtml(issue)}</li>`).join("")}</ul></section>` : ""}
     ${expected.length ? `<h3>Sagaidāmie ieraksti (${expected.length})</h3>${rowTable(expected)}` : ""}
     ${traces.length ? `<h3>Ģenerētie ieraksti (${generated.length})</h3>${rowTable(generated)}` : ""}
-    ${stages.length ? `<h3>Izpildes soļi un checker lēmumi</h3>${stages.map((stage) => `<details${stage.phase === "checker" || stage.phase === "failure" ? " open" : ""}><summary>${escapeHtml(stage.phase)}${stage.repair ? " · labošana" : ""}</summary><pre>${json(stage)}</pre></details>`).join("")}` : ""}
+    ${renderModelDiagnostics(item)}
+    ${stages.length ? `<h3>Izpildes soļi un checker lēmumi</h3>${stages.map((stage) => `<details${stage.phase === "checker" || stage.phase === "failure" ? " open" : ""}><summary>${escapeHtml(stage.phase)}${stage.repair ? " · labošana" : ""}</summary>${renderPromptComposition(stage.promptComposition, stage.phase)}<pre>${json(stage)}</pre></details>`).join("")}` : ""}
     ${persisted.length ? `<details><summary>Datubāzē saglabātie ieraksti (${persisted.length})</summary>${rowTable(persisted)}</details>` : ""}
     ${item.answer ? `<details${traces.length ? "" : " open"}><summary>Aģenta atbilde</summary><pre>${escapeHtml(item.answer)}</pre></details>` : ""}
     ${item.outboundMessages.length ? `<details><summary>WhatsApp atbildes testā</summary><pre>${escapeHtml(item.outboundMessages.join("\n\n"))}</pre></details>` : ""}

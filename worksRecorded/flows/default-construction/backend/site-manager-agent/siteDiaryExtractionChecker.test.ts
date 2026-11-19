@@ -101,14 +101,55 @@ describe("site diary extraction checker", () => {
 		});
 
 		expect(result.parsed.verdict).toBe("accept");
-		expect(ChatOpenAI).toHaveBeenCalledWith({
-			model: siteDiaryExtractionCheckerModel,
-			timeout: 180_000,
-			maxRetries: 0,
-			reasoning: { effort: "medium" },
-			modelKwargs: { reasoning: { effort: "medium" } },
-			useResponsesApi: true,
+		expect(ChatOpenAI).toHaveBeenCalledWith(
+			expect.objectContaining({
+				model: siteDiaryExtractionCheckerModel,
+				timeout: 180_000,
+				maxRetries: 0,
+				reasoning: { effort: "medium" },
+				modelKwargs: { reasoning: { effort: "medium" } },
+				useResponsesApi: true,
+			}),
+		);
+	});
+
+	it("records the selected prompt parts in model tracing and its returned diagnostic data", async () => {
+		mockInvoke.mockResolvedValue({
+			parsed: {
+				verdict: "accept",
+				reason: "Pamatots ieraksts",
+				badSplitSignals: [],
+				repairInstructions: "",
+			},
+			raw: {},
 		});
+		const metadata = { workflow: "test-checker" };
+		const result = await invokeSiteDiaryExtractionChecker({
+			originalMessage: "Iebetonēti pamati.",
+			language: "lv",
+			rows: [{ Works: "Betonēšana" }],
+			projectConfig: {
+				Works: {
+					Type: "dropdown",
+					DropDownOptions: { concrete: "Betonēšana" },
+				},
+				Comments: { Type: "textInput" },
+			},
+			runnableConfig: { metadata },
+		});
+		expect(mockInvoke.mock.calls[0][1].metadata).toMatchObject({
+			workflow: "test-checker",
+			diaryCheckerPrompt: result.promptComposition,
+		});
+		expect(metadata).toEqual({ workflow: "test-checker" });
+		expect(
+			result.promptComposition.sections.find(
+				(section) => section.id === "mervienibas_buvnieciba",
+			)?.included,
+		).toBe(false);
+		expect(String(mockInvoke.mock.calls[0][0][0].content)).toContain(
+			"## dienasgramatas_saglabasanas_piezimes (v1)",
+		);
 	});
 
 	it("retains the entire configured catalog despite truncated historical context", () => {
@@ -167,7 +208,15 @@ describe("site diary extraction checker", () => {
 	});
 
 	it("uses the selected eval checker model and Responses API", async () => {
-		mockInvoke.mockResolvedValue({ parsed: { verdict: "accept" }, raw: {} });
+		mockInvoke.mockResolvedValue({
+			parsed: {
+				verdict: "accept",
+				reason: "Pamatots ieraksts",
+				badSplitSignals: [],
+				repairInstructions: "",
+			},
+			raw: {},
+		});
 		await invokeSiteDiaryExtractionChecker({
 			originalMessage: "Betonēšana 12 m3",
 			language: "lv",
@@ -219,6 +268,24 @@ describe("site diary extraction checker", () => {
 		);
 	});
 
+	it.each([
+		{ parsed: null, raw: { response_metadata: { status: "incomplete" } } },
+		{ parsed: null, raw: {} },
+		{ parsed: {}, raw: {} },
+	])(
+		"rejects incomplete or malformed checker replies rather than accepting them by default: %j",
+		async (reply) => {
+			mockInvoke.mockResolvedValue(reply);
+			await expect(
+				invokeSiteDiaryExtractionChecker({
+					originalMessage: "Ieklāti 12 m2",
+					language: "lv",
+					rows: [{ Works: "Grīdas" }],
+				}),
+			).rejects.toThrow();
+		},
+	);
+
 	it("passes proposed amounts and units into the checker payload", async () => {
 		mockInvoke.mockResolvedValue({
 			parsed: {
@@ -251,6 +318,17 @@ describe("site diary extraction checker", () => {
 		expect(human).toContain("OSB 22 mm, ieklāti 45 m2.");
 		expect(human).toContain("Amounts: 45");
 		expect(human).toContain("Units: m2");
+	});
+
+	it("keeps a source-backed headcount independent from unreported per-person durations", () => {
+		const [system] = buildSiteDiaryExtractionCheckerMessages({
+			originalMessage:
+				"Grunts rakšanu veica operators, strādāja arī palīgstrādnieks 8 stundas.",
+			language: "lv",
+			rows: [{ Works: "Excavation", WorkersInvolved: 2, TimeInvolved: 8 }],
+		});
+		expect(String(system.content)).toContain("Nenoņem pamatotu cilvēku skaitu");
+		expect(String(system.content)).toContain("neizdomā otra cilvēka stundas");
 	});
 
 	it("tells the checker to preserve implicit completed-object counts", () => {

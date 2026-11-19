@@ -78,7 +78,7 @@ describe("buildSiteDiaryExtractionContext", () => {
 		mockFeedback.mockResolvedValue("");
 	});
 	it("adds project feedback without dropping schema or numeric safeguards", async () => {
-		mockFeedback.mockResolvedValue("Project guidance: " + "x".repeat(12_000));
+		mockFeedback.mockResolvedValue(`Project guidance: ${"x".repeat(12_000)}`);
 		const result = await buildSiteDiaryExtractionContext({
 			siteId: "site-1",
 			userId: "user-1",
@@ -87,14 +87,14 @@ describe("buildSiteDiaryExtractionContext", () => {
 		});
 		expect(mockFeedback).toHaveBeenCalledWith("site-1");
 		expect(result.text).toContain("Project guidance");
-		expect(result.text).toContain("Concrete works");
+		expect(result.text).toContain("Site diary schema context");
 		expect(result.text).toContain("Never copy workers, hours, amounts");
 		expect(result.text).toContain(
 			"If CurrentMessageHasExplicitContextReference=false",
 		);
 	});
 
-	it("includes schema dropdown options and numeric field guidance", async () => {
+	it("avoids duplicating schema options and preserves numeric field guidance", async () => {
 		const result = await buildSiteDiaryExtractionContext({
 			siteId: "site-1",
 			userId: "user-1",
@@ -104,9 +104,10 @@ describe("buildSiteDiaryExtractionContext", () => {
 		});
 
 		expect(result.text).toContain("Site diary schema context");
-		expect(result.text).toContain("Concrete works");
-		expect(result.text).toContain("Cleaning");
-		expect(result.text).toContain("m2");
+		expect(result.text).toContain("Site diary schema context");
+		expect(result.text).not.toContain("Cleaning");
+		expect(result.text).toContain("options supplied in the output schema");
+		expect(result.text).toContain("Units");
 		expect(result.text).toContain("WorkersInvolved");
 		expect(result.text).toContain("Leave null if the worker count is unknown");
 		expect(result.text).not.toContain("Hidden option");
@@ -202,6 +203,9 @@ describe("buildSiteDiaryExtractionContext", () => {
 	});
 
 	it("marks standalone messages as not eligible to copy reference values", async () => {
+		mockFindMany.mockResolvedValue([
+			{ Comments: "Unrelated historical content", WorkersInvolved: 8 },
+		]);
 		const result = await buildSiteDiaryExtractionContext({
 			siteId: "site-1",
 			userId: "user-1",
@@ -211,6 +215,9 @@ describe("buildSiteDiaryExtractionContext", () => {
 		});
 
 		expect(result.metadata.hasExplicitContextReference).toBe(false);
+		expect(mockFindMany).not.toHaveBeenCalled();
+		expect(result.metadata.recentRecordCount).toBe(0);
+		expect(result.text).not.toContain("Unrelated historical content");
 		expect(result.text).toContain(
 			"CurrentMessageHasExplicitContextReference: false",
 		);
@@ -252,8 +259,19 @@ describe("buildSiteDiaryExtractionContext", () => {
 			siteId: "site-1",
 			userId: "user-1",
 			requestedDate: "15-06-2026",
-			sourceText: "x".repeat(2_000),
-			config,
+			sourceText: "Tas pats darbs kā vakar",
+			config: {
+				...config,
+				otherSettings: {
+					Type: "noRender",
+					defaultConstructionProductivity: {
+						works: Array.from({ length: 300 }, (_, i) => ({
+							work: `Work ${i} ${"z".repeat(200)}`,
+							unit: "m3",
+						})),
+					},
+				},
+			} as ConfigMap,
 		});
 
 		expect(result.metadata.truncated).toBe(true);

@@ -74,6 +74,7 @@ const BaseEvalCaseSchema = z.object({
 	tags: z.array(z.string().min(1)).default([]),
 	tier: z.enum(["smoke", "regression", "extended"]).default("regression"),
 	priority: z.enum(["critical", "standard", "extended"]).default("standard"),
+	manualOnly: z.boolean().default(false),
 });
 
 const WebhookWhatsAppSiteManagerEvalCaseSchema = BaseEvalCaseSchema.extend({
@@ -251,6 +252,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 		},
 		{
 			id: "latvian-image-caption-site-diary",
+			manualOnly: true,
 			intent:
 				"Verify a Meta image webhook with a Latvian site diary caption saves the photo and creates a diary record from the caption.",
 			notes:
@@ -274,6 +276,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 		},
 		{
 			id: "latvian-image-caption-yesterday-photo-date",
+			manualOnly: true,
 			intent:
 				"Verify a Meta image webhook with a Latvian date-placement caption saves the regular photo under yesterday without creating a diary record.",
 			notes:
@@ -296,6 +299,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 		},
 		{
 			id: "latvian-image-batch-yesterday-photo-date",
+			manualOnly: true,
 			intent:
 				"Verify a default-construction Meta image batch saves multiple regular photos under yesterday from the first caption's date-placement instruction.",
 			notes:
@@ -330,6 +334,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 		},
 		{
 			id: "material-invoice-latvian-date-image",
+			manualOnly: true,
 			intent:
 				"Verify a regular site-manager image webhook is classified as a material invoice and saves Latvian DD.MM.YYYY invoice dates deterministically.",
 			notes:
@@ -1338,8 +1343,10 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 		},
 		{
 			id: "latvian-spoken-correction-without-command",
-			intent: "Understand a spoken correction without a formal edit command and preserve the unrelated work duration and date.",
-			notes: "The follow-up represents a Latvian voice transcript. Audio reply context is tested separately in handleAudio.test.ts. A correction must replace the previous batch rather than create a new report.",
+			intent:
+				"Understand a spoken correction without a formal edit command and preserve the unrelated work duration and date.",
+			notes:
+				"The follow-up represents a Latvian voice transcript. Audio reply context is tested separately in handleAudio.test.ts. A correction must replace the previous batch rather than create a new report.",
 			tags: ["correction", "save", "amount", "follow-up", "voice-transcript"],
 			tier: "regression",
 			priority: "critical",

@@ -41,7 +41,8 @@ function usage() {
 		"  tag <name>",
 		"  tier <smoke|regression|extended>",
 		"  case <id>",
-		"  flow <dashboard|whatsapp-site-manager|whatsapp-worker|diary-reviewed|all>",
+		"  flow <dashboard|whatsapp-site-manager|whatsapp-worker|diary-reviewed|ocelt|all>",
+		"  --include-manual (opt in to image cases)",
 	].join("\n");
 }
 
@@ -55,7 +56,10 @@ function getValue(args, index, name) {
 
 function findFlow(value) {
 	if (value === "all") return "all";
-	return FLOWS.find((flow) => flow.aliases.includes(value));
+	const flow = FLOWS.find((flow) => flow.aliases.includes(value));
+	return value === "ocelt" && flow
+		? { ...flow, script: "eval:ai:ocelt" }
+		: flow;
 }
 
 function parseArgs(rawArgs) {
@@ -70,6 +74,10 @@ function parseArgs(rawArgs) {
 
 	for (let index = 0; index < args.length; index += 1) {
 		const item = args[index];
+		if (item === "--include-manual") {
+			filters.push(item);
+			continue;
+		}
 
 		if (item === "critical" || item === "--critical") {
 			filters.push("--critical");
@@ -117,7 +125,7 @@ function parseArgs(rawArgs) {
 		if (item === "flow" || item === "--flow") {
 			const flow = findFlow(getValue(args, index, item));
 			if (!flow) throw new Error(`Unknown flow "${args[index + 1]}".`);
-			selectedFlow = flow === "all" ? "all" : flow.flow;
+			selectedFlow = flow;
 			explicitFlow = true;
 			index += 1;
 			continue;
@@ -127,14 +135,14 @@ function parseArgs(rawArgs) {
 			const value = item.split("=").slice(1).join("=");
 			const flow = findFlow(value);
 			if (!flow) throw new Error(`Unknown flow "${value}".`);
-			selectedFlow = flow === "all" ? "all" : flow.flow;
+			selectedFlow = flow;
 			explicitFlow = true;
 			continue;
 		}
 
 		const flow = findFlow(item);
 		if (flow) {
-			selectedFlow = flow === "all" ? "all" : flow.flow;
+			selectedFlow = flow;
 			explicitFlow = true;
 			continue;
 		}
@@ -168,7 +176,7 @@ function isNoMatch(result) {
 
 function candidateFlows(selectedFlow) {
 	if (selectedFlow === "all") return FLOWS;
-	return FLOWS.filter((flow) => flow.flow === selectedFlow);
+	return [selectedFlow];
 }
 
 function selectMatchingFlows(

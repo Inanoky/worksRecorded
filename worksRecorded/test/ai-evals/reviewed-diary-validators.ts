@@ -11,6 +11,7 @@ export type ReviewedDiaryActualRow = {
 	workers: number | null;
 	hours: number | null;
 	forma2PositionId: string | null;
+	needsReview?: boolean;
 };
 type Check = {
 	name: string;
@@ -46,10 +47,18 @@ function rowMatches(
 			(expected.workAlternatives ?? [expected.work]).includes(
 				actual.work ?? "",
 			)) &&
-		numberMatches(actual.amount, expected.amount) &&
+		(
+			expected.quantityAlternatives ?? [
+				{ amount: expected.amount, unit: expected.unit },
+			]
+		).some(
+			(quantity) =>
+				numberMatches(actual.amount, quantity.amount) &&
+				reviewedDiaryUnit(actual.unit) === reviewedDiaryUnit(quantity.unit),
+		) &&
+		Boolean(actual.needsReview) === Boolean(expected.reviewRequired) &&
 		numberMatches(actual.workers, expected.workers) &&
 		numberMatches(actual.hours, expected.hours) &&
-		reviewedDiaryUnit(actual.unit) === reviewedDiaryUnit(expected.unit) &&
 		expected.commentSignals.every((signal) =>
 			(actual.comment ?? "")
 				.toLocaleLowerCase("lv")
