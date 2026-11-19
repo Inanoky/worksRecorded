@@ -67,6 +67,7 @@ export async function saveReviewedMaterialConsumption(args: {
 	userId: string;
 	review: z.infer<typeof materialReviewSchema>;
 	expectedFingerprint: string;
+	expectedReviewDocumentId?: string | null;
 }) {
 	const review = materialReviewSchema.parse(args.review);
 	const description = JSON.stringify(review);
@@ -100,6 +101,24 @@ export async function saveReviewedMaterialConsumption(args: {
 				where: { organizationId: review.organizationId },
 				select: { id: true },
 			});
+			if (args.expectedReviewDocumentId !== undefined) {
+				const latest = await tx.documents.findFirst({
+					where: {
+						organizationId: review.organizationId,
+						siteId: null,
+						documentType: MATERIAL_CONSUMPTION_DOCUMENT_TYPE,
+					},
+					orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+					select: { id: true },
+				});
+				if (
+					latest?.id !== id &&
+					(latest?.id ?? null) !== args.expectedReviewDocumentId
+				)
+					throw new Error(
+						"Material review changed; rebuild corrections before saving",
+					);
+			}
 			const allowed = new Set([
 				...sites.map((site) => site.id),
 				...review.projects

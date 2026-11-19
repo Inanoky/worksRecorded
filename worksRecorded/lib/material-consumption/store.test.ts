@@ -92,3 +92,41 @@ it("stops a reviewed-history write if the journal has changed", async () => {
 	).rejects.toThrow("Journal changed");
 	expect(tx.documents.create).not.toHaveBeenCalled();
 });
+
+it("does not overwrite a newer material review", async () => {
+	const tx = {
+		user: {
+			findUnique: jest
+				.fn()
+				.mockResolvedValue({ organizationId: "org-a", status: "active" }),
+		},
+		sitediaryrecords: { findMany: jest.fn().mockResolvedValue([]) },
+		site: { findMany: jest.fn().mockResolvedValue([]) },
+		documents: {
+			findFirst: jest.fn().mockResolvedValue({ id: "newer-review" }),
+			create: jest.fn(),
+		},
+	};
+	jest
+		.mocked(prisma.$transaction)
+		.mockImplementation(
+			async (callback: unknown) =>
+				(callback as (tx: unknown) => Promise<unknown>)(tx) as never,
+		);
+	await expect(
+		saveReviewedMaterialConsumption({
+			userId: "user",
+			review: {
+				version: 1,
+				reviewedAt: "2026-11-19T10:00:00Z",
+				organizationId: "org-a",
+				coverage: "",
+				projects: [],
+				observations: [],
+			},
+			expectedFingerprint: materialRecordsFingerprint([]),
+			expectedReviewDocumentId: "previous-review",
+		}),
+	).rejects.toThrow("Material review changed");
+	expect(tx.documents.create).not.toHaveBeenCalled();
+});

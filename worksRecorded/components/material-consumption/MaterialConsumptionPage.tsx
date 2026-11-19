@@ -31,6 +31,15 @@ const kindLabels = {
 const selectClass =
 	"h-9 min-w-0 rounded-md border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600";
 
+function exportableConsumption(entry: MaterialObservation) {
+	return (
+		entry.status === "reported" &&
+		entry.kind === "consumed" &&
+		entry.material !== "unknown" &&
+		entry.bags !== null
+	);
+}
+
 export function materialConsumptionCsv(
 	entries: MaterialObservation[],
 	projects: Data["projects"],
@@ -43,28 +52,15 @@ export function materialConsumptionCsv(
 	return (
 		"\ufeff" +
 		[
-			[
-				"Projekts",
-				"Datums",
-				"Materiāls",
-				"Veids",
-				"Maisi",
-				"Statuss",
-				"Ziņotājs",
-				"Lokācija",
-				"Avota ziņojums",
-			],
-			...entries.map((entry) => [
-				projects.find((project) => project.id === entry.siteId)?.name,
-				entry.date,
-				MATERIAL_LABELS[entry.material],
-				kindLabels[entry.kind],
-				entry.bags,
-				entry.status === "reported" ? "Norādīts ziņojumā" : "Jāpārbauda",
-				entry.reporter,
-				entry.location,
-				entry.originalText,
-			]),
+			["Projekts", "Tips", "Daudzums (maisi)", "Datums"],
+			...entries
+				.filter(exportableConsumption)
+				.map((entry) => [
+					projects.find((project) => project.id === entry.siteId)?.name,
+					entry.material === "cement" ? "cement" : "thermowhite",
+					String(entry.bags).replace(".", ","),
+					dateLabel(entry.date),
+				]),
 		]
 			.map((row) => row.map(cell).join(";"))
 			.join("\r\n")
@@ -127,6 +123,12 @@ export function MaterialConsumptionPage({
 			(!reviewOnly || entry.status === "needs_review") &&
 			(detailKind === "all" || entry.kind === detailKind),
 	);
+	const exportEntries = filtered.filter(
+		(entry) =>
+			!reviewOnly &&
+			(!selected || entry.siteId === selected) &&
+			exportableConsumption(entry),
+	);
 	useEffect(() => {
 		if (!selected) return;
 		detailRef.current?.scrollIntoView?.({
@@ -174,13 +176,8 @@ export function MaterialConsumptionPage({
 	}
 
 	function download() {
-		const entries = filtered.filter(
-			(entry) =>
-				(!selected || entry.siteId === selected) &&
-				(!reviewOnly || entry.status === "needs_review"),
-		);
 		const url = URL.createObjectURL(
-			new Blob([materialConsumptionCsv(entries, data.projects)], {
+			new Blob([materialConsumptionCsv(exportEntries, data.projects)], {
 				type: "text/csv;charset=utf-8",
 			}),
 		);
@@ -214,7 +211,11 @@ export function MaterialConsumptionPage({
 					>
 						{pending ? "Atjauno…" : "Atjaunot"}
 					</Button>
-					<Button size="sm" onClick={download} disabled={filtered.length === 0}>
+					<Button
+						size="sm"
+						onClick={download}
+						disabled={exportEntries.length === 0}
+					>
 						Eksportēt CSV
 					</Button>
 				</div>

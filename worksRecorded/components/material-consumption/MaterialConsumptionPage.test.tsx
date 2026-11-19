@@ -115,11 +115,35 @@ it("filters by project and dates and shows a useful empty state", async () => {
 	).toBeInTheDocument();
 });
 
-it("exports quoted CSV and prevents formula injection from source text", () => {
+it("exports only project, material type, confirmed consumed bags and work date", () => {
 	const csv = materialConsumptionCsv(
-		[observation({ originalText: '=HYPERLINK("bad")' })],
+		[
+			observation(),
+			observation({
+				id: "tw",
+				siteId: "b",
+				material: "thermowhite_glue",
+				bags: 25.5,
+			}),
+			observation({ id: "supply", kind: "delivered", bags: 45 }),
+			observation({ id: "stock", kind: "balance", bags: 30 }),
+			observation({ id: "review", status: "needs_review", bags: 121 }),
+			observation({ id: "missing", bags: null }),
+			observation({ id: "other", material: "unknown", bags: 3 }),
+		],
 		projects,
 	);
-	expect(csv).toContain('"Raudas iela 16"');
+	expect(csv).toBe(
+		'\ufeff"Projekts";"Tips";"Daudzums (maisi)";"Datums"\r\n' +
+			'"Raudas iela 16";"cement";"25";"17.11.2026"\r\n' +
+			'"Šmerļa iela 3";"thermowhite";"25,5";"17.11.2026"',
+	);
+});
+
+it("prevents formula injection through exported project names", () => {
+	const csv = materialConsumptionCsv(
+		[observation()],
+		[{ id: "a", name: '=HYPERLINK("bad")' }],
+	);
 	expect(csv).toContain('"\'=HYPERLINK(""bad"")"');
 });
