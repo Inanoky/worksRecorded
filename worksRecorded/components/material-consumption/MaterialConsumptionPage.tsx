@@ -15,7 +15,6 @@ import {
 	MATERIAL_LABELS,
 	type MaterialObservation,
 	materialDate,
-	normalizeMaterialText,
 	summarizeMaterialConsumption,
 } from "@/lib/material-consumption/model";
 import { getMaterialConsumption } from "@/server/actions/material-consumption";
@@ -80,7 +79,7 @@ export function MaterialConsumptionPage({
 	const [data, setData] = useState(initialData);
 	const formId = useId();
 	const detailRef = useRef<HTMLElement>(null);
-	const [query, setQuery] = useState("");
+	const [projectId, setProjectId] = useState("");
 	const [from, setFrom] = useState("");
 	const [to, setTo] = useState("");
 	const [period, setPeriod] = useState("all");
@@ -90,6 +89,10 @@ export function MaterialConsumptionPage({
 	const [error, setError] = useState<string | null>(null);
 	const [pending, startTransition] = useTransition();
 	const invalidRange = Boolean(from && to && from > to);
+	const projectOptions = useMemo(
+		() => [...data.projects].sort((a, b) => a.name.localeCompare(b.name, "lv")),
+		[data.projects],
+	);
 	const filtered = useMemo(
 		() =>
 			data.entries.filter(
@@ -97,13 +100,9 @@ export function MaterialConsumptionPage({
 					!invalidRange &&
 					(!from || entry.date >= from) &&
 					(!to || entry.date <= to) &&
-					(!query ||
-						normalizeMaterialText(
-							data.projects.find((project) => project.id === entry.siteId)
-								?.name ?? "",
-						).includes(normalizeMaterialText(query))),
+					(!projectId || entry.siteId === projectId),
 			),
-		[data, from, to, query, invalidRange],
+		[data.entries, from, to, projectId, invalidRange],
 	);
 	const projects = useMemo(
 		() =>
@@ -198,19 +197,13 @@ export function MaterialConsumptionPage({
 			aria-labelledby={`${formId}-title`}
 		>
 			<header className="flex flex-wrap items-start justify-between gap-4">
-				<div className="space-y-2">
-					<p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-						Visi projekti · maisi
-					</p>
+				<div>
 					<h1
 						id={`${formId}-title`}
 						className="text-3xl font-semibold tracking-tight"
 					>
 						Materiālu patēriņš
 					</h1>
-					<p className="max-w-2xl text-sm text-muted-foreground">
-						ThermoWhite līmes un cementa izlietojums pēc darbu ziņojumiem.
-					</p>
 				</div>
 				<div className="flex gap-2">
 					<Button
@@ -268,10 +261,7 @@ export function MaterialConsumptionPage({
 						Jāpārbauda
 					</p>
 					<p className="mt-2 text-3xl font-semibold tabular-nums">
-						{total.reviewCount}{" "}
-						<span className="text-sm font-normal text-muted-foreground">
-							{reviewOnly ? "Rādīt visus" : "Skatīt ziņojumus"}
-						</span>
+						{total.reviewCount}
 					</p>
 				</button>
 			</section>
@@ -284,13 +274,23 @@ export function MaterialConsumptionPage({
 					className="min-w-0 flex-1 space-y-2 text-sm font-medium"
 				>
 					Projekts
-					<Input
+					<select
 						id={`${formId}-project`}
-						placeholder="Meklēt projektu"
-						value={query}
-						onChange={(event) => setQuery(event.target.value)}
-						className="mt-2 min-w-40"
-					/>
+						value={projectId}
+						onChange={(event) => {
+							setProjectId(event.target.value);
+							setSelected(null);
+							setDetailKind("all");
+						}}
+						className={`${selectClass} mt-2 w-full min-w-40`}
+					>
+						<option value="">Visi projekti</option>
+						{projectOptions.map((project) => (
+							<option key={project.id} value={project.id}>
+								{project.name}
+							</option>
+						))}
+					</select>
 				</label>
 				<label
 					htmlFor={`${formId}-period`}
@@ -391,21 +391,6 @@ export function MaterialConsumptionPage({
 										>
 											{project.name}
 										</button>
-										{project.historical && (
-											<span className="ml-2 text-xs text-muted-foreground">
-												Vēsturisks avots
-											</span>
-										)}
-										<p className="mt-1 text-xs text-muted-foreground">
-											{project.reportCount}{" "}
-											{project.reportCount % 10 === 1 &&
-											project.reportCount % 100 !== 11
-												? "ziņojums"
-												: "ziņojumi"}
-											{project.lastDate
-												? ` · ${dateLabel(project.lastDate)}`
-												: ""}
-										</p>
 									</td>
 									<td className="p-4 text-right tabular-nums">
 										{number.format(project.thermowhiteBags)}
@@ -430,25 +415,9 @@ export function MaterialConsumptionPage({
 				{projects.length === 0 && (
 					<div className="space-y-2 p-6 text-center">
 						<p className="font-medium">Šajā atlasē nav materiālu ziņojumu.</p>
-						<p className="text-sm text-muted-foreground">
-							Izvēlieties citu periodu vai projektu.
-						</p>
 					</div>
 				)}
 			</section>
-			<p className="text-sm text-muted-foreground">
-				Piegādes un atlikumi nav pieskaitīti patēriņam. Nenorādītie vai
-				neskaidrie daudzumi atzīmēti pārbaudei. Viena ziņojuma maisi uzskaitīti
-				vienreiz arī tad, ja darbs sadalīts vairākās pozīcijās.
-			</p>
-			{data.projects.some(
-				(project) => "historical" in project && project.historical,
-			) && (
-				<p className="text-sm text-muted-foreground">
-					Vēsturiskās atskaites bez saites uz projekta žurnālu rādītas atsevišķi
-					ar avotā norādīto nosaukumu.
-				</p>
-			)}
 			{selectedProject && (
 				<section
 					ref={detailRef}
@@ -459,11 +428,9 @@ export function MaterialConsumptionPage({
 					<div className="flex flex-wrap items-center justify-between gap-3">
 						<div>
 							<h2 className="text-xl font-semibold">{selectedProject.name}</h2>
-							{"historical" in selectedProject && selectedProject.historical ? (
-								<p className="text-sm text-muted-foreground">
-									Vēsturiska WhatsApp atskaite · projekta nosaukums no avota
-								</p>
-							) : (
+							{!(
+								"historical" in selectedProject && selectedProject.historical
+							) && (
 								<Link
 									className="text-sm text-green-800 underline dark:text-green-300"
 									href={`/dashboard/sites/${selectedProject.id}/dashboard`}
@@ -515,8 +482,7 @@ export function MaterialConsumptionPage({
 								</div>
 								{entry.status === "needs_review" && (
 									<p className="mt-3 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-										Jāpārbauda: {entry.reason} Daudzums nav iekļauts patēriņa
-										kopsummā.
+										Jāpārbauda: {entry.reason}
 									</p>
 								)}
 								<details className="mt-3 text-sm">
@@ -557,15 +523,6 @@ export function MaterialConsumptionPage({
 					</div>
 				</section>
 			)}
-			<footer className="space-y-2 text-xs text-muted-foreground">
-				<p>{data.coverage}</p>
-				<p>
-					Atjaunots{" "}
-					{new Date(data.loadedAt).toLocaleString("lv-LV", {
-						timeZone: "Europe/Riga",
-					})}
-				</p>
-			</footer>
 		</main>
 	);
 }

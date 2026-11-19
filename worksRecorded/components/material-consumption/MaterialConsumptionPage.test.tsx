@@ -81,7 +81,7 @@ it("shows consumed totals, project evidence and delivery separately", async () =
 	);
 	expect(detail.getByText("25 maisi")).toBeInTheDocument();
 	expect(detail.getByText("30 maisi")).toBeInTheDocument();
-	expect(detail.getByText(/Daudzums nav iekļauts/)).toBeInTheDocument();
+	expect(detail.getByText(/Maisu skaits nav norādīts/)).toBeInTheDocument();
 	await userEvent.selectOptions(
 		detail.getByLabelText("Ziņojumu veids"),
 		"consumed",
@@ -91,9 +91,10 @@ it("shows consumed totals, project evidence and delivery separately", async () =
 
 it("filters by project and dates and shows a useful empty state", async () => {
 	render(<MaterialConsumptionPage initialData={initialData} />);
-	await userEvent.type(
-		screen.getByPlaceholderText("Meklēt projektu"),
-		"smerla",
+	await userEvent.click(screen.getByRole("button", { name: "Raudas iela 16" }));
+	await userEvent.selectOptions(
+		screen.getByRole("combobox", { name: "Projekts" }),
+		"b",
 	);
 	expect(
 		screen.queryByRole("button", { name: "Raudas iela 16" }),
@@ -101,7 +102,13 @@ it("filters by project and dates and shows a useful empty state", async () => {
 	expect(
 		screen.getByRole("button", { name: "Šmerļa iela 3" }),
 	).toBeInTheDocument();
-	await userEvent.clear(screen.getByPlaceholderText("Meklēt projektu"));
+	expect(
+		screen.queryByRole("region", { name: "Projekta ziņojumi" }),
+	).not.toBeInTheDocument();
+	await userEvent.selectOptions(
+		screen.getByRole("combobox", { name: "Projekts" }),
+		"",
+	);
 	await userEvent.type(screen.getByLabelText("No datuma"), "2026-11-18");
 	expect(
 		screen.getByText("Šajā atlasē nav materiālu ziņojumu."),
