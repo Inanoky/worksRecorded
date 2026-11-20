@@ -736,9 +736,10 @@ export default function MaterialsTableClient({
   React.useEffect(() => {
     setRows(materials)
     setServerPage({ ...initialPagination, rows: materials })
+    if (!fetchMaterialsPage) setInvoiceRefreshKey((value) => value + 1)
     pageCache.current.clear(); invoicePages.current.clear(); invoiceRows.current.clear()
     pageCache.current.seed(warehousePageKey({ page: initialPagination.page, pageSize: initialPagination.pageSize, search: "", invoiceNumber: "", status: "all", configFilter: "all", sortBy: "default", forma2Assignment: forma2Enabled ? "all" : undefined }), { ...initialPagination, rows: materials })
-  }, [materials, initialPagination, forma2Enabled])
+  }, [materials, initialPagination, forma2Enabled, fetchMaterialsPage])
 
   React.useEffect(() => {
     if (!invoiceNumber) setInvoiceNumberOptions(getInvoiceNumberOptions(rows))

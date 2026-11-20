@@ -1,14 +1,14 @@
 import baseConfig from "@/components/sitediary/configs/defaultConfigLV_27042026.json";
 import { buildDefaultConstructionDiaryConfig } from "@/flows/default-construction/lib/diary-config";
-import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
 import {
 	buildForma2AnalyticsView,
 	extractForma2PositionsFromRows,
+	type Forma2MaterialRule,
 	suggestForma2Position,
 } from "@/flows/default-construction/lib/forma2-analytics";
 import { resolveVisualWorkLayer } from "@/flows/default-construction/visual/layer-settings";
 import { compareVisualPlanProgress } from "@/flows/default-construction/visual/planning-model";
-import { DEMO_SITE_ID } from "../constants";
+import { DEMO_ORGANIZATION_ID, DEMO_SITE_ID } from "../constants";
 import fixture from "./fixture.json";
 
 type LocalRecord = Record<string, any>;
@@ -21,8 +21,11 @@ export type LocalData = {
 	beginRows: LocalRecord[];
 	dailyPlans?: LocalRecord[];
 	feedback?: LocalRecord;
+	warehouseFeedback?: LocalRecord;
+	materialRules?: Forma2MaterialRule[];
+	warehouseInvoiceImported?: boolean;
 };
-const storageKey = "worksrecorded:ozolu:client:v3";
+const storageKey = "worksrecorded:ozolu:client:v4";
 const PHOTOS_PER_PAGE = 30;
 const listeners = new Set<() => void>();
 let data = hydrate(structuredClone(fixture) as LocalData);
@@ -240,7 +243,7 @@ export function getDiarySnapshot(bis: boolean) {
 	const config = bis
 		? data.snapshot.config
 		: buildDefaultConstructionDiaryConfig({
-				organizationId: LIMENI_ORGANIZATION_ID,
+				organizationId: DEMO_ORGANIZATION_ID,
 				siteDiaryRecordsMap: {
 					...structuredClone(baseConfig),
 					Location: {
@@ -290,6 +293,14 @@ export async function localFetch(
 		new Response(JSON.stringify(value), {
 			headers: { "content-type": "application/json" },
 		});
+	if (
+		url.pathname === "/api/warehouse/invoices/import" &&
+		init?.method === "POST"
+	) {
+		const { importWarehouseSample } = await import("./warehouse");
+		const body = JSON.parse(String(init.body ?? "{}"));
+		return json(importWarehouseSample(body?.receipt));
+	}
 	if (url.pathname.startsWith(prefix)) {
 		const route = url.pathname.slice(prefix.length);
 		if (route === "/photos") {

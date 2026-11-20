@@ -5,8 +5,9 @@ import {
 	ClipboardList,
 	Clock3,
 	Layers,
+	Package,
 } from "lucide-react";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Toaster } from "sonner";
 import { WorkspaceView } from "@/components/projects/WorkspaceActivity";
 import {
@@ -23,7 +24,8 @@ import { DiarySaveProvider } from "@/flows/default-construction/frontend/DiarySa
 import { Forma2RefreshContext } from "@/flows/default-construction/frontend/forma2-client-refresh";
 import VisualView from "@/flows/default-construction/visual/VisualView";
 import { DEMO_ORGANIZATION_ID, DEMO_SITE_ID } from "../constants";
-import { navigate, useView } from "./navigation";
+import { navigate, useView, type ViewName } from "./navigation";
+import { OzoluWarehouse } from "./OzoluWarehouse";
 import {
 	getData,
 	getDiarySnapshot,
@@ -38,6 +40,7 @@ const tabs = [
 	{ view: "visual", label: "Izpildshēmas", Icon: Layers },
 	{ view: "forma2", label: "Forma 2", Icon: ChartNoAxesCombined },
 	{ view: "hours", label: "Darba laika uzskaites lapas", Icon: Clock3 },
+	{ view: "warehouse", label: "Noliktava", Icon: Package },
 ] as const;
 const projects = [
 	{
@@ -49,9 +52,17 @@ const projects = [
 export default function OzoluWorkspace() {
 	const data = useSyncExternalStore(subscribe, getData, getData);
 	const active = useView();
+	const [openedViews, setOpenedViews] = useState<ReadonlySet<ViewName>>(
+		() => new Set([active]),
+	);
 	useEffect(() => {
 		restoreData();
 	}, []);
+	useEffect(() => {
+		setOpenedViews((previous) =>
+			previous.has(active) ? previous : new Set([...previous, active]),
+		);
+	}, [active]);
 	return (
 		<ProjectProvider userId="ozolu-user">
 			<ProjectScope id={DEMO_SITE_ID} name="Ozolu biroju centrs">
@@ -99,65 +110,70 @@ export default function OzoluWorkspace() {
 						))}
 					</nav>
 					<main className="px-4 py-6">
-						{tabs.map(({ view }) => (
-							<section
-								key={view}
-								hidden={active !== view}
-								inert={active !== view}
-								aria-label={tabs.find((tab) => tab.view === view)?.label}
-							>
-								<WorkspaceView active={active === view || view === "visual"}>
-									{view === "bis" || view === "diary" ? (
-										<SiteDiary
-											siteId={DEMO_SITE_ID}
-											organizationLanguage="lv"
-											bisEnabled={false}
-											limeniClientDiary
-											batchEditing
-											initialLimeniProject={getDiarySnapshot(view === "bis")}
-											active={active === view}
-										/>
-									) : null}
-									{view === "visual" ? (
-										<VisualView
-											siteId={DEMO_SITE_ID}
-											active={active === view}
-											overlayOpacityScale={0.24}
-											preload
-										/>
-									) : null}
-									{view === "forma2" ? (
-										<Forma2RefreshContext.Provider value={() => {}}>
-											<DefaultConstructionForma2View
+						{tabs
+							.filter(({ view }) => view === active || openedViews.has(view))
+							.map(({ view, label }) => (
+								<section
+									key={view}
+									hidden={active !== view}
+									inert={active !== view}
+									aria-label={label}
+								>
+									<WorkspaceView active={active === view || view === "visual"}>
+										{view === "bis" || view === "diary" ? (
+											<SiteDiary
 												siteId={DEMO_SITE_ID}
-												data={data.snapshot.forma2.data as any}
 												organizationLanguage="lv"
+												bisEnabled={false}
+												limeniClientDiary
+												batchEditing
+												initialLimeniProject={getDiarySnapshot(view === "bis")}
+												active={active === view}
 											/>
-										</Forma2RefreshContext.Provider>
-									) : null}
-									{view === "hours" ? (
-										<SiteSchemaProvider
-											siteId={DEMO_SITE_ID}
-											schemaLocations={data.snapshot.index.locations}
-											schemaWorks={data.snapshot.drawings[0].planning.workOptions.map(
-												(item: any) => item.work,
-											)}
-										>
-											<h1 className="mb-6 text-2xl font-semibold">
-												Darba laika uzskaites lapas
-											</h1>
-											<FrontendTable
+										) : null}
+										{view === "visual" ? (
+											<VisualView
 												siteId={DEMO_SITE_ID}
-												workers={data.workers as any}
-												data={getTimeRows() as any}
-												pageSize={20}
-												organizationLanguage="lv"
+												active={active === view}
+												overlayOpacityScale={0.24}
+												preload
 											/>
-										</SiteSchemaProvider>
-									) : null}
-								</WorkspaceView>
-							</section>
-						))}
+										) : null}
+										{view === "forma2" ? (
+											<Forma2RefreshContext.Provider value={() => {}}>
+												<DefaultConstructionForma2View
+													siteId={DEMO_SITE_ID}
+													data={data.snapshot.forma2.data as any}
+													organizationLanguage="lv"
+												/>
+											</Forma2RefreshContext.Provider>
+										) : null}
+										{view === "hours" ? (
+											<SiteSchemaProvider
+												siteId={DEMO_SITE_ID}
+												schemaLocations={data.snapshot.index.locations}
+												schemaWorks={data.snapshot.drawings[0].planning.workOptions.map(
+													(item: any) => item.work,
+												)}
+											>
+												<h1 className="mb-6 text-2xl font-semibold">
+													Darba laika uzskaites lapas
+												</h1>
+												<FrontendTable
+													siteId={DEMO_SITE_ID}
+													workers={data.workers as any}
+													data={getTimeRows() as any}
+													pageSize={20}
+													organizationLanguage="lv"
+												/>
+											</SiteSchemaProvider>
+										) : null}
+										{view === "warehouse" ? (
+											<OzoluWarehouse data={data} />
+										) : null}
+									</WorkspaceView>
+								</section>
+							))}
 					</main>
 					<Toaster richColors />
 				</DiarySaveProvider>

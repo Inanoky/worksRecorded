@@ -18,6 +18,7 @@ import {
 import { visualRecordInputSchema } from "@/flows/default-construction/visual/record-model";
 import { appendFimaEvent } from "@/lib/fima/diary-collaboration";
 import { getData, type LocalData, saveLocal } from "./store";
+import { warehouseLocalActions, warehouseRows } from "./warehouse";
 
 type LocalRecord = Record<string, any>;
 type Handler = (...args: any[]) => any;
@@ -285,15 +286,17 @@ function week(date: string) {
 		actuals: actualRows(),
 	};
 }
-function feedback() {
+function feedback(_siteId?: string, _cursor?: number, domain?: string) {
+	const isWarehouse = domain === "warehouse";
 	return (
-		getData().feedback ?? {
+		(isWarehouse ? getData().warehouseFeedback : getData().feedback) ?? {
 			snapshot: {
 				revision: 0,
 				userInstructions: "",
-				generatedPrompt:
-					"Izmantojiet projekta darbu katalogu. Saglabājiet ziņojumā norādītos apjomus un mērvienības.",
-				sourceRecordCount: rows().length,
+				generatedPrompt: isWarehouse
+					? "Saglabājiet rēķina pozīciju nosaukumus, daudzumus un mērvienības. Pārbaudiet piegādātāju un izmantojiet projekta materiālu piesaistes noteikumus."
+					: "Izmantojiet projekta darbu katalogu. Saglabājiet ziņojumā norādītos apjomus un mērvienības.",
+				sourceRecordCount: isWarehouse ? warehouseRows().length : rows().length,
 				updatedAt: null,
 				checkedAt: null,
 				busy: false,
@@ -305,6 +308,7 @@ function feedback() {
 	);
 }
 const handlers: Record<string, Handler> = {
+	...warehouseLocalActions,
 	getConfig: () => getData().snapshot.config,
 	getConstructionDiarySnapshot: () => getData().snapshot.diary,
 	getLimeniDiarySnapshot: () => getData().snapshot.diary,
@@ -694,13 +698,25 @@ const handlers: Record<string, Handler> = {
 	},
 	saveDefaultConstructionForma2Allocations: (input: LocalRecord) => {
 		saveLocal((draft) => {
+			const costs = draft.snapshot.forma2.data.clientCosts;
 			for (const allocation of input.allocations) {
-				const entries = draft.snapshot.forma2.data.clientCosts.allocations;
+				const entries = costs.allocations;
 				const index = entries.findIndex(
 					(entry: LocalRecord) =>
 						entry.sourceId === allocation.sourceId &&
 						entry.sourceType === allocation.sourceType,
 				);
+				if (allocation.sourceType === "material") {
+					const source = costs.sources.find(
+						(item: LocalRecord) =>
+							item.type === "material" && item.id === allocation.sourceId,
+					);
+					if (source) source.selectedPositionId = allocation.positionId ?? null;
+				}
+				if (allocation.positionId == null) {
+					if (index >= 0) entries.splice(index, 1);
+					continue;
+				}
 				if (index >= 0) entries[index] = allocation;
 				else entries.push(allocation);
 			}
@@ -761,7 +777,7 @@ const handlers: Record<string, Handler> = {
 		}),
 	getConstructionDiaryFeedback: feedback,
 	saveConstructionDiaryFeedback: (input: LocalRecord) => {
-		const current = feedback();
+		const current = feedback(input.siteId, undefined, input.domain);
 		if (current.snapshot.revision !== input.expectedRevision)
 			throw new Error("Norādījumi ir mainīti. Atveriet tos vēlreiz.");
 		const next = {
@@ -778,7 +794,8 @@ const handlers: Record<string, Handler> = {
 			],
 		};
 		saveLocal((draft) => {
-			draft.feedback = next;
+			if (input.domain === "warehouse") draft.warehouseFeedback = next;
+			else draft.feedback = next;
 		});
 		return next;
 	},

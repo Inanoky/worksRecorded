@@ -108,9 +108,11 @@ type Entry = {
 export function WarehouseInvoiceImport({
 	siteId,
 	organizationLanguage,
+	sampleInvoiceUrl,
 }: {
 	siteId: string;
 	organizationLanguage?: string | null;
+	sampleInvoiceUrl?: string;
 }) {
 	const copy =
 		translations[
@@ -240,7 +242,21 @@ export function WarehouseInvoiceImport({
 					<FileUp className="size-4" aria-hidden="true" />
 					{copy.title}
 				</CardTitle>
-				<p className="text-sm text-muted-foreground">{copy.description}</p>
+				{sampleInvoiceUrl ? (
+					<p className="text-sm text-muted-foreground">
+						Importa izmēģināšanai lejupielādējiet un izvēlieties{" "}
+						<a
+							className="font-medium text-primary underline"
+							href={sampleInvoiceUrl}
+							download
+						>
+							parauga rēķinu
+						</a>
+						.
+					</p>
+				) : (
+					<p className="text-sm text-muted-foreground">{copy.description}</p>
+				)}
 			</CardHeader>
 			<CardContent className="space-y-4">
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-end">

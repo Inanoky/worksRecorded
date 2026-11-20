@@ -1,6 +1,13 @@
 import { useSyncExternalStore } from "react";
 import { DEMO_SITE_ID } from "../constants";
-export const viewNames = ["bis", "diary", "visual", "forma2", "hours"] as const;
+export const viewNames = [
+	"bis",
+	"diary",
+	"visual",
+	"forma2",
+	"hours",
+	"warehouse",
+] as const;
 export type ViewName = (typeof viewNames)[number];
 const listeners = new Set<() => void>();
 export function currentView(): ViewName {
@@ -35,7 +42,7 @@ export function useView() {
 }
 export function usePathname() {
 	const view = useView();
-	return `/dashboard/sites/${DEMO_SITE_ID}/${{ bis: "dashboard", diary: "siteDiary", visual: "izpildshemas", forma2: "analytics", hours: "timesheets" }[view]}`;
+	return `/dashboard/sites/${DEMO_SITE_ID}/${{ bis: "dashboard", diary: "siteDiary", visual: "izpildshemas", forma2: "analytics", hours: "timesheets", warehouse: "BIS" }[view]}`;
 }
 export function useParams() {
 	return { siteId: DEMO_SITE_ID, locale: "lv" };
@@ -56,7 +63,9 @@ export function useRouter() {
 						? "forma2"
 						: href.includes("timesheets")
 							? "hours"
-							: "bis",
+							: href.endsWith("/BIS")
+								? "warehouse"
+								: "bis",
 			);
 		},
 		replace(href: string) {

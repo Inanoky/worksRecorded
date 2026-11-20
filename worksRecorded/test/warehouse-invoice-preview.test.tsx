@@ -234,6 +234,7 @@ it("filters by suppliers from the full analytics list and accepts custom values"
 
 	render(<MaterialsTableClient {...input} />);
 
+	fireEvent.click(screen.getByRole("button", { name: "Filters" }));
 	const supplierInput = screen.getByLabelText("Supplier");
 	const supplierList = document.getElementById(
 		supplierInput.getAttribute("list") ?? "",
@@ -261,6 +262,7 @@ it("filters by suppliers from the full analytics list and accepts custom values"
 it("shows an inline clear button for the invoice number dropdown", () => {
 	render(<MaterialsTableClient {...props()} />);
 
+	fireEvent.click(screen.getByRole("button", { name: "Filters" }));
 	const invoiceInput = screen.getByLabelText("Invoice number");
 	fireEvent.change(invoiceInput, { target: { value: "INV-1" } });
 	const invoiceClear = screen.getByRole("button", {
@@ -270,6 +272,30 @@ it("shows an inline clear button for the invoice number dropdown", () => {
 	fireEvent.click(invoiceClear);
 
 	expect(invoiceInput).toHaveValue("");
+});
+
+it("refreshes grouped invoices when materials change in the client", async () => {
+	const input = props();
+	const { rerender } = render(<MaterialsTableClient {...input} />);
+	fireEvent.click(screen.getByRole("button", { name: "Invoices" }));
+	expect(await screen.findByText("INV-1", { exact: true })).toBeInTheDocument();
+
+	rerender(
+		<MaterialsTableClient
+			{...input}
+			materials={[
+				...input.materials,
+				{
+					...input.materials[0],
+					id: "new-invoice-line",
+					invoiceNr: "INV-3",
+					sourcePhoto: "https://example.com/three.pdf",
+				},
+			]}
+		/>,
+	);
+	expect(await screen.findByText("INV-3", { exact: true })).toBeInTheDocument();
+	expect(input.exportMaterials).not.toHaveBeenCalled();
 });
 
 it("replaces supplier options when the warehouse site changes", async () => {
@@ -310,6 +336,7 @@ it("replaces supplier options when the warehouse site changes", async () => {
 		},
 	};
 	rerender(<MaterialsTableClient key={secondSite.siteId} {...secondSite} />);
+	fireEvent.click(screen.getByRole("button", { name: "Filters" }));
 
 	await waitFor(() => {
 		const supplierInput = screen.getByLabelText("Supplier");
@@ -342,6 +369,7 @@ it("replaces supplier options when refreshed analytics changes in a mounted ware
 		},
 	};
 	const { rerender } = render(<MaterialsTableClient {...input} />);
+	fireEvent.click(screen.getByRole("button", { name: "Filters" }));
 
 	const refreshedInput = {
 		...input,
@@ -442,6 +470,9 @@ it("keeps retained projects bound to their own supplier and invoice datalists", 
 
 	const siteARoot = screen.getByTestId("retained-site-a");
 	const siteBRoot = screen.getByTestId("active-site-b");
+	for (const root of [siteARoot, siteBRoot]) {
+		fireEvent.click(within(root).getByText("Filters", { exact: true }));
+	}
 	const siteASupplierInput = siteARoot.querySelector<HTMLInputElement>(
 		'input[id="warehouse-supplier-name"]',
 	);

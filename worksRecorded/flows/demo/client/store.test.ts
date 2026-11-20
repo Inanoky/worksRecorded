@@ -1,5 +1,6 @@
 /** @jest-environment node */
 import { DEMO_SITE_ID } from "../constants";
+import warehouseSample from "./warehouse-sample.json";
 
 const values = new Map<string, string>();
 let invoke: typeof import("./actions").invokeLocalAction;
@@ -28,7 +29,7 @@ it("shares the fictional records between both original diary configurations", ()
 	expect(bis.diary).toBe(diary.diary);
 	expect(bis.config.otherSettings.fimaCollaboration).toBe(true);
 	expect(diary.config.otherSettings.fimaCollaboration).toBe(false);
-	expect(diary.config.otherSettings.inlineDiaryPhotos).toBe(true);
+	expect(diary.config.otherSettings.inlineDiaryPhotos).toBe(false);
 	expect(diary.config.Works.DisplayName).toBe("Darbi");
 	expect(diary.config.Location.DisplayName).toBe("Lokācija");
 	const recordHours = store
@@ -42,6 +43,13 @@ it("shares the fictional records between both original diary configurations", ()
 	expect(
 		store.getTimeRows().reduce((sum, row) => sum + row.timeWorked, 0),
 	).toBe(recordHours);
+	const dailyCounts = new Map<string, number>();
+	for (const row of diary.diary.rows) {
+		const day = row.Date.toISOString().slice(0, 10);
+		dailyCounts.set(day, (dailyCounts.get(day) ?? 0) + 1);
+	}
+	expect(dailyCounts.size).toBe(13);
+	expect([...dailyCounts.values()].every((count) => count >= 10)).toBe(true);
 });
 
 it("persists record edits locally and recalculates matching Forma 2 costs", async () => {
@@ -172,4 +180,81 @@ it("returns both pages of gallery photos in the format the gallery expects", asy
 	expect(new Set(photos.map((photo) => photo.id)).size).toBe(first.totalCount);
 	const dates = photos.map((photo) => photo.Date);
 	expect(dates).toEqual([...dates].sort().reverse());
+});
+
+it("uses the same material record in the warehouse and Forma 2", async () => {
+	const { warehouseRows, warehouseTableActions } = await import("./warehouse");
+	const material = warehouseRows().find(
+		(row) => row.forma2PositionId && row.cost !== null,
+	);
+	if (!material?.forma2PositionId || material.cost === null)
+		throw new Error("Missing warehouse sample");
+	const getPosition = () =>
+		store
+			.getData()
+			.snapshot.forma2.data.resultRows.find(
+				(position: { id: string }) => position.id === material.forma2PositionId,
+			);
+	const previous = getPosition().actualMaterialCost;
+	await warehouseTableActions.updateMaterialDetails(material.id, {
+		cost: material.cost + 10,
+	});
+	expect(getPosition().actualMaterialCost).toBe(previous + 10);
+	const deliveryDate = new Date("2026-11-20T12:00:00.000Z");
+	await warehouseTableActions.updateMaterialDate(material.id, deliveryDate);
+	expect(warehouseRows().find((row) => row.id === material.id)).toMatchObject({
+		materialDate: deliveryDate,
+		invoiceDate: material.invoiceDate,
+	});
+	await invoke("", "saveDefaultConstructionForma2Allocations", [
+		{
+			siteId: DEMO_SITE_ID,
+			allocations: [
+				{
+					sourceType: "material",
+					sourceId: material.id,
+					positionId: null,
+					method: "manual",
+				},
+			],
+		},
+	]);
+	expect(
+		warehouseRows().find((row) => row.id === material.id)?.forma2PositionId,
+	).toBeNull();
+	expect(getPosition().actualMaterialCost).toBe(previous - material.cost);
+});
+
+it("imports the provided sample once and keeps its invoice group together", async () => {
+	const { warehouseRows } = await import("./warehouse");
+	const { groupWarehouseInvoiceRows } = await import(
+		"@/lib/bis/warehouse-invoice-client"
+	);
+	const endpoint = "/api/warehouse/invoices/import";
+	const runImport = async (receipt: string) =>
+		(
+			await store.localFetch(endpoint, {
+				method: "POST",
+				body: JSON.stringify({ receipt }),
+			})
+		).json();
+	const before = warehouseRows().length;
+	expect(await runImport("another-document")).toMatchObject({ ok: false });
+	expect(await runImport(warehouseSample.sha256)).toEqual({
+		ok: true,
+		count: 3,
+		duplicate: false,
+	});
+	expect(await runImport(warehouseSample.sha256)).toEqual({
+		ok: true,
+		count: 3,
+		duplicate: true,
+	});
+	const rows = warehouseRows();
+	expect(rows).toHaveLength(before + 3);
+	expect(
+		groupWarehouseInvoiceRows(rows).find(
+			(invoice) => invoice.invoiceNumber === warehouseSample.invoiceNumber,
+		),
+	).toMatchObject({ itemCount: 3, totalCost: 170.6 });
 });

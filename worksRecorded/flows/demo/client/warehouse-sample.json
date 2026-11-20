@@ -1,0 +1,27 @@
+{
+	"fileUrl": "/demo/ozolu-parauga-rekins.pdf",
+	"sha256": "a93180d80af2648273161457f6b338d87c93ab9f779655462edff8a2b187a017",
+	"invoiceNumber": "OM-2026-141",
+	"supplierName": "Ozolu būvmateriāli",
+	"date": "2026-11-20",
+	"lines": [
+		{
+			"name": "Grīdas aizsargkartons, rullis 25 m²",
+			"quantity": 4,
+			"unit": "gab",
+			"cost": 74.0
+		},
+		{
+			"name": "Aizsarglente 50 mm × 50 m",
+			"quantity": 8,
+			"unit": "gab",
+			"cost": 33.6
+		},
+		{
+			"name": "Pagaidu grīdas aizsargplāksne 1,2 × 0,8 m",
+			"quantity": 10,
+			"unit": "gab",
+			"cost": 63.0
+		}
+	]
+}
