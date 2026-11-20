@@ -95,12 +95,18 @@ export type VisualPdfPlanning = {
 	planId: string | null;
 	areas: VisualPlanArea[];
 	backgroundAreas?: Array<
-		VisualPlanArea & { planId: string; color?: string; label?: string }
+		VisualPlanArea & {
+			planId: string;
+			color?: string;
+			label?: string;
+			detail?: string;
+		}
 	>;
 	selectedArea: VisualPlanAreaSelection | null;
 	areaRequest?: number;
 	color?: string;
 	label?: string;
+	detail?: string;
 	interactionKey?: string;
 	editable?: boolean;
 	onChange: (areas: VisualPlanArea[]) => void;
@@ -119,6 +125,7 @@ type PlanningAreaDraft = {
 type LayerPickerOption = {
 	key: string;
 	label: string;
+	detail?: string;
 	color: string;
 	select: () => void;
 };
@@ -791,6 +798,7 @@ export function VisualPdf({
 			return;
 		}
 		const pickerWidth = 248;
+		const pickerHeight = Math.min(320, viewportRect.height - 16);
 		setLayerPicker({
 			x: Math.max(
 				8,
@@ -801,11 +809,17 @@ export function VisualPdf({
 			),
 			y: Math.max(
 				8,
-				Math.min(clientY - viewportRect.top + 10, viewportRect.height - 92),
+				Math.min(
+					clientY - viewportRect.top + 10,
+					viewportRect.height - pickerHeight - 8,
+				),
 			),
 			options: [...matches].reverse().map((candidate, index) => ({
 				...candidate,
-				label: `${index === 0 ? "Augšējais" : index === matches.length - 1 ? "Apakšējais" : `Slānis ${index + 1}`} · ${candidate.label}`,
+				label:
+					planning && candidate.detail
+						? candidate.label
+						: `${index === 0 ? "Augšējais" : index === matches.length - 1 ? "Apakšējais" : `Slānis ${index + 1}`} · ${candidate.label}`,
 			})),
 		});
 	}
@@ -1063,19 +1077,23 @@ export function VisualPdf({
 					planId: area.planId,
 					color: area.color ?? visualLayers.other.color,
 					label: area.label ?? "Cits plāns",
+					detail: area.detail,
 				})),
 				...shownPlanningAreas.map((area) => ({
 					area,
 					planId: planning.planId,
 					color: planningColor,
 					label: planning.label ?? "Aktīvais plāns",
+					detail: planning.detail,
 				})),
 			].filter(({ area }) => area.page === page)
 		: [];
 	const planningHitCandidates: LayerHitOption[] = planningLayerCandidates.map(
-		({ area, planId, color, label }, index) => ({
+		({ area, planId, color, label, detail }, index) => ({
 			key: `${planId ?? "draft"}:${area.id}`,
-			label: `${label} · zona ${index + 1}`,
+			groupKey: planId ?? "draft",
+			label: detail ? label : `${label} · zona ${index + 1}`,
+			detail,
 			color,
 			polygon: area.polygon,
 			select: () => planning?.onSelectArea({ planId, areaId: area.id }),
@@ -1489,7 +1507,7 @@ export function VisualPdf({
 					data-drawing-control
 					role="dialog"
 					aria-label="Pārklājošās zonas"
-					className="absolute z-50 w-[248px] overflow-hidden rounded-lg border bg-background shadow-xl"
+					className="absolute z-50 flex max-h-[calc(100%-1rem)] w-[248px] flex-col overflow-hidden rounded-lg border bg-background shadow-xl"
 					style={{ left: layerPicker.x, top: layerPicker.y }}
 					onKeyDown={(event) => {
 						if (event.key === "Escape") setLayerPicker(null);
@@ -1508,7 +1526,7 @@ export function VisualPdf({
 							<X className="h-3.5 w-3.5" />
 						</Button>
 					</div>
-					<div className="space-y-0.5 p-1">
+					<div className="max-h-64 space-y-1 overflow-y-auto p-1">
 						{layerPicker.options.map((option) => (
 							<button
 								key={option.key}
@@ -1524,7 +1542,14 @@ export function VisualPdf({
 									className="h-2.5 w-2.5 shrink-0 rounded-sm"
 									style={{ backgroundColor: option.color }}
 								/>
-								<span className="truncate">{option.label}</span>
+								<span className="min-w-0 flex-1 space-y-1">
+									<span className="block break-words">{option.label}</span>
+									{option.detail ? (
+										<span className="block text-muted-foreground">
+											{option.detail}
+										</span>
+									) : null}
+								</span>
 							</button>
 						))}
 					</div>
@@ -1821,9 +1846,9 @@ export function VisualPdf({
 											.map((point) => `${point.x},${point.y}`)
 											.join(" ")}
 										fill={area.color ?? visualLayers.other.color}
-										fillOpacity={0.22}
+										fillOpacity={planningAreaDraft || penMode ? 0.04 : 0.15}
 										stroke={area.color ?? visualLayers.other.color}
-										strokeOpacity={0.8}
+										strokeOpacity={planningAreaDraft || penMode ? 0.15 : 0.5}
 										strokeWidth={1.5}
 										strokeDasharray="5 5"
 										vectorEffect="non-scaling-stroke"

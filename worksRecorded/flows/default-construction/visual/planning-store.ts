@@ -13,6 +13,7 @@ import { isAreaUnit } from "./drawing-scale";
 import { organizationPlanningContacts } from "./organization-contacts";
 import { organizationContactReferenceSchema } from "./planning-contact-reference";
 import { serializeVisualPlanningContact } from "./planning-contacts";
+import { visualWorkGeometry } from "./planning-copy";
 import {
 	compareVisualPlanProgress,
 	findVisualPlanConflict,
@@ -398,7 +399,7 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 		matchKey: planMatchKey(item.work, location, item.unit),
 	}));
 	if (
-		sharedZoneId &&
+		(sharedZoneId || input.additionalWorks) &&
 		(geometry.quantitySource !== "area" ||
 			workItems.some((item) => !isAreaUnit(item.unit)))
 	)
@@ -439,13 +440,26 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 				throw new Error("Kopīgās zonas plānam nevar mainīt darba veidu.");
 
 			const linkedRows =
-				sharedZoneId && previous
+				previous && (sharedZoneId || canonical.additionalWorks)
 					? await tx.constructionPlan.findMany({
 							where: {
 								...scope,
-								id: { not: previous.id },
+								id: canonical.additionalWorks
+									? {
+											in: canonical.additionalWorks.map(
+												(work) => work.clientId,
+											),
+										}
+									: { not: previous.id },
 								visualDrawingId: input.drawingId,
-								visualAreas: { path: ["sharedZoneId"], equals: sharedZoneId },
+								...(sharedZoneId
+									? {
+											visualAreas: {
+												path: ["sharedZoneId"],
+												equals: sharedZoneId,
+											},
+										}
+									: {}),
 							},
 						})
 					: [];
@@ -484,6 +498,37 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 				throw new Error(
 					"Plāns ar šo identifikatoru jau pastāv. Atjaunojiet skatu.",
 				);
+			if (
+				previous &&
+				JSON.stringify(previous.geometry.copiedFrom) !==
+					JSON.stringify(geometry.copiedFrom)
+			)
+				throw new Error("Poligona kopēšanas avotu nevar mainīt.");
+			if (!previous && geometry.copiedFrom) {
+				const source = await tx.constructionPlan.findFirst({
+					where: {
+						...scope,
+						id: geometry.copiedFrom.planId,
+						visualDrawingId: input.drawingId,
+					},
+				});
+				const sourceGeometry = visualPlanAreasSchema.safeParse(
+					source?.visualAreas,
+				);
+				if (
+					!source ||
+					source.geometryReviewRequired ||
+					normalizePlanText(source.location) !== normalizePlanText(location) ||
+					source.version !== geometry.copiedFrom.version ||
+					!sourceGeometry.success ||
+					geometry.copiedFrom.areaIds.some(
+						(id) => !sourceGeometry.data.areas.some((area) => area.id === id),
+					)
+				)
+					throw new Error(
+						"Kopēšanas avots ir mainīts vai nav pieejams šajā rasējumā. Atveriet avotu un kopējiet vēlreiz.",
+					);
+			}
 
 			const existing = (
 				await tx.constructionPlan.findMany({
@@ -531,7 +576,16 @@ export async function persistVisualPlan(userId: string, rawInput: unknown) {
 			};
 			const saved: VisualPlan[] = [];
 			for (const { id, work, unit, matchKey } of workItems) {
-				const data = { ...commonData, work, unit, matchKey };
+				const data = {
+					...commonData,
+					work,
+					unit,
+					matchKey,
+					visualAreas: {
+						...visualWorkGeometry(canonical, id ?? ""),
+						...(input.mutationId ? { mutationId: input.mutationId } : {}),
+					},
+				};
 				let row: StoredVisualPlan;
 				if (input.id) {
 					if (!input.version)

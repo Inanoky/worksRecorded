@@ -1254,7 +1254,7 @@ it("shows other saved plans as non-editable background envelopes", async () => {
 		container.querySelector(
 			'[data-plan-background="other-plan:other-plan-area"]',
 		),
-	).toHaveAttribute("fill-opacity", "0.22");
+	).toHaveAttribute("fill-opacity", "0.15");
 	expect(
 		container.querySelector('[data-plan-area="plan-area-1"]'),
 	).toHaveAttribute("fill", "#16a34a");
@@ -1292,6 +1292,66 @@ it("shows other saved plans as non-editable background envelopes", async () => {
 		planId: "other-plan",
 		areaId: "other-plan-area",
 	});
+});
+
+it("lists overlapping tasks once with dates and quantities and fades other outlines during editing", async () => {
+	const onSelectArea = jest.fn();
+	const background = {
+		...plannedArea,
+		id: "copy-area",
+		planId: "copy-plan",
+		label: "XPS",
+		detail: "20.11.2026 · 85 m²",
+	};
+	const planning = {
+		planId: "active-plan",
+		areas: [plannedArea],
+		backgroundAreas: [background, { ...background, id: "copy-second-area" }],
+		selectedArea: { planId: "active-plan", areaId: plannedArea.id },
+		label: "Betons",
+		detail: "21.11.2026 · 85 m²",
+		onChange: jest.fn(),
+		onSelectArea,
+	};
+	const { container } = render(
+		<VisualPdf
+			url="/drawing"
+			marks={[]}
+			selected={null}
+			onSelect={jest.fn()}
+			planning={planning}
+		/>,
+	);
+	await screen.findByRole("button", { name: "Plānotā zona 1" });
+	const surface = container.querySelector("canvas")
+		?.parentElement as HTMLElement;
+	const rect = { left: 0, top: 0, width: 1000, height: 1000 } as DOMRect;
+	jest.spyOn(surface, "getBoundingClientRect").mockReturnValue(rect);
+	jest
+		.spyOn(screen.getByTestId("visual-viewport"), "getBoundingClientRect")
+		.mockReturnValue(rect);
+	fireEvent.click(screen.getByRole("button", { name: "Plānotā zona 1" }), {
+		clientX: 200,
+		clientY: 200,
+	});
+	const picker = screen.getByRole("dialog", { name: "Pārklājošās zonas" });
+	expect(
+		within(picker)
+			.getAllByRole("button")
+			.filter((button) => button.textContent?.includes("XPS")),
+	).toHaveLength(1);
+	expect(within(picker).getByText("20.11.2026 · 85 m²")).toBeInTheDocument();
+	fireEvent.click(within(picker).getByRole("button", { name: /XPS/ }));
+	expect(onSelectArea).toHaveBeenCalledWith({
+		planId: "copy-plan",
+		areaId: "copy-area",
+	});
+	fireEvent.click(
+		screen.getByRole("button", { name: "Pielāgot plānoto zonu" }),
+	);
+	expect(
+		container.querySelector('[data-plan-background="copy-plan:copy-area"]'),
+	).toHaveAttribute("fill-opacity", "0.04");
 });
 
 it("offers the upper or lower work-log zone when areas overlap", async () => {

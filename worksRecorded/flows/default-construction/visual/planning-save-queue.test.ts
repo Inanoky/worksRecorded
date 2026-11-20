@@ -97,6 +97,35 @@ it("shows a new plan locally before a slow server responds and merges its acknow
 	});
 });
 
+it("keeps independent batch copies visible through cache refreshes and edits only one task", async () => {
+	const { cache, queue, pending } = setup();
+	const copiedId = "55555555-5555-4555-8555-555555555555";
+	const plan = queue.enqueue({
+		...input,
+		geometryMode: "independent",
+		geometry: { ...input.geometry, quantitySource: "area" },
+		additionalWorks: [{ clientId: copiedId, work: "Smilts", unit: "m2" }],
+	});
+	const tasks = cache.peekPlanning(drawingId)?.plans ?? [];
+	expect(tasks).toHaveLength(2);
+	expect(tasks.every((task) => !task.geometry.sharedZoneId)).toBe(true);
+	expect(tasks[1].geometry.areas[0].polygon).toEqual(
+		tasks[0].geometry.areas[0].polygon,
+	);
+	expect(tasks[1].geometry.areas[0].id).not.toBe(tasks[0].geometry.areas[0].id);
+	await cache.refreshPlanning(drawingId, async () => index);
+	expect(cache.peekPlanning(drawingId)?.plans).toHaveLength(2);
+	const result = confirmed(plan);
+	if (!result.ok) throw new Error("Missing acknowledgement");
+	pending.resolve({ ...result, linkedPlans: [tasks[1]] });
+	await pending.promise;
+	queue.enqueue({ ...input, id: plan.id, version: 1, quantity: 30 });
+	expect(
+		cache.peekPlanning(drawingId)?.plans.find((task) => task.id === copiedId)
+			?.quantity,
+	).toBe(20);
+});
+
 it("retains optimistic changes across stale reads and retries a lost acknowledgement with the same IDs", async () => {
 	const { cache, queue, transport, pending } = setup();
 	const plan = queue.enqueue(input);

@@ -36,6 +36,17 @@ export const visualPlanAreasSchema = z
 		mutationId: z.string().uuid().optional(),
 		quantitySource: z.enum(["area", "manual"]).optional(),
 		sharedZoneId: z.string().uuid().optional(),
+		copiedFrom: z
+			.object({
+				planId: z.string().uuid(),
+				version: z.number().int().positive(),
+				areaIds: z
+					.array(z.string().min(1).max(100))
+					.min(1)
+					.max(VISUAL_PLAN_MAX_AREAS),
+			})
+			.strict()
+			.optional(),
 		notes: z.string().trim().max(1000).optional(),
 	})
 	.strict();
@@ -56,6 +67,7 @@ export const visualPlanInputSchema = z
 		endDate: dateSchema,
 		contactId: planningContactReferenceSchema.nullable().default(null),
 		geometry: visualPlanAreasSchema,
+		geometryMode: z.literal("independent").optional(),
 		additionalWorks: z
 			.array(
 				z
@@ -79,10 +91,20 @@ export const visualPlanInputSchema = z
 	})
 	.refine(
 		(input) =>
+			input.geometryMode !== "independent" || !input.geometry.sharedZoneId,
+		{
+			message: "Neatkarīgu poligona kopiju nevar piesaistīt kopīgai zonai.",
+		},
+	)
+	.refine(
+		(input) =>
 			!input.additionalWorks ||
 			(!!input.clientId &&
 				!!input.mutationId &&
-				input.geometry.sharedZoneId === input.clientId &&
+				(input.geometryMode === "independent"
+					? !input.geometry.sharedZoneId &&
+						input.geometry.quantitySource === "area"
+					: input.geometry.sharedZoneId === input.clientId) &&
 				new Set([
 					input.clientId,
 					...input.additionalWorks.map((work) => work.clientId),

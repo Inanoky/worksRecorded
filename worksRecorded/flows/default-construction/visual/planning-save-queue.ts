@@ -106,9 +106,10 @@ export class PlanningSaveQueue {
 					? { clientId: id }
 					: {}),
 			mutationId: crypto.randomUUID(),
-			geometry: input.additionalWorks
-				? { ...input.geometry, sharedZoneId: id }
-				: input.geometry,
+			geometry:
+				input.additionalWorks && input.geometryMode !== "independent"
+					? { ...input.geometry, sharedZoneId: id }
+					: input.geometry,
 		};
 		const plan: VisualPlan = {
 			...input,
@@ -320,6 +321,7 @@ function geometryContent(geometry: VisualPlanInput["geometry"]) {
 		geometry.section ?? null,
 		geometry.quantitySource ?? null,
 		geometry.sharedZoneId ?? null,
+		geometry.copiedFrom ?? null,
 		geometry.notes ?? "",
 		geometry.areas.map((area) => [
 			area.id,

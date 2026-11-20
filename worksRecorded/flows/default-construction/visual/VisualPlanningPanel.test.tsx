@@ -17,6 +17,7 @@ import {
 	saveVisualPlanningItem,
 } from "./actions";
 import type { VisualDrawing } from "./model";
+import { visualWorkGeometry } from "./planning-copy";
 import { renderPlanningImages } from "./planning-image";
 import type {
 	VisualPlan,
@@ -91,6 +92,19 @@ jest.mock("./VisualPdf", () => ({
 				</span>
 				<span>Plāna krāsa: {planning?.color ?? "nav"}</span>
 				<span>Zonas pieprasījums: {planning?.areaRequest ?? 0}</span>
+				<button
+					type="button"
+					disabled={!planning?.areas.length}
+					onClick={() => {
+						if (planning?.areas[0])
+							planning.onSelectArea({
+								planId: planning.planId,
+								areaId: planning.areas[0].id,
+							});
+					}}
+				>
+					Izvēlēties plāna poligonu
+				</button>
 				<button
 					type="button"
 					onClick={() =>
@@ -321,19 +335,15 @@ it("plans one measured polygon for multiple works and sends each task separately
 	fireEvent.click(
 		screen.getByRole("button", { name: "Laukuma priekšskatījums" }),
 	);
-	fireEvent.click(
-		screen.getByRole("button", { name: "Pievienot darbus šai zonai" }),
-	);
-	expect(
-		screen.queryByRole("checkbox", { name: "Betons" }),
-	).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Pievienot darbu" }));
+	expect(screen.getByRole("checkbox", { name: "Betons" })).toBeDisabled();
 	fireEvent.change(screen.getByRole("textbox", { name: "Meklēt darbus" }), {
 		target: { value: "xp" },
 	});
 	fireEvent.click(screen.getByRole("checkbox", { name: "XPS" }));
-	fireEvent.click(screen.getByRole("button", { name: "Mainīt darbu izvēli" }));
+	fireEvent.click(screen.getByRole("button", { name: "Gatavs" }));
 	expect(screen.queryByLabelText("Plānotais apjoms")).not.toBeInTheDocument();
-	expect(screen.getByText("Kopīgās zonas laukums")).toBeInTheDocument();
+	expect(screen.getByText("Laukums katram darbam")).toBeInTheDocument();
 	const contactSelect = screen
 		.getAllByRole("combobox")
 		.find((element) =>
@@ -353,15 +363,21 @@ it("plans one measured polygon for multiple works and sends each task separately
 		{ work: "Smilts", quantity: 42.56 },
 		{ work: "XPS", quantity: 42.56 },
 	]);
-	expect(tasks[0].geometry.areas).toEqual(tasks[1].geometry.areas);
-	expect(screen.getByTestId("planning-pdf")).toHaveTextContent("Fona plāni: 0");
+	expect(tasks[0].geometry.areas[0].polygon).toEqual(
+		tasks[1].geometry.areas[0].polygon,
+	);
+	expect(tasks[0].geometry.areas[0].id).not.toEqual(
+		tasks[1].geometry.areas[0].id,
+	);
+	expect(tasks.every((task) => !task.geometry.sharedZoneId)).toBe(true);
+	expect(screen.getByTestId("planning-pdf")).toHaveTextContent("Fona plāni: 1");
 
 	for (const [index, task] of tasks.entries()) {
 		if (index > 0)
 			fireEvent.click(
-				within(
-					screen.getByRole("list", { name: "Kopīgās zonas darbi" }),
-				).getByRole("button", { name: task.work }),
+				screen.getByRole("button", {
+					name: new RegExp(`${task.work}.*11\\.10\\.2026`),
+				}),
 			);
 		fireEvent.click(openSend());
 		const dialog = await screen.findByRole("dialog", {
@@ -386,6 +402,78 @@ it("plans one measured polygon for multiple works and sends each task separately
 		fireEvent.click(within(dialog).getByRole("button", { name: "Atcelt" }));
 	}
 });
+
+it.each(["polygon", "zone"])(
+	"copies a saved %s into a new independently measured task",
+	async (scope) => {
+		const source = {
+			...indexedPlan,
+			geometry: {
+				...plan.geometry,
+				areas: [area, { ...area, id: "second-area", page: 2 }],
+			},
+		};
+		jest
+			.mocked(getVisualPlanning)
+			.mockResolvedValue({ ...emptyIndex, plans: [source] });
+		const cache = new VisualClientCache("site");
+		render(
+			<VisualPlanningPanel
+				siteId="site"
+				drawing={drawing}
+				sidebarOpen
+				resourceCache={cache}
+				onDirtyChange={jest.fn()}
+			/>,
+		);
+		fireEvent.click(
+			await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
+		);
+		if (scope === "polygon")
+			fireEvent.click(
+				screen.getByRole("button", { name: "Izvēlēties plāna poligonu" }),
+			);
+		fireEvent.click(
+			screen.getByRole("button", {
+				name:
+					scope === "polygon"
+						? "Kopēt poligonu citam uzdevumam"
+						: "Kopēt zonu citam uzdevumam",
+			}),
+		);
+		expect(screen.getByTestId("planning-pdf")).toHaveTextContent(
+			`Plāna zonas: ${scope === "polygon" ? 1 : 2}`,
+		);
+		expect(
+			screen.getByRole("button", { name: "Atvērt avota uzdevumu" }),
+		).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Pievienot darbu" }));
+		fireEvent.click(screen.getByRole("checkbox", { name: "XPS" }));
+		fireEvent.click(screen.getByRole("button", { name: "Gatavs" }));
+		fireEvent.click(
+			screen.getByRole("button", { name: "Laukuma priekšskatījums" }),
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Saglabāt plānu" }));
+		await waitFor(() =>
+			expect(saveVisualPlanningItem).toHaveBeenCalledTimes(1),
+		);
+		const saved = jest.mocked(saveVisualPlanningItem).mock
+			.calls[0][0] as VisualPlanInput;
+		expect(saved.work).toBe("XPS");
+		expect(saved.quantity).toBe(42.56);
+		expect(saved.geometry.sharedZoneId).toBeUndefined();
+		expect(saved.geometry.copiedFrom).toEqual({
+			planId: plan.id,
+			version: 2,
+			areaIds: scope === "polygon" ? [area.id] : [area.id, "second-area"],
+		});
+		expect(saved.geometry.areas[0].id).not.toBe(area.id);
+		expect(saved.geometry.areas[0].polygon).toEqual(area.polygon);
+		expect(
+			cache.peekPlanning(drawing.id)?.plans.find((task) => task.id === plan.id),
+		).toMatchObject({ geometry: source.geometry, quantity: 10 });
+	},
+);
 
 it("applies a scale correction locally before its background save completes", async () => {
 	let finish!: (value: Record<string, number>) => void;
@@ -475,6 +563,7 @@ beforeEach(() => {
 				id: clientId,
 				work,
 				unit,
+				geometry: visualWorkGeometry(input, clientId),
 			})),
 		};
 	});
@@ -750,7 +839,7 @@ it("opens saved areas in the right drawer and guards closing invalid changes", a
 	).toHaveAttribute("data-state", "closed");
 });
 
-it("truncates long work names outside the work dropdown", async () => {
+it("truncates long work names in headers and shows the full selected work", async () => {
 	const longWork =
 		"Grīdas siltumizolācijas un hidroizolācijas sagatavošanas darbi";
 	const longPlan = { ...indexedPlan, work: longWork };
@@ -776,9 +865,11 @@ it("truncates long work names outside the work dropdown", async () => {
 	const detailName = container.querySelector('[data-plan-work-name="detail"]');
 	expect(detailName).toHaveTextContent(longWork);
 	expect(detailName).toHaveClass("min-w-0", "flex-1", "truncate");
-	expect(screen.getByRole("option", { name: longWork })).toHaveTextContent(
-		longWork,
-	);
+	expect(
+		within(screen.getByRole("list", { name: "Izvēlētie darbi" })).getByText(
+			longWork,
+		),
+	).toHaveClass("break-words");
 	expect(screen.getByLabelText("Plānotais apjoms")).toHaveValue(10);
 });
 

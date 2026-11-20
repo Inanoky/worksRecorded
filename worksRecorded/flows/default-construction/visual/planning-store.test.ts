@@ -1,6 +1,7 @@
 import { getDefaultConstructionQuantityComparison } from "@/flows/default-construction/lib/quantity-plan-actual";
 import { prisma } from "@/lib/utils/db";
 import { organizationPlanningContacts } from "./organization-contacts";
+import { copyVisualPlanGeometry } from "./planning-copy";
 import {
 	archiveVisualPlan,
 	listVisualPlans,
@@ -84,6 +85,112 @@ const linkedInput = {
 	geometry: sharedGeometry,
 	additionalWorks: [{ clientId: linkedId, work: "Smilts", unit: "m²" }],
 };
+
+it("creates independent task copies atomically and retries without duplicating them", async () => {
+	const independent = {
+		...linkedInput,
+		geometryMode: "independent" as const,
+		geometry: { ...geometry, quantitySource: "area" as const },
+	};
+	jest
+		.mocked(prisma.constructionPlan.create)
+		.mockImplementation((async ({ data }: { data: Record<string, unknown> }) =>
+			stored(data as Record<string, unknown>)) as never);
+	const result = await persistVisualPlan("user", independent);
+	expect(result.plan.geometry.sharedZoneId).toBeUndefined();
+	const copied = result.linkedPlans[0];
+	expect(copied.quantity).toBe(100);
+	expect(copied.geometry.sharedZoneId).toBeUndefined();
+	expect(copied.geometry.areas[0].polygon).toEqual(
+		result.plan.geometry.areas[0].polygon,
+	);
+	expect(copied.geometry.areas[0].id).not.toBe(
+		result.plan.geometry.areas[0].id,
+	);
+	expect(copied.geometry.copiedFrom).toEqual({
+		planId,
+		version: 1,
+		areaIds: ["area-1"],
+	});
+	const writes = jest.mocked(prisma.constructionPlan.create).mock.calls;
+	jest
+		.mocked(prisma.constructionPlan.findFirst)
+		.mockResolvedValue(
+			stored(writes[0][0].data as Record<string, unknown>) as never,
+		);
+	jest
+		.mocked(prisma.constructionPlan.findMany)
+		.mockResolvedValueOnce([
+			stored(writes[1][0].data as Record<string, unknown>),
+		] as never);
+	expect(await persistVisualPlan("user", independent)).toEqual(result);
+	expect(prisma.constructionPlan.create).toHaveBeenCalledTimes(2);
+});
+
+it("validates copy provenance in the same project and drawing", async () => {
+	const copied = copyVisualPlanGeometry({ id: planId, version: 1, geometry });
+	const copyInput = {
+		...input,
+		clientId: linkedId,
+		mutationId: linkedMutationId,
+		geometry: copied,
+	};
+	await expect(persistVisualPlan("user", copyInput)).rejects.toThrow(
+		/Kopēšanas avots/,
+	);
+	expect(prisma.constructionPlan.create).not.toHaveBeenCalled();
+	jest
+		.mocked(prisma.constructionPlan.findFirst)
+		.mockResolvedValueOnce(null)
+		.mockResolvedValueOnce(stored() as never);
+	await persistVisualPlan("user", copyInput);
+	expect(prisma.constructionPlan.findFirst).toHaveBeenLastCalledWith({
+		where: expect.objectContaining({
+			id: planId,
+			siteId,
+			visualDrawingId: drawingId,
+		}),
+	});
+	expect(prisma.constructionPlan.create).toHaveBeenCalledTimes(1);
+});
+
+it("updates only the independent copy and keeps its source reference", async () => {
+	const copied = copyVisualPlanGeometry({ id: planId, version: 1, geometry });
+	jest
+		.mocked(prisma.constructionPlan.findFirst)
+		.mockResolvedValue(stored({ id: linkedId, visualAreas: copied }) as never);
+	jest.mocked(prisma.constructionPlan.findUniqueOrThrow).mockResolvedValue(
+		stored({
+			id: linkedId,
+			quantity: 125,
+			version: 2,
+			visualAreas: copied,
+		}) as never,
+	);
+	await persistVisualPlan("user", {
+		...input,
+		id: linkedId,
+		version: 1,
+		quantity: 125,
+		geometry: copied,
+	});
+	expect(prisma.constructionPlan.updateMany).toHaveBeenCalledTimes(1);
+	expect(prisma.constructionPlan.updateMany).toHaveBeenCalledWith({
+		where: expect.objectContaining({ id: linkedId }),
+		data: expect.objectContaining({
+			quantity: 125,
+			visualAreas: expect.objectContaining({ copiedFrom: copied.copiedFrom }),
+		}),
+	});
+	await expect(
+		persistVisualPlan("user", {
+			...input,
+			id: linkedId,
+			version: 1,
+			geometry: { ...copied, copiedFrom: undefined },
+		}),
+	).rejects.toThrow(/avotu nevar mainīt/);
+});
 
 it("creates every work with one measured area and returns the same tasks on retry", async () => {
 	const visualAreas = { ...sharedGeometry, mutationId: linkedMutationId };

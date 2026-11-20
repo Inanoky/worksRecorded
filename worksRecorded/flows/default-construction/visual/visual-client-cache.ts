@@ -5,6 +5,7 @@ import {
 	readDrawingPageMeasurement,
 } from "./drawing-scale";
 import type { VisualDrawing } from "./model";
+import { visualWorkGeometry } from "./planning-copy";
 import { renderPlanningImages } from "./planning-image";
 import {
 	PlanningImageCache,
@@ -510,6 +511,14 @@ export class VisualClientCache {
 		for (const item of pending) {
 			const { plan } = item;
 			project(plan);
+			for (const { clientId, work, unit } of item.input.additionalWorks ?? [])
+				project({
+					...plan,
+					id: clientId,
+					work,
+					unit,
+					geometry: visualWorkGeometry(item.input, clientId),
+				});
 			if (!plan.geometry.sharedZoneId) continue;
 			for (const linked of plans.filter(
 				(entry) =>
@@ -523,8 +532,6 @@ export class VisualClientCache {
 					geometry: { ...linked.geometry, areas: plan.geometry.areas },
 				});
 			}
-			for (const { clientId, work, unit } of item.input.additionalWorks ?? [])
-				project({ ...plan, id: clientId, work, unit });
 		}
 		return { ...value, plans };
 	}
