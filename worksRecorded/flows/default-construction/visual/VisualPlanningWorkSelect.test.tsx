@@ -8,7 +8,7 @@ const options = [
 	{ work: "PA1.6 - Smilts", unit: "m2" },
 ];
 
-it("filters estimate sections and shows equally removable works with readable names", () => {
+it("filters estimate sections and preserves full names for removable works", () => {
 	function Picker() {
 		const [value, setValue] = useState([options[0]]);
 		return (
@@ -33,13 +33,61 @@ it("filters estimate sections and shows equally removable works with readable na
 	fireEvent.click(screen.getByRole("checkbox", { name: options[1].work }));
 	fireEvent.click(screen.getByRole("button", { name: "Gatavs" }));
 	const list = screen.getByRole("list", { name: "Izvēlētie darbi" });
-	expect(within(list).getByText("Šķidrā izolācija")).toBeInTheDocument();
-	expect(within(list).getByText("Betons")).toBeInTheDocument();
+	expect(within(list).getByText(options[0].work)).toBeInTheDocument();
+	expect(within(list).getByText(options[1].work)).toBeInTheDocument();
 	fireEvent.click(
 		within(list).getByRole("button", {
 			name: `Noņemt darbu: ${options[0].work}`,
 		}),
 	);
-	expect(within(list).queryByText("Šķidrā izolācija")).not.toBeInTheDocument();
+	expect(within(list).queryByText(options[0].work)).not.toBeInTheDocument();
 	expect(screen.getByText("Darbi šajā zonā (1)")).toBeInTheDocument();
+});
+
+it("distinguishes repeated work descriptions by their summary prefixes in the picker and selected list", () => {
+	const repeatedWorks = [
+		{
+			work: "11 Atjaunojamā grīda uz grunts 1.stāva. - Polietilēna plēve, 200 µ",
+			unit: "m2",
+		},
+		{
+			work: "11 Atjaunojamā grīda uz grunts pagrabstāvā - Polietilēna plēve, 200 µ",
+			unit: "m2",
+		},
+	];
+	function Picker() {
+		const [value, setValue] = useState<typeof repeatedWorks>([]);
+		return (
+			<VisualPlanningWorkSelect
+				value={value}
+				options={repeatedWorks}
+				multiple
+				disabled={false}
+				onChange={setValue}
+			/>
+		);
+	}
+	render(<Picker />);
+	fireEvent.click(screen.getByRole("button", { name: "Pievienot darbu" }));
+	for (const option of repeatedWorks) {
+		expect(screen.getByText(option.work, { exact: true })).toBeVisible();
+	}
+	expect(
+		screen.queryByText("Polietilēna plēve, 200 µ", { exact: true }),
+	).not.toBeInTheDocument();
+	fireEvent.change(screen.getByRole("textbox", { name: "Meklēt darbus" }), {
+		target: { value: "pagrabstāvā" },
+	});
+	expect(
+		screen.queryByRole("checkbox", { name: repeatedWorks[0].work }),
+	).not.toBeInTheDocument();
+	fireEvent.click(
+		screen.getByRole("checkbox", { name: repeatedWorks[1].work }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Gatavs" }));
+	expect(
+		within(screen.getByRole("list", { name: "Izvēlētie darbi" })).getByText(
+			repeatedWorks[1].work,
+		),
+	).toBeVisible();
 });

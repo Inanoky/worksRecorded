@@ -23,17 +23,6 @@ function sectionCode(work: string) {
 	);
 }
 
-function workName(work: string) {
-	const separator = work.indexOf(" - ");
-	if (separator >= 0) return work.slice(separator + 3);
-	return (
-		work
-			.replace(sectionCode(work), "")
-			.replace(/^\s*\d+\s+/, "")
-			.trim() || work
-	);
-}
-
 export function VisualPlanningWorkSelect({
 	value,
 	options,
@@ -74,12 +63,7 @@ export function VisualPlanningWorkSelect({
 							className="flex items-start gap-2 rounded-lg border p-3"
 						>
 							<div className="min-w-0 flex-1 space-y-1" title={item.work}>
-								{sectionCode(item.work) ? (
-									<span className="inline-block rounded-md bg-muted px-2 py-1 text-xs font-medium">
-										{sectionCode(item.work)}
-									</span>
-								) : null}
-								<p className="break-words text-sm">{workName(item.work)}</p>
+								<p className="break-words text-sm">{item.work}</p>
 							</div>
 							{multiple ? (
 								<Button
@@ -188,14 +172,7 @@ export function VisualPlanningWorkSelect({
 										htmlFor={`${id}-${index}`}
 										className="min-w-0 flex-1 cursor-pointer space-y-1 text-sm"
 									>
-										{sectionCode(option.work) ? (
-											<span className="block text-xs text-muted-foreground">
-												{sectionCode(option.work)}
-											</span>
-										) : null}
-										<span className="block break-words">
-											{workName(option.work)}
-										</span>
+										<span className="block break-words">{option.work}</span>
 										{incompatible && !checked ? (
 											<span className="block text-xs text-muted-foreground">
 												Vairākiem darbiem vajadzīga m² mērvienība.
