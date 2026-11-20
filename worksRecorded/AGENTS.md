@@ -78,6 +78,10 @@ flows/                    Flow modules (see flows/README.md)
 
 ## Conventions
 
+- Before creating or importing a Līmeni project, read
+  `docs/limeni-new-project-rulebook.md` and follow its project, estimate,
+  drawing, section and verification workflow.
+
 - **Formatter/linter:** Biome. Indent = **2 spaces**, quote style = **double**,
   organize imports on. Run `npx biome check --write` before committing. ESLint
   config also present (`eslint.config.mjs`); `npm run lint` runs `next lint`.

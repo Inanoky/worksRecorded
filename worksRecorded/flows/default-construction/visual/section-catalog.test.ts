@@ -111,3 +111,31 @@ it("loads all eight UPB BP-8 details only for the Hipokrātu iela 2 project", as
 	}
 	expect(await readSectionDrawing(project, "../../.env")).toBeNull();
 });
+
+it("loads the three Siguldas floor build-ups for planning and WhatsApp task images", async () => {
+	const project = "Siguldas iela 24, Daugavpils";
+	const codes = [
+		"1. stāvs uz grunts",
+		"1. stāvs uz paneļiem",
+		"2. stāvs uz paneļiem",
+	];
+	expect(readVisualSections({}, project)).toEqual(codes);
+	expect(readVisualSections({}, "Siguldas iela 24")).toEqual(codes);
+	expect(sectionCatalogForProject("Siguldas iela 240")).toEqual([]);
+	expect(sectionDrawingForProject("Šmerļa iela 3", codes[0])).toBeUndefined();
+	for (const code of codes) {
+		const drawing = await readSectionDrawing(project, code);
+		expect(drawing?.bytes.subarray(0, 8).toString("hex")).toBe(
+			"89504e470d0a1a0a",
+		);
+		expect(drawing).toEqual(
+			expect.objectContaining({
+				code,
+				sourcePage: 1,
+				sourceSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+				sourcePdfUrl: expect.stringContaining("https://reect1noxp.ufs.sh/f/"),
+			}),
+		);
+	}
+	expect(await readSectionDrawing(project, "../../.env")).toBeNull();
+});

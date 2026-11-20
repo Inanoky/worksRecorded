@@ -1,0 +1,50 @@
+{
+	"id": "siguldas-24",
+	"projectName": "Siguldas iela 24, Daugavpils",
+	"projectAliases": ["Siguldas iela 24"],
+	"siteId": "b18eebec-1d31-474a-98dc-52ccfc98345a",
+	"sections": [
+		{
+			"code": "1. stāvs uz grunts",
+			"title": "Grīdas un sienas 1. stāva balsta mezgls uz grunti",
+			"bounds": [0.11764706, 0.29691211, 0.8907563, 0.67695962],
+			"file": "1-stavs-uz-grunts.png",
+			"source": "1.St_uz_grunts.pdf",
+			"sourceSha256": "161eba501b8f3220ce390452eb7dfceca3f018d0f358267ad9c17d321c810da8",
+			"sourcePage": 1,
+			"sourceUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJTZ0kqyGkdZLVugG4bTHycfB58pets7OPrY3o",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJTZ0kqyGkdZLVugG4bTHycfB58pets7OPrY3o",
+			"sourceMessageId": "3EB09D03520CD814AA1D31",
+			"sourceDocumentId": "siguldas-whatsapp-source:b18eebec-1d31-474a-98dc-52ccfc98345a:161eba501b8f3220ce390452eb7dfceca3f018d0f358267ad9c17d321c810da8",
+			"sha256": "02109f00e45944e19e307aec0bc447d7875fc3210d0b84f22414a65b15a994a0"
+		},
+		{
+			"code": "1. stāvs uz paneļiem",
+			"title": "Grīdas un sienas 1. stāva balsta mezgls uz pārseguma paneļiem",
+			"bounds": [0.11764706, 0.29691211, 0.8907563, 0.57007126],
+			"file": "1-stavs-uz-paneliem.png",
+			"source": "1.St_uz_paneļiem.pdf",
+			"sourceSha256": "75d533665c65dcea7a0d3d30a8a9cae3258ad533a0b6d4d422f58095a749ec09",
+			"sourcePage": 1,
+			"sourceUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJsDqjFXy6SU932cjd5TF1kyxrDXWZbhnG4f7Q",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJsDqjFXy6SU932cjd5TF1kyxrDXWZbhnG4f7Q",
+			"sourceMessageId": "3EB0BB60E6798862256F1E",
+			"sourceDocumentId": "siguldas-whatsapp-source:b18eebec-1d31-474a-98dc-52ccfc98345a:75d533665c65dcea7a0d3d30a8a9cae3258ad533a0b6d4d422f58095a749ec09",
+			"sha256": "bafad450c88c8f0dc6307f439a784a38d56aa5a22b566148729abc1f28ee6566"
+		},
+		{
+			"code": "2. stāvs uz paneļiem",
+			"title": "Grīdas un sienas 2. stāva balsta mezgls uz pārseguma paneļiem",
+			"bounds": [0.11764706, 0.29691211, 0.8907563, 0.57007126],
+			"file": "2-stavs-uz-paneliem.png",
+			"source": "2.St_uz_paneļiem.pdf",
+			"sourceSha256": "39492f1d2f0fc4cf31db99d791df80d6bf0ec920d0d578988af6c8f34161ab8f",
+			"sourcePage": 1,
+			"sourceUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJTPAS1VGkdZLVugG4bTHycfB58pets7OPrY3o",
+			"sourcePdfUrl": "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJTPAS1VGkdZLVugG4bTHycfB58pets7OPrY3o",
+			"sourceMessageId": "3EB045FC4ACF081AE3C3D3",
+			"sourceDocumentId": "siguldas-whatsapp-source:b18eebec-1d31-474a-98dc-52ccfc98345a:39492f1d2f0fc4cf31db99d791df80d6bf0ec920d0d578988af6c8f34161ab8f",
+			"sha256": "2a7cbea61e9bfb952aac2f9c74cc583a6eb0e07044994e0e624cff64c494b089"
+		}
+	]
+}

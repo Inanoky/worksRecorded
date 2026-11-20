@@ -25,11 +25,13 @@ const nextConfig: NextConfig = {
 			"./assets/visual-sections/ar-701/*.png",
 			"./assets/visual-sections/hipokratu-upb-bp8/*.png",
 			"./assets/visual-sections/raudas-16/*.png",
+			"./assets/visual-sections/siguldas-24/*.png",
 		],
 		"/api/sites/*/visual/planning-share": [
 			"./assets/visual-sections/ar-701/*.png",
 			"./assets/visual-sections/hipokratu-upb-bp8/*.png",
 			"./assets/visual-sections/raudas-16/*.png",
+			"./assets/visual-sections/siguldas-24/*.png",
 		],
 	},
 	turbopack: {

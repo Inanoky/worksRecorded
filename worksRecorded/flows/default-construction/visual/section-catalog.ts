@@ -1,6 +1,7 @@
 import catalog from "@/assets/visual-sections/ar-701/catalog.json";
 import hipokratuCatalog from "@/assets/visual-sections/hipokratu-upb-bp8/catalog.json";
 import raudasCatalog from "@/assets/visual-sections/raudas-16/catalog.json";
+import siguldasCatalog from "@/assets/visual-sections/siguldas-24/catalog.json";
 
 const key = (value: string) =>
 	value.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("lv");
@@ -10,6 +11,12 @@ function projectCatalog(projectName: string | undefined) {
 	const name = key(projectName);
 	if (name === key(catalog.projectName)) return catalog;
 	if (name === key(hipokratuCatalog.projectName)) return hipokratuCatalog;
+	if (
+		[siguldasCatalog.projectName, ...siguldasCatalog.projectAliases].some(
+			(alias) => key(alias) === name,
+		)
+	)
+		return siguldasCatalog;
 	if (
 		[raudasCatalog.projectName, ...raudasCatalog.projectAliases].some(
 			(alias) => key(alias) === name,
