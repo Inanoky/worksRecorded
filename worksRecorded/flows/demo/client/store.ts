@@ -22,7 +22,7 @@ export type LocalData = {
 	dailyPlans?: LocalRecord[];
 	feedback?: LocalRecord;
 };
-const storageKey = "worksrecorded:ozolu:client:v1";
+const storageKey = "worksrecorded:ozolu:client:v2";
 const listeners = new Set<() => void>();
 let data = hydrate(structuredClone(fixture) as LocalData);
 let restored = false;
@@ -266,12 +266,7 @@ export function getDiarySnapshot(bis: boolean) {
 	return snapshot;
 }
 export function localDrawingUrl(id: string) {
-	const item = data.snapshot.drawings.find(
-		(item: LocalRecord) => item.drawing.id === id,
-	);
-	return item?.drawing.state.location.startsWith("1")
-		? "/demo/floor-1.pdf"
-		: "/demo/floor-2.pdf";
+	return data.documents.find((document) => document.id === id)?.url ?? "";
 }
 export function readFileDataUrl(file: File): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -305,8 +300,12 @@ export async function localFetch(
 		const item = data.snapshot.drawings.find(
 			(item: LocalRecord) => item.drawing.id === drawingId,
 		);
-		if (item && url.searchParams.has("pdf"))
-			return globalThis.fetch(localDrawingUrl(drawingId));
+		if (item && url.searchParams.has("pdf")) {
+			const drawingUrl = localDrawingUrl(drawingId);
+			return drawingUrl
+				? globalThis.fetch(drawingUrl)
+				: new Response(null, { status: 404 });
+		}
 		if (item && route.endsWith("/planning")) return json(item.planning);
 		if (item) return json(item.drawing);
 		if (route === "/forma2/results") return json(data.snapshot.forma2);

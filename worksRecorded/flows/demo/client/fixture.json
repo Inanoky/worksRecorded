@@ -5,14 +5,14 @@
 			"drawings": [
 				{
 					"id": "1f2af0e5-05b7-4b66-a2fe-bea550395801",
-					"name": "AR-02 · 2. stāvs grīdu plāns.pdf",
+					"name": "AR-02 · 2. stāva plāns.pdf",
 					"createdAt": "2026-11-08T17:05:12.516Z",
 					"location": "2. stāvs",
 					"status": "complete"
 				},
 				{
 					"id": "09f18b6a-4dbc-4af7-acf4-322af1eb9032",
-					"name": "AR-01 · 1. stāvs grīdu plāns.pdf",
+					"name": "AR-01 · 1. stāva plāns.pdf",
 					"createdAt": "2026-11-08T17:05:12.348Z",
 					"location": "1. stāvs",
 					"status": "complete"
@@ -43,21 +43,58 @@
 							"color": "#2563eb"
 						},
 						{
-							"id": "thermowhite",
-							"label": "ThermoWhite",
-							"color": "#ea580c"
-						},
-						{
 							"id": "other",
 							"label": "Citi darbi",
 							"color": "#9333ea"
+						},
+						{
+							"id": "custom-joints",
+							"label": "Ailu šuves",
+							"color": "#9333ea"
+						},
+						{
+							"id": "custom-electric",
+							"label": "Elektroinstalācija",
+							"color": "#d97706"
+						},
+						{
+							"id": "custom-water",
+							"label": "Santehnika",
+							"color": "#0891b2"
+						},
+						{
+							"id": "custom-vent",
+							"label": "Ventilācija",
+							"color": "#0f766e"
 						}
 					],
-					"works": [],
+					"works": [
+						{
+							"work": "Ailu šuvju aizpildīšana",
+							"positionId": "6b675809-c998-5ff3-8abc-c07fda1f35d7",
+							"layerId": "custom-joints"
+						},
+						{
+							"work": "Elektroinstalācijas darbi",
+							"positionId": "94152fa4-0e73-5a7b-aaea-154b72853e65",
+							"layerId": "custom-electric"
+						},
+						{
+							"work": "Santehnikas darbi",
+							"positionId": "17581628-251a-5bfc-bfe0-1cb9341a98ac",
+							"layerId": "custom-water"
+						},
+						{
+							"work": "Apkures sistēmas un ventilācijas darbi",
+							"positionId": "2e2612a2-1d09-507e-b48f-538857837b36",
+							"layerId": "custom-vent"
+						}
+					],
 					"zones": [],
 					"redirects": {}
 				},
 				"workOptions": [
+					"Ailu šuvju aizpildīšana",
 					"Apkures sistēmas un ventilācijas darbi",
 					"Betona grīdas izbūve, 70 mm",
 					"Elektroinstalācijas darbi",
@@ -75,7 +112,11 @@
 					"smilts pamatnes izlīdzināšana": "d3faedc3-f4a4-4dc3-a1ee-d2513665058a",
 					"xps siltumizolācijas ieklāšana, 100 mm": "54d8e46b-6bfd-4b5d-a89b-169825241aae",
 					"hidroizolācijas plēves ieklāšana": "62b9560f-c971-440b-ad8e-6f56ce761fde",
-					"betona grīdas izbūve, 70 mm": "8e060e59-6021-4b77-a06f-8b5f6f5491e0"
+					"betona grīdas izbūve, 70 mm": "8e060e59-6021-4b77-a06f-8b5f6f5491e0",
+					"ailu šuvju aizpildīšana": "6b675809-c998-5ff3-8abc-c07fda1f35d7",
+					"elektroinstalācijas darbi": "94152fa4-0e73-5a7b-aaea-154b72853e65",
+					"santehnikas darbi": "17581628-251a-5bfc-bfe0-1cb9341a98ac",
+					"apkures sistēmas un ventilācijas darbi": "2e2612a2-1d09-507e-b48f-538857837b36"
 				}
 			},
 			"userId": "ozolu-user"
@@ -84,9 +125,9 @@
 			{
 				"drawing": {
 					"id": "1f2af0e5-05b7-4b66-a2fe-bea550395801",
-					"name": "AR-02 · 2. stāvs grīdu plāns.pdf",
+					"name": "AR-02 · 2. stāva plāns.pdf",
 					"createdAt": "2026-11-08T17:05:12.516Z",
-					"latestDiaryDate": "2026-11-07T12:00:00.000Z",
+					"latestDiaryDate": "2026-11-14T12:00:00.000Z",
 					"state": {
 						"version": 1,
 						"location": "2. stāvs",
@@ -97,74 +138,74 @@
 							{
 								"id": "b74a973f-e518-4e65-a00f-7e6644e31f96:0",
 								"recordId": "b74a973f-e518-4e65-a00f-7e6644e31f96",
-								"photoUrl": "/demo/source-2-1.svg",
-								"work": "Smilts pamatnes izlīdzināšana",
+								"photoUrl": "/demo/house-zone-2-9.png",
+								"work": "Ailu šuvju aizpildīšana",
 								"location": "2. stāvs",
-								"description": "2. stāvs, telpa 201.",
-								"date": "2026-11-02T12:00:00.000Z",
-								"amount": 42,
-								"unit": "m2",
-								"sourceRevision": "96b2c81af88a3f1b0756b2b1ad66e0e7c2d966fc76064f4d1d965308d553ee4f"
+								"description": "2. stāvs, telpa 204 (noliktavas telpa). Aizpildījām starpsienu ailu šuves ar minerālvates sloksnēm.",
+								"date": "2026-11-09T12:00:00.000Z",
+								"amount": 10,
+								"unit": "m",
+								"sourceRevision": "2dcffd49cdeaa2a767fcd1b7d1dcf17cd5ef8509c4d04b47000f8b0bb2db8287"
 							},
 							{
 								"id": "dea2288d-8467-4c88-aa3a-2ca6a6b233b2:0",
 								"recordId": "dea2288d-8467-4c88-aa3a-2ca6a6b233b2",
-								"photoUrl": "/demo/source-2-2.svg",
-								"work": "XPS siltumizolācijas ieklāšana, 100 mm",
+								"photoUrl": "/demo/house-zone-2-10.png",
+								"work": "Elektroinstalācijas darbi",
 								"location": "2. stāvs",
-								"description": "2. stāvs, telpa 201.",
-								"date": "2026-11-03T12:00:00.000Z",
-								"amount": 42,
-								"unit": "m2",
-								"sourceRevision": "d0d5dcbf2331ff72802ac332256892091443b7fc9bfe14acede6cac9ca596c38"
+								"description": "2. stāvs, telpa 201 (kabinets). Ievilkām apgaismojuma kabeļus gofrētajās caurulēs līdz sadalnei.",
+								"date": "2026-11-10T12:00:00.000Z",
+								"amount": 32,
+								"unit": "m",
+								"sourceRevision": "92379784b3546bd4161e8b8633d2004200ef97be2f14f076b8cab772b742e1df"
 							},
 							{
 								"id": "f2961dc4-9ad0-4696-aeea-97f12793eedf:0",
 								"recordId": "f2961dc4-9ad0-4696-aeea-97f12793eedf",
-								"photoUrl": "/demo/source-2-3.svg",
-								"work": "Hidroizolācijas plēves ieklāšana",
+								"photoUrl": "/demo/house-zone-2-11.png",
+								"work": "Santehnikas darbi",
 								"location": "2. stāvs",
-								"description": "2. stāvs, telpa 202.",
-								"date": "2026-11-04T12:00:00.000Z",
-								"amount": 38,
-								"unit": "m2",
-								"sourceRevision": "7fa5537359a6b03caa0464525772acb290ff6b4ba61d3c4ef8947910d35787ac"
+								"description": "2. stāvs, telpa 203 (sanmezgls). Samontējām aukstā ūdens atzarus. Savienojumus atstājām redzamus spiediena pārbaudei.",
+								"date": "2026-11-11T12:00:00.000Z",
+								"amount": 6,
+								"unit": "gab",
+								"sourceRevision": "a8d4294fa417518e7f0d58519d8342fc3c9c7bbd9123755d596f094854f0e346"
 							},
 							{
 								"id": "af009acc-371f-4191-a719-7f07f5b8e127:0",
 								"recordId": "af009acc-371f-4191-a719-7f07f5b8e127",
-								"photoUrl": "/demo/source-2-4.svg",
+								"photoUrl": "/demo/house-zone-2-12.png",
 								"work": "Betona grīdas izbūve, 70 mm",
 								"location": "2. stāvs",
-								"description": "2. stāvs, telpa 202.",
-								"date": "2026-11-05T12:00:00.000Z",
-								"amount": 38,
+								"description": "2. stāvs, telpa 202 (darba telpa). Uz iepriekš sagatavotās pamatnes izbūvējām 70 mm betona grīdu.",
+								"date": "2026-11-12T12:00:00.000Z",
+								"amount": 29,
 								"unit": "m2",
-								"sourceRevision": "499ceb4f7baef529c07c41e6cd6a38ef085502482dc76cae1498c8680f9e2a52"
+								"sourceRevision": "d142289b52e0c386d28fae83e40a573929277c6509151568f27a6b8f6ef187ce"
 							},
 							{
 								"id": "91b52b1c-6f43-4484-ab31-ba7db9e1d9e9:0",
 								"recordId": "91b52b1c-6f43-4484-ab31-ba7db9e1d9e9",
-								"photoUrl": "/demo/source-2-5.svg",
-								"work": "Smilts pamatnes izlīdzināšana",
+								"photoUrl": "/demo/house-zone-2-13.png",
+								"work": "Apkures sistēmas un ventilācijas darbi",
 								"location": "2. stāvs",
-								"description": "2. stāvs, telpa 204.",
-								"date": "2026-11-06T12:00:00.000Z",
-								"amount": 46,
-								"unit": "m2",
-								"sourceRevision": "58956514246fc2a062625c6b7bcec5710c560c8f18873b5cb6f08d24e3f6578f"
+								"description": "2. stāvs, telpa 205 (kāpņu telpa). Uzstādījām divus siltinātus Ø125 ventilācijas izvadus virs kāpņu telpas.",
+								"date": "2026-11-13T12:00:00.000Z",
+								"amount": 2,
+								"unit": "gab",
+								"sourceRevision": "c48195010ca547a3c3ec476adf3ae725c0bb198a533730214b564a5a4e27b513"
 							},
 							{
 								"id": "8277c8d0-2a6e-4e23-a442-030242b6b14d:0",
 								"recordId": "8277c8d0-2a6e-4e23-a442-030242b6b14d",
-								"photoUrl": "/demo/source-2-6.svg",
-								"work": "XPS siltumizolācijas ieklāšana, 100 mm",
+								"photoUrl": "/demo/house-zone-2-14.png",
+								"work": "Elektroinstalācijas darbi",
 								"location": "2. stāvs",
-								"description": "2. stāvs, telpa 205.",
-								"date": "2026-11-07T12:00:00.000Z",
-								"amount": 44,
-								"unit": "m2",
-								"sourceRevision": "640001c473a7405cf04ed1329622919f68c5fad35fcc199441cf14a05a4dc029"
+								"description": "2. stāvs, telpa 202 (darba telpa). Darba telpā pabeidzām rozešu līniju vilkšanu un marķēšanu pie sadalnes.",
+								"date": "2026-11-14T12:00:00.000Z",
+								"amount": 38,
+								"unit": "m",
+								"sourceRevision": "23c079a0c6bd21c25c9451f61b10985d4851be418efbdda09fd148fb4abf5567"
 							}
 						],
 						"marks": [
@@ -173,106 +214,106 @@
 								"page": 1,
 								"polygon": [
 									{
-										"x": 0.25416666666666665,
-										"y": 0.23125
+										"x": 0.355833,
+										"y": 0.64875
 									},
 									{
-										"x": 0.42083333333333334,
-										"y": 0.23125
+										"x": 0.550833,
+										"y": 0.64875
 									},
 									{
-										"x": 0.42083333333333334,
-										"y": 0.44375
+										"x": 0.550833,
+										"y": 0.79375
 									},
 									{
-										"x": 0.25416666666666665,
-										"y": 0.44375
+										"x": 0.355833,
+										"y": 0.79375
 									}
 								],
 								"confidence": 1,
-								"anchors": ["Telpa 201", "AR-02"],
-								"explanation": "Darba zona atbilstoši avota rasējumam.",
+								"anchors": ["Telpa 204", "AR-02"],
+								"explanation": "Darba zona pēc telpas numura un žurnāla ieraksta.",
 								"id": "25dca495-7c6f-4c13-a84c-9c08fcd6cec2",
-								"layer": "sand"
+								"layer": "custom-joints"
 							},
 							{
 								"evidenceId": "dea2288d-8467-4c88-aa3a-2ca6a6b233b2:0",
 								"page": 1,
 								"polygon": [
 									{
-										"x": 0.25416666666666665,
-										"y": 0.23125
+										"x": 0.1725,
+										"y": 0.225
 									},
 									{
-										"x": 0.42083333333333334,
-										"y": 0.23125
+										"x": 0.425833,
+										"y": 0.225
 									},
 									{
-										"x": 0.42083333333333334,
-										"y": 0.44375
+										"x": 0.425833,
+										"y": 0.53
 									},
 									{
-										"x": 0.25416666666666665,
-										"y": 0.44375
+										"x": 0.1725,
+										"y": 0.53
 									}
 								],
 								"confidence": 1,
 								"anchors": ["Telpa 201", "AR-02"],
-								"explanation": "Darba zona atbilstoši avota rasējumam.",
+								"explanation": "Darba zona pēc telpas numura un žurnāla ieraksta.",
 								"id": "a59cad3e-2e77-41d3-a407-ae8267dbae7b",
-								"layer": "xps"
+								"layer": "custom-electric"
 							},
 							{
 								"evidenceId": "f2961dc4-9ad0-4696-aeea-97f12793eedf:0",
 								"page": 1,
 								"polygon": [
 									{
-										"x": 0.42916666666666664,
-										"y": 0.23125
+										"x": 0.1725,
+										"y": 0.64875
 									},
 									{
-										"x": 0.5958333333333333,
-										"y": 0.23125
+										"x": 0.3425,
+										"y": 0.64875
 									},
 									{
-										"x": 0.5958333333333333,
-										"y": 0.44375
+										"x": 0.3425,
+										"y": 0.79375
 									},
 									{
-										"x": 0.42916666666666664,
-										"y": 0.44375
+										"x": 0.1725,
+										"y": 0.79375
 									}
 								],
 								"confidence": 1,
-								"anchors": ["Telpa 202", "AR-02"],
-								"explanation": "Darba zona atbilstoši avota rasējumam.",
+								"anchors": ["Telpa 203", "AR-02"],
+								"explanation": "Darba zona pēc telpas numura un žurnāla ieraksta.",
 								"id": "4cdb13bd-0b40-403b-a431-93e6f66e6e07",
-								"layer": "film"
+								"layer": "custom-water"
 							},
 							{
 								"evidenceId": "af009acc-371f-4191-a719-7f07f5b8e127:0",
 								"page": 1,
 								"polygon": [
 									{
-										"x": 0.42916666666666664,
-										"y": 0.23125
+										"x": 0.439167,
+										"y": 0.225
 									},
 									{
-										"x": 0.5958333333333333,
-										"y": 0.23125
+										"x": 0.725833,
+										"y": 0.225
 									},
 									{
-										"x": 0.5958333333333333,
-										"y": 0.44375
+										"x": 0.725833,
+										"y": 0.53
 									},
 									{
-										"x": 0.42916666666666664,
-										"y": 0.44375
+										"x": 0.439167,
+										"y": 0.53
 									}
 								],
 								"confidence": 1,
 								"anchors": ["Telpa 202", "AR-02"],
-								"explanation": "Darba zona atbilstoši avota rasējumam.",
+								"explanation": "Darba zona pēc telpas numura un žurnāla ieraksta.",
 								"id": "e68827f8-613f-4dd3-a8df-20dbd38a3e48",
 								"layer": "estrich"
 							},
@@ -281,54 +322,54 @@
 								"page": 1,
 								"polygon": [
 									{
-										"x": 0.25416666666666665,
-										"y": 0.53125
+										"x": 0.564167,
+										"y": 0.64875
 									},
 									{
-										"x": 0.42083333333333334,
-										"y": 0.53125
+										"x": 0.725833,
+										"y": 0.64875
 									},
 									{
-										"x": 0.42083333333333334,
-										"y": 0.74375
+										"x": 0.725833,
+										"y": 0.79375
 									},
 									{
-										"x": 0.25416666666666665,
-										"y": 0.74375
+										"x": 0.564167,
+										"y": 0.79375
 									}
 								],
 								"confidence": 1,
-								"anchors": ["Telpa 204", "AR-02"],
-								"explanation": "Darba zona atbilstoši avota rasējumam.",
+								"anchors": ["Telpa 205", "AR-02"],
+								"explanation": "Darba zona pēc telpas numura un žurnāla ieraksta.",
 								"id": "7218502f-b389-4fbe-add5-da5762549370",
-								"layer": "sand"
+								"layer": "custom-vent"
 							},
 							{
 								"evidenceId": "8277c8d0-2a6e-4e23-a442-030242b6b14d:0",
 								"page": 1,
 								"polygon": [
 									{
-										"x": 0.42916666666666664,
-										"y": 0.53125
+										"x": 0.439167,
+										"y": 0.225
 									},
 									{
-										"x": 0.5958333333333333,
-										"y": 0.53125
+										"x": 0.725833,
+										"y": 0.225
 									},
 									{
-										"x": 0.5958333333333333,
-										"y": 0.74375
+										"x": 0.725833,
+										"y": 0.53
 									},
 									{
-										"x": 0.42916666666666664,
-										"y": 0.74375
+										"x": 0.439167,
+										"y": 0.53
 									}
 								],
 								"confidence": 1,
-								"anchors": ["Telpa 205", "AR-02"],
-								"explanation": "Darba zona atbilstoši avota rasējumam.",
+								"anchors": ["Telpa 202", "AR-02"],
+								"explanation": "Darba zona pēc telpas numura un žurnāla ieraksta.",
 								"id": "33288656-58d2-4f88-a939-e406b43e2a09",
-								"layer": "xps"
+								"layer": "custom-electric"
 							}
 						],
 						"unlocated": [],
@@ -338,32 +379,28 @@
 					}
 				},
 				"planning": {
-					"today": "2026-11-09",
+					"today": "2026-11-20",
 					"location": "2. stāvs",
 					"workOptions": [
+						{
+							"work": "Ailu šuvju aizpildīšana",
+							"unit": "m"
+						},
+						{
+							"work": "Apkures sistēmas un ventilācijas darbi",
+							"unit": "gab"
+						},
 						{
 							"work": "Betona grīdas izbūve, 70 mm",
 							"unit": "m2"
 						},
 						{
+							"work": "Elektroinstalācijas darbi",
+							"unit": "m"
+						},
+						{
 							"work": "Hidroizolācijas plēves ieklāšana",
 							"unit": "m2"
-						},
-						{
-							"work": "Smilts pamatnes izlīdzināšana",
-							"unit": "m2"
-						},
-						{
-							"work": "XPS siltumizolācijas ieklāšana, 100 mm",
-							"unit": "m2"
-						},
-						{
-							"work": "Apkures sistēmas un ventilācijas darbi",
-							"unit": ""
-						},
-						{
-							"work": "Elektroinstalācijas darbi",
-							"unit": ""
 						},
 						{
 							"work": "Kavēšanās",
@@ -383,14 +420,22 @@
 						},
 						{
 							"work": "Santehnikas darbi",
-							"unit": ""
+							"unit": "gab"
+						},
+						{
+							"work": "Smilts pamatnes izlīdzināšana",
+							"unit": "m2"
 						},
 						{
 							"work": "Uzkopšanas darbi",
 							"unit": ""
+						},
+						{
+							"work": "XPS siltumizolācijas ieklāšana, 100 mm",
+							"unit": "m2"
 						}
 					],
-					"unitOptions": ["h", "m2", "m3", "gab"],
+					"unitOptions": ["gab", "h", "m", "m2", "m3"],
 					"contacts": [
 						{
 							"id": "ozolu-contact",
@@ -404,12 +449,12 @@
 							"id": "135ab292-7731-45ef-a34c-4b76b2e72671",
 							"version": 1,
 							"drawingId": "1f2af0e5-05b7-4b66-a2fe-bea550395801",
-							"work": "XPS siltumizolācijas ieklāšana, 100 mm",
+							"work": "Elektroinstalācijas darbi",
 							"location": "2. stāvs",
-							"unit": "m2",
-							"quantity": 76,
-							"startDate": "2026-11-06",
-							"endDate": "2026-11-12",
+							"unit": "m",
+							"quantity": 40,
+							"startDate": "2026-11-14",
+							"endDate": "2026-11-23",
 							"contactId": null,
 							"geometry": {
 								"version": 1,
@@ -419,33 +464,33 @@
 										"page": 1,
 										"polygon": [
 											{
-												"x": 0.4291666666666666,
-												"y": 0.23125
+												"x": 0.439167,
+												"y": 0.225
 											},
 											{
-												"x": 0.5958333333333333,
-												"y": 0.23125
+												"x": 0.725833,
+												"y": 0.225
 											},
 											{
-												"x": 0.5958333333333333,
-												"y": 0.44375
+												"x": 0.725833,
+												"y": 0.53
 											},
 											{
-												"x": 0.4291666666666666,
-												"y": 0.44375
+												"x": 0.439167,
+												"y": 0.53
 											}
 										]
 									}
 								],
-								"section": "A korpuss"
+								"section": "Inženiertīkli"
 							},
 							"geometryReviewRequired": false,
 							"archivedAt": null,
 							"progress": {
 								"actualIds": ["8277c8d0-2a6e-4e23-a442-030242b6b14d"],
-								"actualQuantity": 44,
-								"progressPercent": 57.89473684210527,
-								"variance": -32,
+								"actualQuantity": 38,
+								"progressPercent": 95,
+								"variance": -2,
 								"dataIncomplete": false,
 								"status": "active"
 							},
@@ -455,12 +500,12 @@
 							"id": "ebd365a6-44c1-4d96-a771-dae27789a64b",
 							"version": 1,
 							"drawingId": "1f2af0e5-05b7-4b66-a2fe-bea550395801",
-							"work": "Hidroizolācijas plēves ieklāšana",
+							"work": "Apkures sistēmas un ventilācijas darbi",
 							"location": "2. stāvs",
-							"unit": "m2",
-							"quantity": 88,
-							"startDate": "2026-11-06",
-							"endDate": "2026-11-12",
+							"unit": "gab",
+							"quantity": 2,
+							"startDate": "2026-11-13",
+							"endDate": "2026-11-18",
 							"contactId": null,
 							"geometry": {
 								"version": 1,
@@ -470,49 +515,49 @@
 										"page": 1,
 										"polygon": [
 											{
-												"x": 0.4291666666666666,
-												"y": 0.53125
+												"x": 0.564167,
+												"y": 0.64875
 											},
 											{
-												"x": 0.5958333333333333,
-												"y": 0.53125
+												"x": 0.725833,
+												"y": 0.64875
 											},
 											{
-												"x": 0.5958333333333333,
-												"y": 0.74375
+												"x": 0.725833,
+												"y": 0.79375
 											},
 											{
-												"x": 0.4291666666666666,
-												"y": 0.74375
+												"x": 0.564167,
+												"y": 0.79375
 											}
 										]
 									}
 								],
-								"section": "B korpuss"
+								"section": "Inženiertīkli"
 							},
 							"geometryReviewRequired": false,
 							"archivedAt": null,
 							"progress": {
-								"actualIds": [],
-								"actualQuantity": 0,
-								"progressPercent": 0,
-								"variance": -88,
+								"actualIds": ["91b52b1c-6f43-4484-ab31-ba7db9e1d9e9"],
+								"actualQuantity": 2,
+								"progressPercent": 100,
+								"variance": 0,
 								"dataIncomplete": false,
-								"status": "active"
+								"status": "completed"
 							},
 							"whatsAppSends": []
 						}
 					],
-					"sections": ["A korpuss", "B korpuss"]
+					"sections": ["Koplietošanas telpas", "Inženiertīkli"]
 				},
 				"preview": null
 			},
 			{
 				"drawing": {
 					"id": "09f18b6a-4dbc-4af7-acf4-322af1eb9032",
-					"name": "AR-01 · 1. stāvs grīdu plāns.pdf",
+					"name": "AR-01 · 1. stāva plāns.pdf",
 					"createdAt": "2026-11-08T17:05:12.348Z",
-					"latestDiaryDate": "2026-11-07T12:00:00.000Z",
+					"latestDiaryDate": "2026-11-14T12:00:00.000Z",
 					"state": {
 						"version": 1,
 						"location": "1. stāvs",
@@ -523,74 +568,74 @@
 							{
 								"id": "7683e2be-0d69-459d-a3a9-fcee6b7afe62:0",
 								"recordId": "7683e2be-0d69-459d-a3a9-fcee6b7afe62",
-								"photoUrl": "/demo/source-1-1.svg",
+								"photoUrl": "/demo/house-zone-1-9.png",
 								"work": "Smilts pamatnes izlīdzināšana",
 								"location": "1. stāvs",
-								"description": "1. stāvs, telpa 101.",
-								"date": "2026-11-02T12:00:00.000Z",
-								"amount": 42,
+								"description": "1. stāvs, telpa 101 (koplietošanas telpa). Nolīdzinājām un sablīvējām smilts pamatni. Pārbaudījām atzīmes pie ārdurvīm.",
+								"date": "2026-11-09T12:00:00.000Z",
+								"amount": 26,
 								"unit": "m2",
-								"sourceRevision": "8441e2e3f4f32e22798a3e3d4d6e0c608bc4ce89699c2490bfe5f24e1efd47d0"
+								"sourceRevision": "3dd141426f3cc632d570bba496c5a72a9012bd86b0b016af05f493e36c0b3dbf"
 							},
 							{
 								"id": "d2b1952c-8394-42a7-a5ff-db728bb4bb1f:0",
 								"recordId": "d2b1952c-8394-42a7-a5ff-db728bb4bb1f",
-								"photoUrl": "/demo/source-1-2.svg",
+								"photoUrl": "/demo/house-zone-1-10.png",
 								"work": "XPS siltumizolācijas ieklāšana, 100 mm",
 								"location": "1. stāvs",
-								"description": "1. stāvs, telpa 101.",
-								"date": "2026-11-03T12:00:00.000Z",
-								"amount": 42,
+								"description": "1. stāvs, telpa 101 (koplietošanas telpa). Ieklājām XPS divās kārtās ar nobīdītām šuvēm.",
+								"date": "2026-11-10T12:00:00.000Z",
+								"amount": 26,
 								"unit": "m2",
-								"sourceRevision": "52422e3db2b4127c3ec59ef64763994352de72159db741bacad5f010dea59467"
+								"sourceRevision": "b5a171932b268fbaf934c64fc404a29efbb30acefe8c8226994ef8a9e14d40b5"
 							},
 							{
 								"id": "535669a1-e5d1-4b5f-a018-53065bf91ea4:0",
 								"recordId": "535669a1-e5d1-4b5f-a018-53065bf91ea4",
-								"photoUrl": "/demo/source-1-3.svg",
+								"photoUrl": "/demo/house-zone-1-11.png",
 								"work": "Hidroizolācijas plēves ieklāšana",
 								"location": "1. stāvs",
-								"description": "1. stāvs, telpa 102.",
-								"date": "2026-11-04T12:00:00.000Z",
-								"amount": 38,
+								"description": "1. stāvs, telpa 101 (koplietošanas telpa). Ieklājām un salīmējām PE plēves pārlaidumus. Pie sienām plēvi pacēlām virs grīdas atzīmes.",
+								"date": "2026-11-11T12:00:00.000Z",
+								"amount": 26,
 								"unit": "m2",
-								"sourceRevision": "0f6ca9dca16ae02a69ac55bf94b69c463c4963b7ccf4f74c9510e3bdd8f5b89e"
+								"sourceRevision": "6776209562d4980acdcf95f0277bda4fafc3fa4f9087a4c30cf647d746700228"
 							},
 							{
 								"id": "847b9eda-be7f-4c59-a931-ee72fa9c6aef:0",
 								"recordId": "847b9eda-be7f-4c59-a931-ee72fa9c6aef",
-								"photoUrl": "/demo/source-1-4.svg",
+								"photoUrl": "/demo/house-zone-1-12.png",
 								"work": "Betona grīdas izbūve, 70 mm",
 								"location": "1. stāvs",
-								"description": "1. stāvs, telpa 102.",
-								"date": "2026-11-05T12:00:00.000Z",
-								"amount": 38,
+								"description": "1. stāvs, telpa 101 (koplietošanas telpa). Iestrādājām C25/30 betonu 70 mm slānī. Pārbaudījām grīdas atzīmi pie ieejas.",
+								"date": "2026-11-12T12:00:00.000Z",
+								"amount": 26,
 								"unit": "m2",
-								"sourceRevision": "4f6a64c1971ba755687df5887f27f3d0f735195a6422dd64efbe5dd06ec4e439"
+								"sourceRevision": "14cdf465161368c7da0d5ce81185daba7a61499e9d1f15ee460a2841ef4bbd80"
 							},
 							{
 								"id": "b988fcd6-e68c-430d-a0e2-538f15536e11:0",
 								"recordId": "b988fcd6-e68c-430d-a0e2-538f15536e11",
-								"photoUrl": "/demo/source-1-5.svg",
-								"work": "Smilts pamatnes izlīdzināšana",
+								"photoUrl": "/demo/house-doorway.jpg",
+								"work": "Ailu šuvju aizpildīšana",
 								"location": "1. stāvs",
-								"description": "1. stāvs, telpa 104.",
-								"date": "2026-11-06T12:00:00.000Z",
-								"amount": 46,
-								"unit": "m2",
-								"sourceRevision": "48d9ab7cf50acd947de052d4b0f83f5e30f459a3b498b9e65fee28430d020328"
+								"description": "1. stāvs, telpa 104 (priekštelpa). Aizpildījām ailu montāžas šuves priekštelpā. Foto rāda šuves pie durvju ailes pirms apdares.",
+								"date": "2026-11-13T12:00:00.000Z",
+								"amount": 12,
+								"unit": "m",
+								"sourceRevision": "2e0cc1ab5968d65cbe21dc633619016cea7f87ac548d3a339975e6d71ff5a3ae"
 							},
 							{
 								"id": "4d6ce656-82ff-4fdc-a008-971ea76937e9:0",
 								"recordId": "4d6ce656-82ff-4fdc-a008-971ea76937e9",
-								"photoUrl": "/demo/source-1-6.svg",
-								"work": "XPS siltumizolācijas ieklāšana, 100 mm",
+								"photoUrl": "/demo/house-zone-1-14.png",
+								"work": "Elektroinstalācijas darbi",
 								"location": "1. stāvs",
-								"description": "1. stāvs, telpa 105.",
-								"date": "2026-11-07T12:00:00.000Z",
-								"amount": 44,
-								"unit": "m2",
-								"sourceRevision": "e2b52001519854ee9f3dbcd3cbf04c7a0c3ecfc0cfc6c925f4efa3907d44e73f"
+								"description": "1. stāvs, telpa 102 (virtuve un ēdamzona). Virtuvē izbūvējām rozešu un apgaismojuma līnijas. Sadales galus marķējām.",
+								"date": "2026-11-14T12:00:00.000Z",
+								"amount": 42,
+								"unit": "m",
+								"sourceRevision": "15c5a10292b9bda8e79ce02d47ff60d0d1d4d6f329eb3ca8641579efd51e63b9"
 							}
 						],
 						"marks": [
@@ -599,25 +644,25 @@
 								"page": 1,
 								"polygon": [
 									{
-										"x": 0.25416666666666665,
-										"y": 0.23125
+										"x": 0.1725,
+										"y": 0.225
 									},
 									{
-										"x": 0.42083333333333334,
-										"y": 0.23125
+										"x": 0.425833,
+										"y": 0.225
 									},
 									{
-										"x": 0.42083333333333334,
-										"y": 0.44375
+										"x": 0.425833,
+										"y": 0.53
 									},
 									{
-										"x": 0.25416666666666665,
-										"y": 0.44375
+										"x": 0.1725,
+										"y": 0.53
 									}
 								],
 								"confidence": 1,
 								"anchors": ["Telpa 101", "AR-01"],
-								"explanation": "Darba zona atbilstoši avota rasējumam.",
+								"explanation": "Darba zona pēc telpas numura un žurnāla ieraksta.",
 								"id": "12c439ae-a988-4ef6-aa64-2eed8a95e42e",
 								"layer": "sand"
 							},
@@ -626,25 +671,25 @@
 								"page": 1,
 								"polygon": [
 									{
-										"x": 0.25416666666666665,
-										"y": 0.23125
+										"x": 0.1725,
+										"y": 0.225
 									},
 									{
-										"x": 0.42083333333333334,
-										"y": 0.23125
+										"x": 0.425833,
+										"y": 0.225
 									},
 									{
-										"x": 0.42083333333333334,
-										"y": 0.44375
+										"x": 0.425833,
+										"y": 0.53
 									},
 									{
-										"x": 0.25416666666666665,
-										"y": 0.44375
+										"x": 0.1725,
+										"y": 0.53
 									}
 								],
 								"confidence": 1,
 								"anchors": ["Telpa 101", "AR-01"],
-								"explanation": "Darba zona atbilstoši avota rasējumam.",
+								"explanation": "Darba zona pēc telpas numura un žurnāla ieraksta.",
 								"id": "1bf7c77f-5836-4eea-a21c-0fd26a335946",
 								"layer": "xps"
 							},
@@ -653,25 +698,25 @@
 								"page": 1,
 								"polygon": [
 									{
-										"x": 0.42916666666666664,
-										"y": 0.23125
+										"x": 0.1725,
+										"y": 0.225
 									},
 									{
-										"x": 0.5958333333333333,
-										"y": 0.23125
+										"x": 0.425833,
+										"y": 0.225
 									},
 									{
-										"x": 0.5958333333333333,
-										"y": 0.44375
+										"x": 0.425833,
+										"y": 0.53
 									},
 									{
-										"x": 0.42916666666666664,
-										"y": 0.44375
+										"x": 0.1725,
+										"y": 0.53
 									}
 								],
 								"confidence": 1,
-								"anchors": ["Telpa 102", "AR-01"],
-								"explanation": "Darba zona atbilstoši avota rasējumam.",
+								"anchors": ["Telpa 101", "AR-01"],
+								"explanation": "Darba zona pēc telpas numura un žurnāla ieraksta.",
 								"id": "5b724316-340b-4ee2-adae-74d610d3aafb",
 								"layer": "film"
 							},
@@ -680,25 +725,25 @@
 								"page": 1,
 								"polygon": [
 									{
-										"x": 0.42916666666666664,
-										"y": 0.23125
+										"x": 0.1725,
+										"y": 0.225
 									},
 									{
-										"x": 0.5958333333333333,
-										"y": 0.23125
+										"x": 0.425833,
+										"y": 0.225
 									},
 									{
-										"x": 0.5958333333333333,
-										"y": 0.44375
+										"x": 0.425833,
+										"y": 0.53
 									},
 									{
-										"x": 0.42916666666666664,
-										"y": 0.44375
+										"x": 0.1725,
+										"y": 0.53
 									}
 								],
 								"confidence": 1,
-								"anchors": ["Telpa 102", "AR-01"],
-								"explanation": "Darba zona atbilstoši avota rasējumam.",
+								"anchors": ["Telpa 101", "AR-01"],
+								"explanation": "Darba zona pēc telpas numura un žurnāla ieraksta.",
 								"id": "b369b146-557c-46e3-aff1-46d72f14ea8d",
 								"layer": "estrich"
 							},
@@ -707,54 +752,54 @@
 								"page": 1,
 								"polygon": [
 									{
-										"x": 0.25416666666666665,
-										"y": 0.53125
+										"x": 0.355833,
+										"y": 0.64875
 									},
 									{
-										"x": 0.42083333333333334,
-										"y": 0.53125
+										"x": 0.550833,
+										"y": 0.64875
 									},
 									{
-										"x": 0.42083333333333334,
-										"y": 0.74375
+										"x": 0.550833,
+										"y": 0.79375
 									},
 									{
-										"x": 0.25416666666666665,
-										"y": 0.74375
+										"x": 0.355833,
+										"y": 0.79375
 									}
 								],
 								"confidence": 1,
 								"anchors": ["Telpa 104", "AR-01"],
-								"explanation": "Darba zona atbilstoši avota rasējumam.",
+								"explanation": "Darba zona pēc telpas numura un žurnāla ieraksta.",
 								"id": "ad1848c9-847a-4eb4-a642-6ebec07b7628",
-								"layer": "sand"
+								"layer": "custom-joints"
 							},
 							{
 								"evidenceId": "4d6ce656-82ff-4fdc-a008-971ea76937e9:0",
 								"page": 1,
 								"polygon": [
 									{
-										"x": 0.42916666666666664,
-										"y": 0.53125
+										"x": 0.439167,
+										"y": 0.225
 									},
 									{
-										"x": 0.5958333333333333,
-										"y": 0.53125
+										"x": 0.725833,
+										"y": 0.225
 									},
 									{
-										"x": 0.5958333333333333,
-										"y": 0.74375
+										"x": 0.725833,
+										"y": 0.53
 									},
 									{
-										"x": 0.42916666666666664,
-										"y": 0.74375
+										"x": 0.439167,
+										"y": 0.53
 									}
 								],
 								"confidence": 1,
-								"anchors": ["Telpa 105", "AR-01"],
-								"explanation": "Darba zona atbilstoši avota rasējumam.",
+								"anchors": ["Telpa 102", "AR-01"],
+								"explanation": "Darba zona pēc telpas numura un žurnāla ieraksta.",
 								"id": "83beed8d-d249-4a6d-aafd-b2272af334f1",
-								"layer": "xps"
+								"layer": "custom-electric"
 							}
 						],
 						"unlocated": [],
@@ -764,32 +809,28 @@
 					}
 				},
 				"planning": {
-					"today": "2026-11-09",
+					"today": "2026-11-20",
 					"location": "1. stāvs",
 					"workOptions": [
+						{
+							"work": "Ailu šuvju aizpildīšana",
+							"unit": "m"
+						},
+						{
+							"work": "Apkures sistēmas un ventilācijas darbi",
+							"unit": "gab"
+						},
 						{
 							"work": "Betona grīdas izbūve, 70 mm",
 							"unit": "m2"
 						},
 						{
+							"work": "Elektroinstalācijas darbi",
+							"unit": "m"
+						},
+						{
 							"work": "Hidroizolācijas plēves ieklāšana",
 							"unit": "m2"
-						},
-						{
-							"work": "Smilts pamatnes izlīdzināšana",
-							"unit": "m2"
-						},
-						{
-							"work": "XPS siltumizolācijas ieklāšana, 100 mm",
-							"unit": "m2"
-						},
-						{
-							"work": "Apkures sistēmas un ventilācijas darbi",
-							"unit": ""
-						},
-						{
-							"work": "Elektroinstalācijas darbi",
-							"unit": ""
 						},
 						{
 							"work": "Kavēšanās",
@@ -809,14 +850,22 @@
 						},
 						{
 							"work": "Santehnikas darbi",
-							"unit": ""
+							"unit": "gab"
+						},
+						{
+							"work": "Smilts pamatnes izlīdzināšana",
+							"unit": "m2"
 						},
 						{
 							"work": "Uzkopšanas darbi",
 							"unit": ""
+						},
+						{
+							"work": "XPS siltumizolācijas ieklāšana, 100 mm",
+							"unit": "m2"
 						}
 					],
-					"unitOptions": ["h", "m2", "m3", "gab"],
+					"unitOptions": ["gab", "h", "m", "m2", "m3"],
 					"contacts": [
 						{
 							"id": "ozolu-contact",
@@ -830,12 +879,12 @@
 							"id": "4655d352-e5bf-4a85-af0c-b218db38c6b7",
 							"version": 1,
 							"drawingId": "09f18b6a-4dbc-4af7-acf4-322af1eb9032",
-							"work": "Hidroizolācijas plēves ieklāšana",
+							"work": "Elektroinstalācijas darbi",
 							"location": "1. stāvs",
-							"unit": "m2",
-							"quantity": 88,
-							"startDate": "2026-11-06",
-							"endDate": "2026-11-12",
+							"unit": "m",
+							"quantity": 62,
+							"startDate": "2026-11-14",
+							"endDate": "2026-11-23",
 							"contactId": null,
 							"geometry": {
 								"version": 1,
@@ -845,33 +894,33 @@
 										"page": 1,
 										"polygon": [
 											{
-												"x": 0.4291666666666666,
-												"y": 0.53125
+												"x": 0.439167,
+												"y": 0.225
 											},
 											{
-												"x": 0.5958333333333333,
-												"y": 0.53125
+												"x": 0.725833,
+												"y": 0.225
 											},
 											{
-												"x": 0.5958333333333333,
-												"y": 0.74375
+												"x": 0.725833,
+												"y": 0.53
 											},
 											{
-												"x": 0.4291666666666666,
-												"y": 0.74375
+												"x": 0.439167,
+												"y": 0.53
 											}
 										]
 									}
 								],
-								"section": "B korpuss"
+								"section": "Inženiertīkli"
 							},
 							"geometryReviewRequired": false,
 							"archivedAt": null,
 							"progress": {
-								"actualIds": [],
-								"actualQuantity": 0,
-								"progressPercent": 0,
-								"variance": -88,
+								"actualIds": ["4d6ce656-82ff-4fdc-a008-971ea76937e9"],
+								"actualQuantity": 42,
+								"progressPercent": 67.74193548387096,
+								"variance": -20,
 								"dataIncomplete": false,
 								"status": "active"
 							},
@@ -881,12 +930,12 @@
 							"id": "beef2e5d-01f9-470c-abb0-3f986960259b",
 							"version": 1,
 							"drawingId": "09f18b6a-4dbc-4af7-acf4-322af1eb9032",
-							"work": "XPS siltumizolācijas ieklāšana, 100 mm",
+							"work": "Ailu šuvju aizpildīšana",
 							"location": "1. stāvs",
-							"unit": "m2",
-							"quantity": 76,
-							"startDate": "2026-11-06",
-							"endDate": "2026-11-12",
+							"unit": "m",
+							"quantity": 12,
+							"startDate": "2026-11-13",
+							"endDate": "2026-11-16",
 							"contactId": null,
 							"geometry": {
 								"version": 1,
@@ -896,40 +945,40 @@
 										"page": 1,
 										"polygon": [
 											{
-												"x": 0.4291666666666666,
-												"y": 0.23125
+												"x": 0.355833,
+												"y": 0.64875
 											},
 											{
-												"x": 0.5958333333333333,
-												"y": 0.23125
+												"x": 0.550833,
+												"y": 0.64875
 											},
 											{
-												"x": 0.5958333333333333,
-												"y": 0.44375
+												"x": 0.550833,
+												"y": 0.79375
 											},
 											{
-												"x": 0.4291666666666666,
-												"y": 0.44375
+												"x": 0.355833,
+												"y": 0.79375
 											}
 										]
 									}
 								],
-								"section": "A korpuss"
+								"section": "Koplietošanas telpas"
 							},
 							"geometryReviewRequired": false,
 							"archivedAt": null,
 							"progress": {
-								"actualIds": ["4d6ce656-82ff-4fdc-a008-971ea76937e9"],
-								"actualQuantity": 44,
-								"progressPercent": 57.89473684210527,
-								"variance": -32,
+								"actualIds": ["b988fcd6-e68c-430d-a0e2-538f15536e11"],
+								"actualQuantity": 12,
+								"progressPercent": 100,
+								"variance": 0,
 								"dataIncomplete": false,
-								"status": "active"
+								"status": "completed"
 							},
 							"whatsAppSends": []
 						}
 					],
-					"sections": ["A korpuss", "B korpuss"]
+					"sections": ["Koplietošanas telpas", "Inženiertīkli"]
 				},
 				"preview": null
 			}
@@ -938,29 +987,29 @@
 			"rows": [
 				{
 					"id": "8277c8d0-2a6e-4e23-a442-030242b6b14d",
-					"createdAt": "2026-11-08T17:05:12.249Z",
-					"Date": "2026-11-07T12:00:00.000Z",
+					"createdAt": "2026-11-14T16:20:00.000Z",
+					"Date": "2026-11-14T12:00:00.000Z",
 					"Date_Custom_1": null,
 					"Date_Custom_2": null,
 					"Location": "2. stāvs",
 					"Location_Custom_1": "",
 					"Location_Custom_2": "",
-					"Works": "XPS siltumizolācijas ieklāšana, 100 mm",
-					"Works_Custom_1": "2. stāvs, telpa 205. Pabeigta xps siltumizolācijas ieklāšana, 100 mm. Veikts 44 m² apjomā.",
+					"Works": "Elektroinstalācijas darbi",
+					"Works_Custom_1": "2. stāvs, telpa 202 (darba telpa). Darba telpā pabeidzām rozešu līniju vilkšanu un marķēšanu pie sadalnes.",
 					"Works_Custom_2": "08:00–16:30",
-					"Comments": "2. stāvs, telpa 205.",
-					"Comments_Custom_1": "",
+					"Comments": "2. stāvs, telpa 202 (darba telpa). Darba telpā pabeidzām rozešu līniju vilkšanu un marķēšanu pie sadalnes.",
+					"Comments_Custom_1": "38",
 					"Comments_Custom_2": "",
-					"Units": "m2",
-					"Amounts": "44",
+					"Units": "m",
+					"Amounts": "38",
 					"WorkersInvolved": "4",
 					"TimeInvolved": "4",
 					"pausedAt": null,
 					"pauseIntervals": [],
-					"Photos": ["/demo/source-2-6.svg"],
+					"Photos": ["/demo/house-zone-2-14.png"],
 					"BISId": null,
 					"bisStatus": null,
-					"originalUserComment": "2026-11-07. 2. stāvs, telpa 205. XPS siltumizolācijas ieklāšana, 100 mm, 44 m². Brigādē 4 cilvēki.",
+					"originalUserComment": "2. stāvs, telpa 202 (darba telpa). Darba telpā pabeidzām rozešu līniju vilkšanu un marķēšanu pie sadalnes. Apjoms 38 m. Četri cilvēki, četras stundas.",
 					"originalAudioUrl": "",
 					"createdBy": "Jānis Ozols",
 					"beginSalaryAllocation": {
@@ -978,15 +1027,15 @@
 						"status": "ready_for_approval",
 						"materials": [
 							{
-								"id": "6",
-								"unit": "m²",
-								"label": "XPS 100 mm",
-								"quantity": 44
+								"id": "4993ba40-d988-51c1-b4f6-33d74dd53193",
+								"label": "NYM-J kabelis 3 × 1,5 mm²",
+								"quantity": 38,
+								"unit": "m"
 							}
 						],
 						"history": [
 							{
-								"at": "2026-11-09T07:59:09.608Z",
+								"at": "2026-11-14T16:30:00.000Z",
 								"id": "61c4a22e-9aa3-49d8-b257-cae4e19a4a21",
 								"kind": "status",
 								"text": "Rīcība: Sūtīt uz apstiprināšanu",
@@ -1000,29 +1049,29 @@
 				},
 				{
 					"id": "4d6ce656-82ff-4fdc-a008-971ea76937e9",
-					"createdAt": "2026-11-08T17:05:11.714Z",
-					"Date": "2026-11-07T12:00:00.000Z",
+					"createdAt": "2026-11-14T16:20:00.000Z",
+					"Date": "2026-11-14T12:00:00.000Z",
 					"Date_Custom_1": null,
 					"Date_Custom_2": null,
 					"Location": "1. stāvs",
 					"Location_Custom_1": "",
 					"Location_Custom_2": "",
-					"Works": "XPS siltumizolācijas ieklāšana, 100 mm",
-					"Works_Custom_1": "1. stāvs, telpa 105. Pabeigta xps siltumizolācijas ieklāšana, 100 mm. Veikts 44 m² apjomā.",
+					"Works": "Elektroinstalācijas darbi",
+					"Works_Custom_1": "1. stāvs, telpa 102 (virtuve un ēdamzona). Virtuvē izbūvējām rozešu un apgaismojuma līnijas. Sadales galus marķējām.",
 					"Works_Custom_2": "08:00–16:30",
-					"Comments": "1. stāvs, telpa 105.",
-					"Comments_Custom_1": "",
+					"Comments": "1. stāvs, telpa 102 (virtuve un ēdamzona). Virtuvē izbūvējām rozešu un apgaismojuma līnijas. Sadales galus marķējām.",
+					"Comments_Custom_1": "42",
 					"Comments_Custom_2": "",
-					"Units": "m2",
-					"Amounts": "44",
+					"Units": "m",
+					"Amounts": "42",
 					"WorkersInvolved": "4",
 					"TimeInvolved": "4",
 					"pausedAt": null,
 					"pauseIntervals": [],
-					"Photos": ["/demo/source-1-6.svg"],
+					"Photos": ["/demo/house-zone-1-14.png"],
 					"BISId": null,
 					"bisStatus": null,
-					"originalUserComment": "2026-11-07. 1. stāvs, telpa 105. XPS siltumizolācijas ieklāšana, 100 mm, 44 m². Brigādē 4 cilvēki.",
+					"originalUserComment": "1. stāvs, telpa 102 (virtuve un ēdamzona). Virtuvē izbūvējām rozešu un apgaismojuma līnijas. Sadales galus marķējām. Apjoms 42 m. Četri cilvēki, četras stundas.",
 					"originalAudioUrl": "",
 					"createdBy": "Jānis Ozols",
 					"beginSalaryAllocation": {
@@ -1040,10 +1089,10 @@
 						"status": "needs_changes",
 						"materials": [
 							{
-								"id": "6",
-								"unit": "m²",
-								"label": "XPS 100 mm",
-								"quantity": 44
+								"id": "4993ba40-d988-51c1-b4f6-33d74dd53193",
+								"label": "NYM-J kabelis 3 × 1,5 mm²",
+								"quantity": 42,
+								"unit": "m"
 							}
 						],
 						"history": []
@@ -1051,29 +1100,29 @@
 				},
 				{
 					"id": "91b52b1c-6f43-4484-ab31-ba7db9e1d9e9",
-					"createdAt": "2026-11-08T17:05:12.165Z",
-					"Date": "2026-11-06T12:00:00.000Z",
+					"createdAt": "2026-11-13T16:20:00.000Z",
+					"Date": "2026-11-13T12:00:00.000Z",
 					"Date_Custom_1": null,
 					"Date_Custom_2": null,
 					"Location": "2. stāvs",
 					"Location_Custom_1": "",
 					"Location_Custom_2": "",
-					"Works": "Smilts pamatnes izlīdzināšana",
-					"Works_Custom_1": "2. stāvs, telpa 204. Pabeigta smilts pamatnes izlīdzināšana. Veikts 46 m² apjomā.",
+					"Works": "Apkures sistēmas un ventilācijas darbi",
+					"Works_Custom_1": "2. stāvs, telpa 205 (kāpņu telpa). Uzstādījām divus siltinātus Ø125 ventilācijas izvadus virs kāpņu telpas.",
 					"Works_Custom_2": "08:00–16:30",
-					"Comments": "2. stāvs, telpa 204.",
-					"Comments_Custom_1": "",
+					"Comments": "2. stāvs, telpa 205 (kāpņu telpa). Uzstādījām divus siltinātus Ø125 ventilācijas izvadus virs kāpņu telpas.",
+					"Comments_Custom_1": "2",
 					"Comments_Custom_2": "",
-					"Units": "m2",
-					"Amounts": "46",
+					"Units": "gab",
+					"Amounts": "2",
 					"WorkersInvolved": "4",
 					"TimeInvolved": "4",
 					"pausedAt": null,
 					"pauseIntervals": [],
-					"Photos": ["/demo/source-2-5.svg"],
+					"Photos": ["/demo/house-zone-2-13.png"],
 					"BISId": null,
 					"bisStatus": null,
-					"originalUserComment": "2026-11-06. 2. stāvs, telpa 204. Smilts pamatnes izlīdzināšana, 46 m². Brigādē 4 cilvēki.",
+					"originalUserComment": "2. stāvs, telpa 205 (kāpņu telpa). Uzstādījām divus siltinātus Ø125 ventilācijas izvadus virs kāpņu telpas. Apjoms 2 gab. Četri cilvēki, četras stundas.",
 					"originalAudioUrl": "",
 					"createdBy": "Jānis Ozols",
 					"beginSalaryAllocation": {
@@ -1091,10 +1140,10 @@
 						"status": "ai_prepared",
 						"materials": [
 							{
-								"id": "5",
-								"unit": "m²",
-								"label": "Smilts",
-								"quantity": 46
+								"id": "7b247f03-01a9-5c6a-b40e-d69d5fd2243e",
+								"label": "Siltināts ventilācijas izvads Ø125",
+								"quantity": 2,
+								"unit": "gab"
 							}
 						],
 						"history": []
@@ -1102,29 +1151,29 @@
 				},
 				{
 					"id": "b988fcd6-e68c-430d-a0e2-538f15536e11",
-					"createdAt": "2026-11-08T17:05:11.626Z",
-					"Date": "2026-11-06T12:00:00.000Z",
+					"createdAt": "2026-11-13T16:20:00.000Z",
+					"Date": "2026-11-13T12:00:00.000Z",
 					"Date_Custom_1": null,
 					"Date_Custom_2": null,
 					"Location": "1. stāvs",
 					"Location_Custom_1": "",
 					"Location_Custom_2": "",
-					"Works": "Smilts pamatnes izlīdzināšana",
-					"Works_Custom_1": "1. stāvs, telpa 104. Pabeigta smilts pamatnes izlīdzināšana. Veikts 46 m² apjomā.",
+					"Works": "Ailu šuvju aizpildīšana",
+					"Works_Custom_1": "1. stāvs, telpa 104 (priekštelpa). Aizpildījām ailu montāžas šuves priekštelpā. Foto rāda šuves pie durvju ailes pirms apdares.",
 					"Works_Custom_2": "08:00–16:30",
-					"Comments": "1. stāvs, telpa 104.",
-					"Comments_Custom_1": "",
+					"Comments": "1. stāvs, telpa 104 (priekštelpa). Aizpildījām ailu montāžas šuves priekštelpā. Foto rāda šuves pie durvju ailes pirms apdares.",
+					"Comments_Custom_1": "12",
 					"Comments_Custom_2": "",
-					"Units": "m2",
-					"Amounts": "46",
+					"Units": "m",
+					"Amounts": "12",
 					"WorkersInvolved": "4",
 					"TimeInvolved": "4",
 					"pausedAt": null,
 					"pauseIntervals": [],
-					"Photos": ["/demo/source-1-5.svg"],
+					"Photos": ["/demo/house-doorway.jpg"],
 					"BISId": null,
 					"bisStatus": null,
-					"originalUserComment": "2026-11-06. 1. stāvs, telpa 104. Smilts pamatnes izlīdzināšana, 46 m². Brigādē 4 cilvēki.",
+					"originalUserComment": "1. stāvs, telpa 104 (priekštelpa). Aizpildījām ailu montāžas šuves priekštelpā. Foto rāda šuves pie durvju ailes pirms apdares. Apjoms 12 m. Četri cilvēki, četras stundas.",
 					"originalAudioUrl": "",
 					"createdBy": "Jānis Ozols",
 					"beginSalaryAllocation": {
@@ -1142,10 +1191,10 @@
 						"status": "ai_prepared",
 						"materials": [
 							{
-								"id": "5",
-								"unit": "m²",
-								"label": "Smilts",
-								"quantity": 46
+								"id": "8f2b48a0-9bfe-5e23-a7f7-1624a8c2f881",
+								"label": "Minerālvates sloksnes ailu šuvēm",
+								"quantity": 12,
+								"unit": "m"
 							}
 						],
 						"history": []
@@ -1153,29 +1202,29 @@
 				},
 				{
 					"id": "af009acc-371f-4191-a719-7f07f5b8e127",
-					"createdAt": "2026-11-08T17:05:12.075Z",
-					"Date": "2026-11-05T12:00:00.000Z",
+					"createdAt": "2026-11-12T16:20:00.000Z",
+					"Date": "2026-11-12T12:00:00.000Z",
 					"Date_Custom_1": null,
 					"Date_Custom_2": null,
 					"Location": "2. stāvs",
 					"Location_Custom_1": "",
 					"Location_Custom_2": "",
 					"Works": "Betona grīdas izbūve, 70 mm",
-					"Works_Custom_1": "2. stāvs, telpa 202. Pabeigta betona grīdas izbūve, 70 mm. Veikts 38 m² apjomā.",
+					"Works_Custom_1": "2. stāvs, telpa 202 (darba telpa). Uz iepriekš sagatavotās pamatnes izbūvējām 70 mm betona grīdu.",
 					"Works_Custom_2": "08:00–16:30",
-					"Comments": "2. stāvs, telpa 202.",
-					"Comments_Custom_1": "",
+					"Comments": "2. stāvs, telpa 202 (darba telpa). Uz iepriekš sagatavotās pamatnes izbūvējām 70 mm betona grīdu.",
+					"Comments_Custom_1": "29",
 					"Comments_Custom_2": "",
 					"Units": "m2",
-					"Amounts": "38",
+					"Amounts": "29",
 					"WorkersInvolved": "4",
 					"TimeInvolved": "4",
 					"pausedAt": null,
 					"pauseIntervals": [],
-					"Photos": ["/demo/source-2-4.svg"],
+					"Photos": ["/demo/house-zone-2-12.png"],
 					"BISId": null,
 					"bisStatus": null,
-					"originalUserComment": "2026-11-05. 2. stāvs, telpa 202. Betona grīdas izbūve, 70 mm, 38 m². Brigādē 4 cilvēki.",
+					"originalUserComment": "2. stāvs, telpa 202 (darba telpa). Uz iepriekš sagatavotās pamatnes izbūvējām 70 mm betona grīdu. Apjoms 29 m2. Četri cilvēki, četras stundas.",
 					"originalAudioUrl": "",
 					"createdBy": "Jānis Ozols",
 					"beginSalaryAllocation": {
@@ -1193,10 +1242,10 @@
 						"status": "updated",
 						"materials": [
 							{
-								"id": "4",
-								"unit": "m³",
+								"id": "6fe9c533-12eb-5743-a487-0c11f370415e",
 								"label": "Betons C25/30",
-								"quantity": 2.66
+								"quantity": 2.03,
+								"unit": "m3"
 							}
 						],
 						"history": []
@@ -1204,29 +1253,29 @@
 				},
 				{
 					"id": "847b9eda-be7f-4c59-a931-ee72fa9c6aef",
-					"createdAt": "2026-11-08T17:05:11.538Z",
-					"Date": "2026-11-05T12:00:00.000Z",
+					"createdAt": "2026-11-12T16:20:00.000Z",
+					"Date": "2026-11-12T12:00:00.000Z",
 					"Date_Custom_1": null,
 					"Date_Custom_2": null,
 					"Location": "1. stāvs",
 					"Location_Custom_1": "",
 					"Location_Custom_2": "",
 					"Works": "Betona grīdas izbūve, 70 mm",
-					"Works_Custom_1": "1. stāvs, telpa 102. Pabeigta betona grīdas izbūve, 70 mm. Veikts 38 m² apjomā.",
+					"Works_Custom_1": "1. stāvs, telpa 101 (koplietošanas telpa). Iestrādājām C25/30 betonu 70 mm slānī. Pārbaudījām grīdas atzīmi pie ieejas.",
 					"Works_Custom_2": "08:00–16:30",
-					"Comments": "1. stāvs, telpa 102.",
-					"Comments_Custom_1": "",
+					"Comments": "1. stāvs, telpa 101 (koplietošanas telpa). Iestrādājām C25/30 betonu 70 mm slānī. Pārbaudījām grīdas atzīmi pie ieejas.",
+					"Comments_Custom_1": "26",
 					"Comments_Custom_2": "",
 					"Units": "m2",
-					"Amounts": "38",
+					"Amounts": "26",
 					"WorkersInvolved": "4",
 					"TimeInvolved": "4",
 					"pausedAt": null,
 					"pauseIntervals": [],
-					"Photos": ["/demo/source-1-4.svg"],
+					"Photos": ["/demo/house-zone-1-12.png"],
 					"BISId": null,
 					"bisStatus": null,
-					"originalUserComment": "2026-11-05. 1. stāvs, telpa 102. Betona grīdas izbūve, 70 mm, 38 m². Brigādē 4 cilvēki.",
+					"originalUserComment": "1. stāvs, telpa 101 (koplietošanas telpa). Iestrādājām C25/30 betonu 70 mm slānī. Pārbaudījām grīdas atzīmi pie ieejas. Apjoms 26 m2. Četri cilvēki, četras stundas.",
 					"originalAudioUrl": "",
 					"createdBy": "Jānis Ozols",
 					"beginSalaryAllocation": {
@@ -1244,10 +1293,10 @@
 						"status": "updated",
 						"materials": [
 							{
-								"id": "4",
-								"unit": "m³",
+								"id": "6fe9c533-12eb-5743-a487-0c11f370415e",
 								"label": "Betons C25/30",
-								"quantity": 2.66
+								"quantity": 1.82,
+								"unit": "m3"
 							}
 						],
 						"history": []
@@ -1255,29 +1304,29 @@
 				},
 				{
 					"id": "f2961dc4-9ad0-4696-aeea-97f12793eedf",
-					"createdAt": "2026-11-08T17:05:11.983Z",
-					"Date": "2026-11-04T12:00:00.000Z",
+					"createdAt": "2026-11-11T16:20:00.000Z",
+					"Date": "2026-11-11T12:00:00.000Z",
 					"Date_Custom_1": null,
 					"Date_Custom_2": null,
 					"Location": "2. stāvs",
 					"Location_Custom_1": "",
 					"Location_Custom_2": "",
-					"Works": "Hidroizolācijas plēves ieklāšana",
-					"Works_Custom_1": "2. stāvs, telpa 202. Pabeigta hidroizolācijas plēves ieklāšana. Veikts 38 m² apjomā.",
+					"Works": "Santehnikas darbi",
+					"Works_Custom_1": "2. stāvs, telpa 203 (sanmezgls). Samontējām aukstā ūdens atzarus. Savienojumus atstājām redzamus spiediena pārbaudei.",
 					"Works_Custom_2": "08:00–16:30",
-					"Comments": "2. stāvs, telpa 202.",
-					"Comments_Custom_1": "",
+					"Comments": "2. stāvs, telpa 203 (sanmezgls). Samontējām aukstā ūdens atzarus. Savienojumus atstājām redzamus spiediena pārbaudei.",
+					"Comments_Custom_1": "6",
 					"Comments_Custom_2": "",
-					"Units": "m2",
-					"Amounts": "38",
+					"Units": "gab",
+					"Amounts": "6",
 					"WorkersInvolved": "4",
 					"TimeInvolved": "4",
 					"pausedAt": null,
 					"pauseIntervals": [],
-					"Photos": ["/demo/source-2-3.svg"],
+					"Photos": ["/demo/house-zone-2-11.png"],
 					"BISId": null,
 					"bisStatus": null,
-					"originalUserComment": "2026-11-04. 2. stāvs, telpa 202. Hidroizolācijas plēves ieklāšana, 38 m². Brigādē 4 cilvēki.",
+					"originalUserComment": "2. stāvs, telpa 203 (sanmezgls). Samontējām aukstā ūdens atzarus. Savienojumus atstājām redzamus spiediena pārbaudei. Apjoms 6 gab. Četri cilvēki, četras stundas.",
 					"originalAudioUrl": "",
 					"createdBy": "Jānis Ozols",
 					"beginSalaryAllocation": {
@@ -1295,10 +1344,10 @@
 						"status": "needs_changes",
 						"materials": [
 							{
-								"id": "3",
-								"unit": "m²",
-								"label": "PE plēve",
-								"quantity": 38
+								"id": "6c022de9-5136-5bef-b1f7-6622329bafcb",
+								"label": "PPR trejgabals Ø20",
+								"quantity": 6,
+								"unit": "gab"
 							}
 						],
 						"history": []
@@ -1306,29 +1355,29 @@
 				},
 				{
 					"id": "535669a1-e5d1-4b5f-a018-53065bf91ea4",
-					"createdAt": "2026-11-08T17:05:11.450Z",
-					"Date": "2026-11-04T12:00:00.000Z",
+					"createdAt": "2026-11-11T16:20:00.000Z",
+					"Date": "2026-11-11T12:00:00.000Z",
 					"Date_Custom_1": null,
 					"Date_Custom_2": null,
 					"Location": "1. stāvs",
 					"Location_Custom_1": "",
 					"Location_Custom_2": "",
 					"Works": "Hidroizolācijas plēves ieklāšana",
-					"Works_Custom_1": "1. stāvs, telpa 102. Pabeigta hidroizolācijas plēves ieklāšana. Veikts 38 m² apjomā.",
+					"Works_Custom_1": "1. stāvs, telpa 101 (koplietošanas telpa). Ieklājām un salīmējām PE plēves pārlaidumus. Pie sienām plēvi pacēlām virs grīdas atzīmes.",
 					"Works_Custom_2": "08:00–16:30",
-					"Comments": "1. stāvs, telpa 102.",
-					"Comments_Custom_1": "",
+					"Comments": "1. stāvs, telpa 101 (koplietošanas telpa). Ieklājām un salīmējām PE plēves pārlaidumus. Pie sienām plēvi pacēlām virs grīdas atzīmes.",
+					"Comments_Custom_1": "26",
 					"Comments_Custom_2": "",
 					"Units": "m2",
-					"Amounts": "38",
+					"Amounts": "26",
 					"WorkersInvolved": "4",
 					"TimeInvolved": "4",
 					"pausedAt": null,
 					"pauseIntervals": [],
-					"Photos": ["/demo/source-1-3.svg"],
+					"Photos": ["/demo/house-zone-1-11.png"],
 					"BISId": null,
 					"bisStatus": null,
-					"originalUserComment": "2026-11-04. 1. stāvs, telpa 102. Hidroizolācijas plēves ieklāšana, 38 m². Brigādē 4 cilvēki.",
+					"originalUserComment": "1. stāvs, telpa 101 (koplietošanas telpa). Ieklājām un salīmējām PE plēves pārlaidumus. Pie sienām plēvi pacēlām virs grīdas atzīmes. Apjoms 26 m2. Četri cilvēki, četras stundas.",
 					"originalAudioUrl": "",
 					"createdBy": "Jānis Ozols",
 					"beginSalaryAllocation": {
@@ -1346,10 +1395,10 @@
 						"status": "needs_changes",
 						"materials": [
 							{
-								"id": "3",
-								"unit": "m²",
-								"label": "PE plēve",
-								"quantity": 38
+								"id": "f1c7a0d8-8fc7-5854-8c9b-0c2321f2679e",
+								"label": "PE hidroizolācijas plēve 0,2 mm",
+								"quantity": 26,
+								"unit": "m2"
 							}
 						],
 						"history": []
@@ -1357,29 +1406,29 @@
 				},
 				{
 					"id": "dea2288d-8467-4c88-aa3a-2ca6a6b233b2",
-					"createdAt": "2026-11-08T17:05:11.897Z",
-					"Date": "2026-11-03T12:00:00.000Z",
+					"createdAt": "2026-11-10T16:20:00.000Z",
+					"Date": "2026-11-10T12:00:00.000Z",
 					"Date_Custom_1": null,
 					"Date_Custom_2": null,
 					"Location": "2. stāvs",
 					"Location_Custom_1": "",
 					"Location_Custom_2": "",
-					"Works": "XPS siltumizolācijas ieklāšana, 100 mm",
-					"Works_Custom_1": "2. stāvs, telpa 201. Pabeigta xps siltumizolācijas ieklāšana, 100 mm. Veikts 42 m² apjomā.",
+					"Works": "Elektroinstalācijas darbi",
+					"Works_Custom_1": "2. stāvs, telpa 201 (kabinets). Ievilkām apgaismojuma kabeļus gofrētajās caurulēs līdz sadalnei.",
 					"Works_Custom_2": "08:00–16:30",
-					"Comments": "2. stāvs, telpa 201.",
-					"Comments_Custom_1": "",
+					"Comments": "2. stāvs, telpa 201 (kabinets). Ievilkām apgaismojuma kabeļus gofrētajās caurulēs līdz sadalnei.",
+					"Comments_Custom_1": "32",
 					"Comments_Custom_2": "",
-					"Units": "m2",
-					"Amounts": "42",
+					"Units": "m",
+					"Amounts": "32",
 					"WorkersInvolved": "4",
 					"TimeInvolved": "4",
 					"pausedAt": null,
 					"pauseIntervals": [],
-					"Photos": ["/demo/source-2-2.svg"],
+					"Photos": ["/demo/house-zone-2-10.png"],
 					"BISId": null,
 					"bisStatus": null,
-					"originalUserComment": "2026-11-03. 2. stāvs, telpa 201. XPS siltumizolācijas ieklāšana, 100 mm, 42 m². Brigādē 4 cilvēki.",
+					"originalUserComment": "2. stāvs, telpa 201 (kabinets). Ievilkām apgaismojuma kabeļus gofrētajās caurulēs līdz sadalnei. Apjoms 32 m. Četri cilvēki, četras stundas.",
 					"originalAudioUrl": "",
 					"createdBy": "Jānis Ozols",
 					"beginSalaryAllocation": {
@@ -1397,10 +1446,10 @@
 						"status": "ai_prepared",
 						"materials": [
 							{
-								"id": "2",
-								"unit": "m²",
-								"label": "XPS 100 mm",
-								"quantity": 42
+								"id": "4993ba40-d988-51c1-b4f6-33d74dd53193",
+								"label": "NYM-J kabelis 3 × 1,5 mm²",
+								"quantity": 32,
+								"unit": "m"
 							}
 						],
 						"history": []
@@ -1408,29 +1457,29 @@
 				},
 				{
 					"id": "d2b1952c-8394-42a7-a5ff-db728bb4bb1f",
-					"createdAt": "2026-11-08T17:05:11.364Z",
-					"Date": "2026-11-03T12:00:00.000Z",
+					"createdAt": "2026-11-10T16:20:00.000Z",
+					"Date": "2026-11-10T12:00:00.000Z",
 					"Date_Custom_1": null,
 					"Date_Custom_2": null,
 					"Location": "1. stāvs",
 					"Location_Custom_1": "",
 					"Location_Custom_2": "",
 					"Works": "XPS siltumizolācijas ieklāšana, 100 mm",
-					"Works_Custom_1": "1. stāvs, telpa 101. Pabeigta xps siltumizolācijas ieklāšana, 100 mm. Veikts 42 m² apjomā.",
+					"Works_Custom_1": "1. stāvs, telpa 101 (koplietošanas telpa). Ieklājām XPS divās kārtās ar nobīdītām šuvēm.",
 					"Works_Custom_2": "08:00–16:30",
-					"Comments": "1. stāvs, telpa 101.",
-					"Comments_Custom_1": "",
+					"Comments": "1. stāvs, telpa 101 (koplietošanas telpa). Ieklājām XPS divās kārtās ar nobīdītām šuvēm.",
+					"Comments_Custom_1": "26",
 					"Comments_Custom_2": "",
 					"Units": "m2",
-					"Amounts": "42",
+					"Amounts": "26",
 					"WorkersInvolved": "4",
 					"TimeInvolved": "4",
 					"pausedAt": null,
 					"pauseIntervals": [],
-					"Photos": ["/demo/source-1-2.svg"],
+					"Photos": ["/demo/house-zone-1-10.png"],
 					"BISId": null,
 					"bisStatus": null,
-					"originalUserComment": "2026-11-03. 1. stāvs, telpa 101. XPS siltumizolācijas ieklāšana, 100 mm, 42 m². Brigādē 4 cilvēki.",
+					"originalUserComment": "1. stāvs, telpa 101 (koplietošanas telpa). Ieklājām XPS divās kārtās ar nobīdītām šuvēm. Apjoms 26 m2. Četri cilvēki, četras stundas.",
 					"originalAudioUrl": "",
 					"createdBy": "Jānis Ozols",
 					"beginSalaryAllocation": {
@@ -1448,10 +1497,10 @@
 						"status": "ai_prepared",
 						"materials": [
 							{
-								"id": "2",
-								"unit": "m²",
+								"id": "71fbe761-ea05-5415-b793-ea90c5904117",
 								"label": "XPS 100 mm",
-								"quantity": 42
+								"quantity": 26,
+								"unit": "m2"
 							}
 						],
 						"history": []
@@ -1459,29 +1508,29 @@
 				},
 				{
 					"id": "b74a973f-e518-4e65-a00f-7e6644e31f96",
-					"createdAt": "2026-11-08T17:05:11.809Z",
-					"Date": "2026-11-02T12:00:00.000Z",
+					"createdAt": "2026-11-09T16:20:00.000Z",
+					"Date": "2026-11-09T12:00:00.000Z",
 					"Date_Custom_1": null,
 					"Date_Custom_2": null,
 					"Location": "2. stāvs",
 					"Location_Custom_1": "",
 					"Location_Custom_2": "",
-					"Works": "Smilts pamatnes izlīdzināšana",
-					"Works_Custom_1": "2. stāvs, telpa 201. Pabeigta smilts pamatnes izlīdzināšana. Veikts 42 m² apjomā.",
+					"Works": "Ailu šuvju aizpildīšana",
+					"Works_Custom_1": "2. stāvs, telpa 204 (noliktavas telpa). Aizpildījām starpsienu ailu šuves ar minerālvates sloksnēm.",
 					"Works_Custom_2": "08:00–16:30",
-					"Comments": "2. stāvs, telpa 201.",
-					"Comments_Custom_1": "",
+					"Comments": "2. stāvs, telpa 204 (noliktavas telpa). Aizpildījām starpsienu ailu šuves ar minerālvates sloksnēm.",
+					"Comments_Custom_1": "10",
 					"Comments_Custom_2": "",
-					"Units": "m2",
-					"Amounts": "42",
+					"Units": "m",
+					"Amounts": "10",
 					"WorkersInvolved": "4",
 					"TimeInvolved": "4",
 					"pausedAt": null,
 					"pauseIntervals": [],
-					"Photos": ["/demo/source-2-1.svg"],
+					"Photos": ["/demo/house-zone-2-9.png"],
 					"BISId": null,
 					"bisStatus": null,
-					"originalUserComment": "2026-11-02. 2. stāvs, telpa 201. Smilts pamatnes izlīdzināšana, 42 m². Brigādē 4 cilvēki.",
+					"originalUserComment": "2. stāvs, telpa 204 (noliktavas telpa). Aizpildījām starpsienu ailu šuves ar minerālvates sloksnēm. Apjoms 10 m. Četri cilvēki, četras stundas.",
 					"originalAudioUrl": "",
 					"createdBy": "Jānis Ozols",
 					"beginSalaryAllocation": {
@@ -1499,10 +1548,10 @@
 						"status": "updated",
 						"materials": [
 							{
-								"id": "1",
-								"unit": "m²",
-								"label": "Smilts",
-								"quantity": 42
+								"id": "8f2b48a0-9bfe-5e23-a7f7-1624a8c2f881",
+								"label": "Minerālvates sloksnes ailu šuvēm",
+								"quantity": 10,
+								"unit": "m"
 							}
 						],
 						"history": []
@@ -1510,29 +1559,29 @@
 				},
 				{
 					"id": "7683e2be-0d69-459d-a3a9-fcee6b7afe62",
-					"createdAt": "2026-11-08T17:05:11.198Z",
-					"Date": "2026-11-02T12:00:00.000Z",
+					"createdAt": "2026-11-09T16:20:00.000Z",
+					"Date": "2026-11-09T12:00:00.000Z",
 					"Date_Custom_1": null,
 					"Date_Custom_2": null,
 					"Location": "1. stāvs",
 					"Location_Custom_1": "",
 					"Location_Custom_2": "",
 					"Works": "Smilts pamatnes izlīdzināšana",
-					"Works_Custom_1": "1. stāvs, telpa 101. Pabeigta smilts pamatnes izlīdzināšana. Veikts 42 m² apjomā.",
+					"Works_Custom_1": "1. stāvs, telpa 101 (koplietošanas telpa). Nolīdzinājām un sablīvējām smilts pamatni. Pārbaudījām atzīmes pie ārdurvīm.",
 					"Works_Custom_2": "08:00–16:30",
-					"Comments": "1. stāvs, telpa 101.",
-					"Comments_Custom_1": "",
+					"Comments": "1. stāvs, telpa 101 (koplietošanas telpa). Nolīdzinājām un sablīvējām smilts pamatni. Pārbaudījām atzīmes pie ārdurvīm.",
+					"Comments_Custom_1": "26",
 					"Comments_Custom_2": "",
 					"Units": "m2",
-					"Amounts": "42",
+					"Amounts": "26",
 					"WorkersInvolved": "4",
 					"TimeInvolved": "4",
 					"pausedAt": null,
 					"pauseIntervals": [],
-					"Photos": ["/demo/source-1-1.svg"],
+					"Photos": ["/demo/house-zone-1-9.png"],
 					"BISId": null,
 					"bisStatus": null,
-					"originalUserComment": "2026-11-02. 1. stāvs, telpa 101. Smilts pamatnes izlīdzināšana, 42 m². Brigādē 4 cilvēki.",
+					"originalUserComment": "1. stāvs, telpa 101 (koplietošanas telpa). Nolīdzinājām un sablīvējām smilts pamatni. Pārbaudījām atzīmes pie ārdurvīm. Apjoms 26 m2. Četri cilvēki, četras stundas.",
 					"originalAudioUrl": "",
 					"createdBy": "Jānis Ozols",
 					"beginSalaryAllocation": {
@@ -1550,10 +1599,10 @@
 						"status": "updated",
 						"materials": [
 							{
-								"id": "1",
-								"unit": "m²",
-								"label": "Smilts",
-								"quantity": 42
+								"id": "5f5d85e4-f651-5e32-9325-8e90a4626641",
+								"label": "Skalota smilts 0–4 mm",
+								"quantity": 2.6,
+								"unit": "m3"
 							}
 						],
 						"history": []
@@ -1562,88 +1611,88 @@
 			],
 			"mediaPhotos": [
 				{
-					"Date": "2026-11-02T12:00:00.000Z",
-					"Comment": "1. stāvs, telpa 101.",
+					"Date": "2026-11-09T12:00:00.000Z",
+					"Comment": "1. stāvs, telpa 101 (koplietošanas telpa). Nolīdzinājām un sablīvējām smilts pamatni. Pārbaudījām atzīmes pie ārdurvīm.",
 					"Location": "1. stāvs",
-					"URL": "/demo/source-1-1.svg",
-					"fileUrl": "/demo/source-1-1.svg"
+					"URL": "/demo/house-zone-1-9.png",
+					"fileUrl": "/demo/house-zone-1-9.png"
 				},
 				{
-					"Date": "2026-11-02T12:00:00.000Z",
-					"Comment": "2. stāvs, telpa 201.",
+					"Date": "2026-11-09T12:00:00.000Z",
+					"Comment": "2. stāvs, telpa 204 (noliktavas telpa). Aizpildījām starpsienu ailu šuves ar minerālvates sloksnēm.",
 					"Location": "2. stāvs",
-					"URL": "/demo/source-2-1.svg",
-					"fileUrl": "/demo/source-2-1.svg"
+					"URL": "/demo/house-zone-2-9.png",
+					"fileUrl": "/demo/house-zone-2-9.png"
 				},
 				{
-					"Date": "2026-11-03T12:00:00.000Z",
-					"Comment": "1. stāvs, telpa 101.",
+					"Date": "2026-11-10T12:00:00.000Z",
+					"Comment": "1. stāvs, telpa 101 (koplietošanas telpa). Ieklājām XPS divās kārtās ar nobīdītām šuvēm.",
 					"Location": "1. stāvs",
-					"URL": "/demo/source-1-2.svg",
-					"fileUrl": "/demo/source-1-2.svg"
+					"URL": "/demo/house-zone-1-10.png",
+					"fileUrl": "/demo/house-zone-1-10.png"
 				},
 				{
-					"Date": "2026-11-03T12:00:00.000Z",
-					"Comment": "2. stāvs, telpa 201.",
+					"Date": "2026-11-10T12:00:00.000Z",
+					"Comment": "2. stāvs, telpa 201 (kabinets). Ievilkām apgaismojuma kabeļus gofrētajās caurulēs līdz sadalnei.",
 					"Location": "2. stāvs",
-					"URL": "/demo/source-2-2.svg",
-					"fileUrl": "/demo/source-2-2.svg"
+					"URL": "/demo/house-zone-2-10.png",
+					"fileUrl": "/demo/house-zone-2-10.png"
 				},
 				{
-					"Date": "2026-11-04T12:00:00.000Z",
-					"Comment": "1. stāvs, telpa 102.",
+					"Date": "2026-11-11T12:00:00.000Z",
+					"Comment": "1. stāvs, telpa 101 (koplietošanas telpa). Ieklājām un salīmējām PE plēves pārlaidumus. Pie sienām plēvi pacēlām virs grīdas atzīmes.",
 					"Location": "1. stāvs",
-					"URL": "/demo/source-1-3.svg",
-					"fileUrl": "/demo/source-1-3.svg"
+					"URL": "/demo/house-zone-1-11.png",
+					"fileUrl": "/demo/house-zone-1-11.png"
 				},
 				{
-					"Date": "2026-11-04T12:00:00.000Z",
-					"Comment": "2. stāvs, telpa 202.",
+					"Date": "2026-11-11T12:00:00.000Z",
+					"Comment": "2. stāvs, telpa 203 (sanmezgls). Samontējām aukstā ūdens atzarus. Savienojumus atstājām redzamus spiediena pārbaudei.",
 					"Location": "2. stāvs",
-					"URL": "/demo/source-2-3.svg",
-					"fileUrl": "/demo/source-2-3.svg"
+					"URL": "/demo/house-zone-2-11.png",
+					"fileUrl": "/demo/house-zone-2-11.png"
 				},
 				{
-					"Date": "2026-11-05T12:00:00.000Z",
-					"Comment": "1. stāvs, telpa 102.",
+					"Date": "2026-11-12T12:00:00.000Z",
+					"Comment": "1. stāvs, telpa 101 (koplietošanas telpa). Iestrādājām C25/30 betonu 70 mm slānī. Pārbaudījām grīdas atzīmi pie ieejas.",
 					"Location": "1. stāvs",
-					"URL": "/demo/source-1-4.svg",
-					"fileUrl": "/demo/source-1-4.svg"
+					"URL": "/demo/house-zone-1-12.png",
+					"fileUrl": "/demo/house-zone-1-12.png"
 				},
 				{
-					"Date": "2026-11-05T12:00:00.000Z",
-					"Comment": "2. stāvs, telpa 202.",
+					"Date": "2026-11-12T12:00:00.000Z",
+					"Comment": "2. stāvs, telpa 202 (darba telpa). Uz iepriekš sagatavotās pamatnes izbūvējām 70 mm betona grīdu.",
 					"Location": "2. stāvs",
-					"URL": "/demo/source-2-4.svg",
-					"fileUrl": "/demo/source-2-4.svg"
+					"URL": "/demo/house-zone-2-12.png",
+					"fileUrl": "/demo/house-zone-2-12.png"
 				},
 				{
-					"Date": "2026-11-06T12:00:00.000Z",
-					"Comment": "1. stāvs, telpa 104.",
+					"Date": "2026-11-13T12:00:00.000Z",
+					"Comment": "1. stāvs, telpa 104 (priekštelpa). Aizpildījām ailu montāžas šuves priekštelpā. Foto rāda šuves pie durvju ailes pirms apdares.",
 					"Location": "1. stāvs",
-					"URL": "/demo/source-1-5.svg",
-					"fileUrl": "/demo/source-1-5.svg"
+					"URL": "/demo/house-doorway.jpg",
+					"fileUrl": "/demo/house-doorway.jpg"
 				},
 				{
-					"Date": "2026-11-06T12:00:00.000Z",
-					"Comment": "2. stāvs, telpa 204.",
+					"Date": "2026-11-13T12:00:00.000Z",
+					"Comment": "2. stāvs, telpa 205 (kāpņu telpa). Uzstādījām divus siltinātus Ø125 ventilācijas izvadus virs kāpņu telpas.",
 					"Location": "2. stāvs",
-					"URL": "/demo/source-2-5.svg",
-					"fileUrl": "/demo/source-2-5.svg"
+					"URL": "/demo/house-zone-2-13.png",
+					"fileUrl": "/demo/house-zone-2-13.png"
 				},
 				{
-					"Date": "2026-11-07T12:00:00.000Z",
-					"Comment": "1. stāvs, telpa 105.",
+					"Date": "2026-11-14T12:00:00.000Z",
+					"Comment": "1. stāvs, telpa 102 (virtuve un ēdamzona). Virtuvē izbūvējām rozešu un apgaismojuma līnijas. Sadales galus marķējām.",
 					"Location": "1. stāvs",
-					"URL": "/demo/source-1-6.svg",
-					"fileUrl": "/demo/source-1-6.svg"
+					"URL": "/demo/house-zone-1-14.png",
+					"fileUrl": "/demo/house-zone-1-14.png"
 				},
 				{
-					"Date": "2026-11-07T12:00:00.000Z",
-					"Comment": "2. stāvs, telpa 205.",
+					"Date": "2026-11-14T12:00:00.000Z",
+					"Comment": "2. stāvs, telpa 202 (darba telpa). Darba telpā pabeidzām rozešu līniju vilkšanu un marķēšanu pie sadalnes.",
 					"Location": "2. stāvs",
-					"URL": "/demo/source-2-6.svg",
-					"fileUrl": "/demo/source-2-6.svg"
+					"URL": "/demo/house-zone-2-14.png",
+					"fileUrl": "/demo/house-zone-2-14.png"
 				}
 			]
 		},
@@ -1678,7 +1727,8 @@
 					"h": "h",
 					"m2": "m2",
 					"m3": "m3",
-					"gab": "gab"
+					"gab": "gab",
+					"m": "m"
 				}
 			},
 			"Works": {
@@ -1705,7 +1755,8 @@
 					"Papildu darbi": "Papildu darbi",
 					"Piezīmes": "Piezīmes",
 					"Santehnikas darbi": "Santehnikas darbi",
-					"Uzkopšanas darbi": "Uzkopšanas darbi"
+					"Uzkopšanas darbi": "Uzkopšanas darbi",
+					"Ailu šuvju aizpildīšana": "Ailu šuvju aizpildīšana"
 				}
 			},
 			"Amounts": {
@@ -1829,6 +1880,34 @@
 							"hourlyCost": 12.5,
 							"costCalculationMode": "hourly",
 							"laborNormHoursPerUnit": 0.35
+						},
+						{
+							"unit": "m",
+							"work": "Ailu šuvju aizpildīšana",
+							"hourlyCost": 12.5,
+							"costCalculationMode": "hourly",
+							"laborNormHoursPerUnit": 1.45
+						},
+						{
+							"unit": "m",
+							"work": "Elektroinstalācijas darbi",
+							"hourlyCost": 12.5,
+							"costCalculationMode": "hourly",
+							"laborNormHoursPerUnit": 0.5
+						},
+						{
+							"unit": "gab",
+							"work": "Santehnikas darbi",
+							"hourlyCost": 12.5,
+							"costCalculationMode": "hourly",
+							"laborNormHoursPerUnit": 2.5
+						},
+						{
+							"unit": "gab",
+							"work": "Apkures sistēmas un ventilācijas darbi",
+							"hourlyCost": 12.5,
+							"costCalculationMode": "hourly",
+							"laborNormHoursPerUnit": 7
 						}
 					],
 					"version": 4
@@ -1972,7 +2051,7 @@
 			},
 			"FimaNumber": {
 				"Type": "noRender",
-				"DisplayName": "FIMA Nr.",
+				"DisplayName": "Ieraksta Nr.",
 				"customSettings": {
 					"displayinSiteList": "yes",
 					"displayinSiteListOrder": 1.25,
@@ -2075,10 +2154,10 @@
 				"siteName": "Ozolu biroju centrs",
 				"document": {
 					"id": "cef9a1b9-48fb-44fc-a0be-6f6af71d0e6e",
-					"fileName": "Ozolu centra tāme.xlsx",
-					"sheetName": "Grīdu izbūve",
-					"importedAt": "2026-11-07T17:00:00.000Z",
-					"positionCount": 4
+					"fileName": "Ozolu biroju centra tāme.xlsx",
+					"sheetName": "Iekšdarbi un inženiertīkli",
+					"importedAt": "2026-11-09T07:30:00.000Z",
+					"positionCount": 8
 				},
 				"resultRows": [
 					{
@@ -2092,26 +2171,26 @@
 						"hourlyRate": 12.5,
 						"categoryCode": "1",
 						"categoryName": "Grīdu izbūve",
-						"plannedQuantity": 240,
-						"plannedWorkCost": 660,
-						"plannedTotalCost": 1020,
-						"plannedMaterialCost": 240,
-						"plannedMechanismCost": 120,
+						"plannedQuantity": 26,
+						"plannedWorkCost": 71.5,
+						"plannedTotalCost": 91.5,
+						"plannedMaterialCost": 20,
+						"plannedMechanismCost": 0,
 						"laborNormHoursPerUnit": 0.22,
 						"directPlannedCosts": {
-							"plannedWorkCost": 660,
-							"plannedMaterialCost": 240,
-							"plannedMechanismCost": 120,
-							"plannedTotalCost": 1020
+							"plannedWorkCost": 71.5,
+							"plannedMaterialCost": 20,
+							"plannedMechanismCost": 0,
+							"plannedTotalCost": 91.5
 						},
-						"actualQuantity": 176,
+						"actualQuantity": 26,
 						"excludedQuantityRecords": 0,
-						"actualWorkCost": 800,
-						"actualMaterialCost": 240,
+						"actualWorkCost": 200,
+						"actualMaterialCost": 100,
 						"actualMechanismCost": 0,
-						"actualTotalCost": 1040,
-						"variance": -20,
-						"assignedRecords": 5
+						"actualTotalCost": 300,
+						"variance": -208.5,
+						"assignedRecords": 2
 					},
 					{
 						"id": "54d8e46b-6bfd-4b5d-a89b-169825241aae",
@@ -2124,26 +2203,26 @@
 						"hourlyRate": 12.5,
 						"categoryCode": "1",
 						"categoryName": "Grīdu izbūve",
-						"plannedQuantity": 240,
-						"plannedWorkCost": 540,
-						"plannedTotalCost": 1620,
-						"plannedMaterialCost": 1080,
+						"plannedQuantity": 26,
+						"plannedWorkCost": 58.5,
+						"plannedTotalCost": 348.5,
+						"plannedMaterialCost": 290,
 						"plannedMechanismCost": 0,
 						"laborNormHoursPerUnit": 0.18,
 						"directPlannedCosts": {
-							"plannedWorkCost": 540,
-							"plannedMaterialCost": 1080,
+							"plannedWorkCost": 58.5,
+							"plannedMaterialCost": 290,
 							"plannedMechanismCost": 0,
-							"plannedTotalCost": 1620
+							"plannedTotalCost": 348.5
 						},
-						"actualQuantity": 172,
+						"actualQuantity": 26,
 						"excludedQuantityRecords": 0,
-						"actualWorkCost": 800,
-						"actualMaterialCost": 1080,
+						"actualWorkCost": 200,
+						"actualMaterialCost": 288,
 						"actualMechanismCost": 0,
-						"actualTotalCost": 1880,
-						"variance": -260,
-						"assignedRecords": 5
+						"actualTotalCost": 488,
+						"variance": -139.5,
+						"assignedRecords": 2
 					},
 					{
 						"id": "62b9560f-c971-440b-ad8e-6f56ce761fde",
@@ -2156,26 +2235,26 @@
 						"hourlyRate": 12.5,
 						"categoryCode": "1",
 						"categoryName": "Grīdu izbūve",
-						"plannedQuantity": 240,
-						"plannedWorkCost": 300,
-						"plannedTotalCost": 444,
-						"plannedMaterialCost": 144,
+						"plannedQuantity": 26,
+						"plannedWorkCost": 32.5,
+						"plannedTotalCost": 92.5,
+						"plannedMaterialCost": 60,
 						"plannedMechanismCost": 0,
 						"laborNormHoursPerUnit": 0.1,
 						"directPlannedCosts": {
-							"plannedWorkCost": 300,
-							"plannedMaterialCost": 144,
+							"plannedWorkCost": 32.5,
+							"plannedMaterialCost": 60,
 							"plannedMechanismCost": 0,
-							"plannedTotalCost": 444
+							"plannedTotalCost": 92.5
 						},
-						"actualQuantity": 76,
+						"actualQuantity": 26,
 						"excludedQuantityRecords": 0,
-						"actualWorkCost": 400,
-						"actualMaterialCost": 144,
+						"actualWorkCost": 200,
+						"actualMaterialCost": 37.5,
 						"actualMechanismCost": 0,
-						"actualTotalCost": 544,
-						"variance": -100,
-						"assignedRecords": 3
+						"actualTotalCost": 237.5,
+						"variance": -145,
+						"assignedRecords": 2
 					},
 					{
 						"id": "8e060e59-6021-4b77-a06f-8b5f6f5491e0",
@@ -2188,25 +2267,153 @@
 						"hourlyRate": 12.5,
 						"categoryCode": "1",
 						"categoryName": "Grīdu izbūve",
-						"plannedQuantity": 240,
-						"plannedWorkCost": 1050,
-						"plannedTotalCost": 1950,
-						"plannedMaterialCost": 720,
-						"plannedMechanismCost": 180,
+						"plannedQuantity": 70,
+						"plannedWorkCost": 306.25,
+						"plannedTotalCost": 871.25,
+						"plannedMaterialCost": 565,
+						"plannedMechanismCost": 0,
 						"laborNormHoursPerUnit": 0.35,
 						"directPlannedCosts": {
-							"plannedWorkCost": 1050,
-							"plannedMaterialCost": 720,
-							"plannedMechanismCost": 180,
-							"plannedTotalCost": 1950
+							"plannedWorkCost": 306.25,
+							"plannedMaterialCost": 565,
+							"plannedMechanismCost": 0,
+							"plannedTotalCost": 871.25
 						},
-						"actualQuantity": 76,
+						"actualQuantity": 55,
 						"excludedQuantityRecords": 0,
 						"actualWorkCost": 400,
-						"actualMaterialCost": 720,
+						"actualMaterialCost": 432,
 						"actualMechanismCost": 0,
-						"actualTotalCost": 1120,
-						"variance": 830,
+						"actualTotalCost": 832,
+						"variance": 39.25,
+						"assignedRecords": 3
+					},
+					{
+						"id": "6b675809-c998-5ff3-8abc-c07fda1f35d7",
+						"code": "2.1",
+						"kind": "work",
+						"name": "Ailu šuvju aizpildīšana",
+						"unit": "m",
+						"parentId": null,
+						"sourceRow": 6,
+						"hourlyRate": 12.5,
+						"categoryCode": "2",
+						"categoryName": "Iekšdarbi",
+						"plannedQuantity": 30,
+						"plannedWorkCost": 543.75,
+						"plannedTotalCost": 673.75,
+						"plannedMaterialCost": 130,
+						"plannedMechanismCost": 0,
+						"laborNormHoursPerUnit": 1.45,
+						"directPlannedCosts": {
+							"plannedWorkCost": 543.75,
+							"plannedMaterialCost": 130,
+							"plannedMechanismCost": 0,
+							"plannedTotalCost": 673.75
+						},
+						"actualQuantity": 22,
+						"excludedQuantityRecords": 0,
+						"actualWorkCost": 400,
+						"actualMaterialCost": 81.25,
+						"actualMechanismCost": 0,
+						"actualTotalCost": 481.25,
+						"variance": 192.5,
+						"assignedRecords": 3
+					},
+					{
+						"id": "94152fa4-0e73-5a7b-aaea-154b72853e65",
+						"code": "3.1",
+						"kind": "work",
+						"name": "Elektroinstalācijas darbi",
+						"unit": "m",
+						"parentId": null,
+						"sourceRow": 7,
+						"hourlyRate": 12.5,
+						"categoryCode": "3",
+						"categoryName": "Inženiertīkli",
+						"plannedQuantity": 160,
+						"plannedWorkCost": 1000,
+						"plannedTotalCost": 1440,
+						"plannedMaterialCost": 440,
+						"plannedMechanismCost": 0,
+						"laborNormHoursPerUnit": 0.5,
+						"directPlannedCosts": {
+							"plannedWorkCost": 1000,
+							"plannedMaterialCost": 440,
+							"plannedMechanismCost": 0,
+							"plannedTotalCost": 1440
+						},
+						"actualQuantity": 112,
+						"excludedQuantityRecords": 0,
+						"actualWorkCost": 600,
+						"actualMaterialCost": 244.4,
+						"actualMechanismCost": 0,
+						"actualTotalCost": 844.4,
+						"variance": 595.6,
+						"assignedRecords": 7
+					},
+					{
+						"id": "17581628-251a-5bfc-bfe0-1cb9341a98ac",
+						"code": "3.2",
+						"kind": "work",
+						"name": "Santehnikas darbi",
+						"unit": "gab",
+						"parentId": null,
+						"sourceRow": 8,
+						"hourlyRate": 12.5,
+						"categoryCode": "3",
+						"categoryName": "Inženiertīkli",
+						"plannedQuantity": 10,
+						"plannedWorkCost": 312.5,
+						"plannedTotalCost": 412.5,
+						"plannedMaterialCost": 100,
+						"plannedMechanismCost": 0,
+						"laborNormHoursPerUnit": 2.5,
+						"directPlannedCosts": {
+							"plannedWorkCost": 312.5,
+							"plannedMaterialCost": 100,
+							"plannedMechanismCost": 0,
+							"plannedTotalCost": 412.5
+						},
+						"actualQuantity": 6,
+						"excludedQuantityRecords": 0,
+						"actualWorkCost": 200,
+						"actualMaterialCost": 24.64,
+						"actualMechanismCost": 0,
+						"actualTotalCost": 224.64,
+						"variance": 187.86,
+						"assignedRecords": 4
+					},
+					{
+						"id": "2e2612a2-1d09-507e-b48f-538857837b36",
+						"code": "3.3",
+						"kind": "work",
+						"name": "Apkures sistēmas un ventilācijas darbi",
+						"unit": "gab",
+						"parentId": null,
+						"sourceRow": 9,
+						"hourlyRate": 12.5,
+						"categoryCode": "3",
+						"categoryName": "Inženiertīkli",
+						"plannedQuantity": 3,
+						"plannedWorkCost": 262.5,
+						"plannedTotalCost": 472.5,
+						"plannedMaterialCost": 210,
+						"plannedMechanismCost": 0,
+						"laborNormHoursPerUnit": 7,
+						"directPlannedCosts": {
+							"plannedWorkCost": 262.5,
+							"plannedMaterialCost": 210,
+							"plannedMechanismCost": 0,
+							"plannedTotalCost": 472.5
+						},
+						"actualQuantity": 2,
+						"excludedQuantityRecords": 0,
+						"actualWorkCost": 200,
+						"actualMaterialCost": 167,
+						"actualMechanismCost": 0,
+						"actualTotalCost": 367,
+						"variance": 105.5,
 						"assignedRecords": 3
 					}
 				],
@@ -2223,11 +2430,11 @@
 							"hourlyRate": 12.5,
 							"categoryCode": "1",
 							"categoryName": "Grīdu izbūve",
-							"plannedQuantity": 240,
-							"plannedWorkCost": 660,
-							"plannedTotalCost": 1020,
-							"plannedMaterialCost": 240,
-							"plannedMechanismCost": 120,
+							"plannedQuantity": 26,
+							"plannedWorkCost": 71.5,
+							"plannedTotalCost": 91.5,
+							"plannedMaterialCost": 20,
+							"plannedMechanismCost": 0,
 							"laborNormHoursPerUnit": 0.22
 						},
 						{
@@ -2241,10 +2448,10 @@
 							"hourlyRate": 12.5,
 							"categoryCode": "1",
 							"categoryName": "Grīdu izbūve",
-							"plannedQuantity": 240,
-							"plannedWorkCost": 540,
-							"plannedTotalCost": 1620,
-							"plannedMaterialCost": 1080,
+							"plannedQuantity": 26,
+							"plannedWorkCost": 58.5,
+							"plannedTotalCost": 348.5,
+							"plannedMaterialCost": 290,
 							"plannedMechanismCost": 0,
 							"laborNormHoursPerUnit": 0.18
 						},
@@ -2259,10 +2466,10 @@
 							"hourlyRate": 12.5,
 							"categoryCode": "1",
 							"categoryName": "Grīdu izbūve",
-							"plannedQuantity": 240,
-							"plannedWorkCost": 300,
-							"plannedTotalCost": 444,
-							"plannedMaterialCost": 144,
+							"plannedQuantity": 26,
+							"plannedWorkCost": 32.5,
+							"plannedTotalCost": 92.5,
+							"plannedMaterialCost": 60,
 							"plannedMechanismCost": 0,
 							"laborNormHoursPerUnit": 0.1
 						},
@@ -2277,325 +2484,705 @@
 							"hourlyRate": 12.5,
 							"categoryCode": "1",
 							"categoryName": "Grīdu izbūve",
-							"plannedQuantity": 240,
-							"plannedWorkCost": 1050,
-							"plannedTotalCost": 1950,
-							"plannedMaterialCost": 720,
-							"plannedMechanismCost": 180,
+							"plannedQuantity": 70,
+							"plannedWorkCost": 306.25,
+							"plannedTotalCost": 871.25,
+							"plannedMaterialCost": 565,
+							"plannedMechanismCost": 0,
 							"laborNormHoursPerUnit": 0.35
+						},
+						{
+							"id": "6b675809-c998-5ff3-8abc-c07fda1f35d7",
+							"code": "2.1",
+							"kind": "work",
+							"name": "Ailu šuvju aizpildīšana",
+							"unit": "m",
+							"parentId": null,
+							"sourceRow": 6,
+							"hourlyRate": 12.5,
+							"categoryCode": "2",
+							"categoryName": "Iekšdarbi",
+							"plannedQuantity": 30,
+							"plannedWorkCost": 543.75,
+							"plannedTotalCost": 673.75,
+							"plannedMaterialCost": 130,
+							"plannedMechanismCost": 0,
+							"laborNormHoursPerUnit": 1.45
+						},
+						{
+							"id": "94152fa4-0e73-5a7b-aaea-154b72853e65",
+							"code": "3.1",
+							"kind": "work",
+							"name": "Elektroinstalācijas darbi",
+							"unit": "m",
+							"parentId": null,
+							"sourceRow": 7,
+							"hourlyRate": 12.5,
+							"categoryCode": "3",
+							"categoryName": "Inženiertīkli",
+							"plannedQuantity": 160,
+							"plannedWorkCost": 1000,
+							"plannedTotalCost": 1440,
+							"plannedMaterialCost": 440,
+							"plannedMechanismCost": 0,
+							"laborNormHoursPerUnit": 0.5
+						},
+						{
+							"id": "17581628-251a-5bfc-bfe0-1cb9341a98ac",
+							"code": "3.2",
+							"kind": "work",
+							"name": "Santehnikas darbi",
+							"unit": "gab",
+							"parentId": null,
+							"sourceRow": 8,
+							"hourlyRate": 12.5,
+							"categoryCode": "3",
+							"categoryName": "Inženiertīkli",
+							"plannedQuantity": 10,
+							"plannedWorkCost": 312.5,
+							"plannedTotalCost": 412.5,
+							"plannedMaterialCost": 100,
+							"plannedMechanismCost": 0,
+							"laborNormHoursPerUnit": 2.5
+						},
+						{
+							"id": "2e2612a2-1d09-507e-b48f-538857837b36",
+							"code": "3.3",
+							"kind": "work",
+							"name": "Apkures sistēmas un ventilācijas darbi",
+							"unit": "gab",
+							"parentId": null,
+							"sourceRow": 9,
+							"hourlyRate": 12.5,
+							"categoryCode": "3",
+							"categoryName": "Inženiertīkli",
+							"plannedQuantity": 3,
+							"plannedWorkCost": 262.5,
+							"plannedTotalCost": 472.5,
+							"plannedMaterialCost": 210,
+							"plannedMechanismCost": 0,
+							"laborNormHoursPerUnit": 7
 						}
 					],
 					"sources": [
 						{
+							"id": "f9976a6a-20c0-5765-afb2-06473d8d46e1",
+							"type": "material",
+							"label": "Skalota smilts 0–4 mm",
+							"quantity": 4,
+							"unit": "m3",
+							"hours": null,
+							"date": "2026-11-09T12:00:00.000Z",
+							"actualCost": 100,
+							"invoiceNumber": "OM-2026-114",
+							"supplierName": "Ozolu būvmateriāli",
+							"secondaryLabel": "Ozolu būvmateriāli · OM-2026-114",
+							"invoiceLabel": "Ozolu būvmateriāli · OM-2026-114",
+							"invoiceUrl": "/demo/material-invoice-house.pdf",
+							"selectedPositionId": "d3faedc3-f4a4-4dc3-a1ee-d2513665058a"
+						},
+						{
+							"id": "6b80fef4-af59-5e80-a6b8-cc7e72d25554",
+							"type": "material",
+							"label": "XPS 100 mm",
+							"quantity": 32,
+							"unit": "m2",
+							"hours": null,
+							"date": "2026-11-09T12:00:00.000Z",
+							"actualCost": 288,
+							"invoiceNumber": "OM-2026-114",
+							"supplierName": "Ozolu būvmateriāli",
+							"secondaryLabel": "Ozolu būvmateriāli · OM-2026-114",
+							"invoiceLabel": "Ozolu būvmateriāli · OM-2026-114",
+							"invoiceUrl": "/demo/material-invoice-house.pdf",
+							"selectedPositionId": "54d8e46b-6bfd-4b5d-a89b-169825241aae"
+						},
+						{
+							"id": "a0c16d3c-38d6-5a0b-874d-17057cb62baa",
+							"type": "material",
+							"label": "PE hidroizolācijas plēve 0,2 mm",
+							"quantity": 30,
+							"unit": "m2",
+							"hours": null,
+							"date": "2026-11-09T12:00:00.000Z",
+							"actualCost": 37.5,
+							"invoiceNumber": "OM-2026-114",
+							"supplierName": "Ozolu būvmateriāli",
+							"secondaryLabel": "Ozolu būvmateriāli · OM-2026-114",
+							"invoiceLabel": "Ozolu būvmateriāli · OM-2026-114",
+							"invoiceUrl": "/demo/material-invoice-house.pdf",
+							"selectedPositionId": "62b9560f-c971-440b-ad8e-6f56ce761fde"
+						},
+						{
+							"id": "1b57ea6f-0f4a-5941-a89d-822b13445391",
+							"type": "material",
+							"label": "Betons C25/30",
+							"quantity": 4,
+							"unit": "m3",
+							"hours": null,
+							"date": "2026-11-09T12:00:00.000Z",
+							"actualCost": 432,
+							"invoiceNumber": "OM-2026-114",
+							"supplierName": "Ozolu būvmateriāli",
+							"secondaryLabel": "Ozolu būvmateriāli · OM-2026-114",
+							"invoiceLabel": "Ozolu būvmateriāli · OM-2026-114",
+							"invoiceUrl": "/demo/material-invoice-house.pdf",
+							"selectedPositionId": "8e060e59-6021-4b77-a06f-8b5f6f5491e0"
+						},
+						{
+							"id": "5c43e1f6-845d-588c-bca3-a50489ff4c77",
+							"type": "material",
+							"label": "Minerālvates sloksnes ailu šuvēm",
+							"quantity": 25,
+							"unit": "m",
+							"hours": null,
+							"date": "2026-11-09T12:00:00.000Z",
+							"actualCost": 81.25,
+							"invoiceNumber": "OM-2026-114",
+							"supplierName": "Ozolu būvmateriāli",
+							"secondaryLabel": "Ozolu būvmateriāli · OM-2026-114",
+							"invoiceLabel": "Ozolu būvmateriāli · OM-2026-114",
+							"invoiceUrl": "/demo/material-invoice-house.pdf",
+							"selectedPositionId": "6b675809-c998-5ff3-8abc-c07fda1f35d7"
+						},
+						{
+							"id": "d8002ae6-cbeb-56b7-9b03-5a21a4de902e",
+							"type": "material",
+							"label": "NYM-J kabelis 3 × 1,5 mm²",
+							"quantity": 120,
+							"unit": "m",
+							"hours": null,
+							"date": "2026-11-10T12:00:00.000Z",
+							"actualCost": 93.6,
+							"invoiceNumber": "EL-2026-062",
+							"supplierName": "Elektroapgāde Ozoli",
+							"secondaryLabel": "Elektroapgāde Ozoli · EL-2026-062",
+							"invoiceLabel": "Elektroapgāde Ozoli · EL-2026-062",
+							"invoiceUrl": "/demo/material-invoice-electrical.pdf",
+							"selectedPositionId": "94152fa4-0e73-5a7b-aaea-154b72853e65"
+						},
+						{
+							"id": "a337617a-2a1a-5c27-909e-bd0445fcbc17",
+							"type": "material",
+							"label": "NYM-J kabelis 3 × 2,5 mm²",
+							"quantity": 90,
+							"unit": "m",
+							"hours": null,
+							"date": "2026-11-10T12:00:00.000Z",
+							"actualCost": 100.8,
+							"invoiceNumber": "EL-2026-062",
+							"supplierName": "Elektroapgāde Ozoli",
+							"secondaryLabel": "Elektroapgāde Ozoli · EL-2026-062",
+							"invoiceLabel": "Elektroapgāde Ozoli · EL-2026-062",
+							"invoiceUrl": "/demo/material-invoice-electrical.pdf",
+							"selectedPositionId": "94152fa4-0e73-5a7b-aaea-154b72853e65"
+						},
+						{
+							"id": "92cd6269-ded2-5ef1-868b-ce0564797b50",
+							"type": "material",
+							"label": "Gofrēta caurule Ø20, 320 N",
+							"quantity": 100,
+							"unit": "m",
+							"hours": null,
+							"date": "2026-11-10T12:00:00.000Z",
+							"actualCost": 41,
+							"invoiceNumber": "EL-2026-062",
+							"supplierName": "Elektroapgāde Ozoli",
+							"secondaryLabel": "Elektroapgāde Ozoli · EL-2026-062",
+							"invoiceLabel": "Elektroapgāde Ozoli · EL-2026-062",
+							"invoiceUrl": "/demo/material-invoice-electrical.pdf",
+							"selectedPositionId": "94152fa4-0e73-5a7b-aaea-154b72853e65"
+						},
+						{
+							"id": "52b0dcac-13d3-5f10-a636-172f45bc1f94",
+							"type": "material",
+							"label": "Kabeļu savilcēji 4,8 × 200 mm",
+							"quantity": 2,
+							"unit": "iep.",
+							"hours": null,
+							"date": "2026-11-10T12:00:00.000Z",
+							"actualCost": 9,
+							"invoiceNumber": "EL-2026-062",
+							"supplierName": "Elektroapgāde Ozoli",
+							"secondaryLabel": "Elektroapgāde Ozoli · EL-2026-062",
+							"invoiceLabel": "Elektroapgāde Ozoli · EL-2026-062",
+							"invoiceUrl": "/demo/material-invoice-electrical.pdf",
+							"selectedPositionId": "94152fa4-0e73-5a7b-aaea-154b72853e65"
+						},
+						{
+							"id": "43798cc3-6ef2-5dbf-a3b1-7bbc332a88cc",
+							"type": "material",
+							"label": "PPR trejgabals Ø20",
+							"quantity": 8,
+							"unit": "gab",
+							"hours": null,
+							"date": "2026-11-11T12:00:00.000Z",
+							"actualCost": 8.8,
+							"invoiceNumber": "IT-2026-031",
+							"supplierName": "Ozolu inženiertīkli",
+							"secondaryLabel": "Ozolu inženiertīkli · IT-2026-031",
+							"invoiceLabel": "Ozolu inženiertīkli · IT-2026-031",
+							"invoiceUrl": "/demo/material-invoice-services.pdf",
+							"selectedPositionId": "17581628-251a-5bfc-bfe0-1cb9341a98ac"
+						},
+						{
+							"id": "438fed13-491e-5fce-8ec4-2b71efe28f01",
+							"type": "material",
+							"label": "PPR līkums Ø20, 90°",
+							"quantity": 12,
+							"unit": "gab",
+							"hours": null,
+							"date": "2026-11-11T12:00:00.000Z",
+							"actualCost": 9.84,
+							"invoiceNumber": "IT-2026-031",
+							"supplierName": "Ozolu inženiertīkli",
+							"secondaryLabel": "Ozolu inženiertīkli · IT-2026-031",
+							"invoiceLabel": "Ozolu inženiertīkli · IT-2026-031",
+							"invoiceUrl": "/demo/material-invoice-services.pdf",
+							"selectedPositionId": "17581628-251a-5bfc-bfe0-1cb9341a98ac"
+						},
+						{
+							"id": "11a51369-b4ce-5d83-9748-704bdab1960b",
+							"type": "material",
+							"label": "PPR uzmava Ø40 × 32",
+							"quantity": 4,
+							"unit": "gab",
+							"hours": null,
+							"date": "2026-11-11T12:00:00.000Z",
+							"actualCost": 6,
+							"invoiceNumber": "IT-2026-031",
+							"supplierName": "Ozolu inženiertīkli",
+							"secondaryLabel": "Ozolu inženiertīkli · IT-2026-031",
+							"invoiceLabel": "Ozolu inženiertīkli · IT-2026-031",
+							"invoiceUrl": "/demo/material-invoice-services.pdf",
+							"selectedPositionId": "17581628-251a-5bfc-bfe0-1cb9341a98ac"
+						},
+						{
+							"id": "96485dc1-66f9-55f2-8963-418156b60fd0",
+							"type": "material",
+							"label": "Siltināts ventilācijas izvads Ø125",
+							"quantity": 2,
+							"unit": "gab",
+							"hours": null,
+							"date": "2026-11-11T12:00:00.000Z",
+							"actualCost": 136,
+							"invoiceNumber": "IT-2026-031",
+							"supplierName": "Ozolu inženiertīkli",
+							"secondaryLabel": "Ozolu inženiertīkli · IT-2026-031",
+							"invoiceLabel": "Ozolu inženiertīkli · IT-2026-031",
+							"invoiceUrl": "/demo/material-invoice-services.pdf",
+							"selectedPositionId": "2e2612a2-1d09-507e-b48f-538857837b36"
+						},
+						{
+							"id": "1c0d3a70-fbce-59ad-89ab-d45ae0912d9e",
+							"type": "material",
+							"label": "Elastīgs savienojums Ø125",
+							"quantity": 2,
+							"unit": "gab",
+							"hours": null,
+							"date": "2026-11-11T12:00:00.000Z",
+							"actualCost": 31,
+							"invoiceNumber": "IT-2026-031",
+							"supplierName": "Ozolu inženiertīkli",
+							"secondaryLabel": "Ozolu inženiertīkli · IT-2026-031",
+							"invoiceLabel": "Ozolu inženiertīkli · IT-2026-031",
+							"invoiceUrl": "/demo/material-invoice-services.pdf",
+							"selectedPositionId": "2e2612a2-1d09-507e-b48f-538857837b36"
+						},
+						{
 							"id": "8277c8d0-2a6e-4e23-a442-030242b6b14d",
 							"type": "work",
-							"selectedPositionId": "54d8e46b-6bfd-4b5d-a89b-169825241aae",
-							"label": "XPS siltumizolācijas ieklāšana, 100 mm",
+							"label": "Elektroinstalācijas darbi",
 							"secondaryLabel": "2. stāvs",
-							"date": "2026-11-07T12:00:00.000Z",
-							"unit": "m2",
-							"quantity": 44,
-							"reportedQuantity": 44,
+							"date": "2026-11-14T12:00:00.000Z",
+							"unit": "m",
+							"quantity": 38,
+							"reportedQuantity": 38,
 							"costSource": "begin-report",
 							"hours": 16,
 							"hourlyRate": 12.5,
-							"unitRate": 2.25,
+							"unitRate": 6.25,
 							"costCalculationMode": "hourly",
-							"actualCost": 200
+							"actualCost": 200,
+							"selectedPositionId": "94152fa4-0e73-5a7b-aaea-154b72853e65"
 						},
 						{
 							"id": "4d6ce656-82ff-4fdc-a008-971ea76937e9",
 							"type": "work",
-							"selectedPositionId": "54d8e46b-6bfd-4b5d-a89b-169825241aae",
-							"label": "XPS siltumizolācijas ieklāšana, 100 mm",
+							"label": "Elektroinstalācijas darbi",
 							"secondaryLabel": "1. stāvs",
-							"date": "2026-11-07T12:00:00.000Z",
-							"unit": "m2",
-							"quantity": 44,
-							"reportedQuantity": 44,
+							"date": "2026-11-14T12:00:00.000Z",
+							"unit": "m",
+							"quantity": 42,
+							"reportedQuantity": 42,
 							"costSource": "begin-report",
 							"hours": 16,
 							"hourlyRate": 12.5,
-							"unitRate": 2.25,
+							"unitRate": 6.25,
 							"costCalculationMode": "hourly",
-							"actualCost": 200
+							"actualCost": 200,
+							"selectedPositionId": "94152fa4-0e73-5a7b-aaea-154b72853e65"
 						},
 						{
 							"id": "91b52b1c-6f43-4484-ab31-ba7db9e1d9e9",
 							"type": "work",
-							"selectedPositionId": "d3faedc3-f4a4-4dc3-a1ee-d2513665058a",
-							"label": "Smilts pamatnes izlīdzināšana",
+							"label": "Apkures sistēmas un ventilācijas darbi",
 							"secondaryLabel": "2. stāvs",
-							"date": "2026-11-06T12:00:00.000Z",
-							"unit": "m2",
-							"quantity": 46,
-							"reportedQuantity": 46,
+							"date": "2026-11-13T12:00:00.000Z",
+							"unit": "gab",
+							"quantity": 2,
+							"reportedQuantity": 2,
 							"costSource": "begin-report",
 							"hours": 16,
 							"hourlyRate": 12.5,
-							"unitRate": 2.75,
+							"unitRate": 87.5,
 							"costCalculationMode": "hourly",
-							"actualCost": 200
+							"actualCost": 200,
+							"selectedPositionId": "2e2612a2-1d09-507e-b48f-538857837b36"
 						},
 						{
 							"id": "b988fcd6-e68c-430d-a0e2-538f15536e11",
 							"type": "work",
-							"selectedPositionId": "d3faedc3-f4a4-4dc3-a1ee-d2513665058a",
-							"label": "Smilts pamatnes izlīdzināšana",
+							"label": "Ailu šuvju aizpildīšana",
 							"secondaryLabel": "1. stāvs",
-							"date": "2026-11-06T12:00:00.000Z",
-							"unit": "m2",
-							"quantity": 46,
-							"reportedQuantity": 46,
+							"date": "2026-11-13T12:00:00.000Z",
+							"unit": "m",
+							"quantity": 12,
+							"reportedQuantity": 12,
 							"costSource": "begin-report",
 							"hours": 16,
 							"hourlyRate": 12.5,
-							"unitRate": 2.75,
+							"unitRate": 18.12,
 							"costCalculationMode": "hourly",
-							"actualCost": 200
+							"actualCost": 200,
+							"selectedPositionId": "6b675809-c998-5ff3-8abc-c07fda1f35d7"
 						},
 						{
 							"id": "af009acc-371f-4191-a719-7f07f5b8e127",
 							"type": "work",
-							"selectedPositionId": "8e060e59-6021-4b77-a06f-8b5f6f5491e0",
 							"label": "Betona grīdas izbūve, 70 mm",
 							"secondaryLabel": "2. stāvs",
-							"date": "2026-11-05T12:00:00.000Z",
+							"date": "2026-11-12T12:00:00.000Z",
 							"unit": "m2",
-							"quantity": 38,
-							"reportedQuantity": 38,
+							"quantity": 29,
+							"reportedQuantity": 29,
 							"costSource": "begin-report",
 							"hours": 16,
 							"hourlyRate": 12.5,
-							"unitRate": 4.375,
+							"unitRate": 4.38,
 							"costCalculationMode": "hourly",
-							"actualCost": 200
+							"actualCost": 200,
+							"selectedPositionId": "8e060e59-6021-4b77-a06f-8b5f6f5491e0"
 						},
 						{
 							"id": "847b9eda-be7f-4c59-a931-ee72fa9c6aef",
 							"type": "work",
-							"selectedPositionId": "8e060e59-6021-4b77-a06f-8b5f6f5491e0",
 							"label": "Betona grīdas izbūve, 70 mm",
 							"secondaryLabel": "1. stāvs",
-							"date": "2026-11-05T12:00:00.000Z",
+							"date": "2026-11-12T12:00:00.000Z",
 							"unit": "m2",
-							"quantity": 38,
-							"reportedQuantity": 38,
+							"quantity": 26,
+							"reportedQuantity": 26,
 							"costSource": "begin-report",
 							"hours": 16,
 							"hourlyRate": 12.5,
-							"unitRate": 4.375,
+							"unitRate": 4.38,
 							"costCalculationMode": "hourly",
-							"actualCost": 200
+							"actualCost": 200,
+							"selectedPositionId": "8e060e59-6021-4b77-a06f-8b5f6f5491e0"
 						},
 						{
 							"id": "f2961dc4-9ad0-4696-aeea-97f12793eedf",
 							"type": "work",
-							"selectedPositionId": "62b9560f-c971-440b-ad8e-6f56ce761fde",
-							"label": "Hidroizolācijas plēves ieklāšana",
+							"label": "Santehnikas darbi",
 							"secondaryLabel": "2. stāvs",
-							"date": "2026-11-04T12:00:00.000Z",
-							"unit": "m2",
-							"quantity": 38,
-							"reportedQuantity": 38,
+							"date": "2026-11-11T12:00:00.000Z",
+							"unit": "gab",
+							"quantity": 6,
+							"reportedQuantity": 6,
 							"costSource": "begin-report",
 							"hours": 16,
 							"hourlyRate": 12.5,
-							"unitRate": 1.25,
+							"unitRate": 31.25,
 							"costCalculationMode": "hourly",
-							"actualCost": 200
+							"actualCost": 200,
+							"selectedPositionId": "17581628-251a-5bfc-bfe0-1cb9341a98ac"
 						},
 						{
 							"id": "535669a1-e5d1-4b5f-a018-53065bf91ea4",
 							"type": "work",
-							"selectedPositionId": "62b9560f-c971-440b-ad8e-6f56ce761fde",
 							"label": "Hidroizolācijas plēves ieklāšana",
 							"secondaryLabel": "1. stāvs",
-							"date": "2026-11-04T12:00:00.000Z",
+							"date": "2026-11-11T12:00:00.000Z",
 							"unit": "m2",
-							"quantity": 38,
-							"reportedQuantity": 38,
+							"quantity": 26,
+							"reportedQuantity": 26,
 							"costSource": "begin-report",
 							"hours": 16,
 							"hourlyRate": 12.5,
 							"unitRate": 1.25,
 							"costCalculationMode": "hourly",
-							"actualCost": 200
+							"actualCost": 200,
+							"selectedPositionId": "62b9560f-c971-440b-ad8e-6f56ce761fde"
 						},
 						{
 							"id": "dea2288d-8467-4c88-aa3a-2ca6a6b233b2",
 							"type": "work",
-							"selectedPositionId": "54d8e46b-6bfd-4b5d-a89b-169825241aae",
-							"label": "XPS siltumizolācijas ieklāšana, 100 mm",
+							"label": "Elektroinstalācijas darbi",
 							"secondaryLabel": "2. stāvs",
-							"date": "2026-11-03T12:00:00.000Z",
-							"unit": "m2",
-							"quantity": 42,
-							"reportedQuantity": 42,
+							"date": "2026-11-10T12:00:00.000Z",
+							"unit": "m",
+							"quantity": 32,
+							"reportedQuantity": 32,
 							"costSource": "begin-report",
 							"hours": 16,
 							"hourlyRate": 12.5,
-							"unitRate": 2.25,
+							"unitRate": 6.25,
 							"costCalculationMode": "hourly",
-							"actualCost": 200
+							"actualCost": 200,
+							"selectedPositionId": "94152fa4-0e73-5a7b-aaea-154b72853e65"
 						},
 						{
 							"id": "d2b1952c-8394-42a7-a5ff-db728bb4bb1f",
 							"type": "work",
-							"selectedPositionId": "54d8e46b-6bfd-4b5d-a89b-169825241aae",
 							"label": "XPS siltumizolācijas ieklāšana, 100 mm",
 							"secondaryLabel": "1. stāvs",
-							"date": "2026-11-03T12:00:00.000Z",
+							"date": "2026-11-10T12:00:00.000Z",
 							"unit": "m2",
-							"quantity": 42,
-							"reportedQuantity": 42,
+							"quantity": 26,
+							"reportedQuantity": 26,
 							"costSource": "begin-report",
 							"hours": 16,
 							"hourlyRate": 12.5,
 							"unitRate": 2.25,
 							"costCalculationMode": "hourly",
-							"actualCost": 200
+							"actualCost": 200,
+							"selectedPositionId": "54d8e46b-6bfd-4b5d-a89b-169825241aae"
 						},
 						{
 							"id": "b74a973f-e518-4e65-a00f-7e6644e31f96",
 							"type": "work",
-							"selectedPositionId": "d3faedc3-f4a4-4dc3-a1ee-d2513665058a",
-							"label": "Smilts pamatnes izlīdzināšana",
+							"label": "Ailu šuvju aizpildīšana",
 							"secondaryLabel": "2. stāvs",
-							"date": "2026-11-02T12:00:00.000Z",
-							"unit": "m2",
-							"quantity": 42,
-							"reportedQuantity": 42,
+							"date": "2026-11-09T12:00:00.000Z",
+							"unit": "m",
+							"quantity": 10,
+							"reportedQuantity": 10,
 							"costSource": "begin-report",
 							"hours": 16,
 							"hourlyRate": 12.5,
-							"unitRate": 2.75,
+							"unitRate": 18.12,
 							"costCalculationMode": "hourly",
-							"actualCost": 200
+							"actualCost": 200,
+							"selectedPositionId": "6b675809-c998-5ff3-8abc-c07fda1f35d7"
 						},
 						{
 							"id": "7683e2be-0d69-459d-a3a9-fcee6b7afe62",
 							"type": "work",
-							"selectedPositionId": "d3faedc3-f4a4-4dc3-a1ee-d2513665058a",
 							"label": "Smilts pamatnes izlīdzināšana",
 							"secondaryLabel": "1. stāvs",
-							"date": "2026-11-02T12:00:00.000Z",
+							"date": "2026-11-09T12:00:00.000Z",
 							"unit": "m2",
-							"quantity": 42,
-							"reportedQuantity": 42,
+							"quantity": 26,
+							"reportedQuantity": 26,
 							"costSource": "begin-report",
 							"hours": 16,
 							"hourlyRate": 12.5,
 							"unitRate": 2.75,
 							"costCalculationMode": "hourly",
-							"actualCost": 200
-						},
-						{
-							"id": "bcecf804-9919-41f0-ae96-04e223236238",
-							"invoiceNumber": "OM-2026-114",
-							"supplierName": "Ozolu materiāli",
-							"invoiceLabel": "Ozolu materiāli · OM-2026-114",
-							"invoiceUrl": "/demo/material-invoice.pdf",
-							"type": "material",
-							"label": "Betons C25/30",
-							"secondaryLabel": "Ozolu materiāli · OM-2026-114",
-							"date": "2026-11-02T12:00:00.000Z",
-							"unit": "m3",
-							"quantity": 8,
-							"hours": null,
-							"actualCost": 720
-						},
-						{
-							"id": "11b799dd-7f74-48f7-ab16-66dcbc6df96b",
-							"invoiceNumber": "OM-2026-114",
-							"supplierName": "Ozolu materiāli",
-							"invoiceLabel": "Ozolu materiāli · OM-2026-114",
-							"invoiceUrl": "/demo/material-invoice.pdf",
-							"type": "material",
-							"label": "PE hidroizolācijas plēve",
-							"secondaryLabel": "Ozolu materiāli · OM-2026-114",
-							"date": "2026-11-02T12:00:00.000Z",
-							"unit": "m2",
-							"quantity": 120,
-							"hours": null,
-							"actualCost": 144
-						},
-						{
-							"id": "aae1ead5-12d5-4c80-a33f-1f2b9dc64240",
-							"invoiceNumber": "OM-2026-114",
-							"supplierName": "Ozolu materiāli",
-							"invoiceLabel": "Ozolu materiāli · OM-2026-114",
-							"invoiceUrl": "/demo/material-invoice.pdf",
-							"type": "material",
-							"label": "XPS 100 mm",
-							"secondaryLabel": "Ozolu materiāli · OM-2026-114",
-							"date": "2026-11-02T12:00:00.000Z",
-							"unit": "m2",
-							"quantity": 120,
-							"hours": null,
-							"actualCost": 1080
-						},
-						{
-							"id": "3a3d3645-4a25-4267-af42-e71e242c0fa7",
-							"invoiceNumber": "OM-2026-114",
-							"supplierName": "Ozolu materiāli",
-							"invoiceLabel": "Ozolu materiāli · OM-2026-114",
-							"invoiceUrl": "/demo/material-invoice.pdf",
-							"type": "material",
-							"label": "Smilts",
-							"secondaryLabel": "Ozolu materiāli · OM-2026-114",
-							"date": "2026-11-02T12:00:00.000Z",
-							"unit": "m3",
-							"quantity": 12,
-							"hours": null,
-							"actualCost": 240
+							"actualCost": 200,
+							"selectedPositionId": "d3faedc3-f4a4-4dc3-a1ee-d2513665058a"
 						}
 					],
 					"allocations": [
 						{
 							"method": "manual",
-							"sourceId": "7683e2be-0d69-459d-a3a9-fcee6b7afe62",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
+							"sourceId": "f9976a6a-20c0-5765-afb2-06473d8d46e1",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
 							"confidence": 1,
 							"positionId": "d3faedc3-f4a4-4dc3-a1ee-d2513665058a",
-							"sourceType": "work"
+							"sourceType": "material"
 						},
 						{
 							"method": "manual",
-							"sourceId": "d2b1952c-8394-42a7-a5ff-db728bb4bb1f",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
+							"sourceId": "6b80fef4-af59-5e80-a6b8-cc7e72d25554",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
 							"confidence": 1,
 							"positionId": "54d8e46b-6bfd-4b5d-a89b-169825241aae",
-							"sourceType": "work"
+							"sourceType": "material"
 						},
 						{
 							"method": "manual",
-							"sourceId": "535669a1-e5d1-4b5f-a018-53065bf91ea4",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
+							"sourceId": "a0c16d3c-38d6-5a0b-874d-17057cb62baa",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
 							"confidence": 1,
 							"positionId": "62b9560f-c971-440b-ad8e-6f56ce761fde",
+							"sourceType": "material"
+						},
+						{
+							"method": "manual",
+							"sourceId": "1b57ea6f-0f4a-5941-a89d-822b13445391",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "8e060e59-6021-4b77-a06f-8b5f6f5491e0",
+							"sourceType": "material"
+						},
+						{
+							"method": "manual",
+							"sourceId": "5c43e1f6-845d-588c-bca3-a50489ff4c77",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "6b675809-c998-5ff3-8abc-c07fda1f35d7",
+							"sourceType": "material"
+						},
+						{
+							"method": "manual",
+							"sourceId": "d8002ae6-cbeb-56b7-9b03-5a21a4de902e",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "94152fa4-0e73-5a7b-aaea-154b72853e65",
+							"sourceType": "material"
+						},
+						{
+							"method": "manual",
+							"sourceId": "a337617a-2a1a-5c27-909e-bd0445fcbc17",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "94152fa4-0e73-5a7b-aaea-154b72853e65",
+							"sourceType": "material"
+						},
+						{
+							"method": "manual",
+							"sourceId": "92cd6269-ded2-5ef1-868b-ce0564797b50",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "94152fa4-0e73-5a7b-aaea-154b72853e65",
+							"sourceType": "material"
+						},
+						{
+							"method": "manual",
+							"sourceId": "52b0dcac-13d3-5f10-a636-172f45bc1f94",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "94152fa4-0e73-5a7b-aaea-154b72853e65",
+							"sourceType": "material"
+						},
+						{
+							"method": "manual",
+							"sourceId": "43798cc3-6ef2-5dbf-a3b1-7bbc332a88cc",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "17581628-251a-5bfc-bfe0-1cb9341a98ac",
+							"sourceType": "material"
+						},
+						{
+							"method": "manual",
+							"sourceId": "438fed13-491e-5fce-8ec4-2b71efe28f01",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "17581628-251a-5bfc-bfe0-1cb9341a98ac",
+							"sourceType": "material"
+						},
+						{
+							"method": "manual",
+							"sourceId": "11a51369-b4ce-5d83-9748-704bdab1960b",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "17581628-251a-5bfc-bfe0-1cb9341a98ac",
+							"sourceType": "material"
+						},
+						{
+							"method": "manual",
+							"sourceId": "96485dc1-66f9-55f2-8963-418156b60fd0",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "2e2612a2-1d09-507e-b48f-538857837b36",
+							"sourceType": "material"
+						},
+						{
+							"method": "manual",
+							"sourceId": "1c0d3a70-fbce-59ad-89ab-d45ae0912d9e",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "2e2612a2-1d09-507e-b48f-538857837b36",
+							"sourceType": "material"
+						},
+						{
+							"method": "manual",
+							"sourceId": "8277c8d0-2a6e-4e23-a442-030242b6b14d",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "94152fa4-0e73-5a7b-aaea-154b72853e65",
 							"sourceType": "work"
 						},
 						{
 							"method": "manual",
-							"sourceId": "847b9eda-be7f-4c59-a931-ee72fa9c6aef",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
+							"sourceId": "4d6ce656-82ff-4fdc-a008-971ea76937e9",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "94152fa4-0e73-5a7b-aaea-154b72853e65",
+							"sourceType": "work"
+						},
+						{
+							"method": "manual",
+							"sourceId": "91b52b1c-6f43-4484-ab31-ba7db9e1d9e9",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "2e2612a2-1d09-507e-b48f-538857837b36",
+							"sourceType": "work"
+						},
+						{
+							"method": "manual",
+							"sourceId": "b988fcd6-e68c-430d-a0e2-538f15536e11",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "6b675809-c998-5ff3-8abc-c07fda1f35d7",
+							"sourceType": "work"
+						},
+						{
+							"method": "manual",
+							"sourceId": "af009acc-371f-4191-a719-7f07f5b8e127",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
 							"confidence": 1,
 							"positionId": "8e060e59-6021-4b77-a06f-8b5f6f5491e0",
 							"sourceType": "work"
 						},
 						{
 							"method": "manual",
-							"sourceId": "b988fcd6-e68c-430d-a0e2-538f15536e11",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
+							"sourceId": "847b9eda-be7f-4c59-a931-ee72fa9c6aef",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
 							"confidence": 1,
-							"positionId": "d3faedc3-f4a4-4dc3-a1ee-d2513665058a",
+							"positionId": "8e060e59-6021-4b77-a06f-8b5f6f5491e0",
 							"sourceType": "work"
 						},
 						{
 							"method": "manual",
-							"sourceId": "4d6ce656-82ff-4fdc-a008-971ea76937e9",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
+							"sourceId": "f2961dc4-9ad0-4696-aeea-97f12793eedf",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "17581628-251a-5bfc-bfe0-1cb9341a98ac",
+							"sourceType": "work"
+						},
+						{
+							"method": "manual",
+							"sourceId": "535669a1-e5d1-4b5f-a018-53065bf91ea4",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "62b9560f-c971-440b-ad8e-6f56ce761fde",
+							"sourceType": "work"
+						},
+						{
+							"method": "manual",
+							"sourceId": "dea2288d-8467-4c88-aa3a-2ca6a6b233b2",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "94152fa4-0e73-5a7b-aaea-154b72853e65",
+							"sourceType": "work"
+						},
+						{
+							"method": "manual",
+							"sourceId": "d2b1952c-8394-42a7-a5ff-db728bb4bb1f",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
 							"confidence": 1,
 							"positionId": "54d8e46b-6bfd-4b5d-a89b-169825241aae",
 							"sourceType": "work"
@@ -2603,82 +3190,18 @@
 						{
 							"method": "manual",
 							"sourceId": "b74a973f-e518-4e65-a00f-7e6644e31f96",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
+							"confidence": 1,
+							"positionId": "6b675809-c998-5ff3-8abc-c07fda1f35d7",
+							"sourceType": "work"
+						},
+						{
+							"method": "manual",
+							"sourceId": "7683e2be-0d69-459d-a3a9-fcee6b7afe62",
+							"assignedAt": "2026-11-14T16:00:00.000Z",
 							"confidence": 1,
 							"positionId": "d3faedc3-f4a4-4dc3-a1ee-d2513665058a",
 							"sourceType": "work"
-						},
-						{
-							"method": "manual",
-							"sourceId": "dea2288d-8467-4c88-aa3a-2ca6a6b233b2",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
-							"confidence": 1,
-							"positionId": "54d8e46b-6bfd-4b5d-a89b-169825241aae",
-							"sourceType": "work"
-						},
-						{
-							"method": "manual",
-							"sourceId": "f2961dc4-9ad0-4696-aeea-97f12793eedf",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
-							"confidence": 1,
-							"positionId": "62b9560f-c971-440b-ad8e-6f56ce761fde",
-							"sourceType": "work"
-						},
-						{
-							"method": "manual",
-							"sourceId": "af009acc-371f-4191-a719-7f07f5b8e127",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
-							"confidence": 1,
-							"positionId": "8e060e59-6021-4b77-a06f-8b5f6f5491e0",
-							"sourceType": "work"
-						},
-						{
-							"method": "manual",
-							"sourceId": "91b52b1c-6f43-4484-ab31-ba7db9e1d9e9",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
-							"confidence": 1,
-							"positionId": "d3faedc3-f4a4-4dc3-a1ee-d2513665058a",
-							"sourceType": "work"
-						},
-						{
-							"method": "manual",
-							"sourceId": "8277c8d0-2a6e-4e23-a442-030242b6b14d",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
-							"confidence": 1,
-							"positionId": "54d8e46b-6bfd-4b5d-a89b-169825241aae",
-							"sourceType": "work"
-						},
-						{
-							"method": "manual",
-							"sourceId": "3a3d3645-4a25-4267-af42-e71e242c0fa7",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
-							"confidence": 1,
-							"positionId": "d3faedc3-f4a4-4dc3-a1ee-d2513665058a",
-							"sourceType": "material"
-						},
-						{
-							"method": "manual",
-							"sourceId": "aae1ead5-12d5-4c80-a33f-1f2b9dc64240",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
-							"confidence": 1,
-							"positionId": "54d8e46b-6bfd-4b5d-a89b-169825241aae",
-							"sourceType": "material"
-						},
-						{
-							"method": "manual",
-							"sourceId": "11b799dd-7f74-48f7-ab16-66dcbc6df96b",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
-							"confidence": 1,
-							"positionId": "62b9560f-c971-440b-ad8e-6f56ce761fde",
-							"sourceType": "material"
-						},
-						{
-							"method": "manual",
-							"sourceId": "bcecf804-9919-41f0-ae96-04e223236238",
-							"assignedAt": "2026-11-07T16:00:00.000Z",
-							"confidence": 1,
-							"positionId": "8e060e59-6021-4b77-a06f-8b5f6f5491e0",
-							"sourceType": "material"
 						}
 					]
 				}
@@ -2692,7 +3215,7 @@
 			"bisEnabled": false,
 			"organizationLanguage": "lv"
 		},
-		"version": "3ea91c09482e908ca4c60d8ad0640c06810d0884e2dd25207ec645f4b3dfcbac"
+		"version": "ozolu-house-v2"
 	},
 	"workers": [
 		{
@@ -2767,11 +3290,11 @@
 			"WorkerSurname": null,
 			"workerId": "9b2eb39f-398f-45bd-af99-64e8f669dbdb",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-02T12:00:00.000Z",
-			"clockIn": "2026-11-02T06:00:00.000Z",
-			"clockOut": "2026-11-02T14:00:00.000Z",
-			"wocation": "1. stāvs",
-			"works": "Smilts pamatnes izlīdzināšana",
+			"date": "2026-11-09T12:00:00.000Z",
+			"clockIn": "2026-11-09T06:00:00.000Z",
+			"clockOut": "2026-11-09T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Smilts pamatnes izlīdzināšana · Ailu šuvju aizpildīšana",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:12.685Z"
@@ -2782,11 +3305,11 @@
 			"WorkerSurname": null,
 			"workerId": "83d761da-54a5-4593-a333-94dacf588e2f",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-02T12:00:00.000Z",
-			"clockIn": "2026-11-02T06:00:00.000Z",
-			"clockOut": "2026-11-02T14:00:00.000Z",
-			"wocation": "2. stāvs",
-			"works": "Smilts pamatnes izlīdzināšana",
+			"date": "2026-11-09T12:00:00.000Z",
+			"clockIn": "2026-11-09T06:00:00.000Z",
+			"clockOut": "2026-11-09T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Smilts pamatnes izlīdzināšana · Ailu šuvju aizpildīšana",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:12.735Z"
@@ -2797,11 +3320,11 @@
 			"WorkerSurname": null,
 			"workerId": "d26b1027-55ce-4951-a34e-dd5665bb01ab",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-02T12:00:00.000Z",
-			"clockIn": "2026-11-02T06:00:00.000Z",
-			"clockOut": "2026-11-02T14:00:00.000Z",
-			"wocation": "1. stāvs",
-			"works": "Smilts pamatnes izlīdzināšana",
+			"date": "2026-11-09T12:00:00.000Z",
+			"clockIn": "2026-11-09T06:00:00.000Z",
+			"clockOut": "2026-11-09T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Smilts pamatnes izlīdzināšana · Ailu šuvju aizpildīšana",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:12.776Z"
@@ -2812,11 +3335,11 @@
 			"WorkerSurname": null,
 			"workerId": "f10b4848-b4f0-429c-a093-6ff1dc99c1e3",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-02T12:00:00.000Z",
-			"clockIn": "2026-11-02T06:00:00.000Z",
-			"clockOut": "2026-11-02T14:00:00.000Z",
-			"wocation": "2. stāvs",
-			"works": "Smilts pamatnes izlīdzināšana",
+			"date": "2026-11-09T12:00:00.000Z",
+			"clockIn": "2026-11-09T06:00:00.000Z",
+			"clockOut": "2026-11-09T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Smilts pamatnes izlīdzināšana · Ailu šuvju aizpildīšana",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:12.816Z"
@@ -2827,11 +3350,11 @@
 			"WorkerSurname": null,
 			"workerId": "9b2eb39f-398f-45bd-af99-64e8f669dbdb",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-03T12:00:00.000Z",
-			"clockIn": "2026-11-03T06:00:00.000Z",
-			"clockOut": "2026-11-03T14:00:00.000Z",
-			"wocation": "1. stāvs",
-			"works": "XPS siltumizolācijas ieklāšana, 100 mm",
+			"date": "2026-11-10T12:00:00.000Z",
+			"clockIn": "2026-11-10T06:00:00.000Z",
+			"clockOut": "2026-11-10T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "XPS siltumizolācijas ieklāšana, 100 mm · Elektroinstalācijas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:12.906Z"
@@ -2842,11 +3365,11 @@
 			"WorkerSurname": null,
 			"workerId": "83d761da-54a5-4593-a333-94dacf588e2f",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-03T12:00:00.000Z",
-			"clockIn": "2026-11-03T06:00:00.000Z",
-			"clockOut": "2026-11-03T14:00:00.000Z",
-			"wocation": "2. stāvs",
-			"works": "XPS siltumizolācijas ieklāšana, 100 mm",
+			"date": "2026-11-10T12:00:00.000Z",
+			"clockIn": "2026-11-10T06:00:00.000Z",
+			"clockOut": "2026-11-10T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "XPS siltumizolācijas ieklāšana, 100 mm · Elektroinstalācijas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:12.948Z"
@@ -2857,11 +3380,11 @@
 			"WorkerSurname": null,
 			"workerId": "d26b1027-55ce-4951-a34e-dd5665bb01ab",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-03T12:00:00.000Z",
-			"clockIn": "2026-11-03T06:00:00.000Z",
-			"clockOut": "2026-11-03T14:00:00.000Z",
-			"wocation": "1. stāvs",
-			"works": "XPS siltumizolācijas ieklāšana, 100 mm",
+			"date": "2026-11-10T12:00:00.000Z",
+			"clockIn": "2026-11-10T06:00:00.000Z",
+			"clockOut": "2026-11-10T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "XPS siltumizolācijas ieklāšana, 100 mm · Elektroinstalācijas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:12.988Z"
@@ -2872,11 +3395,11 @@
 			"WorkerSurname": null,
 			"workerId": "f10b4848-b4f0-429c-a093-6ff1dc99c1e3",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-03T12:00:00.000Z",
-			"clockIn": "2026-11-03T06:00:00.000Z",
-			"clockOut": "2026-11-03T14:00:00.000Z",
-			"wocation": "2. stāvs",
-			"works": "XPS siltumizolācijas ieklāšana, 100 mm",
+			"date": "2026-11-10T12:00:00.000Z",
+			"clockIn": "2026-11-10T06:00:00.000Z",
+			"clockOut": "2026-11-10T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "XPS siltumizolācijas ieklāšana, 100 mm · Elektroinstalācijas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:13.027Z"
@@ -2887,11 +3410,11 @@
 			"WorkerSurname": null,
 			"workerId": "9b2eb39f-398f-45bd-af99-64e8f669dbdb",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-04T12:00:00.000Z",
-			"clockIn": "2026-11-04T06:00:00.000Z",
-			"clockOut": "2026-11-04T14:00:00.000Z",
-			"wocation": "1. stāvs",
-			"works": "Hidroizolācijas plēves ieklāšana",
+			"date": "2026-11-11T12:00:00.000Z",
+			"clockIn": "2026-11-11T06:00:00.000Z",
+			"clockOut": "2026-11-11T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Hidroizolācijas plēves ieklāšana · Santehnikas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:13.121Z"
@@ -2902,11 +3425,11 @@
 			"WorkerSurname": null,
 			"workerId": "83d761da-54a5-4593-a333-94dacf588e2f",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-04T12:00:00.000Z",
-			"clockIn": "2026-11-04T06:00:00.000Z",
-			"clockOut": "2026-11-04T14:00:00.000Z",
-			"wocation": "2. stāvs",
-			"works": "Hidroizolācijas plēves ieklāšana",
+			"date": "2026-11-11T12:00:00.000Z",
+			"clockIn": "2026-11-11T06:00:00.000Z",
+			"clockOut": "2026-11-11T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Hidroizolācijas plēves ieklāšana · Santehnikas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:13.164Z"
@@ -2917,11 +3440,11 @@
 			"WorkerSurname": null,
 			"workerId": "d26b1027-55ce-4951-a34e-dd5665bb01ab",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-04T12:00:00.000Z",
-			"clockIn": "2026-11-04T06:00:00.000Z",
-			"clockOut": "2026-11-04T14:00:00.000Z",
-			"wocation": "1. stāvs",
-			"works": "Hidroizolācijas plēves ieklāšana",
+			"date": "2026-11-11T12:00:00.000Z",
+			"clockIn": "2026-11-11T06:00:00.000Z",
+			"clockOut": "2026-11-11T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Hidroizolācijas plēves ieklāšana · Santehnikas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:13.204Z"
@@ -2932,11 +3455,11 @@
 			"WorkerSurname": null,
 			"workerId": "f10b4848-b4f0-429c-a093-6ff1dc99c1e3",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-04T12:00:00.000Z",
-			"clockIn": "2026-11-04T06:00:00.000Z",
-			"clockOut": "2026-11-04T14:00:00.000Z",
-			"wocation": "2. stāvs",
-			"works": "Hidroizolācijas plēves ieklāšana",
+			"date": "2026-11-11T12:00:00.000Z",
+			"clockIn": "2026-11-11T06:00:00.000Z",
+			"clockOut": "2026-11-11T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Hidroizolācijas plēves ieklāšana · Santehnikas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:13.246Z"
@@ -2947,10 +3470,10 @@
 			"WorkerSurname": null,
 			"workerId": "9b2eb39f-398f-45bd-af99-64e8f669dbdb",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-05T12:00:00.000Z",
-			"clockIn": "2026-11-05T06:00:00.000Z",
-			"clockOut": "2026-11-05T14:00:00.000Z",
-			"wocation": "1. stāvs",
+			"date": "2026-11-12T12:00:00.000Z",
+			"clockIn": "2026-11-12T06:00:00.000Z",
+			"clockOut": "2026-11-12T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
 			"works": "Betona grīdas izbūve, 70 mm",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
@@ -2962,10 +3485,10 @@
 			"WorkerSurname": null,
 			"workerId": "83d761da-54a5-4593-a333-94dacf588e2f",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-05T12:00:00.000Z",
-			"clockIn": "2026-11-05T06:00:00.000Z",
-			"clockOut": "2026-11-05T14:00:00.000Z",
-			"wocation": "2. stāvs",
+			"date": "2026-11-12T12:00:00.000Z",
+			"clockIn": "2026-11-12T06:00:00.000Z",
+			"clockOut": "2026-11-12T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
 			"works": "Betona grīdas izbūve, 70 mm",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
@@ -2977,10 +3500,10 @@
 			"WorkerSurname": null,
 			"workerId": "d26b1027-55ce-4951-a34e-dd5665bb01ab",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-05T12:00:00.000Z",
-			"clockIn": "2026-11-05T06:00:00.000Z",
-			"clockOut": "2026-11-05T14:00:00.000Z",
-			"wocation": "1. stāvs",
+			"date": "2026-11-12T12:00:00.000Z",
+			"clockIn": "2026-11-12T06:00:00.000Z",
+			"clockOut": "2026-11-12T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
 			"works": "Betona grīdas izbūve, 70 mm",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
@@ -2992,10 +3515,10 @@
 			"WorkerSurname": null,
 			"workerId": "f10b4848-b4f0-429c-a093-6ff1dc99c1e3",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-05T12:00:00.000Z",
-			"clockIn": "2026-11-05T06:00:00.000Z",
-			"clockOut": "2026-11-05T14:00:00.000Z",
-			"wocation": "2. stāvs",
+			"date": "2026-11-12T12:00:00.000Z",
+			"clockIn": "2026-11-12T06:00:00.000Z",
+			"clockOut": "2026-11-12T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
 			"works": "Betona grīdas izbūve, 70 mm",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
@@ -3007,11 +3530,11 @@
 			"WorkerSurname": null,
 			"workerId": "9b2eb39f-398f-45bd-af99-64e8f669dbdb",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-06T12:00:00.000Z",
-			"clockIn": "2026-11-06T06:00:00.000Z",
-			"clockOut": "2026-11-06T14:00:00.000Z",
-			"wocation": "1. stāvs",
-			"works": "Smilts pamatnes izlīdzināšana",
+			"date": "2026-11-13T12:00:00.000Z",
+			"clockIn": "2026-11-13T06:00:00.000Z",
+			"clockOut": "2026-11-13T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Ailu šuvju aizpildīšana · Apkures sistēmas un ventilācijas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:13.533Z"
@@ -3022,11 +3545,11 @@
 			"WorkerSurname": null,
 			"workerId": "83d761da-54a5-4593-a333-94dacf588e2f",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-06T12:00:00.000Z",
-			"clockIn": "2026-11-06T06:00:00.000Z",
-			"clockOut": "2026-11-06T14:00:00.000Z",
-			"wocation": "2. stāvs",
-			"works": "Smilts pamatnes izlīdzināšana",
+			"date": "2026-11-13T12:00:00.000Z",
+			"clockIn": "2026-11-13T06:00:00.000Z",
+			"clockOut": "2026-11-13T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Ailu šuvju aizpildīšana · Apkures sistēmas un ventilācijas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:13.572Z"
@@ -3037,11 +3560,11 @@
 			"WorkerSurname": null,
 			"workerId": "d26b1027-55ce-4951-a34e-dd5665bb01ab",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-06T12:00:00.000Z",
-			"clockIn": "2026-11-06T06:00:00.000Z",
-			"clockOut": "2026-11-06T14:00:00.000Z",
-			"wocation": "1. stāvs",
-			"works": "Smilts pamatnes izlīdzināšana",
+			"date": "2026-11-13T12:00:00.000Z",
+			"clockIn": "2026-11-13T06:00:00.000Z",
+			"clockOut": "2026-11-13T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Ailu šuvju aizpildīšana · Apkures sistēmas un ventilācijas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:13.611Z"
@@ -3052,11 +3575,11 @@
 			"WorkerSurname": null,
 			"workerId": "f10b4848-b4f0-429c-a093-6ff1dc99c1e3",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-06T12:00:00.000Z",
-			"clockIn": "2026-11-06T06:00:00.000Z",
-			"clockOut": "2026-11-06T14:00:00.000Z",
-			"wocation": "2. stāvs",
-			"works": "Smilts pamatnes izlīdzināšana",
+			"date": "2026-11-13T12:00:00.000Z",
+			"clockIn": "2026-11-13T06:00:00.000Z",
+			"clockOut": "2026-11-13T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Ailu šuvju aizpildīšana · Apkures sistēmas un ventilācijas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:13.652Z"
@@ -3067,11 +3590,11 @@
 			"WorkerSurname": null,
 			"workerId": "9b2eb39f-398f-45bd-af99-64e8f669dbdb",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-07T12:00:00.000Z",
-			"clockIn": "2026-11-07T06:00:00.000Z",
-			"clockOut": "2026-11-07T14:00:00.000Z",
-			"wocation": "1. stāvs",
-			"works": "XPS siltumizolācijas ieklāšana, 100 mm",
+			"date": "2026-11-14T12:00:00.000Z",
+			"clockIn": "2026-11-14T06:00:00.000Z",
+			"clockOut": "2026-11-14T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Elektroinstalācijas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:13.733Z"
@@ -3082,11 +3605,11 @@
 			"WorkerSurname": null,
 			"workerId": "83d761da-54a5-4593-a333-94dacf588e2f",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-07T12:00:00.000Z",
-			"clockIn": "2026-11-07T06:00:00.000Z",
-			"clockOut": "2026-11-07T14:00:00.000Z",
-			"wocation": "2. stāvs",
-			"works": "XPS siltumizolācijas ieklāšana, 100 mm",
+			"date": "2026-11-14T12:00:00.000Z",
+			"clockIn": "2026-11-14T06:00:00.000Z",
+			"clockOut": "2026-11-14T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Elektroinstalācijas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:13.775Z"
@@ -3097,11 +3620,11 @@
 			"WorkerSurname": null,
 			"workerId": "d26b1027-55ce-4951-a34e-dd5665bb01ab",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-07T12:00:00.000Z",
-			"clockIn": "2026-11-07T06:00:00.000Z",
-			"clockOut": "2026-11-07T14:00:00.000Z",
-			"wocation": "1. stāvs",
-			"works": "XPS siltumizolācijas ieklāšana, 100 mm",
+			"date": "2026-11-14T12:00:00.000Z",
+			"clockIn": "2026-11-14T06:00:00.000Z",
+			"clockOut": "2026-11-14T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Elektroinstalācijas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:13.813Z"
@@ -3112,11 +3635,11 @@
 			"WorkerSurname": null,
 			"workerId": "f10b4848-b4f0-429c-a093-6ff1dc99c1e3",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"date": "2026-11-07T12:00:00.000Z",
-			"clockIn": "2026-11-07T06:00:00.000Z",
-			"clockOut": "2026-11-07T14:00:00.000Z",
-			"wocation": "2. stāvs",
-			"works": "XPS siltumizolācijas ieklāšana, 100 mm",
+			"date": "2026-11-14T12:00:00.000Z",
+			"clockIn": "2026-11-14T06:00:00.000Z",
+			"clockOut": "2026-11-14T14:00:00.000Z",
+			"wocation": "1. un 2. stāvs",
+			"works": "Elektroinstalācijas darbi",
 			"photo": null,
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
 			"createdAt": "2026-11-08T17:05:13.853Z"
@@ -3125,192 +3648,192 @@
 	"photos": [
 		{
 			"id": "fc831d0d-352d-4355-a36a-f08e8f354b8d",
-			"Date": "2026-11-02T12:00:00.000Z",
-			"URL": "/demo/source-1-1.svg",
-			"Comment": "1. stāvs, telpa 101.",
+			"Date": "2026-11-09T12:00:00.000Z",
+			"URL": "/demo/house-zone-1-9.png",
+			"Comment": "1. stāvs, telpa 101 (koplietošanas telpa). Nolīdzinājām un sablīvējām smilts pamatni. Pārbaudījām atzīmes pie ārdurvīm.",
 			"Location": "1. stāvs",
 			"userId": "ozolu-user",
 			"workerId": null,
-			"fileUrl": "/demo/source-1-1.svg",
+			"fileUrl": "/demo/house-zone-1-9.png",
 			"mediaPurpose": "site_diary",
 			"diaryRecordId": "7683e2be-0d69-459d-a3a9-fcee6b7afe62",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
-			"createdAt": "2026-11-08T17:05:11.291Z"
+			"createdAt": "2026-11-09T16:20:00.000Z"
 		},
 		{
 			"id": "a632c5f4-a738-4e58-a0d1-213386af50a3",
-			"Date": "2026-11-02T12:00:00.000Z",
-			"URL": "/demo/source-2-1.svg",
-			"Comment": "2. stāvs, telpa 201.",
+			"Date": "2026-11-09T12:00:00.000Z",
+			"URL": "/demo/house-zone-2-9.png",
+			"Comment": "2. stāvs, telpa 204 (noliktavas telpa). Aizpildījām starpsienu ailu šuves ar minerālvates sloksnēm.",
 			"Location": "2. stāvs",
 			"userId": "ozolu-user",
 			"workerId": null,
-			"fileUrl": "/demo/source-2-1.svg",
+			"fileUrl": "/demo/house-zone-2-9.png",
 			"mediaPurpose": "site_diary",
 			"diaryRecordId": "b74a973f-e518-4e65-a00f-7e6644e31f96",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
-			"createdAt": "2026-11-08T17:05:11.853Z"
+			"createdAt": "2026-11-09T16:20:00.000Z"
 		},
 		{
 			"id": "ff1ba884-61d9-4dd7-a03d-0150ec1bf1c0",
-			"Date": "2026-11-03T12:00:00.000Z",
-			"URL": "/demo/source-1-2.svg",
-			"Comment": "1. stāvs, telpa 101.",
+			"Date": "2026-11-10T12:00:00.000Z",
+			"URL": "/demo/house-zone-1-10.png",
+			"Comment": "1. stāvs, telpa 101 (koplietošanas telpa). Ieklājām XPS divās kārtās ar nobīdītām šuvēm.",
 			"Location": "1. stāvs",
 			"userId": "ozolu-user",
 			"workerId": null,
-			"fileUrl": "/demo/source-1-2.svg",
+			"fileUrl": "/demo/house-zone-1-10.png",
 			"mediaPurpose": "site_diary",
 			"diaryRecordId": "d2b1952c-8394-42a7-a5ff-db728bb4bb1f",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
-			"createdAt": "2026-11-08T17:05:11.404Z"
+			"createdAt": "2026-11-10T16:20:00.000Z"
 		},
 		{
 			"id": "aaba771b-40ab-4f78-af47-657e4f54375e",
-			"Date": "2026-11-03T12:00:00.000Z",
-			"URL": "/demo/source-2-2.svg",
-			"Comment": "2. stāvs, telpa 201.",
+			"Date": "2026-11-10T12:00:00.000Z",
+			"URL": "/demo/house-zone-2-10.png",
+			"Comment": "2. stāvs, telpa 201 (kabinets). Ievilkām apgaismojuma kabeļus gofrētajās caurulēs līdz sadalnei.",
 			"Location": "2. stāvs",
 			"userId": "ozolu-user",
 			"workerId": null,
-			"fileUrl": "/demo/source-2-2.svg",
+			"fileUrl": "/demo/house-zone-2-10.png",
 			"mediaPurpose": "site_diary",
 			"diaryRecordId": "dea2288d-8467-4c88-aa3a-2ca6a6b233b2",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
-			"createdAt": "2026-11-08T17:05:11.943Z"
+			"createdAt": "2026-11-10T16:20:00.000Z"
 		},
 		{
 			"id": "ac8f5e74-2e4d-43b9-a6ae-8c122df65604",
-			"Date": "2026-11-04T12:00:00.000Z",
-			"URL": "/demo/source-1-3.svg",
-			"Comment": "1. stāvs, telpa 102.",
+			"Date": "2026-11-11T12:00:00.000Z",
+			"URL": "/demo/house-zone-1-11.png",
+			"Comment": "1. stāvs, telpa 101 (koplietošanas telpa). Ieklājām un salīmējām PE plēves pārlaidumus. Pie sienām plēvi pacēlām virs grīdas atzīmes.",
 			"Location": "1. stāvs",
 			"userId": "ozolu-user",
 			"workerId": null,
-			"fileUrl": "/demo/source-1-3.svg",
+			"fileUrl": "/demo/house-zone-1-11.png",
 			"mediaPurpose": "site_diary",
 			"diaryRecordId": "535669a1-e5d1-4b5f-a018-53065bf91ea4",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
-			"createdAt": "2026-11-08T17:05:11.494Z"
+			"createdAt": "2026-11-11T16:20:00.000Z"
 		},
 		{
 			"id": "d57559a9-48a6-4a63-ae23-f58c2b5a0a9e",
-			"Date": "2026-11-04T12:00:00.000Z",
-			"URL": "/demo/source-2-3.svg",
-			"Comment": "2. stāvs, telpa 202.",
+			"Date": "2026-11-11T12:00:00.000Z",
+			"URL": "/demo/house-zone-2-11.png",
+			"Comment": "2. stāvs, telpa 203 (sanmezgls). Samontējām aukstā ūdens atzarus. Savienojumus atstājām redzamus spiediena pārbaudei.",
 			"Location": "2. stāvs",
 			"userId": "ozolu-user",
 			"workerId": null,
-			"fileUrl": "/demo/source-2-3.svg",
+			"fileUrl": "/demo/house-zone-2-11.png",
 			"mediaPurpose": "site_diary",
 			"diaryRecordId": "f2961dc4-9ad0-4696-aeea-97f12793eedf",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
-			"createdAt": "2026-11-08T17:05:12.029Z"
+			"createdAt": "2026-11-11T16:20:00.000Z"
 		},
 		{
 			"id": "1ff0c56b-fe72-4972-a7c3-b6fffa9068dd",
-			"Date": "2026-11-05T12:00:00.000Z",
-			"URL": "/demo/source-1-4.svg",
-			"Comment": "1. stāvs, telpa 102.",
+			"Date": "2026-11-12T12:00:00.000Z",
+			"URL": "/demo/house-zone-1-12.png",
+			"Comment": "1. stāvs, telpa 101 (koplietošanas telpa). Iestrādājām C25/30 betonu 70 mm slānī. Pārbaudījām grīdas atzīmi pie ieejas.",
 			"Location": "1. stāvs",
 			"userId": "ozolu-user",
 			"workerId": null,
-			"fileUrl": "/demo/source-1-4.svg",
+			"fileUrl": "/demo/house-zone-1-12.png",
 			"mediaPurpose": "site_diary",
 			"diaryRecordId": "847b9eda-be7f-4c59-a931-ee72fa9c6aef",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
-			"createdAt": "2026-11-08T17:05:11.584Z"
+			"createdAt": "2026-11-12T16:20:00.000Z"
 		},
 		{
 			"id": "bb6aa0d6-10ea-4a7b-a6b6-013adc534ff4",
-			"Date": "2026-11-05T12:00:00.000Z",
-			"URL": "/demo/source-2-4.svg",
-			"Comment": "2. stāvs, telpa 202.",
+			"Date": "2026-11-12T12:00:00.000Z",
+			"URL": "/demo/house-zone-2-12.png",
+			"Comment": "2. stāvs, telpa 202 (darba telpa). Uz iepriekš sagatavotās pamatnes izbūvējām 70 mm betona grīdu.",
 			"Location": "2. stāvs",
 			"userId": "ozolu-user",
 			"workerId": null,
-			"fileUrl": "/demo/source-2-4.svg",
+			"fileUrl": "/demo/house-zone-2-12.png",
 			"mediaPurpose": "site_diary",
 			"diaryRecordId": "af009acc-371f-4191-a719-7f07f5b8e127",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
-			"createdAt": "2026-11-08T17:05:12.118Z"
+			"createdAt": "2026-11-12T16:20:00.000Z"
 		},
 		{
 			"id": "f914c6d3-0491-4cde-a3a2-e72b201a898d",
-			"Date": "2026-11-06T12:00:00.000Z",
-			"URL": "/demo/source-1-5.svg",
-			"Comment": "1. stāvs, telpa 104.",
+			"Date": "2026-11-13T12:00:00.000Z",
+			"URL": "/demo/house-doorway.jpg",
+			"Comment": "1. stāvs, telpa 104 (priekštelpa). Aizpildījām ailu montāžas šuves priekštelpā. Foto rāda šuves pie durvju ailes pirms apdares.",
 			"Location": "1. stāvs",
 			"userId": "ozolu-user",
 			"workerId": null,
-			"fileUrl": "/demo/source-1-5.svg",
+			"fileUrl": "/demo/house-doorway.jpg",
 			"mediaPurpose": "site_diary",
 			"diaryRecordId": "b988fcd6-e68c-430d-a0e2-538f15536e11",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
-			"createdAt": "2026-11-08T17:05:11.672Z"
+			"createdAt": "2026-11-13T16:20:00.000Z"
 		},
 		{
 			"id": "f6151500-392c-47c9-a405-d3a07aefedb0",
-			"Date": "2026-11-06T12:00:00.000Z",
-			"URL": "/demo/source-2-5.svg",
-			"Comment": "2. stāvs, telpa 204.",
+			"Date": "2026-11-13T12:00:00.000Z",
+			"URL": "/demo/house-zone-2-13.png",
+			"Comment": "2. stāvs, telpa 205 (kāpņu telpa). Uzstādījām divus siltinātus Ø125 ventilācijas izvadus virs kāpņu telpas.",
 			"Location": "2. stāvs",
 			"userId": "ozolu-user",
 			"workerId": null,
-			"fileUrl": "/demo/source-2-5.svg",
+			"fileUrl": "/demo/house-zone-2-13.png",
 			"mediaPurpose": "site_diary",
 			"diaryRecordId": "91b52b1c-6f43-4484-ab31-ba7db9e1d9e9",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
-			"createdAt": "2026-11-08T17:05:12.205Z"
+			"createdAt": "2026-11-13T16:20:00.000Z"
 		},
 		{
 			"id": "325e255a-e11a-454c-a586-f69d8f794c4c",
-			"Date": "2026-11-07T12:00:00.000Z",
-			"URL": "/demo/source-1-6.svg",
-			"Comment": "1. stāvs, telpa 105.",
+			"Date": "2026-11-14T12:00:00.000Z",
+			"URL": "/demo/house-zone-1-14.png",
+			"Comment": "1. stāvs, telpa 102 (virtuve un ēdamzona). Virtuvē izbūvējām rozešu un apgaismojuma līnijas. Sadales galus marķējām.",
 			"Location": "1. stāvs",
 			"userId": "ozolu-user",
 			"workerId": null,
-			"fileUrl": "/demo/source-1-6.svg",
+			"fileUrl": "/demo/house-zone-1-14.png",
 			"mediaPurpose": "site_diary",
 			"diaryRecordId": "4d6ce656-82ff-4fdc-a008-971ea76937e9",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
-			"createdAt": "2026-11-08T17:05:11.760Z"
+			"createdAt": "2026-11-14T16:20:00.000Z"
 		},
 		{
 			"id": "3a946170-4724-4072-a55a-14c1bd2dd822",
-			"Date": "2026-11-07T12:00:00.000Z",
-			"URL": "/demo/source-2-6.svg",
-			"Comment": "2. stāvs, telpa 205.",
+			"Date": "2026-11-14T12:00:00.000Z",
+			"URL": "/demo/house-zone-2-14.png",
+			"Comment": "2. stāvs, telpa 202 (darba telpa). Darba telpā pabeidzām rozešu līniju vilkšanu un marķēšanu pie sadalnes.",
 			"Location": "2. stāvs",
 			"userId": "ozolu-user",
 			"workerId": null,
-			"fileUrl": "/demo/source-2-6.svg",
+			"fileUrl": "/demo/house-zone-2-14.png",
 			"mediaPurpose": "site_diary",
 			"diaryRecordId": "8277c8d0-2a6e-4e23-a442-030242b6b14d",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
-			"createdAt": "2026-11-08T17:05:12.294Z"
+			"createdAt": "2026-11-14T16:20:00.000Z"
 		}
 	],
 	"documents": [
 		{
 			"id": "09f18b6a-4dbc-4af7-acf4-322af1eb9032",
-			"url": "/demo/floor-1.pdf",
+			"url": "/demo/house-floor-1.pdf",
 			"documentType": "limeni-visual-v1",
-			"documentName": "AR-01 · 1. stāvs grīdu plāns.pdf",
-			"description": "{\"version\":1,\"location\":\"1. stāvs\",\"status\":\"complete\",\"pageCount\":1,\"processed\":6,\"evidence\":[{\"id\":\"7683e2be-0d69-459d-a3a9-fcee6b7afe62:0\",\"recordId\":\"7683e2be-0d69-459d-a3a9-fcee6b7afe62\",\"photoUrl\":\"/demo/source-1-1.svg\",\"work\":\"Smilts pamatnes izlīdzināšana\",\"location\":\"1. stāvs\",\"description\":\"1. stāvs, telpa 101.\",\"date\":\"2026-11-02T12:00:00.000Z\",\"amount\":42,\"unit\":\"m2\",\"sourceRevision\":\"8441e2e3f4f32e22798a3e3d4d6e0c608bc4ce89699c2490bfe5f24e1efd47d0\"},{\"id\":\"d2b1952c-8394-42a7-a5ff-db728bb4bb1f:0\",\"recordId\":\"d2b1952c-8394-42a7-a5ff-db728bb4bb1f\",\"photoUrl\":\"/demo/source-1-2.svg\",\"work\":\"XPS siltumizolācijas ieklāšana, 100 mm\",\"location\":\"1. stāvs\",\"description\":\"1. stāvs, telpa 101.\",\"date\":\"2026-11-03T12:00:00.000Z\",\"amount\":42,\"unit\":\"m2\",\"sourceRevision\":\"52422e3db2b4127c3ec59ef64763994352de72159db741bacad5f010dea59467\"},{\"id\":\"535669a1-e5d1-4b5f-a018-53065bf91ea4:0\",\"recordId\":\"535669a1-e5d1-4b5f-a018-53065bf91ea4\",\"photoUrl\":\"/demo/source-1-3.svg\",\"work\":\"Hidroizolācijas plēves ieklāšana\",\"location\":\"1. stāvs\",\"description\":\"1. stāvs, telpa 102.\",\"date\":\"2026-11-04T12:00:00.000Z\",\"amount\":38,\"unit\":\"m2\",\"sourceRevision\":\"0f6ca9dca16ae02a69ac55bf94b69c463c4963b7ccf4f74c9510e3bdd8f5b89e\"},{\"id\":\"847b9eda-be7f-4c59-a931-ee72fa9c6aef:0\",\"recordId\":\"847b9eda-be7f-4c59-a931-ee72fa9c6aef\",\"photoUrl\":\"/demo/source-1-4.svg\",\"work\":\"Betona grīdas izbūve, 70 mm\",\"location\":\"1. stāvs\",\"description\":\"1. stāvs, telpa 102.\",\"date\":\"2026-11-05T12:00:00.000Z\",\"amount\":38,\"unit\":\"m2\",\"sourceRevision\":\"4f6a64c1971ba755687df5887f27f3d0f735195a6422dd64efbe5dd06ec4e439\"},{\"id\":\"b988fcd6-e68c-430d-a0e2-538f15536e11:0\",\"recordId\":\"b988fcd6-e68c-430d-a0e2-538f15536e11\",\"photoUrl\":\"/demo/source-1-5.svg\",\"work\":\"Smilts pamatnes izlīdzināšana\",\"location\":\"1. stāvs\",\"description\":\"1. stāvs, telpa 104.\",\"date\":\"2026-11-06T12:00:00.000Z\",\"amount\":46,\"unit\":\"m2\",\"sourceRevision\":\"48d9ab7cf50acd947de052d4b0f83f5e30f459a3b498b9e65fee28430d020328\"},{\"id\":\"4d6ce656-82ff-4fdc-a008-971ea76937e9:0\",\"recordId\":\"4d6ce656-82ff-4fdc-a008-971ea76937e9\",\"photoUrl\":\"/demo/source-1-6.svg\",\"work\":\"XPS siltumizolācijas ieklāšana, 100 mm\",\"location\":\"1. stāvs\",\"description\":\"1. stāvs, telpa 105.\",\"date\":\"2026-11-07T12:00:00.000Z\",\"amount\":44,\"unit\":\"m2\",\"sourceRevision\":\"e2b52001519854ee9f3dbcd3cbf04c7a0c3ecfc0cfc6c925f4efa3907d44e73f\"}],\"marks\":[{\"evidenceId\":\"7683e2be-0d69-459d-a3a9-fcee6b7afe62:0\",\"page\":1,\"polygon\":[{\"x\":0.25416666666666665,\"y\":0.23125},{\"x\":0.42083333333333334,\"y\":0.23125},{\"x\":0.42083333333333334,\"y\":0.44375},{\"x\":0.25416666666666665,\"y\":0.44375}],\"confidence\":1,\"anchors\":[\"Telpa 101\",\"AR-01\"],\"explanation\":\"Darba zona atbilstoši avota rasējumam.\",\"id\":\"12c439ae-a988-4ef6-aa64-2eed8a95e42e\",\"layer\":\"sand\"},{\"evidenceId\":\"d2b1952c-8394-42a7-a5ff-db728bb4bb1f:0\",\"page\":1,\"polygon\":[{\"x\":0.25416666666666665,\"y\":0.23125},{\"x\":0.42083333333333334,\"y\":0.23125},{\"x\":0.42083333333333334,\"y\":0.44375},{\"x\":0.25416666666666665,\"y\":0.44375}],\"confidence\":1,\"anchors\":[\"Telpa 101\",\"AR-01\"],\"explanation\":\"Darba zona atbilstoši avota rasējumam.\",\"id\":\"1bf7c77f-5836-4eea-a21c-0fd26a335946\",\"layer\":\"xps\"},{\"evidenceId\":\"535669a1-e5d1-4b5f-a018-53065bf91ea4:0\",\"page\":1,\"polygon\":[{\"x\":0.42916666666666664,\"y\":0.23125},{\"x\":0.5958333333333333,\"y\":0.23125},{\"x\":0.5958333333333333,\"y\":0.44375},{\"x\":0.42916666666666664,\"y\":0.44375}],\"confidence\":1,\"anchors\":[\"Telpa 102\",\"AR-01\"],\"explanation\":\"Darba zona atbilstoši avota rasējumam.\",\"id\":\"5b724316-340b-4ee2-adae-74d610d3aafb\",\"layer\":\"film\"},{\"evidenceId\":\"847b9eda-be7f-4c59-a931-ee72fa9c6aef:0\",\"page\":1,\"polygon\":[{\"x\":0.42916666666666664,\"y\":0.23125},{\"x\":0.5958333333333333,\"y\":0.23125},{\"x\":0.5958333333333333,\"y\":0.44375},{\"x\":0.42916666666666664,\"y\":0.44375}],\"confidence\":1,\"anchors\":[\"Telpa 102\",\"AR-01\"],\"explanation\":\"Darba zona atbilstoši avota rasējumam.\",\"id\":\"b369b146-557c-46e3-aff1-46d72f14ea8d\",\"layer\":\"estrich\"},{\"evidenceId\":\"b988fcd6-e68c-430d-a0e2-538f15536e11:0\",\"page\":1,\"polygon\":[{\"x\":0.25416666666666665,\"y\":0.53125},{\"x\":0.42083333333333334,\"y\":0.53125},{\"x\":0.42083333333333334,\"y\":0.74375},{\"x\":0.25416666666666665,\"y\":0.74375}],\"confidence\":1,\"anchors\":[\"Telpa 104\",\"AR-01\"],\"explanation\":\"Darba zona atbilstoši avota rasējumam.\",\"id\":\"ad1848c9-847a-4eb4-a642-6ebec07b7628\",\"layer\":\"sand\"},{\"evidenceId\":\"4d6ce656-82ff-4fdc-a008-971ea76937e9:0\",\"page\":1,\"polygon\":[{\"x\":0.42916666666666664,\"y\":0.53125},{\"x\":0.5958333333333333,\"y\":0.53125},{\"x\":0.5958333333333333,\"y\":0.74375},{\"x\":0.42916666666666664,\"y\":0.74375}],\"confidence\":1,\"anchors\":[\"Telpa 105\",\"AR-01\"],\"explanation\":\"Darba zona atbilstoši avota rasējumam.\",\"id\":\"83beed8d-d249-4a6d-aafd-b2272af334f1\",\"layer\":\"xps\"}],\"unlocated\":[],\"error\":null,\"lockedAt\":null,\"attempts\":[]}",
+			"documentName": "AR-01 · 1. stāva plāns.pdf",
+			"description": "{\"version\":1,\"location\":\"1. stāvs\",\"status\":\"complete\",\"pageCount\":1,\"processed\":6,\"evidence\":[{\"id\":\"7683e2be-0d69-459d-a3a9-fcee6b7afe62:0\",\"recordId\":\"7683e2be-0d69-459d-a3a9-fcee6b7afe62\",\"photoUrl\":\"/demo/house-zone-1-9.png\",\"work\":\"Smilts pamatnes izlīdzināšana\",\"location\":\"1. stāvs\",\"description\":\"1. stāvs, telpa 101 (koplietošanas telpa). Nolīdzinājām un sablīvējām smilts pamatni. Pārbaudījām atzīmes pie ārdurvīm.\",\"date\":\"2026-11-09T12:00:00.000Z\",\"amount\":26,\"unit\":\"m2\",\"sourceRevision\":\"3dd141426f3cc632d570bba496c5a72a9012bd86b0b016af05f493e36c0b3dbf\"},{\"id\":\"d2b1952c-8394-42a7-a5ff-db728bb4bb1f:0\",\"recordId\":\"d2b1952c-8394-42a7-a5ff-db728bb4bb1f\",\"photoUrl\":\"/demo/house-zone-1-10.png\",\"work\":\"XPS siltumizolācijas ieklāšana, 100 mm\",\"location\":\"1. stāvs\",\"description\":\"1. stāvs, telpa 101 (koplietošanas telpa). Ieklājām XPS divās kārtās ar nobīdītām šuvēm.\",\"date\":\"2026-11-10T12:00:00.000Z\",\"amount\":26,\"unit\":\"m2\",\"sourceRevision\":\"b5a171932b268fbaf934c64fc404a29efbb30acefe8c8226994ef8a9e14d40b5\"},{\"id\":\"535669a1-e5d1-4b5f-a018-53065bf91ea4:0\",\"recordId\":\"535669a1-e5d1-4b5f-a018-53065bf91ea4\",\"photoUrl\":\"/demo/house-zone-1-11.png\",\"work\":\"Hidroizolācijas plēves ieklāšana\",\"location\":\"1. stāvs\",\"description\":\"1. stāvs, telpa 101 (koplietošanas telpa). Ieklājām un salīmējām PE plēves pārlaidumus. Pie sienām plēvi pacēlām virs grīdas atzīmes.\",\"date\":\"2026-11-11T12:00:00.000Z\",\"amount\":26,\"unit\":\"m2\",\"sourceRevision\":\"6776209562d4980acdcf95f0277bda4fafc3fa4f9087a4c30cf647d746700228\"},{\"id\":\"847b9eda-be7f-4c59-a931-ee72fa9c6aef:0\",\"recordId\":\"847b9eda-be7f-4c59-a931-ee72fa9c6aef\",\"photoUrl\":\"/demo/house-zone-1-12.png\",\"work\":\"Betona grīdas izbūve, 70 mm\",\"location\":\"1. stāvs\",\"description\":\"1. stāvs, telpa 101 (koplietošanas telpa). Iestrādājām C25/30 betonu 70 mm slānī. Pārbaudījām grīdas atzīmi pie ieejas.\",\"date\":\"2026-11-12T12:00:00.000Z\",\"amount\":26,\"unit\":\"m2\",\"sourceRevision\":\"14cdf465161368c7da0d5ce81185daba7a61499e9d1f15ee460a2841ef4bbd80\"},{\"id\":\"b988fcd6-e68c-430d-a0e2-538f15536e11:0\",\"recordId\":\"b988fcd6-e68c-430d-a0e2-538f15536e11\",\"photoUrl\":\"/demo/house-doorway.jpg\",\"work\":\"Ailu šuvju aizpildīšana\",\"location\":\"1. stāvs\",\"description\":\"1. stāvs, telpa 104 (priekštelpa). Aizpildījām ailu montāžas šuves priekštelpā. Foto rāda šuves pie durvju ailes pirms apdares.\",\"date\":\"2026-11-13T12:00:00.000Z\",\"amount\":12,\"unit\":\"m\",\"sourceRevision\":\"2e0cc1ab5968d65cbe21dc633619016cea7f87ac548d3a339975e6d71ff5a3ae\"},{\"id\":\"4d6ce656-82ff-4fdc-a008-971ea76937e9:0\",\"recordId\":\"4d6ce656-82ff-4fdc-a008-971ea76937e9\",\"photoUrl\":\"/demo/house-zone-1-14.png\",\"work\":\"Elektroinstalācijas darbi\",\"location\":\"1. stāvs\",\"description\":\"1. stāvs, telpa 102 (virtuve un ēdamzona). Virtuvē izbūvējām rozešu un apgaismojuma līnijas. Sadales galus marķējām.\",\"date\":\"2026-11-14T12:00:00.000Z\",\"amount\":42,\"unit\":\"m\",\"sourceRevision\":\"15c5a10292b9bda8e79ce02d47ff60d0d1d4d6f329eb3ca8641579efd51e63b9\"}],\"marks\":[{\"evidenceId\":\"7683e2be-0d69-459d-a3a9-fcee6b7afe62:0\",\"page\":1,\"polygon\":[{\"x\":0.1725,\"y\":0.225},{\"x\":0.425833,\"y\":0.225},{\"x\":0.425833,\"y\":0.53},{\"x\":0.1725,\"y\":0.53}],\"confidence\":1,\"anchors\":[\"Telpa 101\",\"AR-01\"],\"explanation\":\"Darba zona pēc telpas numura un žurnāla ieraksta.\",\"id\":\"12c439ae-a988-4ef6-aa64-2eed8a95e42e\",\"layer\":\"sand\"},{\"evidenceId\":\"d2b1952c-8394-42a7-a5ff-db728bb4bb1f:0\",\"page\":1,\"polygon\":[{\"x\":0.1725,\"y\":0.225},{\"x\":0.425833,\"y\":0.225},{\"x\":0.425833,\"y\":0.53},{\"x\":0.1725,\"y\":0.53}],\"confidence\":1,\"anchors\":[\"Telpa 101\",\"AR-01\"],\"explanation\":\"Darba zona pēc telpas numura un žurnāla ieraksta.\",\"id\":\"1bf7c77f-5836-4eea-a21c-0fd26a335946\",\"layer\":\"xps\"},{\"evidenceId\":\"535669a1-e5d1-4b5f-a018-53065bf91ea4:0\",\"page\":1,\"polygon\":[{\"x\":0.1725,\"y\":0.225},{\"x\":0.425833,\"y\":0.225},{\"x\":0.425833,\"y\":0.53},{\"x\":0.1725,\"y\":0.53}],\"confidence\":1,\"anchors\":[\"Telpa 101\",\"AR-01\"],\"explanation\":\"Darba zona pēc telpas numura un žurnāla ieraksta.\",\"id\":\"5b724316-340b-4ee2-adae-74d610d3aafb\",\"layer\":\"film\"},{\"evidenceId\":\"847b9eda-be7f-4c59-a931-ee72fa9c6aef:0\",\"page\":1,\"polygon\":[{\"x\":0.1725,\"y\":0.225},{\"x\":0.425833,\"y\":0.225},{\"x\":0.425833,\"y\":0.53},{\"x\":0.1725,\"y\":0.53}],\"confidence\":1,\"anchors\":[\"Telpa 101\",\"AR-01\"],\"explanation\":\"Darba zona pēc telpas numura un žurnāla ieraksta.\",\"id\":\"b369b146-557c-46e3-aff1-46d72f14ea8d\",\"layer\":\"estrich\"},{\"evidenceId\":\"b988fcd6-e68c-430d-a0e2-538f15536e11:0\",\"page\":1,\"polygon\":[{\"x\":0.355833,\"y\":0.64875},{\"x\":0.550833,\"y\":0.64875},{\"x\":0.550833,\"y\":0.79375},{\"x\":0.355833,\"y\":0.79375}],\"confidence\":1,\"anchors\":[\"Telpa 104\",\"AR-01\"],\"explanation\":\"Darba zona pēc telpas numura un žurnāla ieraksta.\",\"id\":\"ad1848c9-847a-4eb4-a642-6ebec07b7628\",\"layer\":\"custom-joints\"},{\"evidenceId\":\"4d6ce656-82ff-4fdc-a008-971ea76937e9:0\",\"page\":1,\"polygon\":[{\"x\":0.439167,\"y\":0.225},{\"x\":0.725833,\"y\":0.225},{\"x\":0.725833,\"y\":0.53},{\"x\":0.439167,\"y\":0.53}],\"confidence\":1,\"anchors\":[\"Telpa 102\",\"AR-01\"],\"explanation\":\"Darba zona pēc telpas numura un žurnāla ieraksta.\",\"id\":\"83beed8d-d249-4a6d-aafd-b2272af334f1\",\"layer\":\"custom-electric\"}],\"unlocated\":[],\"error\":null,\"lockedAt\":null,\"attempts\":[]}",
 			"userId": "ozolu-user",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
@@ -3318,10 +3841,10 @@
 		},
 		{
 			"id": "1f2af0e5-05b7-4b66-a2fe-bea550395801",
-			"url": "/demo/floor-2.pdf",
+			"url": "/demo/house-floor-2.pdf",
 			"documentType": "limeni-visual-v1",
-			"documentName": "AR-02 · 2. stāvs grīdu plāns.pdf",
-			"description": "{\"version\":1,\"location\":\"2. stāvs\",\"status\":\"complete\",\"pageCount\":1,\"processed\":6,\"evidence\":[{\"id\":\"b74a973f-e518-4e65-a00f-7e6644e31f96:0\",\"recordId\":\"b74a973f-e518-4e65-a00f-7e6644e31f96\",\"photoUrl\":\"/demo/source-2-1.svg\",\"work\":\"Smilts pamatnes izlīdzināšana\",\"location\":\"2. stāvs\",\"description\":\"2. stāvs, telpa 201.\",\"date\":\"2026-11-02T12:00:00.000Z\",\"amount\":42,\"unit\":\"m2\",\"sourceRevision\":\"96b2c81af88a3f1b0756b2b1ad66e0e7c2d966fc76064f4d1d965308d553ee4f\"},{\"id\":\"dea2288d-8467-4c88-aa3a-2ca6a6b233b2:0\",\"recordId\":\"dea2288d-8467-4c88-aa3a-2ca6a6b233b2\",\"photoUrl\":\"/demo/source-2-2.svg\",\"work\":\"XPS siltumizolācijas ieklāšana, 100 mm\",\"location\":\"2. stāvs\",\"description\":\"2. stāvs, telpa 201.\",\"date\":\"2026-11-03T12:00:00.000Z\",\"amount\":42,\"unit\":\"m2\",\"sourceRevision\":\"d0d5dcbf2331ff72802ac332256892091443b7fc9bfe14acede6cac9ca596c38\"},{\"id\":\"f2961dc4-9ad0-4696-aeea-97f12793eedf:0\",\"recordId\":\"f2961dc4-9ad0-4696-aeea-97f12793eedf\",\"photoUrl\":\"/demo/source-2-3.svg\",\"work\":\"Hidroizolācijas plēves ieklāšana\",\"location\":\"2. stāvs\",\"description\":\"2. stāvs, telpa 202.\",\"date\":\"2026-11-04T12:00:00.000Z\",\"amount\":38,\"unit\":\"m2\",\"sourceRevision\":\"7fa5537359a6b03caa0464525772acb290ff6b4ba61d3c4ef8947910d35787ac\"},{\"id\":\"af009acc-371f-4191-a719-7f07f5b8e127:0\",\"recordId\":\"af009acc-371f-4191-a719-7f07f5b8e127\",\"photoUrl\":\"/demo/source-2-4.svg\",\"work\":\"Betona grīdas izbūve, 70 mm\",\"location\":\"2. stāvs\",\"description\":\"2. stāvs, telpa 202.\",\"date\":\"2026-11-05T12:00:00.000Z\",\"amount\":38,\"unit\":\"m2\",\"sourceRevision\":\"499ceb4f7baef529c07c41e6cd6a38ef085502482dc76cae1498c8680f9e2a52\"},{\"id\":\"91b52b1c-6f43-4484-ab31-ba7db9e1d9e9:0\",\"recordId\":\"91b52b1c-6f43-4484-ab31-ba7db9e1d9e9\",\"photoUrl\":\"/demo/source-2-5.svg\",\"work\":\"Smilts pamatnes izlīdzināšana\",\"location\":\"2. stāvs\",\"description\":\"2. stāvs, telpa 204.\",\"date\":\"2026-11-06T12:00:00.000Z\",\"amount\":46,\"unit\":\"m2\",\"sourceRevision\":\"58956514246fc2a062625c6b7bcec5710c560c8f18873b5cb6f08d24e3f6578f\"},{\"id\":\"8277c8d0-2a6e-4e23-a442-030242b6b14d:0\",\"recordId\":\"8277c8d0-2a6e-4e23-a442-030242b6b14d\",\"photoUrl\":\"/demo/source-2-6.svg\",\"work\":\"XPS siltumizolācijas ieklāšana, 100 mm\",\"location\":\"2. stāvs\",\"description\":\"2. stāvs, telpa 205.\",\"date\":\"2026-11-07T12:00:00.000Z\",\"amount\":44,\"unit\":\"m2\",\"sourceRevision\":\"640001c473a7405cf04ed1329622919f68c5fad35fcc199441cf14a05a4dc029\"}],\"marks\":[{\"evidenceId\":\"b74a973f-e518-4e65-a00f-7e6644e31f96:0\",\"page\":1,\"polygon\":[{\"x\":0.25416666666666665,\"y\":0.23125},{\"x\":0.42083333333333334,\"y\":0.23125},{\"x\":0.42083333333333334,\"y\":0.44375},{\"x\":0.25416666666666665,\"y\":0.44375}],\"confidence\":1,\"anchors\":[\"Telpa 201\",\"AR-02\"],\"explanation\":\"Darba zona atbilstoši avota rasējumam.\",\"id\":\"25dca495-7c6f-4c13-a84c-9c08fcd6cec2\",\"layer\":\"sand\"},{\"evidenceId\":\"dea2288d-8467-4c88-aa3a-2ca6a6b233b2:0\",\"page\":1,\"polygon\":[{\"x\":0.25416666666666665,\"y\":0.23125},{\"x\":0.42083333333333334,\"y\":0.23125},{\"x\":0.42083333333333334,\"y\":0.44375},{\"x\":0.25416666666666665,\"y\":0.44375}],\"confidence\":1,\"anchors\":[\"Telpa 201\",\"AR-02\"],\"explanation\":\"Darba zona atbilstoši avota rasējumam.\",\"id\":\"a59cad3e-2e77-41d3-a407-ae8267dbae7b\",\"layer\":\"xps\"},{\"evidenceId\":\"f2961dc4-9ad0-4696-aeea-97f12793eedf:0\",\"page\":1,\"polygon\":[{\"x\":0.42916666666666664,\"y\":0.23125},{\"x\":0.5958333333333333,\"y\":0.23125},{\"x\":0.5958333333333333,\"y\":0.44375},{\"x\":0.42916666666666664,\"y\":0.44375}],\"confidence\":1,\"anchors\":[\"Telpa 202\",\"AR-02\"],\"explanation\":\"Darba zona atbilstoši avota rasējumam.\",\"id\":\"4cdb13bd-0b40-403b-a431-93e6f66e6e07\",\"layer\":\"film\"},{\"evidenceId\":\"af009acc-371f-4191-a719-7f07f5b8e127:0\",\"page\":1,\"polygon\":[{\"x\":0.42916666666666664,\"y\":0.23125},{\"x\":0.5958333333333333,\"y\":0.23125},{\"x\":0.5958333333333333,\"y\":0.44375},{\"x\":0.42916666666666664,\"y\":0.44375}],\"confidence\":1,\"anchors\":[\"Telpa 202\",\"AR-02\"],\"explanation\":\"Darba zona atbilstoši avota rasējumam.\",\"id\":\"e68827f8-613f-4dd3-a8df-20dbd38a3e48\",\"layer\":\"estrich\"},{\"evidenceId\":\"91b52b1c-6f43-4484-ab31-ba7db9e1d9e9:0\",\"page\":1,\"polygon\":[{\"x\":0.25416666666666665,\"y\":0.53125},{\"x\":0.42083333333333334,\"y\":0.53125},{\"x\":0.42083333333333334,\"y\":0.74375},{\"x\":0.25416666666666665,\"y\":0.74375}],\"confidence\":1,\"anchors\":[\"Telpa 204\",\"AR-02\"],\"explanation\":\"Darba zona atbilstoši avota rasējumam.\",\"id\":\"7218502f-b389-4fbe-add5-da5762549370\",\"layer\":\"sand\"},{\"evidenceId\":\"8277c8d0-2a6e-4e23-a442-030242b6b14d:0\",\"page\":1,\"polygon\":[{\"x\":0.42916666666666664,\"y\":0.53125},{\"x\":0.5958333333333333,\"y\":0.53125},{\"x\":0.5958333333333333,\"y\":0.74375},{\"x\":0.42916666666666664,\"y\":0.74375}],\"confidence\":1,\"anchors\":[\"Telpa 205\",\"AR-02\"],\"explanation\":\"Darba zona atbilstoši avota rasējumam.\",\"id\":\"33288656-58d2-4f88-a939-e406b43e2a09\",\"layer\":\"xps\"}],\"unlocated\":[],\"error\":null,\"lockedAt\":null,\"attempts\":[]}",
+			"documentName": "AR-02 · 2. stāva plāns.pdf",
+			"description": "{\"version\":1,\"location\":\"2. stāvs\",\"status\":\"complete\",\"pageCount\":1,\"processed\":6,\"evidence\":[{\"id\":\"b74a973f-e518-4e65-a00f-7e6644e31f96:0\",\"recordId\":\"b74a973f-e518-4e65-a00f-7e6644e31f96\",\"photoUrl\":\"/demo/house-zone-2-9.png\",\"work\":\"Ailu šuvju aizpildīšana\",\"location\":\"2. stāvs\",\"description\":\"2. stāvs, telpa 204 (noliktavas telpa). Aizpildījām starpsienu ailu šuves ar minerālvates sloksnēm.\",\"date\":\"2026-11-09T12:00:00.000Z\",\"amount\":10,\"unit\":\"m\",\"sourceRevision\":\"2dcffd49cdeaa2a767fcd1b7d1dcf17cd5ef8509c4d04b47000f8b0bb2db8287\"},{\"id\":\"dea2288d-8467-4c88-aa3a-2ca6a6b233b2:0\",\"recordId\":\"dea2288d-8467-4c88-aa3a-2ca6a6b233b2\",\"photoUrl\":\"/demo/house-zone-2-10.png\",\"work\":\"Elektroinstalācijas darbi\",\"location\":\"2. stāvs\",\"description\":\"2. stāvs, telpa 201 (kabinets). Ievilkām apgaismojuma kabeļus gofrētajās caurulēs līdz sadalnei.\",\"date\":\"2026-11-10T12:00:00.000Z\",\"amount\":32,\"unit\":\"m\",\"sourceRevision\":\"92379784b3546bd4161e8b8633d2004200ef97be2f14f076b8cab772b742e1df\"},{\"id\":\"f2961dc4-9ad0-4696-aeea-97f12793eedf:0\",\"recordId\":\"f2961dc4-9ad0-4696-aeea-97f12793eedf\",\"photoUrl\":\"/demo/house-zone-2-11.png\",\"work\":\"Santehnikas darbi\",\"location\":\"2. stāvs\",\"description\":\"2. stāvs, telpa 203 (sanmezgls). Samontējām aukstā ūdens atzarus. Savienojumus atstājām redzamus spiediena pārbaudei.\",\"date\":\"2026-11-11T12:00:00.000Z\",\"amount\":6,\"unit\":\"gab\",\"sourceRevision\":\"a8d4294fa417518e7f0d58519d8342fc3c9c7bbd9123755d596f094854f0e346\"},{\"id\":\"af009acc-371f-4191-a719-7f07f5b8e127:0\",\"recordId\":\"af009acc-371f-4191-a719-7f07f5b8e127\",\"photoUrl\":\"/demo/house-zone-2-12.png\",\"work\":\"Betona grīdas izbūve, 70 mm\",\"location\":\"2. stāvs\",\"description\":\"2. stāvs, telpa 202 (darba telpa). Uz iepriekš sagatavotās pamatnes izbūvējām 70 mm betona grīdu.\",\"date\":\"2026-11-12T12:00:00.000Z\",\"amount\":29,\"unit\":\"m2\",\"sourceRevision\":\"d142289b52e0c386d28fae83e40a573929277c6509151568f27a6b8f6ef187ce\"},{\"id\":\"91b52b1c-6f43-4484-ab31-ba7db9e1d9e9:0\",\"recordId\":\"91b52b1c-6f43-4484-ab31-ba7db9e1d9e9\",\"photoUrl\":\"/demo/house-zone-2-13.png\",\"work\":\"Apkures sistēmas un ventilācijas darbi\",\"location\":\"2. stāvs\",\"description\":\"2. stāvs, telpa 205 (kāpņu telpa). Uzstādījām divus siltinātus Ø125 ventilācijas izvadus virs kāpņu telpas.\",\"date\":\"2026-11-13T12:00:00.000Z\",\"amount\":2,\"unit\":\"gab\",\"sourceRevision\":\"c48195010ca547a3c3ec476adf3ae725c0bb198a533730214b564a5a4e27b513\"},{\"id\":\"8277c8d0-2a6e-4e23-a442-030242b6b14d:0\",\"recordId\":\"8277c8d0-2a6e-4e23-a442-030242b6b14d\",\"photoUrl\":\"/demo/house-zone-2-14.png\",\"work\":\"Elektroinstalācijas darbi\",\"location\":\"2. stāvs\",\"description\":\"2. stāvs, telpa 202 (darba telpa). Darba telpā pabeidzām rozešu līniju vilkšanu un marķēšanu pie sadalnes.\",\"date\":\"2026-11-14T12:00:00.000Z\",\"amount\":38,\"unit\":\"m\",\"sourceRevision\":\"23c079a0c6bd21c25c9451f61b10985d4851be418efbdda09fd148fb4abf5567\"}],\"marks\":[{\"evidenceId\":\"b74a973f-e518-4e65-a00f-7e6644e31f96:0\",\"page\":1,\"polygon\":[{\"x\":0.355833,\"y\":0.64875},{\"x\":0.550833,\"y\":0.64875},{\"x\":0.550833,\"y\":0.79375},{\"x\":0.355833,\"y\":0.79375}],\"confidence\":1,\"anchors\":[\"Telpa 204\",\"AR-02\"],\"explanation\":\"Darba zona pēc telpas numura un žurnāla ieraksta.\",\"id\":\"25dca495-7c6f-4c13-a84c-9c08fcd6cec2\",\"layer\":\"custom-joints\"},{\"evidenceId\":\"dea2288d-8467-4c88-aa3a-2ca6a6b233b2:0\",\"page\":1,\"polygon\":[{\"x\":0.1725,\"y\":0.225},{\"x\":0.425833,\"y\":0.225},{\"x\":0.425833,\"y\":0.53},{\"x\":0.1725,\"y\":0.53}],\"confidence\":1,\"anchors\":[\"Telpa 201\",\"AR-02\"],\"explanation\":\"Darba zona pēc telpas numura un žurnāla ieraksta.\",\"id\":\"a59cad3e-2e77-41d3-a407-ae8267dbae7b\",\"layer\":\"custom-electric\"},{\"evidenceId\":\"f2961dc4-9ad0-4696-aeea-97f12793eedf:0\",\"page\":1,\"polygon\":[{\"x\":0.1725,\"y\":0.64875},{\"x\":0.3425,\"y\":0.64875},{\"x\":0.3425,\"y\":0.79375},{\"x\":0.1725,\"y\":0.79375}],\"confidence\":1,\"anchors\":[\"Telpa 203\",\"AR-02\"],\"explanation\":\"Darba zona pēc telpas numura un žurnāla ieraksta.\",\"id\":\"4cdb13bd-0b40-403b-a431-93e6f66e6e07\",\"layer\":\"custom-water\"},{\"evidenceId\":\"af009acc-371f-4191-a719-7f07f5b8e127:0\",\"page\":1,\"polygon\":[{\"x\":0.439167,\"y\":0.225},{\"x\":0.725833,\"y\":0.225},{\"x\":0.725833,\"y\":0.53},{\"x\":0.439167,\"y\":0.53}],\"confidence\":1,\"anchors\":[\"Telpa 202\",\"AR-02\"],\"explanation\":\"Darba zona pēc telpas numura un žurnāla ieraksta.\",\"id\":\"e68827f8-613f-4dd3-a8df-20dbd38a3e48\",\"layer\":\"estrich\"},{\"evidenceId\":\"91b52b1c-6f43-4484-ab31-ba7db9e1d9e9:0\",\"page\":1,\"polygon\":[{\"x\":0.564167,\"y\":0.64875},{\"x\":0.725833,\"y\":0.64875},{\"x\":0.725833,\"y\":0.79375},{\"x\":0.564167,\"y\":0.79375}],\"confidence\":1,\"anchors\":[\"Telpa 205\",\"AR-02\"],\"explanation\":\"Darba zona pēc telpas numura un žurnāla ieraksta.\",\"id\":\"7218502f-b389-4fbe-add5-da5762549370\",\"layer\":\"custom-vent\"},{\"evidenceId\":\"8277c8d0-2a6e-4e23-a442-030242b6b14d:0\",\"page\":1,\"polygon\":[{\"x\":0.439167,\"y\":0.225},{\"x\":0.725833,\"y\":0.225},{\"x\":0.725833,\"y\":0.53},{\"x\":0.439167,\"y\":0.53}],\"confidence\":1,\"anchors\":[\"Telpa 202\",\"AR-02\"],\"explanation\":\"Darba zona pēc telpas numura un žurnāla ieraksta.\",\"id\":\"33288656-58d2-4f88-a939-e406b43e2a09\",\"layer\":\"custom-electric\"}],\"unlocated\":[],\"error\":null,\"lockedAt\":null,\"attempts\":[]}",
 			"userId": "ozolu-user",
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
 			"organizationId": "3985a170-b9a9-4a43-b288-09d8aaf385da",
@@ -3335,7 +3858,7 @@
 			"userId": "ozolu-user",
 			"workerId": null,
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"Date": "2026-11-02T12:00:00.000Z",
+			"Date": "2026-11-09T12:00:00.000Z",
 			"Date_Custom_1": null,
 			"Date_Custom_2": null,
 			"Location": null,
@@ -3346,7 +3869,7 @@
 			"Works_Custom_2": null,
 			"Comments": null,
 			"Comments_Custom_1": null,
-			"Comments_Custom_2": "{\"importedAt\":\"2026-11-07T17:00:00.000Z\",\"importedBy\":\"ozolu-user\",\"sourceCompany\":\"Ozolu projekti\",\"capturedOn\":\"2026-11-07\",\"rateCents\":1250,\"objects\":[\"Ozolu biroju centrs\"],\"entries\":[{\"worker\":\"Jānis Ozols\",\"date\":\"2026-11-02\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Smilts pamatnes izlīdzināšana\"},{\"worker\":\"Artūrs Liepa\",\"date\":\"2026-11-02\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Smilts pamatnes izlīdzināšana\"},{\"worker\":\"Māris Kalns\",\"date\":\"2026-11-02\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Smilts pamatnes izlīdzināšana\"},{\"worker\":\"Andrejs Bērziņš\",\"date\":\"2026-11-02\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Smilts pamatnes izlīdzināšana\"}],\"allocations\":[{\"recordId\":\"7683e2be-0d69-459d-a3a9-fcee6b7afe62\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-07T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-07T17:00:00.000Z\",\"source\":\"begin-allocation\"},{\"recordId\":\"b74a973f-e518-4e65-a00f-7e6644e31f96\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-07T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-07T17:00:00.000Z\",\"source\":\"begin-allocation\"}],\"kind\":\"begin-hours:v1\",\"version\":1,\"date\":\"2026-11-02\",\"history\":[]}",
+			"Comments_Custom_2": "{\"importedAt\":\"2026-11-14T17:00:00.000Z\",\"importedBy\":\"ozolu-user\",\"sourceCompany\":\"Ozolu projekti\",\"capturedOn\":\"2026-11-14\",\"rateCents\":1250,\"objects\":[\"Ozolu biroju centrs\"],\"entries\":[{\"worker\":\"Jānis Ozols\",\"date\":\"2026-11-09\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Smilts pamatnes izlīdzināšana · Ailu šuvju aizpildīšana\"},{\"worker\":\"Artūrs Liepa\",\"date\":\"2026-11-09\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Smilts pamatnes izlīdzināšana · Ailu šuvju aizpildīšana\"},{\"worker\":\"Māris Kalns\",\"date\":\"2026-11-09\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Smilts pamatnes izlīdzināšana · Ailu šuvju aizpildīšana\"},{\"worker\":\"Andrejs Bērziņš\",\"date\":\"2026-11-09\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Smilts pamatnes izlīdzināšana · Ailu šuvju aizpildīšana\"}],\"allocations\":[{\"recordId\":\"7683e2be-0d69-459d-a3a9-fcee6b7afe62\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-14T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-14T17:00:00.000Z\",\"source\":\"begin-allocation\"},{\"recordId\":\"b74a973f-e518-4e65-a00f-7e6644e31f96\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-14T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-14T17:00:00.000Z\",\"source\":\"begin-allocation\"}],\"kind\":\"begin-hours:v1\",\"version\":1,\"date\":\"2026-11-09\",\"history\":[]}",
 			"originalUserComment": null,
 			"originalAudioUrl": null,
 			"Units": null,
@@ -3357,7 +3880,7 @@
 			"TimeInvolved": null,
 			"evalMetadata": null,
 			"saveBatchId": null,
-			"archivedAt": "2026-11-07T17:00:00.000Z",
+			"archivedAt": "2026-11-14T17:00:00.000Z",
 			"archiveReason": "begin-hours:v1",
 			"archivedByMessageId": null,
 			"Photos": [],
@@ -3370,7 +3893,7 @@
 			"userId": "ozolu-user",
 			"workerId": null,
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"Date": "2026-11-03T12:00:00.000Z",
+			"Date": "2026-11-10T12:00:00.000Z",
 			"Date_Custom_1": null,
 			"Date_Custom_2": null,
 			"Location": null,
@@ -3381,7 +3904,7 @@
 			"Works_Custom_2": null,
 			"Comments": null,
 			"Comments_Custom_1": null,
-			"Comments_Custom_2": "{\"importedAt\":\"2026-11-07T17:00:00.000Z\",\"importedBy\":\"ozolu-user\",\"sourceCompany\":\"Ozolu projekti\",\"capturedOn\":\"2026-11-07\",\"rateCents\":1250,\"objects\":[\"Ozolu biroju centrs\"],\"entries\":[{\"worker\":\"Jānis Ozols\",\"date\":\"2026-11-03\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"XPS siltumizolācijas ieklāšana, 100 mm\"},{\"worker\":\"Artūrs Liepa\",\"date\":\"2026-11-03\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"XPS siltumizolācijas ieklāšana, 100 mm\"},{\"worker\":\"Māris Kalns\",\"date\":\"2026-11-03\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"XPS siltumizolācijas ieklāšana, 100 mm\"},{\"worker\":\"Andrejs Bērziņš\",\"date\":\"2026-11-03\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"XPS siltumizolācijas ieklāšana, 100 mm\"}],\"allocations\":[{\"recordId\":\"d2b1952c-8394-42a7-a5ff-db728bb4bb1f\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-07T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-07T17:00:00.000Z\",\"source\":\"begin-allocation\"},{\"recordId\":\"dea2288d-8467-4c88-aa3a-2ca6a6b233b2\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-07T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-07T17:00:00.000Z\",\"source\":\"begin-allocation\"}],\"kind\":\"begin-hours:v1\",\"version\":1,\"date\":\"2026-11-03\",\"history\":[]}",
+			"Comments_Custom_2": "{\"importedAt\":\"2026-11-14T17:00:00.000Z\",\"importedBy\":\"ozolu-user\",\"sourceCompany\":\"Ozolu projekti\",\"capturedOn\":\"2026-11-14\",\"rateCents\":1250,\"objects\":[\"Ozolu biroju centrs\"],\"entries\":[{\"worker\":\"Jānis Ozols\",\"date\":\"2026-11-10\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"XPS siltumizolācijas ieklāšana, 100 mm · Elektroinstalācijas darbi\"},{\"worker\":\"Artūrs Liepa\",\"date\":\"2026-11-10\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"XPS siltumizolācijas ieklāšana, 100 mm · Elektroinstalācijas darbi\"},{\"worker\":\"Māris Kalns\",\"date\":\"2026-11-10\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"XPS siltumizolācijas ieklāšana, 100 mm · Elektroinstalācijas darbi\"},{\"worker\":\"Andrejs Bērziņš\",\"date\":\"2026-11-10\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"XPS siltumizolācijas ieklāšana, 100 mm · Elektroinstalācijas darbi\"}],\"allocations\":[{\"recordId\":\"d2b1952c-8394-42a7-a5ff-db728bb4bb1f\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-14T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-14T17:00:00.000Z\",\"source\":\"begin-allocation\"},{\"recordId\":\"dea2288d-8467-4c88-aa3a-2ca6a6b233b2\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-14T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-14T17:00:00.000Z\",\"source\":\"begin-allocation\"}],\"kind\":\"begin-hours:v1\",\"version\":1,\"date\":\"2026-11-10\",\"history\":[]}",
 			"originalUserComment": null,
 			"originalAudioUrl": null,
 			"Units": null,
@@ -3392,7 +3915,7 @@
 			"TimeInvolved": null,
 			"evalMetadata": null,
 			"saveBatchId": null,
-			"archivedAt": "2026-11-07T17:00:00.000Z",
+			"archivedAt": "2026-11-14T17:00:00.000Z",
 			"archiveReason": "begin-hours:v1",
 			"archivedByMessageId": null,
 			"Photos": [],
@@ -3405,7 +3928,7 @@
 			"userId": "ozolu-user",
 			"workerId": null,
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"Date": "2026-11-04T12:00:00.000Z",
+			"Date": "2026-11-11T12:00:00.000Z",
 			"Date_Custom_1": null,
 			"Date_Custom_2": null,
 			"Location": null,
@@ -3416,7 +3939,7 @@
 			"Works_Custom_2": null,
 			"Comments": null,
 			"Comments_Custom_1": null,
-			"Comments_Custom_2": "{\"importedAt\":\"2026-11-07T17:00:00.000Z\",\"importedBy\":\"ozolu-user\",\"sourceCompany\":\"Ozolu projekti\",\"capturedOn\":\"2026-11-07\",\"rateCents\":1250,\"objects\":[\"Ozolu biroju centrs\"],\"entries\":[{\"worker\":\"Jānis Ozols\",\"date\":\"2026-11-04\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Hidroizolācijas plēves ieklāšana\"},{\"worker\":\"Artūrs Liepa\",\"date\":\"2026-11-04\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Hidroizolācijas plēves ieklāšana\"},{\"worker\":\"Māris Kalns\",\"date\":\"2026-11-04\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Hidroizolācijas plēves ieklāšana\"},{\"worker\":\"Andrejs Bērziņš\",\"date\":\"2026-11-04\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Hidroizolācijas plēves ieklāšana\"}],\"allocations\":[{\"recordId\":\"535669a1-e5d1-4b5f-a018-53065bf91ea4\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-07T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-07T17:00:00.000Z\",\"source\":\"begin-allocation\"},{\"recordId\":\"f2961dc4-9ad0-4696-aeea-97f12793eedf\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-07T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-07T17:00:00.000Z\",\"source\":\"begin-allocation\"}],\"kind\":\"begin-hours:v1\",\"version\":1,\"date\":\"2026-11-04\",\"history\":[]}",
+			"Comments_Custom_2": "{\"importedAt\":\"2026-11-14T17:00:00.000Z\",\"importedBy\":\"ozolu-user\",\"sourceCompany\":\"Ozolu projekti\",\"capturedOn\":\"2026-11-14\",\"rateCents\":1250,\"objects\":[\"Ozolu biroju centrs\"],\"entries\":[{\"worker\":\"Jānis Ozols\",\"date\":\"2026-11-11\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Hidroizolācijas plēves ieklāšana · Santehnikas darbi\"},{\"worker\":\"Artūrs Liepa\",\"date\":\"2026-11-11\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Hidroizolācijas plēves ieklāšana · Santehnikas darbi\"},{\"worker\":\"Māris Kalns\",\"date\":\"2026-11-11\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Hidroizolācijas plēves ieklāšana · Santehnikas darbi\"},{\"worker\":\"Andrejs Bērziņš\",\"date\":\"2026-11-11\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Hidroizolācijas plēves ieklāšana · Santehnikas darbi\"}],\"allocations\":[{\"recordId\":\"535669a1-e5d1-4b5f-a018-53065bf91ea4\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-14T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-14T17:00:00.000Z\",\"source\":\"begin-allocation\"},{\"recordId\":\"f2961dc4-9ad0-4696-aeea-97f12793eedf\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-14T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-14T17:00:00.000Z\",\"source\":\"begin-allocation\"}],\"kind\":\"begin-hours:v1\",\"version\":1,\"date\":\"2026-11-11\",\"history\":[]}",
 			"originalUserComment": null,
 			"originalAudioUrl": null,
 			"Units": null,
@@ -3427,7 +3950,7 @@
 			"TimeInvolved": null,
 			"evalMetadata": null,
 			"saveBatchId": null,
-			"archivedAt": "2026-11-07T17:00:00.000Z",
+			"archivedAt": "2026-11-14T17:00:00.000Z",
 			"archiveReason": "begin-hours:v1",
 			"archivedByMessageId": null,
 			"Photos": [],
@@ -3440,7 +3963,7 @@
 			"userId": "ozolu-user",
 			"workerId": null,
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"Date": "2026-11-05T12:00:00.000Z",
+			"Date": "2026-11-12T12:00:00.000Z",
 			"Date_Custom_1": null,
 			"Date_Custom_2": null,
 			"Location": null,
@@ -3451,7 +3974,7 @@
 			"Works_Custom_2": null,
 			"Comments": null,
 			"Comments_Custom_1": null,
-			"Comments_Custom_2": "{\"importedAt\":\"2026-11-07T17:00:00.000Z\",\"importedBy\":\"ozolu-user\",\"sourceCompany\":\"Ozolu projekti\",\"capturedOn\":\"2026-11-07\",\"rateCents\":1250,\"objects\":[\"Ozolu biroju centrs\"],\"entries\":[{\"worker\":\"Jānis Ozols\",\"date\":\"2026-11-05\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Betona grīdas izbūve, 70 mm\"},{\"worker\":\"Artūrs Liepa\",\"date\":\"2026-11-05\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Betona grīdas izbūve, 70 mm\"},{\"worker\":\"Māris Kalns\",\"date\":\"2026-11-05\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Betona grīdas izbūve, 70 mm\"},{\"worker\":\"Andrejs Bērziņš\",\"date\":\"2026-11-05\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Betona grīdas izbūve, 70 mm\"}],\"allocations\":[{\"recordId\":\"847b9eda-be7f-4c59-a931-ee72fa9c6aef\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-07T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-07T17:00:00.000Z\",\"source\":\"begin-allocation\"},{\"recordId\":\"af009acc-371f-4191-a719-7f07f5b8e127\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-07T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-07T17:00:00.000Z\",\"source\":\"begin-allocation\"}],\"kind\":\"begin-hours:v1\",\"version\":1,\"date\":\"2026-11-05\",\"history\":[]}",
+			"Comments_Custom_2": "{\"importedAt\":\"2026-11-14T17:00:00.000Z\",\"importedBy\":\"ozolu-user\",\"sourceCompany\":\"Ozolu projekti\",\"capturedOn\":\"2026-11-14\",\"rateCents\":1250,\"objects\":[\"Ozolu biroju centrs\"],\"entries\":[{\"worker\":\"Jānis Ozols\",\"date\":\"2026-11-12\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Betona grīdas izbūve, 70 mm\"},{\"worker\":\"Artūrs Liepa\",\"date\":\"2026-11-12\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Betona grīdas izbūve, 70 mm\"},{\"worker\":\"Māris Kalns\",\"date\":\"2026-11-12\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Betona grīdas izbūve, 70 mm\"},{\"worker\":\"Andrejs Bērziņš\",\"date\":\"2026-11-12\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Betona grīdas izbūve, 70 mm\"}],\"allocations\":[{\"recordId\":\"847b9eda-be7f-4c59-a931-ee72fa9c6aef\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-14T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-14T17:00:00.000Z\",\"source\":\"begin-allocation\"},{\"recordId\":\"af009acc-371f-4191-a719-7f07f5b8e127\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-14T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-14T17:00:00.000Z\",\"source\":\"begin-allocation\"}],\"kind\":\"begin-hours:v1\",\"version\":1,\"date\":\"2026-11-12\",\"history\":[]}",
 			"originalUserComment": null,
 			"originalAudioUrl": null,
 			"Units": null,
@@ -3462,7 +3985,7 @@
 			"TimeInvolved": null,
 			"evalMetadata": null,
 			"saveBatchId": null,
-			"archivedAt": "2026-11-07T17:00:00.000Z",
+			"archivedAt": "2026-11-14T17:00:00.000Z",
 			"archiveReason": "begin-hours:v1",
 			"archivedByMessageId": null,
 			"Photos": [],
@@ -3475,7 +3998,7 @@
 			"userId": "ozolu-user",
 			"workerId": null,
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"Date": "2026-11-06T12:00:00.000Z",
+			"Date": "2026-11-13T12:00:00.000Z",
 			"Date_Custom_1": null,
 			"Date_Custom_2": null,
 			"Location": null,
@@ -3486,7 +4009,7 @@
 			"Works_Custom_2": null,
 			"Comments": null,
 			"Comments_Custom_1": null,
-			"Comments_Custom_2": "{\"importedAt\":\"2026-11-07T17:00:00.000Z\",\"importedBy\":\"ozolu-user\",\"sourceCompany\":\"Ozolu projekti\",\"capturedOn\":\"2026-11-07\",\"rateCents\":1250,\"objects\":[\"Ozolu biroju centrs\"],\"entries\":[{\"worker\":\"Jānis Ozols\",\"date\":\"2026-11-06\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Smilts pamatnes izlīdzināšana\"},{\"worker\":\"Artūrs Liepa\",\"date\":\"2026-11-06\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Smilts pamatnes izlīdzināšana\"},{\"worker\":\"Māris Kalns\",\"date\":\"2026-11-06\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Smilts pamatnes izlīdzināšana\"},{\"worker\":\"Andrejs Bērziņš\",\"date\":\"2026-11-06\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Smilts pamatnes izlīdzināšana\"}],\"allocations\":[{\"recordId\":\"b988fcd6-e68c-430d-a0e2-538f15536e11\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-07T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-07T17:00:00.000Z\",\"source\":\"begin-allocation\"},{\"recordId\":\"91b52b1c-6f43-4484-ab31-ba7db9e1d9e9\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-07T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-07T17:00:00.000Z\",\"source\":\"begin-allocation\"}],\"kind\":\"begin-hours:v1\",\"version\":1,\"date\":\"2026-11-06\",\"history\":[]}",
+			"Comments_Custom_2": "{\"importedAt\":\"2026-11-14T17:00:00.000Z\",\"importedBy\":\"ozolu-user\",\"sourceCompany\":\"Ozolu projekti\",\"capturedOn\":\"2026-11-14\",\"rateCents\":1250,\"objects\":[\"Ozolu biroju centrs\"],\"entries\":[{\"worker\":\"Jānis Ozols\",\"date\":\"2026-11-13\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Ailu šuvju aizpildīšana · Apkures sistēmas un ventilācijas darbi\"},{\"worker\":\"Artūrs Liepa\",\"date\":\"2026-11-13\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Ailu šuvju aizpildīšana · Apkures sistēmas un ventilācijas darbi\"},{\"worker\":\"Māris Kalns\",\"date\":\"2026-11-13\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Ailu šuvju aizpildīšana · Apkures sistēmas un ventilācijas darbi\"},{\"worker\":\"Andrejs Bērziņš\",\"date\":\"2026-11-13\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Ailu šuvju aizpildīšana · Apkures sistēmas un ventilācijas darbi\"}],\"allocations\":[{\"recordId\":\"b988fcd6-e68c-430d-a0e2-538f15536e11\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-14T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-14T17:00:00.000Z\",\"source\":\"begin-allocation\"},{\"recordId\":\"91b52b1c-6f43-4484-ab31-ba7db9e1d9e9\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-14T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-14T17:00:00.000Z\",\"source\":\"begin-allocation\"}],\"kind\":\"begin-hours:v1\",\"version\":1,\"date\":\"2026-11-13\",\"history\":[]}",
 			"originalUserComment": null,
 			"originalAudioUrl": null,
 			"Units": null,
@@ -3497,7 +4020,7 @@
 			"TimeInvolved": null,
 			"evalMetadata": null,
 			"saveBatchId": null,
-			"archivedAt": "2026-11-07T17:00:00.000Z",
+			"archivedAt": "2026-11-14T17:00:00.000Z",
 			"archiveReason": "begin-hours:v1",
 			"archivedByMessageId": null,
 			"Photos": [],
@@ -3510,7 +4033,7 @@
 			"userId": "ozolu-user",
 			"workerId": null,
 			"siteId": "ba163f80-1f88-45d0-953f-91d771e6a80f",
-			"Date": "2026-11-07T12:00:00.000Z",
+			"Date": "2026-11-14T12:00:00.000Z",
 			"Date_Custom_1": null,
 			"Date_Custom_2": null,
 			"Location": null,
@@ -3521,7 +4044,7 @@
 			"Works_Custom_2": null,
 			"Comments": null,
 			"Comments_Custom_1": null,
-			"Comments_Custom_2": "{\"importedAt\":\"2026-11-07T17:00:00.000Z\",\"importedBy\":\"ozolu-user\",\"sourceCompany\":\"Ozolu projekti\",\"capturedOn\":\"2026-11-07\",\"rateCents\":1250,\"objects\":[\"Ozolu biroju centrs\"],\"entries\":[{\"worker\":\"Jānis Ozols\",\"date\":\"2026-11-07\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"XPS siltumizolācijas ieklāšana, 100 mm\"},{\"worker\":\"Artūrs Liepa\",\"date\":\"2026-11-07\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"XPS siltumizolācijas ieklāšana, 100 mm\"},{\"worker\":\"Māris Kalns\",\"date\":\"2026-11-07\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"XPS siltumizolācijas ieklāšana, 100 mm\"},{\"worker\":\"Andrejs Bērziņš\",\"date\":\"2026-11-07\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"XPS siltumizolācijas ieklāšana, 100 mm\"}],\"allocations\":[{\"recordId\":\"4d6ce656-82ff-4fdc-a008-971ea76937e9\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-07T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-07T17:00:00.000Z\",\"source\":\"begin-allocation\"},{\"recordId\":\"8277c8d0-2a6e-4e23-a442-030242b6b14d\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-07T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-07T17:00:00.000Z\",\"source\":\"begin-allocation\"}],\"kind\":\"begin-hours:v1\",\"version\":1,\"date\":\"2026-11-07\",\"history\":[]}",
+			"Comments_Custom_2": "{\"importedAt\":\"2026-11-14T17:00:00.000Z\",\"importedBy\":\"ozolu-user\",\"sourceCompany\":\"Ozolu projekti\",\"capturedOn\":\"2026-11-14\",\"rateCents\":1250,\"objects\":[\"Ozolu biroju centrs\"],\"entries\":[{\"worker\":\"Jānis Ozols\",\"date\":\"2026-11-14\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Elektroinstalācijas darbi\"},{\"worker\":\"Artūrs Liepa\",\"date\":\"2026-11-14\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Elektroinstalācijas darbi\"},{\"worker\":\"Māris Kalns\",\"date\":\"2026-11-14\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Elektroinstalācijas darbi\"},{\"worker\":\"Andrejs Bērziņš\",\"date\":\"2026-11-14\",\"start\":\"08:00\",\"end\":\"16:30\",\"minutes\":480,\"object\":\"Ozolu biroju centrs\",\"status\":\"approved\",\"comment\":\"Elektroinstalācijas darbi\"}],\"allocations\":[{\"recordId\":\"4d6ce656-82ff-4fdc-a008-971ea76937e9\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-14T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-14T17:00:00.000Z\",\"source\":\"begin-allocation\"},{\"recordId\":\"8277c8d0-2a6e-4e23-a442-030242b6b14d\",\"explanation\":\"Četru cilvēku brigāde katram stāvam veltīja četras stundas. Kopējais darba laiks dienā ir astoņas stundas katram darbiniekam.\",\"hours\":4,\"workers\":4,\"savedAt\":\"2026-11-14T17:00:00.000Z\",\"sourceImportedAt\":\"2026-11-14T17:00:00.000Z\",\"source\":\"begin-allocation\"}],\"kind\":\"begin-hours:v1\",\"version\":1,\"date\":\"2026-11-14\",\"history\":[]}",
 			"originalUserComment": null,
 			"originalAudioUrl": null,
 			"Units": null,
@@ -3532,7 +4055,7 @@
 			"TimeInvolved": null,
 			"evalMetadata": null,
 			"saveBatchId": null,
-			"archivedAt": "2026-11-07T17:00:00.000Z",
+			"archivedAt": "2026-11-14T17:00:00.000Z",
 			"archiveReason": "begin-hours:v1",
 			"archivedByMessageId": null,
 			"Photos": [],

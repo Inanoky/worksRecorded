@@ -136,7 +136,24 @@ async function build() {
 								"<FimaRecordPanel key={siteId}",
 								"<FimaRecordPanel key={`fima-panel:${siteId}`}",
 							);
+							contents = contents.replace(
+								"Meklēt: FIMA, BIS, akta Nr., teksts...",
+								"Meklēt: ieraksta Nr., BIS, akta Nr., teksts...",
+							);
+							contents = contents.replace(
+								"const recordGroups = !normalizedKeyword || fimaDiary",
+								"const recordGroups = !normalizedKeyword",
+							);
 						}
+						if (normalized.endsWith("/lib/fima/diary-number.ts"))
+							contents = contents.replaceAll("FIMA", "OZ");
+						if (
+							normalized.endsWith("/lib/fima/diary-table.ts") ||
+							normalized.endsWith("/components/sitediary/FimaRecordPanel.tsx")
+						)
+							contents = contents.replaceAll("FIMA Nr.", "Ieraksta Nr.");
+						if (normalized.endsWith("/components/sitediary/FimaNumberCell.tsx"))
+							contents = contents.replaceAll("FIMA numuru", "ieraksta numuru");
 						if (normalized.endsWith("lib/diary-photos.ts"))
 							contents = contents
 								.replace(
