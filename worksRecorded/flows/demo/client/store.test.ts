@@ -31,9 +31,17 @@ it("shares the fictional records between both original diary configurations", ()
 	expect(diary.config.otherSettings.inlineDiaryPhotos).toBe(true);
 	expect(diary.config.Works.DisplayName).toBe("Darbi");
 	expect(diary.config.Location.DisplayName).toBe("Lokācija");
+	const recordHours = store
+		.getData()
+		.snapshot.diary.rows.reduce(
+			(total: number, row: Record<string, unknown>) =>
+				total + Number(row.WorkersInvolved) * Number(row.TimeInvolved),
+			0,
+		);
+	expect(recordHours).toBeGreaterThan(0);
 	expect(
 		store.getTimeRows().reduce((sum, row) => sum + row.timeWorked, 0),
-	).toBe(192);
+	).toBe(recordHours);
 });
 
 it("persists record edits locally and recalculates matching Forma 2 costs", async () => {
@@ -149,4 +157,19 @@ it("answers project reads locally and rejects external service calls without fet
 	const remote = await store.localFetch("/api/sites/another-project/visual");
 	expect(remote.status).toBe(501);
 	expect(fetch).not.toHaveBeenCalled();
+});
+
+it("returns both pages of gallery photos in the format the gallery expects", async () => {
+	const endpoint = `/api/sites/${DEMO_SITE_ID}/photos`;
+	const first = await (await store.localFetch(`${endpoint}?page=1`)).json();
+	const second = await (await store.localFetch(`${endpoint}?page=2`)).json();
+	const photos = [...first.photos, ...second.photos];
+
+	expect(first.photos).toHaveLength(30);
+	expect(second.photos.length).toBeGreaterThan(0);
+	expect(first.totalCount).toBe(store.getData().photos.length);
+	expect(second.totalCount).toBe(first.totalCount);
+	expect(new Set(photos.map((photo) => photo.id)).size).toBe(first.totalCount);
+	const dates = photos.map((photo) => photo.Date);
+	expect(dates).toEqual([...dates].sort().reverse());
 });

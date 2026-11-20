@@ -122,6 +122,7 @@ export default function OzoluWorkspace() {
 										<VisualView
 											siteId={DEMO_SITE_ID}
 											active={active === view}
+											overlayOpacityScale={0.24}
 											preload
 										/>
 									) : null}

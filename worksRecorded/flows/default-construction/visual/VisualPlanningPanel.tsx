@@ -266,6 +266,7 @@ export function VisualPlanningPanel({
 	layerConfiguration = defaultLayerConfiguration,
 	resourceCache,
 	showSaveStatus = true,
+	overlayOpacityScale,
 }: {
 	active?: boolean;
 	siteId: string;
@@ -275,6 +276,7 @@ export function VisualPlanningPanel({
 	layerConfiguration?: VisualLayerConfiguration;
 	resourceCache?: VisualClientCache;
 	showSaveStatus?: boolean;
+	overlayOpacityScale?: number;
 }) {
 	const localCache = useMemo(() => new VisualClientCache(siteId), [siteId]);
 	const cache = resourceCache ?? localCache;
@@ -1065,6 +1067,7 @@ export function VisualPlanningPanel({
 			<div className="relative min-h-0 flex-1 overflow-hidden">
 				<VisualPdf
 					active={active}
+					overlayOpacityScale={overlayOpacityScale}
 					controlsHost={controlsHost}
 					resourceCache={cache}
 					fillWorkspace

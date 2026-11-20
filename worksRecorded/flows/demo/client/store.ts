@@ -22,7 +22,8 @@ export type LocalData = {
 	dailyPlans?: LocalRecord[];
 	feedback?: LocalRecord;
 };
-const storageKey = "worksrecorded:ozolu:client:v2";
+const storageKey = "worksrecorded:ozolu:client:v3";
+const PHOTOS_PER_PAGE = 30;
 const listeners = new Set<() => void>();
 let data = hydrate(structuredClone(fixture) as LocalData);
 let restored = false;
@@ -291,6 +292,21 @@ export async function localFetch(
 		});
 	if (url.pathname.startsWith(prefix)) {
 		const route = url.pathname.slice(prefix.length);
+		if (route === "/photos") {
+			const requestedPage = Number(url.searchParams.get("page"));
+			const page =
+				Number.isSafeInteger(requestedPage) && requestedPage > 0
+					? requestedPage
+					: 1;
+			const start = (page - 1) * PHOTOS_PER_PAGE;
+			const photos = data.photos
+				.filter((photo) => photo.fileUrl)
+				.sort((left, right) => +new Date(right.Date) - +new Date(left.Date));
+			return json({
+				photos: photos.slice(start, start + PHOTOS_PER_PAGE),
+				totalCount: photos.length,
+			});
+		}
 		if (route === "/limeni-project" || route === "/limeni-workspace")
 			return json(
 				route === "/limeni-workspace" ? data.snapshot.settings : data.snapshot,
@@ -352,7 +368,6 @@ export async function localFetch(
 	}
 	if (url.pathname.startsWith("/api/")) {
 		const { invokeLocalAction } = await import("./actions");
-		if (url.pathname.includes("photos")) return json(data.photos);
 		if (url.pathname.includes("diary"))
 			return json(
 				await invokeLocalAction(

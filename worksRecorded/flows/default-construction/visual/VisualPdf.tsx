@@ -190,6 +190,7 @@ export function VisualPdf({
 	onQueueSave,
 	onEditingChange,
 	fillWorkspace = false,
+	overlayOpacityScale = 1,
 	onDelete,
 	planning,
 	layerStyles = visualLayers,
@@ -213,6 +214,7 @@ export function VisualPdf({
 	onQueueSave?: (edit: PolygonEdit) => void;
 	onEditingChange?: (editing: boolean) => void;
 	fillWorkspace?: boolean;
+	overlayOpacityScale?: number;
 	onDelete?: (deletion: PolygonDelete) => void;
 	planning?: VisualPdfPlanning;
 	layerStyles?: Record<string, { label: string; color: string }>;
@@ -1741,6 +1743,12 @@ export function VisualPdf({
 									const editingGroup =
 										!!draft?.zone &&
 										group.marks.some((mark) => mark.id === draft.markId);
+									const fillOpacity =
+										!editingGroup && isSelected
+											? 0.85
+											: !editingGroup && isHighlighted
+												? 0.8
+												: 0.5;
 									const Shape = group.paths.length ? "path" : "polygon";
 									return (group.paths.length ? group.paths : [undefined]).map(
 										(path, index) => (
@@ -1757,15 +1765,7 @@ export function VisualPdf({
 												}
 												fillRule={path === undefined ? "nonzero" : "evenodd"}
 												fill={color}
-												fillOpacity={
-													editingGroup
-														? 0.5
-														: isSelected
-															? 0.85
-															: isHighlighted
-																? 0.8
-																: 0.5
-												}
+												fillOpacity={fillOpacity * overlayOpacityScale}
 												stroke={
 													!editingGroup && (isSelected || isHighlighted)
 														? "#0f172a"
@@ -1846,7 +1846,10 @@ export function VisualPdf({
 											.map((point) => `${point.x},${point.y}`)
 											.join(" ")}
 										fill={area.color ?? visualLayers.other.color}
-										fillOpacity={planningAreaDraft || penMode ? 0.04 : 0.15}
+										fillOpacity={
+											(planningAreaDraft || penMode ? 0.04 : 0.15) *
+											overlayOpacityScale
+										}
 										stroke={area.color ?? visualLayers.other.color}
 										strokeOpacity={planningAreaDraft || penMode ? 0.15 : 0.5}
 										strokeWidth={1.5}
@@ -1858,6 +1861,11 @@ export function VisualPdf({
 								.filter((area) => area.page === page)
 								.map((area) => {
 									const directlySelected = selectedPlanArea?.id === area.id;
+									const fillOpacity = directlySelected
+										? 0.64
+										: activePlanGroupSelected
+											? 0.48
+											: 0.34;
 									return (
 										<polygon
 											key={area.id}
@@ -1872,13 +1880,7 @@ export function VisualPdf({
 												.map((point) => `${point.x},${point.y}`)
 												.join(" ")}
 											fill={planningColor}
-											fillOpacity={
-												directlySelected
-													? 0.64
-													: activePlanGroupSelected
-														? 0.48
-														: 0.34
-											}
+											fillOpacity={fillOpacity * overlayOpacityScale}
 											stroke={
 												directlySelected
 													? "#0f172a"

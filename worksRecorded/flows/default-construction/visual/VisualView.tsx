@@ -142,10 +142,12 @@ export default function VisualView({
 	siteId,
 	active = true,
 	preload = false,
+	overlayOpacityScale,
 }: {
 	siteId: string;
 	active?: boolean;
 	preload?: boolean;
+	overlayOpacityScale?: number;
 }) {
 	const reportPreparation = useProjectPreparationReporter(siteId);
 	const projectData = useLimeniProjectData();
@@ -1493,6 +1495,7 @@ export default function VisualView({
 							<VisualPlanningPanel
 								showSaveStatus={false}
 								active={active && mode === "planning"}
+								overlayOpacityScale={overlayOpacityScale}
 								resourceCache={resourceCache}
 								layerConfiguration={layerConfiguration}
 								key={drawing.id}
@@ -1509,6 +1512,7 @@ export default function VisualView({
 						>
 							<VisualPdf
 								active={active && mode === "actual"}
+								overlayOpacityScale={overlayOpacityScale}
 								resourceCache={resourceCache}
 								layerStyles={layerStyles}
 								key={drawing.id}
