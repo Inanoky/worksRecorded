@@ -18,6 +18,7 @@ import {
 	summarizeMaterialConsumption,
 } from "@/lib/material-consumption/model";
 import { getMaterialConsumption } from "@/server/actions/material-consumption";
+import { MaterialProjectSelect } from "./MaterialProjectSelect";
 
 type Data = Awaited<ReturnType<typeof getMaterialConsumption>>;
 const number = new Intl.NumberFormat("lv-LV", { maximumFractionDigits: 3 });
@@ -270,29 +271,19 @@ export function MaterialConsumptionPage({
 				aria-label="Filtri"
 				className="flex flex-wrap items-end gap-3 rounded-lg border bg-background p-4"
 			>
-				<label
-					htmlFor={`${formId}-project`}
-					className="min-w-0 flex-1 space-y-2 text-sm font-medium"
-				>
-					Projekts
-					<select
+				<div className="min-w-0 flex-1 text-sm font-medium">
+					<label htmlFor={`${formId}-project`}>Projekts</label>
+					<MaterialProjectSelect
 						id={`${formId}-project`}
 						value={projectId}
-						onChange={(event) => {
-							setProjectId(event.target.value);
+						projects={projectOptions}
+						onValueChange={(value) => {
+							setProjectId(value);
 							setSelected(null);
 							setDetailKind("all");
 						}}
-						className={`${selectClass} mt-2 w-full min-w-40`}
-					>
-						<option value="">Visi projekti</option>
-						{projectOptions.map((project) => (
-							<option key={project.id} value={project.id}>
-								{project.name}
-							</option>
-						))}
-					</select>
-				</label>
+					/>
+				</div>
 				<label
 					htmlFor={`${formId}-period`}
 					className="flex flex-col gap-2 text-sm font-medium"

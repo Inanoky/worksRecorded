@@ -1,6 +1,7 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { MaterialObservation } from "@/lib/material-consumption/model";
+import { getMaterialConsumption } from "@/server/actions/material-consumption";
 import {
 	MaterialConsumptionPage,
 	materialConsumptionCsv,
@@ -68,6 +69,8 @@ const initialData = {
 	loadedAt: "2026-11-19T10:00:00Z",
 };
 
+beforeEach(() => jest.clearAllMocks());
+
 it("shows consumed totals, project evidence and delivery separately", async () => {
 	render(<MaterialConsumptionPage initialData={initialData} />);
 	const totals = within(
@@ -92,10 +95,8 @@ it("shows consumed totals, project evidence and delivery separately", async () =
 it("filters by project and dates and shows a useful empty state", async () => {
 	render(<MaterialConsumptionPage initialData={initialData} />);
 	await userEvent.click(screen.getByRole("button", { name: "Raudas iela 16" }));
-	await userEvent.selectOptions(
-		screen.getByRole("combobox", { name: "Projekts" }),
-		"b",
-	);
+	await userEvent.click(screen.getByRole("combobox", { name: "Projekts" }));
+	await userEvent.click(screen.getByRole("option", { name: "Šmerļa iela 3" }));
 	expect(
 		screen.queryByRole("button", { name: "Raudas iela 16" }),
 	).not.toBeInTheDocument();
@@ -105,14 +106,120 @@ it("filters by project and dates and shows a useful empty state", async () => {
 	expect(
 		screen.queryByRole("region", { name: "Projekta ziņojumi" }),
 	).not.toBeInTheDocument();
-	await userEvent.selectOptions(
-		screen.getByRole("combobox", { name: "Projekts" }),
-		"",
-	);
+	await userEvent.click(screen.getByRole("combobox", { name: "Projekts" }));
+	await userEvent.click(screen.getByRole("option", { name: "Visi projekti" }));
 	await userEvent.type(screen.getByLabelText("No datuma"), "2026-11-18");
 	expect(
 		screen.getByText("Šajā atlasē nav materiālu ziņojumu."),
 	).toBeInTheDocument();
+});
+
+it("searches project names without case or accents and preserves dates without fetching data", async () => {
+	const user = userEvent.setup();
+	render(<MaterialConsumptionPage initialData={initialData} />);
+	await user.type(screen.getByLabelText("No datuma"), "2026-11-17");
+	await user.type(screen.getByLabelText("Līdz datumam"), "2026-11-17");
+	await user.click(screen.getByRole("combobox", { name: "Projekts" }));
+	const search = screen.getByRole("textbox", { name: "Meklēt projektu" });
+	expect(
+		screen.getByRole("dialog", { name: "Projektu izvēle" }),
+	).toBeInTheDocument();
+	expect(search).toHaveFocus();
+	await user.type(search, "SMERLA");
+	expect(
+		screen.getByRole("option", { name: "Šmerļa iela 3" }),
+	).toBeInTheDocument();
+	expect(
+		screen.queryByRole("option", { name: "Raudas iela 16" }),
+	).not.toBeInTheDocument();
+	expect(
+		screen.getByRole("option", { name: "Visi projekti" }),
+	).toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: "Raudas iela 16" }),
+	).toBeInTheDocument();
+	await user.keyboard("{Enter}");
+	expect(
+		screen.queryByRole("button", { name: "Raudas iela 16" }),
+	).not.toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: "Šmerļa iela 3" }),
+	).toBeInTheDocument();
+	expect(screen.getByLabelText("No datuma")).toHaveValue("2026-11-17");
+	expect(screen.getByLabelText("Līdz datumam")).toHaveValue("2026-11-17");
+	expect(getMaterialConsumption).not.toHaveBeenCalled();
+	await waitFor(() =>
+		expect(screen.getByRole("combobox", { name: "Projekts" })).toHaveFocus(),
+	);
+});
+
+it("navigates the project choices with arrow keys and applies only the confirmed option", async () => {
+	const user = userEvent.setup();
+	render(<MaterialConsumptionPage initialData={initialData} />);
+	const trigger = screen.getByRole("combobox", { name: "Projekts" });
+	trigger.focus();
+	await user.keyboard("{ArrowDown}");
+	const search = screen.getByRole("textbox", { name: "Meklēt projektu" });
+	expect(search).toHaveFocus();
+	await user.keyboard("{ArrowDown}{ArrowDown}{ArrowUp}");
+	expect(
+		screen.getByRole("button", { name: "Šmerļa iela 3" }),
+	).toBeInTheDocument();
+	expect(search).toHaveAttribute(
+		"aria-activedescendant",
+		screen.getByRole("option", { name: "Raudas iela 16" }).id,
+	);
+	await user.keyboard("{Enter}");
+	expect(
+		screen.queryByRole("button", { name: "Šmerļa iela 3" }),
+	).not.toBeInTheDocument();
+	expect(trigger).toHaveTextContent("Raudas iela 16");
+});
+
+it("keeps an empty search from changing the report and resets search on Escape or clearing", async () => {
+	const user = userEvent.setup();
+	render(<MaterialConsumptionPage initialData={initialData} />);
+	const trigger = screen.getByRole("combobox", { name: "Projekts" });
+	await user.click(trigger);
+	await user.click(screen.getByRole("option", { name: "Šmerļa iela 3" }));
+	await user.click(trigger);
+	await user.type(
+		screen.getByRole("textbox", { name: "Meklēt projektu" }),
+		"missing project",
+	);
+	expect(screen.getByRole("status")).toHaveTextContent("Projekti nav atrasti.");
+	expect(
+		screen.getByRole("option", { name: "Visi projekti" }),
+	).toBeInTheDocument();
+	await user.keyboard("{Enter}");
+	expect(trigger).toHaveTextContent("Šmerļa iela 3");
+	expect(trigger).toHaveAttribute("aria-expanded", "true");
+	await user.keyboard("{Escape}");
+	expect(trigger).toHaveAttribute("aria-expanded", "false");
+	expect(trigger).toHaveTextContent("Šmerļa iela 3");
+	await user.click(trigger);
+	const search = screen.getByRole("textbox", { name: "Meklēt projektu" });
+	expect(search).toHaveValue("");
+	expect(screen.getByRole("option", { name: "Šmerļa iela 3" })).toHaveAttribute(
+		"aria-selected",
+		"true",
+	);
+	await user.type(search, "raudas");
+	await user.click(screen.getByRole("button", { name: "Notīrīt meklēšanu" }));
+	expect(search).toHaveValue("");
+	expect(search).toHaveFocus();
+	expect(screen.getByRole("option", { name: "Šmerļa iela 3" })).toHaveAttribute(
+		"aria-selected",
+		"true",
+	);
+	await user.click(screen.getByRole("option", { name: "Visi projekti" }));
+	expect(
+		screen.getByRole("button", { name: "Raudas iela 16" }),
+	).toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: "Šmerļa iela 3" }),
+	).toBeInTheDocument();
+	expect(getMaterialConsumption).not.toHaveBeenCalled();
 });
 
 it("exports only project, material type, confirmed consumed bags and work date", () => {
