@@ -2,6 +2,7 @@
 
 import type { Pair } from "polygon-clipping";
 import { useEffect, useState } from "react";
+import { useWorkspaceActive } from "@/components/projects/WorkspaceActivity";
 import { Button } from "@/components/ui/button";
 import type { VisualDrawing, VisualMark } from "./model";
 import { VISUAL_MAX_POLYGON_POINTS } from "./model";
@@ -33,42 +34,55 @@ type Selection = {
 export function VisualSectionBoundaries({
 	active,
 	drawing,
-	endpoint,
 	resourceCache,
 	onEditingChange,
 }: {
 	active: boolean;
 	drawing: VisualDrawing;
-	endpoint: string;
 	resourceCache: VisualClientCache;
 	onEditingChange: (editing: boolean) => void;
 }) {
+	const endpoint = resourceCache.endpoint(drawing.id);
 	const url = `${endpoint}?boundaries=1`;
-	const [result, setResult] = useState<MapResult | null>(null);
-	const [draft, setDraft] = useState<SectionBoundary[] | null>(null);
+	const workspaceActive = useWorkspaceActive();
+	const [result, setResult] = useState<MapResult | null>(() => {
+		const map = resourceCache.peekSectionBoundaries(drawing.id);
+		return map === undefined ? null : { map, failed: false };
+	});
+	const [edit, setEdit] = useState<{
+		base: SectionBoundaryMap;
+		sections: SectionBoundary[];
+	} | null>(null);
+	const editing = edit !== null;
 	const [selection, setSelection] = useState<Selection | null>(null);
 	const [adding, setAdding] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
 	useEffect(() => {
-		if (result) return;
-		const controller = new AbortController();
-		void fetch(url, { signal: controller.signal })
-			.then((response) => {
-				if (!response.ok) throw new Error("Section map unavailable");
-				return response.json() as Promise<SectionBoundaryMap | null>;
-			})
-			.then((map) => {
-				if (!controller.signal.aborted) setResult({ map, failed: false });
-			})
-			.catch(() => {
-				if (!controller.signal.aborted) setResult({ map: null, failed: true });
-			});
-		return () => controller.abort();
-	}, [url, result]);
+		if (!workspaceActive || editing) return;
+		let cancelled = false;
+		const refresh = () => {
+			void resourceCache.loadSectionBoundaries(drawing.id).then(
+				(map) => {
+					if (!cancelled) setResult({ map, failed: false });
+				},
+				() => {
+					if (!cancelled)
+						setResult((current) => current ?? { map: null, failed: true });
+				},
+			);
+		};
+		refresh();
+		if (active) window.addEventListener("focus", refresh);
+		return () => {
+			cancelled = true;
+			if (active) window.removeEventListener("focus", refresh);
+		};
+	}, [resourceCache, drawing.id, workspaceActive, editing, active]);
 	useEffect(() => () => onEditingChange(false), [onEditingChange]);
 
-	const map = result?.map;
+	const map = edit?.base ?? result?.map;
+	const draft = edit?.sections;
 	const sections = draft ?? map?.sections ?? [];
 	const chosen = sections.find(({ code }) => code === selection?.code);
 	const polygonIndex = selection?.polygon ?? null;
@@ -83,22 +97,32 @@ export function VisualSectionBoundaries({
 	}
 
 	function finishEditing() {
-		setDraft(null);
+		setEdit(null);
 		setSelection(null);
 		setAdding(false);
 		setSaveError(null);
 		onEditingChange(false);
 	}
 
+	function cancelEditing() {
+		void resourceCache
+			.loadSectionBoundaries(drawing.id, { force: true })
+			.catch(() => {});
+		finishEditing();
+	}
+
 	function changeGeometry(
 		code: SectionBoundaryCode,
 		geometry: SectionBoundary["geometry"],
 	) {
-		setDraft(
+		setEdit(
 			(previous) =>
-				previous?.map((section) =>
-					code === section.code ? { ...section, geometry } : section,
-				) ?? null,
+				previous && {
+					...previous,
+					sections: previous.sections.map((section) =>
+						code === section.code ? { ...section, geometry } : section,
+					),
+				},
 		);
 		setSaveError(null);
 	}
@@ -122,6 +146,7 @@ export function VisualSectionBoundaries({
 				return;
 			}
 			const saved = (await response.json()) as SectionBoundaryMap;
+			resourceCache.rememberSectionBoundaries(drawing.id, saved);
 			setResult({ map: saved, failed: false });
 			finishEditing();
 		} catch {
@@ -171,10 +196,7 @@ export function VisualSectionBoundaries({
 										size="sm"
 										variant="outline"
 										disabled={saving}
-										onClick={() => {
-											finishEditing();
-											setResult(null);
-										}}
+										onClick={cancelEditing}
 									>
 										Atcelt labojumus
 									</Button>
@@ -184,7 +206,7 @@ export function VisualSectionBoundaries({
 									size="sm"
 									variant="outline"
 									onClick={() => {
-										setDraft(map.sections);
+										setEdit({ base: map, sections: map.sections });
 										selectPolygon(map.sections[0].code, null);
 										onEditingChange(true);
 									}}

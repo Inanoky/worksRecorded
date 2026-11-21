@@ -2,7 +2,9 @@ import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { VisualDrawing } from "./model";
 import type { PersistentProjectCache } from "./project-persistent-cache";
 import type { LimeniProjectSnapshot } from "./project-snapshot-store";
+import type { SectionBoundaryMap } from "./section-boundaries";
 import {
+	VISUAL_CACHE_FRESH_MS,
 	VisualClientCache,
 	type VisualDrawingIndex,
 	type VisualPlanningIndex,
@@ -87,6 +89,49 @@ it("limits concurrent floor downloads and retains all four parsed PDFs", async (
 	expect(mockGetDocument).toHaveBeenCalledTimes(4);
 	expect(mockDestroy).not.toHaveBeenCalled();
 	cache.clear();
+});
+
+it("deduplicates section map loads and caches an unmapped drawing until it is stale", async () => {
+	let now = 0;
+	const cache = new VisualClientCache("site", () => now);
+	jest
+		.mocked(fetch)
+		.mockResolvedValue({ ok: true, json: async () => null } as Response);
+	expect(cache.peekSectionBoundaries("drawing")).toBeUndefined();
+	await expect(
+		Promise.all([
+			cache.loadSectionBoundaries("drawing"),
+			cache.loadSectionBoundaries("drawing"),
+		]),
+	).resolves.toEqual([null, null]);
+	expect(cache.peekSectionBoundaries("drawing")).toBeNull();
+	await cache.loadSectionBoundaries("drawing");
+	expect(fetch).toHaveBeenCalledTimes(1);
+	now += VISUAL_CACHE_FRESH_MS;
+	await cache.loadSectionBoundaries("drawing");
+	expect(fetch).toHaveBeenCalledTimes(2);
+	cache.removeDrawing("drawing");
+	expect(cache.peekSectionBoundaries("drawing")).toBeUndefined();
+});
+
+it("keeps a saved section map when a background response arrives later", async () => {
+	const cache = new VisualClientCache("site");
+	const saved = {
+		drawing: "plan.pdf",
+		revision: "saved",
+	} as SectionBoundaryMap;
+	let finish!: (value: Response) => void;
+	jest.mocked(fetch).mockImplementationOnce(
+		() =>
+			new Promise((resolve) => {
+				finish = resolve;
+			}),
+	);
+	const pending = cache.loadSectionBoundaries("drawing");
+	cache.rememberSectionBoundaries("drawing", saved);
+	finish({ ok: true, json: async () => null } as Response);
+	await expect(pending).resolves.toBe(saved);
+	expect(cache.peekSectionBoundaries("drawing")).toBe(saved);
 });
 
 async function waitForPreparation() {

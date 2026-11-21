@@ -1522,15 +1522,20 @@ export default function VisualView({
 				) : null}
 				{drawing ? (
 					<>
-						{mode === "boundaries" && supportsBoundaries ? (
-							<VisualSectionBoundaries
-								key={drawing.id}
-								active={active}
-								drawing={drawing}
-								endpoint={endpoint(drawing.id)}
-								resourceCache={resourceCache}
-								onEditingChange={setBoundaryEditing}
-							/>
+						{supportsBoundaries ? (
+							<div
+								hidden={mode !== "boundaries"}
+								inert={mode !== "boundaries"}
+								className="absolute inset-0"
+							>
+								<VisualSectionBoundaries
+									key={drawing.id}
+									active={active && mode === "boundaries"}
+									drawing={drawing}
+									resourceCache={resourceCache}
+									onEditingChange={setBoundaryEditing}
+								/>
+							</div>
 						) : null}
 						<div
 							hidden={mode !== "planning"}

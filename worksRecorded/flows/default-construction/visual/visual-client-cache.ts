@@ -17,6 +17,7 @@ import type { PreparedPreview } from "./prepared-preview-model";
 import type { PersistentProjectCache } from "./project-persistent-cache";
 import type { LimeniProjectSnapshot } from "./project-snapshot-store";
 import { patchProject } from "./project-sync";
+import type { SectionBoundaryMap } from "./section-boundaries";
 import { fetchSectionDrawing } from "./section-drawing-client";
 
 export const VISUAL_CACHE_FRESH_MS = 60_000;
@@ -315,6 +316,14 @@ export class VisualClientCache {
 		string,
 		ResourceRequest<VisualPlanningIndex>
 	>();
+	private sectionBoundaries = new Map<
+		string,
+		CacheEntry<SectionBoundaryMap | null>
+	>();
+	private sectionBoundaryRequests = new Map<
+		string,
+		{ controller: AbortController; promise: Promise<SectionBoundaryMap | null> }
+	>();
 	private pdfs = new Map<string, PdfEntry>();
 	private pdfBytes = new Map<string, Uint8Array>();
 	private preparedDrawings = new Set<string>();
@@ -458,6 +467,53 @@ export class VisualClientCache {
 	peekPlanning(id: string) {
 		const value = this.planning.get(id)?.value;
 		return value ? this.projectPlanning(id, value) : undefined;
+	}
+
+	peekSectionBoundaries(id: string) {
+		return this.sectionBoundaries.get(id)?.value;
+	}
+
+	rememberSectionBoundaries(id: string, value: SectionBoundaryMap | null) {
+		this.cancelSectionBoundaryRequest(id);
+		this.sectionBoundaries.set(id, { value, updatedAt: this.now() });
+	}
+
+	async loadSectionBoundaries(id: string, { force = false }: LoadOptions = {}) {
+		const pending = this.sectionBoundaryRequests.get(id);
+		if (pending) return pending.promise;
+		const cached = this.sectionBoundaries.get(id);
+		if (
+			!force &&
+			cached &&
+			this.now() - cached.updatedAt < VISUAL_CACHE_FRESH_MS
+		)
+			return cached.value;
+		const controller = new AbortController();
+		const promise = (async () => {
+			const response = await fetch(`${this.endpoint(id)}?boundaries=1`, {
+				cache: "no-store",
+				signal: controller.signal,
+			});
+			if (!response.ok) throw new Error("Section map unavailable");
+			const value = (await response.json()) as SectionBoundaryMap | null;
+			if (controller.signal.aborted) {
+				const latest = this.sectionBoundaries.get(id);
+				if (latest) return latest.value;
+				throw new DOMException("Section map request cancelled", "AbortError");
+			}
+			this.sectionBoundaries.set(id, { value, updatedAt: this.now() });
+			return value;
+		})().finally(() => {
+			if (this.sectionBoundaryRequests.get(id)?.controller === controller)
+				this.sectionBoundaryRequests.delete(id);
+		});
+		this.sectionBoundaryRequests.set(id, { controller, promise });
+		return promise;
+	}
+
+	private cancelSectionBoundaryRequest(id: string) {
+		this.sectionBoundaryRequests.get(id)?.controller.abort();
+		this.sectionBoundaryRequests.delete(id);
 	}
 
 	getPlanningSaveQueue(
@@ -904,6 +960,8 @@ export class VisualClientCache {
 		this.bumpPlanningGeneration(id);
 		this.planning.delete(id);
 		this.planningRequests.delete(id);
+		this.sectionBoundaries.delete(id);
+		this.cancelSectionBoundaryRequest(id);
 		const url = `${this.endpoint(id)}?pdf=1`;
 		this.prepared.delete(url);
 		for (const key of this.preparedRequests.keys())
@@ -980,6 +1038,10 @@ export class VisualClientCache {
 		this.drawingRequests.clear();
 		this.planning.clear();
 		this.planningRequests.clear();
+		this.sectionBoundaries.clear();
+		for (const { controller } of this.sectionBoundaryRequests.values())
+			controller.abort();
+		this.sectionBoundaryRequests.clear();
 		this.drawingGenerations.clear();
 		this.planningGenerations.clear();
 		for (const [url, entry] of this.pdfs) this.destroyPdf(url, entry);

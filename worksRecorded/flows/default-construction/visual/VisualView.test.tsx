@@ -31,6 +31,10 @@ import type {
 	PolygonSaveResponse,
 } from "./polygon-edit";
 import type { VisualRecordInput } from "./record-model";
+import {
+	SMERLA_SECTION_MAP_SITE_ID,
+	type SectionBoundaryMap,
+} from "./section-boundaries";
 import { visualDiaryDay } from "./timeline";
 import type { VisualPdfPlanning } from "./VisualPdf";
 import VisualView from "./VisualView";
@@ -750,6 +754,44 @@ it("switches between execution and planning modes from the workspace header", as
 		"title",
 		"Saglabājiet vai atceliet plāna izmaiņas",
 	);
+});
+
+it("prepares Robežas before it opens and keeps the same viewer across tab switches", async () => {
+	const map: SectionBoundaryMap = {
+		drawing: "plan.pdf",
+		finishDrawing: "S3A IN 9113",
+		drawingSha256: "drawing-hash",
+		finishSha256: "finish-hash",
+		page: 1,
+		unmappedRooms: [],
+		sections: [{ code: "PA1.6", geometry: [] }],
+		revision: null,
+	};
+	mockFetch.mockImplementation(async (url) => ({
+		ok: true,
+		json: async () => (String(url).endsWith("?boundaries=1") ? map : complete),
+	}));
+	render(<VisualView siteId={SMERLA_SECTION_MAP_SITE_ID} />);
+	const boundaries = await screen.findByRole("button", { name: "Robežas" });
+	const preparedEdit = await screen.findByText("Pielāgot robežas");
+	expect(preparedEdit).not.toBeVisible();
+	const viewer = screen.getByLabelText("Sekciju robežas");
+
+	fireEvent.click(boundaries);
+	expect(screen.getByRole("button", { name: "Pielāgot robežas" })).toBe(
+		preparedEdit,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Plānošana" }));
+	expect(viewer).not.toBeVisible();
+	fireEvent.click(screen.getByRole("button", { name: "Izpilde" }));
+	fireEvent.click(boundaries);
+	expect(screen.getByRole("region", { name: "Sekciju robežas" })).toBe(viewer);
+	await act(async () => {});
+	expect(
+		mockFetch.mock.calls.filter(([url]) =>
+			String(url).endsWith("?boundaries=1"),
+		),
+	).toHaveLength(1);
 });
 
 it("clears the selected source card on an empty drawing click but protects unsaved work edits", async () => {
