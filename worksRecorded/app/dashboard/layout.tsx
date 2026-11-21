@@ -194,6 +194,7 @@ export default async function DashboardLayout({
 						<div className="flex min-w-0 flex-1 items-center gap-3">
 							<div className="lg:hidden">
 								<MobileMenu
+									organizationId={organizationId}
 									organizationLanguage={organizationLanguage}
 									canAccessAiEvals={canAccessAiEvals}
 									canAccessFlowConfigAdmin={canAccessFlowConfigs}
@@ -224,6 +225,7 @@ export default async function DashboardLayout({
 							<nav className="ml-2 hidden min-w-0 flex-1 items-center lg:flex">
 								<DashboardItems
 									userEmail={email}
+									organizationId={organizationId}
 									organizationLanguage={organizationLanguage}
 									canAccessAiEvals={canAccessAiEvals}
 									canAccessFlowConfigAdmin={canAccessFlowConfigs}

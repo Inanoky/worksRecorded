@@ -25,6 +25,7 @@ import { useDashboardNavigation } from "./useDashboardNavigation";
 
 export function MobileMenu({
 	fimaCollaborationEnabled = false,
+	organizationId,
 	organizationLanguage,
 	canAccessAiEvals = false,
 	canAccessFlowConfigAdmin = false,
@@ -32,6 +33,7 @@ export function MobileMenu({
 	availableProjects = [],
 }: {
 	fimaCollaborationEnabled?: boolean;
+	organizationId?: string | null;
 	organizationLanguage?: string | null;
 	canAccessAiEvals?: boolean;
 	canAccessFlowConfigAdmin?: boolean;
@@ -54,6 +56,7 @@ export function MobileMenu({
 		fimaActProjectIds: availableProjects
 			.filter((project) => project.fimaActsEnabled)
 			.map((project) => project.id),
+		organizationId,
 		organizationLanguage,
 		canAccessAiEvals,
 		canAccessFlowConfigAdmin,

@@ -11,6 +11,7 @@ import {
 	SlidersHorizontal,
 	Wrench,
 } from "lucide-react";
+import { LIMENI_ORGANIZATION_ID } from "@/flows/default-construction/lib/diary-photos";
 import {
 	getNavigationMessages,
 	normalizeOrganizationLanguage,
@@ -51,17 +52,21 @@ export function getNavLinks(
 		canAccessAiEvals?: boolean;
 		canAccessFlowConfigAdmin?: boolean;
 		flowModuleKey?: FlowModuleKey | null;
+		organizationId?: string | null;
 	},
 ): GlobalNavLink[] {
 	const t = getNavigationMessages(normalizeOrganizationLanguage(language));
 	const isTgem =
 		options?.flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL;
+	const showMaterialConsumption =
+		options?.flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION &&
+		options.organizationId === LIMENI_ORGANIZATION_ID;
 
 	const links: GlobalNavLink[] = [
 		...(isTgem
 			? []
 			: [{ name: t.projects, href: "/dashboard/sites", icon: HardHat }]),
-		...(options?.flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION
+		...(showMaterialConsumption
 			? [
 					{
 						name:

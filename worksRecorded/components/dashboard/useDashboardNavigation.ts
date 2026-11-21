@@ -36,6 +36,7 @@ type ResolvedProjectNavLink = ProjectNavLink & {
 type DashboardNavigationOptions = {
 	fimaCollaborationEnabled?: boolean;
 	fimaActProjectIds?: string[];
+	organizationId?: string | null;
 	organizationLanguage?: string | null;
 	canAccessAiEvals?: boolean;
 	canAccessFlowConfigAdmin?: boolean;
@@ -54,6 +55,7 @@ const projectNavigationRuntimeCache = new Map<
 export function useDashboardNavigation({
 	fimaCollaborationEnabled = false,
 	fimaActProjectIds,
+	organizationId,
 	organizationLanguage,
 	canAccessAiEvals = false,
 	canAccessFlowConfigAdmin = false,
@@ -84,6 +86,7 @@ export function useDashboardNavigation({
 				canAccessAiEvals,
 				canAccessFlowConfigAdmin,
 				flowModuleKey,
+				organizationId,
 			}).map((item) => ({
 				...item,
 				isActive: pathname === item.href,
@@ -92,6 +95,7 @@ export function useDashboardNavigation({
 			canAccessAiEvals,
 			canAccessFlowConfigAdmin,
 			flowModuleKey,
+			organizationId,
 			organizationLanguage,
 			pathname,
 		],

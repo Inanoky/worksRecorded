@@ -33,12 +33,14 @@ import {
 import { useDashboardNavigation } from "./useDashboardNavigation";
 
 export function DashboardItems({
+	organizationId,
 	organizationLanguage,
 	canAccessAiEvals = false,
 	canAccessFlowConfigAdmin = false,
 	flowModuleKey = null,
 }: {
 	userEmail?: string | null;
+	organizationId?: string | null;
 	organizationLanguage?: string | null;
 	canAccessAiEvals?: boolean;
 	canAccessFlowConfigAdmin?: boolean;
@@ -52,6 +54,7 @@ export function DashboardItems({
 				canAccessAiEvals,
 				canAccessFlowConfigAdmin,
 				flowModuleKey,
+				organizationId,
 			}).map((item) => ({
 				...item,
 				isActive: pathname === item.href,
@@ -60,6 +63,7 @@ export function DashboardItems({
 			canAccessAiEvals,
 			canAccessFlowConfigAdmin,
 			flowModuleKey,
+			organizationId,
 			organizationLanguage,
 			pathname,
 		],
