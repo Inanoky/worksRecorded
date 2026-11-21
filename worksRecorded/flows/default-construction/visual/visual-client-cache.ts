@@ -17,7 +17,10 @@ import type { PreparedPreview } from "./prepared-preview-model";
 import type { PersistentProjectCache } from "./project-persistent-cache";
 import type { LimeniProjectSnapshot } from "./project-snapshot-store";
 import { patchProject } from "./project-sync";
-import type { SectionBoundaryMap } from "./section-boundaries";
+import {
+	type SectionBoundaryMap,
+	SMERLA_SECTION_MAP_SITE_ID,
+} from "./section-boundaries";
 import { fetchSectionDrawing } from "./section-drawing-client";
 
 export const VISUAL_CACHE_FRESH_MS = 60_000;
@@ -869,6 +872,7 @@ export class VisualClientCache {
 				const id = ids[next++];
 				await Promise.all([
 					track("visual-drawing", () => this.loadDrawing(id)),
+					this.preloadSectionBoundaries(id),
 					track("visual-planning", () =>
 						this.loadPlanning(id, () => loadPlanning(id)),
 					),
@@ -920,8 +924,20 @@ export class VisualClientCache {
 		onProgress?: (step: string, status: "done" | "error") => void,
 	) {
 		const url = `${this.endpoint(id)}?pdf=1`;
-		const preview = this.peekPreview(url, 1);
-		const pdf = preview ? null : this.openPdf(url);
+		const preparePreview = async () => {
+			if (this.peekPreview(url, 1)) return;
+			if (this.preparedManifest(url)) {
+				try {
+					if (await this.loadPreparedPreview(url, 1)) return;
+				} catch {}
+			}
+			const lease = this.openPdf(url);
+			try {
+				await this.renderPreview(url, 1, await lease.promise, 1_000_000);
+			} finally {
+				lease.release();
+			}
+		};
 		const track = async <T>(step: string, promise: Promise<T>) => {
 			try {
 				const value = await promise;
@@ -932,24 +948,21 @@ export class VisualClientCache {
 				throw error;
 			}
 		};
-		try {
-			await Promise.all([
-				track("visual-drawing", this.loadDrawing(id)),
-				track(
-					"visual-preview",
-					pdf
-						? pdf.promise.then((document) =>
-								this.renderPreview(url, 1, document, 1_000_000),
-							)
-						: Promise.resolve(preview),
-				),
-				...(loadPlanning
-					? [track("visual-planning", this.loadPlanning(id, loadPlanning))]
-					: []),
-			]);
-		} finally {
-			pdf?.release();
-		}
+		const results = await Promise.allSettled([
+			track("visual-drawing", this.loadDrawing(id)),
+			track("visual-preview", preparePreview()),
+			this.preloadSectionBoundaries(id),
+			...(loadPlanning
+				? [track("visual-planning", this.loadPlanning(id, loadPlanning))]
+				: []),
+		]);
+		const failure = results.find((result) => result.status === "rejected");
+		if (failure) throw failure.reason;
+	}
+
+	private async preloadSectionBoundaries(id: string) {
+		if (this.siteId === SMERLA_SECTION_MAP_SITE_ID)
+			await this.loadSectionBoundaries(id).catch(() => {});
 	}
 
 	removeDrawing(id: string) {

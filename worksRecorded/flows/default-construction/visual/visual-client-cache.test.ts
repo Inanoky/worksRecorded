@@ -2,7 +2,10 @@ import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { VisualDrawing } from "./model";
 import type { PersistentProjectCache } from "./project-persistent-cache";
 import type { LimeniProjectSnapshot } from "./project-snapshot-store";
-import type { SectionBoundaryMap } from "./section-boundaries";
+import {
+	SMERLA_SECTION_MAP_SITE_ID,
+	type SectionBoundaryMap,
+} from "./section-boundaries";
 import {
 	VISUAL_CACHE_FRESH_MS,
 	VisualClientCache,
@@ -132,6 +135,32 @@ it("keeps a saved section map when a background response arrives later", async (
 	finish({ ok: true, json: async () => null } as Response);
 	await expect(pending).resolves.toBe(saved);
 	expect(cache.peekSectionBoundaries("drawing")).toBe(saved);
+});
+
+it("warms the section map and drawing preview for each Šmerļa floor", async () => {
+	const cache = new VisualClientCache(SMERLA_SECTION_MAP_SITE_ID);
+	const floors = ["first", "second", "third"].map((id) => ({ id }));
+	jest.mocked(fetch).mockImplementation(async (request) => {
+		const url = String(request);
+		const id = url.split("/").at(-1)?.split("?")[0];
+		return {
+			ok: true,
+			arrayBuffer: async () => new ArrayBuffer(4),
+			json: async () =>
+				url.endsWith("?boundaries=1") ? { drawing: id } : { ...drawing, id },
+		} as Response;
+	});
+	await cache.prepareProject(floors, async () => planningIndex, jest.fn());
+
+	for (const { id } of floors) {
+		expect(cache.peekDrawing(id)?.id).toBe(id);
+		expect(cache.peekSectionBoundaries(id)?.drawing).toBe(id);
+		expect(cache.peekPreview(`${cache.endpoint(id)}?pdf=1`, 1)).toBeDefined();
+	}
+	const requestCount = jest.mocked(fetch).mock.calls.length;
+	await cache.prefetch("second");
+	expect(fetch).toHaveBeenCalledTimes(requestCount);
+	cache.clear();
 });
 
 async function waitForPreparation() {

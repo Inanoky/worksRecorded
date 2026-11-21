@@ -36,7 +36,7 @@ import {
 	type SectionBoundaryMap,
 } from "./section-boundaries";
 import { visualDiaryDay } from "./timeline";
-import type { VisualPdfPlanning } from "./VisualPdf";
+import type { VisualPdf, VisualPdfPlanning } from "./VisualPdf";
 import VisualView from "./VisualView";
 import type { VisualZoneMeasurement } from "./zone-measurement";
 
@@ -82,6 +82,7 @@ jest.mock("./VisualPdf", () => ({
 		planning,
 		url,
 		onZoneMeasurementChange,
+		pageOverlayControls,
 	}: {
 		marks: VisualMark[];
 		onSelect: (id: string | null) => void;
@@ -93,6 +94,9 @@ jest.mock("./VisualPdf", () => ({
 		createRecordBlockedReason?: string;
 		planning?: VisualPdfPlanning;
 		url: string;
+		pageOverlayControls?: Parameters<
+			typeof VisualPdf
+		>[0]["pageOverlayControls"];
 		onZoneMeasurementChange?: (
 			measurement: VisualZoneMeasurement | null,
 		) => void;
@@ -103,6 +107,7 @@ jest.mock("./VisualPdf", () => ({
 			data-polygons={JSON.stringify(marks.map((mark) => mark.polygon))}
 		>
 			{marks.length} zones
+			{pageOverlayControls?.render(1, true)}
 			<button
 				type="button"
 				onClick={() =>
@@ -773,13 +778,13 @@ it("prepares Robežas before it opens and keeps the same viewer across tab switc
 	}));
 	render(<VisualView siteId={SMERLA_SECTION_MAP_SITE_ID} />);
 	const boundaries = await screen.findByRole("button", { name: "Robežas" });
-	const preparedEdit = await screen.findByText("Pielāgot robežas");
-	expect(preparedEdit).not.toBeVisible();
+	const preparedDraw = await screen.findByText("Zīmēt zonu");
+	expect(preparedDraw).not.toBeVisible();
 	const viewer = screen.getByLabelText("Sekciju robežas");
 
 	fireEvent.click(boundaries);
-	expect(screen.getByRole("button", { name: "Pielāgot robežas" })).toBe(
-		preparedEdit,
+	expect(screen.getByRole("button", { name: /^Zīmēt zonu$/ })).toBe(
+		preparedDraw,
 	);
 	fireEvent.click(screen.getByRole("button", { name: "Plānošana" }));
 	expect(viewer).not.toBeVisible();
@@ -792,6 +797,65 @@ it("prepares Robežas before it opens and keeps the same viewer across tab switc
 			String(url).endsWith("?boundaries=1"),
 		),
 	).toHaveLength(1);
+});
+
+it("keeps the current Robežas drawing visible until the target floor map is ready", async () => {
+	const second: VisualDrawing = {
+		...complete,
+		id: "second",
+		name: "floor-2.pdf",
+		state: { ...complete.state, location: "2. stāvs" },
+	};
+	jest.mocked(getVisualDrawings).mockResolvedValue({
+		locations: ["1. stāvs", "2. stāvs"],
+		drawings: [complete, second].map((item) => ({
+			id: item.id,
+			name: item.name,
+			location: item.state.location,
+			createdAt: item.createdAt,
+			status: item.state.status,
+		})),
+	});
+	const map = {
+		drawing: complete.name,
+		finishDrawing: "S3A IN 9113",
+		drawingSha256: "drawing-hash",
+		finishSha256: "finish-hash",
+		page: 1,
+		unmappedRooms: [],
+		sections: [{ code: "PA1.6", geometry: [] }],
+		revision: null,
+	} satisfies SectionBoundaryMap;
+	let finish!: () => void;
+	const mapReady = new Promise<void>((resolve) => {
+		finish = resolve;
+	});
+	mockFetch.mockImplementation(async (url: string) => ({
+		ok: true,
+		arrayBuffer: async () => new ArrayBuffer(4),
+		json: async () => {
+			if (url.endsWith("/second?boundaries=1")) {
+				await mapReady;
+				return { ...map, drawing: second.name, finishDrawing: "S3A IN 9114" };
+			}
+			if (url.endsWith("?boundaries=1")) return map;
+			return url.endsWith("/second") ? second : complete;
+		},
+	}));
+	render(<VisualView siteId={SMERLA_SECTION_MAP_SITE_ID} />);
+	await screen.findByText("Avots: S3A IN 9113");
+	fireEvent.click(screen.getByRole("button", { name: "Robežas" }));
+	fireEvent.change(screen.getAllByRole("combobox")[0], {
+		target: { value: "2. stāvs" },
+	});
+	expect(screen.getByText("Atver rasējumu · 2. stāvs")).toBeVisible();
+	expect(screen.getByText("Avots: S3A IN 9113")).toBeVisible();
+	expect(screen.queryByText("Ielādē…")).not.toBeInTheDocument();
+	finish();
+	expect(await screen.findByText("Avots: S3A IN 9114")).toBeVisible();
+	expect(
+		screen.queryByText("Atver rasējumu · 2. stāvs"),
+	).not.toBeInTheDocument();
 });
 
 it("clears the selected source card on an empty drawing click but protects unsaved work edits", async () => {

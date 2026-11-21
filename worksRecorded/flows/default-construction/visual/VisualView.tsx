@@ -239,6 +239,9 @@ export default function VisualView({
 	const supportsBoundaries = siteId === SMERLA_SECTION_MAP_SITE_ID;
 	const [planningDirty, setPlanningDirty] = useState(false);
 	const [boundaryEditing, setBoundaryEditing] = useState(false);
+	const [pendingBoundaryLocation, setPendingBoundaryLocation] = useState<
+		string | null
+	>(null);
 	const editingProject =
 		editing ||
 		workEditing ||
@@ -361,6 +364,7 @@ export default function VisualView({
 		const cached = resourceCache.peekIndex();
 		setIndex(cached ?? null);
 		setLocation("");
+		setPendingBoundaryLocation(null);
 		setDrawing(null);
 		setSelected(null);
 		setFile(null);
@@ -444,18 +448,22 @@ export default function VisualView({
 						(position - 1 + index.drawings.length) % index.drawings.length
 					];
 				const neighbors = new Set([next.id, previous.id]);
-				for (const id of neighbors) {
-					if (cancelled) return;
-					await resourceCache
+				const prefetch = (id: string) =>
+					resourceCache
 						.prefetch(id, () => getVisualPlanning(siteId, id))
 						.catch(() => {});
+				if (supportsBoundaries) {
+					await Promise.all([...neighbors].map(prefetch));
+				} else {
+					for (const id of neighbors) {
+						if (cancelled) return;
+						await prefetch(id);
+					}
 				}
 				for (const item of index.drawings) {
 					if (cancelled) return;
 					if (item.id === pollDrawingId || neighbors.has(item.id)) continue;
-					await resourceCache
-						.prefetch(item.id, () => getVisualPlanning(siteId, item.id))
-						.catch(() => {});
+					await prefetch(item.id);
 				}
 			})();
 		}, 300);
@@ -473,6 +481,7 @@ export default function VisualView({
 		planningDirty,
 		editing,
 		workEditing,
+		supportsBoundaries,
 	]);
 	useEffect(() => {
 		if (!active) return;
@@ -583,29 +592,35 @@ export default function VisualView({
 		};
 	}, [siteId, pollDrawingId, shouldPoll, showDrawing]);
 	const loadDrawing = useCallback(
-		async (id: string, fresh = false) => {
+		async (id: string, fresh = false, boundaryLocation?: string) => {
 			const request = ++requestId.current;
 			if (fresh) resourceCache.removeDrawing(id);
 			const cached = resourceCache.peekDrawing(id);
-			setDrawing(cached ?? null);
-			setLoading(!cached);
+			if (!boundaryLocation) setDrawing(cached ?? null);
+			setLoading(!cached && !boundaryLocation);
+			setPendingBoundaryLocation(boundaryLocation ?? null);
 			setSelected(null);
 			setThroughDay(null);
 			setIncludeUndated(false);
 			setError(null);
 			setNotice(null);
 			try {
+				if (boundaryLocation) await resourceCache.prefetch(id).catch(() => {});
+				if (request !== requestId.current) return null;
 				const data = await resourceCache.loadDrawing(id);
 				if (request === requestId.current) {
-					if (data !== cached) showDrawing(data);
+					if (boundaryLocation || data !== cached) showDrawing(data);
 					setLocation(data.state.location);
 					return data as VisualDrawing;
 				}
 			} catch {
-				if (request === requestId.current && !cached)
+				if (request === requestId.current && (!cached || boundaryLocation))
 					setError("Neizdevās ielādēt rasējumu.");
 			} finally {
-				if (request === requestId.current) setLoading(false);
+				if (request === requestId.current) {
+					setPendingBoundaryLocation(null);
+					setLoading(false);
+				}
 			}
 			return null;
 		},
@@ -613,7 +628,27 @@ export default function VisualView({
 	);
 	const selectLocation = useCallback(
 		(value: string) => {
+			const assigned = index?.drawings.find(
+				(item) =>
+					normalizeVisualLocation(item.location) ===
+					normalizeVisualLocation(value),
+			);
+			if (
+				mode === "boundaries" &&
+				drawing &&
+				assigned &&
+				(!resourceCache.peekDrawing(assigned.id) ||
+					!resourceCache.peekPreview(
+						`${resourceCache.endpoint(assigned.id)}?pdf=1`,
+						1,
+					) ||
+					resourceCache.peekSectionBoundaries(assigned.id) === undefined)
+			) {
+				void loadDrawing(assigned.id, false, value);
+				return;
+			}
 			++requestId.current;
+			setPendingBoundaryLocation(null);
 			setLocation(value);
 			setDrawing(null);
 			setSelected(null);
@@ -622,14 +657,9 @@ export default function VisualView({
 			setNotice(null);
 			setSyncedAt(null);
 			setLoading(false);
-			const assigned = index?.drawings.find(
-				(item) =>
-					normalizeVisualLocation(item.location) ===
-					normalizeVisualLocation(value),
-			);
 			if (assigned) void loadDrawing(assigned.id);
 		},
-		[index, loadDrawing],
+		[index, drawing, mode, resourceCache, loadDrawing],
 	);
 	const firstLocation =
 		(preload && index ? firstAssignedDrawing(index)?.location : undefined) ??
@@ -1234,6 +1264,16 @@ export default function VisualView({
 						))}
 					</SelectContent>
 				</Select>
+				{pendingBoundaryLocation && mode === "boundaries" ? (
+					<output className="text-xs text-muted-foreground">
+						Atver rasējumu · {pendingBoundaryLocation}
+					</output>
+				) : null}
+				{mode === "boundaries" && error ? (
+					<p role="alert" className="text-xs text-destructive">
+						{error}
+					</p>
+				) : null}
 				<fieldset className="flex shrink-0 items-center rounded-lg bg-muted p-0.5">
 					<legend className="sr-only">Izpildshēmu režīms</legend>
 					<Button
@@ -1525,7 +1565,9 @@ export default function VisualView({
 						{supportsBoundaries ? (
 							<div
 								hidden={mode !== "boundaries"}
-								inert={mode !== "boundaries"}
+								inert={
+									mode !== "boundaries" || pendingBoundaryLocation !== null
+								}
 								className="absolute inset-0"
 							>
 								<VisualSectionBoundaries

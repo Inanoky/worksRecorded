@@ -195,6 +195,7 @@ export function VisualPdf({
 	overlayOpacityScale = 1,
 	drawingPageOverlay = false,
 	renderPageOverlay,
+	pageOverlayControls,
 	onDelete,
 	planning,
 	layerStyles = visualLayers,
@@ -225,6 +226,12 @@ export function VisualPdf({
 		surface: RefObject<HTMLDivElement | null>,
 		viewport: RefObject<HTMLElement | null>,
 	) => ReactNode;
+	pageOverlayControls?: {
+		editing: boolean;
+		selected: boolean;
+		onClick: (target: Element) => void;
+		render: (page: number, ready: boolean) => ReactNode;
+	};
 	onDelete?: (deletion: PolygonDelete) => void;
 	planning?: VisualPdfPlanning;
 	layerStyles?: Record<string, { label: string; color: string }>;
@@ -425,9 +432,14 @@ export function VisualPdf({
 	const selectedPlanAreaValid = selectedPlanArea
 		? visualPlanAreaSchema.safeParse(selectedPlanArea).success
 		: true;
-	const editingArea = !!draft || !!planningAreaDraft || !!penMode;
+	const editingArea =
+		!!draft ||
+		!!planningAreaDraft ||
+		!!penMode ||
+		!!pageOverlayControls?.editing;
 	const areaControlsActive =
 		editingArea ||
+		pageOverlayControls?.selected ||
 		(planning
 			? planningEditable && !!selectedPlanArea
 			: !!selectedMark && (!!onSave || !!onDelete));
@@ -1129,7 +1141,7 @@ export function VisualPdf({
 				size="icon"
 				className="h-8 w-8 border-0 shadow-none"
 				aria-label="Iepriekšējā lapa"
-				disabled={!!draft || !!planningAreaDraft || !!penMode || page <= 1}
+				disabled={editingArea || page <= 1}
 				onClick={() => setPage((value) => value - 1)}
 			>
 				<ChevronLeft className="h-4 w-4" />
@@ -1170,15 +1182,13 @@ export function VisualPdf({
 				className="h-8 w-8 border-0 shadow-none"
 				aria-label="Nākamā lapa"
 				disabled={
-					!!draft ||
-					!!planningAreaDraft ||
-					!!penMode ||
-					page >= (document?.numPages ?? preparedPages ?? 1)
+					editingArea || page >= (document?.numPages ?? preparedPages ?? 1)
 				}
 				onClick={() => setPage((value) => value + 1)}
 			>
 				<ChevronRight className="h-4 w-4" />
 			</Button>
+			{pageOverlayControls?.render(page, ready)}
 			{onCreateRecord && !planning && !draft ? (
 				<>
 					<Button
@@ -1659,6 +1669,14 @@ export function VisualPdf({
 						return;
 					}
 					if (penMode) return;
+					if (
+						ready &&
+						!drawingPageOverlay &&
+						!event.shiftKey &&
+						event.target instanceof Element &&
+						!event.target.closest("[data-drawing-control]")
+					)
+						pageOverlayControls?.onClick(event.target);
 					if (
 						event.target === event.currentTarget ||
 						event.target === surface.current ||
