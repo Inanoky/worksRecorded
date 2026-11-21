@@ -14,6 +14,8 @@ import {
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { MultiPolygon } from "polygon-clipping";
 import {
+	type ReactNode,
+	type RefObject,
 	useCallback,
 	useEffect,
 	useId,
@@ -191,6 +193,8 @@ export function VisualPdf({
 	onEditingChange,
 	fillWorkspace = false,
 	overlayOpacityScale = 1,
+	drawingPageOverlay = false,
+	renderPageOverlay,
 	onDelete,
 	planning,
 	layerStyles = visualLayers,
@@ -215,6 +219,12 @@ export function VisualPdf({
 	onEditingChange?: (editing: boolean) => void;
 	fillWorkspace?: boolean;
 	overlayOpacityScale?: number;
+	drawingPageOverlay?: boolean;
+	renderPageOverlay?: (
+		page: number,
+		surface: RefObject<HTMLDivElement | null>,
+		viewport: RefObject<HTMLElement | null>,
+	) => ReactNode;
 	onDelete?: (deletion: PolygonDelete) => void;
 	planning?: VisualPdfPlanning;
 	layerStyles?: Record<string, { label: string; color: string }>;
@@ -339,7 +349,7 @@ export function VisualPdf({
 		aspect,
 		`${url}:${page}`,
 		active && ready && !saving,
-		penMode !== null,
+		penMode !== null || drawingPageOverlay,
 		active,
 	);
 	const { surface } = navigation;
@@ -1821,6 +1831,9 @@ export function VisualPdf({
 							) : null}
 						</svg>
 					) : null}
+					{ready
+						? renderPageOverlay?.(page, surface, navigation.viewport)
+						: null}
 					{ready && planning ? (
 						<svg
 							className="pointer-events-none absolute inset-0 h-full w-full"

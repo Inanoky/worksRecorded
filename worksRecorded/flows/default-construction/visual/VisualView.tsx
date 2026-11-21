@@ -1,10 +1,9 @@
 "use client";
 
-import { useWorkspaceActive, useWorkspaceProtection } from "@/components/projects/WorkspaceActivity";
-
 import {
 	CalendarRange,
 	ClipboardCheck,
+	Layers,
 	Loader2,
 	PanelLeftClose,
 	PanelLeftOpen,
@@ -21,6 +20,10 @@ import {
 	useRef,
 	useState,
 } from "react";
+import {
+	useWorkspaceActive,
+	useWorkspaceProtection,
+} from "@/components/projects/WorkspaceActivity";
 import { useProjectPreparationReporter } from "@/components/providers/ProjectLoadingProgressProvider";
 import {
 	AlertDialog,
@@ -88,6 +91,7 @@ import type { PolygonDelete, PolygonSaveResult } from "./polygon-edit";
 import { applyPolygonSave, projectPolygonSaves } from "./polygon-save-queue";
 import { pruneVisualEvidence } from "./prune-evidence";
 import type { VisualRecordChoice } from "./record-model";
+import { SMERLA_SECTION_MAP_SITE_ID } from "./section-boundaries";
 import {
 	buildVisualTimeline,
 	cumulativeVisualMarks,
@@ -109,6 +113,7 @@ import { VisualPlanningPanel } from "./VisualPlanningPanel";
 import { VisualPlanningSaveStatus } from "./VisualPlanningSaveStatus";
 import { VisualPolygonSaveStatus } from "./VisualPolygonSaveStatus";
 import { VisualRecordForm } from "./VisualRecordForm";
+import { VisualSectionBoundaries } from "./VisualSectionBoundaries";
 import { VisualSidebar } from "./VisualSidebar";
 import { VisualTimeline } from "./VisualTimeline";
 import { VisualZoneDetails } from "./VisualZoneDetails";
@@ -228,13 +233,18 @@ export default function VisualView({
 	const [automatic, setAutomatic] = useState(false);
 	const [syncedAt, setSyncedAt] = useState<number | null>(null);
 	const [sidebarOpen, setSidebarOpen] = useState(true);
-	const [mode, setMode] = useState<"actual" | "planning">("actual");
+	const [mode, setMode] = useState<"actual" | "planning" | "boundaries">(
+		"actual",
+	);
+	const supportsBoundaries = siteId === SMERLA_SECTION_MAP_SITE_ID;
 	const [planningDirty, setPlanningDirty] = useState(false);
+	const [boundaryEditing, setBoundaryEditing] = useState(false);
 	const editingProject =
 		editing ||
 		workEditing ||
 		recordDraft !== null ||
 		planningDirty ||
+		boundaryEditing ||
 		hasUnsavedPolygons ||
 		planningSaveState.length > 0;
 	useWorkspaceProtection(editingProject || busy);
@@ -257,6 +267,7 @@ export default function VisualView({
 		recordDraft !== null ||
 		remoteActive ||
 		planningDirty ||
+		boundaryEditing ||
 		managingLayers ||
 		savingLayers;
 	const mutationControlsLocked = controlsLocked || hasUnsavedPolygons;
@@ -266,6 +277,7 @@ export default function VisualView({
 		workEditing ||
 		recordDraft !== null ||
 		planningDirty ||
+		boundaryEditing ||
 		managingLayers ||
 		savingLayers;
 	const [confirmation, setConfirmation] = useState<
@@ -1162,40 +1174,44 @@ export default function VisualView({
 					onClose={() => setManagingLayers(false)}
 				/>
 			) : null}
-			<header className="flex h-14 shrink-0 items-center gap-2 border-b px-3">
-				<Button
-					variant="ghost"
-					size="icon"
-					className="h-8 w-8 shrink-0"
-					disabled={!drawing}
-					aria-expanded={sidebarOpen}
-					aria-controls={`${fileId}-sidebar`}
-					aria-label={
-						mode === "planning"
-							? sidebarOpen
-								? "Paslēpt darbu plānu"
-								: "Rādīt darbu plānu"
-							: sidebarOpen
-								? "Paslēpt slāņus un avotus"
-								: "Rādīt slāņus un avotus"
-					}
-					title={
-						mode === "planning"
-							? sidebarOpen
-								? "Paslēpt darbu plānu"
-								: "Rādīt darbu plānu"
-							: sidebarOpen
-								? "Paslēpt slāņus un avotus"
-								: "Rādīt slāņus un avotus"
-					}
-					onClick={() => setSidebarOpen((value) => !value)}
-				>
-					{sidebarOpen ? (
-						<PanelLeftClose className="h-4 w-4" />
-					) : (
-						<PanelLeftOpen className="h-4 w-4" />
-					)}
-				</Button>
+			<header
+				className={`flex min-h-14 shrink-0 items-center gap-2 border-b px-3 ${supportsBoundaries ? "flex-wrap py-2" : "h-14"}`}
+			>
+				{mode !== "boundaries" ? (
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8 shrink-0"
+						disabled={!drawing}
+						aria-expanded={sidebarOpen}
+						aria-controls={`${fileId}-sidebar`}
+						aria-label={
+							mode === "planning"
+								? sidebarOpen
+									? "Paslēpt darbu plānu"
+									: "Rādīt darbu plānu"
+								: sidebarOpen
+									? "Paslēpt slāņus un avotus"
+									: "Rādīt slāņus un avotus"
+						}
+						title={
+							mode === "planning"
+								? sidebarOpen
+									? "Paslēpt darbu plānu"
+									: "Rādīt darbu plānu"
+								: sidebarOpen
+									? "Paslēpt slāņus un avotus"
+									: "Rādīt slāņus un avotus"
+						}
+						onClick={() => setSidebarOpen((value) => !value)}
+					>
+						{sidebarOpen ? (
+							<PanelLeftClose className="h-4 w-4" />
+						) : (
+							<PanelLeftOpen className="h-4 w-4" />
+						)}
+					</Button>
+				) : null}
 				<h3 className="hidden shrink-0 text-sm font-semibold xl:block">
 					Izpildshēmas
 				</h3>
@@ -1226,11 +1242,13 @@ export default function VisualView({
 						className="h-7 px-2 text-xs shadow-none"
 						aria-label="Izpilde"
 						aria-pressed={mode === "actual"}
-						disabled={planningDirty}
+						disabled={planningDirty || boundaryEditing}
 						title={
 							planningDirty
 								? "Saglabājiet vai atceliet plāna izmaiņas"
-								: "Rādīt faktiski izpildīto"
+								: boundaryEditing
+									? "Saglabājiet vai atceliet robežu labojumus"
+									: "Rādīt faktiski izpildīto"
 						}
 						onClick={() => setMode("actual")}
 					>
@@ -1247,6 +1265,7 @@ export default function VisualView({
 						disabled={
 							editing ||
 							workEditing ||
+							boundaryEditing ||
 							hasUnsavedPolygons ||
 							recordDraft !== null
 						}
@@ -1261,6 +1280,22 @@ export default function VisualView({
 						<span className="sm:hidden">Plāns</span>
 						<span className="hidden sm:inline">Plānošana</span>
 					</Button>
+					{supportsBoundaries ? (
+						<Button
+							size="sm"
+							variant={mode === "boundaries" ? "outline" : "ghost"}
+							className="h-7 px-2 text-xs shadow-none"
+							aria-pressed={mode === "boundaries"}
+							disabled={!drawing || navigationLocked || hasUnsavedPolygons}
+							onClick={() => {
+								setSelected(null);
+								setMode("boundaries");
+							}}
+						>
+							<Layers className="h-3.5 w-3.5" />
+							Robežas
+						</Button>
+					) : null}
 				</fieldset>
 				<span
 					className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
@@ -1487,6 +1522,16 @@ export default function VisualView({
 				) : null}
 				{drawing ? (
 					<>
+						{mode === "boundaries" && supportsBoundaries ? (
+							<VisualSectionBoundaries
+								key={drawing.id}
+								active={active}
+								drawing={drawing}
+								endpoint={endpoint(drawing.id)}
+								resourceCache={resourceCache}
+								onEditingChange={setBoundaryEditing}
+							/>
+						) : null}
 						<div
 							hidden={mode !== "planning"}
 							inert={mode !== "planning"}

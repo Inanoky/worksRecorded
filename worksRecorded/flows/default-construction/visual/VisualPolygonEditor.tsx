@@ -15,6 +15,8 @@ export function VisualPolygonEditor({
 	disabled = false,
 	planned = false,
 	labelPrefix,
+	compact = false,
+	maxVertices = 40,
 	onChange,
 }: {
 	area: VisualPlanArea;
@@ -22,6 +24,8 @@ export function VisualPolygonEditor({
 	disabled?: boolean;
 	planned?: boolean;
 	labelPrefix?: string;
+	compact?: boolean;
+	maxVertices?: number;
 	onChange: (area: VisualPlanArea) => boolean;
 }) {
 	const [cornerIds, setCornerIds] = useState(() =>
@@ -46,7 +50,7 @@ export function VisualPolygonEditor({
 								? `Plānotās zonas stūris ${index + 1}`
 								: `Stūris ${index + 1}`
 					}
-					className="absolute z-20 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none rounded-sm border-2 border-teal-700 bg-teal-50"
+					className={`absolute z-20 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none rounded-sm border-2 border-teal-700 bg-teal-50 ${compact ? "[@media(pointer:fine)]:h-3 [@media(pointer:fine)]:w-3" : ""}`}
 					style={{
 						transform: "scale(var(--drawing-inverse-scale, 1))",
 						left: `${point.x * 100}%`,
@@ -117,7 +121,7 @@ export function VisualPolygonEditor({
 					}}
 				/>
 			))}
-			{area.polygon.length < 40
+			{area.polygon.length < maxVertices
 				? area.polygon.map((point, index) => {
 						const next = area.polygon[(index + 1) % area.polygon.length];
 						return (
@@ -135,7 +139,7 @@ export function VisualPolygonEditor({
 											? `Pievienot plānotās zonas stūri pie malas ${index + 1}`
 											: `Pievienot stūri pie malas ${index + 1}`
 								}
-								className="absolute z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-sm border-teal-700 bg-teal-50 text-xs text-teal-900"
+								className={`absolute z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-sm border-teal-700 bg-teal-50 text-xs text-teal-900 ${compact ? "[@media(pointer:fine)]:h-3 [@media(pointer:fine)]:w-3" : ""}`}
 								style={{
 									transform: "scale(var(--drawing-inverse-scale, 1))",
 									left: `${(point.x + next.x) * 50}%`,
