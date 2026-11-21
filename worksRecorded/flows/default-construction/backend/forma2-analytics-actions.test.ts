@@ -5,11 +5,13 @@ import { orgCheck } from "@/server/actions/shared-actions";
 import type { Forma2Position } from "../lib/forma2-analytics";
 import * as drawingQuantities from "../lib/forma2-drawing-quantities";
 import { enableDefaultConstructionQuantityProfile } from "../lib/quantity-plan-actual";
+import { loadFimaActRecords } from "./fima-acts";
 import {
 	getDefaultConstructionForma2MappingPage,
 	getDefaultConstructionForma2PositionCostDetails,
 	getDefaultConstructionForma2PositionQuantityDetails,
 	getDefaultConstructionForma2Results,
+	saveDefaultConstructionForma2ActAssignments,
 	saveDefaultConstructionForma2Allocations,
 } from "./forma2-analytics-actions";
 import { readAuthorizedForma2Results } from "./forma2-data-read";
@@ -25,6 +27,7 @@ jest.mock("@/lib/flows/resolve-flow-module-server", () => ({
 jest.mock("./forma2-auto-assignment", () => ({
 	automaticallyAssignForma2Sources: jest.fn(),
 }));
+jest.mock("./fima-acts", () => ({ loadFimaActRecords: jest.fn() }));
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
 		documents: { findMany: jest.fn() },
@@ -177,6 +180,82 @@ describe("Forma 2 diary quantity loaders", () => {
 		expect(result.clientCosts.sources).toHaveLength(1);
 		expect(prisma.sitediaryrecords.findMany).toHaveBeenCalledTimes(1);
 		expect(prisma.bISmaterialRecords.findMany).toHaveBeenCalledTimes(1);
+	});
+
+	it("loads the FIMA demo in Forma 2, then moves an act within that demo", async () => {
+		const siteDiaryRecordsMap = {
+			otherSettings: {
+				fimaCollaboration: true,
+				fimaBisActCoverage: {
+					version: 1,
+					caseId: "123",
+					fetchedAt: "2026-11-20T10:00:00Z",
+					acts: [
+						{
+							id: "100",
+							collection: "other_acceptance_acts",
+							number: "KT-001",
+							status: "approved",
+							works: [{ id: "200", quantity: 25 }],
+						},
+					],
+				},
+			},
+		};
+		jest.mocked(prisma.site.findUnique).mockResolvedValue({
+			name: "Olaine",
+			bisCaseId: "123",
+			siteDiaryRecordsMap,
+		} as never);
+		const original = (
+			await prisma.analytics.findUnique({ where: { siteId: "site" } })
+		)?.currentWeekProgress as Record<string, object>;
+		const pilot = {
+			...original.defaultConstructionForma2,
+			actCoverage: {
+				caseId: "123",
+				documentId: "document",
+				assignments: [
+					{ actKey: "other_acceptance_acts/100", positionId: position.id },
+				],
+			},
+		};
+		const root = { fimaForma2Pilot: pilot };
+		jest
+			.mocked(prisma.analytics.findUnique)
+			.mockResolvedValue({ currentWeekProgress: root } as never);
+		const diary = await prisma.sitediaryrecords.findMany();
+		jest
+			.mocked(prisma.sitediaryrecords.findMany)
+			.mockResolvedValue([{ ...diary[0], BISId: "200" }] as never);
+		jest.mocked(loadFimaActRecords).mockResolvedValue([]);
+		jest.mocked(prisma.analytics.updateMany).mockResolvedValue({ count: 1 });
+
+		const result = await getDefaultConstructionForma2Results("site");
+		expect(result.isDemo).toBe(true);
+		expect(result.resultRows[0].actualQuantity).toBe(67);
+		expect(result.actCoverage?.coveredByPosition).toEqual({ position: 25 });
+		expect(result.actCoverage?.acts[0].url).toContain(
+			"/other_acceptance_acts/100/edit",
+		);
+
+		await saveDefaultConstructionForma2ActAssignments({
+			siteId: "site",
+			caseId: "123",
+			documentId: "document",
+			changes: [{ actKey: "other_acceptance_acts/100", positionId: null }],
+		});
+		expect(prisma.analytics.updateMany).toHaveBeenCalledWith({
+			where: { siteId: "site", currentWeekProgress: { equals: root } },
+			data: {
+				currentWeekProgress: {
+					fimaForma2Pilot: {
+						...pilot,
+						actCoverage: { ...pilot.actCoverage, assignments: [] },
+					},
+				},
+			},
+		});
 	});
 
 	it("includes unassigned invoices in the cached cost sources for project spending", async () => {

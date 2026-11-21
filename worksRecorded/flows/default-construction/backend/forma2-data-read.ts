@@ -23,11 +23,22 @@ import {
 	readDefaultConstructionRecordedCost,
 	readDefaultConstructionRecordedHours,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
+import {
+	readFimaActWorkLinks,
+	readTrackedFimaActs,
+} from "@/lib/fima/act-register";
+import { isFimaDiary } from "@/lib/fima/diary-collaboration";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
+import {
+	buildForma2ActCoverage,
+	FORMA2_ACT_ASSIGNMENTS,
+	FORMA2_PILOT,
+	readForma2ActAssignments,
+} from "../lib/forma2-act-coverage";
 import { forma2UnmatchedBeginSources } from "../lib/forma2-begin-sources";
 import {
 	readForma2DrawingQuantities,
@@ -75,15 +86,33 @@ export function analyticsRoot(value: unknown) {
 		: {};
 }
 
-export async function readStoredState(siteId: string) {
+export async function readForma2Root(siteId: string) {
 	const row = await prisma.analytics.findUnique({
 		where: { siteId },
 		select: { currentWeekProgress: true },
 	});
-	const root = analyticsRoot(row?.currentWeekProgress);
-	return normalizeDefaultConstructionForma2State(
+	return analyticsRoot(row?.currentWeekProgress);
+}
+
+export function getForma2DocumentState(
+	root: Record<string, unknown>,
+	allowPilot = false,
+) {
+	const current = normalizeDefaultConstructionForma2State(
 		root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY],
 	);
+	const pilot =
+		allowPilot && !current.document
+			? normalizeDefaultConstructionForma2State(root[FORMA2_PILOT])
+			: null;
+	return {
+		state: pilot?.document ? pilot : current,
+		isDemo: Boolean(pilot?.document),
+	};
+}
+
+export async function readStoredState(siteId: string) {
+	return getForma2DocumentState(await readForma2Root(siteId)).state;
 }
 
 export function isoDate(value: Date | null | undefined) {
@@ -157,13 +186,21 @@ export async function measuredQuantitiesFor(
 	return readForma2DrawingQuantities(documents);
 }
 
+type AuthorizedForma2Site = {
+	siteName: string;
+	siteDiaryRecordsMap: unknown;
+	bisCaseId?: string | null;
+};
+
 export async function loadDefaultConstructionForma2Data(
 	siteId: string,
 	options: {
 		sourceScope?: "all" | "allocated";
 		includeDiaryDetails?: boolean;
-		authorized?: { siteName: string; siteDiaryRecordsMap: unknown };
-		state?: DefaultConstructionForma2State;
+		includeActCoverage?: boolean;
+		includePilot?: boolean;
+		authorized?: AuthorizedForma2Site;
+		root?: Record<string, unknown>;
 		trace?: {
 			measure<T>(phase: string, task: () => T | Promise<T>): Promise<T>;
 		};
@@ -172,11 +209,32 @@ export async function loadDefaultConstructionForma2Data(
 	if (!options.authorized) await requireDefaultConstructionSite(siteId);
 	const measure = <T>(phase: string, task: () => T | Promise<T>) =>
 		options.trace ? options.trace.measure(phase, task) : task();
-	const statePromise = options.state
-		? Promise.resolve(options.state)
-		: measure("state", () => readStoredState(siteId));
+	const sitePromise = options.authorized
+		? Promise.resolve({
+				name: options.authorized.siteName,
+				siteDiaryRecordsMap: options.authorized.siteDiaryRecordsMap,
+				bisCaseId: options.authorized.bisCaseId,
+			})
+		: measure("site", () =>
+				prisma.site.findUnique({
+					where: { id: siteId },
+					select: { name: true, siteDiaryRecordsMap: true, bisCaseId: true },
+				}),
+			);
+	const rootPromise = Promise.resolve(
+		options.root ?? measure("state", () => readForma2Root(siteId)),
+	);
+	const statePromise =
+		options.includeActCoverage || options.includePilot
+			? Promise.all([rootPromise, sitePromise]).then(([root, site]) =>
+					getForma2DocumentState(
+						root,
+						Boolean(site?.bisCaseId && isFimaDiary(site.siteDiaryRecordsMap)),
+					),
+				)
+			: rootPromise.then((root) => getForma2DocumentState(root));
 	const allocatedState =
-		options.sourceScope === "allocated" ? await statePromise : null;
+		options.sourceScope === "allocated" ? (await statePromise).state : null;
 	const allocatedWorkIds = allocatedState
 		? allocatedState.allocations
 				.filter((allocation) => allocation.sourceType === "work")
@@ -188,67 +246,60 @@ export async function loadDefaultConstructionForma2Data(
 				.map((allocation) => allocation.sourceId)
 		: [];
 	const allocatedWorkIdSet = new Set(allocatedWorkIds);
-	const [state, site, workRows, materialRows] = await Promise.all([
-		allocatedState ? Promise.resolve(allocatedState) : statePromise,
-		options.authorized
-			? Promise.resolve({
-					name: options.authorized.siteName,
-					siteDiaryRecordsMap: options.authorized.siteDiaryRecordsMap,
-				})
-			: measure("site", () =>
-					prisma.site.findUnique({
-						where: { id: siteId },
-						select: { name: true, siteDiaryRecordsMap: true },
-					}),
-				),
-		measure("diarySources", () =>
-			prisma.sitediaryrecords.findMany({
-				where: { siteId, archivedAt: null, Works: { not: null } },
-				orderBy: [{ Date: "desc" }, { createdAt: "desc" }],
-				select: {
-					id: true,
-					Date: true,
-					Works: true,
-					Location: true,
-					Units: true,
-					Amounts: true,
-					Comments_Custom_1: true,
-					Comments: options.includeDiaryDetails === true,
-					originalUserComment: options.includeDiaryDetails === true,
-					Photos: options.includeDiaryDetails === true,
-					TimeInvolved: true,
-					evalMetadata: true,
-				},
-			}),
-		),
-		measure("materialSources", () =>
-			prisma.bISmaterialRecords.findMany({
-				where:
-					options.sourceScope === "allocated"
-						? { siteId, id: { in: allocatedMaterialIds } }
-						: { siteId },
-				orderBy: [
-					{ materialDate: "desc" },
-					{ invoiceDate: "desc" },
-					{ createdAt: "desc" },
-				],
-				select: {
-					id: true,
-					name: true,
-					categoryName: true,
-					costCode: true,
-					quantity: true,
-					measurementUnit: true,
-					cost: true,
-					invoiceNr: true,
-					supplierName: true,
-					sourcePhoto: true,
-					invoiceDate: true,
-					materialDate: true,
-				},
-			}),
-		),
-	]);
+	const [{ state, isDemo }, site, workRows, materialRows, root] =
+		await Promise.all([
+			statePromise,
+			sitePromise,
+			measure("diarySources", () =>
+				prisma.sitediaryrecords.findMany({
+					where: { siteId, archivedAt: null, Works: { not: null } },
+					orderBy: [{ Date: "desc" }, { createdAt: "desc" }],
+					select: {
+						id: true,
+						BISId: options.includeActCoverage === true,
+						Date: true,
+						Works: true,
+						Location: true,
+						Units: true,
+						Amounts: true,
+						Comments_Custom_1: true,
+						Comments: options.includeDiaryDetails === true,
+						originalUserComment: options.includeDiaryDetails === true,
+						Photos: options.includeDiaryDetails === true,
+						TimeInvolved: true,
+						evalMetadata: true,
+					},
+				}),
+			),
+			measure("materialSources", () =>
+				prisma.bISmaterialRecords.findMany({
+					where:
+						options.sourceScope === "allocated"
+							? { siteId, id: { in: allocatedMaterialIds } }
+							: { siteId },
+					orderBy: [
+						{ materialDate: "desc" },
+						{ invoiceDate: "desc" },
+						{ createdAt: "desc" },
+					],
+					select: {
+						id: true,
+						name: true,
+						categoryName: true,
+						costCode: true,
+						quantity: true,
+						measurementUnit: true,
+						cost: true,
+						invoiceNr: true,
+						supplierName: true,
+						sourcePhoto: true,
+						invoiceDate: true,
+						materialDate: true,
+					},
+				}),
+			),
+			rootPromise,
+		]);
 
 	if (!site) throw new Error("Site not found");
 	const config =
@@ -359,9 +410,62 @@ export async function loadDefaultConstructionForma2Data(
 		actualCost: nullableNumber(row.cost),
 	}));
 
+	const caseId =
+		options.includeActCoverage && isFimaDiary(site.siteDiaryRecordsMap)
+			? site.bisCaseId
+			: null;
+	const actRecords =
+		caseId && state.document
+			? workRows.map((row) => ({
+					id: row.id,
+					fimaNumber: null,
+					BISId: row.BISId ?? null,
+					Date: isoDate(row.Date),
+					Works: row.Works,
+					Works_Custom_1: null,
+					Location: row.Location,
+					Amounts: row.Amounts,
+					Units: row.Units,
+					bisStatus: null,
+					metadata: row.evalMetadata,
+					drafts: (row.evalMetadata as Record<string, unknown> | null)
+						?.fimaBisActDraftLinks,
+				}))
+			: [];
+	const actCoverage =
+		caseId && state.document
+			? {
+					caseId,
+					documentId: state.document.id,
+					acts: readTrackedFimaActs(
+						{
+							id: siteId,
+							name: site.name,
+							bisCaseId: caseId,
+							config: site.siteDiaryRecordsMap,
+						},
+						actRecords,
+					),
+					bisWorkIdsByRecord: new Map(
+						actRecords.map((row) => [
+							row.id,
+							readFimaActWorkLinks(row).map((link) => link.id),
+						]),
+					),
+					assignments: readForma2ActAssignments(
+						isDemo
+							? analyticsRoot(root[FORMA2_PILOT]).actCoverage
+							: root[FORMA2_ACT_ASSIGNMENTS],
+						caseId,
+						state.document.id,
+					),
+				}
+			: null;
 	return {
 		siteName: site.name,
 		state,
+		isDemo,
+		actCoverage,
 		sources: [
 			...scopedWorkSources,
 			...materialSources,
@@ -390,6 +494,7 @@ export async function readForma2Results(
 ) {
 	const data = await loadDefaultConstructionForma2Data(siteId, {
 		sourceScope: "all",
+		includeActCoverage: true,
 		...options,
 	});
 	const positions = data.state.document?.positions ?? [];
@@ -407,6 +512,16 @@ export async function readForma2Results(
 		siteName: data.siteName,
 		document: documentMetadata(data.state),
 		resultRows: view.resultRows,
+		...(data.isDemo ? { isDemo: true } : {}),
+		...(data.actCoverage
+			? {
+					actCoverage: buildForma2ActCoverage({
+						...data.actCoverage,
+						positions,
+						works: view.mappingRows,
+					}),
+				}
+			: {}),
 		clientCosts: {
 			positions,
 			sources: data.sources,
@@ -420,10 +535,14 @@ export async function readForma2Results(
 
 export async function readAuthorizedForma2Results(
 	siteId: string,
-	access: { siteName: string; siteDiaryRecordsMap: unknown },
+	access: AuthorizedForma2Site,
 	trace: { measure<T>(phase: string, task: () => T | Promise<T>): Promise<T> },
 ) {
-	const state = await trace.measure("state", () => readStoredState(siteId));
+	const root = await trace.measure("state", () => readForma2Root(siteId));
+	const { state } = getForma2DocumentState(
+		root,
+		Boolean(access.bisCaseId && isFimaDiary(access.siteDiaryRecordsMap)),
+	);
 	if (!state.document)
 		return {
 			siteName: access.siteName,
@@ -432,6 +551,6 @@ export async function readAuthorizedForma2Results(
 			clientCosts: { positions: [], sources: [], allocations: [] },
 		};
 	return trace.measure("results", () =>
-		readForma2Results(siteId, { authorized: access, state, trace }),
+		readForma2Results(siteId, { authorized: access, root, trace }),
 	);
 }

@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import { getDiaryFeedbackContext } from "@/flows/default-construction/backend/diary-feedback";
+import { loadFimaActRecords } from "@/flows/default-construction/backend/fima-acts";
 import { automaticallyAssignForma2Sources } from "@/flows/default-construction/backend/forma2-auto-assignment";
 import {
 	buildForma2AnalyticsView,
@@ -42,11 +43,18 @@ import {
 	readDefaultConstructionRecordedCost,
 	readDefaultConstructionRecordedHours,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
+import { readTrackedFimaActs } from "@/lib/fima/act-register";
+import { isFimaDiary } from "@/lib/fima/diary-collaboration";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
+import {
+	FORMA2_ACT_ASSIGNMENTS,
+	FORMA2_PILOT,
+	readForma2ActAssignments,
+} from "../lib/forma2-act-coverage";
 import { getForma2ClientCostDetails } from "../lib/forma2-client-costs";
 import { usesForma2DrawingQuantities } from "../lib/forma2-drawing-quantities";
 import { normalizeForma2QuantityUnit } from "../lib/forma2-quantities";
@@ -59,12 +67,14 @@ import {
 	analyticsRoot,
 	documentMetadata,
 	getCurrentForma2WorkSelections,
+	getForma2DocumentState,
 	isoDate,
 	loadDefaultConstructionForma2Data,
 	measuredQuantitiesFor,
 	nonNegative,
 	nullableNumber,
 	readForma2Results,
+	readForma2Root,
 	readStoredState,
 	requireDefaultConstructionSite,
 	text,
@@ -285,6 +295,95 @@ export async function getDefaultConstructionForma2Results(siteId: string) {
 	return readForma2Results(siteId);
 }
 
+export async function saveDefaultConstructionForma2ActAssignments(args: {
+	siteId: string;
+	caseId: string;
+	documentId: string;
+	changes: { actKey: string; positionId: string | null }[];
+}) {
+	const { site: authorizedSite } = await requireDefaultConstructionSite(
+		args.siteId,
+	);
+	const organizationId = authorizedSite.organizationId;
+	const site = await prisma.site.findUnique({
+		where: { id: args.siteId, organizationId },
+		select: { name: true, bisCaseId: true, siteDiaryRecordsMap: true },
+	});
+	const bisCaseId = site?.bisCaseId;
+	if (
+		!organizationId ||
+		!bisCaseId ||
+		bisCaseId !== args.caseId ||
+		!isFimaDiary(site?.siteDiaryRecordsMap)
+	)
+		throw new Error("BIS aktu piesaiste šajā projektā nav pieejama.");
+	if (
+		!Array.isArray(args.changes) ||
+		args.changes.length > MAX_ALLOCATIONS_PER_SAVE
+	)
+		throw new Error("Pārāk daudz aktu piesaistes izmaiņu.");
+	const [root, records] = await Promise.all([
+		readForma2Root(args.siteId),
+		loadFimaActRecords(prisma, organizationId, args.siteId),
+	]);
+	const { state, isDemo } = getForma2DocumentState(root, true);
+	if (!state.document || state.document.id !== args.documentId)
+		throw new Error("Forma 2 tāme ir mainīta. Atjaunojiet lapu.");
+	const acts = readTrackedFimaActs(
+		{
+			id: args.siteId,
+			name: authorizedSite.name,
+			bisCaseId,
+			config: site?.siteDiaryRecordsMap,
+		},
+		records,
+	);
+	const actKeys = new Set(acts.map((act) => act.key));
+	const positionIds = new Set(
+		state.document.positions
+			.filter((position) => position.kind === "work")
+			.map((position) => position.id),
+	);
+	const pilot = analyticsRoot(root[FORMA2_PILOT]);
+	const assignments = new Map(
+		readForma2ActAssignments(
+			isDemo ? pilot.actCoverage : root[FORMA2_ACT_ASSIGNMENTS],
+			bisCaseId,
+			args.documentId,
+		).map(({ actKey, positionId }) => [actKey, positionId]),
+	);
+	for (const { actKey, positionId } of args.changes) {
+		if (
+			!actKeys.has(actKey) ||
+			(positionId !== null && !positionIds.has(positionId))
+		)
+			throw new Error("Nederīgs akts vai tāmes pozīcija.");
+		if (positionId === null) assignments.delete(actKey);
+		else assignments.set(actKey, positionId);
+	}
+	const actCoverage = {
+		caseId: bisCaseId,
+		documentId: args.documentId,
+		assignments: [...assignments].map(([actKey, positionId]) => ({
+			actKey,
+			positionId,
+		})),
+	};
+	const next = isDemo
+		? { ...root, [FORMA2_PILOT]: { ...pilot, actCoverage } }
+		: { ...root, [FORMA2_ACT_ASSIGNMENTS]: actCoverage };
+	const result = await prisma.analytics.updateMany({
+		where: {
+			siteId: args.siteId,
+			currentWeekProgress: { equals: root as Prisma.InputJsonObject },
+		},
+		data: { currentWeekProgress: next as Prisma.InputJsonObject },
+	});
+	if (result.count !== 1)
+		throw new Error("Forma 2 dati ir mainīti. Atjaunojiet lapu.");
+	revalidatePath(`/dashboard/sites/${args.siteId}/analytics`);
+}
+
 export async function getDefaultConstructionForma2PositionQuantityDetails(args: {
 	siteId: string;
 	positionId: string;
@@ -292,6 +391,7 @@ export async function getDefaultConstructionForma2PositionQuantityDetails(args: 
 	const data = await loadDefaultConstructionForma2Data(args.siteId, {
 		sourceScope: "allocated",
 		includeDiaryDetails: true,
+		includePilot: true,
 	});
 	const view = buildForma2AnalyticsView({
 		positions: data.state.document?.positions ?? [],

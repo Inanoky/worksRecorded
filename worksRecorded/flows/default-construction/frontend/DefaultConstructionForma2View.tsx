@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
@@ -16,6 +17,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import type { getDefaultConstructionForma2Results } from "@/flows/default-construction/backend/forma2-analytics-actions";
+import { DefaultConstructionForma2ActAssignments } from "@/flows/default-construction/frontend/DefaultConstructionForma2ActAssignments";
 import { DefaultConstructionForma2ContractEditor } from "@/flows/default-construction/frontend/DefaultConstructionForma2ContractEditor";
 import { DefaultConstructionForma2CostBreakdown } from "@/flows/default-construction/frontend/DefaultConstructionForma2CostBreakdown";
 import { DefaultConstructionForma2Export } from "@/flows/default-construction/frontend/DefaultConstructionForma2Export";
@@ -147,12 +149,18 @@ function Forma2ResultsView({
 	t,
 	locale,
 	organizationLanguage,
+	demo,
+	actCoverage,
+	onOpenActs,
 }: {
 	siteId: string;
 	rows: Forma2ResultRow[];
 	t: Forma2AnalyticsCopy;
 	locale: string;
 	organizationLanguage?: string | null;
+	demo: boolean;
+	actCoverage: Forma2Results["actCoverage"];
+	onOpenActs: (positionId: string) => void;
 }) {
 	if (!rows.length) {
 		return (
@@ -162,6 +170,10 @@ function Forma2ResultsView({
 		);
 	}
 	const totals = calculateForma2MoneyTotals(rows);
+	const percent = new Intl.NumberFormat(locale, {
+		style: "percent",
+		maximumFractionDigits: 1,
+	});
 
 	return (
 		<DefaultConstructionForma2TableScroll
@@ -260,6 +272,11 @@ function Forma2ResultsView({
 					<Forma2TotalsRow totals={totals} t={t} locale={locale} />
 					{rows.map((row, index) => {
 						const previous = rows[index - 1];
+						const execution = row.actualQuantity ?? 0;
+						const covered = Math.min(
+							execution,
+							actCoverage?.coveredByPosition[row.id] ?? 0,
+						);
 						const showCategory =
 							!previous || previous.categoryCode !== row.categoryCode;
 						return (
@@ -290,11 +307,13 @@ function Forma2ResultsView({
 													? row.name
 													: formatForma2PositionLabel(row)}
 											</div>
-											<DefaultConstructionForma2ContractEditor
-												siteId={siteId}
-												row={row}
-												organizationLanguage={organizationLanguage}
-											/>
+											{!demo ? (
+												<DefaultConstructionForma2ContractEditor
+													siteId={siteId}
+													row={row}
+													organizationLanguage={organizationLanguage}
+												/>
+											) : null}
 										</div>
 									</TableCell>
 									<TableCell className="whitespace-normal px-1">
@@ -311,6 +330,18 @@ function Forma2ResultsView({
 											contractQuantity={row.plannedQuantity}
 											organizationLanguage={organizationLanguage}
 										/>
+										{actCoverage && row.kind === "work" ? (
+											<button
+												type="button"
+												className="mt-1 block w-full text-right text-xs text-primary underline decoration-dotted underline-offset-2"
+												onClick={() => onOpenActs(row.id)}
+											>
+												{locale.startsWith("lv") ? "Ar aktiem" : "With acts"}{" "}
+												{execution > 0
+													? `${formatNumber(covered, locale)} / ${formatNumber(execution, locale)} · ${percent.format(covered / execution)}`
+													: "—"}
+											</button>
+										) : null}
 										{row.excludedQuantityRecords > 0 ? (
 											<div className="mt-1 whitespace-normal text-[10px] leading-tight text-muted-foreground">
 												{t.quantityExcluded.replace(
@@ -424,6 +455,8 @@ export function DefaultConstructionForma2View({
 }) {
 	const t = getForma2AnalyticsCopy(organizationLanguage);
 	const locale = getForma2AnalyticsLocale(organizationLanguage);
+	const latvian = locale.startsWith("lv");
+	const [actPosition, setActPosition] = useState<string | null>(null);
 	const rows = useMemo(
 		() =>
 			data.clientCosts
@@ -444,10 +477,18 @@ export function DefaultConstructionForma2View({
 					<p className="mt-1 text-sm text-muted-foreground">{t.description}</p>
 				</div>
 
+				{data.isDemo ? (
+					<p className="rounded-md border bg-muted/50 px-4 py-3 text-sm">
+						{data.siteName} ·{" "}
+						{latvian
+							? "Demonstrācijas tāme. Pozīcijas un līguma apjomi ir piemēri. Izpilde un BIS akti ir no projekta."
+							: "Demo estimate. Positions and contract quantities are examples. Execution and BIS acts come from the project."}
+					</p>
+				) : null}
 				<DefaultConstructionForma2Import
 					siteId={siteId}
 					organizationLanguage={organizationLanguage}
-					document={data.document}
+					document={data.isDemo ? null : data.document}
 				/>
 
 				<Card>
@@ -469,12 +510,25 @@ export function DefaultConstructionForma2View({
 									: t.quantitySource}
 							</CardDescription>
 						</div>
-						<DefaultConstructionForma2Export
-							siteName={data.siteName}
-							document={data.document}
-							rows={rows}
-							organizationLanguage={organizationLanguage}
-						/>
+						<div className="flex flex-wrap items-center gap-2">
+							{data.actCoverage ? (
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => setActPosition("")}
+								>
+									{latvian ? "BIS aktu piesaiste" : "BIS act assignments"}
+								</Button>
+							) : null}
+							{!data.isDemo ? (
+								<DefaultConstructionForma2Export
+									siteName={data.siteName}
+									document={data.document}
+									rows={rows}
+									organizationLanguage={organizationLanguage}
+								/>
+							) : null}
+						</div>
 					</CardHeader>
 					<CardContent className="px-0">
 						<Forma2ResultsView
@@ -483,9 +537,22 @@ export function DefaultConstructionForma2View({
 							t={t}
 							locale={locale}
 							organizationLanguage={organizationLanguage}
+							demo={Boolean(data.isDemo)}
+							actCoverage={data.actCoverage}
+							onOpenActs={setActPosition}
 						/>
 					</CardContent>
 				</Card>
+				{data.actCoverage && actPosition !== null ? (
+					<DefaultConstructionForma2ActAssignments
+						coverage={data.actCoverage}
+						positions={rows}
+						siteId={siteId}
+						filterPositionId={actPosition}
+						latvian={latvian}
+						onClose={() => setActPosition(null)}
+					/>
+				) : null}
 			</div>
 		</Forma2ClientCostsContext.Provider>
 	);
