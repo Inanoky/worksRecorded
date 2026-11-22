@@ -43,7 +43,6 @@ import {
 	readDefaultConstructionRecordedCost,
 	readDefaultConstructionRecordedHours,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
-import { readTrackedFimaActs } from "@/lib/fima/act-register";
 import { isFimaDiary } from "@/lib/fima/diary-collaboration";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
@@ -75,6 +74,7 @@ import {
 	nullableNumber,
 	readForma2Results,
 	readForma2Root,
+	readForma2TrackedActs,
 	readStoredState,
 	requireDefaultConstructionSite,
 	text,
@@ -329,7 +329,7 @@ export async function saveDefaultConstructionForma2ActAssignments(args: {
 	const { state, isDemo } = getForma2DocumentState(root, true);
 	if (!state.document || state.document.id !== args.documentId)
 		throw new Error("Forma 2 tāme ir mainīta. Atjaunojiet lapu.");
-	const acts = readTrackedFimaActs(
+	const { acts } = readForma2TrackedActs(
 		{
 			id: args.siteId,
 			name: authorizedSite.name,
@@ -337,6 +337,7 @@ export async function saveDefaultConstructionForma2ActAssignments(args: {
 			config: site?.siteDiaryRecordsMap,
 		},
 		records,
+		root,
 	);
 	const actKeys = new Set(acts.map((act) => act.key));
 	const positionIds = new Set(

@@ -14,7 +14,7 @@ jest.mock("./DefaultConstructionForma2TableScroll", () => ({
 	}) => children,
 }));
 
-it("expands a Forma 2 row and shows all assigned acts with the FIMA BIS badges", () => {
+it("shows assigned acts, FIMA BIS badges, and quantities by unit when a Forma 2 row expands", () => {
 	const positionId = "console";
 	const row = {
 		id: positionId,
@@ -69,6 +69,24 @@ it("expands a Forma 2 row and shows all assigned acts with the FIMA BIS badges",
 						url: `https://bis.gov.lv/${label}`,
 						matchedWorks: 1,
 						nativeWorks: 1,
+						workQuantities:
+							label === "00033"
+								? [
+										{
+											id: "200",
+											number: "696",
+											quantity: 8,
+											unit: "komplekts",
+										},
+										{
+											id: "201",
+											number: "699",
+											quantity: 14,
+											unit: "komplekts",
+										},
+										{ id: "202", number: "700", quantity: 1.5, unit: "m" },
+									]
+								: [],
 					})),
 				},
 			}}
@@ -82,6 +100,7 @@ it("expands a Forma 2 row and shows all assigned acts with the FIMA BIS badges",
 	).toBeVisible();
 	expect(trigger).toHaveAttribute("aria-expanded", "false");
 	expect(screen.queryByRole("link", { name: "00033" })).not.toBeInTheDocument();
+	expect(screen.queryByText(/Ar aktiem/)).not.toBeInTheDocument();
 
 	fireEvent.click(
 		within(position as HTMLElement).getByRole("cell", { name: "komplekts" }),
@@ -94,6 +113,16 @@ it("expands a Forma 2 row and shows all assigned acts with the FIMA BIS badges",
 	expect(screen.getByText("BIS apstiprināts")).toHaveClass("bg-emerald-50");
 	expect(screen.getByText("BIS gaida apstiprinājumu")).toHaveClass("bg-sky-50");
 	expect(screen.getByText("BIS melnraksts")).toHaveClass("bg-blue-50");
+	expect(screen.getByText("22 komplekts · 1,5 m")).toBeVisible();
+	expect(screen.getByText("Darbu apjomi")).toBeVisible();
+	const workDetails = screen.getByText("Darbu apjomi").closest("details");
+	expect(workDetails).not.toBeNull();
+	(workDetails as HTMLDetailsElement).open = true;
+	expect(screen.getByRole("link", { name: "BIS Nr. 696" })).toHaveAttribute(
+		"href",
+		"https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/200/edit?entry_ids%5B%5D=200",
+	);
+	expect(screen.getByText("8 komplekts")).toBeVisible();
 
 	fireEvent.click(trigger);
 	expect(trigger).toHaveAttribute("aria-expanded", "false");

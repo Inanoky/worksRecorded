@@ -19,6 +19,11 @@ export type Forma2ActAssignment = {
 	positionId: string;
 };
 
+export type Forma2ActWorkDetails = {
+	number: string | null;
+	unit: string | null;
+};
+
 export type Forma2ActCoverage = {
 	caseId: string;
 	documentId: string;
@@ -31,6 +36,10 @@ export type Forma2ActCoverage = {
 		positionId: string | null;
 		matchedWorks: number;
 		nativeWorks: number;
+		workQuantities: (Forma2ActWorkDetails & {
+			id: string;
+			quantity: number | null;
+		})[];
 	}[];
 	coveredByPosition: Record<string, number>;
 };
@@ -65,6 +74,7 @@ export function buildForma2ActCoverage(args: {
 	bisWorkIdsByRecord: ReadonlyMap<string, readonly string[]>;
 	acts: Forma2CoverageAct[];
 	assignments: Forma2ActAssignment[];
+	workDetails?: ReadonlyMap<string, Forma2ActWorkDetails>;
 }): Forma2ActCoverage {
 	const positions = new Map(
 		args.positions.map((position) => [position.id, position]),
@@ -149,6 +159,15 @@ export function buildForma2ActCoverage(args: {
 				positionId: validPosition,
 				matchedWorks: matchedWorks.size,
 				nativeWorks: works.size,
+				workQuantities: act.works.map(({ id, quantity }) => {
+					const details = args.workDetails?.get(id);
+					return {
+						id,
+						quantity,
+						number: details?.number ?? null,
+						unit: details?.unit ?? null,
+					};
+				}),
 			},
 		];
 	});

@@ -25,6 +25,8 @@ import {
 	readDefaultConstructionRecordedHours,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import {
+	type FimaActDiaryRecord,
+	type FimaActSite,
 	readFimaActWorkLinks,
 	readTrackedFimaActs,
 } from "@/lib/fima/act-register";
@@ -38,6 +40,7 @@ import {
 	buildForma2ActCoverage,
 	FORMA2_ACT_ASSIGNMENTS,
 	FORMA2_PILOT,
+	type Forma2ActWorkDetails,
 	readForma2ActAssignments,
 } from "../lib/forma2-act-coverage";
 import { forma2UnmatchedBeginSources } from "../lib/forma2-begin-sources";
@@ -114,6 +117,73 @@ export function getForma2DocumentState(
 
 export async function readStoredState(siteId: string) {
 	return getForma2DocumentState(await readForma2Root(siteId)).state;
+}
+
+export function readForma2TrackedActs(
+	site: FimaActSite,
+	records: FimaActDiaryRecord[],
+	root: Record<string, unknown>,
+) {
+	const object = (value: unknown) =>
+		value && typeof value === "object" && !Array.isArray(value)
+			? (value as Record<string, unknown>)
+			: {};
+	const evidence = object(object(root[FORMA2_PILOT]).actEvidence);
+	const snapshot = object(evidence.snapshot);
+	const configured = object(
+		object(object(site.config).otherSettings).fimaBisActCoverage,
+	);
+	const readSnapshotTime = (index: Record<string, unknown>) =>
+		site.bisCaseId &&
+		index.version === 1 &&
+		index.caseId === site.bisCaseId &&
+		Array.isArray(index.acts) &&
+		typeof index.fetchedAt === "string"
+			? Date.parse(index.fetchedAt)
+			: Number.NaN;
+	const checkedAt = readSnapshotTime(snapshot);
+	const configuredAt = readSnapshotTime(configured);
+	const matchesCase = Number.isFinite(checkedAt);
+	const useSnapshot =
+		matchesCase && (!Number.isFinite(configuredAt) || checkedAt > configuredAt);
+	const acts = readTrackedFimaActs(
+		useSnapshot
+			? { ...site, config: { otherSettings: { fimaBisActCoverage: snapshot } } }
+			: site,
+		records,
+	);
+	const titles = new Map<string, string | null>(
+		matchesCase && Array.isArray(snapshot.acts)
+			? snapshot.acts.map((value) => {
+					const act = object(value);
+					return [
+						`${text(act.collection)}/${text(act.id)}`,
+						text(act.title) || null,
+					] as const;
+				})
+			: [],
+	);
+	const workDetails = new Map<string, Forma2ActWorkDetails>(
+		matchesCase
+			? Object.entries(object(evidence.workDetails)).map(([id, value]) => {
+					const details = object(value);
+					return [
+						id,
+						{
+							number: text(details.number) || null,
+							unit: text(details.unit, 30) || null,
+						},
+					];
+				})
+			: [],
+	);
+	return {
+		acts: acts.map((act) => ({
+			...act,
+			title: act.title ?? titles.get(act.key) ?? null,
+		})),
+		workDetails,
+	};
 }
 
 export function isoDate(value: Date | null | undefined) {
@@ -438,7 +508,7 @@ export async function loadDefaultConstructionForma2Data(
 			? {
 					caseId,
 					documentId: state.document.id,
-					acts: readTrackedFimaActs(
+					...readForma2TrackedActs(
 						{
 							id: siteId,
 							name: site.name,
@@ -446,6 +516,7 @@ export async function loadDefaultConstructionForma2Data(
 							config: site.siteDiaryRecordsMap,
 						},
 						actRecords,
+						root,
 					),
 					bisWorkIdsByRecord: new Map(
 						actRecords.map((row) => [

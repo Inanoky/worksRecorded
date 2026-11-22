@@ -225,6 +225,29 @@ describe("Forma 2 diary quantity loaders", () => {
 					{ actKey: "other_acceptance_acts/100", positionId: position.id },
 				],
 			},
+			actEvidence: {
+				snapshot: {
+					version: 1,
+					caseId: "123",
+					fetchedAt: "2026-11-22T10:00:00Z",
+					acts: [
+						{
+							id: "100",
+							collection: "other_acceptance_acts",
+							number: "KT-001",
+							status: "approved",
+							works: [
+								{ id: "200", quantity: 27 },
+								{ id: "201", quantity: 1.5 },
+							],
+						},
+					],
+				},
+				workDetails: {
+					"200": { number: "87", unit: "komplekts" },
+					"201": { number: "88", unit: "m" },
+				},
+			},
 		};
 		const root = { fimaForma2Pilot: pilot };
 		jest
@@ -246,7 +269,11 @@ describe("Forma 2 diary quantity loaders", () => {
 			actualTotalCost: 250.35,
 			variance: 149.65,
 		});
-		expect(result.actCoverage?.coveredByPosition).toEqual({ position: 25 });
+		expect(result.actCoverage?.coveredByPosition).toEqual({ position: 27 });
+		expect(result.actCoverage?.acts[0].workQuantities).toEqual([
+			{ id: "200", number: "87", quantity: 27, unit: "komplekts" },
+			{ id: "201", number: "88", quantity: 1.5, unit: "m" },
+		]);
 		expect(result.actCoverage?.acts[0].url).toContain(
 			"/other_acceptance_acts/100/edit",
 		);
