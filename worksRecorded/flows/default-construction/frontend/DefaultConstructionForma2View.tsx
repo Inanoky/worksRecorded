@@ -99,42 +99,11 @@ function Forma2PositionActs({
 			{acts.length ? (
 				<ul className="divide-y rounded-lg border bg-background">
 					{acts.map((act) => (
-						<li
-							key={act.key}
-							className="flex flex-wrap items-start justify-between gap-2 px-3 py-2"
-						>
-							<div className="min-w-0 flex-1 space-y-1">
-								<a
-									href={act.url}
-									target="_blank"
-									rel="noreferrer"
-									className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-								>
-									{act.label}
-									<ExternalLink
-										className="size-3 shrink-0"
-										aria-hidden="true"
-									/>
-								</a>
-								{act.title ? (
-									<div className="text-muted-foreground">{act.title}</div>
-								) : null}
-								<Forma2ActQuantities
-									works={act.workQuantities ?? []}
-									latvian={latvian}
-									numberFormat={numberFormat}
-								/>
-							</div>
-							<FimaBisState
-								status={act.status}
-								language={latvian ? "lv" : "en"}
-								label={
-									["approved", "approving", "draft"].includes(act.status)
-										? undefined
-										: latvian
-											? getFimaActStatusLabel(act.status)
-											: act.status.replaceAll("_", " ")
-								}
+						<li key={act.key} className="px-3 py-2">
+							<Forma2PositionAct
+								act={act}
+								latvian={latvian}
+								numberFormat={numberFormat}
 							/>
 						</li>
 					))}
@@ -150,7 +119,99 @@ function Forma2PositionActs({
 	);
 }
 
-function Forma2ActQuantities({
+function Forma2PositionAct({
+	act,
+	latvian,
+	numberFormat,
+}: {
+	act: PositionAct;
+	latvian: boolean;
+	numberFormat: Intl.NumberFormat;
+}) {
+	const works = act.workQuantities ?? [];
+	const totals = new Map<string, number | null>();
+	for (const { quantity, unit } of works) {
+		if (!unit) continue;
+		const total = totals.get(unit) ?? null;
+		totals.set(unit, quantity === null ? total : (total ?? 0) + quantity);
+	}
+	const quantities = totals.size ? [...totals] : [["—", null] as const];
+	const formatQuantity = (quantity: number | null) =>
+		quantity === null ? "—" : numberFormat.format(quantity);
+	return (
+		<table
+			aria-label={act.label}
+			className="w-full text-left [&_td]:py-0.5 [&_td]:align-top [&_th]:w-px [&_th]:whitespace-nowrap [&_th]:py-0.5 [&_th]:pr-4 [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground"
+		>
+			<tbody>
+				<tr>
+					<th scope="row">{latvian ? "Akta numurs" : "Act number"}</th>
+					<td colSpan={quantities.length + 1}>
+						<div className="flex flex-wrap items-center gap-2">
+							<a
+								href={act.url}
+								target="_blank"
+								rel="noreferrer"
+								className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+							>
+								{act.label}
+								<ExternalLink className="size-3 shrink-0" aria-hidden="true" />
+							</a>
+							<FimaBisState
+								status={act.status}
+								language={latvian ? "lv" : "en"}
+								label={
+									["approved", "approving", "draft"].includes(act.status)
+										? undefined
+										: latvian
+											? getFimaActStatusLabel(act.status)
+											: act.status.replaceAll("_", " ")
+								}
+							/>
+						</div>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row">{latvian ? "Akta apraksts" : "Act description"}</th>
+					<td colSpan={quantities.length + 1} className="break-words">
+						{act.title || "—"}
+					</td>
+				</tr>
+				<tr>
+					<th scope="row">{latvian ? "Mērvienības" : "Units"}</th>
+					{quantities.map(([unit]) => (
+						<td key={unit} className="whitespace-nowrap pr-4">
+							{unit}
+						</td>
+					))}
+					<td className="w-full" />
+				</tr>
+				<tr>
+					<th scope="row">{latvian ? "Apjomi" : "Amounts"}</th>
+					{quantities.map(([unit, quantity]) => (
+						<td
+							key={unit}
+							className="whitespace-nowrap pr-4 font-medium tabular-nums"
+						>
+							{formatQuantity(quantity)}
+						</td>
+					))}
+					<td>
+						{works.length ? (
+							<Forma2ActWorkQuantities
+								works={works}
+								latvian={latvian}
+								numberFormat={numberFormat}
+							/>
+						) : null}
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	);
+}
+
+function Forma2ActWorkQuantities({
 	works,
 	latvian,
 	numberFormat,
@@ -159,60 +220,41 @@ function Forma2ActQuantities({
 	latvian: boolean;
 	numberFormat: Intl.NumberFormat;
 }) {
-	const totals = new Map<string, number>();
-	for (const { quantity, unit } of works) {
-		if (quantity !== null && unit)
-			totals.set(unit, (totals.get(unit) ?? 0) + quantity);
-	}
 	const formatAmount = (quantity: number | null, unit: string | null) =>
 		quantity === null
 			? "—"
 			: `${numberFormat.format(quantity)} ${unit ?? (latvian ? "(mērv. nav norādīta)" : "(unit unavailable)")}`;
 	return (
-		<>
-			<div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 tabular-nums">
-				<span className="text-muted-foreground">
-					{latvian ? "Apjoms aktā" : "Quantity in act"}
-				</span>
-				<span className="font-medium">
-					{Array.from(totals, ([unit, quantity]) =>
-						formatAmount(quantity, unit),
-					).join(" · ") || "—"}
-				</span>
-			</div>
-			{works.length > 0 ? (
-				<details className="text-xs">
-					<summary className="w-fit cursor-pointer py-0.5 text-muted-foreground hover:text-foreground">
-						{latvian ? "Darbu apjomi" : "Work quantities"}
-					</summary>
-					<ul className="my-1 ml-2 w-fit space-y-1 border-l pl-3 tabular-nums">
-						{works.map(({ id, number, quantity, unit }, index) => {
-							const label = number
-								? `BIS Nr. ${number}`
-								: `${latvian ? "Darbs" : "Work"} ${index + 1}`;
-							const url = getFimaBisRecordUrl(id);
-							return (
-								<li key={id} className="flex justify-between gap-4">
-									{url ? (
-										<a
-											href={url}
-											target="_blank"
-											rel="noreferrer"
-											className="text-primary hover:underline"
-										>
-											{label}
-										</a>
-									) : (
-										label
-									)}
-									<span>{formatAmount(quantity, unit)}</span>
-								</li>
-							);
-						})}
-					</ul>
-				</details>
-			) : null}
-		</>
+		<details className="text-xs">
+			<summary className="w-fit cursor-pointer py-0.5 text-muted-foreground hover:text-foreground">
+				{latvian ? "Darbu apjomi" : "Work quantities"}
+			</summary>
+			<ul className="my-1 ml-2 w-fit space-y-1 border-l pl-3 tabular-nums">
+				{works.map(({ id, number, quantity, unit }, index) => {
+					const label = number
+						? `BIS Nr. ${number}`
+						: `${latvian ? "Darbs" : "Work"} ${index + 1}`;
+					const url = getFimaBisRecordUrl(id);
+					return (
+						<li key={id} className="flex justify-between gap-4">
+							{url ? (
+								<a
+									href={url}
+									target="_blank"
+									rel="noreferrer"
+									className="text-primary hover:underline"
+								>
+									{label}
+								</a>
+							) : (
+								label
+							)}
+							<span>{formatAmount(quantity, unit)}</span>
+						</li>
+					);
+				})}
+			</ul>
+		</details>
 	);
 }
 

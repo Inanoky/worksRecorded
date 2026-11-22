@@ -14,7 +14,7 @@ jest.mock("./DefaultConstructionForma2TableScroll", () => ({
 	}) => children,
 }));
 
-it("shows assigned acts, FIMA BIS badges, and quantities by unit when a Forma 2 row expands", () => {
+it("shows each assigned act in four rows with aligned units and amounts", () => {
 	const positionId = "console";
 	const row = {
 		id: positionId,
@@ -63,7 +63,7 @@ it("shows assigned acts, FIMA BIS badges, and quantities by unit when a Forma 2 
 					].map(([label, status]) => ({
 						key: label,
 						label,
-						title: null,
+						title: label === "00033" ? "Kontakttīkla konsoļu montāža" : null,
 						status,
 						positionId,
 						url: `https://bis.gov.lv/${label}`,
@@ -113,9 +113,31 @@ it("shows assigned acts, FIMA BIS badges, and quantities by unit when a Forma 2 
 	expect(screen.getByText("BIS apstiprināts")).toHaveClass("bg-emerald-50");
 	expect(screen.getByText("BIS gaida apstiprinājumu")).toHaveClass("bg-sky-50");
 	expect(screen.getByText("BIS melnraksts")).toHaveClass("bg-blue-50");
-	expect(screen.getByText("22 komplekts · 1,5 m")).toBeVisible();
-	expect(screen.getByText("Darbu apjomi")).toBeVisible();
-	const workDetails = screen.getByText("Darbu apjomi").closest("details");
+	const act = within(screen.getByRole("table", { name: "00033" }));
+	expect(
+		act.getAllByRole("rowheader").map((header) => header.textContent),
+	).toEqual(["Akta numurs", "Akta apraksts", "Mērvienības", "Apjomi"]);
+	const [numberRow, descriptionRow, unitsRow, amountsRow] =
+		act.getAllByRole("row");
+	expect(within(numberRow).getByText("BIS apstiprināts")).toBeVisible();
+	expect(
+		within(descriptionRow).getByText("Kontakttīkla konsoļu montāža"),
+	).toBeVisible();
+	expect(
+		within(unitsRow)
+			.getAllByRole("cell")
+			.slice(0, 2)
+			.map((cell) => cell.textContent),
+	).toEqual(["komplekts", "m"]);
+	expect(
+		within(amountsRow)
+			.getAllByRole("cell")
+			.slice(0, 2)
+			.map((cell) => cell.textContent),
+	).toEqual(["22", "1,5"]);
+	const workDetails = within(amountsRow)
+		.getByText("Darbu apjomi")
+		.closest("details");
 	expect(workDetails).not.toBeNull();
 	(workDetails as HTMLDetailsElement).open = true;
 	expect(screen.getByRole("link", { name: "BIS Nr. 696" })).toHaveAttribute(
