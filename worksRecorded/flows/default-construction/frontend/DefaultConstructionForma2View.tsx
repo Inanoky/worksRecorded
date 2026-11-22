@@ -1,6 +1,8 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { ChevronDown, ExternalLink } from "lucide-react";
+import { Fragment, useId, useMemo, useState } from "react";
+import { FimaBisState } from "@/components/sitediary/FimaBisState";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -33,6 +35,7 @@ import {
 	getForma2AnalyticsCopy,
 	getForma2AnalyticsLocale,
 } from "@/flows/default-construction/lib/forma2-analytics-copy";
+import { getFimaActStatusLabel } from "@/lib/fima/acceptance-acts";
 import { cn } from "@/lib/utils/utils";
 import { formatForma2PositionLabel } from "../lib/forma2-position-label";
 import { Forma2ClientCostsContext } from "./forma2-client-costs-context";
@@ -42,6 +45,7 @@ type Forma2Results = Awaited<
 >;
 type Forma2ResultRow = Forma2Results["resultRows"][number];
 type Forma2AnalyticsCopy = ReturnType<typeof getForma2AnalyticsCopy>;
+type PositionAct = NonNullable<Forma2Results["actCoverage"]>["acts"][number];
 
 function formatCurrency(value: number, locale: string) {
 	return new Intl.NumberFormat(locale, {
@@ -65,6 +69,74 @@ function actualCostClassName(actual: number, budget: number) {
 	return actualCents > Math.round(budget * 100)
 		? "text-red-600 dark:text-red-400"
 		: "text-green-600 dark:text-green-400";
+}
+
+function Forma2PositionActs({
+	acts,
+	latvian,
+	onEdit,
+}: {
+	acts: PositionAct[];
+	latvian: boolean;
+	onEdit: () => void;
+}) {
+	return (
+		<div className="space-y-2 px-4 py-3 text-sm">
+			<div className="flex items-center justify-between gap-3">
+				<span className="font-semibold">
+					{latvian ? "BIS akti" : "BIS acts"}
+				</span>
+				<Button size="sm" variant="outline" onClick={onEdit}>
+					{latvian ? "Mainīt piesaisti" : "Edit assignments"}
+				</Button>
+			</div>
+			{acts.length ? (
+				<ul className="divide-y rounded-lg border bg-background">
+					{acts.map((act) => (
+						<li
+							key={act.key}
+							className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
+						>
+							<div className="min-w-0 space-y-1">
+								<a
+									href={act.url}
+									target="_blank"
+									rel="noreferrer"
+									className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+								>
+									{act.label}
+									<ExternalLink
+										className="size-3 shrink-0"
+										aria-hidden="true"
+									/>
+								</a>
+								{act.title ? (
+									<div className="text-muted-foreground">{act.title}</div>
+								) : null}
+							</div>
+							<FimaBisState
+								status={act.status}
+								language={latvian ? "lv" : "en"}
+								label={
+									["approved", "approving", "draft"].includes(act.status)
+										? undefined
+										: latvian
+											? getFimaActStatusLabel(act.status)
+											: act.status.replaceAll("_", " ")
+								}
+							/>
+						</li>
+					))}
+				</ul>
+			) : (
+				<p className="py-2 text-muted-foreground">
+					{latvian
+						? "Šai pozīcijai nav piesaistītu aktu."
+						: "No acts are assigned to this position."}
+				</p>
+			)}
+		</div>
+	);
 }
 
 function Forma2TotalsRow({
@@ -162,6 +234,28 @@ function Forma2ResultsView({
 	actCoverage: Forma2Results["actCoverage"];
 	onOpenActs: (positionId: string) => void;
 }) {
+	const detailId = useId();
+	const latvian = locale.startsWith("lv");
+	const [expandedPositions, setExpandedPositions] = useState<
+		ReadonlySet<string>
+	>(new Set());
+	const actsByPosition = useMemo(() => {
+		const grouped = new Map<string, PositionAct[]>();
+		for (const act of actCoverage?.acts ?? []) {
+			if (!act.positionId) continue;
+			const acts = grouped.get(act.positionId) ?? [];
+			acts.push(act);
+			grouped.set(act.positionId, acts);
+		}
+		return grouped;
+	}, [actCoverage]);
+	const togglePosition = (id: string) =>
+		setExpandedPositions((previous) => {
+			const next = new Set(previous);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
+			return next;
+		});
 	if (!rows.length) {
 		return (
 			<div className="border-y px-6 py-12 text-center text-sm text-muted-foreground">
@@ -279,6 +373,13 @@ function Forma2ResultsView({
 						);
 						const showCategory =
 							!previous || previous.categoryCode !== row.categoryCode;
+						const canExpand = Boolean(actCoverage && row.kind === "work");
+						const expanded = canExpand && expandedPositions.has(row.id);
+						const rowDetailId = `${detailId}-${index}`;
+						const positionLabel =
+							row.name.trim() === row.code.trim()
+								? row.name
+								: formatForma2PositionLabel(row);
 						return (
 							<Fragment key={row.id}>
 								{showCategory && (row.categoryCode || row.categoryName) ? (
@@ -293,7 +394,26 @@ function Forma2ResultsView({
 										</TableCell>
 									</TableRow>
 								) : null}
-								<TableRow>
+								<TableRow
+									className={cn(
+										canExpand && "cursor-pointer",
+										expanded && "bg-muted/40",
+									)}
+									onClick={
+										canExpand
+											? (event) => {
+													if (
+														event.target instanceof Element &&
+														event.target.closest(
+															"a,button,input,select,textarea,[role='button']",
+														)
+													)
+														return;
+													togglePosition(row.id);
+												}
+											: undefined
+									}
+								>
 									<TableCell
 										className={cn(
 											"whitespace-normal break-words py-2 pl-4 leading-snug",
@@ -303,9 +423,26 @@ function Forma2ResultsView({
 										<div className="flex items-start justify-between gap-2">
 											<div className={row.parentId ? "pl-3" : ""}>
 												{row.parentId ? "↳ " : ""}
-												{row.name.trim() === row.code.trim()
-													? row.name
-													: formatForma2PositionLabel(row)}
+												{canExpand ? (
+													<button
+														type="button"
+														className="inline-flex items-center gap-1.5 text-left hover:underline"
+														aria-expanded={expanded}
+														aria-controls={expanded ? rowDetailId : undefined}
+														onClick={() => togglePosition(row.id)}
+													>
+														<ChevronDown
+															className={cn(
+																"size-3.5 shrink-0 transition-transform",
+																!expanded && "-rotate-90",
+															)}
+															aria-hidden="true"
+														/>
+														{positionLabel}
+													</button>
+												) : (
+													positionLabel
+												)}
 											</div>
 											{!demo ? (
 												<DefaultConstructionForma2ContractEditor
@@ -334,7 +471,9 @@ function Forma2ResultsView({
 											<button
 												type="button"
 												className="mt-1 block w-full text-right text-xs text-primary underline decoration-dotted underline-offset-2"
-												onClick={() => onOpenActs(row.id)}
+												aria-expanded={expanded}
+												aria-controls={expanded ? rowDetailId : undefined}
+												onClick={() => togglePosition(row.id)}
 											>
 												{locale.startsWith("lv") ? "Ar aktiem" : "With acts"}{" "}
 												{execution > 0
@@ -372,13 +511,17 @@ function Forma2ResultsView({
 											),
 										)}
 									>
-										<DefaultConstructionForma2CostBreakdown
-											siteId={siteId}
-											positionId={row.id}
-											costType="work"
-											amount={row.actualWorkCost}
-											organizationLanguage={organizationLanguage}
-										/>
+										{demo ? (
+											formatCurrency(row.actualWorkCost, locale)
+										) : (
+											<DefaultConstructionForma2CostBreakdown
+												siteId={siteId}
+												positionId={row.id}
+												costType="work"
+												amount={row.actualWorkCost}
+												organizationLanguage={organizationLanguage}
+											/>
+										)}
 									</TableCell>
 									<TableCell
 										className={cn(
@@ -389,13 +532,17 @@ function Forma2ResultsView({
 											),
 										)}
 									>
-										<DefaultConstructionForma2CostBreakdown
-											siteId={siteId}
-											positionId={row.id}
-											costType="material"
-											amount={row.actualMaterialCost}
-											organizationLanguage={organizationLanguage}
-										/>
+										{demo ? (
+											formatCurrency(row.actualMaterialCost, locale)
+										) : (
+											<DefaultConstructionForma2CostBreakdown
+												siteId={siteId}
+												positionId={row.id}
+												costType="material"
+												amount={row.actualMaterialCost}
+												organizationLanguage={organizationLanguage}
+											/>
+										)}
 									</TableCell>
 									<TableCell
 										className={cn(
@@ -417,13 +564,17 @@ function Forma2ResultsView({
 											),
 										)}
 									>
-										<DefaultConstructionForma2CostBreakdown
-											siteId={siteId}
-											positionId={row.id}
-											costType="total"
-											amount={row.actualTotalCost}
-											organizationLanguage={organizationLanguage}
-										/>
+										{demo ? (
+											formatCurrency(row.actualTotalCost, locale)
+										) : (
+											<DefaultConstructionForma2CostBreakdown
+												siteId={siteId}
+												positionId={row.id}
+												costType="total"
+												amount={row.actualTotalCost}
+												organizationLanguage={organizationLanguage}
+											/>
+										)}
 									</TableCell>
 									<TableCell
 										className={cn(
@@ -434,6 +585,17 @@ function Forma2ResultsView({
 										{formatCurrency(row.variance, locale)}
 									</TableCell>
 								</TableRow>
+								{expanded ? (
+									<TableRow id={rowDetailId} className="bg-muted/40">
+										<TableCell colSpan={13} className="whitespace-normal p-0">
+											<Forma2PositionActs
+												acts={actsByPosition.get(row.id) ?? []}
+												latvian={latvian}
+												onEdit={() => onOpenActs(row.id)}
+											/>
+										</TableCell>
+									</TableRow>
+								) : null}
 							</Fragment>
 						);
 					})}
@@ -459,13 +621,13 @@ export function DefaultConstructionForma2View({
 	const [actPosition, setActPosition] = useState<string | null>(null);
 	const rows = useMemo(
 		() =>
-			data.clientCosts
+			data.clientCosts && !data.isDemo
 				? buildForma2AnalyticsView({
 						...data.clientCosts,
 						includeSuggestions: false,
 					}).resultRows
 				: data.resultRows,
-		[data.clientCosts, data.resultRows],
+		[data.clientCosts, data.isDemo, data.resultRows],
 	);
 	const totals = calculateForma2MoneyTotals(rows);
 
@@ -481,8 +643,8 @@ export function DefaultConstructionForma2View({
 					<p className="rounded-md border bg-muted/50 px-4 py-3 text-sm">
 						{data.siteName} ·{" "}
 						{latvian
-							? "Demonstrācijas tāme. Pozīcijas un līguma apjomi ir piemēri. Izpilde un BIS akti ir no projekta."
-							: "Demo estimate. Positions and contract quantities are examples. Execution and BIS acts come from the project."}
+							? "Demonstrācijas tāme. Pozīcijas, līguma apjomi un izmaksas ir piemēri. Izpilde un BIS akti ir no projekta."
+							: "Demo estimate. Positions, contract quantities and costs are examples. Execution and BIS acts come from the project."}
 					</p>
 				) : null}
 				<DefaultConstructionForma2Import

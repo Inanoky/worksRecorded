@@ -212,6 +212,12 @@ describe("Forma 2 diary quantity loaders", () => {
 		)?.currentWeekProgress as Record<string, object>;
 		const pilot = {
 			...original.defaultConstructionForma2,
+			sampleCosts: {
+				position: {
+					contract: { work: 250, material: 100, mechanism: 50 },
+					actual: { work: 150, material: 70.35, mechanism: 30 },
+				},
+			},
 			actCoverage: {
 				caseId: "123",
 				documentId: "document",
@@ -233,7 +239,13 @@ describe("Forma 2 diary quantity loaders", () => {
 
 		const result = await getDefaultConstructionForma2Results("site");
 		expect(result.isDemo).toBe(true);
-		expect(result.resultRows[0].actualQuantity).toBe(67);
+		expect(result.resultRows[0]).toMatchObject({
+			actualQuantity: 67,
+			plannedWorkCost: 250,
+			plannedTotalCost: 400,
+			actualTotalCost: 250.35,
+			variance: 149.65,
+		});
 		expect(result.actCoverage?.coveredByPosition).toEqual({ position: 25 });
 		expect(result.actCoverage?.acts[0].url).toContain(
 			"/other_acceptance_acts/100/edit",

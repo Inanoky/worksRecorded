@@ -5,6 +5,7 @@ import {
 	DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY,
 	type DefaultConstructionForma2State,
 	type Forma2ActualSource,
+	type Forma2ResultRow,
 	normalizeDefaultConstructionForma2State,
 } from "@/flows/default-construction/lib/forma2-analytics";
 import { getForma2DiaryQuantity } from "@/flows/default-construction/lib/forma2-quantities";
@@ -465,6 +466,9 @@ export async function loadDefaultConstructionForma2Data(
 		siteName: site.name,
 		state,
 		isDemo,
+		demoCosts: isDemo
+			? analyticsRoot(analyticsRoot(root[FORMA2_PILOT]).sampleCosts)
+			: null,
 		actCoverage,
 		sources: [
 			...scopedWorkSources,
@@ -475,6 +479,48 @@ export async function loadDefaultConstructionForma2Data(
 		hasQuantityProfile: hasDefaultConstructionQuantityProfile(config),
 		usesDrawingQuantities: usesForma2DrawingQuantities(config),
 	};
+}
+
+function applyForma2DemoCosts(
+	rows: Forma2ResultRow[],
+	costs: Record<string, unknown>,
+) {
+	return rows.map((row) => {
+		if (!Object.hasOwn(costs, row.id)) return row;
+		const entry = analyticsRoot(costs[row.id]);
+		const contract = analyticsRoot(entry.contract);
+		const actual = analyticsRoot(entry.actual);
+		const plannedWorkCost = nonNegative(contract.work);
+		const plannedMaterialCost = nonNegative(contract.material);
+		const plannedMechanismCost = nonNegative(contract.mechanism);
+		const plannedTotalCost = Number(
+			(plannedWorkCost + plannedMaterialCost + plannedMechanismCost).toFixed(2),
+		);
+		const actualWorkCost = nonNegative(actual.work);
+		const actualMaterialCost = nonNegative(actual.material);
+		const actualMechanismCost = nonNegative(actual.mechanism);
+		const actualTotalCost = Number(
+			(actualWorkCost + actualMaterialCost + actualMechanismCost).toFixed(2),
+		);
+		return {
+			...row,
+			plannedWorkCost,
+			plannedMaterialCost,
+			plannedMechanismCost,
+			plannedTotalCost,
+			directPlannedCosts: {
+				plannedWorkCost,
+				plannedMaterialCost,
+				plannedMechanismCost,
+				plannedTotalCost,
+			},
+			actualWorkCost,
+			actualMaterialCost,
+			actualMechanismCost,
+			actualTotalCost,
+			variance: Number((plannedTotalCost - actualTotalCost).toFixed(2)),
+		};
+	});
 }
 
 export function documentMetadata(state: DefaultConstructionForma2State) {
@@ -511,7 +557,9 @@ export async function readForma2Results(
 	return {
 		siteName: data.siteName,
 		document: documentMetadata(data.state),
-		resultRows: view.resultRows,
+		resultRows: data.demoCosts
+			? applyForma2DemoCosts(view.resultRows, data.demoCosts)
+			: view.resultRows,
 		...(data.isDemo ? { isDemo: true } : {}),
 		...(data.actCoverage
 			? {
