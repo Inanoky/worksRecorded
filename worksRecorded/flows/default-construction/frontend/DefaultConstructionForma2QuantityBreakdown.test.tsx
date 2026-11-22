@@ -94,6 +94,20 @@ it("shows a neutral dash without a request for a missing quantity", () => {
 	expect(screen.getByText("—")).toBeInTheDocument();
 });
 
+it("opens the breakdown from retained project data without a server action", () => {
+	render(
+		<DefaultConstructionForma2QuantityBreakdown
+			{...props}
+			getClientDetails={() => details}
+		/>,
+	);
+	fireEvent.click(screen.getByRole("button"));
+	expect(screen.getByText("Floor work")).toBeVisible();
+	expect(
+		getDefaultConstructionForma2PositionQuantityDetails,
+	).not.toHaveBeenCalled();
+});
+
 it("opens the linked diary breakdown and explains excluded quantities", async () => {
 	render(<DefaultConstructionForma2QuantityBreakdown {...props} />);
 	fireEvent.click(screen.getByRole("button"));

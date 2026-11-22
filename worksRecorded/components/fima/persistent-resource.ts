@@ -6,7 +6,7 @@ export type FimaResourcePersistence<T> = {
 export function fimaResourcePersistence<T>(
 	scope: string | undefined,
 	cases: Record<string, string | null>,
-	kind: "diary" | "acts",
+	kind: "diary" | "acts" | "forma2",
 ) {
 	if (!scope) return undefined;
 	const queues = new Map<string, Promise<void>>();

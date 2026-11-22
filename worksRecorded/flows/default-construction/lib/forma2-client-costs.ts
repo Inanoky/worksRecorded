@@ -11,6 +11,48 @@ export type Forma2ClientCosts = {
 	allocations: Forma2Allocation[];
 };
 
+export function isCompatibleMaterialPosition(position: Forma2Position) {
+	return (
+		position.kind === "material" ||
+		(position.kind === "work" && !position.parentId)
+	);
+}
+
+export function materialPositionOptions(positions: Forma2Position[]) {
+	return positions.filter(isCompatibleMaterialPosition).map((position) => ({
+		id: position.id,
+		code: position.code,
+		name: position.name,
+		categoryName: position.categoryName,
+		kind: position.kind,
+		parentId: position.parentId,
+		unit: position.unit,
+	}));
+}
+
+export function forma2MaterialSplitDetails(
+	source: Pick<
+		Forma2ActualSource,
+		"id" | "label" | "quantity" | "actualCost" | "unit"
+	>,
+	allocation: Forma2Allocation | undefined,
+	positions: Forma2Position[],
+) {
+	const quantities = new Map(
+		positions.map((position) => [position.id, position.plannedQuantity]),
+	);
+	return {
+		source,
+		split: allocation?.split ?? null,
+		positionId: allocation?.positionId ?? null,
+		expectedAllocation: JSON.stringify(allocation ?? null),
+		positionOptions: materialPositionOptions(positions).map((option) => ({
+			...option,
+			plannedQuantity: quantities.get(option.id) ?? null,
+		})),
+	};
+}
+
 export function getForma2ClientCostDetails(
 	data: Forma2ClientCosts,
 	args: {

@@ -137,9 +137,13 @@ export default async function DashboardLayout({
 	}
 
 	const fimaActProjectIds = headerProjects.filter(project => project.fimaActsEnabled).map(project => project.id);
+	const visibleProjectIds = new Set(headerProjects.map(project => project.id));
+	const fimaForma2ProjectIds = flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION
+		? allHeaderProjects.filter(project => visibleProjectIds.has(project.id) && isFimaDiary(project.siteDiaryRecordsMap)).map(project => project.id)
+		: [];
 	const fimaActCacheScope = JSON.stringify([
 		userId, organizationId,
-		allHeaderProjects.filter(project => fimaActProjectIds.includes(project.id)).map(project => [project.id, project.bisCaseId]),
+		allHeaderProjects.filter(project => fimaActProjectIds.includes(project.id) || fimaForma2ProjectIds.includes(project.id)).map(project => [project.id, project.bisCaseId]),
 	]);
 
 	return (
@@ -149,6 +153,7 @@ export default async function DashboardLayout({
 				enabled={flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}
 				cacheScope={`${userId}:${organizationId ?? "admin"}`}
 				fimaActPreloadSites={fimaActProjectIds}
+				fimaForma2PreloadSites={fimaForma2ProjectIds}
 				visualPreloadSites={allHeaderProjects
 					.filter((project) => project.organizationId === LIMENI_ORGANIZATION_ID)
 					.map((project) => project.id)}
@@ -165,7 +170,7 @@ export default async function DashboardLayout({
 						siteIds={allHeaderProjects.filter(project => project.bisCaseId && isFimaDiary(project.siteDiaryRecordsMap)).map(project => project.id)}
 					/>
 				) : null}
-			<FimaProjectProvider key={fimaActCacheScope} siteIds={fimaActProjectIds} cacheScope={`${userId}:${organizationId ?? "admin"}`} projectCases={Object.fromEntries(allHeaderProjects.map(project => [project.id, project.bisCaseId]))}>
+			<FimaProjectProvider key={fimaActCacheScope} siteIds={fimaActProjectIds} forma2SiteIds={fimaForma2ProjectIds} cacheScope={`${userId}:${organizationId ?? "admin"}`} projectCases={Object.fromEntries(allHeaderProjects.map(project => [project.id, project.bisCaseId]))}>
 			<DiarySaveProvider key={userId} userId={userId} projects={headerProjects} language={organizationLanguage}>
 			<DashboardSettingsProvider
 				key={JSON.stringify([userId, accountOrganizationId, organizationLanguage, flowModuleKey, canAccessFlowConfigs])}

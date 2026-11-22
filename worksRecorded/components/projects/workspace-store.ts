@@ -13,6 +13,7 @@ export type WorkspaceDescriptor = {
 	flowModuleKey: FlowModuleKey;
 	visualPreload?: boolean;
 	fimaActs?: boolean;
+	fimaForma2?: boolean;
 	constructionWorkspace?: boolean;
 };
 export type WorkspaceRoute = { href: string; content: ReactNode };
@@ -176,7 +177,8 @@ export function createWorkspaceStore(
 					(entry.descriptor.fimaActs &&
 						["dashboard", "siteDiary", "acts"].some(
 							(view) => href === base + view,
-						))
+						)) ||
+					(entry.descriptor.fimaForma2 && href === `${base}analytics`)
 				);
 			});
 		},

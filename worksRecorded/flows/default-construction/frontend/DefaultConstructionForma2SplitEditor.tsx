@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Plus, Scissors, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,8 +24,10 @@ import {
 	getDefaultConstructionForma2SplitDetails,
 	saveDefaultConstructionForma2Split,
 } from "../backend/forma2-analytics-actions";
+import { forma2MaterialSplitDetails } from "../lib/forma2-client-costs";
 import { calculateForma2Split, type Forma2Split } from "../lib/forma2-splits";
 import { DefaultConstructionForma2AssignmentSelect } from "./DefaultConstructionForma2AssignmentSelect";
+import { Forma2ClientCostsContext } from "./forma2-client-costs-context";
 
 type Details = Awaited<
 	ReturnType<typeof getDefaultConstructionForma2SplitDetails>
@@ -39,6 +41,7 @@ export function DefaultConstructionForma2SplitEditor({
 	organizationLanguage,
 	onSaved,
 	disabled = false,
+	localDetails = false,
 }: {
 	siteId: string;
 	sourceId: string;
@@ -46,7 +49,9 @@ export function DefaultConstructionForma2SplitEditor({
 	organizationLanguage?: string | null;
 	onSaved: () => void | Promise<void>;
 	disabled?: boolean;
+	localDetails?: boolean;
 }) {
+	const clientCosts = useContext(Forma2ClientCostsContext);
 	const lv =
 		!organizationLanguage ||
 		organizationLanguage.toLowerCase().startsWith("lv");
@@ -151,10 +156,26 @@ export function DefaultConstructionForma2SplitEditor({
 		setLoading(true);
 		setDetails(null);
 		try {
-			const data = await getDefaultConstructionForma2SplitDetails({
-				siteId,
-				sourceId,
-			});
+			const source = localDetails
+				? clientCosts?.sources.find(
+						(row) => row.type === "material" && row.id === sourceId,
+					)
+				: undefined;
+			if (localDetails && !source) throw new Error(t.error);
+			const data =
+				source && clientCosts
+					? forma2MaterialSplitDetails(
+							source,
+							clientCosts.allocations.find(
+								(row) =>
+									row.sourceType === "material" && row.sourceId === sourceId,
+							),
+							clientCosts.positions,
+						)
+					: await getDefaultConstructionForma2SplitDetails({
+							siteId,
+							sourceId,
+						});
 			setDetails(data);
 			const initialMode =
 				data.split?.mode ??

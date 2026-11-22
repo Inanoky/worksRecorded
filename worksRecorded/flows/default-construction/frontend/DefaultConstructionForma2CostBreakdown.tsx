@@ -63,12 +63,14 @@ export function DefaultConstructionForma2CostBreakdown({
 	costType,
 	amount,
 	organizationLanguage,
+	localDetails = false,
 }: {
 	siteId: string;
 	positionId: string;
 	costType: CostType;
 	amount: number;
 	organizationLanguage?: string | null;
+	localDetails?: boolean;
 }) {
 	const refreshForma2 = useForma2Refresh(siteId);
 	const clientCosts = useContext(Forma2ClientCostsContext);
@@ -166,7 +168,7 @@ export function DefaultConstructionForma2CostBreakdown({
 		}
 	};
 	const refreshAfterAssignment = async () => {
-		await showDetails(true);
+		if (!localDetails) await showDetails(true);
 		refreshForma2();
 	};
 
@@ -374,6 +376,7 @@ export function DefaultConstructionForma2CostBreakdown({
 																		siteId={siteId}
 																		sourceId={record.id}
 																		isSplit={record.isSplit}
+																		localDetails={localDetails}
 																		organizationLanguage={organizationLanguage}
 																		disabled={saving}
 																		onSaved={refreshAfterAssignment}

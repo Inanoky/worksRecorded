@@ -43,6 +43,23 @@ jest.mock("./FimaActsPage", () => ({
 		);
 	},
 }));
+jest.mock("./FimaForma2View", () => ({
+	FimaForma2View: ({ workspace }: { workspace: { siteId: string } }) => {
+		const [open, setOpen] = useState(false);
+		return (
+			<section>
+				<h1>{workspace.siteId} Forma 2</h1>
+				<button
+					type="button"
+					aria-expanded={open}
+					onClick={() => setOpen(!open)}
+				>
+					BIS akts
+				</button>
+			</section>
+		);
+	},
+}));
 jest.mock("@/components/sitediary/SiteDiaryList", () => ({
 	__esModule: true,
 	default: () => {
@@ -125,6 +142,12 @@ function App({
 				>
 					Žurnāls
 				</FimaProjectNavigationLink>
+				<FimaProjectNavigationLink
+					href={`/dashboard/sites/${siteId}/analytics`}
+					onMouseEnter={prefetch}
+				>
+					Forma 2
+				</FimaProjectNavigationLink>
 				<FimaProjectContent key={siteId} siteId={siteId}>
 					<h1>Žurnāla dati</h1>
 				</FimaProjectContent>
@@ -135,7 +158,15 @@ function App({
 beforeEach(() => {
 	jest.clearAllMocks();
 	globalThis.fetch = request;
-	request.mockImplementation(async (_url, options) => {
+	request.mockImplementation(async (url, options) => {
+		if (String(url).startsWith("/api/fima/project-forma2?")) {
+			return {
+				ok: true,
+				status: 200,
+				headers: new Headers(),
+				json: async () => ({ siteId: String(url).split("project=")[1] }),
+			};
+		}
 		const siteId = JSON.parse(options.body).project;
 		return {
 			ok: true,
@@ -180,7 +211,22 @@ it("preloads while the project opens and never calls the server on hover, focus,
 		expect(screen.queryByRole("status")).not.toBeInTheDocument(),
 	);
 	expect(getFimaActsForSite).toHaveBeenCalledTimes(1);
-	expect(request).toHaveBeenCalledTimes(1);
+	expect(request).toHaveBeenCalledTimes(2);
+	const forma2 = screen.getByRole("link", { name: "Forma 2" });
+	fireEvent.mouseEnter(forma2);
+	fireEvent.focus(forma2);
+	fireEvent.click(forma2);
+	expect(
+		await screen.findByRole("heading", { name: "a Forma 2" }),
+	).toBeVisible();
+	fireEvent.click(screen.getByRole("button", { name: "BIS akts" }));
+	fireEvent.click(screen.getByRole("link", { name: "Žurnāls" }));
+	fireEvent.click(forma2);
+	expect(screen.getByRole("button", { name: "BIS akts" })).toHaveAttribute(
+		"aria-expanded",
+		"true",
+	);
+	fireEvent.click(screen.getByRole("link", { name: "Žurnāls" }));
 	fireEvent.change(
 		await screen.findByRole("textbox", { name: "Žurnāla lapa" }),
 		{ target: { value: "15" } },
@@ -205,7 +251,7 @@ it("preloads while the project opens and never calls the server on hover, focus,
 	expect(screen.getByRole("textbox", { name: "Žurnāla filtrs" })).toHaveValue(
 		"BIS-BL-668714",
 	);
-	expect(request).toHaveBeenCalledTimes(1);
+	expect(request).toHaveBeenCalledTimes(2);
 	fireEvent.click(link);
 	expect(screen.getByRole("textbox", { name: "Akta filtrs" })).toHaveValue(
 		"saved filter",
@@ -234,7 +280,7 @@ it("shares the initial in-flight preparation with navigation and renders a direc
 	expect(
 		await screen.findByRole("heading", { name: "Žurnāla dati" }),
 	).toBeVisible();
-	expect(request).toHaveBeenCalledTimes(1);
+	expect(request).toHaveBeenCalledTimes(2);
 });
 it("handles back and forward locally without remounting the prepared view", async () => {
 	render(<App />);
@@ -252,6 +298,16 @@ it("handles back and forward locally without remounting the prepared view", asyn
 		"KT-21",
 	);
 	expect(getFimaActsForSite).toHaveBeenCalledTimes(1);
+});
+
+it("renders a directly opened Forma 2 URL using the same project preload", async () => {
+	window.history.replaceState(null, "", "/dashboard/sites/a/analytics");
+	render(<App />);
+	expect(
+		await screen.findByRole("heading", { name: "a Forma 2" }),
+	).toBeVisible();
+	expect(request).toHaveBeenCalledTimes(2);
+	expect(router.push).not.toHaveBeenCalled();
 });
 it("keeps projects and signed-in identities separate and never preloads a non-FIMA project", async () => {
 	const view = render(<App />);
@@ -300,5 +356,5 @@ it("restores journal scroll positions without navigation requests", async () => 
 	fireEvent.click(screen.getByRole("link", { name: "Žurnāls" }));
 	await waitFor(() => expect(window.scrollTo).toHaveBeenLastCalledWith(0, 500));
 	expect(table.scrollLeft).toBe(180);
-	expect(request).toHaveBeenCalledTimes(1);
+	expect(request).toHaveBeenCalledTimes(2);
 });

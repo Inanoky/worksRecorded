@@ -29,6 +29,7 @@ import { DefaultConstructionForma2TableScroll } from "@/flows/default-constructi
 import {
 	buildForma2AnalyticsView,
 	calculateForma2MoneyTotals,
+	type Forma2MappingRow,
 	type Forma2MoneyTotals,
 } from "@/flows/default-construction/lib/forma2-analytics";
 import {
@@ -39,6 +40,10 @@ import { getFimaActStatusLabel } from "@/lib/fima/acceptance-acts";
 import { getFimaBisRecordUrl } from "@/lib/fima/bis-record-links";
 import { cn } from "@/lib/utils/utils";
 import { formatForma2PositionLabel } from "../lib/forma2-position-label";
+import {
+	type Forma2DiaryDetails,
+	getForma2QuantityDetails,
+} from "../lib/forma2-results";
 import { Forma2ClientCostsContext } from "./forma2-client-costs-context";
 
 type Forma2Results = Awaited<
@@ -47,6 +52,10 @@ type Forma2Results = Awaited<
 type Forma2ResultRow = Forma2Results["resultRows"][number];
 type Forma2AnalyticsCopy = ReturnType<typeof getForma2AnalyticsCopy>;
 type PositionAct = NonNullable<Forma2Results["actCoverage"]>["acts"][number];
+type ClientQuantities = {
+	diary: Forma2DiaryDetails;
+	mappingRows: Forma2MappingRow[];
+};
 
 function formatCurrency(value: number, locale: string) {
 	return new Intl.NumberFormat(locale, {
@@ -97,17 +106,33 @@ function Forma2PositionActs({
 				</Button>
 			</div>
 			{acts.length ? (
-				<ul className="divide-y rounded-lg border bg-background">
-					{acts.map((act) => (
-						<li key={act.key} className="px-3 py-2">
-							<Forma2PositionAct
-								act={act}
-								latvian={latvian}
-								numberFormat={numberFormat}
-							/>
-						</li>
-					))}
-				</ul>
+				<div className="overflow-x-auto rounded-lg border bg-background">
+					<table
+						className="w-full min-w-xl text-left"
+						aria-label={latvian ? "BIS akti" : "BIS acts"}
+					>
+						<thead className="border-b bg-muted/50 text-xs text-muted-foreground">
+							<tr className="[&_th]:px-3 [&_th]:py-2 [&_th]:font-medium">
+								<th scope="col">{latvian ? "Akta numurs" : "Act number"}</th>
+								<th scope="col">
+									{latvian ? "Akta apraksts" : "Act description"}
+								</th>
+								<th scope="col">{latvian ? "Mērvienības" : "Units"}</th>
+								<th scope="col">{latvian ? "Apjomi" : "Amounts"}</th>
+							</tr>
+						</thead>
+						<tbody className="divide-y">
+							{acts.map((act) => (
+								<Forma2PositionAct
+									key={act.key}
+									act={act}
+									latvian={latvian}
+									numberFormat={numberFormat}
+								/>
+							))}
+						</tbody>
+					</table>
+				</div>
 			) : (
 				<p className="py-2 text-muted-foreground">
 					{latvian
@@ -136,78 +161,53 @@ function Forma2PositionAct({
 		totals.set(unit, quantity === null ? total : (total ?? 0) + quantity);
 	}
 	const quantities = totals.size ? [...totals] : [["—", null] as const];
-	const formatQuantity = (quantity: number | null) =>
-		quantity === null ? "—" : numberFormat.format(quantity);
 	return (
-		<table
-			aria-label={act.label}
-			className="w-full text-left [&_td]:py-0.5 [&_td]:align-top [&_th]:w-px [&_th]:whitespace-nowrap [&_th]:py-0.5 [&_th]:pr-4 [&_th]:align-top [&_th]:font-normal [&_th]:text-muted-foreground"
-		>
-			<tbody>
-				<tr>
-					<th scope="row">{latvian ? "Akta numurs" : "Act number"}</th>
-					<td colSpan={quantities.length + 1}>
-						<div className="flex flex-wrap items-center gap-2">
-							<a
-								href={act.url}
-								target="_blank"
-								rel="noreferrer"
-								className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-							>
-								{act.label}
-								<ExternalLink className="size-3 shrink-0" aria-hidden="true" />
-							</a>
-							<FimaBisState
-								status={act.status}
-								language={latvian ? "lv" : "en"}
-								label={
-									["approved", "approving", "draft"].includes(act.status)
-										? undefined
-										: latvian
-											? getFimaActStatusLabel(act.status)
-											: act.status.replaceAll("_", " ")
-								}
-							/>
-						</div>
-					</td>
-				</tr>
-				<tr>
-					<th scope="row">{latvian ? "Akta apraksts" : "Act description"}</th>
-					<td colSpan={quantities.length + 1} className="break-words">
-						{act.title || "—"}
-					</td>
-				</tr>
-				<tr>
-					<th scope="row">{latvian ? "Mērvienības" : "Units"}</th>
-					{quantities.map(([unit]) => (
-						<td key={unit} className="whitespace-nowrap pr-4">
-							{unit}
-						</td>
-					))}
-					<td className="w-full" />
-				</tr>
-				<tr>
-					<th scope="row">{latvian ? "Apjomi" : "Amounts"}</th>
-					{quantities.map(([unit, quantity]) => (
-						<td
-							key={unit}
-							className="whitespace-nowrap pr-4 font-medium tabular-nums"
-						>
-							{formatQuantity(quantity)}
-						</td>
-					))}
-					<td>
-						{works.length ? (
-							<Forma2ActWorkQuantities
-								works={works}
-								latvian={latvian}
-								numberFormat={numberFormat}
-							/>
-						) : null}
-					</td>
-				</tr>
-			</tbody>
-		</table>
+		<tr className="[&_td]:px-3 [&_td]:py-2 [&_td]:align-top">
+			<td className="w-px">
+				<a
+					href={act.url}
+					target="_blank"
+					rel="noreferrer"
+					className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-primary hover:underline"
+				>
+					{act.label}
+					<ExternalLink className="size-3 shrink-0" aria-hidden="true" />
+				</a>
+				<div className="mt-1">
+					<FimaBisState
+						status={act.status}
+						language={latvian ? "lv" : "en"}
+						label={
+							["approved", "approving", "draft"].includes(act.status)
+								? undefined
+								: latvian
+									? getFimaActStatusLabel(act.status)
+									: act.status.replaceAll("_", " ")
+						}
+					/>
+				</div>
+			</td>
+			<td className="break-words">{act.title || "—"}</td>
+			<td className="w-px whitespace-nowrap">
+				{quantities.map(([unit]) => (
+					<div key={unit}>{unit}</div>
+				))}
+			</td>
+			<td className="w-px whitespace-nowrap tabular-nums">
+				{quantities.map(([unit, quantity]) => (
+					<div key={unit} className="font-medium">
+						{quantity === null ? "—" : numberFormat.format(quantity)}
+					</div>
+				))}
+				{works.length ? (
+					<Forma2ActWorkQuantities
+						works={works}
+						latvian={latvian}
+						numberFormat={numberFormat}
+					/>
+				) : null}
+			</td>
+		</tr>
 	);
 }
 
@@ -343,6 +343,7 @@ function Forma2ResultsView({
 	demo,
 	actCoverage,
 	onOpenActs,
+	getClientQuantityDetails,
 }: {
 	siteId: string;
 	rows: Forma2ResultRow[];
@@ -352,6 +353,9 @@ function Forma2ResultsView({
 	demo: boolean;
 	actCoverage: Forma2Results["actCoverage"];
 	onOpenActs: (positionId: string) => void;
+	getClientQuantityDetails?: (
+		row: Forma2ResultRow,
+	) => ReturnType<typeof getForma2QuantityDetails>;
 }) {
 	const detailId = useId();
 	const latvian = locale.startsWith("lv");
@@ -576,6 +580,11 @@ function Forma2ResultsView({
 											amount={row.actualQuantity}
 											contractQuantity={row.plannedQuantity}
 											organizationLanguage={organizationLanguage}
+											getClientDetails={
+												getClientQuantityDetails
+													? () => getClientQuantityDetails(row)
+													: undefined
+											}
 										/>
 										{row.excludedQuantityRecords > 0 ? (
 											<div className="mt-1 whitespace-normal text-[10px] leading-tight text-muted-foreground">
@@ -614,6 +623,7 @@ function Forma2ResultsView({
 												siteId={siteId}
 												positionId={row.id}
 												costType="work"
+												localDetails={Boolean(getClientQuantityDetails)}
 												amount={row.actualWorkCost}
 												organizationLanguage={organizationLanguage}
 											/>
@@ -635,6 +645,7 @@ function Forma2ResultsView({
 												siteId={siteId}
 												positionId={row.id}
 												costType="material"
+												localDetails={Boolean(getClientQuantityDetails)}
 												amount={row.actualMaterialCost}
 												organizationLanguage={organizationLanguage}
 											/>
@@ -667,6 +678,7 @@ function Forma2ResultsView({
 												siteId={siteId}
 												positionId={row.id}
 												costType="total"
+												localDetails={Boolean(getClientQuantityDetails)}
 												amount={row.actualTotalCost}
 												organizationLanguage={organizationLanguage}
 											/>
@@ -707,10 +719,16 @@ export function DefaultConstructionForma2View({
 	siteId,
 	data,
 	organizationLanguage,
+	clientQuantities,
+	onActAssignmentsSaved,
 }: {
 	siteId: string;
 	data: Forma2Results;
 	organizationLanguage: string | null;
+	clientQuantities?: ClientQuantities;
+	onActAssignmentsSaved?: React.ComponentProps<
+		typeof DefaultConstructionForma2ActAssignments
+	>["onSaved"];
 }) {
 	const t = getForma2AnalyticsCopy(organizationLanguage);
 	const locale = getForma2AnalyticsLocale(organizationLanguage);
@@ -718,13 +736,13 @@ export function DefaultConstructionForma2View({
 	const [actPosition, setActPosition] = useState<string | null>(null);
 	const rows = useMemo(
 		() =>
-			data.clientCosts && !data.isDemo
+			data.clientCosts && !data.isDemo && !clientQuantities
 				? buildForma2AnalyticsView({
 						...data.clientCosts,
 						includeSuggestions: false,
 					}).resultRows
 				: data.resultRows,
-		[data.clientCosts, data.isDemo, data.resultRows],
+		[data.clientCosts, data.isDemo, data.resultRows, clientQuantities],
 	);
 	const totals = calculateForma2MoneyTotals(rows);
 
@@ -799,6 +817,17 @@ export function DefaultConstructionForma2View({
 							demo={Boolean(data.isDemo)}
 							actCoverage={data.actCoverage}
 							onOpenActs={setActPosition}
+							getClientQuantityDetails={
+								clientQuantities
+									? (row) =>
+											getForma2QuantityDetails(
+												row,
+												clientQuantities.mappingRows,
+												clientQuantities.diary,
+												data.quantitySource === "drawing",
+											)
+									: undefined
+							}
 						/>
 					</CardContent>
 				</Card>
@@ -810,6 +839,7 @@ export function DefaultConstructionForma2View({
 						filterPositionId={actPosition}
 						latvian={latvian}
 						onClose={() => setActPosition(null)}
+						onSaved={onActAssignmentsSaved}
 					/>
 				) : null}
 			</div>

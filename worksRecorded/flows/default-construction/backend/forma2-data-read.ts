@@ -1,11 +1,9 @@
 import "server-only";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import {
-	buildForma2AnalyticsView,
 	DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY,
 	type DefaultConstructionForma2State,
 	type Forma2ActualSource,
-	type Forma2ResultRow,
 	normalizeDefaultConstructionForma2State,
 } from "@/flows/default-construction/lib/forma2-analytics";
 import { getForma2DiaryQuantity } from "@/flows/default-construction/lib/forma2-quantities";
@@ -37,7 +35,6 @@ import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import {
-	buildForma2ActCoverage,
 	FORMA2_ACT_ASSIGNMENTS,
 	FORMA2_PILOT,
 	type Forma2ActWorkDetails,
@@ -49,6 +46,16 @@ import {
 	usesForma2DrawingQuantities,
 } from "../lib/forma2-drawing-quantities";
 import { normalizeForma2QuantityUnit } from "../lib/forma2-quantities";
+
+import {
+	calculateForma2Results,
+	type Forma2DiaryDetails,
+	type Forma2ResultsInput,
+} from "../lib/forma2-results";
+import {
+	readSectionMappingSource,
+	sectionMappingOriginalPhotos,
+} from "../lib/section-mapping-source";
 
 export function text(value: unknown, maxLength = 500) {
 	return String(value ?? "")
@@ -552,48 +559,6 @@ export async function loadDefaultConstructionForma2Data(
 	};
 }
 
-function applyForma2DemoCosts(
-	rows: Forma2ResultRow[],
-	costs: Record<string, unknown>,
-) {
-	return rows.map((row) => {
-		if (!Object.hasOwn(costs, row.id)) return row;
-		const entry = analyticsRoot(costs[row.id]);
-		const contract = analyticsRoot(entry.contract);
-		const actual = analyticsRoot(entry.actual);
-		const plannedWorkCost = nonNegative(contract.work);
-		const plannedMaterialCost = nonNegative(contract.material);
-		const plannedMechanismCost = nonNegative(contract.mechanism);
-		const plannedTotalCost = Number(
-			(plannedWorkCost + plannedMaterialCost + plannedMechanismCost).toFixed(2),
-		);
-		const actualWorkCost = nonNegative(actual.work);
-		const actualMaterialCost = nonNegative(actual.material);
-		const actualMechanismCost = nonNegative(actual.mechanism);
-		const actualTotalCost = Number(
-			(actualWorkCost + actualMaterialCost + actualMechanismCost).toFixed(2),
-		);
-		return {
-			...row,
-			plannedWorkCost,
-			plannedMaterialCost,
-			plannedMechanismCost,
-			plannedTotalCost,
-			directPlannedCosts: {
-				plannedWorkCost,
-				plannedMaterialCost,
-				plannedMechanismCost,
-				plannedTotalCost,
-			},
-			actualWorkCost,
-			actualMaterialCost,
-			actualMechanismCost,
-			actualTotalCost,
-			variance: Number((plannedTotalCost - actualTotalCost).toFixed(2)),
-		};
-	});
-}
-
 export function documentMetadata(state: DefaultConstructionForma2State) {
 	if (!state.document) return null;
 	return {
@@ -605,6 +570,69 @@ export function documentMetadata(state: DefaultConstructionForma2State) {
 	};
 }
 
+export function forma2ResultsInput(
+	data: Awaited<ReturnType<typeof loadDefaultConstructionForma2Data>>,
+): Forma2ResultsInput {
+	const coverage = data.actCoverage;
+	return {
+		siteName: data.siteName,
+		document: documentMetadata(data.state),
+		...(data.isDemo ? { isDemo: true } : {}),
+		...(data.demoCosts ? { demoCosts: data.demoCosts } : {}),
+		clientCosts: {
+			positions: data.state.document?.positions ?? [],
+			sources: data.sources,
+			allocations: data.state.allocations,
+		},
+		...(data.usesDrawingQuantities
+			? { quantitySource: "drawing" as const }
+			: {}),
+		...(coverage
+			? {
+					actCoverage: {
+						...coverage,
+						acts: coverage.acts.map(
+							({ id, collection, key, title, number, status, works }) => ({
+								id,
+								collection,
+								key,
+								title,
+								number,
+								status,
+								works,
+							}),
+						),
+						bisWorkIdsByRecord: [...coverage.bisWorkIdsByRecord],
+						workDetails: [...coverage.workDetails],
+					},
+				}
+			: {}),
+	};
+}
+
+export function forma2DiaryDetails(
+	data: Awaited<ReturnType<typeof loadDefaultConstructionForma2Data>>,
+): Forma2DiaryDetails {
+	return Object.fromEntries(
+		data.diaryRecords.map((row) => {
+			const mapping = readSectionMappingSource(row.evalMetadata);
+			const original = mapping ? sectionMappingOriginalPhotos(mapping) : [];
+			return [
+				row.id,
+				{
+					label: row.Works,
+					secondaryLabel: row.Location,
+					plannedQuantity: data.hasQuantityProfile
+						? parseDefaultConstructionQuantity(row.Amounts)
+						: null,
+					description: row.originalUserComment || row.Comments || null,
+					photos: original.length ? original : (row.Photos ?? []),
+				},
+			];
+		}),
+	);
+}
+
 export async function readForma2Results(
 	siteId: string,
 	options: Parameters<typeof loadDefaultConstructionForma2Data>[1] = {},
@@ -614,42 +642,35 @@ export async function readForma2Results(
 		includeActCoverage: true,
 		...options,
 	});
-	const positions = data.state.document?.positions ?? [];
-	const calculate = () =>
-		buildForma2AnalyticsView({
-			positions,
-			sources: data.sources,
-			allocations: data.state.allocations,
-			includeSuggestions: false,
-		});
-	const view = options.trace
-		? await options.trace.measure("calculate", calculate)
+	const calculate = () => calculateForma2Results(forma2ResultsInput(data)).data;
+	return options.trace
+		? options.trace.measure("calculate", calculate)
 		: calculate();
-	return {
-		siteName: data.siteName,
-		document: documentMetadata(data.state),
-		resultRows: data.demoCosts
-			? applyForma2DemoCosts(view.resultRows, data.demoCosts)
-			: view.resultRows,
-		...(data.isDemo ? { isDemo: true } : {}),
-		...(data.actCoverage
-			? {
-					actCoverage: buildForma2ActCoverage({
-						...data.actCoverage,
-						positions,
-						works: view.mappingRows,
-					}),
-				}
-			: {}),
-		clientCosts: {
-			positions,
-			sources: data.sources,
-			allocations: data.state.allocations,
-		},
-		...(data.usesDrawingQuantities
-			? { quantitySource: "drawing" as const }
-			: {}),
-	};
+}
+
+export async function readFimaForma2Workspace(
+	siteId: string,
+	access: AuthorizedForma2Site,
+) {
+	const root = await readForma2Root(siteId);
+	if (!getForma2DocumentState(root, Boolean(access.bisCaseId)).state.document) {
+		return {
+			input: {
+				siteName: access.siteName,
+				document: null,
+				clientCosts: { positions: [], sources: [], allocations: [] },
+			} satisfies Forma2ResultsInput,
+			diary: {},
+		};
+	}
+	const data = await loadDefaultConstructionForma2Data(siteId, {
+		authorized: access,
+		root,
+		sourceScope: "all",
+		includeActCoverage: true,
+		includeDiaryDetails: true,
+	});
+	return { input: forma2ResultsInput(data), diary: forma2DiaryDetails(data) };
 }
 
 export async function readAuthorizedForma2Results(

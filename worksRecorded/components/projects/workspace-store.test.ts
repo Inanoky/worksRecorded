@@ -106,12 +106,13 @@ it("reuses authorized preloaded Limeni and FIMA views without inventing other ca
 		null,
 	);
 	store.registerRoute(
-		descriptor("fima", { fimaActs: true }),
+		descriptor("fima", { fimaActs: true, fimaForma2: true }),
 		href("fima"),
 		null,
 	);
 	expect(store.hasRoute("/dashboard/sites/limeni/izpildshemas")).toBe(true);
 	expect(store.hasRoute("/dashboard/sites/fima/acts")).toBe(true);
+	expect(store.hasRoute("/dashboard/sites/fima/analytics")).toBe(true);
 	expect(store.hasRoute("/dashboard/sites/limeni/settings")).toBe(false);
 });
 it("loads spending through its route before retaining it for later visits", () => {

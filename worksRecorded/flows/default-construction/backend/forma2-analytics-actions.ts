@@ -22,11 +22,7 @@ import {
 	suggestForma2Position,
 } from "@/flows/default-construction/lib/forma2-analytics";
 import { normalizeForma2PositionCode } from "@/flows/default-construction/lib/forma2-position-code";
-import {
-	getForma2DiaryQuantity,
-	getForma2QuantityExclusion,
-	getForma2ReportedQuantity,
-} from "@/flows/default-construction/lib/forma2-quantities";
+import { getForma2DiaryQuantity } from "@/flows/default-construction/lib/forma2-quantities";
 import {
 	calculateForma2Split,
 	type Forma2Split,
@@ -54,17 +50,20 @@ import {
 	FORMA2_PILOT,
 	readForma2ActAssignments,
 } from "../lib/forma2-act-coverage";
-import { getForma2ClientCostDetails } from "../lib/forma2-client-costs";
+import {
+	forma2MaterialSplitDetails,
+	getForma2ClientCostDetails,
+	isCompatibleMaterialPosition,
+	materialPositionOptions,
+} from "../lib/forma2-client-costs";
 import { usesForma2DrawingQuantities } from "../lib/forma2-drawing-quantities";
 import { normalizeForma2QuantityUnit } from "../lib/forma2-quantities";
-import {
-	readSectionMappingSource,
-	sectionMappingOriginalPhotos,
-} from "../lib/section-mapping-source";
+import { getForma2QuantityDetails } from "../lib/forma2-results";
 
 import {
 	analyticsRoot,
 	documentMetadata,
+	forma2DiaryDetails,
 	getCurrentForma2WorkSelections,
 	getForma2DocumentState,
 	isoDate,
@@ -201,25 +200,6 @@ async function writeStoredState(
 		create: { siteId, currentWeekProgress: jsonRoot },
 		update: { currentWeekProgress: jsonRoot },
 	});
-}
-
-function isCompatibleMaterialPosition(position: Forma2Position) {
-	return (
-		position.kind === "material" ||
-		(position.kind === "work" && !position.parentId)
-	);
-}
-
-function materialPositionOptions(positions: Forma2Position[]) {
-	return positions.filter(isCompatibleMaterialPosition).map((position) => ({
-		id: position.id,
-		code: position.code,
-		name: position.name,
-		categoryName: position.categoryName,
-		kind: position.kind,
-		parentId: position.parentId,
-		unit: position.unit,
-	}));
 }
 
 function createRuleAllocations(args: {
@@ -382,7 +362,7 @@ export async function saveDefaultConstructionForma2ActAssignments(args: {
 	});
 	if (result.count !== 1)
 		throw new Error("Forma 2 dati ir mainīti. Atjaunojiet lapu.");
-	revalidatePath(`/dashboard/sites/${args.siteId}/analytics`);
+	return actCoverage;
 }
 
 export async function getDefaultConstructionForma2PositionQuantityDetails(args: {
@@ -402,54 +382,12 @@ export async function getDefaultConstructionForma2PositionQuantityDetails(args: 
 	});
 	const position = view.resultRows.find((row) => row.id === args.positionId);
 	if (!position) throw new Error("Forma 2 position was not found");
-	const diaryById = new Map(data.diaryRecords.map((row) => [row.id, row]));
-	const records = view.mappingRows
-		.filter(
-			(row) => row.type === "work" && row.assignedPositionId === position.id,
-		)
-		.map((row) => ({
-			id: row.id,
-			label: diaryById.get(row.id)?.Works ?? row.label,
-			secondaryLabel: diaryById.get(row.id)?.Location ?? row.secondaryLabel,
-			plannedQuantity: data.hasQuantityProfile
-				? parseDefaultConstructionQuantity(diaryById.get(row.id)?.Amounts)
-				: null,
-			description:
-				diaryById.get(row.id)?.originalUserComment ||
-				diaryById.get(row.id)?.Comments ||
-				row.secondaryLabel ||
-				null,
-			photos: (() => {
-				const record = diaryById.get(row.id);
-				const mapping = readSectionMappingSource(record?.evalMetadata);
-				const original = mapping ? sectionMappingOriginalPhotos(mapping) : [];
-				return original.length ? original : (record?.Photos ?? []);
-			})(),
-			date: row.date,
-			unit: row.unit,
-			quantity: row.quantity,
-			reportedQuantity: getForma2ReportedQuantity(row),
-			exclusion: getForma2QuantityExclusion(
-				getForma2ReportedQuantity(row),
-				row.unit,
-				position.unit,
-			),
-		}))
-		.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
-	return {
-		position: {
-			id: position.id,
-			code: position.code,
-			name: position.name,
-			unit: position.unit,
-			plannedQuantity: position.plannedQuantity,
-		},
-		calculatedTotal: position.actualQuantity,
-		usesDrawingQuantities: data.usesDrawingQuantities,
-		includedRecords: records.filter((row) => !row.exclusion).length,
-		excludedRecords: position.excludedQuantityRecords,
-		records,
-	};
+	return getForma2QuantityDetails(
+		position,
+		view.mappingRows,
+		forma2DiaryDetails(data),
+		data.usesDrawingQuantities,
+	);
 }
 
 export async function getDefaultConstructionForma2PositionCostDetails(args: {
@@ -896,20 +834,11 @@ export async function getDefaultConstructionForma2SplitDetails(args: {
 	sourceId: string;
 }) {
 	const data = await loadForma2SplitSource(args.siteId, args.sourceId);
-	const positions = data.state.document?.positions ?? [];
-	const quantities = new Map(
-		positions.map((position) => [position.id, position.plannedQuantity]),
+	return forma2MaterialSplitDetails(
+		data.source,
+		data.allocation,
+		data.state.document?.positions ?? [],
 	);
-	return {
-		source: data.source,
-		split: data.allocation?.split ?? null,
-		positionId: data.allocation?.positionId ?? null,
-		expectedAllocation: JSON.stringify(data.allocation ?? null),
-		positionOptions: materialPositionOptions(positions).map((option) => ({
-			...option,
-			plannedQuantity: quantities.get(option.id) ?? null,
-		})),
-	};
 }
 
 export async function saveDefaultConstructionForma2Split(args: {

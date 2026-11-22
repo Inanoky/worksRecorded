@@ -290,7 +290,9 @@ function Workspace({
 											active={active && href === route.href}
 										/>
 									))}
-									<RetainedLimeniForma2 siteId={siteId} />
+									{!entry.descriptor.fimaForma2 ? (
+										<RetainedLimeniForma2 siteId={siteId} />
+									) : null}
 								</RetainedLimeniDiary>
 							</VisualProjectView>
 						</LimeniProjectData>

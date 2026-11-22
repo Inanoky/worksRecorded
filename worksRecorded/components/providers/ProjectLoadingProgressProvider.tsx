@@ -26,6 +26,7 @@ const Preparation = createContext<{
 	visual: boolean;
 	visualSites: readonly string[];
 	fimaActSites: readonly string[];
+	fimaForma2Sites: readonly string[];
 	reports: Record<string, Record<string, PreparationReport>>;
 	report: (
 		siteId: string,
@@ -56,6 +57,7 @@ export function ProjectLoadingProgressProvider({
 	visualPreloadEnabled = false,
 	visualPreloadSites = noSites,
 	fimaActPreloadSites = noSites,
+	fimaForma2PreloadSites = noSites,
 	cacheScope,
 	children,
 }: {
@@ -63,6 +65,7 @@ export function ProjectLoadingProgressProvider({
 	visualPreloadEnabled?: boolean;
 	visualPreloadSites?: readonly string[];
 	fimaActPreloadSites?: readonly string[];
+	fimaForma2PreloadSites?: readonly string[];
 	cacheScope?: string;
 	children: ReactNode;
 }) {
@@ -118,6 +121,7 @@ export function ProjectLoadingProgressProvider({
 			visual: visualPreloadEnabled,
 			visualSites: visualPreloadSites,
 			fimaActSites: fimaActPreloadSites,
+			fimaForma2Sites: fimaForma2PreloadSites,
 			reports,
 			report,
 			reset,
@@ -126,6 +130,7 @@ export function ProjectLoadingProgressProvider({
 			visualPreloadEnabled,
 			visualPreloadSites,
 			fimaActPreloadSites,
+			fimaForma2PreloadSites,
 			reports,
 			report,
 			reset,
@@ -187,6 +192,7 @@ export function useProjectPreparation(
 			? preparation.fimaActSites.includes(id)
 			: preparation.visual ||
 				preparation.visualSites.includes(id) ||
+				(key === "forma2" && preparation.fimaForma2Sites.includes(id)) ||
 				(!key.startsWith("visual-") && key !== "forma2"),
 	);
 	return {

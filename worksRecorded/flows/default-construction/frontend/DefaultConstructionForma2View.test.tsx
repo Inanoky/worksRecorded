@@ -14,7 +14,7 @@ jest.mock("./DefaultConstructionForma2TableScroll", () => ({
 	}) => children,
 }));
 
-it("shows each assigned act in four rows with aligned units and amounts", () => {
+it("shows each assigned act in one row with four columns and aligned quantities", () => {
 	const positionId = "console";
 	const row = {
 		id: positionId,
@@ -113,29 +113,26 @@ it("shows each assigned act in four rows with aligned units and amounts", () => 
 	expect(screen.getByText("BIS apstiprināts")).toHaveClass("bg-emerald-50");
 	expect(screen.getByText("BIS gaida apstiprinājumu")).toHaveClass("bg-sky-50");
 	expect(screen.getByText("BIS melnraksts")).toHaveClass("bg-blue-50");
-	const act = within(screen.getByRole("table", { name: "00033" }));
+	const act = within(screen.getByRole("table", { name: "BIS akti" }));
 	expect(
-		act.getAllByRole("rowheader").map((header) => header.textContent),
+		act.getAllByRole("columnheader").map((header) => header.textContent),
 	).toEqual(["Akta numurs", "Akta apraksts", "Mērvienības", "Apjomi"]);
-	const [numberRow, descriptionRow, unitsRow, amountsRow] =
-		act.getAllByRole("row");
-	expect(within(numberRow).getByText("BIS apstiprināts")).toBeVisible();
+	expect(act.getAllByRole("row")).toHaveLength(4);
+	const [number, description, units, amounts] = within(
+		act.getAllByRole("row")[1],
+	).getAllByRole("cell");
+	expect(within(number).getByText("BIS apstiprināts")).toBeVisible();
 	expect(
-		within(descriptionRow).getByText("Kontakttīkla konsoļu montāža"),
+		within(description).getByText("Kontakttīkla konsoļu montāža"),
 	).toBeVisible();
+	expect([...units.children].map((item) => item.textContent)).toEqual([
+		"komplekts",
+		"m",
+	]);
 	expect(
-		within(unitsRow)
-			.getAllByRole("cell")
-			.slice(0, 2)
-			.map((cell) => cell.textContent),
-	).toEqual(["komplekts", "m"]);
-	expect(
-		within(amountsRow)
-			.getAllByRole("cell")
-			.slice(0, 2)
-			.map((cell) => cell.textContent),
+		[...amounts.children].slice(0, 2).map((item) => item.textContent),
 	).toEqual(["22", "1,5"]);
-	const workDetails = within(amountsRow)
+	const workDetails = within(amounts)
 		.getByText("Darbu apjomi")
 		.closest("details");
 	expect(workDetails).not.toBeNull();

@@ -26,6 +26,7 @@ export function DefaultConstructionForma2ActAssignments({
 	filterPositionId,
 	latvian,
 	onClose,
+	onSaved,
 }: {
 	coverage: Forma2ActCoverage;
 	positions: Forma2Position[];
@@ -33,6 +34,11 @@ export function DefaultConstructionForma2ActAssignments({
 	filterPositionId: string;
 	latvian: boolean;
 	onClose: () => void;
+	onSaved?: (
+		update: Awaited<
+			ReturnType<typeof saveDefaultConstructionForma2ActAssignments>
+		>,
+	) => void;
 }) {
 	const refresh = useForma2Refresh(siteId);
 	const [search, setSearch] = useState("");
@@ -59,7 +65,7 @@ export function DefaultConstructionForma2ActAssignments({
 	const save = async () => {
 		setSaving(true);
 		try {
-			await saveDefaultConstructionForma2ActAssignments({
+			const update = await saveDefaultConstructionForma2ActAssignments({
 				siteId,
 				caseId: coverage.caseId,
 				documentId: coverage.documentId,
@@ -68,7 +74,8 @@ export function DefaultConstructionForma2ActAssignments({
 					positionId,
 				})),
 			});
-			refresh();
+			if (onSaved) onSaved(update);
+			else refresh();
 			onClose();
 		} catch {
 			toast.error(

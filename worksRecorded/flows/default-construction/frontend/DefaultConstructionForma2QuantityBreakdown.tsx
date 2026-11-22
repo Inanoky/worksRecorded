@@ -32,12 +32,14 @@ export function DefaultConstructionForma2QuantityBreakdown({
 	amount,
 	contractQuantity,
 	organizationLanguage,
+	getClientDetails,
 }: {
 	siteId: string;
 	positionId: string;
 	amount: number | null;
 	contractQuantity: number | null;
 	organizationLanguage?: string | null;
+	getClientDetails?: () => QuantityDetails;
 }) {
 	const isLatvian = String(organizationLanguage ?? "")
 		.toLowerCase()
@@ -96,10 +98,11 @@ export function DefaultConstructionForma2QuantityBreakdown({
 				below: "Below contract quantity",
 			};
 	const [open, setOpen] = useState(false);
-	const [details, setDetails] = useState<QuantityDetails | null>(null);
+	const [serverDetails, setDetails] = useState<QuantityDetails | null>(null);
 	const [failed, setFailed] = useState(false);
+	const details = open && getClientDetails ? getClientDetails() : serverDetails;
 	useEffect(() => {
-		if (!open) return;
+		if (!open || getClientDetails) return;
 		let cancelled = false;
 		setDetails(null);
 		setFailed(false);
@@ -117,7 +120,7 @@ export function DefaultConstructionForma2QuantityBreakdown({
 		return () => {
 			cancelled = true;
 		};
-	}, [open, siteId, positionId]);
+	}, [open, siteId, positionId, getClientDetails]);
 	const comparison = getForma2QuantityComparison(amount, contractQuantity);
 	const format = (value: number | null) =>
 		value === null

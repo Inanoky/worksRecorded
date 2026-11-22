@@ -38,6 +38,7 @@ it("authorizes the user against the requested project and returns only workspace
 		flowModuleKey: "default-construction",
 		visualPreload: false,
 		fimaActs: true,
+		fimaForma2: true,
 		constructionWorkspace: false,
 	});
 	expect(mockAccess).toHaveBeenCalledWith("user", "site");

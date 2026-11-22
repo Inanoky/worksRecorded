@@ -60,6 +60,7 @@ export function DefaultConstructionForma2TableScroll({
 			</div>
 			<section
 				ref={contentRef}
+				data-slot="table-container"
 				aria-label={label}
 				tabIndex={hasOverflow ? 0 : undefined}
 				className="relative w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"

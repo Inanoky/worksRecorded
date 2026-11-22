@@ -48,6 +48,9 @@ export async function loadWorkspaceAccess(
 			organizationId === LIMENI_ORGANIZATION_ID &&
 			flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION,
 		fimaActs: Boolean(site.bisCaseId && isFimaDiary(site.siteDiaryRecordsMap)),
+		fimaForma2:
+			flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION &&
+			isFimaDiary(site.siteDiaryRecordsMap),
 		constructionWorkspace:
 			flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION &&
 			organizationId !== LIMENI_ORGANIZATION_ID &&

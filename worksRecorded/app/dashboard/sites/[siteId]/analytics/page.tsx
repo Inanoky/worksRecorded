@@ -11,7 +11,12 @@ async function AnalyticsPage({
 }) {
 	const { siteId } = await params;
 	const workspace = await getWorkspaceAccess(siteId);
-	if (workspace.visualPreload || workspace.constructionWorkspace) return null;
+	if (
+		workspace.fimaForma2 ||
+		workspace.visualPreload ||
+		workspace.constructionWorkspace
+	)
+		return null;
 	const [organizationLanguage, data] = await Promise.all([
 		getOrganizationLanguageByUserId(workspace.userId),
 		getDefaultConstructionForma2Results(siteId),
