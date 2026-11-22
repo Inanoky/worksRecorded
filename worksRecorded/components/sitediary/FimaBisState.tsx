@@ -6,10 +6,12 @@ export function FimaBisState({
 	status,
 	language = "lv",
 	label: customLabel,
+	singleLine = false,
 }: {
 	status?: string | null;
 	language?: string;
 	label?: string;
+	singleLine?: boolean;
 }) {
 	const t = getSiteDiaryListMessages(language);
 	const value = getFimaBisStatus(status);
@@ -29,9 +31,12 @@ export function FimaBisState({
 	};
 	const label =
 		value === "deleted" ? labels.deleted : (customLabel ?? labels[value]);
+	const layout = singleLine
+		? "w-max whitespace-nowrap"
+		: "w-fit max-w-full min-w-0 whitespace-normal [overflow-wrap:anywhere]";
 	return (
 		<Badge
-			className={`block w-fit max-w-full min-w-0 whitespace-normal [overflow-wrap:anywhere] rounded-xl px-2 py-1 text-center font-medium leading-snug ${tones[value]}`}
+			className={`block rounded-xl px-2 py-1 text-center font-medium leading-snug ${layout} ${tones[value]}`}
 			title={label}
 		>
 			{label}

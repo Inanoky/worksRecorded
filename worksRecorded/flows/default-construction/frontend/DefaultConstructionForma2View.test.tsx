@@ -14,7 +14,7 @@ jest.mock("./DefaultConstructionForma2TableScroll", () => ({
 	}) => children,
 }));
 
-it("shows each assigned act in one row with four columns and aligned quantities", () => {
+it("shows each assigned act in one row with aligned quantities and a separate status column", () => {
 	const positionId = "console";
 	const row = {
 		id: positionId,
@@ -111,17 +111,33 @@ it("shows each assigned act in one row with four columns and aligned quantities"
 		"https://bis.gov.lv/00033",
 	);
 	expect(screen.getByText("BIS apstiprināts")).toHaveClass("bg-emerald-50");
-	expect(screen.getByText("BIS gaida apstiprinājumu")).toHaveClass("bg-sky-50");
-	expect(screen.getByText("BIS melnraksts")).toHaveClass("bg-blue-50");
+	expect(screen.getByText("BIS gaida apstiprinājumu")).toHaveClass(
+		"bg-sky-50",
+		"whitespace-nowrap",
+	);
+	expect(screen.getByText("BIS melnraksts")).toHaveClass(
+		"bg-blue-50",
+		"w-max",
+		"whitespace-nowrap",
+	);
 	const act = within(screen.getByRole("table", { name: "BIS akti" }));
 	expect(
 		act.getAllByRole("columnheader").map((header) => header.textContent),
-	).toEqual(["Akta numurs", "Akta apraksts", "Mērvienības", "Apjomi"]);
+	).toEqual([
+		"Akta numurs",
+		"Akta apraksts",
+		"Mērvienības",
+		"Apjomi",
+		"Statuss",
+	]);
 	expect(act.getAllByRole("row")).toHaveLength(4);
-	const [number, description, units, amounts] = within(
+	const [number, description, units, amounts, status] = within(
 		act.getAllByRole("row")[1],
 	).getAllByRole("cell");
-	expect(within(number).getByText("BIS apstiprināts")).toBeVisible();
+	expect(number).toHaveTextContent(/^00033$/);
+	expect(within(status).getByText("BIS apstiprināts")).toHaveClass(
+		"whitespace-nowrap",
+	);
 	expect(
 		within(description).getByText("Kontakttīkla konsoļu montāža"),
 	).toBeVisible();

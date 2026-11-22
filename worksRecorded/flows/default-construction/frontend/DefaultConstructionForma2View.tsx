@@ -113,12 +113,15 @@ function Forma2PositionActs({
 					>
 						<thead className="border-b bg-muted/50 text-xs text-muted-foreground">
 							<tr className="[&_th]:px-3 [&_th]:py-2 [&_th]:font-medium">
-								<th scope="col">{latvian ? "Akta numurs" : "Act number"}</th>
+								<th scope="col" className="whitespace-nowrap">
+									{latvian ? "Akta numurs" : "Act number"}
+								</th>
 								<th scope="col">
 									{latvian ? "Akta apraksts" : "Act description"}
 								</th>
 								<th scope="col">{latvian ? "Mērvienības" : "Units"}</th>
 								<th scope="col">{latvian ? "Apjomi" : "Amounts"}</th>
+								<th scope="col">{latvian ? "Statuss" : "Status"}</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y">
@@ -173,19 +176,6 @@ function Forma2PositionAct({
 					{act.label}
 					<ExternalLink className="size-3 shrink-0" aria-hidden="true" />
 				</a>
-				<div className="mt-1">
-					<FimaBisState
-						status={act.status}
-						language={latvian ? "lv" : "en"}
-						label={
-							["approved", "approving", "draft"].includes(act.status)
-								? undefined
-								: latvian
-									? getFimaActStatusLabel(act.status)
-									: act.status.replaceAll("_", " ")
-						}
-					/>
-				</div>
 			</td>
 			<td className="break-words">{act.title || "—"}</td>
 			<td className="w-px whitespace-nowrap">
@@ -206,6 +196,20 @@ function Forma2PositionAct({
 						numberFormat={numberFormat}
 					/>
 				) : null}
+			</td>
+			<td className="w-px whitespace-nowrap">
+				<FimaBisState
+					singleLine
+					status={act.status}
+					language={latvian ? "lv" : "en"}
+					label={
+						["approved", "approving", "draft"].includes(act.status)
+							? undefined
+							: latvian
+								? getFimaActStatusLabel(act.status)
+								: act.status.replaceAll("_", " ")
+					}
+				/>
 			</td>
 		</tr>
 	);
