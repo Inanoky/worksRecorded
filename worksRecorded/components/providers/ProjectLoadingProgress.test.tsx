@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { PathnameContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 import { useEffect } from "react";
 import DiaryLoading from "@/app/dashboard/sites/[siteId]/dashboard/loading";
 import ProjectLoading from "@/app/dashboard/sites/[siteId]/loading";
@@ -47,6 +48,21 @@ it("keeps the existing loading state for other flows without adding a progress b
 		screen.getByRole("status", { name: "Loading project" }),
 	).toBeInTheDocument();
 	expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+});
+
+it("keeps the FIMA loading screen inside the project content when opening a diary URL", () => {
+	const content = (siteId: string) => (
+		<PathnameContext.Provider value={`/dashboard/sites/${siteId}/dashboard`}>
+			<ProjectLoadingProgressProvider enabled fimaActPreloadSites={["fima"]}>
+				<DiaryLoading />
+			</ProjectLoadingProgressProvider>
+		</PathnameContext.Provider>
+	);
+	const view = render(content("fima"));
+	expect(screen.getByRole("status")).not.toHaveClass("fixed");
+	expect(screen.getByText(/Akti un paraugi/)).toBeVisible();
+	view.rerender(content("ordinary"));
+	expect(screen.getByRole("status")).toHaveClass("fixed");
 });
 it("uses real progress counts and never substitutes a timer-based percentage", () => {
 	const { rerender } = render(

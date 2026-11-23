@@ -179,6 +179,18 @@ export function useVisualProjectPreload(siteId?: string) {
 	);
 }
 
+export function useFimaProjectPreload(siteId?: string) {
+	const scope = useContext(Scope);
+	const preparation = useContext(Preparation);
+	const id = siteId ?? scope;
+	return (
+		!!id &&
+		!!preparation &&
+		(preparation.fimaActSites.includes(id) ||
+			preparation.fimaForma2Sites.includes(id))
+	);
+}
+
 export function useProjectPreparation(
 	siteId?: string,
 ): ProjectLoadingProgress | null {

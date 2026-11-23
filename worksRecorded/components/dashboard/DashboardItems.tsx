@@ -30,7 +30,10 @@ import {
 	getTgemWorkspaceNavLinks,
 	type TgemWorkspaceNavLink,
 } from "./NavLinks";
-import { useDashboardNavigation } from "./useDashboardNavigation";
+import {
+	type DashboardNavigationProject,
+	useDashboardNavigation,
+} from "./useDashboardNavigation";
 
 export function DashboardItems({
 	organizationId,
@@ -126,9 +129,7 @@ export function DashboardProjectNavigation({
 		utilityProjectNavLinks,
 	} = useDashboardNavigation({
 		fimaCollaborationEnabled,
-		fimaActProjectIds: availableProjects
-			.filter((project) => project.fimaActsEnabled)
-			.map((project) => project.id),
+		availableProjects,
 		organizationLanguage,
 		canAccessAiEvals,
 		canAccessFlowConfigAdmin,
@@ -381,11 +382,7 @@ type ResolvedProjectLink = ReturnType<
 	typeof useDashboardNavigation
 >["projectNavLinks"][number];
 
-type ProjectSwitcherOption = {
-	id: string;
-	name: string;
-	fimaActsEnabled?: boolean;
-};
+type ProjectSwitcherOption = DashboardNavigationProject;
 
 const projectNavItemClasses =
 	"inline-flex h-10 min-w-0 items-center gap-2 rounded-lg border px-3.5 text-[13px] font-medium leading-none whitespace-nowrap transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-green-500/20 focus-visible:border-green-500 active:translate-y-px dark:focus-visible:ring-emerald-400/25 dark:focus-visible:border-emerald-400";

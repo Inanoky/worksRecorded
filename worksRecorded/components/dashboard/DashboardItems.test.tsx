@@ -140,6 +140,39 @@ describe("dashboard navigation", () => {
 		);
 	});
 
+	it("renders cached FIMA project tabs before the navigation request finishes", () => {
+		mockPathname = "/dashboard/sites/fima-cold-olaine/dashboard";
+		getProjectNavigationRuntimeForSiteMock.mockReturnValue(
+			new Promise(() => {}),
+		);
+		render(
+			<ProjectProvider userId="fima-cold">
+				<DashboardProjectNavigation
+					fimaCollaborationEnabled
+					organizationLanguage="lv"
+					flowModuleKey={FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}
+					availableProjects={[
+						{
+							id: "fima-cold-olaine",
+							name: "Olaine stacija",
+							fimaActsEnabled: true,
+							fimaForma2Enabled: true,
+						},
+					]}
+				/>
+			</ProjectProvider>,
+		);
+		expect(screen.getByText("Olaine stacija")).toBeVisible();
+		expect(
+			screen.getByRole("link", { name: "Būvdarbu žurnāls" }),
+		).toHaveAttribute("aria-current", "page");
+		expect(screen.getByRole("link", { name: "Akti" })).toBeVisible();
+		expect(screen.getByRole("link", { name: "Forma 2" })).toHaveAttribute(
+			"href",
+			"/dashboard/sites/fima-cold-olaine/analytics",
+		);
+	});
+
 	it("hides permission-gated global links without access", () => {
 		render(<DashboardItems organizationLanguage="en" />);
 
