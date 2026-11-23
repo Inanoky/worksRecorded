@@ -1,4 +1,5 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import { ZodError } from "zod";
 import { readLimitedBody } from "@/flows/default-construction/visual/share-body";
 import { requireVisualAccess } from "@/flows/default-construction/visual/store";
 import { WasenderApiError } from "@/flows/default-construction/visual/wasender-connections-api";
@@ -52,6 +53,12 @@ export async function GET(request: Request, context: Context) {
 		console.warn("WaSenderAPI group lookup failed", {
 			kind: error instanceof Error ? error.name : "UnknownError",
 			status: error instanceof WasenderApiError ? error.status : undefined,
+			fields:
+				error instanceof ZodError
+					? error.issues
+							.slice(0, 3)
+							.map(({ code, path }) => `${code}:${path.join(".")}`)
+					: undefined,
 		});
 		return jsonError("WhatsApp savienojums šobrīd nav pieejams.", 503);
 	}

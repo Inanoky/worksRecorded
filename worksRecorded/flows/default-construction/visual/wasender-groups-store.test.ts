@@ -1,3 +1,4 @@
+/** @jest-environment node */
 const findUnique = jest.fn();
 const upsert = jest.fn();
 const readWasenderConnections = jest.fn();
@@ -85,4 +86,35 @@ it("rejects a group that the connected WhatsApp phone cannot see", async () => {
 		}),
 	).rejects.toThrow("grupas ir mainījušās");
 	expect(upsert).not.toHaveBeenCalled();
+});
+
+it("lists groups across response pages even when some rows have no name", async () => {
+	provider.mockResolvedValueOnce(
+		Response.json({
+			success: true,
+			data: {
+				items: [
+					{ jid: group.id, name: null },
+					{ jid: "not-a-group@s.whatsapp.net", name: "Skipped" },
+				],
+				pagination: { page: 1, totalPages: 2 },
+			},
+		}),
+	);
+	provider.mockResolvedValueOnce(
+		Response.json({
+			success: true,
+			data: {
+				items: [{ id: other.id, subject: other.name }],
+				pagination: { page: 2, totalPages: 2 },
+			},
+		}),
+	);
+	expect(
+		(await readWasenderProjectGroups(access, true)).availableGroups,
+	).toEqual([other, { id: group.id, name: "Grupa bez nosaukuma" }]);
+	expect(provider.mock.calls.map(([url]) => new URL(url).search)).toEqual([
+		"",
+		"?paginated=true&page=2",
+	]);
 });

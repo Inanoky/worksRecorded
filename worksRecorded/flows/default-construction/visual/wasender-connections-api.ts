@@ -148,17 +148,49 @@ const messageId = z
 	.union([z.string().regex(/^\d+$/), z.number().int().positive().safe()])
 	.transform(String);
 
+const groupRows = z.array(z.unknown());
+const groupPage = success.extend({
+	data: z.union([
+		groupRows,
+		z.object({
+			items: groupRows,
+			pagination: z.object({
+				page: z.number().int().positive(),
+				totalPages: z.number().int().nonnegative(),
+			}),
+		}),
+	]),
+});
+const groupEntry = z.object({
+	jid: wasenderGroupId.optional().catch(undefined),
+	id: wasenderGroupId.optional().catch(undefined),
+	name: z.string().optional().catch(undefined),
+	subject: z.string().optional().catch(undefined),
+});
+
 export async function listWasenderGroups(token: string) {
-	const { data } = success
-		.extend({ data: z.array(z.object({ jid: z.string(), name: z.string() })) })
-		.parse(await request("/groups", token));
 	const groups = new Map<string, { id: string; name: string }>();
-	for (const { jid, name } of data) {
-		if (wasenderGroupId.safeParse(jid).success)
-			groups.set(jid, {
-				id: jid,
-				name: name.trim().slice(0, 150) || "Grupa bez nosaukuma",
+	let page = 1;
+	while (true) {
+		const path = page === 1 ? "/groups" : `/groups?paginated=true&page=${page}`;
+		const { data } = groupPage.parse(await request(path, token));
+		const rows = Array.isArray(data) ? data : data.items;
+		for (const row of rows) {
+			const entry = groupEntry.safeParse(row);
+			if (!entry.success) continue;
+			const id = entry.data.jid ?? entry.data.id;
+			if (!id) continue;
+			const name = entry.data.name?.trim() || entry.data.subject?.trim();
+			groups.set(id, {
+				id,
+				name: name?.slice(0, 150) || "Grupa bez nosaukuma",
 			});
+		}
+		if (Array.isArray(data)) break;
+		if (data.pagination.page !== page)
+			throw new Error("WaSenderAPI returned an unexpected group page");
+		if (page >= data.pagination.totalPages) break;
+		page++;
 	}
 	return Array.from(groups.values()).sort((a, b) =>
 		a.name.localeCompare(b.name, "lv"),
