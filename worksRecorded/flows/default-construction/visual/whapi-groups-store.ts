@@ -82,7 +82,8 @@ export async function readWhapiProjectGroups(
 	const config = getWhapiConfig();
 	if (!config) return idleStatus("unavailable");
 	const connection = await findConnection(access);
-	if (!connection) return idleStatus("disconnected");
+	if (!connection)
+		return idleStatus(config.partner ? "disconnected" : "unavailable");
 	const token = connectionToken(connection, config);
 	if (!token || !connection.privacyConfigured)
 		return idleStatus(pairingOpen(connection) ? "pairing" : "reconnect");
@@ -138,6 +139,10 @@ async function startPairing(access: Access, config: Config) {
 			});
 		return readWhapiProjectGroups(access, true);
 	}
+	if (!config.partner)
+		throw new WhapiGroupsError(
+			"Jaunu WhatsApp kanālu izveide vēl nav pieejama.",
+		);
 	const id = randomUUID();
 	const claim = await prisma.whapiUserConnection.createMany({
 		data: {
@@ -151,7 +156,7 @@ async function startPairing(access: Access, config: Config) {
 	if (!claim.count) return readWhapiProjectGroups(access, true);
 	try {
 		const channel = await createWhapiChannel(
-			config,
+			config.partner,
 			`WorksRecorded Līmeni ${id.slice(0, 8)}`,
 		);
 		await prisma.whapiUserConnection.update({
