@@ -2,8 +2,9 @@
 
 import { Loader2, MessageCircle, UserRound, UsersRound } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { VisualWhatsAppConnectionControls } from "@/components/settings/VisualWhatsAppConnectionsCard";
+import { VisualWhatsAppGroupsCard } from "@/components/settings/VisualWhatsAppGroupsCard";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -65,6 +66,8 @@ export function VisualPlanningWhatsApp({
 	);
 	const [groupId, setGroupId] = useState("");
 	const [groupError, setGroupError] = useState(false);
+	const groupRefresh = useRef(0);
+	const groupOpen = open && target === "group";
 	const [prepared, setPrepared] = useState<{
 		key: string;
 		images: PreviewImage[];
@@ -106,29 +109,39 @@ export function VisualPlanningWhatsApp({
 			for (const url of urls) URL.revokeObjectURL(url);
 		};
 	}, [active, imageKey, retry]);
-	useEffect(() => {
-		if (!active) return;
-		let cancelled = false;
-		const refresh = (force = false) => {
+	const loadGroups = useCallback(
+		(force: boolean) => {
+			const request = ++groupRefresh.current;
 			void cache.loadWhatsAppGroups({ force }).then(
 				(next) => {
-					if (cancelled) return;
+					if (request !== groupRefresh.current) return;
 					setConnection(next);
 					setGroupError(false);
 				},
 				() => {
-					if (!cancelled) setGroupError(!cache.peekWhatsAppGroups());
+					if (request === groupRefresh.current)
+						setGroupError(!cache.peekWhatsAppGroups());
 				},
 			);
-		};
-		refresh();
-		const refreshOnFocus = () => refresh(true);
-		if (open) window.addEventListener("focus", refreshOnFocus);
+		},
+		[cache],
+	);
+	useEffect(() => {
+		if (!active) return;
+		loadGroups(groupOpen);
+		const refreshOnFocus = () => loadGroups(true);
+		if (groupOpen) window.addEventListener("focus", refreshOnFocus);
 		return () => {
-			cancelled = true;
+			++groupRefresh.current;
 			window.removeEventListener("focus", refreshOnFocus);
 		};
-	}, [active, cache, open]);
+	}, [active, groupOpen, loadGroups]);
+	const refreshGroups = useCallback(() => {
+		cache.setWhatsAppGroups();
+		setConnection(null);
+		setGroupError(false);
+		loadGroups(true);
+	}, [cache, loadGroups]);
 	const images = prepared.key === imageKey ? prepared.images : [];
 	const recipient = normalizePlanningWhatsAppPhone(contact?.phone ?? "");
 	const group =
@@ -138,7 +151,6 @@ export function VisualPlanningWhatsApp({
 	const groupSender = connection?.phone;
 	const canAddress =
 		target === "direct" ? Boolean(recipient) : Boolean(group && groupSender);
-	const settingsLink = `/dashboard/sites/${encodeURIComponent(siteId)}/settings#whatsapp-groups-${encodeURIComponent(siteId)}`;
 	const outgoingMessage = planningWhatsAppMessageWithReportingNote(message);
 	const messageTooLong =
 		outgoingMessage.length > PLANNING_WHATSAPP_MESSAGE_LIMIT;
@@ -258,12 +270,7 @@ export function VisualPlanningWhatsApp({
 								size="sm"
 								type="button"
 								variant="outline"
-								onClick={() => {
-									setGroupError(false);
-									void cache
-										.loadWhatsAppGroups({ force: true })
-										.then(setConnection, () => setGroupError(true));
-								}}
+								onClick={refreshGroups}
 							>
 								Mēģināt vēlreiz
 							</Button>
@@ -288,29 +295,42 @@ export function VisualPlanningWhatsApp({
 								· WaSenderAPI
 							</p>
 						</div>
-					) : (
+					) : connection.status === "unavailable" ? (
 						<p className="text-sm text-muted-foreground">
-							{connection.status === "unavailable" ? (
-								"WhatsApp grupu integrācija vēl nav aktivizēta."
-							) : (
-								<Link
-									href={settingsLink}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="font-medium text-primary underline-offset-4 hover:underline"
-								>
-									{connection.status === "connected"
-										? "Pievienot grupas projekta iestatījumos"
-										: connection.status === "reconnect" ||
-												connection.status === "expired"
-											? "Atkārtoti savienot WhatsApp"
-											: "Savienot WhatsApp projekta iestatījumos"}
-								</Link>
-							)}
+							WhatsApp grupu integrācija vēl nav aktivizēta.
 						</p>
-					)}
+					) : null}
 				</div>
 				<div className="grid min-h-0 gap-4 overflow-y-auto sm:grid-cols-2">
+					{groupOpen &&
+					!groupError &&
+					connection &&
+					connection.status !== "unavailable" ? (
+						connection.status !== "connected" ? (
+							<div className="col-span-full">
+								<VisualWhatsAppConnectionControls
+									inline
+									siteId={siteId}
+									preferredConnectionId={connection.connectionId}
+									onConnectionChange={refreshGroups}
+								/>
+							</div>
+						) : !connection.groups.length ? (
+							<div className="col-span-full">
+								<VisualWhatsAppGroupsCard
+									inline
+									siteId={siteId}
+									onSaved={({ status, phone, groups, connectionId }) => {
+										const next = { status, phone, groups, connectionId };
+										++groupRefresh.current;
+										cache.setWhatsAppGroups(next);
+										setConnection(next);
+										setGroupId(groups.length === 1 ? groups[0].id : "");
+									}}
+								/>
+							</div>
+						) : null
+					) : null}
 					<div className="space-y-3">
 						{!images.length && !imageError ? (
 							<output

@@ -76,6 +76,12 @@ export class VisualClientCache {
 		return this.whatsAppGroups?.value;
 	}
 
+	setWhatsAppGroups(value?: WhatsAppGroupConnection) {
+		this.whatsAppGroupRequest?.controller.abort();
+		this.whatsAppGroupRequest = undefined;
+		this.whatsAppGroups = value ? { value, updatedAt: this.now() } : undefined;
+	}
+
 	loadWhatsAppGroups({ force = false }: LoadOptions = {}) {
 		if (this.whatsAppGroupRequest) return this.whatsAppGroupRequest.promise;
 		const cached = this.whatsAppGroups;
@@ -1064,9 +1070,7 @@ export class VisualClientCache {
 
 	clear() {
 		this.planningImages.clear();
-		this.whatsAppGroupRequest?.controller.abort();
-		this.whatsAppGroupRequest = undefined;
-		this.whatsAppGroups = undefined;
+		this.setWhatsAppGroups();
 		this.tileAbort.abort();
 		this.tileAbort = new AbortController();
 		this.tileBlobs.clear();

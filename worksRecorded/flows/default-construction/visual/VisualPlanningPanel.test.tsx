@@ -39,7 +39,11 @@ import {
 } from "./VisualPlanningPanel";
 import { VisualPlanningWhatsApp } from "./VisualPlanningWhatsApp";
 import { VisualClientCache } from "./visual-client-cache";
-import { readWhatsAppGroups } from "./whatsapp-groups-client";
+import { requestWasenderConnections } from "./wasender-connections-client";
+import {
+	readWhatsAppGroups,
+	updateWhatsAppGroups,
+} from "./whatsapp-groups-client";
 
 jest.mock("./actions", () => ({
 	addVisualSection: jest.fn(),
@@ -64,11 +68,12 @@ jest.mock("sonner", () => ({
 }));
 jest.mock("./whatsapp-groups-client", () => ({
 	...jest.requireActual("./whatsapp-groups-client"),
-	readWhatsAppGroups: jest.fn().mockResolvedValue({
-		status: "disconnected",
-		phone: null,
-		groups: [],
-	}),
+	readWhatsAppGroups: jest.fn(),
+	updateWhatsAppGroups: jest.fn(),
+}));
+jest.mock("./wasender-connections-client", () => ({
+	...jest.requireActual("./wasender-connections-client"),
+	requestWasenderConnections: jest.fn(),
 }));
 jest.mock("./VisualPdf", () => ({
 	VisualPdf: ({
@@ -545,6 +550,15 @@ async function clickToastAction(action: Action) {
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	jest
+		.mocked(readWhatsAppGroups)
+		.mockReset()
+		.mockResolvedValue({ status: "disconnected", phone: null, groups: [] });
+	jest
+		.mocked(requestWasenderConnections)
+		.mockReset()
+		.mockResolvedValue({ enabled: true, connections: [] });
+	jest.mocked(updateWhatsAppGroups).mockReset();
 	jest.spyOn(VisualClientCache.prototype, "openPdf").mockReturnValue({
 		promise: Promise.resolve({} as PDFDocumentProxy),
 		release: jest.fn(),
@@ -1336,9 +1350,9 @@ it("prepares images before opening and sends to the assigned contact without ask
 	);
 });
 
-it("preloads saved WhatsApp groups and reuses them when opening the dialog or switching recipients", async () => {
+it("opens saved WhatsApp groups from cache while checking the connection in the background", async () => {
 	const groups = jest.mocked(readWhatsAppGroups);
-	groups.mockResolvedValueOnce({
+	groups.mockResolvedValue({
 		status: "connected",
 		phone: "37120000000",
 		groups: [{ id: "120000000000000001@g.us", name: "Testa grupa" }],
@@ -1373,14 +1387,136 @@ it("preloads saved WhatsApp groups and reuses them when opening the dialog or sw
 		expect(
 			screen.queryByText("Ielādē projekta grupas…"),
 		).not.toBeInTheDocument();
+		await waitFor(() => expect(groups).toHaveBeenCalledTimes(attempt + 2));
 		fireEvent.click(screen.getByRole("button", { name: "Kontaktpersona" }));
 		fireEvent.click(screen.getByRole("button", { name: "Atcelt" }));
 	}
-	expect(groups).toHaveBeenCalledTimes(1);
 });
 
+it.each(["reconnect", "first connection"])(
+	"pairs WhatsApp inside the task dialog for %s",
+	async (scenario) => {
+		jest.useFakeTimers();
+		const reconnect = scenario === "reconnect";
+		const number = { id: "phone-connection", phone: "+37120000000" };
+		const group = { id: "120000000000000001@g.us", name: "Testa grupa" };
+		const connected = {
+			status: "connected" as const,
+			phone: "37120000000",
+			connectionId: number.id,
+			groups: reconnect ? [group] : [],
+		};
+		let scanned = false;
+		jest
+			.mocked(readWhatsAppGroups)
+			.mockImplementation(async (_site, options) =>
+				scanned
+					? {
+							...connected,
+							...(options?.manage ? { availableGroups: [group] } : {}),
+						}
+					: {
+							status: reconnect ? "reconnect" : "disconnected",
+							phone: null,
+							groups: [],
+							connectionId: reconnect ? number.id : undefined,
+						},
+			);
+		const requests = jest.mocked(requestWasenderConnections);
+		requests.mockResolvedValueOnce({
+			enabled: true,
+			connections: reconnect ? [{ ...number, status: "disconnected" }] : [],
+		});
+		requests.mockResolvedValueOnce({
+			connection: { ...number, status: "pairing" },
+		});
+		requests.mockResolvedValueOnce({ ...number, status: "connected" });
+		jest
+			.mocked(updateWhatsAppGroups)
+			.mockResolvedValueOnce({ ...connected, groups: [group] });
+		const cache = new VisualClientCache("site");
+		if (reconnect) cache.setWhatsAppGroups(connected);
+		render(
+			<VisualPlanningWhatsApp
+				siteId="site"
+				cache={cache}
+				plan={plan}
+				imageKey="test-image-key"
+				disabled={false}
+				createImages={async () => [
+					{ page: 1, blob: new Blob(["zone"], { type: "image/png" }) },
+				]}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
+		fireEvent.change(screen.getByRole("textbox", { name: "Ziņa" }), {
+			target: { value: "Pārbaudīt zonu" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "WhatsApp grupa" }));
+		if (reconnect) {
+			fireEvent.click(await screen.findByRole("button", { name: "Savienot" }));
+		} else {
+			fireEvent.change(
+				await screen.findByRole("textbox", { name: "Tālruņa numurs" }),
+				{ target: { value: number.phone } },
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Pievienot numuru" }));
+		}
+		const qr = await screen.findByRole("img", {
+			name: "WhatsApp savienošanas QR kods",
+		});
+		expect(qr).toHaveAttribute(
+			"src",
+			expect.stringContaining(`whatsapp-connections?qr=${number.id}`),
+		);
+		expect(screen.getByRole("button", { name: "Nosūtīt" })).toBeDisabled();
+		expect(requests).toHaveBeenCalledWith(
+			"/api/sites/site/visual/whatsapp-connections",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify(
+					reconnect
+						? { action: "connect", id: number.id }
+						: { action: "add", phone: number.phone },
+				),
+			}),
+		);
+
+		scanned = true;
+		await act(async () => jest.advanceTimersByTimeAsync(4500));
+		if (reconnect) {
+			fireEvent.click(
+				await screen.findByRole("button", { name: "Izvēlēties grupu" }),
+			);
+			fireEvent.click(screen.getByRole("button", { name: group.name }));
+		} else {
+			fireEvent.click(
+				await screen.findByRole("checkbox", { name: group.name }),
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Saglabāt grupas" }));
+			await waitFor(() =>
+				expect(updateWhatsAppGroups).toHaveBeenCalledWith("site", {
+					action: "save-groups",
+					connectionId: number.id,
+					groupIds: [group.id],
+				}),
+			);
+		}
+		expect(screen.getByRole("dialog")).toBeInTheDocument();
+		expect(
+			screen.queryByRole("img", { name: "WhatsApp savienošanas QR kods" }),
+		).not.toBeInTheDocument();
+		expect(screen.getByRole("textbox", { name: "Ziņa" })).toHaveValue(
+			"Pārbaudīt zonu",
+		);
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Nosūtīt" })).toBeEnabled(),
+		);
+	},
+);
+
 it("checks group receipts after leaving the task and retries only through the original send", async () => {
-	jest.mocked(readWhatsAppGroups).mockResolvedValueOnce({
+	jest.mocked(readWhatsAppGroups).mockResolvedValue({
 		status: "connected",
 		phone: "37120000000",
 		groups: [{ id: "120000000000000001@g.us", name: "Testa grupa" }],

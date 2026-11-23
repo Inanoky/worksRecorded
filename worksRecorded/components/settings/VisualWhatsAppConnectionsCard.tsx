@@ -56,6 +56,38 @@ export function VisualWhatsAppConnectionsCard({
 	siteId: string;
 	onConnectionChange?: () => void;
 }) {
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle className="flex items-center gap-2">
+					<Smartphone className="size-5 text-muted-foreground" /> WhatsApp
+					numuri
+				</CardTitle>
+				<CardDescription>
+					Pievienojiet savu WhatsApp numuru ar WaSenderAPI.
+				</CardDescription>
+			</CardHeader>
+			<CardContent>
+				<VisualWhatsAppConnectionControls
+					siteId={siteId}
+					onConnectionChange={onConnectionChange}
+				/>
+			</CardContent>
+		</Card>
+	);
+}
+
+export function VisualWhatsAppConnectionControls({
+	siteId,
+	onConnectionChange,
+	inline = false,
+	preferredConnectionId,
+}: {
+	siteId: string;
+	onConnectionChange?: () => void;
+	inline?: boolean;
+	preferredConnectionId?: string;
+}) {
 	const endpoint = wasenderConnectionsEndpoint(siteId);
 	const phoneField = useId();
 	const [enabled, setEnabled] = useState<boolean | null>(null);
@@ -69,6 +101,8 @@ export function VisualWhatsAppConnectionsCard({
 	const [qrVersion, setQrVersion] = useState(0);
 	const [qrFailed, setQrFailed] = useState(false);
 	const active = connections.find(({ id }) => id === pairing);
+	const preferred = connections.find(({ id }) => id === preferredConnectionId);
+	const visibleConnections = inline && preferred ? [preferred] : connections;
 	const listEndpoint = `${endpoint}?v=${reload}`;
 
 	useEffect(() => {
@@ -80,13 +114,22 @@ export function VisualWhatsAppConnectionsCard({
 				if (controller.signal.aborted) return;
 				setEnabled(data.enabled);
 				setConnections(data.connections);
+				if (inline) {
+					const preferred = data.connections.find(
+						({ id }) => id === preferredConnectionId,
+					);
+					const candidates = preferred ? [preferred] : data.connections;
+					setPairing(
+						candidates.find(({ status }) => status === "pairing")?.id ?? null,
+					);
+				}
 			},
 			(reason: Error) => {
 				if (!controller.signal.aborted) setError(reason.message);
 			},
 		);
 		return () => controller.abort();
-	}, [listEndpoint]);
+	}, [inline, listEndpoint, preferredConnectionId]);
 
 	useEffect(() => {
 		if (!pairing || busy) return;
@@ -99,11 +142,13 @@ export function VisualWhatsAppConnectionsCard({
 					{ signal: controller.signal },
 				);
 				if (controller.signal.aborted) return;
-				setConnections((list) => updateConnection(list, next));
-				if (next.status !== "pairing") {
-					setPairing(null);
-					onConnectionChange?.();
-					return;
+				if (next.status !== "unavailable") {
+					setConnections((list) => updateConnection(list, next));
+					if (next.status !== "pairing") {
+						setPairing(null);
+						if (!inline || next.status === "connected") onConnectionChange?.();
+						return;
+					}
 				}
 			} catch {
 				if (controller.signal.aborted) return;
@@ -120,7 +165,7 @@ export function VisualWhatsAppConnectionsCard({
 			window.clearTimeout(nextCheck);
 			window.clearInterval(refreshQr);
 		};
-	}, [busy, endpoint, onConnectionChange, pairing]);
+	}, [busy, endpoint, inline, onConnectionChange, pairing]);
 
 	async function submit(action: WasenderConnectionAction) {
 		setBusy(true);
@@ -147,7 +192,11 @@ export function VisualWhatsAppConnectionsCard({
 				setConnections((list) => list.filter(({ id }) => id !== action.id));
 				if (pairing === action.id) setPairing(null);
 			}
-			if (connection?.status !== "pairing") onConnectionChange?.();
+			if (
+				connection?.status === "connected" ||
+				(!inline && connection?.status !== "pairing")
+			)
+				onConnectionChange?.();
 		} catch (reason) {
 			setError(
 				reason instanceof Error ? reason.message : "Neizdevās saglabāt numuru.",
@@ -164,27 +213,18 @@ export function VisualWhatsAppConnectionsCard({
 	}
 
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle className="flex items-center gap-2">
-					<Smartphone className="size-5 text-muted-foreground" /> WhatsApp
-					numuri
-				</CardTitle>
-				<CardDescription>
-					Pievienojiet savu WhatsApp numuru ar WaSenderAPI.
-				</CardDescription>
-			</CardHeader>
-			<CardContent className="space-y-4">
-				{enabled === null && !error ? (
-					<p className="text-sm text-muted-foreground">Ielādē numurus…</p>
-				) : null}
-				{enabled === false ? (
-					<p className="text-sm text-muted-foreground">
-						WaSenderAPI vēl nav aktivizēts.
-					</p>
-				) : null}
-				{enabled ? (
-					<>
+		<div className="space-y-4">
+			{enabled === null && !error ? (
+				<p className="text-sm text-muted-foreground">Ielādē numurus…</p>
+			) : null}
+			{enabled === false ? (
+				<p className="text-sm text-muted-foreground">
+					WaSenderAPI vēl nav aktivizēts.
+				</p>
+			) : null}
+			{enabled ? (
+				<>
+					{!inline || connections.length === 0 ? (
 						<form
 							className="flex flex-wrap items-end gap-2"
 							onSubmit={addNumber}
@@ -208,54 +248,65 @@ export function VisualWhatsAppConnectionsCard({
 								<Plus className="size-4" /> Pievienot numuru
 							</Button>
 						</form>
-						{connections.length ? (
-							<ul className="divide-y rounded-lg border">
-								{connections.map((item) => (
-									<li
-										key={item.id}
-										className="flex flex-wrap items-center justify-between gap-2 p-3"
-									>
-										<div>
-											<p className="text-sm font-medium">{item.phone}</p>
-											<output
-												className={`text-sm ${item.status === "connected" ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}
+					) : null}
+					{visibleConnections.length ? (
+						<ul className="divide-y rounded-lg border">
+							{visibleConnections.map((item) => (
+								<li
+									key={item.id}
+									className="flex flex-wrap items-center justify-between gap-2 p-3"
+								>
+									<div>
+										<p className="text-sm font-medium">{item.phone}</p>
+										<output
+											className={`text-sm ${item.status === "connected" ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}
+										>
+											{statusLabels[item.status]}
+										</output>
+									</div>
+									<div className="flex flex-wrap gap-2">
+										{inline && item.status === "connected" ? (
+											<Button
+												type="button"
+												size="sm"
+												variant="outline"
+												onClick={onConnectionChange}
 											>
-												{statusLabels[item.status]}
-											</output>
-										</div>
-										<div className="flex flex-wrap gap-2">
-											{item.status === "connected" ||
+												Atjaunot grupas
+											</Button>
+										) : item.status === "connected" ||
 											item.status === "wrong_number" ? (
-												<Button
-													type="button"
-													variant="outline"
-													size="sm"
-													disabled={busy}
-													onClick={() =>
-														void submit({ action: "disconnect", id: item.id })
-													}
-												>
-													Atvienot
-												</Button>
-											) : (
-												<Button
-													type="button"
-													variant="outline"
-													size="sm"
-													disabled={busy || pairing === item.id}
-													onClick={() =>
-														void submit({ action: "connect", id: item.id })
-													}
-												>
-													<Link2 className="size-4" />
-													{item.status === "pending" ||
-													item.status === "unavailable"
-														? "Pārbaudīt"
-														: item.status === "pairing"
-															? "Rādīt QR kodu"
-															: "Savienot"}
-												</Button>
-											)}
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												disabled={busy}
+												onClick={() =>
+													void submit({ action: "disconnect", id: item.id })
+												}
+											>
+												Atvienot
+											</Button>
+										) : (
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												disabled={busy || pairing === item.id}
+												onClick={() =>
+													void submit({ action: "connect", id: item.id })
+												}
+											>
+												<Link2 className="size-4" />
+												{item.status === "pending" ||
+												item.status === "unavailable"
+													? "Pārbaudīt"
+													: item.status === "pairing"
+														? "Rādīt QR kodu"
+														: "Savienot"}
+											</Button>
+										)}
+										{!inline ? (
 											<Button
 												type="button"
 												variant="ghost"
@@ -265,89 +316,91 @@ export function VisualWhatsAppConnectionsCard({
 											>
 												Noņemt
 											</Button>
-										</div>
-									</li>
-								))}
-							</ul>
-						) : null}
-					</>
-				) : null}
-				{active?.status === "pairing" ? (
-					<div className="flex flex-wrap items-center gap-4 rounded-lg border p-4">
-						<div className="flex size-44 items-center justify-center rounded-md border bg-white p-2 text-center text-sm text-neutral-600">
-							{qrFailed ? (
-								"Gaida QR kodu…"
-							) : (
-								<Image
-									key={`${active.id}-${qrVersion}`}
-									src={`${endpoint}?qr=${active.id}&v=${qrVersion}`}
-									alt="WhatsApp savienošanas QR kods"
-									width={158}
-									height={158}
-									unoptimized
-									onError={() => setQrFailed(true)}
-								/>
-							)}
-						</div>
-						<div className="max-w-sm space-y-2 text-sm">
-							<p className="font-medium">Savienot {active.phone}</p>
-							<p>
-								Telefonā atveriet{" "}
-								<strong>WhatsApp → Saistītās ierīces → Saistīt ierīci</strong>{" "}
-								un skenējiet QR kodu.
-							</p>
-							<p className="text-muted-foreground">
-								WaSenderAPI tiks pievienots kā saistīta ierīce ar piekļuvi konta
-								ziņām.
-							</p>
-							<div className="flex flex-wrap gap-2">
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									disabled={busy}
-									onClick={() => {
-										setQrFailed(false);
-										setQrVersion((value) => value + 1);
-									}}
-								>
-									<RefreshCw className="size-4" /> Atjaunot QR kodu
-								</Button>
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									disabled={busy}
-									onClick={() =>
-										void submit({ action: "disconnect", id: active.id })
-									}
-								>
-									Atcelt
-								</Button>
-							</div>
-						</div>
+										) : null}
+									</div>
+								</li>
+							))}
+						</ul>
+					) : null}
+				</>
+			) : null}
+			{active?.status === "pairing" ? (
+				<div className="flex flex-wrap items-center gap-4 rounded-lg border p-4">
+					<div className="flex size-44 items-center justify-center rounded-md border bg-white p-2 text-center text-sm text-neutral-600">
+						{qrFailed ? (
+							"Gaida QR kodu…"
+						) : (
+							<Image
+								key={`${active.id}-${qrVersion}`}
+								src={`${endpoint}?qr=${active.id}&v=${qrVersion}`}
+								alt="WhatsApp savienošanas QR kods"
+								width={158}
+								height={158}
+								unoptimized
+								onError={() => setQrFailed(true)}
+							/>
+						)}
 					</div>
-				) : null}
-				{error ? (
-					<div className="flex flex-wrap items-center gap-2">
-						<p role="alert" className="text-sm text-destructive">
-							{error}
+					<div className="max-w-sm space-y-2 text-sm">
+						<p className="font-medium">Savienot {active.phone}</p>
+						<p>
+							Telefonā atveriet{" "}
+							<strong>WhatsApp → Saistītās ierīces → Saistīt ierīci</strong> un
+							skenējiet QR kodu.
 						</p>
-						{enabled === null ? (
+						<p className="text-muted-foreground">
+							WaSenderAPI tiks pievienots kā saistīta ierīce ar piekļuvi konta
+							ziņām.
+						</p>
+						<div className="flex flex-wrap gap-2">
 							<Button
 								type="button"
 								variant="outline"
 								size="sm"
+								disabled={busy}
 								onClick={() => {
-									setError(null);
-									setReload((value) => value + 1);
+									setQrFailed(false);
+									setQrVersion((value) => value + 1);
 								}}
 							>
-								Mēģināt vēlreiz
+								<RefreshCw className="size-4" /> Atjaunot QR kodu
 							</Button>
-						) : null}
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								disabled={busy}
+								onClick={() =>
+									void submit({ action: "disconnect", id: active.id })
+								}
+							>
+								{inline ? "Atcelt savienošanu" : "Atcelt"}
+							</Button>
+						</div>
 					</div>
-				) : null}
+				</div>
+			) : null}
+			{error ? (
+				<div className="flex flex-wrap items-center gap-2">
+					<p role="alert" className="text-sm text-destructive">
+						{error}
+					</p>
+					{enabled === null ? (
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={() => {
+								setError(null);
+								setReload((value) => value + 1);
+							}}
+						>
+							Mēģināt vēlreiz
+						</Button>
+					) : null}
+				</div>
+			) : null}
+			{!inline ? (
 				<AlertDialog
 					open={remove !== null}
 					onOpenChange={(open) => {
@@ -374,7 +427,7 @@ export function VisualWhatsAppConnectionsCard({
 						</AlertDialogFooter>
 					</AlertDialogContent>
 				</AlertDialog>
-			</CardContent>
-		</Card>
+			) : null}
+		</div>
 	);
 }
