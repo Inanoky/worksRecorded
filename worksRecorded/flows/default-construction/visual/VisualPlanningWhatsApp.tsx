@@ -34,6 +34,7 @@ import {
 } from "./planning-whatsapp";
 import {
 	type PlanningWhatsAppSendResult,
+	readWasenderTaskReceipt,
 	sendPlanningWhatsAppTask,
 } from "./planning-whatsapp-send-client";
 import { WhatsAppGroupPicker } from "./WhatsAppGroupPicker";
@@ -82,10 +83,47 @@ export function VisualPlanningWhatsApp({
 	const [sendError, setSendError] = useState<string | null>(null);
 	const [sendResult, setSendResult] =
 		useState<PlanningWhatsAppSendResult | null>(null);
+	const sendId = sendResult?.sendId;
+	const hasQueuedImages = !!sendResult?.items.some(
+		({ status }) => status === "queued",
+	);
+	const groupSendFailure =
+		target === "group"
+			? sendResult?.items.find(({ error }) => error)?.error
+			: null;
 	const [clientRequestId, setClientRequestId] = useState("");
 	const creator = useRef(createImages);
 	const initial = useRef(initialImages);
 	const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const resultHandler = useRef(onSendResult);
+	useEffect(() => {
+		resultHandler.current = onSendResult;
+	}, [onSendResult]);
+	useEffect(() => {
+		if (!open || !sendId || !hasQueuedImages) return;
+		const controller = new AbortController();
+		let timer: ReturnType<typeof setTimeout>;
+		let remaining = 15;
+		const refresh = async () => {
+			const result = await readWasenderTaskReceipt(
+				siteId,
+				sendId,
+				controller.signal,
+			).catch(() => null);
+			if (controller.signal.aborted) return;
+			if (result) {
+				setSendResult(result);
+				resultHandler.current?.(result);
+				if (!result.items.some(({ status }) => status === "queued")) return;
+			}
+			if (--remaining > 0) timer = setTimeout(refresh, 5000);
+		};
+		timer = setTimeout(refresh, 5000);
+		return () => {
+			controller.abort();
+			clearTimeout(timer);
+		};
+	}, [hasQueuedImages, open, sendId, siteId]);
 	useEffect(() => {
 		creator.current = createImages;
 		initial.current = initialImages;
@@ -348,7 +386,7 @@ export function VisualPlanningWhatsApp({
 								<strong className="font-medium text-foreground">
 									+{groupSender}
 								</strong>{" "}
-								· Whapi
+								· WaSenderAPI
 							</p>
 						</div>
 					) : (
@@ -463,14 +501,21 @@ export function VisualPlanningWhatsApp({
 									).length
 								}{" "}
 								no {sendResult.items.length} attēliem.
-								{target === "group" && sendResult.status === "processing"
-									? " Pārbaudiet WhatsApp grupu, lai pārliecinātos par pārējo attēlu nosūtīšanu."
-									: null}
+								{hasQueuedImages
+									? " WaSenderAPI apstrādā attēlus."
+									: target === "group" && sendResult.status === "processing"
+										? " Pārbaudiet WhatsApp grupu, lai pārliecinātos par pārējo attēlu nosūtīšanu."
+										: null}
 							</output>
 						) : null}
 						{sendError ? (
 							<p role="alert" className="text-sm text-destructive">
 								{sendError}
+							</p>
+						) : null}
+						{groupSendFailure ? (
+							<p role="alert" className="text-sm text-destructive">
+								{groupSendFailure}
 							</p>
 						) : null}
 					</div>

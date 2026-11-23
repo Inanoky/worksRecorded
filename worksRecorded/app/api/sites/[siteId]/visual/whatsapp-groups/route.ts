@@ -2,12 +2,14 @@ import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { readLimitedBody } from "@/flows/default-construction/visual/share-body";
 import { requireVisualAccess } from "@/flows/default-construction/visual/store";
 import {
-	readWhapiProjectGroups,
-	readWhapiQrImage,
-	updateWhapiProjectGroups,
-	WhapiGroupsError,
-	whapiGroupActionSchema,
-} from "@/flows/default-construction/visual/whapi-groups-store";
+	WasenderConnectionError,
+	wasenderConnectionId,
+} from "@/flows/default-construction/visual/wasender-connections-store";
+import {
+	readWasenderProjectGroups,
+	saveWasenderGroupsSchema,
+	saveWasenderProjectGroups,
+} from "@/flows/default-construction/visual/wasender-groups-store";
 
 type Context = { params: Promise<{ siteId: string }> };
 const headers = { "Cache-Control": "private, no-store" };
@@ -33,20 +35,16 @@ export async function GET(request: Request, context: Context) {
 	const access = await authorize(context);
 	if (access instanceof Response) return access;
 	const params = new URL(request.url).searchParams;
+	const connectionId = params.get("connectionId") ?? undefined;
+	if (connectionId && !wasenderConnectionId.safeParse(connectionId).success)
+		return jsonError("Nederīgs savienojums.", 400);
 	try {
-		if (params.get("qr") === "1") {
-			const image = await readWhapiQrImage(access);
-			if (!image) return new Response(null, { status: 404, headers });
-			return new Response(image, {
-				headers: {
-					...headers,
-					"Content-Type": "image/png",
-					"X-Content-Type-Options": "nosniff",
-				},
-			});
-		}
 		return Response.json(
-			await readWhapiProjectGroups(access, params.get("manage") === "1"),
+			await readWasenderProjectGroups(
+				access,
+				params.get("manage") === "1",
+				connectionId,
+			),
 			{ headers },
 		);
 	} catch {
@@ -67,14 +65,15 @@ export async function POST(request: Request, context: Context) {
 	} catch {
 		return jsonError("Nederīgs pieprasījums.", 400);
 	}
-	const action = whapiGroupActionSchema.safeParse(payload);
+	const action = saveWasenderGroupsSchema.safeParse(payload);
 	if (!action.success) return jsonError("Nederīgs pieprasījums.", 400);
 	try {
-		return Response.json(await updateWhapiProjectGroups(access, action.data), {
+		return Response.json(await saveWasenderProjectGroups(access, action.data), {
 			headers,
 		});
 	} catch (error) {
-		if (error instanceof WhapiGroupsError) return jsonError(error.message, 400);
+		if (error instanceof WasenderConnectionError)
+			return jsonError(error.message, error.status);
 		return jsonError("WhatsApp savienojums šobrīd nav pieejams.", 503);
 	}
 }

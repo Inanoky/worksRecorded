@@ -49,7 +49,13 @@ function updateConnection(
 		: [...list, next];
 }
 
-export function VisualWhatsAppConnectionsCard({ siteId }: { siteId: string }) {
+export function VisualWhatsAppConnectionsCard({
+	siteId,
+	onConnectionChange,
+}: {
+	siteId: string;
+	onConnectionChange?: () => void;
+}) {
 	const endpoint = wasenderConnectionsEndpoint(siteId);
 	const phoneField = useId();
 	const [enabled, setEnabled] = useState<boolean | null>(null);
@@ -96,6 +102,7 @@ export function VisualWhatsAppConnectionsCard({ siteId }: { siteId: string }) {
 				setConnections((list) => updateConnection(list, next));
 				if (next.status !== "pairing") {
 					setPairing(null);
+					onConnectionChange?.();
 					return;
 				}
 			} catch {
@@ -113,7 +120,7 @@ export function VisualWhatsAppConnectionsCard({ siteId }: { siteId: string }) {
 			window.clearTimeout(nextCheck);
 			window.clearInterval(refreshQr);
 		};
-	}, [busy, endpoint, pairing]);
+	}, [busy, endpoint, onConnectionChange, pairing]);
 
 	async function submit(action: WasenderConnectionAction) {
 		setBusy(true);
@@ -140,6 +147,7 @@ export function VisualWhatsAppConnectionsCard({ siteId }: { siteId: string }) {
 				setConnections((list) => list.filter(({ id }) => id !== action.id));
 				if (pairing === action.id) setPairing(null);
 			}
+			if (connection?.status !== "pairing") onConnectionChange?.();
 		} catch (reason) {
 			setError(
 				reason instanceof Error ? reason.message : "Neizdevās saglabāt numuru.",

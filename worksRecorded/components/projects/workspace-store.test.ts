@@ -111,9 +111,13 @@ it("reuses authorized preloaded Limeni and FIMA views without inventing other ca
 		null,
 	);
 	expect(store.hasRoute("/dashboard/sites/limeni/izpildshemas")).toBe(true);
+	expect(store.hasRoute("/dashboard/sites/limeni/settings")).toBe(true);
+	expect(store.hasRoute("/dashboard/sites/limeni/settings?bis=connected")).toBe(
+		true,
+	);
 	expect(store.hasRoute("/dashboard/sites/fima/acts")).toBe(true);
 	expect(store.hasRoute("/dashboard/sites/fima/analytics")).toBe(true);
-	expect(store.hasRoute("/dashboard/sites/limeni/settings")).toBe(false);
+	expect(store.hasRoute("/dashboard/sites/fima/settings")).toBe(false);
 });
 it("loads spending through its route before retaining it for later visits", () => {
 	const store = createWorkspaceStore("user", "org");

@@ -171,9 +171,9 @@ export function createWorkspaceStore(
 					(entry.descriptor.constructionWorkspace &&
 						["dashboard", "analytics"].some((view) => href === base + view)) ||
 					(entry.descriptor.visualPreload &&
-						["dashboard", "izpildshemas", "analytics"].some(
+						(["dashboard", "izpildshemas", "analytics"].some(
 							(view) => href === base + view,
-						)) ||
+						) || href.split("?", 1)[0] === `${base}settings`)) ||
 					(entry.descriptor.fimaActs &&
 						["dashboard", "siteDiary", "acts"].some(
 							(view) => href === base + view,
