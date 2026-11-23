@@ -151,7 +151,7 @@ const messageId = z
 export async function listWasenderGroups(token: string) {
 	const { data } = success
 		.extend({ data: z.array(z.object({ jid: z.string(), name: z.string() })) })
-		.parse(await request("/groups?paginated=false", token));
+		.parse(await request("/groups", token));
 	const groups = new Map<string, { id: string; name: string }>();
 	for (const { jid, name } of data) {
 		if (wasenderGroupId.safeParse(jid).success)

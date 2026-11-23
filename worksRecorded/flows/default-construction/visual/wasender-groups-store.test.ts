@@ -60,7 +60,7 @@ it("lists groups from the WaSenderAPI phone and exposes only selected groups to 
 		(await readWasenderProjectGroups(access, true)).availableGroups,
 	).toEqual([other, group]);
 	expect(provider).toHaveBeenCalledWith(
-		"https://wasenderapi.com/api/groups?paginated=false",
+		"https://wasenderapi.com/api/groups",
 		expect.objectContaining({
 			headers: expect.objectContaining({ Authorization: "Bearer session-key" }),
 		}),

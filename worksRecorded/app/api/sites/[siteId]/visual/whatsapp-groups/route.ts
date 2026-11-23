@@ -1,6 +1,7 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { readLimitedBody } from "@/flows/default-construction/visual/share-body";
 import { requireVisualAccess } from "@/flows/default-construction/visual/store";
+import { WasenderApiError } from "@/flows/default-construction/visual/wasender-connections-api";
 import {
 	WasenderConnectionError,
 	wasenderConnectionId,
@@ -47,7 +48,11 @@ export async function GET(request: Request, context: Context) {
 			),
 			{ headers },
 		);
-	} catch {
+	} catch (error) {
+		console.warn("WaSenderAPI group lookup failed", {
+			kind: error instanceof Error ? error.name : "UnknownError",
+			status: error instanceof WasenderApiError ? error.status : undefined,
+		});
 		return jsonError("WhatsApp savienojums šobrīd nav pieejams.", 503);
 	}
 }
