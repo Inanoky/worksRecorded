@@ -1241,6 +1241,18 @@ model WhapiProjectGroups {
   @@index([connectionId])
 }
 
+model WasenderWhatsAppConnection {
+  id                String   @id @default(uuid())
+  organizationId    String
+  userId            String
+  phone             String
+  providerSessionId Int?     @unique
+  createdAt         DateTime @default(now())
+
+  @@unique([organizationId, phone], map: "WasenderWhatsAppConnection_org_phone_key")
+  @@index([organizationId, userId], map: "WasenderWhatsAppConnection_org_user_idx")
+}
+
 model WhatsappBrowserMessage {
   id             String    @id @default(uuid())
   idempotencyKey String    @unique

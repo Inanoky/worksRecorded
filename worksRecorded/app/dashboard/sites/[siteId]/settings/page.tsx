@@ -15,6 +15,7 @@ import {
 import { UploadImageForm } from "@/components/settings/UploadImageForm";
 import { PhotoExportCard } from "@/components/settings/PhotoExportCard";
 import { VisualPlanningContactsCard } from "@/components/settings/VisualPlanningContactsCard";
+import { VisualWhatsAppConnectionsCard } from "@/components/settings/VisualWhatsAppConnectionsCard";
 import { VisualWhatsAppGroupsCard } from "@/components/settings/VisualWhatsAppGroupsCard";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
@@ -344,6 +345,10 @@ async function SettingsSiteRoute({
             siteId={siteId}
             initialContacts={visualPlanningContacts}
             organizationLanguage={organizationLanguage}
+          />
+          <VisualWhatsAppConnectionsCard
+            key={`whatsapp-connections-${siteId}`}
+            siteId={siteId}
           />
           <VisualWhatsAppGroupsCard key={siteId} siteId={siteId} />
         </>
