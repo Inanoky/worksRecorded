@@ -252,3 +252,38 @@ export async function readWasenderMessageStatus(token: string, id: string) {
 		throw new Error("WaSenderAPI returned a different message");
 	return data.status;
 }
+
+const messageLogEntry = z.object({
+	id: messageId,
+	whatsapp_session_id: messageId,
+	status: z.literal("sent"),
+});
+
+export async function readWasenderSentActivity(
+	sessionId: number,
+	messageIds: string[],
+) {
+	const sent = new Set<string>();
+	const token = getWasenderAccessToken();
+	if (!token || !messageIds.length) return sent;
+	const requested = new Set(messageIds);
+	const { data } = success
+		.extend({ data: z.object({ data: z.array(z.unknown()) }) })
+		.parse(
+			await request(
+				`${sessionsPath}/${sessionId}/message-logs?per_page=25`,
+				token,
+			),
+		);
+	for (const row of data.data) {
+		const entry = messageLogEntry.safeParse(row);
+		if (
+			entry.success &&
+			entry.data.whatsapp_session_id === String(sessionId) &&
+			requested.has(entry.data.id)
+		) {
+			sent.add(entry.data.id);
+		}
+	}
+	return sent;
+}

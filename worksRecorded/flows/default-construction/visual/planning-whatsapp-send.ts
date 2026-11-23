@@ -23,6 +23,7 @@ import {
 import { requireVisualAccess } from "./store";
 import {
 	readWasenderMessageStatus,
+	readWasenderSentActivity,
 	sendWasenderGroupImage,
 	WasenderApiError,
 	wasenderGroupId,
@@ -259,23 +260,37 @@ async function resultForSend(sendId: string) {
 	};
 }
 
-async function reconcileWasenderReceipts(sendId: string, token: string) {
+async function reconcileWasenderReceipts(
+	sendId: string,
+	session: { token: string; providerSessionId: number },
+) {
 	const queued = await prisma.whatsAppTaskSendItem.findMany({
 		where: { sendId, status: "queued" },
 		include: { wasenderImage: { select: { tokenHash: true } } },
 	});
+	const receipts = await Promise.all(
+		queued.flatMap((item) => {
+			const messageId = item.wasenderMessageId;
+			if (!messageId) return [];
+			return readWasenderMessageStatus(session.token, messageId)
+				.catch(() => null)
+				.then((code) => ({ item, messageId, code }));
+		}),
+	);
+	const awaitingIds = receipts
+		.filter(({ code }) => code === 1 || code === null)
+		.map(({ messageId }) => messageId);
+	const sentActivity = await readWasenderSentActivity(
+		session.providerSessionId,
+		awaitingIds,
+	).catch(() => null);
 	await Promise.all(
-		queued.map(async (item) => {
-			if (!item.wasenderMessageId) return;
-			const code = await readWasenderMessageStatus(
-				token,
-				item.wasenderMessageId,
-			).catch(() => null);
+		receipts.map(async ({ item, messageId, code }) => {
 			const now = new Date();
 			const status =
 				code === 0
 					? "failed"
-					: code === 2
+					: code === 2 || sentActivity?.has(messageId)
 						? "sent"
 						: code === 3
 							? "delivered"
@@ -287,7 +302,7 @@ async function reconcileWasenderReceipts(sendId: string, token: string) {
 				where: {
 					id: item.id,
 					status: "queued",
-					wasenderMessageId: item.wasenderMessageId,
+					wasenderMessageId: messageId,
 				},
 				data: {
 					status,
@@ -356,7 +371,7 @@ export async function refreshWasenderTaskSend(
 		{ userId, organizationId },
 		send.wasenderConnectionId,
 	);
-	await reconcileWasenderReceipts(send.id, session.token);
+	await reconcileWasenderReceipts(send.id, session);
 	return finishSend(send.id);
 }
 
@@ -605,6 +620,6 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 		}
 	}
 
-	if (group) await reconcileWasenderReceipts(send.id, group.token);
+	if (group) await reconcileWasenderReceipts(send.id, group);
 	return finishSend(send.id);
 }

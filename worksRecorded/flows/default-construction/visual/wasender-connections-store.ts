@@ -139,7 +139,12 @@ export async function requireConnectedWasenderSession(
 		throw new WasenderConnectionError(
 			"Savienojiet šo numuru ar WaSenderAPI projekta iestatījumos.",
 		);
-	return { token: session.api_key, phone: row.phone, connectionId: row.id };
+	return {
+		token: session.api_key,
+		phone: row.phone,
+		connectionId: row.id,
+		providerSessionId: session.id,
+	};
 }
 
 async function readConnection(token: string, row: Connection) {

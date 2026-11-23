@@ -85,9 +85,14 @@ export function VisualPlanningWhatsApp({
 	const [sendResult, setSendResult] =
 		useState<PlanningWhatsAppSendResult | null>(null);
 	const sendId = sendResult?.sendId;
-	const hasQueuedImages = !!sendResult?.items.some(
-		({ status }) => status === "queued",
-	);
+	const sendStatus = sendResult?.status;
+	const queuedImageCount =
+		sendResult?.items.filter(({ status }) => status === "queued").length ?? 0;
+	const sentImageCount =
+		sendResult?.items.filter(({ status }) =>
+			["sent", "delivered", "read"].includes(status),
+		).length ?? 0;
+	const hasQueuedImages = queuedImageCount > 0;
 	const canRetryGroupImages =
 		target === "group" &&
 		!!sendResult?.items.some(
@@ -101,7 +106,6 @@ export function VisualPlanningWhatsApp({
 	const [clientRequestId, setClientRequestId] = useState("");
 	const creator = useRef(createImages);
 	const initial = useRef(initialImages);
-	const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const resultHandler = useRef(onSendResult);
 	useEffect(() => {
 		resultHandler.current = onSendResult;
@@ -164,12 +168,11 @@ export function VisualPlanningWhatsApp({
 			for (const url of urls) URL.revokeObjectURL(url);
 		};
 	}, [active, imageKey, retry]);
-	useEffect(
-		() => () => {
-			if (closeTimer.current) clearTimeout(closeTimer.current);
-		},
-		[],
-	);
+	useEffect(() => {
+		if (!open || sendStatus !== "sent") return;
+		const timer = setTimeout(() => setOpen(false), 1100);
+		return () => clearTimeout(timer);
+	}, [open, sendStatus]);
 	useEffect(() => {
 		if (!active) return;
 		let cancelled = false;
@@ -239,11 +242,6 @@ export function VisualPlanningWhatsApp({
 			});
 			setSendResult(result);
 			onSendResult?.(result);
-			if (result.status === "sent")
-				closeTimer.current = setTimeout(() => {
-					setOpen(false);
-					closeTimer.current = null;
-				}, 1100);
 		} catch (error) {
 			setSendError(
 				error instanceof Error ? error.message : "Neizdevās nosūtīt uzdevumu.",
@@ -257,10 +255,6 @@ export function VisualPlanningWhatsApp({
 			open={open}
 			onOpenChange={(next) => {
 				if (sending) return;
-				if (closeTimer.current) {
-					clearTimeout(closeTimer.current);
-					closeTimer.current = null;
-				}
 				if (next) {
 					setMessage(planningWhatsAppTemplateMessage(plan));
 					setTarget("direct");
@@ -502,18 +496,14 @@ export function VisualPlanningWhatsApp({
 						</div>
 						{sendResult && sendResult.status !== "sent" ? (
 							<output className="block text-sm text-amber-700">
-								Nosūtīti{" "}
-								{
-									sendResult.items.filter((item) =>
-										["sent", "delivered", "read"].includes(item.status),
-									).length
-								}{" "}
-								no {sendResult.items.length} attēliem.
 								{hasQueuedImages
-									? " WaSenderAPI apstrādā attēlus."
-									: target === "group" && sendResult.status === "processing"
-										? " Pārbaudiet WhatsApp grupu, lai pārliecinātos par pārējo attēlu nosūtīšanu."
-										: null}
+									? `WaSenderAPI pieņēma ${sentImageCount + queuedImageCount} no ${sendResult.items.length} attēliem. Gaida nosūtīšanas apstiprinājumu.`
+									: `Nosūtīti ${sentImageCount} no ${sendResult.items.length} attēliem.`}
+								{!hasQueuedImages &&
+								target === "group" &&
+								sendResult.status === "processing"
+									? " Pārbaudiet WhatsApp grupu, lai pārliecinātos par pārējo attēlu nosūtīšanu."
+									: null}
 							</output>
 						) : null}
 						{sendError ? (

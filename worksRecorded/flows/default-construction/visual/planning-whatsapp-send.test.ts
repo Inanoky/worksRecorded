@@ -100,6 +100,7 @@ function groupRequest() {
 		token: "channel-token",
 		phone: group.input.groupSender,
 		connectionId: "connection-1",
+		providerSessionId: 31,
 		group: { id: group.input.groupId, name: "Projekta brigāde" },
 	});
 	return group;
@@ -248,7 +249,10 @@ it("sends a task and section through WaSenderAPI and confirms them through recei
 		wasenderConnectionId: "connection-1",
 		status: "processing",
 	});
-	requireConnectedWasenderSession.mockResolvedValue({ token: "channel-token" });
+	requireConnectedWasenderSession.mockResolvedValue({
+		token: "channel-token",
+		providerSessionId: 31,
+	});
 	sent = true;
 	await expect(
 		refreshWasenderTaskSend(request.userId, request.siteId, "send-1"),
@@ -258,6 +262,82 @@ it("sends a task and section through WaSenderAPI and confirms them through recei
 	});
 	expect(
 		fetchMock.mock.calls.filter(([, init]) => init.method === "POST"),
+	).toHaveLength(2);
+});
+
+it("uses exact outgoing activity matches when WaSender message receipts stay pending", async () => {
+	jest.replaceProperty(process, "env", {
+		...process.env,
+		WASENDER_LIMENI_ACCESS_TOKEN: "account-token",
+	});
+	const request = groupRequest();
+	let message = 1000;
+	let secondSession = "32";
+	const json = (body: unknown) =>
+		({ ok: true, json: async () => body }) as Response;
+	const fetchMock = jest.fn(
+		async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = String(input);
+			if (url.endsWith("/send-message"))
+				return json({ success: true, data: { msgId: ++message } });
+			if (url.endsWith("/info"))
+				return json({
+					success: true,
+					data: { msgId: Number(url.split("/").at(-2)), status: 1 },
+				});
+			expect(url).toBe(
+				"https://wasenderapi.com/api/whatsapp-sessions/31/message-logs?per_page=25",
+			);
+			expect(new Headers(init?.headers).get("Authorization")).toBe(
+				"Bearer account-token",
+			);
+			return json({
+				success: true,
+				data: {
+					data: [
+						{
+							id: "1001",
+							whatsapp_session_id: 31,
+							status: "sent",
+							content: null,
+							to: null,
+						},
+						{ id: 1002, whatsapp_session_id: secondSession, status: "sent" },
+						{ id: "1002", whatsapp_session_id: "31", status: "in_progress" },
+					],
+				},
+			});
+		},
+	);
+	global.fetch = fetchMock;
+
+	await expect(sendVisualPlanningWhatsAppTask(request)).resolves.toMatchObject({
+		status: "processing",
+		items: [{ status: "sent" }, { status: "queued" }],
+	});
+	sendFindFirst.mockResolvedValue({
+		id: "send-1",
+		wasenderConnectionId: "connection-1",
+		status: "processing",
+	});
+	requireConnectedWasenderSession.mockResolvedValue({
+		token: "channel-token",
+		providerSessionId: 31,
+	});
+	secondSession = "31";
+	await expect(
+		refreshWasenderTaskSend(request.userId, request.siteId, "send-1"),
+	).resolves.toMatchObject({
+		status: "sent",
+		items: [{ status: "sent" }, { status: "sent" }],
+	});
+	expect(
+		fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
+	).toHaveLength(2);
+	expect(
+		fetchMock.mock.calls.filter(([url]) =>
+			String(url).includes("/message-logs"),
+		),
 	).toHaveLength(2);
 });
 
@@ -365,9 +445,9 @@ it("stops before sending when the group is outside the project allowlist", async
 });
 
 afterEach(() => {
+	jest.restoreAllMocks();
 	delete process.env.LIMENI_META_ACCESS_TOKEN;
 	global.fetch = originalFetch;
-	jest.restoreAllMocks();
 });
 
 it("sends every ordered image with the approved template", async () => {

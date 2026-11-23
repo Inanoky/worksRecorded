@@ -1390,10 +1390,15 @@ it("can retry a rate-limited section while the zone image awaits confirmation", 
 		await screen.findByRole("button", { name: "Izvēlēties grupu" }),
 	);
 	fireEvent.click(screen.getByRole("button", { name: "Testa grupa" }));
-	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt", exact: true }));
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt" }));
 	const retry = await screen.findByRole("button", {
 		name: "Atkārtot nenosūtītos",
 	});
+	expect(
+		screen.getByText(
+			"WaSenderAPI pieņēma 1 no 2 attēliem. Gaida nosūtīšanas apstiprinājumu.",
+		),
+	).toBeInTheDocument();
 	expect(retry).toBeEnabled();
 	fireEvent.click(retry);
 	await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
