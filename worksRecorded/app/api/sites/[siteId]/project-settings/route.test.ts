@@ -1,7 +1,10 @@
 /** @jest-environment node */
 
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
-import { readProjectSettings } from "@/app/dashboard/sites/[siteId]/settings/load-settings";
+import {
+	readProjectBisSettings,
+	readProjectSettings,
+} from "@/app/dashboard/sites/[siteId]/settings/load-settings";
 import { getWorkspaceAccess } from "@/components/projects/workspace-access";
 import { GET } from "./route";
 
@@ -12,6 +15,7 @@ jest.mock("@/components/projects/workspace-access", () => ({
 	getWorkspaceAccess: jest.fn(),
 }));
 jest.mock("@/app/dashboard/sites/[siteId]/settings/load-settings", () => ({
+	readProjectBisSettings: jest.fn(),
 	readProjectSettings: jest.fn(),
 }));
 
@@ -30,6 +34,27 @@ const workspace = {
 beforeEach(() => {
 	jest.resetAllMocks();
 	jest.mocked(getKindeServerSession).mockReturnValue({ getUser } as never);
+});
+
+it("lets the client load the settings without BIS and request BIS separately", async () => {
+	getUser.mockResolvedValue({ id: workspace.userId });
+	jest.mocked(getWorkspaceAccess).mockResolvedValue(workspace);
+	jest.mocked(readProjectSettings).mockResolvedValue({
+		siteId: workspace.siteId,
+		bisDeferred: true,
+	} as Awaited<ReturnType<typeof readProjectSettings>>);
+	const base = await GET(new Request(`${request.url}?part=base`), { params });
+	expect(base.headers.get("Cache-Control")).toBe("private, no-store");
+	expect(await base.json()).toMatchObject({ bisDeferred: true });
+	expect(readProjectSettings).toHaveBeenCalledWith(workspace, {
+		deferBis: true,
+	});
+	expect(readProjectBisSettings).not.toHaveBeenCalled();
+	jest.mocked(readProjectBisSettings).mockResolvedValue(null);
+	const bis = await GET(new Request(`${request.url}?part=bis`), { params });
+	expect(await bis.json()).toEqual({ bis: null });
+	expect(readProjectBisSettings).toHaveBeenCalledWith(workspace);
+	expect(readProjectSettings).toHaveBeenCalledTimes(1);
 });
 
 it("requires a signed-in user and an authorized Līmeni workspace before loading settings", async () => {

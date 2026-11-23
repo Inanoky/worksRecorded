@@ -149,6 +149,9 @@ export function VisualPlanningWhatsApp({
 			? connection.groups.find((item) => item.id === groupId)
 			: undefined;
 	const groupSender = connection?.phone;
+	const showPlan =
+		target === "direct" ||
+		(connection?.status === "connected" && connection.groups.length > 0);
 	const canAddress =
 		target === "direct" ? Boolean(recipient) : Boolean(group && groupSender);
 	const outgoingMessage = planningWhatsAppMessageWithReportingNote(message);
@@ -301,117 +304,122 @@ export function VisualPlanningWhatsApp({
 						</p>
 					) : null}
 				</div>
-				<div className="grid min-h-0 gap-4 overflow-y-auto sm:grid-cols-2">
-					{groupOpen &&
-					!groupError &&
-					connection &&
-					connection.status !== "unavailable" ? (
-						connection.status !== "connected" ? (
-							<div className="col-span-full">
-								<VisualWhatsAppConnectionControls
-									inline
-									siteId={siteId}
-									preferredConnectionId={connection.connectionId}
-									onConnectionChange={refreshGroups}
-								/>
-							</div>
-						) : !connection.groups.length ? (
-							<div className="col-span-full">
-								<VisualWhatsAppGroupsCard
-									inline
-									siteId={siteId}
-									onSaved={({ status, phone, groups, connectionId }) => {
-										const next = { status, phone, groups, connectionId };
-										++groupRefresh.current;
-										cache.setWhatsAppGroups(next);
-										setConnection(next);
-										setGroupId(groups.length === 1 ? groups[0].id : "");
-									}}
-								/>
-							</div>
-						) : null
-					) : null}
-					<div className="space-y-3">
-						{!images.length && !imageError ? (
-							<output
-								aria-label="Attēlu sagatavošana"
-								className="flex h-48 items-center justify-center rounded-lg border text-muted-foreground"
-							>
-								<Loader2 className="h-5 w-5 animate-spin" />
-							</output>
-						) : null}
-						{images.map((image) => (
-							<figure
-								key={`${image.page}:${image.section ?? "zone"}`}
-								className="overflow-hidden rounded-lg border"
-							>
-								<div className="relative h-52 w-full">
-									<Image
-										src={image.url}
-										alt={
-											image.section
-												? `Sekcijas rasējums · ${image.section}`
-												: `Uzdevuma zona · PDF lapa ${image.page}`
-										}
-										fill
-										unoptimized
-										className="object-contain"
-										sizes="(max-width: 640px) 90vw, 360px"
-									/>
-								</div>
-								<figcaption className="px-3 py-2 text-xs text-muted-foreground">
-									{image.section
-										? `Sekcija ${image.section}`
-										: images.filter((image) => !image.section).length > 1
-											? `Zona · ${image.page}. lapa`
-											: "Zona"}
-								</figcaption>
-							</figure>
-						))}
-						{imageError ? (
-							<div role="alert" className="space-y-2 text-sm text-destructive">
-								<p>{imageError}</p>
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									onClick={() => setRetry((value) => value + 1)}
-								>
-									Mēģināt vēlreiz
-								</Button>
-							</div>
-						) : null}
-					</div>
-					<div className="space-y-3">
-						{target === "direct" && !recipient ? (
-							<p role="alert" className="text-sm text-destructive">
-								Izvēlieties uzdevumam kontaktu ar WhatsApp numuru.
-							</p>
-						) : null}
-						<div className="space-y-2">
-							<Label htmlFor={`${id}-message`}>Ziņa</Label>
-							<Textarea
-								id={`${id}-message`}
-								rows={8}
-								value={message}
-								aria-invalid={messageTooLong}
-								onChange={(event) => setMessage(event.target.value)}
-								onBlur={() =>
-									setMessage(normalizePlanningWhatsAppMessage(message))
-								}
+				{groupOpen &&
+				!groupError &&
+				connection &&
+				connection.status !== "unavailable" ? (
+					connection.status !== "connected" ? (
+						<div className="min-h-0 overflow-y-auto">
+							<VisualWhatsAppConnectionControls
+								inline
+								siteId={siteId}
+								preferredConnectionId={connection.connectionId}
+								onConnectionChange={refreshGroups}
 							/>
-							<p className="whitespace-pre-wrap text-sm">
-								{LIMENI_TASK_REPORTING_NOTE}
-							</p>
-							{messageTooLong ? (
-								<p role="alert" className="text-xs text-destructive">
-									Ziņa kopā ar piezīmi pārsniedz{" "}
-									{PLANNING_WHATSAPP_MESSAGE_LIMIT} rakstzīmes.
-								</p>
+						</div>
+					) : !connection.groups.length ? (
+						<div className="min-h-0 overflow-y-auto">
+							<VisualWhatsAppGroupsCard
+								inline
+								siteId={siteId}
+								onSaved={({ status, phone, groups, connectionId }) => {
+									const next = { status, phone, groups, connectionId };
+									++groupRefresh.current;
+									cache.setWhatsAppGroups(next);
+									setConnection(next);
+									setGroupId(groups.length === 1 ? groups[0].id : "");
+								}}
+							/>
+						</div>
+					) : null
+				) : null}
+				{showPlan ? (
+					<div className="grid min-h-0 gap-4 overflow-y-auto sm:grid-cols-2">
+						<div className="space-y-3">
+							{!images.length && !imageError ? (
+								<output
+									aria-label="Attēlu sagatavošana"
+									className="flex h-48 items-center justify-center rounded-lg border text-muted-foreground"
+								>
+									<Loader2 className="h-5 w-5 animate-spin" />
+								</output>
+							) : null}
+							{images.map((image) => (
+								<figure
+									key={`${image.page}:${image.section ?? "zone"}`}
+									className="overflow-hidden rounded-lg border"
+								>
+									<div className="relative h-52 w-full">
+										<Image
+											src={image.url}
+											alt={
+												image.section
+													? `Sekcijas rasējums · ${image.section}`
+													: `Uzdevuma zona · PDF lapa ${image.page}`
+											}
+											fill
+											unoptimized
+											className="object-contain"
+											sizes="(max-width: 640px) 90vw, 360px"
+										/>
+									</div>
+									<figcaption className="px-3 py-2 text-xs text-muted-foreground">
+										{image.section
+											? `Sekcija ${image.section}`
+											: images.filter((image) => !image.section).length > 1
+												? `Zona · ${image.page}. lapa`
+												: "Zona"}
+									</figcaption>
+								</figure>
+							))}
+							{imageError ? (
+								<div
+									role="alert"
+									className="space-y-2 text-sm text-destructive"
+								>
+									<p>{imageError}</p>
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										onClick={() => setRetry((value) => value + 1)}
+									>
+										Mēģināt vēlreiz
+									</Button>
+								</div>
 							) : null}
 						</div>
+						<div className="space-y-3">
+							{target === "direct" && !recipient ? (
+								<p role="alert" className="text-sm text-destructive">
+									Izvēlieties uzdevumam kontaktu ar WhatsApp numuru.
+								</p>
+							) : null}
+							<div className="space-y-2">
+								<Label htmlFor={`${id}-message`}>Ziņa</Label>
+								<Textarea
+									id={`${id}-message`}
+									rows={8}
+									value={message}
+									aria-invalid={messageTooLong}
+									onChange={(event) => setMessage(event.target.value)}
+									onBlur={() =>
+										setMessage(normalizePlanningWhatsAppMessage(message))
+									}
+								/>
+								<p className="whitespace-pre-wrap text-sm">
+									{LIMENI_TASK_REPORTING_NOTE}
+								</p>
+								{messageTooLong ? (
+									<p role="alert" className="text-xs text-destructive">
+										Ziņa kopā ar piezīmi pārsniedz{" "}
+										{PLANNING_WHATSAPP_MESSAGE_LIMIT} rakstzīmes.
+									</p>
+								) : null}
+							</div>
+						</div>
 					</div>
-				</div>
+				) : null}
 				<DialogFooter className="shrink-0">
 					<Button
 						type="button"

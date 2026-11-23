@@ -2,7 +2,14 @@
 
 import { Link2, Plus, RefreshCw, Smartphone } from "lucide-react";
 import Image from "next/image";
-import { type FormEvent, useEffect, useId, useState } from "react";
+import {
+	type FormEvent,
+	useCallback,
+	useEffect,
+	useId,
+	useRef,
+	useState,
+} from "react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -100,6 +107,7 @@ export function VisualWhatsAppConnectionControls({
 	const [reload, setReload] = useState(0);
 	const [qrVersion, setQrVersion] = useState(0);
 	const [qrFailed, setQrFailed] = useState(false);
+	const autoConnectAttempted = useRef(false);
 	const active = connections.find(({ id }) => id === pairing);
 	const preferred = connections.find(({ id }) => id === preferredConnectionId);
 	const visibleConnections = inline && preferred ? [preferred] : connections;
@@ -167,45 +175,65 @@ export function VisualWhatsAppConnectionControls({
 		};
 	}, [busy, endpoint, inline, onConnectionChange, pairing]);
 
-	async function submit(action: WasenderConnectionAction) {
-		setBusy(true);
-		setError(null);
-		try {
-			const { connection } = await requestWasenderConnections<{
-				connection: WasenderConnection | null;
-			}>(endpoint, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(action),
-			});
-			if (connection) {
-				setConnections((list) => updateConnection(list, connection));
-				if (action.action === "add") setPhone("");
-				if (connection.status === "pairing") {
-					setQrFailed(false);
-					setQrVersion((value) => value + 1);
-					setPairing(connection.id);
-				} else if (connection.id === pairing) {
-					setPairing(null);
+	const submit = useCallback(
+		async (action: WasenderConnectionAction) => {
+			setBusy(true);
+			setError(null);
+			try {
+				const { connection } = await requestWasenderConnections<{
+					connection: WasenderConnection | null;
+				}>(endpoint, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(action),
+				});
+				if (connection) {
+					setConnections((list) => updateConnection(list, connection));
+					if (action.action === "add") setPhone("");
+					if (connection.status === "pairing") {
+						setQrFailed(false);
+						setQrVersion((value) => value + 1);
+						setPairing(connection.id);
+					} else {
+						setPairing((current) =>
+							current === connection.id ? null : current,
+						);
+					}
+				} else if (action.action === "remove") {
+					setConnections((list) => list.filter(({ id }) => id !== action.id));
+					setPairing((current) => (current === action.id ? null : current));
 				}
-			} else if (action.action === "remove") {
-				setConnections((list) => list.filter(({ id }) => id !== action.id));
-				if (pairing === action.id) setPairing(null);
+				if (
+					connection?.status === "connected" ||
+					(!inline && connection?.status !== "pairing")
+				)
+					onConnectionChange?.();
+			} catch (reason) {
+				setError(
+					reason instanceof Error
+						? reason.message
+						: "Neizdevās saglabāt numuru.",
+				);
+				if (action.action === "add") setReload((value) => value + 1);
+			} finally {
+				setBusy(false);
 			}
-			if (
-				connection?.status === "connected" ||
-				(!inline && connection?.status !== "pairing")
-			)
-				onConnectionChange?.();
-		} catch (reason) {
-			setError(
-				reason instanceof Error ? reason.message : "Neizdevās saglabāt numuru.",
-			);
-			if (action.action === "add") setReload((value) => value + 1);
-		} finally {
-			setBusy(false);
-		}
-	}
+		},
+		[endpoint, inline, onConnectionChange],
+	);
+	const autoConnection =
+		preferred ?? (connections.length === 1 ? connections[0] : undefined);
+	useEffect(() => {
+		if (
+			!inline ||
+			busy ||
+			autoConnectAttempted.current ||
+			autoConnection?.status !== "disconnected"
+		)
+			return;
+		autoConnectAttempted.current = true;
+		void submit({ action: "connect", id: autoConnection.id });
+	}, [autoConnection, busy, inline, submit]);
 
 	function addNumber(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -249,7 +277,8 @@ export function VisualWhatsAppConnectionControls({
 							</Button>
 						</form>
 					) : null}
-					{visibleConnections.length ? (
+					{visibleConnections.length &&
+					(!inline || active?.status !== "pairing") ? (
 						<ul className="divide-y rounded-lg border">
 							{visibleConnections.map((item) => (
 								<li

@@ -1453,9 +1453,7 @@ it.each(["reconnect", "first connection"])(
 			target: { value: "Pārbaudīt zonu" },
 		});
 		fireEvent.click(screen.getByRole("button", { name: "WhatsApp grupa" }));
-		if (reconnect) {
-			fireEvent.click(await screen.findByRole("button", { name: "Savienot" }));
-		} else {
+		if (!reconnect) {
 			fireEvent.change(
 				await screen.findByRole("textbox", { name: "Tālruņa numurs" }),
 				{ target: { value: number.phone } },
@@ -1465,6 +1463,9 @@ it.each(["reconnect", "first connection"])(
 		const qr = await screen.findByRole("img", {
 			name: "WhatsApp savienošanas QR kods",
 		});
+		expect(
+			screen.queryByRole("img", { name: /Uzdevuma zona/ }),
+		).not.toBeInTheDocument();
 		expect(qr).toHaveAttribute(
 			"src",
 			expect.stringContaining(`whatsapp-connections?qr=${number.id}`),
@@ -1506,9 +1507,10 @@ it.each(["reconnect", "first connection"])(
 		expect(
 			screen.queryByRole("img", { name: "WhatsApp savienošanas QR kods" }),
 		).not.toBeInTheDocument();
-		expect(screen.getByRole("textbox", { name: "Ziņa" })).toHaveValue(
+		expect(await screen.findByRole("textbox", { name: "Ziņa" })).toHaveValue(
 			"Pārbaudīt zonu",
 		);
+		expect(screen.getByRole("img", { name: /Uzdevuma zona/ })).toBeVisible();
 		await waitFor(() =>
 			expect(screen.getByRole("button", { name: "Nosūtīt" })).toBeEnabled(),
 		);

@@ -27,7 +27,15 @@ import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import type { ProjectSettingsData } from "./load-settings";
 import { UpdateSiteForm } from "./updatesiteform";
 
-export function ProjectSettingsView({ data }: { data: ProjectSettingsData }) {
+export function ProjectSettingsView({
+	data,
+	bisError,
+	onRetryBis,
+}: {
+	data: ProjectSettingsData;
+	bisError?: boolean;
+	onRetryBis?: () => void;
+}) {
 	const { siteId, organizationLanguage } = data;
 	const [connectionRevision, setConnectionRevision] = useState(0);
 	const refreshGroups = useCallback(
@@ -101,6 +109,35 @@ export function ProjectSettingsView({ data }: { data: ProjectSettingsData }) {
 						}
 					/>
 				</div>
+			) : null}
+			{data.bisDeferred ? (
+				<Card className="mb-6">
+					<CardHeader>
+						<CardTitle>{t.bisIntegration}</CardTitle>
+						{bisError ? (
+							<CardDescription role="alert">
+								{organizationLanguage === "en"
+									? "Could not load BIS settings."
+									: "Neizdevās ielādēt BIS iestatījumus."}
+							</CardDescription>
+						) : (
+							<output className="text-sm text-muted-foreground">
+								{organizationLanguage === "en"
+									? "Loading BIS settings…"
+									: "Ielādē BIS iestatījumus…"}
+							</output>
+						)}
+					</CardHeader>
+					{bisError ? (
+						<CardFooter>
+							<Button type="button" variant="outline" onClick={onRetryBis}>
+								{organizationLanguage === "en"
+									? "Try again"
+									: "Mēģināt vēlreiz"}
+							</Button>
+						</CardFooter>
+					) : null}
+				</Card>
 			) : null}
 			<div data-tour="settings-site-info">
 				<UpdateSiteForm

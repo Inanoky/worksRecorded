@@ -89,8 +89,15 @@ jest.mock("@/flows/default-construction/visual/VisualProjectView", () => ({
 jest.mock(
 	"@/app/dashboard/sites/[siteId]/settings/ProjectSettingsView",
 	() => ({
-		ProjectSettingsView: ({ data }: { data: { siteId: string } }) => (
-			<StatefulScreen id={`${data.siteId}-settings`} />
+		ProjectSettingsView: ({
+			data,
+		}: {
+			data: { siteId: string; bis?: { isConnected: boolean } };
+		}) => (
+			<>
+				<StatefulScreen id={`${data.siteId}-settings`} />
+				{data.bis?.isConnected ? <p>BIS connected</p> : null}
+			</>
 		),
 	}),
 );
@@ -252,31 +259,63 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-it("opens Līmeni settings in the client workspace and retains the form across tabs", async () => {
+it("preloads Līmeni settings with the project and opens the form while BIS loads", async () => {
 	descriptors.set("a", { ...descriptor("a"), visualPreload: true });
 	const previous = global.fetch;
-	const request = jest.fn().mockResolvedValue({
-		ok: true,
-		json: async () => ({ siteId: "a" }),
-	});
-	global.fetch = request;
+	let completeBis!: (value: {
+		ok: boolean;
+		json: () => Promise<unknown>;
+	}) => void;
+	const bis = new Promise<{ ok: boolean; json: () => Promise<unknown> }>(
+		(resolve) => {
+			completeBis = resolve;
+		},
+	);
+	const request = jest.fn((url: string) =>
+		url.endsWith("part=bis")
+			? bis
+			: Promise.resolve({
+					ok: true,
+					json: async () => ({ siteId: "a", bisDeferred: true }),
+				}),
+	);
+	global.fetch = request as unknown as typeof fetch;
 	try {
 		render(<App serverId="a" />);
+		await waitFor(() =>
+			expect(request).toHaveBeenCalledWith(
+				"/api/sites/a/project-settings?part=base",
+				{ cache: "no-store" },
+			),
+		);
+		expect(request).toHaveBeenCalledTimes(1);
+		expect(screen.queryByLabelText("edit-a-settings")).not.toBeInTheDocument();
 		const settings = screen.getByRole("link", { name: "Project settings" });
 		fireEvent.click(settings);
 		expect(window.location.pathname).toBe(href("a", "settings"));
 		expect(mockRouteLoad).not.toHaveBeenCalled();
 		const field = await screen.findByLabelText("edit-a-settings");
+		expect(
+			screen.queryByText("Ielādē projekta iestatījumus…"),
+		).not.toBeInTheDocument();
+		expect(request).toHaveBeenCalledWith(
+			"/api/sites/a/project-settings?part=bis",
+			{ cache: "no-store" },
+		);
+		await act(async () =>
+			completeBis({
+				ok: true,
+				json: async () => ({ bis: { isConnected: true } }),
+			}),
+		);
+		expect(screen.getByText("BIS connected")).toBeVisible();
 		fireEvent.change(field, { target: { value: "unsaved change" } });
 		fireEvent.click(screen.getByText("back-a"));
 		expect(field).not.toBeVisible();
 		fireEvent.click(settings);
 		expect(field).toBeVisible();
 		expect(field).toHaveValue("unsaved change");
-		expect(request).toHaveBeenCalledTimes(1);
-		expect(request).toHaveBeenCalledWith("/api/sites/a/project-settings", {
-			cache: "no-store",
-		});
+		expect(request).toHaveBeenCalledTimes(2);
 		expect(mockRouteLoad).not.toHaveBeenCalled();
 	} finally {
 		global.fetch = previous;

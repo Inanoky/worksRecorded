@@ -97,7 +97,16 @@ async function loadBisSettings(siteId: string, userId: string) {
 	>;
 }
 
-export async function readProjectSettings(workspace: WorkspaceDescriptor) {
+export async function readProjectBisSettings(workspace: WorkspaceDescriptor) {
+	if (!workspace.organizationId) notFound();
+	if (getFlowModuleUi(workspace.flowModuleKey).hideBisSettings) return null;
+	return loadBisSettings(workspace.siteId, workspace.userId);
+}
+
+export async function readProjectSettings(
+	workspace: WorkspaceDescriptor,
+	{ deferBis = false } = {},
+) {
 	if (!workspace.organizationId) notFound();
 	const { siteId, userId, flowModuleKey, visualPreload } = workspace;
 	const flowUi = getFlowModuleUi(flowModuleKey);
@@ -114,7 +123,9 @@ export async function readProjectSettings(workspace: WorkspaceDescriptor) {
 				},
 			}),
 			getOrganizationLanguageByUserId(userId),
-			flowUi.hideBisSettings ? null : loadBisSettings(siteId, userId),
+			flowUi.hideBisSettings || deferBis
+				? null
+				: loadBisSettings(siteId, userId),
 			flowUi.showPhotoExport
 				? prisma.photos.count({
 						where: {
@@ -138,6 +149,7 @@ export async function readProjectSettings(workspace: WorkspaceDescriptor) {
 		hideSiteAreaSettings: !!flowUi.hideSiteAreaSettings,
 		visualPlanningContacts,
 		bis,
+		bisDeferred: deferBis && !flowUi.hideBisSettings,
 		photoCount,
 		parsedPolygon: parsePolygon(site.geofencePolygon),
 		site: {
