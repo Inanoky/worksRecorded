@@ -85,6 +85,7 @@ describe("TGEM persistent upload drafts", () => {
 		mockPermission.mockResolvedValue(undefined);
 		mockProcessor.mockReturnValue("openai");
 		mockDb.site.findFirst.mockResolvedValue({ id: "site-1" });
+		mockDb.tgemInvoiceUploadDraft.findUniqueOrThrow.mockResolvedValue(draft());
 		mockDb.$transaction.mockImplementation(
 			async (callback: (db: typeof mockDb) => unknown) => callback(mockDb),
 		);
@@ -189,7 +190,8 @@ describe("TGEM persistent upload drafts", () => {
 	it.each(["submit", "together", "separate"] as const)(
 		"creates %s cases atomically and reuses them on repeated submit",
 		async (action) => {
-			const current = draft(action === "submit" ? "collecting" : "choosing");
+			const current = draft("collecting");
+			if (action === "together") current.status = "choosing";
 			mockDb.tgemInvoiceUploadDraft.findFirst.mockImplementation(
 				async () => current,
 			);
@@ -224,6 +226,7 @@ describe("TGEM persistent upload drafts", () => {
 			const count = mockDb.tgemInvoiceCase.create.mock.calls.length;
 			const repeated = await applyTgemDraftAction(scope, current.id, 4, action);
 			expect(repeated.decision).toBe("submitted");
+			expect(repeated.invoices).toEqual([]);
 			expect(mockDb.tgemInvoiceCase.create).toHaveBeenCalledTimes(count);
 			expect(mockPermission).toHaveBeenCalledWith(
 				mockDb,
@@ -231,6 +234,51 @@ describe("TGEM persistent upload drafts", () => {
 			);
 		},
 	);
+
+	it.each(["received", "processing", "failed_processing", "needs_review"])(
+		"does not return dispatchable invoices or mutate a submitted WhatsApp draft in %s",
+		async (status) => {
+			const current = draft("submitted");
+			mockDb.tgemInvoiceUploadDraft.findFirst.mockResolvedValue(current);
+			mockDb.tgemInvoiceCase.findMany.mockResolvedValue([
+				{
+					id: "case-1",
+					status,
+					ocrStatus: status === "needs_review" ? "complete" : "pending",
+					extractionStatus: status === "needs_review" ? "complete" : "pending",
+					documents: [{ id: "document-1" }],
+				},
+			]);
+			for (const action of [
+				"submit",
+				"together",
+				"separate",
+				"more",
+			] as const) {
+				const result = await applyTgemDraftAction(scope, current.id, 1, action);
+				expect(result.decision).toBe("submitted");
+				expect(result.invoices).toEqual([]);
+			}
+			expect(mockDb.tgemInvoiceCase.create).not.toHaveBeenCalled();
+			expect(mockDb.tgemInvoiceUploadDraft.update).not.toHaveBeenCalled();
+		},
+	);
+
+	it("ignores late upload callbacks once a draft has been submitted", async () => {
+		const current = draft("submitted");
+		mockDb.tgemInvoiceDraftFile.findFirst.mockResolvedValue(current.files[0]);
+		mockDb.tgemInvoiceUploadDraft.findUniqueOrThrow.mockResolvedValue(current);
+		expect(
+			await completeTgemDraftFile(scope, current.files[0].id, {
+				canonicalUrl: "https://new-file.test",
+				storageKey: "new-key",
+				byteSize: 1,
+				sha256: "new-hash",
+			}),
+		).toEqual(current);
+		expect(mockDb.tgemInvoiceDraftFile.update).not.toHaveBeenCalled();
+		expect(mockDb.tgemInvoiceUploadDraft.update).not.toHaveBeenCalled();
+	});
 
 	it("leaves the draft untouched for stale submission and foreign ownership", async () => {
 		mockDb.tgemInvoiceUploadDraft.findFirst.mockResolvedValue(draft());

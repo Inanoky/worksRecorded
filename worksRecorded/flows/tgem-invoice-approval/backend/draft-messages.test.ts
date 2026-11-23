@@ -43,16 +43,16 @@ describe("Latvian TGEM draft choices", () => {
 			const reply = tgemDraftReply(draft(count), "Projekts A");
 			expect(reply.text).toContain("Projekts A");
 			expect(reply.text).toContain(`${count}/10`);
-			expect(reply.buttons.map((button) => button.title)).toEqual([
-				"Apstrādāt",
-			]);
+			expect(reply.buttons.map((button) => button.title)).toEqual(
+				count > 1 ? ["Apstrādāt", "Katru atsevišķi"] : ["Apstrādāt"],
+			);
 			for (const button of reply.buttons) {
 				expect(button.title.length).toBeLessThanOrEqual(20);
 				expect(button.id.length).toBeLessThanOrEqual(256);
 				expect(parseTgemDraftButton(button.id)).toMatchObject({ revision: 8 });
 			}
 			expect(reply.text).toContain("Apstrāde vēl nav sākta");
-			expect(reply.text).toContain("kopā kā viens rēķins");
+			if (count > 1) expect(reply.text).toContain("kopā kā viens rēķins");
 			if (count === 10)
 				expect(reply.text).toContain("Sasniegts 10 dokumentu limits");
 			else expect(reply.text).toContain("vienkārši nosūtiet nākamo failu");

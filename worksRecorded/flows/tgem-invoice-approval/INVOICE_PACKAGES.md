@@ -11,9 +11,10 @@ Files selected together in WhatsApp and files sent individually accumulate in
 the same draft. Album membership is not inferred from timing.
 
 The Latvian reply shows the saved document count out of 10 and offers
-**Apstrādāt**. Sending another image or PDF adds it to the same
+**Apstrādāt** and, for multiple files, **Katru atsevišķi**. Sending another image or PDF adds it to the same
 draft without another button click. **Apstrādāt** submits all saved documents
-as one invoice, including a single-document draft. The process button appears
+as one invoice, including a single-document draft. **Katru atsevišķi** creates
+one independent invoice per uploaded file. The process buttons appear
 once pending uploads finish. At the limit, another file is rejected without
 downloading it. The user must process the current draft first. Uploaded documents
 cannot be discarded through a draft action, an old button or a text command.
@@ -23,10 +24,24 @@ Meta button failures log the draft ID and provider error code without the
 message contents.
 
 Submission locks the draft row and creates one invoice containing all ready
-WhatsApp files. Web upload can create separate invoices. File links and invoice
+WhatsApp files, or one invoice per file when separate processing is selected.
+Web upload offers the same grouping choice. File links and invoice
 idempotency keys prevent repeated submissions from creating another invoice.
-Repeating the same submission button retries workflow dispatch after a dispatch
-failure. Documents remain in the active draft until submitted for processing.
+WhatsApp submission buttons become read-only after the first submission.
+Replaying any old processing or grouping button only returns the existing
+submission status and never dispatches an AI job, including when an invoice
+has failed processing. Submitted drafts also ignore late upload callbacks.
+Documents remain in the active draft until submitted for processing.
+
+The background workflow sends a Latvian completion message to the original
+WhatsApp sender and business number after every invoice in the submission has
+finished. It waits through processing retries, reports failures accurately,
+and can report recovery after a failed invoice is retried. Draft row locks and
+audit claims suppress concurrent completion messages. Notification retries run
+as a separate workflow step and never repeat extraction. Provider acceptance
+and message IDs are recorded in invoice audit events; this does not prove
+delivery. Notifications outside the 24-hour submission window are skipped.
+No new database migration is required for completion notifications.
 
 Web upload also accepts multiple files, with a choice between one invoice with
 attachments and separate invoices. Every selected file must be saved before the
@@ -41,7 +56,9 @@ Grouped extraction uses the existing OpenAI invoice processor with all documents
 in one request. It chooses a main financial document, preferring an invoice over
 its receipt, and extracts amounts and line items from that document and its
 continuation pages. Supporting documents retain their own OCR pages and remain
-selectable in the invoice preview and detail view. A receipt does not mark an
+selectable from an equal-weight clickable document list in the invoice preview
+and detail view. Long WhatsApp identifiers are shortened for display; full
+message IDs remain available for deduplication. A receipt does not mark an
 invoice paid. Ambiguous or conflicting packages require manual review and skip
 automatic approval. An explicitly configured Google processor rejects grouped
 submission before creating invoices; separate invoices remain supported.

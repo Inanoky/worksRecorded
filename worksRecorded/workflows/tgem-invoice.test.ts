@@ -7,6 +7,7 @@ const mockGetUploadThingUfsUrl = jest.fn();
 const mockCreateHook = jest.fn();
 const mockStart = jest.fn();
 const mockProcessCase = jest.fn();
+const mockNotify = jest.fn();
 const mockPrisma = {
 	tgemInboundMailbox: { findMany: jest.fn() },
 	flowAssignment: { findFirst: jest.fn() },
@@ -43,6 +44,9 @@ jest.mock("@/lib/tgem-invoice-approval/create-case", () => ({
 jest.mock("@/lib/tgem-invoice-approval/process-case", () => ({
 	processTgemInvoiceCase: (...args: unknown[]) => mockProcessCase(...args),
 }));
+jest.mock("@/lib/tgem-invoice-approval/processing-notification", () => ({
+	notifyTgemInvoiceProcessing: (...args: unknown[]) => mockNotify(...args),
+}));
 
 jest.mock("@/lib/utils/db", () => ({ prisma: mockPrisma }));
 
@@ -54,6 +58,7 @@ jest.mock("@/lib/utils/uploadthing-file-url", () => ({
 jest.mock("workflow", () => ({
 	createHook: (...args: unknown[]) => mockCreateHook(...args),
 	FatalError: class FatalError extends Error {},
+	RetryableError: class RetryableError extends Error {},
 }));
 
 jest.mock("workflow/api", () => ({
@@ -64,6 +69,7 @@ import {
 	loadTgemInboundEmailStep,
 	processTgemInboundEmailWorkflow,
 	processTgemInvoiceStep,
+	processTgemInvoiceWorkflow,
 	resolveTgemInboundOrganizationStep,
 	storeTgemInboundAttachmentStep,
 } from "@/workflows/tgem-invoice";
@@ -87,6 +93,7 @@ describe("TGEM email workflows", () => {
 			[Symbol.dispose]: jest.fn(),
 		});
 		mockPrisma.user.findMany.mockResolvedValue([]);
+		mockNotify.mockResolvedValue({ outcome: "not_applicable" });
 	});
 
 	afterAll(() => {
@@ -139,6 +146,37 @@ describe("TGEM email workflows", () => {
 		await input.documents[1].load();
 		expect(mockFetch).toHaveBeenCalledWith("https://files.test/invoice.pdf");
 		expect(mockFetch).toHaveBeenCalledWith("https://files.test/receipt.jpg");
+	});
+
+	it("sends completion only after the processing step returns", async () => {
+		mockPrisma.tgemInvoiceDocument.findFirst.mockResolvedValue({
+			id: "document-1",
+			canonicalUrl: "https://files.test/invoice.pdf",
+			contentType: "application/pdf",
+			byteSize: 100,
+			invoiceCase: {
+				id: "case-1",
+				source: "whatsapp",
+				organizationId: "org-1",
+				siteId: "site-1",
+				submittedByUserId: "user-1",
+				status: "received",
+				archivedAt: null,
+				documents: [],
+			},
+		});
+		mockProcessCase.mockResolvedValue({ provider: "openai", pageCount: 1 });
+		mockNotify.mockImplementation(async () => {
+			expect(mockProcessCase).toHaveBeenCalledTimes(1);
+			return { outcome: "sent" };
+		});
+		expect(
+			await processTgemInvoiceWorkflow({
+				invoiceCaseId: "case-1",
+				documentId: "document-1",
+			}),
+		).toMatchObject({ notification: { outcome: "sent" } });
+		expect(mockNotify).toHaveBeenCalledWith("case-1", false);
 	});
 
 	it("keeps only supported attachments within the size limit", async () => {

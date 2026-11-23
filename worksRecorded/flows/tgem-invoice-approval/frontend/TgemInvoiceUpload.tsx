@@ -292,7 +292,7 @@ export function TgemInvoiceUpload({
 	return (
 		<section
 			aria-label={copy.title}
-			className={`overflow-hidden rounded-lg border bg-white transition-colors dark:bg-card ${dragActive ? "border-tgem-primary bg-[#F1F6FF] dark:bg-tgem-primary/10" : "border-[#E1E6ED]"}`}
+			className={`min-w-0 w-full overflow-hidden rounded-lg border bg-white transition-colors dark:bg-card ${dragActive ? "border-tgem-primary bg-[#F1F6FF] dark:bg-tgem-primary/10" : "border-[#E1E6ED]"}`}
 			onDragEnter={(event) => {
 				event.preventDefault();
 				if (!busy) setDragActive(true);
@@ -309,8 +309,8 @@ export function TgemInvoiceUpload({
 				void processFile(Array.from(event.dataTransfer.files));
 			}}
 		>
-			<div className="grid lg:grid-cols-[minmax(18rem,0.7fr)_minmax(28rem,1.3fr)]">
-				<div className="flex items-start gap-4 border-b p-4 lg:border-r lg:border-b-0">
+			<div className="grid min-w-0 grid-cols-1 lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]">
+				<div className="flex min-w-0 items-start gap-4 border-b p-4 lg:border-r lg:border-b-0">
 					<div
 						data-testid="tgem-invoice-upload-icon"
 						className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[#F1F6FF] text-tgem-primary dark:bg-tgem-primary/15"
@@ -325,31 +325,32 @@ export function TgemInvoiceUpload({
 					</div>
 				</div>
 
-				<div className="relative min-h-28 p-4">
+				<div className="relative flex min-h-28 min-w-0 flex-col gap-4 p-4">
 					{stage === "idle" ? (
-						<fieldset className="mb-3 flex flex-col gap-2 text-xs">
+						<fieldset className="flex min-w-0 w-full flex-col gap-2 text-xs">
 							{(
 								[
 									["together", copy.together],
 									["separate", copy.separate],
 								] as const
 							).map(([value, label]) => (
-								<label key={value} className="flex items-center gap-2">
+								<label key={value} className="flex min-w-0 items-start gap-2">
 									<input
 										type="radio"
+										className="mt-1 shrink-0"
 										name={`${inputId}-mode`}
 										value={value}
 										checked={mode === value}
 										onChange={() => setMode(value)}
 									/>
-									{label}
+									<span className="min-w-0 break-words leading-5">{label}</span>
 								</label>
 							))}
 						</fieldset>
 					) : null}
 					{stage === "idle" ? (
-						<div className="flex h-full flex-col items-center justify-center gap-2 text-center sm:flex-row sm:justify-between sm:text-left">
-							<div>
+						<div className="flex min-w-0 flex-col items-start gap-3 text-left sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+							<div className="min-w-0">
 								<div className="text-sm font-medium">{copy.drop}</div>
 								<div className="mt-1 text-xs text-muted-foreground">
 									PDF · JPG · PNG · WEBP
@@ -358,19 +359,19 @@ export function TgemInvoiceUpload({
 							<label
 								htmlFor={inputId}
 								aria-disabled={!selectedProjectId}
-								className={`inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold shadow-sm transition focus-within:ring-2 focus-within:ring-tgem-primary/30 focus-within:ring-offset-2 ${selectedProjectId ? "cursor-pointer border-tgem-primary bg-tgem-primary text-white hover:border-tgem-primary-hover hover:bg-tgem-primary-hover" : "cursor-not-allowed border-border bg-muted text-muted-foreground"}`}
+								className={`inline-flex max-w-full items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold shadow-sm transition focus-within:ring-2 focus-within:ring-tgem-primary/30 focus-within:ring-offset-2 ${selectedProjectId ? "cursor-pointer border-tgem-primary bg-tgem-primary text-white hover:border-tgem-primary-hover hover:bg-tgem-primary-hover" : "cursor-not-allowed border-border bg-muted text-muted-foreground"}`}
 							>
-								<FileUp className="h-4 w-4" />
-								{copy.choose}
+								<FileUp className="h-4 w-4 shrink-0" />
+								<span className="min-w-0 break-words">{copy.choose}</span>
 							</label>
 						</div>
 					) : (
 						<div
-							className="flex h-full flex-col justify-center gap-3"
+							className="flex min-w-0 flex-col justify-center gap-3"
 							aria-live="polite"
 						>
-							<div className="flex items-center justify-between gap-3">
-								<div className="flex min-w-0 items-center gap-2">
+							<div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+								<div className="flex min-w-0 flex-1 items-center gap-2">
 									{stage === "ready" ? (
 										<Check className="h-4 w-4 shrink-0 text-[#159447]" />
 									) : stage === "error" ? (
@@ -433,7 +434,7 @@ export function TgemInvoiceUpload({
 									{result?.warningCount ?? 0} {copy.warnings}
 								</div>
 							) : (
-								<div className="text-xs text-red-600">
+								<div className="break-words text-xs text-red-600">
 									{error || copy.failed}
 								</div>
 							)}

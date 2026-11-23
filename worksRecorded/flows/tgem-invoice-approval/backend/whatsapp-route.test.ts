@@ -194,6 +194,49 @@ describe("TGEM WhatsApp drafts", () => {
 		);
 	});
 
+	it.each([
+		{ body: "Katru atsevišķi" },
+		{ button: `tgem:${draft.id}:4:separate` },
+	])(
+		"dispatches every invoice when separate processing is selected",
+		async (input) => {
+			mockFindDraft.mockResolvedValue(draft);
+			mockApplyAction.mockResolvedValue({
+				decision: "separate",
+				draft,
+				invoices: [1, 2, 3].map((number) => ({
+					id: `case-${number}`,
+					status: "received",
+					documents: [{ id: `doc-${number}` }],
+				})),
+			});
+			expect(await call(form(input))).toMatchObject({
+				outcome: "draft_separate",
+				invoiceCount: 3,
+			});
+			expect(mockApplyAction).toHaveBeenCalledWith(
+				expect.any(Object),
+				draft.id,
+				4,
+				"separate",
+			);
+			expect(mockEnqueue).toHaveBeenCalledTimes(3);
+		},
+	);
+
+	it("keeps the full message ID for deduplication while giving the upload a compact filename", async () => {
+		await call(form({ contentType: "image/jpeg" }));
+		expect(mockReserveFile).toHaveBeenCalledWith(
+			expect.any(Object),
+			expect.objectContaining({
+				messageId: "wamid.invoice-1",
+				originalFilename: expect.stringMatching(
+					/^whatsapp-invoice-[a-f0-9]{12}\.jpg$/,
+				),
+			}),
+		);
+	});
+
 	it("rejects an eleventh file before downloading it and resends the saved draft", async () => {
 		mockFindDraft.mockResolvedValue(draft);
 		mockReserveFile.mockRejectedValue(new Error("draft_file_limit"));
@@ -230,6 +273,7 @@ describe("TGEM WhatsApp drafts", () => {
 		mockFindDraft.mockResolvedValue({ ...draft, status: "submitted" });
 		mockApplyAction.mockResolvedValue({
 			decision: "submitted",
+			alreadyProcessed: true,
 			draft,
 			invoices: [
 				{
@@ -241,7 +285,32 @@ describe("TGEM WhatsApp drafts", () => {
 		});
 		await call(form({ button: `tgem:${draft.id}:4:together` }));
 		expect(mockEnqueue).not.toHaveBeenCalled();
+		expect(mockSendMessage).toHaveBeenCalledWith(
+			"+37120000000",
+			expect.stringContaining("jau ir apstrādāts"),
+		);
 	});
+
+	it.each(["received", "processing", "failed_processing"])(
+		"never restarts a %s invoice from an old draft button",
+		async (status) => {
+			mockFindDraft.mockResolvedValue({ ...draft, status: "submitted" });
+			mockApplyAction.mockResolvedValue({
+				decision: "submitted",
+				draft,
+				alreadyProcessed: false,
+				invoices: [{ id: "case-1", status, documents: [{ id: "doc-1" }] }],
+			});
+			for (const action of ["submit", "together", "separate", "more"])
+				await call(form({ button: `tgem:${draft.id}:4:${action}` }));
+			expect(mockEnqueue).not.toHaveBeenCalled();
+			expect(mockSendMessage).toHaveBeenCalledWith(
+				"+37120000000",
+				expect.stringContaining("jau ir iesniegts apstrādei"),
+			);
+			expect(mockSendCard).not.toHaveBeenCalled();
+		},
+	);
 
 	it("keeps the draft project when selection changes elsewhere", async () => {
 		mockFindDraft.mockResolvedValue({ ...draft, siteId: "site-2" });

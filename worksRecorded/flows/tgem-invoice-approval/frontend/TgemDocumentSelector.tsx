@@ -1,6 +1,8 @@
 "use client";
 
+import { FileText, ImageIcon } from "lucide-react";
 import type { TgemDashboardInvoice } from "@/lib/tgem-invoice-approval/dashboard-types";
+import { tgemDocumentDisplayName } from "@/lib/tgem-invoice-approval/document-label";
 
 export function TgemDocumentSelector({
 	invoice,
@@ -14,27 +16,38 @@ export function TgemDocumentSelector({
 	language?: string | null;
 }) {
 	if (invoice.documents.length < 2) return null;
-	const copy =
+	const label =
 		language === "lv"
-			? ["Izvēlēties dokumentu", "Pamatdokuments", "Pielikums"]
+			? "Dokumenti"
 			: language === "ru"
-				? ["Выбрать документ", "Основной документ", "Приложение"]
-				: ["Choose document", "Main document", "Attachment"];
+				? "Документы"
+				: "Documents";
 	return (
-		<select
-			aria-label={copy[0]}
-			value={selectedId}
-			onChange={(event) => onChange(event.target.value)}
-			className="min-w-0 max-w-full rounded-md border bg-background px-2 py-1.5 text-sm font-normal"
-		>
-			{invoice.documents.map((document, index) => (
-				<option key={document.id} value={document.id}>
-					{index + 1}. {document.originalFilename}
-					{invoice.primaryDocumentId
-						? ` — ${document.id === invoice.primaryDocumentId ? copy[1] : copy[2]}`
-						: ""}
-				</option>
-			))}
-		</select>
+		<ul aria-label={label} className="max-h-56 space-y-1.5 overflow-y-auto p-2">
+			{invoice.documents.map((document, index) => {
+				const selected = document.id === selectedId;
+				const Icon =
+					document.contentType === "application/pdf" ? FileText : ImageIcon;
+				return (
+					<li key={document.id}>
+						<button
+							type="button"
+							aria-pressed={selected}
+							onClick={() => onChange(document.id)}
+							title={document.originalFilename}
+							className={`flex w-full min-w-0 items-center gap-2 rounded-md border px-3 py-2.5 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50 ${selected ? "border-tgem-primary/40 bg-tgem-primary/10 text-tgem-primary" : "border-border bg-background hover:bg-muted"}`}
+						>
+							<span className="w-5 shrink-0 text-xs tabular-nums text-muted-foreground">
+								{index + 1}.
+							</span>
+							<Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+							<span className="min-w-0 flex-1 truncate">
+								{tgemDocumentDisplayName(document.originalFilename)}
+							</span>
+						</button>
+					</li>
+				);
+			})}
+		</ul>
 	);
 }

@@ -23,10 +23,14 @@ export function tgemDraftReply(draft: TgemUploadDraft, projectName: string) {
 		atLimit
 			? `Sasniegts ${TGEM_DRAFT_MAX_FILES} dokumentu limits. Spiediet “Apstrādāt”, pirms sūtāt nākamā rēķina dokumentus.`
 			: "Lai pievienotu vēl kādu attēlu vai PDF šim pašam rēķinam, vienkārši nosūtiet nākamo failu.",
-		"Dokumenti tiks apstrādāti kopā kā viens rēķins. Apstrāde vēl nav sākta.",
+		count > 1
+			? "“Apstrādāt” — visi dokumenti kopā kā viens rēķins. “Katru atsevišķi” — katrs dokuments kā atsevišķs rēķins. Apstrāde vēl nav sākta."
+			: "Apstrāde vēl nav sākta.",
 	].join("\n\n");
 	const buttons: Array<{ action: TgemDraftAction; title: string }> = [];
 	if (count && !pending) buttons.push({ action: "submit", title: "Apstrādāt" });
+	if (count > 1 && !pending)
+		buttons.push({ action: "separate", title: "Katru atsevišķi" });
 	return {
 		text,
 		buttons: buttons.map(({ action, title }) => ({
@@ -83,6 +87,9 @@ export async function sendTgemDraftReply(
 			draftId: draft.id,
 			errorCode: errorCode ?? null,
 		});
-		await sendMessage(to, `${reply.text}\n\nVarat arī rakstīt: Apstrādāt.`);
+		await sendMessage(
+			to,
+			`${reply.text}\n\nVarat arī rakstīt: ${draft.files.filter((file) => file.status === "ready").length > 1 ? "Apstrādāt vai Katru atsevišķi" : "Apstrādāt"}.`,
+		);
 	}
 }

@@ -1,14 +1,22 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { TgemDashboardInvoice } from "@/lib/tgem-invoice-approval/dashboard-types";
 import { TgemDocumentSelector } from "./TgemDocumentSelector";
 
-it("labels the main invoice and supporting receipt and selects either document", () => {
+it("lists every document equally and opens a selected document", () => {
 	const onChange = jest.fn();
 	const invoice = {
 		primaryDocumentId: "invoice",
 		documents: [
-			{ id: "receipt", originalFilename: "receipt.jpg" },
-			{ id: "invoice", originalFilename: "invoice.pdf" },
+			{
+				id: "receipt",
+				contentType: "image/jpeg",
+				originalFilename: "receipt.jpg",
+			},
+			{
+				id: "invoice",
+				contentType: "application/pdf",
+				originalFilename: "invoice.pdf",
+			},
 		],
 	} as TgemDashboardInvoice;
 	render(
@@ -19,15 +27,16 @@ it("labels the main invoice and supporting receipt and selects either document",
 			language="lv"
 		/>,
 	);
+	const list = within(screen.getByRole("list", { name: "Dokumenti" }));
+	expect(list.getAllByRole("listitem")).toHaveLength(2);
+	expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
 	expect(
-		screen.getByRole("option", { name: /receipt.jpg.*Pielikums/ }),
-	).toBeInTheDocument();
-	expect(
-		screen.getByRole("option", { name: /invoice.pdf.*Pamatdokuments/ }),
-	).toBeInTheDocument();
-	fireEvent.change(
-		screen.getByRole("combobox", { name: "Izvēlēties dokumentu" }),
-		{ target: { value: "receipt" } },
+		screen.queryByText(/Pielikums|Pamatdokuments/),
+	).not.toBeInTheDocument();
+	expect(list.getByRole("button", { name: /invoice.pdf/ })).toHaveAttribute(
+		"aria-pressed",
+		"true",
 	);
+	fireEvent.click(list.getByRole("button", { name: /receipt.jpg/ }));
 	expect(onChange).toHaveBeenCalledWith("receipt");
 });

@@ -47,6 +47,8 @@ const TEXT_ACTIONS: Record<string, TgemDraftAction> = {
 	"viena pakete": "together",
 	atsevišķi: "separate",
 	atseviski: "separate",
+	"katru atsevišķi": "separate",
+	"katru atseviski": "separate",
 };
 type Args = { from: string | null; formData: FormData; user: { id: string } };
 
@@ -69,7 +71,8 @@ function filename(value: string, messageId: string, contentType: string) {
 			)
 			.join("")
 			.trim()
-			.slice(0, 180) || `whatsapp-invoice-${messageId}.${extension}`
+			.slice(0, 180) ||
+		`whatsapp-invoice-${createHash("sha256").update(messageId).digest("hex").slice(0, 12)}.${extension}`
 	);
 }
 
@@ -170,7 +173,14 @@ async function handleInternal(args: Args) {
 				button?.revision ?? draft.revision,
 				action,
 			);
-			if (result.invoices.length) {
+			if (result.decision === "submitted") {
+				await sendMessage(
+					args.from,
+					"alreadyProcessed" in result && result.alreadyProcessed
+						? "Šis melnraksts jau ir apstrādāts. Atkārtota apstrāde netiks sākta. Rēķins ir pieejams TGEM rēķinu panelī."
+						: "Šis melnraksts jau ir iesniegts apstrādei. Atkārtota apstrāde netiks sākta. Apstrādes statusu skatiet TGEM rēķinu panelī.",
+				);
+			} else if (result.invoices.length) {
 				for (const invoice of result.invoices) {
 					if (
 						["received", "failed_processing"].includes(invoice.status) &&
@@ -185,7 +195,7 @@ async function handleInternal(args: Args) {
 				await sendMessage(
 					args.from,
 					result.invoices.length === 1
-						? "Dokumentu pakete iesniegta. Sāku apstrādi kā vienu rēķinu; pārējie dokumenti paliks pielikumos."
+						? "Dokumentu pakete iesniegta. Sāku apstrādi kā vienu rēķinu."
 						: `Iesniegti ${result.invoices.length} atsevišķi rēķini. Sāku apstrādi.`,
 				);
 			} else if (result.decision === "closed") {
@@ -217,7 +227,7 @@ async function handleInternal(args: Args) {
 				error instanceof Error &&
 					error.message === "draft_package_processor_unsupported"
 					? "Pašreizējā dokumentu apstrādes konfigurācija neatbalsta vienotu paketi. Melnraksts saglabāts. Sazinieties ar administratoru vai izvēlieties “Atsevišķi”, ja tie ir atsevišķi rēķini."
-					: "Neizdevās pabeigt iesniegšanu. Faili ir saglabāti; lūdzu, nospiediet to pašu iesniegšanas pogu vēlreiz.",
+					: "Neizdevās pabeigt iesniegšanu. Faili ir saglabāti. Pārbaudiet rēķina statusu TGEM rēķinu panelī; ja apstrāde nav sākusies, sazinieties ar administratoru.",
 			);
 			return { outcome: "draft_submit_failed", siteId: project.id };
 		}

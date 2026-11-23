@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 import { UTApi } from "uploadthing/server";
-import { createHook, FatalError } from "workflow";
+import { createHook, FatalError, RetryableError } from "workflow";
 import { start } from "workflow/api";
 import { createTgemInvoiceCaseRecord } from "@/lib/tgem-invoice-approval/create-case";
 import {
@@ -10,6 +10,7 @@ import {
 	type TgemInvoiceSourceContext,
 } from "@/lib/tgem-invoice-approval/intake";
 import { processTgemInvoiceCase } from "@/lib/tgem-invoice-approval/process-case";
+import { notifyTgemInvoiceProcessing } from "@/lib/tgem-invoice-approval/processing-notification";
 import { prisma } from "@/lib/utils/db";
 import { getUploadThingUfsUrl } from "@/lib/utils/uploadthing-file-url";
 
@@ -391,6 +392,24 @@ export async function processTgemInvoiceStep(
 
 processTgemInvoiceStep.maxRetries = 4;
 
+export async function notifyTgemInvoiceProcessingStep(
+	invoiceCaseId: string,
+	processingFailed = false,
+) {
+	"use step";
+	const result = await notifyTgemInvoiceProcessing(
+		invoiceCaseId,
+		processingFailed,
+	);
+	if (result.outcome === "busy")
+		throw new RetryableError("TGEM processing notification is being sent", {
+			retryAfter: "2m",
+		});
+	return result;
+}
+
+notifyTgemInvoiceProcessingStep.maxRetries = 4;
+
 export async function processTgemInvoiceWorkflow(
 	input: TgemInvoiceProcessingInput,
 ) {
@@ -403,7 +422,19 @@ export async function processTgemInvoiceWorkflow(
 	if (conflict) {
 		return { status: "duplicate", ownerRunId: conflict.runId };
 	}
-	return processTgemInvoiceStep(input);
+	let result: Awaited<ReturnType<typeof processTgemInvoiceStep>>;
+	try {
+		result = await processTgemInvoiceStep(input);
+	} catch (error) {
+		await notifyTgemInvoiceProcessingStep(input.invoiceCaseId, true).catch(
+			() => null,
+		);
+		throw error;
+	}
+	const notification = await notifyTgemInvoiceProcessingStep(
+		input.invoiceCaseId,
+	).catch(() => ({ outcome: "failed" }));
+	return { ...result, notification };
 }
 
 async function spawnTgemInvoiceProcessingStep(

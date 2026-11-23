@@ -78,6 +78,7 @@ import type {
 	TgemDashboardData,
 	TgemDashboardInvoice,
 } from "@/lib/tgem-invoice-approval/dashboard-types";
+import { tgemDocumentDisplayName } from "@/lib/tgem-invoice-approval/document-label";
 import {
 	normalizeTgemInvoiceDetailValue,
 	type TgemEditableInvoiceField,
@@ -297,6 +298,15 @@ function getCopy(language?: string | null) {
 				fixture_created: "Izveidots demonstrācijas rēķins",
 				invoice_received: "Rēķins saņemts",
 				invoice_package_review_required: "Dokumentu pakete jāpārbauda",
+				invoice_processing_job_finished: "Dokumenta apstrāde pabeigta",
+				invoice_processing_notification_claimed:
+					"Sagatavots WhatsApp paziņojums par apstrādi",
+				invoice_processing_notification_accepted:
+					"Nosūtīts WhatsApp paziņojums par apstrādi",
+				invoice_processing_notification_failed:
+					"WhatsApp paziņojumu neizdevās nosūtīt",
+				invoice_processing_notification_expired:
+					"WhatsApp paziņojuma sūtīšanas laiks beidzies",
 				invoice_processing_started: "Sākta rēķina apstrāde",
 				invoice_extraction_completed: "Datu atpazīšana pabeigta",
 				invoice_processing_failed: "Rēķina apstrāde neizdevās",
@@ -497,6 +507,15 @@ function getCopy(language?: string | null) {
 			events: {
 				fixture_created: "Создан демонстрационный счет",
 				invoice_received: "Счет получен",
+				invoice_processing_job_finished: "Обработка документа завершена",
+				invoice_processing_notification_claimed:
+					"Подготовлено уведомление WhatsApp об обработке",
+				invoice_processing_notification_accepted:
+					"Отправлено уведомление WhatsApp об обработке",
+				invoice_processing_notification_failed:
+					"Не удалось отправить уведомление WhatsApp",
+				invoice_processing_notification_expired:
+					"Истек срок отправки уведомления WhatsApp",
 				invoice_package_review_required:
 					"Необходима проверка пакета документов",
 				invoice_processing_started: "Обработка счета начата",
@@ -699,6 +718,15 @@ function getCopy(language?: string | null) {
 			fixture_created: "Demo invoice created",
 			invoice_received: "Invoice received",
 			invoice_package_review_required: "Document package requires review",
+			invoice_processing_job_finished: "Document processing finished",
+			invoice_processing_notification_claimed:
+				"Prepared WhatsApp processing notification",
+			invoice_processing_notification_accepted:
+				"Sent WhatsApp processing notification",
+			invoice_processing_notification_failed:
+				"Could not send WhatsApp notification",
+			invoice_processing_notification_expired:
+				"WhatsApp notification window expired",
 			invoice_processing_started: "Invoice processing started",
 			invoice_extraction_completed: "Data extraction completed",
 			invoice_processing_failed: "Invoice processing failed",
@@ -1037,14 +1065,14 @@ function OcrDocumentViewer({
 			{document.contentType === "application/pdf" ? (
 				<TgemPdfViewer
 					documentPath={document.documentPath}
-					filename={document.originalFilename}
+					filename={tgemDocumentDisplayName(document.originalFilename)}
 					language={language}
 				/>
 			) : (
 				<TgemImageViewer
 					key={document.documentPath}
 					documentPath={document.documentPath}
-					filename={document.originalFilename}
+					filename={tgemDocumentDisplayName(document.originalFilename)}
 					language={language}
 				/>
 			)}
@@ -1873,7 +1901,9 @@ function InvoiceRegister({
 									<div className="flex items-center gap-2 border-b px-3 py-2.5">
 										<FileText className="h-4 w-4 shrink-0 text-tgem-primary" />
 										<div className="min-w-0 flex-1 truncate text-sm font-medium">
-											{previewDocument.originalFilename}
+											{tgemDocumentDisplayName(
+												previewDocument.originalFilename,
+											)}
 										</div>
 										{previewInvoice.isNewestDuplicateInvoiceNumber ? (
 											<NewestDuplicateInvoiceNumberWarning copy={copy} />
@@ -1889,14 +1919,18 @@ function InvoiceRegister({
 										{previewDocument.contentType === "application/pdf" ? (
 											<TgemPdfViewer
 												documentPath={previewDocument.documentPath}
-												filename={previewDocument.originalFilename}
+												filename={tgemDocumentDisplayName(
+													previewDocument.originalFilename,
+												)}
 												language={organizationLanguage}
 											/>
 										) : (
 											<TgemImageViewer
 												key={previewDocument.documentPath}
 												documentPath={previewDocument.documentPath}
-												filename={previewDocument.originalFilename}
+												filename={tgemDocumentDisplayName(
+													previewDocument.originalFilename,
+												)}
 												language={organizationLanguage}
 											/>
 										)}
@@ -2816,7 +2850,12 @@ function InvoiceDetails({
 								view={documentView}
 							/>
 							<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-								<span>{document.originalFilename}</span>
+								<span
+									className="min-w-0 max-w-full truncate"
+									title={document.originalFilename}
+								>
+									{tgemDocumentDisplayName(document.originalFilename)}
+								</span>
 								<span>·</span>
 								<span>{document.storageProvider}</span>
 								<span>·</span>

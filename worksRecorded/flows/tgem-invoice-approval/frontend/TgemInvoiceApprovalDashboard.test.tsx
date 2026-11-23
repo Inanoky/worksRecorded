@@ -396,9 +396,11 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			expect(
 				await screen.findByRole("img", { name: "main-invoice.png" }),
 			).toBeInTheDocument();
-			fireEvent.change(
-				screen.getByRole("combobox", { name: "Choose document" }),
-				{ target: { value: "receipt-doc" } },
+			fireEvent.click(
+				within(screen.getByRole("list", { name: "Documents" })).getByRole(
+					"button",
+					{ name: /receipt.png/ },
+				),
 			);
 			expect(
 				screen.getByRole("img", { name: "receipt.png" }),

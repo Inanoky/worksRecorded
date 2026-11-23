@@ -51,6 +51,7 @@ export async function sendMetaGraphMessage(args: {
   token?: string | null;
   recipient?: MetaRecipient | string | null;
   body: Record<string, unknown>;
+  signal?: AbortSignal;
 }) {
   const token = args.token || process.env.META_ACCESS_TOKEN;
   if (!token) throw new Error("Missing META_ACCESS_TOKEN");
@@ -73,6 +74,7 @@ export async function sendMetaGraphMessage(args: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
+    ...(args.signal ? { signal: args.signal } : {}),
   });
 
   if (!res.ok) {

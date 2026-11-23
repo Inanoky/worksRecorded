@@ -216,6 +216,12 @@ export async function completeTgemDraftFile(
 			});
 			if (!file) throw new Error("Draft file access denied");
 			await lock(tx, file.draftId);
+			const current = await tx.tgemInvoiceUploadDraft.findUniqueOrThrow({
+				where: { id: file.draftId },
+				include: tgemDraftInclude,
+			});
+			if (!["collecting", "choosing"].includes(current.status))
+				return { draft: current, tooLarge: false };
 			const bytes = await tx.tgemInvoiceDraftFile.aggregate({
 				where: { draftId: file.draftId, status: "ready", id: { not: fileId } },
 				_sum: { byteSize: true },
@@ -250,10 +256,7 @@ export function tgemDraftDecision(
 ) {
 	if (!["submit", "more", "together", "separate"].includes(action))
 		return "unsupported";
-	if (draft.status === "submitted")
-		return action === "submit" || action === "together" || action === "separate"
-			? "submitted"
-			: "closed";
+	if (draft.status === "submitted") return "submitted";
 	if (!["collecting", "choosing"].includes(draft.status)) return "closed";
 	if (draft.revision !== revision) return "stale";
 	if (action === "more") return "more";
@@ -263,7 +266,12 @@ export function tgemDraftDecision(
 	if (!ready.length) return "empty";
 	if (action === "submit" && ready.length > 1 && draft.source !== "whatsapp")
 		return "choose";
-	if (action !== "submit" && draft.status !== "choosing") return "stale";
+	if (
+		action !== "submit" &&
+		draft.status !== "choosing" &&
+		!(draft.source === "whatsapp" && action === "separate")
+	)
+		return "stale";
 	return action === "separate" ? "separate" : "together";
 }
 
@@ -377,6 +385,8 @@ export async function applyTgemDraftAction(
 				select: {
 					id: true,
 					status: true,
+					ocrStatus: true,
+					extractionStatus: true,
 					documents: {
 						orderBy: [{ documentOrder: "asc" }, { createdAt: "asc" }],
 						take: 1,
@@ -384,7 +394,21 @@ export async function applyTgemDraftAction(
 					},
 				},
 			});
-			return { decision, draft, invoices };
+			return {
+				decision,
+				draft,
+				invoices:
+					decision === "submitted" && draft.source === "whatsapp"
+						? []
+						: invoices,
+				alreadyProcessed:
+					invoices.length > 0 &&
+					invoices.every(
+						(invoice) =>
+							invoice.ocrStatus === "complete" &&
+							invoice.extractionStatus === "complete",
+					),
+			};
 		},
 		{ timeout: 15_000 },
 	);
