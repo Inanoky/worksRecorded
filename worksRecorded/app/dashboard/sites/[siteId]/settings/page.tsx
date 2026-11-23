@@ -15,6 +15,7 @@ import {
 import { UploadImageForm } from "@/components/settings/UploadImageForm";
 import { PhotoExportCard } from "@/components/settings/PhotoExportCard";
 import { VisualPlanningContactsCard } from "@/components/settings/VisualPlanningContactsCard";
+import { VisualWhatsAppGroupsCard } from "@/components/settings/VisualWhatsAppGroupsCard";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
 
@@ -338,11 +339,14 @@ async function SettingsSiteRoute({
       /></div>
 
       {showVisualPlanningContacts ? (
-        <VisualPlanningContactsCard
-          siteId={siteId}
-          initialContacts={visualPlanningContacts}
-          organizationLanguage={organizationLanguage}
-        />
+        <>
+          <VisualPlanningContactsCard
+            siteId={siteId}
+            initialContacts={visualPlanningContacts}
+            organizationLanguage={organizationLanguage}
+          />
+          <VisualWhatsAppGroupsCard key={siteId} siteId={siteId} />
+        </>
       ) : null}
 
       <Card data-tour="settings-danger-zone" className="mt-6 border-red-500 bg-red-500/10">

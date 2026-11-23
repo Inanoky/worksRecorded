@@ -19,6 +19,7 @@ export async function sendPlanningWhatsAppTask(args: {
 	planId: string;
 	planVersion: number;
 	recipient: string;
+	group?: { id: string; sender: string };
 	message: string;
 	clientRequestId: string;
 	images: PlanningImage[];
@@ -28,6 +29,10 @@ export async function sendPlanningWhatsAppTask(args: {
 	form.set("planId", args.planId);
 	form.set("planVersion", String(args.planVersion));
 	form.set("recipient", args.recipient);
+	if (args.group) {
+		form.set("groupId", args.group.id);
+		form.set("groupSender", args.group.sender);
+	}
 	form.set("message", args.message);
 	form.set("clientRequestId", args.clientRequestId);
 	form.set(

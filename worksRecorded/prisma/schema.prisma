@@ -1176,6 +1176,9 @@ model WhatsAppTaskSend {
   planVersion    Int
   senderUserId   String
   recipient      String
+  provider       String   @default("meta")
+  recipientLabel String?
+  senderAddress  String?
   message        String   @db.Text
   status         String   @default("processing")
   completedAt    DateTime?
@@ -1199,6 +1202,7 @@ model WhatsAppTaskSendItem {
   status        String   @default("pending")
   metaMediaId   String?
   metaMessageId String?  @unique
+  whapiMessageId String? @unique
   providerError String?  @db.Text
   sentAt        DateTime?
   deliveredAt   DateTime?
@@ -1209,6 +1213,32 @@ model WhatsAppTaskSendItem {
 
   @@unique([sendId, ordinal])
   @@index([sendId, status], map: "WhatsAppTaskSendItem_send_status_idx")
+}
+
+model WhapiUserConnection {
+  id                  String   @id @default(uuid())
+  organizationId      String
+  userId              String
+  channelId           String?  @unique
+  encryptedToken      String?
+  phone               String?
+  privacyConfigured   Boolean  @default(false)
+  pairingExpiresAt    DateTime?
+  createdAt           DateTime @default(now())
+  projectGroups       WhapiProjectGroups[]
+
+  @@unique([organizationId, userId])
+}
+
+model WhapiProjectGroups {
+  siteId       String
+  connectionId String
+  connection   WhapiUserConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  phone        String
+  groups       Json
+
+  @@id([siteId, connectionId])
+  @@index([connectionId])
 }
 
 model WhatsappBrowserMessage {

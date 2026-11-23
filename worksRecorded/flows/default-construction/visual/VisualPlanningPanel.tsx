@@ -130,6 +130,7 @@ const whatsAppStatusLabels: Record<string, string> = {
 	read: "Izlasīts",
 	partial: "Daļēji nosūtīts",
 	failed: "Neizdevās",
+	unknown: "Nav apstiprinājuma",
 };
 
 function whatsAppSendStatus(
@@ -137,6 +138,7 @@ function whatsAppSendStatus(
 	fallback: string,
 ) {
 	if (!items.length) return fallback;
+	if (items.some((item) => item.status === "unknown")) return "unknown";
 	if (items.every((item) => item.status === "read")) return "read";
 	if (
 		items.every((item) => item.status === "delivered" || item.status === "read")
@@ -1699,21 +1701,34 @@ export function VisualPlanningPanel({
 													>
 														<div className="flex items-start justify-between gap-3">
 															<span className="tabular-nums text-muted-foreground">
-																+{send.recipient} ·{" "}
-																{formatWhatsAppDateTime(send.createdAt)}
+																{send.provider === "whapi"
+																	? (send.recipientLabel ?? send.recipient)
+																	: `+${send.recipient}`}{" "}
+																· {formatWhatsAppDateTime(send.createdAt)}
 															</span>
 															<span className="shrink-0 font-medium">
 																{whatsAppStatusLabels[status] ?? status}
 															</span>
 														</div>
 														<p className="mt-1 text-muted-foreground">
-															{
-																send.items.filter(
-																	(item) => item.status === "read",
-																).length
-															}
-															/{send.items.length} izlasīti · versija{" "}
-															{send.planVersion}
+															{send.provider === "whapi" ? (
+																<>
+																	WhatsApp grupa
+																	{send.senderAddress
+																		? ` · +${send.senderAddress}`
+																		: ""}
+																</>
+															) : (
+																<>
+																	{
+																		send.items.filter(
+																			(item) => item.status === "read",
+																		).length
+																	}
+																	/{send.items.length} izlasīti
+																</>
+															)}{" "}
+															· versija {send.planVersion}
 														</p>
 														{sendIndex === 0 ? (
 															<>

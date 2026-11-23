@@ -5,11 +5,14 @@ const sendFindUnique = jest.fn();
 const sendCreate = jest.fn();
 const sendUpdate = jest.fn();
 const itemUpdate = jest.fn();
+const itemUpdateMany = jest.fn();
 const itemFindMany = jest.fn();
 const sendFindUniqueOrThrow = jest.fn();
+const resolveWhapiTaskRecipient = jest.fn();
 const originalFetch = global.fetch;
 
 jest.mock("./store", () => ({ requireVisualAccess }));
+jest.mock("./whapi-groups-store", () => ({ resolveWhapiTaskRecipient }));
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
 		constructionPlan: { findFirst: constructionPlanFindFirst },
@@ -20,7 +23,11 @@ jest.mock("@/lib/utils/db", () => ({
 			create: sendCreate,
 			update: sendUpdate,
 		},
-		whatsAppTaskSendItem: { update: itemUpdate, findMany: itemFindMany },
+		whatsAppTaskSendItem: {
+			update: itemUpdate,
+			updateMany: itemUpdateMany,
+			findMany: itemFindMany,
+		},
 	},
 }));
 
@@ -58,6 +65,19 @@ function validRequest() {
 			images: [{ page: 1 }, { page: 11, section: "PA1.6" }],
 		},
 		files: [imageFile("page.png"), imageFile("section.png")],
+	};
+}
+
+function groupRequest() {
+	const request = validRequest();
+	return {
+		...request,
+		input: {
+			...request.input,
+			recipient: "",
+			groupId: "120000000000000001@g.us",
+			groupSender: "37120000001",
+		},
 	};
 }
 
@@ -106,12 +126,81 @@ beforeEach(() => {
 		return {};
 	});
 	itemFindMany.mockImplementation(async () => items);
+	itemUpdateMany.mockImplementation(async ({ where, data }) => {
+		const item = items.find((candidate) => candidate.id === where.id);
+		if (!item || !where.status.in.includes(item.status)) return { count: 0 };
+		Object.assign(item, data);
+		return { count: 1 };
+	});
 	sendUpdate.mockResolvedValue({});
 	sendFindUniqueOrThrow.mockImplementation(async () => ({
 		id: "send-1",
 		status: sendUpdate.mock.calls.at(-1)?.[0].data.status ?? "processing",
 		items,
 	}));
+});
+
+it("sends an enabled project group the task and section through Whapi", async () => {
+	const request = groupRequest();
+	resolveWhapiTaskRecipient.mockResolvedValue({
+		token: "channel-token",
+		phone: request.input.groupSender,
+		group: { id: request.input.groupId, name: "Projekta brigāde" },
+	});
+	const fetchMock = jest.fn(
+		async (_url: string, _init: RequestInit) =>
+			({
+				ok: true,
+				json: async () => ({ sent: true, message: { id: "whapi-message" } }),
+			}) as Response,
+	);
+	global.fetch = fetchMock as unknown as typeof fetch;
+
+	await expect(sendVisualPlanningWhatsAppTask(request)).resolves.toMatchObject({
+		status: "sent",
+	});
+	expect(resolveWhapiTaskRecipient).toHaveBeenCalledWith(
+		{
+			organizationId: "limeni-org",
+			userId: request.userId,
+			siteId: request.siteId,
+		},
+		request.input.groupId,
+		request.input.groupSender,
+	);
+	expect(businessNumberFindFirst).not.toHaveBeenCalled();
+	expect(fetchMock).toHaveBeenCalledTimes(2);
+	for (const [url, init] of fetchMock.mock.calls) {
+		expect(url).toBe("https://gate.whapi.cloud/messages/image");
+		expect(new Headers(init.headers).get("Authorization")).toBe(
+			"Bearer channel-token",
+		);
+		expect((init.body as FormData).get("to")).toBe(request.input.groupId);
+	}
+	expect(
+		(fetchMock.mock.calls[0][1].body as FormData).get("caption"),
+	).toContain(LIMENI_TASK_REPORTING_NOTE);
+	expect((fetchMock.mock.calls[1][1].body as FormData).get("caption")).toBe(
+		"Sekcija PA1.6",
+	);
+	expect(sendCreate.mock.calls[0][0].data).toMatchObject({
+		provider: "whapi",
+		recipientLabel: "Projekta brigāde",
+		senderAddress: request.input.groupSender,
+	});
+});
+
+it("stops before sending when the group is outside the project allowlist", async () => {
+	const request = groupRequest();
+	resolveWhapiTaskRecipient.mockRejectedValue(
+		new Error("Šī WhatsApp grupa nav iespējota projektam."),
+	);
+	global.fetch = jest.fn();
+	await expect(sendVisualPlanningWhatsAppTask(request)).rejects.toThrow(
+		"nav iespējota projektam",
+	);
+	expect(sendCreate).not.toHaveBeenCalled();
+	expect(global.fetch).not.toHaveBeenCalled();
 });
 
 afterEach(() => {
