@@ -150,11 +150,14 @@ export async function CreateSiteAction(
 
 export async function UpdateImage(formData: FormData) {
   const user = await requireUser();
+  const siteId = String(formData.get("siteId") ?? "");
+  if (!siteId || !(await orgCheck(user.id, siteId))) {
+    throw new Error("Project access denied");
+  }
 
   await prisma.site.update({
     where: {
-      //  userId: user.id,
-      id: formData.get("siteId") as string,
+      id: siteId,
     },
     data: {
       imageUrl: formData.get("imageUrl") as string,
@@ -166,11 +169,14 @@ export async function UpdateImage(formData: FormData) {
 
 export async function DeleteSite(formData: FormData) {
   const user = await requireUser();
+  const siteId = String(formData.get("siteId") ?? "");
+  if (!siteId || !(await orgCheck(user.id, siteId))) {
+    throw new Error("Project access denied");
+  }
 
   await prisma.site.delete({
     where: {
-      // userId: user.id,
-      id: formData.get("siteId") as string,
+      id: siteId,
     },
   });
   return redirect("/dashboard/sites");
@@ -284,6 +290,10 @@ export async function updateSiteAction(formData: FormData) {
   }
 
   try {
+    const user = await requireUser();
+    if (!(await orgCheck(user.id, siteId))) {
+      return { success: false, message: "Project access denied" };
+    }
     await prisma.site.update({
       where: { id: siteId },
       data: {

@@ -124,6 +124,7 @@ const statusClasses = {
 
 const whatsAppStatusLabels: Record<string, string> = {
 	processing: "Apstrādā",
+	queued: "Gaida nosūtīšanu",
 	pending: "Gaida",
 	sent: "Nosūtīts",
 	delivered: "Piegādāts",
@@ -1701,7 +1702,7 @@ export function VisualPlanningPanel({
 													>
 														<div className="flex items-start justify-between gap-3">
 															<span className="tabular-nums text-muted-foreground">
-																{send.provider === "whapi"
+																{send.provider
 																	? (send.recipientLabel ?? send.recipient)
 																	: `+${send.recipient}`}{" "}
 																· {formatWhatsAppDateTime(send.createdAt)}
@@ -1711,7 +1712,7 @@ export function VisualPlanningPanel({
 															</span>
 														</div>
 														<p className="mt-1 text-muted-foreground">
-															{send.provider === "whapi" ? (
+															{send.provider ? (
 																<>
 																	WhatsApp grupa
 																	{send.senderAddress

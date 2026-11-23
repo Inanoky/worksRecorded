@@ -1,6 +1,8 @@
+"use client";
+
+import { useContext } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
-import { getBisAuthorizeUrl, isBisHostedAuthorizationEnabled } from "@/server/actions/BIS/service";
 import {
   assignBisCaseToSiteAction,
   completeBisManualAuthorizationAction,
@@ -9,6 +11,7 @@ import {
 } from "@/server/actions/bis-settings-actions";
 import { getSiteSettingsMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 import { BisConnectionTutorialDialog } from "@/components/settings/BisConnectionTutorialDialog";
+import { SettingsRefreshContext } from "@/components/settings/SettingsRefreshContext";
 
 type BisCaseOption = {
   id: string;
@@ -35,6 +38,9 @@ export function BisIntegrationCard({
   availableConstructionRounds,
   statusMessage,
   hasManualAuthorizationCode,
+  manualAuthorizeHref,
+  useHostedAuthorization,
+  showManualAuthorizationInput,
 }: {
   organizationLanguage?: string | null;
   siteId: string;
@@ -55,12 +61,21 @@ export function BisIntegrationCard({
   availableConstructionRounds: BisConstructionRoundOption[];
   statusMessage?: string | null;
   hasManualAuthorizationCode: boolean;
+  manualAuthorizeHref: string;
+  useHostedAuthorization: boolean;
+  showManualAuthorizationInput: boolean;
 }) {
   const t = getSiteSettingsMessages(normalizeOrganizationLanguage(organizationLanguage));
-  const manualAuthorizeHref = getBisAuthorizeUrl("manual-bis-connect");
   const hostedAuthorizeHref = `/api/bis/connect?siteId=${encodeURIComponent(siteId)}&returnTo=${encodeURIComponent(`/dashboard/sites/${siteId}/settings`)}`;
-  const useHostedAuthorization = isBisHostedAuthorizationEnabled();
-  const showManualAuthorizationInput = process.env.NODE_ENV !== "production";
+  const refresh = useContext(SettingsRefreshContext);
+  const afterSave = (action: (formData: FormData) => Promise<void>) =>
+    refresh ? async (formData: FormData) => {
+      try {
+        await action(formData);
+      } finally {
+        refresh();
+      }
+    } : action;
 
   return (
     <Card className="mb-6">
@@ -132,7 +147,7 @@ export function BisIntegrationCard({
                     </ol>
                   </div>
 
-                  <form action={completeBisManualAuthorizationAction} className="space-y-2 max-w-2xl">
+                  <form action={afterSave(completeBisManualAuthorizationAction)} className="space-y-2 max-w-2xl">
                     <input type="hidden" name="siteId" value={siteId} />
                     {showManualAuthorizationInput ? (
                       <>
@@ -161,7 +176,7 @@ export function BisIntegrationCard({
                 </div>
               )
             ) : (
-              <form action={disconnectBisAction}>
+              <form action={afterSave(disconnectBisAction)}>
                 <input type="hidden" name="siteId" value={siteId} />
                 <SubmitButton text={t.disconnectBis} variant="destructive" className="w-fit" />
               </form>
@@ -192,15 +207,7 @@ export function BisIntegrationCard({
           ) : isConnected ? (
             availableCases.length > 0 ? (
               <form
-                action={async (formData) => {
-                  "use server";
-                  const selectedId = String(formData.get("bisCaseId") ?? "");
-                  const selected = availableCases.find((item) => item.id === selectedId);
-                  formData.set("bisCaseNumber", selected?.caseNumber ?? "");
-                  formData.set("bisCaseName", selected?.constructionName ?? "");
-                  formData.set("bisCaseStage", selected?.stageName ?? "");
-                  await assignBisCaseToSiteAction(formData);
-                }}
+                action={afterSave(assignBisCaseToSiteAction)}
                 className="mt-3 space-y-3"
               >
                 <input type="hidden" name="siteId" value={siteId} />
@@ -221,10 +228,6 @@ export function BisIntegrationCard({
                   ))}
                 </select>
 
-                <input type="hidden" name="bisCaseNumber" value="" />
-                <input type="hidden" name="bisCaseName" value="" />
-                <input type="hidden" name="bisCaseStage" value="" />
-
                 <SubmitButton text={t.saveBisCase} className="w-fit" />
               </form>
             ) : (
@@ -242,7 +245,7 @@ export function BisIntegrationCard({
             <div className="mt-5 border-t pt-4">
               <div className="text-sm font-medium">{t.constructionRound}</div>
               {availableConstructionRounds.length > 0 ? (
-                <form action={setBisConstructionRoundForSiteAction} className="mt-3 space-y-3">
+                <form action={afterSave(setBisConstructionRoundForSiteAction)} className="mt-3 space-y-3">
                   <input type="hidden" name="siteId" value={siteId} />
                   <select
                     name="bisConstructionRoundId"

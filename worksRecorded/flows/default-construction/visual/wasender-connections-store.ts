@@ -120,6 +120,25 @@ async function connectionStatus(row: Connection, session: Session) {
 	}
 }
 
+export async function requireConnectedWasenderSession(
+	owner: Owner,
+	id: string,
+) {
+	const token = getWasenderAccessToken();
+	if (!token)
+		throw new WasenderConnectionError("WaSenderAPI vēl nav aktivizēts.", 503);
+	const row = await findOwnedConnection(owner, id);
+	const session = await providerSession(token, row);
+	if (
+		!session?.api_key ||
+		(await connectionStatus(row, session)) !== "connected"
+	)
+		throw new WasenderConnectionError(
+			"Savienojiet šo numuru ar WaSenderAPI projekta iestatījumos.",
+		);
+	return { token: session.api_key, phone: row.phone, connectionId: row.id };
+}
+
 async function readConnection(token: string, row: Connection) {
 	if (row.providerSessionId === null) return view(row, "pending");
 	const session = await providerSession(token, row);

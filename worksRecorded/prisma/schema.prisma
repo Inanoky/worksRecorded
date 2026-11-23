@@ -1237,6 +1237,7 @@ model WhatsAppTaskSend {
   provider       String   @default("meta")
   recipientLabel String?
   senderAddress  String?
+  wasenderConnectionId String?
   message        String   @db.Text
   status         String   @default("processing")
   completedAt    DateTime?
@@ -1261,6 +1262,7 @@ model WhatsAppTaskSendItem {
   metaMediaId   String?
   metaMessageId String?  @unique
   whapiMessageId String? @unique
+  wasenderMessageId String?
   providerError String?  @db.Text
   sentAt        DateTime?
   deliveredAt   DateTime?
@@ -1268,6 +1270,7 @@ model WhatsAppTaskSendItem {
   failedAt      DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  wasenderImage WasenderTaskImage?
 
   @@unique([sendId, ordinal])
   @@index([sendId, status], map: "WhatsAppTaskSendItem_send_status_idx")
@@ -1306,9 +1309,31 @@ model WasenderWhatsAppConnection {
   phone             String
   providerSessionId Int?     @unique
   createdAt         DateTime @default(now())
+  projectGroups     WasenderProjectGroups[]
 
   @@unique([organizationId, phone], map: "WasenderWhatsAppConnection_org_phone_key")
   @@index([organizationId, userId], map: "WasenderWhatsAppConnection_org_user_idx")
+}
+
+model WasenderProjectGroups {
+  siteId       String
+  userId       String
+  connectionId String
+  connection   WasenderWhatsAppConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  groups       Json
+
+  @@id([siteId, userId])
+  @@index([connectionId])
+}
+
+model WasenderTaskImage {
+  itemId      String   @id
+  item        WhatsAppTaskSendItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tokenHash   String   @unique
+  image       Bytes
+  expiresAt   DateTime
+
+  @@index([expiresAt])
 }
 
 model WhatsappBrowserMessage {

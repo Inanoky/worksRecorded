@@ -6,6 +6,7 @@ import {
 	waitFor,
 } from "@testing-library/react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { DashboardSettingsLink } from "@/components/dashboard/DashboardSettingsLink";
 import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
 import OpenProjectButton from "@/components/providers/ButtonClient";
 import {
@@ -85,6 +86,14 @@ jest.mock("@/flows/default-construction/frontend/RetainedLimeniForma2", () => ({
 jest.mock("@/flows/default-construction/visual/VisualProjectView", () => ({
 	VisualProjectView: ({ children }: { children: ReactNode }) => children,
 }));
+jest.mock(
+	"@/app/dashboard/sites/[siteId]/settings/ProjectSettingsView",
+	() => ({
+		ProjectSettingsView: ({ data }: { data: { siteId: string } }) => (
+			<StatefulScreen id={`${data.siteId}-settings`} />
+		),
+	}),
+);
 
 import { RegisterWorkspaceRoot } from "./ProjectRegistration";
 import {
@@ -173,6 +182,9 @@ function Navigation() {
 			<FimaProjectNavigationLink href={href("a", "spending")}>
 				Izmaksu dinamika
 			</FimaProjectNavigationLink>
+			<DashboardSettingsLink href={href("a", "settings")}>
+				Project settings
+			</DashboardSettingsLink>
 			{["a", "b"].map((id) => (
 				<button
 					key={id}
@@ -239,6 +251,37 @@ beforeEach(() => {
 		});
 });
 afterEach(() => jest.restoreAllMocks());
+
+it("opens Līmeni settings in the client workspace and retains the form across tabs", async () => {
+	descriptors.set("a", { ...descriptor("a"), visualPreload: true });
+	const previous = global.fetch;
+	const request = jest.fn().mockResolvedValue({
+		ok: true,
+		json: async () => ({ siteId: "a" }),
+	});
+	global.fetch = request;
+	try {
+		render(<App serverId="a" />);
+		const settings = screen.getByRole("link", { name: "Project settings" });
+		fireEvent.click(settings);
+		expect(window.location.pathname).toBe(href("a", "settings"));
+		expect(mockRouteLoad).not.toHaveBeenCalled();
+		const field = await screen.findByLabelText("edit-a-settings");
+		fireEvent.change(field, { target: { value: "unsaved change" } });
+		fireEvent.click(screen.getByText("back-a"));
+		expect(field).not.toBeVisible();
+		fireEvent.click(settings);
+		expect(field).toBeVisible();
+		expect(field).toHaveValue("unsaved change");
+		expect(request).toHaveBeenCalledTimes(1);
+		expect(request).toHaveBeenCalledWith("/api/sites/a/project-settings", {
+			cache: "no-store",
+		});
+		expect(mockRouteLoad).not.toHaveBeenCalled();
+	} finally {
+		global.fetch = previous;
+	}
+});
 
 it("loads the financial route on its first visit and then restores its filters without another route load", () => {
 	descriptors.set("a", { ...descriptor("a"), visualPreload: true });

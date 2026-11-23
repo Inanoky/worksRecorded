@@ -9,13 +9,17 @@ export type WhatsAppGroupConnection = {
 		| "reconnect"
 		| "expired";
 	phone: string | null;
+	connectionId?: string;
+	senders?: { id: string; phone: string }[];
 	groups: WhatsAppGroup[];
 	availableGroups?: WhatsAppGroup[];
 };
 
-type GroupAction =
-	| { action: "connect" | "disconnect" }
-	| { action: "save-groups"; groupIds: string[] };
+type GroupAction = {
+	action: "save-groups";
+	connectionId: string;
+	groupIds: string[];
+};
 
 export function whatsAppGroupsEndpoint(siteId: string) {
 	return `/api/sites/${encodeURIComponent(siteId)}/visual/whatsapp-groups`;
@@ -30,10 +34,19 @@ export function filterWhatsAppGroups(groups: WhatsAppGroup[], query: string) {
 
 export async function readWhatsAppGroups(
 	siteId: string,
-	options: { manage?: boolean; signal?: AbortSignal } = {},
+	options: {
+		manage?: boolean;
+		connectionId?: string;
+		revision?: string;
+		signal?: AbortSignal;
+	} = {},
 ) {
+	const query = new URLSearchParams();
+	if (options.manage) query.set("manage", "1");
+	if (options.connectionId) query.set("connectionId", options.connectionId);
+	if (options.revision) query.set("v", options.revision);
 	return requestGroups(
-		whatsAppGroupsEndpoint(siteId) + (options.manage ? "?manage=1" : ""),
+		whatsAppGroupsEndpoint(siteId) + (query.size ? `?${query}` : ""),
 		{ signal: options.signal },
 	);
 }

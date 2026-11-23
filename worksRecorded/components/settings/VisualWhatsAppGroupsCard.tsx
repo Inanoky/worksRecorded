@@ -1,8 +1,7 @@
 "use client";
 
-import { Link2, RefreshCw, Search, Unplug, UsersRound } from "lucide-react";
-import Image from "next/image";
-import { useCallback, useEffect, useId, useState } from "react";
+import { Search, UsersRound } from "lucide-react";
+import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -17,260 +16,188 @@ import {
 	readWhatsAppGroups,
 	updateWhatsAppGroups,
 	type WhatsAppGroupConnection,
-	whatsAppGroupsEndpoint,
 } from "@/flows/default-construction/visual/whatsapp-groups-client";
 
-const connectionLabels: Record<WhatsAppGroupConnection["status"], string> = {
-	unavailable: "Integrācija nav aktivizēta",
-	disconnected: "Nav savienots",
-	pairing: "Gaida savienošanu",
-	connected: "Savienots",
-	reconnect: "Jāsavieno atkārtoti",
-	expired: "Savienojuma termiņš beidzies",
-};
-
-export function VisualWhatsAppGroupsCard({ siteId }: { siteId: string }) {
+export function VisualWhatsAppGroupsCard({
+	siteId,
+	connectionRevision = 0,
+}: {
+	siteId: string;
+	connectionRevision?: number;
+}) {
 	const [connection, setConnection] = useState<WhatsAppGroupConnection | null>(
 		null,
 	);
+	const [senderId, setSenderId] = useState<string>();
 	const [selected, setSelected] = useState<string[]>([]);
 	const [search, setSearch] = useState("");
 	const [busy, setBusy] = useState(false);
+	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState(false);
-	const [qrVersion, setQrVersion] = useState(0);
-	const [qrFailed, setQrFailed] = useState(false);
-	const [reload, setReload] = useState(0);
-	const id = useId();
-
-	const apply = useCallback((next: WhatsAppGroupConnection) => {
-		setConnection(next);
-		setSelected(next.groups.map((group) => group.id));
-	}, []);
+	const [request, setRequest] = useState(0);
+	const revision = `${connectionRevision}-${request}`;
+	const searchId = useId();
+	const senderFieldId = useId();
+	const groups = filterWhatsAppGroups(
+		connection?.availableGroups ?? [],
+		search,
+	);
+	const savedGroups = connection?.groups ?? [];
+	const changed =
+		selected.length !== savedGroups.length ||
+		savedGroups.some(({ id }) => !selected.includes(id));
 
 	useEffect(() => {
-		if (reload > 0) setConnection(null);
 		const controller = new AbortController();
+		setLoading(true);
+		setError(null);
+		setSaved(false);
 		void readWhatsAppGroups(siteId, {
 			manage: true,
+			connectionId: senderId,
+			revision,
 			signal: controller.signal,
 		}).then(
 			(next) => {
-				if (!controller.signal.aborted) apply(next);
+				if (controller.signal.aborted) return;
+				setConnection(next);
+				setSelected(next.groups.map(({ id }) => id));
+				setLoading(false);
 			},
 			() => {
-				if (!controller.signal.aborted)
-					setError("Neizdevās ielādēt WhatsApp grupas.");
+				if (controller.signal.aborted) return;
+				setError("Neizdevās ielādēt WhatsApp grupas.");
+				setLoading(false);
 			},
 		);
 		return () => controller.abort();
-	}, [siteId, reload, apply]);
+	}, [siteId, senderId, revision]);
 
-	const pairing = connection?.status === "pairing";
-	useEffect(() => {
-		if (!pairing) return;
-		const controller = new AbortController();
-		const health = window.setInterval(() => {
-			void readWhatsAppGroups(siteId, {
-				manage: true,
-				signal: controller.signal,
-			})
-				.then((next) => {
-					if (!controller.signal.aborted && next.status !== "pairing")
-						apply(next);
-				})
-				.catch(() => {});
-		}, 3500);
-		const qr = window.setInterval(() => {
-			setQrVersion((previous) => previous + 1);
-			setQrFailed(false);
-		}, 24000);
-		return () => {
-			controller.abort();
-			window.clearInterval(health);
-			window.clearInterval(qr);
-		};
-	}, [pairing, siteId, apply]);
-
-	async function submit(action: Parameters<typeof updateWhatsAppGroups>[1]) {
+	async function saveGroups() {
+		if (!connection?.connectionId) return;
 		setBusy(true);
 		setError(null);
 		setSaved(false);
 		try {
-			apply(await updateWhatsAppGroups(siteId, action));
-			if (action.action === "save-groups") setSaved(true);
-			if (action.action === "connect") {
-				setQrVersion((previous) => previous + 1);
-				setQrFailed(false);
-			}
-		} catch (error) {
+			const next = await updateWhatsAppGroups(siteId, {
+				action: "save-groups",
+				connectionId: connection.connectionId,
+				groupIds: selected,
+			});
+			setConnection(next);
+			setSelected(next.groups.map(({ id }) => id));
+			setSaved(true);
+		} catch (reason) {
 			setError(
-				error instanceof Error
-					? error.message
-					: "Neizdevās saglabāt iestatījumus.",
+				reason instanceof Error ? reason.message : "Neizdevās saglabāt grupas.",
 			);
 		} finally {
 			setBusy(false);
 		}
 	}
 
-	const enabled = connection?.groups ?? [];
-	const groups = filterWhatsAppGroups(
-		connection?.availableGroups ?? [],
-		search,
-	);
-	const changed =
-		selected.length !== enabled.length ||
-		enabled.some((group) => !selected.includes(group.id));
-	const status = connection?.status;
-	const connected = status === "connected";
-
 	return (
 		<Card id={`whatsapp-groups-${siteId}`}>
-			<CardHeader className="gap-2">
+			<CardHeader>
 				<CardTitle className="flex items-center gap-2">
 					<UsersRound className="size-5 text-muted-foreground" /> WhatsApp
 					grupas
 				</CardTitle>
 				<CardDescription>
-					Izvēlieties, uz kurām grupām varat sūtīt šī projekta darba uzdevumus.
+					Izvēlieties projekta grupas no numura, kas savienots ar WaSenderAPI.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
-				<div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
-					<div>
-						<p className="text-sm font-medium">Jūsu WhatsApp konts</p>
-						<output
-							className={`text-sm ${connected ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}
+				{connection?.senders?.length ? (
+					<div className="space-y-2">
+						<label
+							htmlFor={senderFieldId}
+							className="block text-sm font-medium"
 						>
-							{status
-								? connectionLabels[status]
-								: error
-									? "Statuss nav pieejams"
-									: "Pārbauda savienojumu…"}
-							{connection?.phone ? ` · +${connection.phone}` : ""}
-						</output>
-					</div>
-					{status === "disconnected" || status === "reconnect" ? (
-						<Button
-							type="button"
-							variant="outline"
-							disabled={busy}
-							onClick={() => void submit({ action: "connect" })}
+							Sūtītāja numurs
+						</label>
+						<select
+							id={senderFieldId}
+							className="rounded-md border bg-background px-3 py-2 text-sm"
+							value={senderId ?? connection.connectionId ?? ""}
+							disabled={busy || loading}
+							onChange={(event) => {
+								setSenderId(event.target.value);
+								setSaved(false);
+								setSearch("");
+							}}
 						>
-							<Link2 className="size-4" />{" "}
-							{status === "reconnect"
-								? "Atkārtoti savienot WhatsApp"
-								: "Savienot WhatsApp"}
-						</Button>
-					) : null}
-					{connected ? (
-						<Button
-							type="button"
-							variant="ghost"
-							size="sm"
-							disabled={busy}
-							onClick={() => void submit({ action: "disconnect" })}
-						>
-							<Unplug className="size-4" /> Atvienot
-						</Button>
-					) : null}
-				</div>
-				{pairing ? (
-					<div className="flex flex-wrap items-center gap-4 rounded-lg border p-4">
-						<div className="flex size-44 shrink-0 items-center justify-center rounded-md border bg-white p-2 text-center text-sm text-muted-foreground">
-							{qrFailed ? (
-								"QR kods vēl nav pieejams."
-							) : (
-								<Image
-									key={qrVersion}
-									src={`${whatsAppGroupsEndpoint(siteId)}?qr=1&v=${qrVersion}`}
-									alt="WhatsApp savienošanas QR kods"
-									width={158}
-									height={158}
-									unoptimized
-									onError={() => setQrFailed(true)}
-								/>
-							)}
-						</div>
-						<div className="max-w-sm space-y-2 text-sm">
-							<p>
-								Telefonā atveriet{" "}
-								<strong>WhatsApp → Saistītās ierīces → Saistīt ierīci</strong>{" "}
-								un skenējiet QR kodu.
-							</p>
-							<p className="text-muted-foreground">
-								Whapi tiks pievienots jūsu kontam kā saistīta ierīce. Pēc
-								savienošanas izvēlieties projekta grupas.
-							</p>
-							<div className="flex flex-wrap gap-2">
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									onClick={() => {
-										setQrFailed(false);
-										setQrVersion((previous) => previous + 1);
-									}}
+							{!connection.senders.some(
+								({ id }) => id === (senderId ?? connection.connectionId),
+							) ? (
+								<option
+									value={senderId ?? connection.connectionId ?? ""}
+									disabled
 								>
-									<RefreshCw className="size-4" /> Atjaunot QR kodu
-								</Button>
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									disabled={busy}
-									onClick={() => void submit({ action: "disconnect" })}
-								>
-									Atcelt
-								</Button>
-							</div>
-						</div>
+									Izvēlieties savienotu numuru
+								</option>
+							) : null}
+							{connection.senders.map(({ id, phone }) => (
+								<option key={id} value={id}>
+									{phone}
+								</option>
+							))}
+						</select>
 					</div>
 				) : null}
-				{connected ? (
+				{loading ? (
+					<output className="block text-sm text-muted-foreground">
+						Ielādē grupas…
+					</output>
+				) : null}
+				{!loading && !error && connection?.status !== "connected" ? (
+					<p className="text-sm text-muted-foreground">
+						Savienojiet numuru sadaļā WhatsApp numuri.
+					</p>
+				) : null}
+				{!loading && !error && connection?.status === "connected" ? (
 					<div className="space-y-3">
-						<div className="flex flex-wrap items-center justify-between gap-2">
-							<label htmlFor={id} className="text-sm font-medium">
+						<div className="flex justify-between gap-2 text-sm">
+							<label htmlFor={searchId} className="font-medium">
 								Projekta grupas
 							</label>
-							<span className="text-sm text-muted-foreground">
+							<span className="text-muted-foreground">
 								Izvēlētas {selected.length}
 							</span>
 						</div>
 						<div className="relative">
 							<Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
 							<Input
-								id={id}
-								aria-label="Meklēt WhatsApp grupu"
-								placeholder="Meklēt WhatsApp grupu…"
-								className="pl-9"
+								id={searchId}
 								value={search}
 								onChange={(event) => setSearch(event.target.value)}
+								placeholder="Meklēt WhatsApp grupu…"
+								className="pl-9"
 							/>
 						</div>
 						<div className="max-h-60 divide-y overflow-y-auto rounded-md border">
-							{groups.map((group) => (
+							{groups.map(({ id, name }) => (
 								<label
-									key={group.id}
+									key={id}
 									className="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm hover:bg-muted/50"
 								>
 									<input
 										type="checkbox"
-										checked={selected.includes(group.id)}
-										disabled={busy}
 										className="size-4 accent-primary"
+										checked={selected.includes(id)}
+										disabled={busy}
 										onChange={(event) => {
 											const checked = event.target.checked;
 											setSaved(false);
 											setSelected((previous) =>
 												checked
-													? [...previous, group.id]
-													: previous.filter((item) => item !== group.id),
+													? [...previous, id]
+													: previous.filter((value) => value !== id),
 											);
 										}}
 									/>
-									<span className="min-w-0 break-words">{group.name}</span>
+									<span className="min-w-0 break-words">{name}</span>
 								</label>
 							))}
 							{!groups.length ? (
@@ -283,12 +210,10 @@ export function VisualWhatsAppGroupsCard({ siteId }: { siteId: string }) {
 						</div>
 						<div className="flex flex-wrap items-center gap-3">
 							<Button
-								type="button"
 								size="sm"
-								disabled={!changed || busy}
-								onClick={() =>
-									void submit({ action: "save-groups", groupIds: selected })
-								}
+								type="button"
+								disabled={busy || !changed}
+								onClick={() => void saveGroups()}
 							>
 								Saglabāt grupas
 							</Button>
@@ -301,25 +226,19 @@ export function VisualWhatsAppGroupsCard({ siteId }: { siteId: string }) {
 					</div>
 				) : null}
 				{error ? (
-					<div className="flex flex-wrap items-center gap-3">
-						<p role="alert" className="text-sm text-destructive">
-							{error}
-						</p>
-						{!connection ? (
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								onClick={() => {
-									setError(null);
-									setReload((previous) => previous + 1);
-								}}
-							>
-								Mēģināt vēlreiz
-							</Button>
-						) : null}
-					</div>
+					<p role="alert" className="text-sm text-destructive">
+						{error}
+					</p>
 				) : null}
+				<Button
+					type="button"
+					size="sm"
+					variant="outline"
+					disabled={busy || loading}
+					onClick={() => setRequest((value) => value + 1)}
+				>
+					Atjaunot grupu sarakstu
+				</Button>
 			</CardContent>
 		</Card>
 	);

@@ -14,6 +14,19 @@ export type PlanningWhatsAppSendResult = {
 	}>;
 };
 
+export async function readWasenderTaskReceipt(
+	siteId: string,
+	sendId: string,
+	signal: AbortSignal,
+) {
+	const response = await fetch(
+		`/api/sites/${encodeURIComponent(siteId)}/visual/whatsapp-task?sendId=${encodeURIComponent(sendId)}`,
+		{ signal, cache: "no-store" },
+	);
+	if (!response.ok) throw new Error("Neizdevās pārbaudīt WhatsApp nosūtīšanu.");
+	return (await response.json()) as PlanningWhatsAppSendResult;
+}
+
 export async function sendPlanningWhatsAppTask(args: {
 	siteId: string;
 	planId: string;

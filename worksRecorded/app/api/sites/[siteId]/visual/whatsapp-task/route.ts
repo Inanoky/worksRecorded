@@ -1,10 +1,38 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import { z } from "zod";
 import {
+	refreshWasenderTaskSend,
 	sendVisualPlanningWhatsAppTask,
 	WHATSAPP_TASK_MAX_BODY,
 } from "@/flows/default-construction/visual/planning-whatsapp-send";
 import { readLimitedBody } from "@/flows/default-construction/visual/share-body";
-import { WhapiGroupsError } from "@/flows/default-construction/visual/whapi-groups-store";
+import { WasenderConnectionError } from "@/flows/default-construction/visual/wasender-connections-store";
+
+const privateHeaders = { "Cache-Control": "private, no-store" };
+
+export async function GET(
+	request: Request,
+	{ params }: { params: Promise<{ siteId: string }> },
+) {
+	const user = await getKindeServerSession().getUser();
+	if (!user)
+		return new Response(null, { status: 401, headers: privateHeaders });
+	const sendId = z
+		.string()
+		.uuid()
+		.safeParse(new URL(request.url).searchParams.get("sendId"));
+	if (!sendId.success)
+		return new Response(null, { status: 400, headers: privateHeaders });
+	try {
+		const { siteId } = await params;
+		const status = await refreshWasenderTaskSend(user.id, siteId, sendId.data);
+		return status
+			? Response.json(status, { headers: privateHeaders })
+			: new Response(null, { status: 404, headers: privateHeaders });
+	} catch {
+		return new Response(null, { status: 404, headers: privateHeaders });
+	}
+}
 
 export async function POST(
 	request: Request,
@@ -57,7 +85,7 @@ export async function POST(
 		return Response.json(
 			{
 				error:
-					error instanceof WhapiGroupsError ||
+					error instanceof WasenderConnectionError ||
 					(error instanceof Error && error.message.startsWith("Nederīgs"))
 						? error.message
 						: "Neizdevās nosūtīt WhatsApp darba uzdevumu. Pārbaudiet saglabāto plānu un mēģiniet vēlreiz.",

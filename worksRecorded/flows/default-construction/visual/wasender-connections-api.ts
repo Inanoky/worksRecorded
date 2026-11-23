@@ -139,3 +139,52 @@ export async function disconnectWasenderSession(token: string, id: number) {
 export async function removeWasenderSession(token: string, id: number) {
 	await request(`${sessionsPath}/${id}`, token, { method: "DELETE" });
 }
+
+export const wasenderGroupId = z.string().regex(/^[\d-]{10,31}@g\.us$/);
+export const wasenderGroups = z.array(
+	z.object({ id: wasenderGroupId, name: z.string() }),
+);
+const messageId = z
+	.union([z.string().regex(/^\d+$/), z.number().int().positive().safe()])
+	.transform(String);
+
+export async function listWasenderGroups(token: string) {
+	const { data } = success
+		.extend({ data: z.array(z.object({ jid: z.string(), name: z.string() })) })
+		.parse(await request("/groups?paginated=false", token));
+	const groups = new Map<string, { id: string; name: string }>();
+	for (const { jid, name } of data) {
+		if (wasenderGroupId.safeParse(jid).success)
+			groups.set(jid, {
+				id: jid,
+				name: name.trim().slice(0, 150) || "Grupa bez nosaukuma",
+			});
+	}
+	return Array.from(groups.values()).sort((a, b) =>
+		a.name.localeCompare(b.name, "lv"),
+	);
+}
+
+export async function sendWasenderGroupImage(
+	token: string,
+	to: string,
+	text: string,
+	imageUrl: string,
+) {
+	return success.extend({ data: z.object({ msgId: messageId }) }).parse(
+		await request("/send-message", token, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ to, text, imageUrl }),
+		}),
+	).data.msgId;
+}
+
+export async function readWasenderMessageStatus(token: string, id: string) {
+	const { data } = success
+		.extend({ data: z.object({ status: z.number().int(), msgId: messageId }) })
+		.parse(await request(`/messages/${encodeURIComponent(id)}/info`, token));
+	if (data.msgId !== id)
+		throw new Error("WaSenderAPI returned a different message");
+	return data.status;
+}
