@@ -88,12 +88,12 @@ export function VisualWhatsAppConnectionControls({
 	siteId,
 	onConnectionChange,
 	inline = false,
-	preferredConnectionId,
+	onConnected,
 }: {
 	siteId: string;
 	onConnectionChange?: () => void;
 	inline?: boolean;
-	preferredConnectionId?: string;
+	onConnected?: (connection: WasenderConnection) => void;
 }) {
 	const endpoint = wasenderConnectionsEndpoint(siteId);
 	const phoneField = useId();
@@ -107,13 +107,15 @@ export function VisualWhatsAppConnectionControls({
 	const [reload, setReload] = useState(0);
 	const [qrVersion, setQrVersion] = useState(0);
 	const [qrFailed, setQrFailed] = useState(false);
-	const autoConnectAttempted = useRef(false);
+	const pairingStatusRequest = useRef<AbortController | null>(null);
+	const submitRequest = useRef<AbortController | null>(null);
 	const active = connections.find(({ id }) => id === pairing);
-	const preferred = connections.find(({ id }) => id === preferredConnectionId);
-	const visibleConnections = inline && preferred ? [preferred] : connections;
 	const listEndpoint = `${endpoint}?v=${reload}`;
 
+	useEffect(() => () => submitRequest.current?.abort(), []);
+
 	useEffect(() => {
+		if (inline) return;
 		const controller = new AbortController();
 		void requestWasenderConnections<WasenderConnections>(listEndpoint, {
 			signal: controller.signal,
@@ -122,26 +124,18 @@ export function VisualWhatsAppConnectionControls({
 				if (controller.signal.aborted) return;
 				setEnabled(data.enabled);
 				setConnections(data.connections);
-				if (inline) {
-					const preferred = data.connections.find(
-						({ id }) => id === preferredConnectionId,
-					);
-					const candidates = preferred ? [preferred] : data.connections;
-					setPairing(
-						candidates.find(({ status }) => status === "pairing")?.id ?? null,
-					);
-				}
 			},
 			(reason: Error) => {
 				if (!controller.signal.aborted) setError(reason.message);
 			},
 		);
 		return () => controller.abort();
-	}, [inline, listEndpoint, preferredConnectionId]);
+	}, [inline, listEndpoint]);
 
 	useEffect(() => {
 		if (!pairing || busy) return;
 		const controller = new AbortController();
+		pairingStatusRequest.current = controller;
 		let nextCheck: number;
 		async function checkStatus() {
 			try {
@@ -154,7 +148,9 @@ export function VisualWhatsAppConnectionControls({
 					setConnections((list) => updateConnection(list, next));
 					if (next.status !== "pairing") {
 						setPairing(null);
-						if (!inline || next.status === "connected") onConnectionChange?.();
+						if (next.status === "connected") onConnected?.(next);
+						else if (inline) setError(statusLabels[next.status]);
+						if (!inline) onConnectionChange?.();
 						return;
 					}
 				}
@@ -170,13 +166,17 @@ export function VisualWhatsAppConnectionControls({
 		}, 20000);
 		return () => {
 			controller.abort();
+			pairingStatusRequest.current = null;
 			window.clearTimeout(nextCheck);
 			window.clearInterval(refreshQr);
 		};
-	}, [busy, endpoint, inline, onConnectionChange, pairing]);
+	}, [busy, endpoint, inline, onConnected, onConnectionChange, pairing]);
 
 	const submit = useCallback(
 		async (action: WasenderConnectionAction) => {
+			if (submitRequest.current) return;
+			const controller = new AbortController();
+			submitRequest.current = controller;
 			setBusy(true);
 			setError(null);
 			try {
@@ -186,10 +186,12 @@ export function VisualWhatsAppConnectionControls({
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(action),
+					signal: controller.signal,
 				});
+				if (controller.signal.aborted) return;
 				if (connection) {
 					setConnections((list) => updateConnection(list, connection));
-					if (action.action === "add") setPhone("");
+					if (action.action === "add" && !inline) setPhone("");
 					if (connection.status === "pairing") {
 						setQrFailed(false);
 						setQrVersion((value) => value + 1);
@@ -198,89 +200,85 @@ export function VisualWhatsAppConnectionControls({
 						setPairing((current) =>
 							current === connection.id ? null : current,
 						);
+						if (connection.status === "connected") onConnected?.(connection);
+						else if (inline) setError(statusLabels[connection.status]);
 					}
 				} else if (action.action === "remove") {
 					setConnections((list) => list.filter(({ id }) => id !== action.id));
 					setPairing((current) => (current === action.id ? null : current));
 				}
-				if (
-					connection?.status === "connected" ||
-					(!inline && connection?.status !== "pairing")
-				)
-					onConnectionChange?.();
+				if (!inline && connection?.status !== "pairing") onConnectionChange?.();
 			} catch (reason) {
+				if (controller.signal.aborted) return;
 				setError(
 					reason instanceof Error
 						? reason.message
 						: "Neizdevās saglabāt numuru.",
 				);
-				if (action.action === "add") setReload((value) => value + 1);
+				if (!inline && action.action === "add") setReload((value) => value + 1);
 			} finally {
-				setBusy(false);
+				submitRequest.current = null;
+				if (!controller.signal.aborted) setBusy(false);
 			}
 		},
-		[endpoint, inline, onConnectionChange],
+		[endpoint, inline, onConnected, onConnectionChange],
 	);
-	const autoConnection =
-		preferred ?? (connections.length === 1 ? connections[0] : undefined);
-	useEffect(() => {
-		if (
-			!inline ||
-			busy ||
-			autoConnectAttempted.current ||
-			autoConnection?.status !== "disconnected"
-		)
-			return;
-		autoConnectAttempted.current = true;
-		void submit({ action: "connect", id: autoConnection.id });
-	}, [autoConnection, busy, inline, submit]);
 
 	function addNumber(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		if (!busy) void submit({ action: "add", phone });
 	}
 
+	const phoneForm = (
+		<form className="flex flex-wrap items-end gap-2" onSubmit={addNumber}>
+			<div className="min-w-48 flex-1 space-y-2">
+				<label htmlFor={phoneField} className="text-sm font-medium">
+					Tālruņa numurs
+				</label>
+				<Input
+					id={phoneField}
+					type="tel"
+					autoComplete="tel"
+					placeholder="+371 20 000 000"
+					required
+					maxLength={36}
+					readOnly={inline && busy}
+					value={phone}
+					onChange={(event) => setPhone(event.target.value)}
+				/>
+			</div>
+			<Button type="submit" disabled={busy || !phone.trim()}>
+				{inline ? (
+					busy ? (
+						"Sagatavo QR kodu…"
+					) : (
+						"Turpināt"
+					)
+				) : (
+					<>
+						<Plus className="size-4" /> Pievienot numuru
+					</>
+				)}
+			</Button>
+		</form>
+	);
 	return (
 		<div className="space-y-4">
-			{enabled === null && !error ? (
+			{inline && !active ? phoneForm : null}
+			{!inline && enabled === null && !error ? (
 				<p className="text-sm text-muted-foreground">Ielādē numurus…</p>
 			) : null}
-			{enabled === false ? (
+			{!inline && enabled === false ? (
 				<p className="text-sm text-muted-foreground">
 					WaSenderAPI vēl nav aktivizēts.
 				</p>
 			) : null}
-			{enabled ? (
+			{!inline && enabled ? (
 				<>
-					{!inline || connections.length === 0 ? (
-						<form
-							className="flex flex-wrap items-end gap-2"
-							onSubmit={addNumber}
-						>
-							<div className="min-w-48 flex-1 space-y-2">
-								<label htmlFor={phoneField} className="text-sm font-medium">
-									Tālruņa numurs
-								</label>
-								<Input
-									id={phoneField}
-									type="tel"
-									autoComplete="tel"
-									placeholder="+371 20 000 000"
-									required
-									maxLength={36}
-									value={phone}
-									onChange={(event) => setPhone(event.target.value)}
-								/>
-							</div>
-							<Button type="submit" disabled={busy || !phone.trim()}>
-								<Plus className="size-4" /> Pievienot numuru
-							</Button>
-						</form>
-					) : null}
-					{visibleConnections.length &&
-					(!inline || active?.status !== "pairing") ? (
+					{phoneForm}
+					{connections.length ? (
 						<ul className="divide-y rounded-lg border">
-							{visibleConnections.map((item) => (
+							{connections.map((item) => (
 								<li
 									key={item.id}
 									className="flex flex-wrap items-center justify-between gap-2 p-3"
@@ -294,17 +292,8 @@ export function VisualWhatsAppConnectionControls({
 										</output>
 									</div>
 									<div className="flex flex-wrap gap-2">
-										{inline && item.status === "connected" ? (
-											<Button
-												type="button"
-												size="sm"
-												variant="outline"
-												onClick={onConnectionChange}
-											>
-												Atjaunot grupas
-											</Button>
-										) : item.status === "connected" ||
-											item.status === "wrong_number" ? (
+										{item.status === "connected" ||
+										item.status === "wrong_number" ? (
 											<Button
 												type="button"
 												variant="outline"
@@ -335,17 +324,15 @@ export function VisualWhatsAppConnectionControls({
 														: "Savienot"}
 											</Button>
 										)}
-										{!inline ? (
-											<Button
-												type="button"
-												variant="ghost"
-												size="sm"
-												disabled={busy}
-												onClick={() => setRemove(item)}
-											>
-												Noņemt
-											</Button>
-										) : null}
+										<Button
+											type="button"
+											variant="ghost"
+											size="sm"
+											disabled={busy}
+											onClick={() => setRemove(item)}
+										>
+											Noņemt
+										</Button>
 									</div>
 								</li>
 							))}
@@ -399,9 +386,15 @@ export function VisualWhatsAppConnectionControls({
 								variant="ghost"
 								size="sm"
 								disabled={busy}
-								onClick={() =>
-									void submit({ action: "disconnect", id: active.id })
-								}
+								onClick={() => {
+									if (!inline) {
+										void submit({ action: "disconnect", id: active.id });
+										return;
+									}
+									pairingStatusRequest.current?.abort();
+									setPairing(null);
+									setError(null);
+								}}
 							>
 								{inline ? "Atcelt savienošanu" : "Atcelt"}
 							</Button>
@@ -414,7 +407,7 @@ export function VisualWhatsAppConnectionControls({
 					<p role="alert" className="text-sm text-destructive">
 						{error}
 					</p>
-					{enabled === null ? (
+					{!inline && enabled === null ? (
 						<Button
 							type="button"
 							variant="outline"

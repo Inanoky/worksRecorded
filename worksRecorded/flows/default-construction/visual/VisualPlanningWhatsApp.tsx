@@ -31,6 +31,7 @@ import { startPlanningWhatsAppSend } from "./planning-whatsapp-background-send";
 import type { PlanningWhatsAppSendResult } from "./planning-whatsapp-send-client";
 import type { VisualClientCache } from "./visual-client-cache";
 import { WhatsAppGroupPicker } from "./WhatsAppGroupPicker";
+import type { WasenderConnection } from "./wasender-connections-client";
 import type { WhatsAppGroupConnection } from "./whatsapp-groups-client";
 
 type PreviewImage = PlanningImage & { url: string };
@@ -65,6 +66,7 @@ export function VisualPlanningWhatsApp({
 		() => cache.peekWhatsAppGroups() ?? null,
 	);
 	const [groupId, setGroupId] = useState("");
+	const [linkedSenderId, setLinkedSenderId] = useState<string>();
 	const [groupError, setGroupError] = useState(false);
 	const groupRefresh = useRef(0);
 	const groupOpen = open && target === "group";
@@ -142,16 +144,39 @@ export function VisualPlanningWhatsApp({
 		setGroupError(false);
 		loadGroups(true);
 	}, [cache, loadGroups]);
+	const afterConnection = useCallback(
+		({ id }: WasenderConnection) => {
+			setLinkedSenderId(id);
+			refreshGroups();
+		},
+		[refreshGroups],
+	);
 	const images = prepared.key === imageKey ? prepared.images : [];
 	const recipient = normalizePlanningWhatsAppPhone(contact?.phone ?? "");
+	const readyConnection =
+		connection?.status === "connected" &&
+		(!linkedSenderId || linkedSenderId === connection.connectionId)
+			? connection
+			: null;
 	const group =
-		target === "group" && connection?.status === "connected"
-			? connection.groups.find((item) => item.id === groupId)
+		target === "group"
+			? readyConnection?.groups.find((item) => item.id === groupId)
 			: undefined;
-	const groupSender = connection?.phone;
+	const groupSender = readyConnection?.phone;
 	const showPlan =
-		target === "direct" ||
-		(connection?.status === "connected" && connection.groups.length > 0);
+		target === "direct" || Boolean(readyConnection?.groups.length);
+	const showPhone =
+		groupOpen &&
+		!linkedSenderId &&
+		connection?.status !== "unavailable" &&
+		!readyConnection;
+	const showGroupSetup =
+		groupOpen &&
+		!groupError &&
+		connection &&
+		connection.status !== "unavailable" &&
+		!readyConnection?.groups.length &&
+		(linkedSenderId || readyConnection);
 	const canAddress =
 		target === "direct" ? Boolean(recipient) : Boolean(group && groupSender);
 	const outgoingMessage = planningWhatsAppMessageWithReportingNote(message);
@@ -192,6 +217,7 @@ export function VisualPlanningWhatsApp({
 					setMessage(planningWhatsAppTemplateMessage(plan));
 					setTarget("direct");
 					setGroupId("");
+					setLinkedSenderId(undefined);
 				}
 				setOpen(next);
 			}}
@@ -278,14 +304,14 @@ export function VisualPlanningWhatsApp({
 								Mēģināt vēlreiz
 							</Button>
 						</div>
-					) : !connection ? (
+					) : !connection && linkedSenderId ? (
 						<output className="block text-sm text-muted-foreground">
 							Ielādē projekta grupas…
 						</output>
-					) : connection.status === "connected" && connection.groups.length ? (
+					) : readyConnection?.groups.length ? (
 						<div className="grid items-center gap-2 sm:grid-cols-2">
 							<WhatsAppGroupPicker
-								groups={connection.groups}
+								groups={readyConnection.groups}
 								value={groupId}
 								disabled={disabled}
 								onChange={setGroupId}
@@ -298,40 +324,37 @@ export function VisualPlanningWhatsApp({
 								· WaSenderAPI
 							</p>
 						</div>
-					) : connection.status === "unavailable" ? (
+					) : connection?.status === "unavailable" ? (
 						<p className="text-sm text-muted-foreground">
 							WhatsApp grupu integrācija vēl nav aktivizēta.
 						</p>
 					) : null}
 				</div>
-				{groupOpen &&
-				!groupError &&
-				connection &&
-				connection.status !== "unavailable" ? (
-					connection.status !== "connected" ? (
-						<div className="min-h-0 overflow-y-auto">
-							<VisualWhatsAppConnectionControls
-								inline
-								siteId={siteId}
-								preferredConnectionId={connection.connectionId}
-								onConnectionChange={refreshGroups}
-							/>
-						</div>
-					) : !connection.groups.length ? (
-						<div className="min-h-0 overflow-y-auto">
-							<VisualWhatsAppGroupsCard
-								inline
-								siteId={siteId}
-								onSaved={({ status, phone, groups, connectionId }) => {
-									const next = { status, phone, groups, connectionId };
-									++groupRefresh.current;
-									cache.setWhatsAppGroups(next);
-									setConnection(next);
-									setGroupId(groups.length === 1 ? groups[0].id : "");
-								}}
-							/>
-						</div>
-					) : null
+				{showPhone ? (
+					<div className="min-h-0 overflow-y-auto">
+						<VisualWhatsAppConnectionControls
+							inline
+							siteId={siteId}
+							onConnected={afterConnection}
+						/>
+					</div>
+				) : null}
+				{showGroupSetup ? (
+					<div className="min-h-0 overflow-y-auto">
+						<VisualWhatsAppGroupsCard
+							inline
+							siteId={siteId}
+							initialSenderId={linkedSenderId}
+							onSaved={({ status, phone, groups, connectionId }) => {
+								const next = { status, phone, groups, connectionId };
+								++groupRefresh.current;
+								cache.setWhatsAppGroups(next);
+								setConnection(next);
+								setLinkedSenderId(undefined);
+								setGroupId(groups.length === 1 ? groups[0].id : "");
+							}}
+						/>
+					</div>
 				) : null}
 				{showPlan ? (
 					<div className="grid min-h-0 gap-4 overflow-y-auto sm:grid-cols-2">

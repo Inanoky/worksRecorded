@@ -1393,11 +1393,12 @@ it("opens saved WhatsApp groups from cache while checking the connection in the 
 	}
 });
 
-it.each(["reconnect", "first connection"])(
+it.each(["reconnect", "first connection", "link a different number"])(
 	"pairs WhatsApp inside the task dialog for %s",
 	async (scenario) => {
 		jest.useFakeTimers();
 		const reconnect = scenario === "reconnect";
+		const differentNumber = scenario === "link a different number";
 		const number = { id: "phone-connection", phone: "+37120000000" };
 		const group = { id: "120000000000000001@g.us", name: "Testa grupa" };
 		const connected = {
@@ -1407,26 +1408,30 @@ it.each(["reconnect", "first connection"])(
 			groups: reconnect ? [group] : [],
 		};
 		let scanned = false;
+		const disconnected = {
+			status:
+				reconnect || differentNumber
+					? ("reconnect" as const)
+					: ("disconnected" as const),
+			phone: null,
+			groups: [],
+			connectionId: reconnect
+				? number.id
+				: differentNumber
+					? "old-connection"
+					: undefined,
+		};
 		jest
 			.mocked(readWhatsAppGroups)
 			.mockImplementation(async (_site, options) =>
-				scanned
+				scanned && (!differentNumber || options?.manage)
 					? {
 							...connected,
 							...(options?.manage ? { availableGroups: [group] } : {}),
 						}
-					: {
-							status: reconnect ? "reconnect" : "disconnected",
-							phone: null,
-							groups: [],
-							connectionId: reconnect ? number.id : undefined,
-						},
+					: disconnected,
 			);
 		const requests = jest.mocked(requestWasenderConnections);
-		requests.mockResolvedValueOnce({
-			enabled: true,
-			connections: reconnect ? [{ ...number, status: "disconnected" }] : [],
-		});
 		requests.mockResolvedValueOnce({
 			connection: { ...number, status: "pairing" },
 		});
@@ -1453,13 +1458,12 @@ it.each(["reconnect", "first connection"])(
 			target: { value: "Pārbaudīt zonu" },
 		});
 		fireEvent.click(screen.getByRole("button", { name: "WhatsApp grupa" }));
-		if (!reconnect) {
-			fireEvent.change(
-				await screen.findByRole("textbox", { name: "Tālruņa numurs" }),
-				{ target: { value: number.phone } },
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Pievienot numuru" }));
-		}
+		fireEvent.change(
+			await screen.findByRole("textbox", { name: "Tālruņa numurs" }),
+			{ target: { value: number.phone } },
+		);
+		expect(requests).not.toHaveBeenCalled();
+		fireEvent.click(screen.getByRole("button", { name: "Turpināt" }));
 		const qr = await screen.findByRole("img", {
 			name: "WhatsApp savienošanas QR kods",
 		});
@@ -1475,11 +1479,7 @@ it.each(["reconnect", "first connection"])(
 			"/api/sites/site/visual/whatsapp-connections",
 			expect.objectContaining({
 				method: "POST",
-				body: JSON.stringify(
-					reconnect
-						? { action: "connect", id: number.id }
-						: { action: "add", phone: number.phone },
-				),
+				body: JSON.stringify({ action: "add", phone: number.phone }),
 			}),
 		);
 
@@ -1493,6 +1493,10 @@ it.each(["reconnect", "first connection"])(
 		} else {
 			fireEvent.click(
 				await screen.findByRole("checkbox", { name: group.name }),
+			);
+			expect(readWhatsAppGroups).toHaveBeenCalledWith(
+				"site",
+				expect.objectContaining({ manage: true, connectionId: number.id }),
 			);
 			fireEvent.click(screen.getByRole("button", { name: "Saglabāt grupas" }));
 			await waitFor(() =>
@@ -1516,6 +1520,61 @@ it.each(["reconnect", "first connection"])(
 		);
 	},
 );
+
+it("opens phone entry without waiting for WhatsApp and cancels a QR check immediately", async () => {
+	jest.useFakeTimers();
+	jest.mocked(readWhatsAppGroups).mockReturnValue(new Promise(() => {}));
+	const number = { id: "phone-connection", phone: "+37120000000" };
+	const connection = { ...number, status: "pairing" as const };
+	let finishCheck!: (value: typeof number & { status: "connected" }) => void;
+	const pendingCheck = new Promise<typeof number & { status: "connected" }>(
+		(resolve) => {
+			finishCheck = resolve;
+		},
+	);
+	const requests = jest.mocked(requestWasenderConnections);
+	requests
+		.mockResolvedValueOnce({ connection })
+		.mockReturnValueOnce(pendingCheck)
+		.mockResolvedValueOnce({ connection });
+	render(
+		<VisualPlanningWhatsApp
+			siteId="site"
+			cache={new VisualClientCache("site")}
+			plan={plan}
+			imageKey="test-image-key"
+			disabled={false}
+			createImages={async () => []}
+		/>,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
+	fireEvent.click(screen.getByRole("button", { name: "WhatsApp grupa" }));
+	const phone = screen.getByRole("textbox", { name: "Tālruņa numurs" });
+	expect(phone).toBeEnabled();
+	const qrName = "WhatsApp savienošanas QR kods";
+	expect(screen.queryByRole("img", { name: qrName })).not.toBeInTheDocument();
+	fireEvent.change(phone, { target: { value: number.phone } });
+	await act(async () => {
+		fireEvent.click(screen.getByRole("button", { name: "Turpināt" }));
+	});
+	const firstQr = screen.getByRole("img", { name: qrName }).getAttribute("src");
+	await act(async () => jest.advanceTimersByTimeAsync(4500));
+	const statusSignal = requests.mock.calls[1][1].signal;
+	fireEvent.click(screen.getByRole("button", { name: "Atcelt savienošanu" }));
+	expect(statusSignal?.aborted).toBe(true);
+	expect(screen.queryByRole("img", { name: qrName })).not.toBeInTheDocument();
+	expect(screen.getByRole("textbox", { name: "Tālruņa numurs" })).toHaveValue(
+		number.phone,
+	);
+	await act(async () => finishCheck({ ...number, status: "connected" }));
+	expect(requests).toHaveBeenCalledTimes(2);
+	await act(async () => {
+		fireEvent.click(screen.getByRole("button", { name: "Turpināt" }));
+	});
+	expect(
+		screen.getByRole("img", { name: qrName }).getAttribute("src"),
+	).not.toBe(firstQr);
+});
 
 it("checks group receipts after leaving the task and retries only through the original send", async () => {
 	jest.mocked(readWhatsAppGroups).mockResolvedValue({

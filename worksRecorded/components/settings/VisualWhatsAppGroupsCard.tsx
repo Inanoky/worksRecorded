@@ -22,17 +22,19 @@ export function VisualWhatsAppGroupsCard({
 	siteId,
 	connectionRevision = 0,
 	inline = false,
+	initialSenderId,
 	onSaved,
 }: {
 	siteId: string;
 	connectionRevision?: number;
 	inline?: boolean;
+	initialSenderId?: string;
 	onSaved?: (value: WhatsAppGroupConnection) => void;
 }) {
 	const [connection, setConnection] = useState<WhatsAppGroupConnection | null>(
 		null,
 	);
-	const [senderId, setSenderId] = useState<string>();
+	const [senderId, setSenderId] = useState(initialSenderId);
 	const [selected, setSelected] = useState<string[]>([]);
 	const [search, setSearch] = useState("");
 	const [busy, setBusy] = useState(false);
