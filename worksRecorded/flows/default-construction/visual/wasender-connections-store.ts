@@ -70,9 +70,12 @@ function isMissing(error: unknown) {
 	return error instanceof WasenderApiError && error.status === 404;
 }
 
-async function findOwnedConnection(owner: Owner, id: string) {
+async function findOwnedConnection(
+	{ organizationId, userId }: Owner,
+	id: string,
+) {
 	const row = await prisma.wasenderWhatsAppConnection.findFirst({
-		where: { ...owner, id },
+		where: { organizationId, userId, id },
 	});
 	if (!row) throw new WasenderConnectionError("Numurs nav pieejams.", 404);
 	return row;
@@ -148,13 +151,14 @@ async function readConnection(token: string, row: Connection) {
 	);
 }
 
-export async function readWasenderConnections(
-	owner: Owner,
-): Promise<WasenderConnections> {
+export async function readWasenderConnections({
+	organizationId,
+	userId,
+}: Owner): Promise<WasenderConnections> {
 	const token = getWasenderAccessToken();
 	if (!token) return { enabled: false, connections: [] };
 	const rows = await prisma.wasenderWhatsAppConnection.findMany({
-		where: owner,
+		where: { organizationId, userId },
 		orderBy: { createdAt: "asc" },
 	});
 	const connections = await Promise.all(

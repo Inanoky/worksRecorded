@@ -5,6 +5,7 @@ import {
 	GET,
 	POST,
 } from "@/app/api/sites/[siteId]/visual/whatsapp-connections/route";
+import { GET as getGroups } from "@/app/api/sites/[siteId]/visual/whatsapp-groups/route";
 import { prisma } from "@/lib/utils/db";
 import { requireVisualAccess } from "./store";
 
@@ -21,6 +22,7 @@ jest.mock("@/lib/utils/db", () => ({
 			update: jest.fn(),
 			deleteMany: jest.fn(),
 		},
+		wasenderProjectGroups: { findUnique: jest.fn() },
 	},
 }));
 
@@ -93,6 +95,7 @@ beforeEach(() => {
 	jest
 		.mocked(requireVisualAccess)
 		.mockResolvedValue({ organizationId: owner.organizationId } as never);
+	jest.mocked(prisma.wasenderProjectGroups.findUnique).mockResolvedValue(null);
 	database.createMany.mockImplementation(async (args) => {
 		if (row) return { count: 0 };
 		row = {
@@ -170,8 +173,39 @@ beforeEach(() => {
 				success: true,
 				data: { id: `${linkedPhone}:4@s.whatsapp.net` },
 			});
+		if (url.pathname === "/api/groups")
+			return Response.json({
+				success: true,
+				data: [{ jid: "120000000000000001@g.us", name: "Testa grupa" }],
+			});
 		throw new Error(`Unexpected test path ${url.pathname}`);
 	});
+});
+
+it("loads project groups with the organization and user's connected phone", async () => {
+	const id = "00000000-0000-4000-8000-000000000001";
+	row = {
+		id,
+		phone: `+${linkedPhone}`,
+		...owner,
+		providerSessionId: 31,
+		createdAt: new Date(),
+	};
+	status = "connected";
+	const response = await getGroups(
+		new Request(`${origin}/api/sites/site/visual/whatsapp-groups?manage=1`),
+		context,
+	);
+	expect(response.status).toBe(200);
+	expect(await response.json()).toMatchObject({
+		status: "connected",
+		availableGroups: [{ id: "120000000000000001@g.us", name: "Testa grupa" }],
+	});
+	expect(database.findMany).toHaveBeenCalledWith({
+		where: owner,
+		orderBy: { createdAt: "asc" },
+	});
+	expect(database.findFirst).toHaveBeenCalledWith({ where: { ...owner, id } });
 });
 
 afterEach(() => {
