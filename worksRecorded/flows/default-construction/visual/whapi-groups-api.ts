@@ -28,21 +28,16 @@ const sentImageSchema = z.object({
 	message: z.object({ id: z.string().min(1) }),
 });
 
+type WhapiPartnerConfig = { partnerToken: string; projectId: string };
+
 export function getWhapiConfig() {
 	if (process.env.WHAPI_LIMENI_ENABLED !== "1") return null;
 	const partnerToken = process.env.WHAPI_PARTNER_TOKEN;
 	const projectId = process.env.WHAPI_LIMENI_PROJECT_ID;
 	const encryptionKey = process.env.WHAPI_CHANNEL_ENCRYPTION_KEY;
-	if (
-		!partnerToken ||
-		!projectId ||
-		!encryptionKey ||
-		!/^[a-f0-9]{64}$/i.test(encryptionKey)
-	)
-		return null;
+	if (!encryptionKey || !/^[a-f0-9]{64}$/i.test(encryptionKey)) return null;
 	return {
-		partnerToken,
-		projectId,
+		partner: partnerToken && projectId ? { partnerToken, projectId } : null,
 		encryptionKey: Buffer.from(encryptionKey, "hex"),
 	};
 }
@@ -98,7 +93,7 @@ export function openWhapiToken(
 }
 
 export async function createWhapiChannel(
-	config: NonNullable<ReturnType<typeof getWhapiConfig>>,
+	config: WhapiPartnerConfig,
 	name: string,
 ) {
 	const response = await whapiRequest(
