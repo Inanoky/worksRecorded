@@ -1,0 +1,2806 @@
+{
+  "version": 1,
+  "provenance": {
+    "organization": "SBSTOMME",
+    "project": "HUS K",
+    "periodStart": "2026-09-17",
+    "periodEnd": "2026-10-16",
+    "snapshotDate": "2026-11-20",
+    "sourcePeriodStart": "2026-09-16",
+    "sourcePeriodEnd": "2026-10-16",
+    "sourceSiteFingerprint": "c6c6aebf98ce2540f7da382ec7a4b17bd3bb9124c12808c6b6c46799b6fa9887",
+    "reviewBasis": "Lietotāja norādītā projekta pašreizējie izlabotie ieraksti; oriģinālie teksti no SiteDiarySaveBatch. Sākotnējā vērtējamā atlase neizmanto neizteiktas 10 stundu/0 apjoma noklusējuma vērtības vai labojumu vēsturi bez konteksta. Neizvēlētie pāri ir tikai pārskatīšanai. method=manual pats par sevi nav cilvēka apstiprinājuma pierādījums.",
+    "redactions": [
+      "author name prefix",
+      "production identity and transport IDs",
+      "photos/audio URLs",
+      "UI-only project settings",
+      "production document/position IDs replaced with project-scoped snapshot IDs"
+    ]
+  },
+  "project": {
+    "key": "sbstomme-hus-k",
+    "language": "lv",
+    "documentId": "eval:sbstomme-hus-k:catalog-v1",
+    "config": {
+      "AIpromptToUse": {
+        "Type": "noRender",
+        "Client": "DEPROM"
+      },
+      "Amounts": {
+        "Type": "float",
+        "DisplayName": "Daudzums",
+        "customSettings": {}
+      },
+      "Comments": {
+        "Type": "textInput",
+        "DisplayName": "Comments",
+        "customSettings": {}
+      },
+      "Comments_Custom_1": {
+        "Type": "noRender",
+        "DisplayName": "textInput",
+        "customSettings": {}
+      },
+      "Comments_Custom_2": {
+        "Type": "noRender",
+        "DisplayName": "textInput",
+        "customSettings": {}
+      },
+      "Date": {
+        "Type": "fixed",
+        "DisplayName": "Date",
+        "customSettings": {}
+      },
+      "Date_Custom_1": {
+        "Type": "noRender",
+        "DisplayName": "Date_Custom_1",
+        "customSettings": {}
+      },
+      "Date_Custom_2": {
+        "Type": "noRender",
+        "DisplayName": "Date_Custom_2",
+        "customSettings": {}
+      },
+      "Location": {
+        "Type": "dropdown",
+        "DisplayName": "Lokācija",
+        "DropDownOptions": {
+          "option-1": "Plan 10",
+          "option-2": "Plan 11",
+          "option-3": "Plan 12",
+          "option-4": "Plan 13",
+          "option-5": "Plan 14",
+          "option-6": "Plan 15"
+        },
+        "customSettings": {}
+      },
+      "Location_Custom_1": {
+        "Type": "noRender",
+        "DisplayName": "Location_Custom_1",
+        "DropDownOptions": {
+          "option-1": "Location_Custom_1_1",
+          "option-2": "Location_Custom_1_2"
+        },
+        "customSettings": {}
+      },
+      "Location_Custom_2": {
+        "Type": "noRender",
+        "DisplayName": "Location_Custom_2",
+        "DropDownOptions": {
+          "option-1": "Location_Custom_2_1",
+          "option-2": "Location_Custom_2_2"
+        },
+        "customSettings": {}
+      },
+      "TimeInvolved": {
+        "Type": "float",
+        "DisplayName": "Stundas",
+        "customSettings": {
+          "integer": true
+        }
+      },
+      "Units": {
+        "Type": "dropdown",
+        "DisplayName": "Mērv.",
+        "DropDownOptions": {
+          "option-1": "gab",
+          "option-2": "gab.",
+          "option-3": "kg",
+          "option-4": "m",
+          "option-5": "m2",
+          "option-6": "m3",
+          "option-7": "minute",
+          "option-8": "pacelšana",
+          "option-9": "projekts",
+          "option-10": "set",
+          "option-11": "stunda",
+          "option-12": "tn"
+        },
+        "customSettings": {}
+      },
+      "WorkersInvolved": {
+        "Type": "float",
+        "DisplayName": "Strādnieki",
+        "customSettings": {
+          "integer": true
+        }
+      },
+      "Works": {
+        "Type": "dropdown",
+        "DisplayName": "Darbi",
+        "DropDownOptions": {
+          "option-1": "Apkures sistēmas un ventilācijas darbi",
+          "option-2": "Balkona torņu demontāža",
+          "option-3": "Balkona torņu montāža",
+          "option-4": "Balkonu montāža (ar izkraušana, vates un margu mont)",
+          "option-5": "Betona kolonnu montāža",
+          "option-6": "Betona sienu montāža + Margas",
+          "option-7": "Elektroinstalācijas darbi",
+          "option-8": "Filigrāno plātņu montāža + Margas",
+          "option-9": "Kavēšanās",
+          "option-10": "Koka sienu montāža, integrēto kolonnu pieskrūvēšana + Margas",
+          "option-11": "Kolonnu pabetonēšana, atveidņošana",
+          "option-12": "Masīvo plātņu montāža, stiegrošana, veidņošana, betonēšana",
+          "option-13": "Materiālu celšana pasūtītājam",
+          "option-14": "Materiālu piegāde",
+          "option-15": "Papildu darbi",
+          "option-16": "Piezīmes",
+          "option-17": "Pārseguma veidņoš ap trubām, padziļinājumi, atveidņošana",
+          "option-18": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+          "option-19": "Santehnikas darbi",
+          "option-20": "Sienu atsaišu demontāža (betona sienas)",
+          "option-21": "Sienu atsaišu demontāža (koka sienas)",
+          "option-22": "Sienu līmeņošana, stiprināšana pirms betona, ''end stop stiprināšana''",
+          "option-23": "Sienu šuvju,kabatu aizdare ar Bemix, dubulto sienu aizliešana",
+          "option-24": "Spirāltrepju izkraušana, montāža + margas",
+          "option-25": "Stutu, siju Demontāža un līmeņošana",
+          "option-26": "Stutu, siju montāža un līmeņošana",
+          "option-27": "Trepju balstu aizliešana, atveidņošana",
+          "option-28": "Uzkopšanas darbi",
+          "option-29": "Šuvju aizdare + apakš stiegroj + perimetrs + virs stiegrojums"
+        },
+        "customSettings": {}
+      },
+      "Works_Custom_1": {
+        "Type": "noRender",
+        "DisplayName": "Works_Custom_1",
+        "DropDownOptions": {
+          "option-1": "Works_Custom_1_1",
+          "option-2": "Works_Custom_1_2"
+        },
+        "customSettings": {}
+      },
+      "Works_Custom_2": {
+        "Type": "noRender",
+        "DisplayName": "Works_Custom_2",
+        "DropDownOptions": {
+          "option-1": "Works_Custom_2_1",
+          "option-2": "Works_Custom_2_2"
+        },
+        "customSettings": {}
+      },
+      "otherSettings": {
+        "Type": "noRender",
+        "defaultConstructionForma2WorkSync": {
+          "documentId": "eval:sbstomme-hus-k:catalog-v1",
+          "entries": [
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:0f61d992f9115431010a",
+              "work": "Betona kolonnu montāža"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:a640dd7d5d8ad18c9c61",
+              "work": "Kolonnu pabetonēšana, atveidņošana"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:2dda4bf8169c8a92cd3a",
+              "work": "Betona sienu montāža + Margas"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:8eae2a5e8fc47f21562e",
+              "work": "Sienu šuvju,kabatu aizdare ar Bemix, dubulto sienu aizliešana"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:39022327cfc8eb49d305",
+              "work": "Sienu atsaišu demontāža (betona sienas)"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:28798400d4e47c3b0259",
+              "work": "Koka sienu montāža, integrēto kolonnu pieskrūvēšana + Margas"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:7c5e8d776133d0239be3",
+              "work": "Sienu līmeņošana, stiprināšana pirms betona, ''end stop stiprināšana''"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:86be107bc3ba3470906e",
+              "work": "Sienu atsaišu demontāža (koka sienas)"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:c4e9a20d074e4003d942",
+              "work": "Filigrāno plātņu montāža + Margas"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:56ae3d8c07b1407461e9",
+              "work": "Stutu, siju montāža un līmeņošana"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:ea083661fb14b51ef273",
+              "work": "Stutu, siju Demontāža un līmeņošana"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:a73a9bcb664ae606fb66",
+              "work": "Šuvju aizdare + apakš stiegroj + perimetrs + virs stiegrojums"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:d13ef47ff9e714530375",
+              "work": "Pārseguma veidņoš ap trubām, padziļinājumi, atveidņošana"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:b378f16cdcab672c387c",
+              "work": "Masīvo plātņu montāža, stiegrošana, veidņošana, betonēšana"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:512550a6f1b1179bdf7c",
+              "work": "Balkonu montāža (ar izkraušana, vates un margu mont)"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:c4950a8fdd85380e1229",
+              "work": "Balkona torņu montāža"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:c20e7c4bd7a614a5a4fc",
+              "work": "Balkona torņu demontāža"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:687952c1c38e1519e3fc",
+              "work": "Spirāltrepju izkraušana, montāža + margas"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:35d6c5fbc3548d190c27",
+              "work": "Trepju balstu aizliešana, atveidņošana"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:db07f8ba9d705185b533",
+              "work": "Materiālu celšana pasūtītājam"
+            },
+            {
+              "ownedByForma2": false,
+              "positionId": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+              "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)"
+            }
+          ],
+          "version": 1
+        },
+        "defaultConstructionProductivity": {
+          "version": 4,
+          "works": [
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 2.142857142857143,
+              "unit": "gab",
+              "work": "Balkona torņu demontāža"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 3.333333333333333,
+              "unit": "gab",
+              "work": "Balkona torņu montāža"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 3.333333333333333,
+              "unit": "gab",
+              "work": "Balkonu montāža (ar izkraušana, vates un margu mont)"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 2.666666666666667,
+              "unit": "gab",
+              "work": "Betona kolonnu montāža"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 2.5,
+              "unit": "gab",
+              "work": "Betona sienu montāža + Margas"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 0.07272727272727274,
+              "unit": "m2",
+              "work": "Filigrāno plātņu montāža + Margas"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 3.333333333333333,
+              "unit": "gab",
+              "work": "Koka sienu montāža, integrēto kolonnu pieskrūvēšana + Margas"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 1.333333333333333,
+              "unit": "gab",
+              "work": "Kolonnu pabetonēšana, atveidņošana"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 3.2,
+              "unit": "gab",
+              "work": "Masīvo plātņu montāža, stiegrošana, veidņošana, betonēšana"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 0.5999999999999999,
+              "unit": "gab",
+              "work": "Materiālu celšana pasūtītājam"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 0.09090909090909091,
+              "unit": "m2",
+              "work": "Pārseguma veidņoš ap trubām, padziļinājumi, atveidņošana"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 0.1538461538461538,
+              "unit": "m2",
+              "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 0.1666666666666667,
+              "unit": "gab",
+              "work": "Sienu atsaišu demontāža (betona sienas)"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 0.3333333333333333,
+              "unit": "gab",
+              "work": "Sienu atsaišu demontāža (koka sienas)"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 2.333333333333333,
+              "unit": "gab",
+              "work": "Sienu līmeņošana, stiprināšana pirms betona, ''end stop stiprināšana''"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 2,
+              "unit": "gab",
+              "work": "Sienu šuvju,kabatu aizdare ar Bemix, dubulto sienu aizliešana"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 6.666666666666667,
+              "unit": "gab",
+              "work": "Spirāltrepju izkraušana, montāža + margas"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 0.06060606060606061,
+              "unit": "m2",
+              "work": "Stutu, siju Demontāža un līmeņošana"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 0.06060606060606061,
+              "unit": "m2",
+              "work": "Stutu, siju montāža un līmeņošana"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 0.2272727272727273,
+              "unit": "m2",
+              "work": "Šuvju aizdare + apakš stiegroj + perimetrs + virs stiegrojums"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 16,
+              "laborNormHoursPerUnit": 1.666666666666667,
+              "unit": "gab",
+              "work": "Trepju balstu aizliešana, atveidņošana"
+            },
+            {
+              "costCalculationMode": "output",
+              "hourlyCost": null,
+              "laborNormHoursPerUnit": null,
+              "unit": "",
+              "work": "Apkures sistēmas un ventilācijas darbi"
+            },
+            {
+              "costCalculationMode": "output",
+              "hourlyCost": null,
+              "laborNormHoursPerUnit": null,
+              "unit": "",
+              "work": "Elektroinstalācijas darbi"
+            },
+            {
+              "costCalculationMode": "output",
+              "hourlyCost": null,
+              "laborNormHoursPerUnit": null,
+              "unit": "",
+              "work": "Kavēšanās"
+            },
+            {
+              "costCalculationMode": "output",
+              "hourlyCost": null,
+              "laborNormHoursPerUnit": null,
+              "unit": "",
+              "work": "Materiālu piegāde"
+            },
+            {
+              "costCalculationMode": "output",
+              "hourlyCost": null,
+              "laborNormHoursPerUnit": null,
+              "unit": "",
+              "work": "Papildu darbi"
+            },
+            {
+              "costCalculationMode": "output",
+              "hourlyCost": null,
+              "laborNormHoursPerUnit": null,
+              "unit": "",
+              "work": "Piezīmes"
+            },
+            {
+              "costCalculationMode": "output",
+              "hourlyCost": null,
+              "laborNormHoursPerUnit": null,
+              "unit": "",
+              "work": "Santehnikas darbi"
+            },
+            {
+              "costCalculationMode": "output",
+              "hourlyCost": null,
+              "laborNormHoursPerUnit": null,
+              "unit": "",
+              "work": "Uzkopšanas darbi"
+            }
+          ]
+        }
+      }
+    },
+    "positions": [
+      {
+        "id": "pos:sbstomme-hus-k:0f61d992f9115431010a",
+        "code": "1",
+        "name": "Betona kolonnu montāža",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 7,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:a640dd7d5d8ad18c9c61",
+        "code": "2",
+        "name": "Kolonnu pabetonēšana, atveidņošana",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 8,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:2dda4bf8169c8a92cd3a",
+        "code": "3",
+        "name": "Betona sienu montāža + Margas",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 9,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:8eae2a5e8fc47f21562e",
+        "code": "4",
+        "name": "Sienu šuvju,kabatu aizdare ar Bemix, dubulto sienu aizliešana",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 10,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:39022327cfc8eb49d305",
+        "code": "5",
+        "name": "Sienu atsaišu demontāža (betona sienas)",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 11,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:28798400d4e47c3b0259",
+        "code": "6",
+        "name": "Koka sienu montāža, integrēto kolonnu pieskrūvēšana + Margas",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 12,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:7c5e8d776133d0239be3",
+        "code": "7",
+        "name": "Sienu līmeņošana, stiprināšana pirms betona, ''end stop stiprināšana''",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 13,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:86be107bc3ba3470906e",
+        "code": "8",
+        "name": "Sienu atsaišu demontāža (koka sienas)",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 14,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:c4e9a20d074e4003d942",
+        "code": "9",
+        "name": "Filigrāno plātņu montāža + Margas",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 15,
+        "unit": "m2"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:56ae3d8c07b1407461e9",
+        "code": "10",
+        "name": "Stutu, siju montāža un līmeņošana",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 16,
+        "unit": "m2"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:ea083661fb14b51ef273",
+        "code": "11",
+        "name": "Stutu, siju Demontāža un līmeņošana",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 17,
+        "unit": "m2"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:a73a9bcb664ae606fb66",
+        "code": "12",
+        "name": "Šuvju aizdare + apakš stiegroj + perimetrs + virs stiegrojums",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 18,
+        "unit": "m2"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:d13ef47ff9e714530375",
+        "code": "13",
+        "name": "Pārseguma veidņoš ap trubām, padziļinājumi, atveidņošana",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 19,
+        "unit": "m2"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:b378f16cdcab672c387c",
+        "code": "14",
+        "name": "Masīvo plātņu montāža, stiegrošana, veidņošana, betonēšana",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 20,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:512550a6f1b1179bdf7c",
+        "code": "15",
+        "name": "Balkonu montāža (ar izkraušana, vates un margu mont)",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 21,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:c4950a8fdd85380e1229",
+        "code": "16",
+        "name": "Balkona torņu montāža",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 22,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:c20e7c4bd7a614a5a4fc",
+        "code": "17",
+        "name": "Balkona torņu demontāža",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 23,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:687952c1c38e1519e3fc",
+        "code": "18",
+        "name": "Spirāltrepju izkraušana, montāža + margas",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 24,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:35d6c5fbc3548d190c27",
+        "code": "19",
+        "name": "Trepju balstu aizliešana, atveidņošana",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 25,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:db07f8ba9d705185b533",
+        "code": "20",
+        "name": "Materiālu celšana pasūtītājam",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 26,
+        "unit": "gab"
+      },
+      {
+        "id": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+        "code": "21",
+        "name": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+        "categoryName": "PREFAB",
+        "categoryCode": "",
+        "kind": "work",
+        "parentId": null,
+        "sourceRow": 27,
+        "unit": "m2"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "sbstomme-hus-k-0917-slab-concrete",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: slab-concrete.",
+      "tags": [
+        "sbstomme-hus-k",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "single-work",
+        "forma2"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-17",
+      "sourceText": "Ieliets pārsegums virs Plan 13",
+      "sourceFingerprint": "54f2bdd1ab695c4ab77f9d25e31305ba7d679abafeb38121f76c92dd7bc51767",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "7075032e379f9d95c0c5367758caaef6c5ee1cb0b0e1c74e9a1861ab27ede048",
+      "inputFingerprint": "ced5c42f9d80429ab21e0e09c7581435b8db033a4d2dd2c23af4f8dd4974df8d",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-17",
+          "work": "Masīvo plātņu montāža, stiegrošana, veidņošana, betonēšana",
+          "location": "Plan 13",
+          "commentSignals": [],
+          "reviewedComment": "Completed concreting of the slab above Plan 13.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:b378f16cdcab672c387c",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "gab"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "6d013561b3cf155d6eadda32e0559b255fb3a434afbf3630471b87ea65ef21d0",
+            "assignmentBasis": "journal-work-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-0918-concrete-wall-braces",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: concrete-wall-braces.",
+      "tags": [
+        "sbstomme-hus-k",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "single-work",
+        "forma2",
+        "spoken-latvian"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-18",
+      "sourceText": "Noņemtas Plan 14 sienu diagonālās atsaites - 2 strādnieki",
+      "sourceFingerprint": "46852474225a519d47ab2754b5e9412087b6b639dd533f37cc91c96d7b524e67",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "a0bbc2b22e7a5988846b7abbdf0dbc0535b665889cbf89c46cd2aa9d2cb79934",
+      "inputFingerprint": "1b23abb69e3d97aefb6d870245a0fdeb588e55216494f8b3f66cca08fbac67de",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-18",
+          "work": "Sienu atsaišu demontāža (betona sienas)",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Removed wall diagonal braces at Plan 14 with 2 workers.",
+          "amount": null,
+          "unit": null,
+          "workers": 2,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:39022327cfc8eb49d305",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "gab"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "2f4866d1c610df64cb87299d8b191a20434f8706b3da109e102376b3fe3d101d",
+            "assignmentBasis": "journal-work-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-0918-slab-side-formwork",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: slab-side-formwork.",
+      "tags": [
+        "sbstomme-hus-k",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "single-work",
+        "forma2"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-18",
+      "sourceText": "Noņemti sānu veidņi no Plan 14 pārseguma - 1 strādnieks",
+      "sourceFingerprint": "0c3ad8b0a7efe146d90e42cada14dc144076565e2008a7f034711d34e3aff362",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "7243323150612a8ae301485985abdd6f5ffdc99ef3bdd4595bca1315c879fca0",
+      "inputFingerprint": "61aee875df8e980c739073b3f306eaeb4077757d0aedbb6870225b8a81c404a8",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-18",
+          "work": "Masīvo plātņu montāža, stiegrošana, veidņošana, betonēšana",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Removed side formwork from the floor slab at Plan 14 with 1 worker.",
+          "amount": null,
+          "unit": null,
+          "workers": 1,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:b378f16cdcab672c387c",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "gab"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "f4ac111a6658a4bebdb83643d1cf692a134acce5403a556bc59dbd9a9b5eb5de",
+            "assignmentBasis": "journal-work-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-0918-timber-wall-transport-braces",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: timber-wall-transport-braces.",
+      "tags": [
+        "sbstomme-hus-k",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "single-work",
+        "forma2"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-18",
+      "sourceText": "Noņemtas transporta koka brusas no plan 14 vieglām sienām - 1 strādnieks",
+      "sourceFingerprint": "b93896d87b59674f995b7087850410aeee6d9dfde658f378f9866d7126335096",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "429149e96ea568cba4b976526d1265489aa364fd9b00fb48ddca0af9060c7854",
+      "inputFingerprint": "0bb7be11ad3bcb19afe179978d503ba19317688c5ebdaf332e081e5616ee47fd",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-18",
+          "work": "Sienu atsaišu demontāža (koka sienas)",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Removed wooden transport braces from lightweight walls at Plan 14 with 1 worker.",
+          "amount": null,
+          "unit": null,
+          "workers": 1,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:86be107bc3ba3470906e",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "gab"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "85c1f1c1124ed432ceb2e86f6ad21846582261882cdbaa9584fda54bf1742818",
+            "assignmentBasis": "journal-work-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-0918-seven-workers-note",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: seven-workers-note.",
+      "tags": [
+        "sbstomme-hus-k",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "single-work",
+        "forma2",
+        "labour-note"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-18",
+      "sourceText": "Kopā objektā strādāja 7 strādnieki.",
+      "sourceFingerprint": "c34c55d3152fa18515416db1d17d6727190d3c9fc4c5d4e4c9586e28f8b44510",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "2d53b02c71397d1c6463dd0bc8da48162018a97d32523f9596daeee25632c947",
+      "inputFingerprint": "d19d356a3f329bf4e2a3f06c756aee898ee442287fa66dc992d021087c6f6f17",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-18",
+          "work": "Piezīmes",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "A total of 7 workers worked on site.",
+          "amount": null,
+          "unit": null,
+          "workers": 7,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "14231d2188865910253c004c9ab9c82cc011f61226d2d02a8b03eebed1afb29a",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-0918-balcony-joints-hours",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: balcony-joints-hours.",
+      "tags": [
+        "sbstomme-hus-k",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "single-work",
+        "forma2",
+        "fractional-hours"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-18",
+      "sourceText": "Daļēji ielietās šuves starp balkoniem virs Plan 10 - 2 strādnieki 1.5 stunda.",
+      "sourceFingerprint": "c93054745c2f7aa9ab5b6c3ea130f46451907e45a54047184604f5099fd7881e",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "da87edc0ca5fbc59dd8a5f0452df72b4c7e0b1a44adde1e9afda16c7e016e927",
+      "inputFingerprint": "d4a2890e543cc8fdb5aa718978df5cd271a2aa67a420c51a4f75819c70004269",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-18",
+          "work": "Balkonu montāža (ar izkraušana, vates un margu mont)",
+          "location": "Plan 10",
+          "commentSignals": [],
+          "reviewedComment": "Partially concreted joints between balconies above Plan 10 with 2 workers.",
+          "amount": null,
+          "unit": null,
+          "workers": 2,
+          "hours": 1.5,
+          "forma2PositionId": "pos:sbstomme-hus-k:512550a6f1b1179bdf7c",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "gab"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "f99f59523852dd7af38c7f93007e349a4df791d2e5b2d31c050721aa673adddf",
+            "assignmentBasis": "journal-work-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-0918-welded-wall-joints",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: welded-wall-joints.",
+      "tags": [
+        "sbstomme-hus-k",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "single-work",
+        "forma2"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-18",
+      "sourceText": "Aizpildītas ar javu Plan 11 sienu metināto savienojumu vietas - 1 strādnieks",
+      "sourceFingerprint": "1d00b394a08961db376cdd8dc11fa0e8afed5b5169f665cdf7f42d1e41fbb480",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "b49c8206ab769f41ba0b3db2df09f810036c94b1604c105b19b7cab691a5c451",
+      "inputFingerprint": "c9a513880fb84b29d776dbd05fa68eb5f4172ba2562c2974e5035f851b8598d4",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-18",
+          "work": "Sienu šuvju,kabatu aizdare ar Bemix, dubulto sienu aizliešana",
+          "location": "Plan 11",
+          "commentSignals": [],
+          "reviewedComment": "Filled welded wall connection points with mortar at Plan 11 with 1 worker.",
+          "amount": null,
+          "unit": null,
+          "workers": 1,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:8eae2a5e8fc47f21562e",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "gab"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "6478d3437b9d66802108d5d26c2980806206ebd0defd492beb76d39a1414013b",
+            "assignmentBasis": "journal-work-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-0923-stairs-half-hour",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: stairs-half-hour.",
+      "tags": [
+        "sbstomme-hus-k",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "single-work",
+        "forma2",
+        "fractional-hours"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-23",
+      "sourceText": "Samontēja plan 14 trepes (2 strādnieki, 0.5 stunda).",
+      "sourceFingerprint": "c770e5673d09d660b71c87af7ea784abd09b944b7329c4a11ec1a5a53e7b94e4",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "55cbff3376da99c3e6fc12c41015d4a93adbf197484d967625f278400c9c69ae",
+      "inputFingerprint": "e18471acf2b9c366d410950c644238c18a325d932018b0fbd7728744c3c51226",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-23",
+          "work": "Spirāltrepju izkraušana, montāža + margas",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 samontētas trepes; strādāja 2 strādnieki 0,5 stundu.",
+          "amount": null,
+          "unit": null,
+          "workers": 2,
+          "hours": 0.5,
+          "forma2PositionId": "pos:sbstomme-hus-k:687952c1c38e1519e3fc",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "gab"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "4d187f8d5f888f992ca31a6726c738888e1434d687b52c6540c26b29cabd2888",
+            "assignmentBasis": "journal-work-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-0924-three-works-filigran-floor-joints",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: three-works-filigran-floor-joints.",
+      "tags": [
+        "sbstomme-hus-k",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "multi-work",
+        "forma2",
+        "multi-location"
+      ],
+      "tier": "regression",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-24",
+      "sourceText": "Samontēja Plan 14 filigrānus (34 gab.) - 3 strādnieki; 1 strādnieks slīpēja un špaktelēja Plan 10 un Plan 11 metināto sienu savienojumu vietas (4 stundas); 1 strādnieks pildīja horizontālās šuve starp Plan 14 filigrāniem (4 stundas). Kopā objektā strādāja 4 strādnieki.",
+      "sourceFingerprint": "c30750a8f5094691b4285d9fc1b0801a3ef325781bfa9150d6253a70d8df22e1",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "c00f93ef8e58520d56ddc9ca3da19cdab2c97dea8c77d3398a0c85c63568d880",
+      "inputFingerprint": "ff41350d163d6083c03415aebd5e8f1566b405a453bdfcb2d5a6e3241153e649",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-24",
+          "work": "Filigrāno plātņu montāža + Margas",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 samontēti 34 filigrāni; strādāja 3 strādnieki.",
+          "amount": 34,
+          "unit": "gab",
+          "workers": 3,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:c4e9a20d074e4003d942",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "ecd8ed281778045f65f4dfdd7ebfe4773c8f706c861a0122d074ff736283ce14",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-09-24",
+          "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Plan 10 un Plan 11 slīpētas un špaktelētas metināto sienu savienojumu vietas; strādāja 1 strādnieks 4 stundas.",
+          "amount": null,
+          "unit": null,
+          "workers": 1,
+          "hours": 4,
+          "forma2PositionId": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+          "checkLocation": false,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "m2"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "c243a7737b454dc36c9b40ef36a7989b3cb983fabbe2823ab8d83ae0f78f40ea",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-3",
+          "dateISO": "2026-09-24",
+          "work": "Šuvju aizdare + apakš stiegroj + perimetrs + virs stiegrojums",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 pildītas horizontālās šuves starp filigrāniem; strādāja 1 strādnieks 4 stundas. Kopā objektā strādāja 4 strādnieki.",
+          "amount": null,
+          "unit": null,
+          "workers": 1,
+          "hours": 4,
+          "forma2PositionId": "pos:sbstomme-hus-k:a73a9bcb664ae606fb66",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "m2"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "4b9c3f1c9ccedfe552daa01705abc17f517e17e1bc30dd9ff22cc2d186a86406",
+            "assignmentBasis": "journal-work-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-0924-additional-work-person-hours",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: additional-work-person-hours.",
+      "tags": [
+        "sbstomme-hus-k",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "single-work",
+        "forma2",
+        "additional-work",
+        "person-hours"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-24",
+      "sourceText": "Papildus darbs - 2 strādnieki ņema nost drošības margu stiprinājumus no Plan14 vieglām sienām un mainīja tos pret cita tipa stiprinājumiem, ko atveda 24/09/2026. Kopā tas aizņēma 1 stundu diviem strādniekiem = 2 cilvēkstundas.",
+      "sourceFingerprint": "2c99cfe81be6843c7d37600306adebc2072286e7a83723c8aadc4478458519cb",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "c558bbc41d9fe20b521663b6e106c0b7f1897eadcd285792eb45b2b3b0778c05",
+      "inputFingerprint": "fdfc3f1f8d16e8d2c7223e8b8b0c5687c2c74ad6446ed14d0c6d4c2d8272a6ac",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-24",
+          "work": "Papildu darbi",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "No Plan 14 vieglajām sienām noņemti drošības margu stiprinājumi un nomainīti pret cita tipa stiprinājumiem, kas atvesti 24.09.2026.; strādāja 2 strādnieki 1 stundu (2 cilvēkstundas).",
+          "amount": null,
+          "unit": null,
+          "workers": 2,
+          "hours": 1,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "d0001b614a1d5ff747e3933b6b1c21c669c9fb34796b5b0da832ebf2cb73e283",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-0930-two-works-shared-crew",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: two-works-shared-crew.",
+      "tags": [
+        "sbstomme-hus-k",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "multi-work",
+        "forma2",
+        "labour-note"
+      ],
+      "tier": "regression",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-30",
+      "sourceText": "Montēja plan 14 pārseguma perimetra un augšējo stiegrojumu. Salika plan 14 pārseguma sanu veidņus. Kopā objektā strādāja 4 strādnieki.",
+      "sourceFingerprint": "578543e4db1211c21cb1ce138b461962c66e1382313689adb6e7d410818af9cf",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "a834b00599344bb02ba50b20561c4220c313674a0a22bf26ca4d7bcc55a6e658",
+      "inputFingerprint": "f1500cab1f39fe696da46f2a16db0a2041962f4bb3bd0b2e40e1232eeca8b5b2",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-30",
+          "work": "Šuvju aizdare + apakš stiegroj + perimetrs + virs stiegrojums",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 pārsegumam montēja perimetra un augšējo stiegrojumu.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:a73a9bcb664ae606fb66",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "m2"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "f32c5d0d726337e074313b08ec4db1256cd60c2845cc449acbc3854c71f62ed4",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-09-30",
+          "work": "Masīvo plātņu montāža, stiegrošana, veidņošana, betonēšana",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 pārsegumam salika sānu veidņus.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:b378f16cdcab672c387c",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "gab"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "89c259a281715a95bf890726b6c6e47290bf7aa14ba869f5e0747a6cf7d7c9a7",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-3",
+          "dateISO": "2026-09-30",
+          "work": "Piezīmes",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Kopā objektā strādāja 4 strādnieki.",
+          "amount": null,
+          "unit": null,
+          "workers": 4,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": false,
+          "provenance": {
+            "recordFingerprint": "357dbfe759587c1265245514e2bea092f3dfb704b2ec1c43f7ce3839fa06975b",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-1015-five-works-across-floors",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: five-works-across-floors.",
+      "tags": [
+        "sbstomme-hus-k",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "multi-work",
+        "forma2",
+        "multi-location"
+      ],
+      "tier": "regression",
+      "priority": "critical",
+      "receivedDateISO": "2026-10-15",
+      "sourceText": "Noņēma finiera veidņus no Plan 12, 13, 14 pārsegumiem. Nošpaktelēja Plan 12 un Plan 13 sienu šuves.",
+      "sourceFingerprint": "248a36dadebf427c831965146f0ca19b05a974af0820aef73ad873c233c0702d",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "f5aca6f0d09ff4122f1852d4cd4df2c0018cc952c30e4535ae8bec9cef08645f",
+      "inputFingerprint": "2cd3cc588e36a371c78ee3d17975aa0ce105ecb0b74a5dba18c70dbfe7f45265",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-10-15",
+          "work": "Pārseguma veidņoš ap trubām, padziļinājumi, atveidņošana",
+          "location": "Plan 12",
+          "commentSignals": [],
+          "reviewedComment": "No Plan 12 pārseguma noņemti finiera veidņi.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:d13ef47ff9e714530375",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "m2"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "588f31fccf1a36b8f114e56d8e95248d36821313f4da847f4a554b2176633cca",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-10-15",
+          "work": "Pārseguma veidņoš ap trubām, padziļinājumi, atveidņošana",
+          "location": "Plan 13",
+          "commentSignals": [],
+          "reviewedComment": "No Plan 13 pārseguma noņemti finiera veidņi.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:d13ef47ff9e714530375",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "m2"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "05993b15431ce947c30558de4eba84ac14bfa9a6e4548c05ac86aa60a754aa99",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-3",
+          "dateISO": "2026-10-15",
+          "work": "Pārseguma veidņoš ap trubām, padziļinājumi, atveidņošana",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "No Plan 14 pārseguma noņemti finiera veidņi.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:d13ef47ff9e714530375",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "m2"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "e4f6c0381cb886f60ecd6879ac4150d205abfdd81e165e7e3b79123e87c019cc",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-4",
+          "dateISO": "2026-10-15",
+          "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+          "location": "Plan 12",
+          "commentSignals": [],
+          "reviewedComment": "Plan 12 nošpaktelētas sienu šuves.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "m2"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "e53151f17829ed1b3904e83a8db24172c8830259aa715506ffc989ec910a0793",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-5",
+          "dateISO": "2026-10-15",
+          "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+          "location": "Plan 13",
+          "commentSignals": [],
+          "reviewedComment": "Plan 13 nošpaktelētas sienu šuves.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "m2"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "826816e9ebb3688e5ad801d40e6d91036287656d56e6103cdf846ce16b8ca75d",
+            "assignmentBasis": "journal-work-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-1015-crew-only-note",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: crew-only-note.",
+      "tags": [
+        "sbstomme-hus-k",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "single-work",
+        "forma2",
+        "labour-note"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-10-15",
+      "sourceText": "Objektā strādāja 3 strādnieki.",
+      "sourceFingerprint": "afb6ca08946b1b379f741620b921a0e1400ad91db25d58308d8414b1c48c8342",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "512317637f74ff44bf8a9156c6dfde81b8e8349855f639f50a84d4fed107377b",
+      "inputFingerprint": "5dc1710df815cda487d02d2a5ad2559abc5cffab2cfb98946c4b03dc7794c55a",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-10-15",
+          "work": "Piezīmes",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Objektā strādāja 3 strādnieki.",
+          "amount": null,
+          "unit": null,
+          "workers": 3,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "918cce089e940f998e90be4004162c3ec833123960ebe61b50b33311156ddfbb",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-1016-four-finishing-works-and-crew",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: four-finishing-works-and-crew.",
+      "tags": [
+        "sbstomme-hus-k",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "multi-work",
+        "forma2",
+        "multi-location",
+        "labour-note"
+      ],
+      "tier": "regression",
+      "priority": "critical",
+      "receivedDateISO": "2026-10-16",
+      "sourceText": "Slīpēja nošpaktelētas sienu šuves Plan 12 un 13. Slīpēja ar dimanta disku sienu šuves Plan 14. Uzkrāva uz mašīnas atgriešanai Plan 13 stutes. Strādāja 3 strādnieki.",
+      "sourceFingerprint": "f1e7b26c2fa58ff0cb9b5f9086ef88c12432f05474632a69d4a3cb2de37e80da",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "5344cec3ff7a69fae82cc261442c642273e84a991d08715063fd03d52dffb940",
+      "inputFingerprint": "68ff89d777b1abb1c5d7b2d09fa7461cdafceb0dd40e6fc11e1ff27698353512",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-10-16",
+          "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+          "location": "Plan 12",
+          "commentSignals": [],
+          "reviewedComment": "Plan 12 slīpētas nošpaktelētās sienu šuves.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "m2"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "05d9eb2305d02fda38e7829c2bb6cd753e7c7dbd6c707b6da85f7e465d11d9ec",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-10-16",
+          "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+          "location": "Plan 13",
+          "commentSignals": [],
+          "reviewedComment": "Plan 13 slīpētas nošpaktelētās sienu šuves.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "m2"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "efe63a1a793393ae47c79f21d1d405d4b28631835e0ab0bf958e42ad607b3087",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-3",
+          "dateISO": "2026-10-16",
+          "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 sienu šuves slīpētas ar dimanta disku.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "m2"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "2b74dd37eff0b4a362a04198cc528ddd18025688b81ff51d3e20b32bea7db121",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-4",
+          "dateISO": "2026-10-16",
+          "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+          "location": "Plan 13",
+          "commentSignals": [],
+          "reviewedComment": "Plan 13 stutes uzkrautas uz mašīnas atgriešanai.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "m2"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "ed0c1d8247af92db8660e4f6f3f70449c59c939b68735b26310be1e7ce719702",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-5",
+          "dateISO": "2026-10-16",
+          "work": "Piezīmes",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Objektā strādāja 3 strādnieki.",
+          "amount": null,
+          "unit": null,
+          "workers": 3,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": false,
+          "provenance": {
+            "recordFingerprint": "f742f6b2d0593cf138e7fee4abf45ce785672bcdec9401b1a67fac96aa7cce05",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    }
+  ],
+  "referenceCandidates": [
+    {
+      "id": "sbstomme-hus-k-review-1",
+      "sourceText": "Pabeigta Plan 13 pārseguma augšējā stiegrojuma montāža - 3 strādnieki; samontētas metāla plāksnes virs plan 13 pārseguma stiegrojuma plan14 metālisko kolonnu montāžai - 1 strādnieks; uzstādīti vannas istabu pazeminājumu veidņi un apmestas ar javu komunikācijas,  - 1 strādnieks; ieklāta skaņas izolācija Plan 10 grīdai (Grīdu tipi GP03, GP04a, GP04b) - 2 strādnieki. Kopā 16. septembrī objektā strādāja 5 strādnieki.",
+      "receivedDateISO": "2026-09-16",
+      "sourceFingerprint": "65f11ddf970843aa10134984a59c8e7e7c4f61f544a12adf90c61b94dfbe1000",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-16",
+          "work": "Šuvju aizdare + apakš stiegroj + perimetrs + virs stiegrojums",
+          "location": "Plan 13",
+          "commentSignals": [],
+          "reviewedComment": "Completed installation of the upper slab reinforcement at Plan 13.",
+          "amount": 0,
+          "unit": null,
+          "workers": 3,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:a73a9bcb664ae606fb66",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "9813ce818ecc8c296fe1141761b22a247676b2a218b8509d58600e94adf9c31e",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-09-16",
+          "work": "Piezīmes",
+          "location": "Plan 13",
+          "commentSignals": [],
+          "reviewedComment": "Installed metal plates above the Plan 13 slab reinforcement for mounting the Plan 14 metal columns.",
+          "amount": null,
+          "unit": null,
+          "workers": 1,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "f00970c6f2b78e14fc56138852718662200372f652992cb456089cdfbd166842",
+            "assignmentBasis": "not-assigned"
+          }
+        },
+        {
+          "id": "reference-3",
+          "dateISO": "2026-09-16",
+          "work": "Pārseguma veidņoš ap trubām, padziļinājumi, atveidņošana",
+          "location": "Plan 13",
+          "commentSignals": [],
+          "reviewedComment": "Installed formwork for bathroom recesses and plastered utility penetrations with mortar.",
+          "amount": 0,
+          "unit": null,
+          "workers": 1,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:d13ef47ff9e714530375",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "88899394edb639bf59c7b67d261973aed9388d3d45dc1b755722009154db5908",
+            "assignmentBasis": "stored-allocation"
+          }
+        },
+        {
+          "id": "reference-4",
+          "dateISO": "2026-09-16",
+          "work": "Piezīmes",
+          "location": "Plan 10",
+          "commentSignals": [],
+          "reviewedComment": "Installed floor sound insulation at Plan 10 for floor types GP03, GP04a and GP04b.",
+          "amount": 0,
+          "unit": null,
+          "workers": 2,
+          "hours": 10,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "7cec2e6c11184d1abe53c59145b17532c2ccba86999038beb8121904d5952277",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-2",
+      "sourceText": "Sagatavotā Plan 10 grīda (GP04b): notīrīta, ieklāts pretskaņas paklājs, ieklāts stiegrojuma siets; pabeigta pretskaņas paklāja ieklāšana Plan 10 grīdai (GP04a), ieklāts stiegrojuma siets - 3 strādnieki",
+      "receivedDateISO": "2026-09-17",
+      "sourceFingerprint": "56169e14daf254da6c39f1aac8e69f6c3793495b566dfe04dfa9a75fae3f82d0",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-17",
+          "work": "Piezīmes",
+          "location": "Plan 10",
+          "commentSignals": [],
+          "reviewedComment": "At Plan 10, the GP04b floor was cleaned, soundproofing mat and reinforcement mesh were installed; soundproofing mat installation was completed and reinforcement mesh installed for the GP04a floor by 3 workers.",
+          "amount": 0,
+          "unit": null,
+          "workers": 3,
+          "hours": 10,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "f897278198fd9b203ef498eb8eeeb896d061069ae18055d787ea5a7f3a420ce3",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-3",
+      "sourceText": "Noņemti transportēšanas dēļi no Plan 11 un Plan 12 vieglām sienām - 2 strādnieki",
+      "receivedDateISO": "2026-09-17",
+      "sourceFingerprint": "95853ea1f9810a18ed68e6446122694921ecb6a8c69cd8f1a5185227079d0805",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-17",
+          "work": "Sienu atsaišu demontāža (koka sienas)",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Removed transport boards from lightweight walls at Plan 11 and Plan 12 by 2 workers.",
+          "amount": 0,
+          "unit": null,
+          "workers": 2,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:86be107bc3ba3470906e",
+          "checkLocation": false,
+          "provenance": {
+            "recordFingerprint": "c7c0b2c092001eb31b381c3cff1f327db35af5e9dba478495192e5823fbf310e",
+            "assignmentBasis": "stored-allocation"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-4",
+      "sourceText": "Nogruntētas un aizpildītas ar javu Plan 10 sienu metināto savienojumu vietas - 2 strādnieki",
+      "receivedDateISO": "2026-09-17",
+      "sourceFingerprint": "526b6f5284d6c0c072f4fc8e9d13cbb1d65214ff7133251b56b23a8b72498e51",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-17",
+          "work": "Sienu šuvju,kabatu aizdare ar Bemix, dubulto sienu aizliešana",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Primed and filled the welded wall connection points with mortar at Plan 10; 2 workers.",
+          "amount": 0,
+          "unit": null,
+          "workers": 2,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:8eae2a5e8fc47f21562e",
+          "checkLocation": false,
+          "provenance": {
+            "recordFingerprint": "70aa6ea3b528e45e6d94e1e7886883263f3bcfbae16bf5e03efdbfb53b8fb51f",
+            "assignmentBasis": "stored-allocation"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-5",
+      "sourceText": "Noņemti Plan 13 stutu trīskāji - 2 strādnieki",
+      "receivedDateISO": "2026-09-17",
+      "sourceFingerprint": "2203cf13e4c419b74571d7c576c9aaaf055759b6ff9394933c0215e4edd6e449",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-17",
+          "work": "Stutu, siju Demontāža un līmeņošana",
+          "location": "Plan 13",
+          "commentSignals": [],
+          "reviewedComment": "Removed support tripods at Plan 13 with 2 workers.",
+          "amount": 0,
+          "unit": null,
+          "workers": 2,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:ea083661fb14b51ef273",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "784c6cb6b439e25bcad374f551576a60beb733523ae88f6b4f31bccb5ac04c36",
+            "assignmentBasis": "stored-allocation"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-6",
+      "sourceText": "Ielikts botningslist Plan 10 balkonu šuvēs - 1 strādnieks",
+      "receivedDateISO": "2026-09-17",
+      "sourceFingerprint": "4a4ab33db286d305029a2151cf6eab056e6ac7f24d751f75ddc0c10b9f5cac04",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-17",
+          "work": "Balkonu montāža (ar izkraušana, vates un margu mont)",
+          "location": "Plan 10",
+          "commentSignals": [],
+          "reviewedComment": "Installed botningslist in balcony joints at Plan 10 with 1 worker.",
+          "amount": 0,
+          "unit": null,
+          "workers": 1,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:512550a6f1b1179bdf7c",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "b98149714e5bb1151f441614ba363590ab1a17ccd49d56c1cf482429786250f0",
+            "assignmentBasis": "stored-allocation"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-7",
+      "sourceText": "Kopā objektā strādāja 5 strādnieki",
+      "receivedDateISO": "2026-09-17",
+      "sourceFingerprint": "ff1540eee501dd3077c19a590deab86e5066420ba9ebd897918445f9ae09a3b8",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-17",
+          "work": "Piezīmes",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "A total of 5 workers worked on site.",
+          "amount": 0,
+          "unit": null,
+          "workers": 5,
+          "hours": 10,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "163aa47b8a1ab441bd14fb1fcca83dab777e79a53f6a7b15acd2dd0fe8e1c7bb",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-8",
+      "sourceText": "Samontētas 7 Plan 14 sienas un 3 Plan 14 kolonnas - 4 strādnieki",
+      "receivedDateISO": "2026-09-18",
+      "sourceFingerprint": "5938c6d31459eb5cb6664c319f7e9a6baaf09902c3508df964e85efc4e3fc6e2",
+      "issues": [
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-18",
+          "work": "Betona sienu montāža + Margas",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Installed 7 walls at Plan 14 with 4 workers.",
+          "amount": 7,
+          "unit": "gab",
+          "workers": 4,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:2dda4bf8169c8a92cd3a",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "68bd10cf42a746055f9a34f1d329964a555835953c34f25bae0f551c773cf6fc",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-09-18",
+          "work": "Betona kolonnu montāža",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Installed 3 concrete columns at Plan 14.",
+          "amount": 3,
+          "unit": "gab",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:0f61d992f9115431010a",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "3798e46dcd1d09413c04ba652aaaa8b574155ce2ec7f0c4ffeceb5d2b654550b",
+            "assignmentBasis": "journal-work-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-9",
+      "sourceText": "3 strādnieki samontēja plan 14 dzelzsbetona sienas (10 gab); 3 strādnieki samontēja plan 14 dzelzsbetona kolonnas (2 gab);  2 strādnieki noņēma Plan 11 pārseguma stutes un izvēla no ēkas; 2 strādnieki aizpildīja vertikālās šuves Plan 14 sienām. Kopā objektā strādāja 5 strādnieki.",
+      "receivedDateISO": "2026-09-21",
+      "sourceFingerprint": "da7222103eb464d941f5b2b624698fcd76228330c23e950776b0770798ffff7a",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-21",
+          "work": "Betona sienu montāža + Margas",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "3 workers installed 10 reinforced concrete walls at Plan 14.",
+          "amount": 10,
+          "unit": "gab",
+          "workers": 3,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:2dda4bf8169c8a92cd3a",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "14aa47daf0bac7ac255cf27d4688e13ecfe003ab11bab73a3b97d97f0d7a936a",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-09-21",
+          "work": "Betona kolonnu montāža",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "3 workers installed 2 reinforced concrete columns at Plan 14.",
+          "amount": 2,
+          "unit": "gab",
+          "workers": 3,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:0f61d992f9115431010a",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "ab1a73fd211ef7894b7b54ae235d187065909edc2d6278d195fd831b69fc0337",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-3",
+          "dateISO": "2026-09-21",
+          "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+          "location": "Plan 11",
+          "commentSignals": [],
+          "reviewedComment": "2 workers removed floor props at Plan 11 and carried them out of the building.",
+          "amount": 0,
+          "unit": null,
+          "workers": 2,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "1cc51360bf141892b59fff00c91684cb6318082a5e632dc6475783612815aeb9",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-4",
+          "dateISO": "2026-09-21",
+          "work": "Sienu šuvju,kabatu aizdare ar Bemix, dubulto sienu aizliešana",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "2 workers filled vertical wall joints at Plan 14. A total of 5 workers worked on site.",
+          "amount": 0,
+          "unit": null,
+          "workers": 2,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:8eae2a5e8fc47f21562e",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "35688658305263bf4df961c6bf60dded5170727e4518ddd63cf87aa54e2bed6a",
+            "assignmentBasis": "journal-work-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-10",
+      "sourceText": "Samontētas visas plan 14 vieglās sienas = 21 gab. Montēja 2 strādnieki, stiprināja vēl 2 strādnieki. Kopā objektā strādāja 4 strādnieki.",
+      "receivedDateISO": "2026-09-22",
+      "sourceFingerprint": "4a3eda16b28b23854a13e51695590ac3e9f79e120ba7acb1f2679d27c54582cf",
+      "issues": [
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-22",
+          "work": "Koka sienu montāža, integrēto kolonnu pieskrūvēšana + Margas",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "4 workers installed and secured all 21 lightweight walls at Plan 14.",
+          "amount": 21,
+          "unit": "gab",
+          "workers": 4,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:28798400d4e47c3b0259",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "4b86e6703f5977388bfb9879d040b9b2a60a16e686d51dd0a267d7d72ab36c97",
+            "assignmentBasis": "journal-work-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-11",
+      "sourceText": "Salika Plan14 stutes filigrāniem; uzcēla materiālus uz Plan14 (logi, ģipsis, finieris). Objektā strādāja 5 strādnieki.",
+      "receivedDateISO": "2026-09-23",
+      "sourceFingerprint": "19b392a4d2a66105465064406878c8ac5402eb7bf66d8d64daf6ae4b946ed1c9",
+      "issues": [
+        "outside-initial-reviewed-selection"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-23",
+          "work": "Stutu, siju montāža un līmeņošana",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 saliktas stutes filigrāniem.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:56ae3d8c07b1407461e9",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "m2"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "c47967d4b0c453c45d490abdd2f0b80f02409a4c545fc84fe334311a664753cf",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-09-23",
+          "work": "Materiālu celšana pasūtītājam",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Uz Plan 14 uzcelti logi, ģipsis un finieris.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:db07f8ba9d705185b533",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "gab"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "e44a92e2f9db7c77ed31de88104d87eedef11fe0a5d00ed6ae776d886916a737",
+            "assignmentBasis": "journal-work-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-12",
+      "sourceText": "Salika balkonu torņus Plan14 balkoniem - 4 strādnieki; Samontēja 8gb. plan 14 balkonus - 3 strādnieki; pabeidza pildīt horizontālās šuves starp Plan14 filigrānu paneļiem - 1 strādnieks; salika apm. 80% no Plan14 pārseguma apakšējā stiegrojuma - 2 strādnieki.",
+      "receivedDateISO": "2026-09-25",
+      "sourceFingerprint": "2a5dd8f27f334942648ec29bd804e2844d0e356c1f5138f47ff14b2d578ae9a9",
+      "issues": [
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-25",
+          "work": "Balkona torņu montāža",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 balkoniem salikti balkonu torņi; strādāja 4 strādnieki.",
+          "amount": null,
+          "unit": null,
+          "workers": 4,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:c4950a8fdd85380e1229",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "gab"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "3ad7f24721c0ad0d6d849bfc02f36cfc18dd1b068bce8b2314acc1003b7ee8d5",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-09-25",
+          "work": "Balkonu montāža (ar izkraušana, vates un margu mont)",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 samontēti 8 balkoni; strādāja 3 strādnieki.",
+          "amount": 8,
+          "unit": "gab",
+          "workers": 3,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:512550a6f1b1179bdf7c",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "a37fa25a8819718b03e9d8c54b927370e1289fa61ca8121bd2e7ca7794758719",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-3",
+          "dateISO": "2026-09-25",
+          "work": "Šuvju aizdare + apakš stiegroj + perimetrs + virs stiegrojums",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Pabeigta horizontālo šuvju pildīšana starp Plan 14 filigrānu paneļiem; strādāja 1 strādnieks.",
+          "amount": null,
+          "unit": null,
+          "workers": 1,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:a73a9bcb664ae606fb66",
+          "checkLocation": true,
+          "quantityAlternatives": [
+            {
+              "amount": null,
+              "unit": null
+            },
+            {
+              "amount": null,
+              "unit": "m2"
+            }
+          ],
+          "provenance": {
+            "recordFingerprint": "eb0e12dd3dcfbf8ab339fe6b25f85ed41855e6a6d30b78c677cdda8a834a3b16",
+            "assignmentBasis": "journal-work-selection"
+          }
+        },
+        {
+          "id": "reference-4",
+          "dateISO": "2026-09-25",
+          "work": "Šuvju aizdare + apakš stiegroj + perimetrs + virs stiegrojums",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 salikti aptuveni 80% pārseguma apakšējā stiegrojuma; strādāja 2 strādnieki.",
+          "amount": 80,
+          "unit": null,
+          "workers": 2,
+          "hours": null,
+          "forma2PositionId": "pos:sbstomme-hus-k:a73a9bcb664ae606fb66",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "e9ffdc2822048fa5a9c00a101afba13bd8c0749be4ecf65abf6004bfab2a9280",
+            "assignmentBasis": "journal-work-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-13",
+      "sourceText": "Pabeidza montēt Plan 14 pārseguma apakšējo stiegrojumu - 1 strādnieks; sataisīja Plan 14 pārseguma veidņus ap metāla kolonnām -2 strādnieki.",
+      "receivedDateISO": "2026-09-28",
+      "sourceFingerprint": "0ea963181b61c2357c875b294ed6866dbedf8fcf07d939015d54696845f47390",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-28",
+          "work": "Šuvju aizdare + apakš stiegroj + perimetrs + virs stiegrojums",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Pabeigta Plan 14 pārseguma apakšējā stiegrojuma montāža; 1 strādnieks.",
+          "amount": 0,
+          "unit": null,
+          "workers": 1,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:a73a9bcb664ae606fb66",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "6ab33adfe1dc48c7eb458b84f66ab6271c5d57e1d46ad0daf9c1cb0639fe252b",
+            "assignmentBasis": "stored-allocation"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-09-28",
+          "work": "Masīvo plātņu montāža, stiegrošana, veidņošana, betonēšana",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 sataisīti pārseguma veidņi ap metāla kolonnām; 2 strādnieki.",
+          "amount": 0,
+          "unit": null,
+          "workers": 2,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:b378f16cdcab672c387c",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "9ade6b70b94d926684da0106b1c9d89968784917292aa4466641a92462654f2b",
+            "assignmentBasis": "stored-allocation"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-14",
+      "sourceText": "Kopā objektā strādāja 3 strādnieki.",
+      "receivedDateISO": "2026-09-28",
+      "sourceFingerprint": "71608006b5bddd5e8dcc4fccce5b3dcdecb169cbb1e9f77296be5ff4b58ee2e6",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-28",
+          "work": "Piezīmes",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Kopā objektā strādāja 3 strādnieki.",
+          "amount": 0,
+          "unit": null,
+          "workers": 3,
+          "hours": 10,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "bc5c9e09104c9b47d95902c4cbb5a5825d97dae94fbfb98d164d05705c3ace9a",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-15",
+      "sourceText": "Montēja perimetra stiegrojumu Plan 14 pārsegumam = 2 strādnieki; montēja plan 14 pārseguma sānu veiņus zem balkoniem=2 strādnieki. Objektā strādāja 3 strādnieki.",
+      "receivedDateISO": "2026-09-29",
+      "sourceFingerprint": "34bea09c4f4ba4d5a697015c82b09db9f39e0d06e8fa0c4a81f99dca669155d0",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-29",
+          "work": "Šuvju aizdare + apakš stiegroj + perimetrs + virs stiegrojums",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 pārsegumam montēja perimetra stiegrojumu; 2 strādnieki.",
+          "amount": 0,
+          "unit": null,
+          "workers": 2,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:a73a9bcb664ae606fb66",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "62a33feefdbb0232f08334d86baa18301987f909dc11cc3942aaa6a51f590b7d",
+            "assignmentBasis": "stored-allocation"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-09-29",
+          "work": "Masīvo plātņu montāža, stiegrošana, veidņošana, betonēšana",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 pārsegumam zem balkoniem montēja sānu veidņus; 2 strādnieki.",
+          "amount": 0,
+          "unit": null,
+          "workers": 2,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:b378f16cdcab672c387c",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "8b3de529634782a4fe48845ba839823005a9da7c09e2c8b3336924b1c6db485b",
+            "assignmentBasis": "stored-allocation"
+          }
+        },
+        {
+          "id": "reference-3",
+          "dateISO": "2026-09-29",
+          "work": "Piezīmes",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Kopā objektā strādāja 3 strādnieki.",
+          "amount": 0,
+          "unit": null,
+          "workers": 3,
+          "hours": 10,
+          "forma2PositionId": null,
+          "checkLocation": false,
+          "provenance": {
+            "recordFingerprint": "458833945b77d078b886d443a084e32509c1d0196d28fed84d174b7ea395f57e",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-16",
+      "sourceText": "Plan 14 pārseguma veidņu montāža=1 strādnieks; plan 14 pārseguma stiegrojuma montāža=3 strādnieki",
+      "receivedDateISO": "2026-10-01",
+      "sourceFingerprint": "9eafcc324cdba0fbd749dbf823b6bc0dc80b6c03571d1dbc2427ce0e2372e486",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-10-01",
+          "work": "Masīvo plātņu montāža, stiegrošana, veidņošana, betonēšana",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 veikta pārseguma veidņu montāža ar 1 strādnieku.",
+          "amount": 0,
+          "unit": null,
+          "workers": 1,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:b378f16cdcab672c387c",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "5d361c956ec53fcbaf4b1d7454dc33f9d9107cb7b48342fa7aadd7790763ae0a",
+            "assignmentBasis": "stored-allocation"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-10-01",
+          "work": "Masīvo plātņu montāža, stiegrošana, veidņošana, betonēšana",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 veikta pārseguma stiegrojuma montāža ar 3 strādniekiem.",
+          "amount": 0,
+          "unit": null,
+          "workers": 3,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:b378f16cdcab672c387c",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "59de72e0f3d834a60d38dc3330ad73f6ed0207256c4a8315cbc212e64aae2017",
+            "assignmentBasis": "stored-allocation"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-17",
+      "sourceText": "Kopā objektā strādāja 4 strādnieki",
+      "receivedDateISO": "2026-10-01",
+      "sourceFingerprint": "4bac1d9e3855db16e4cb8551e43c067cb44279b541933741f7647bf682f233c2",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-10-01",
+          "work": "Piezīmes",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Kopā objektā strādāja 4 strādnieki.",
+          "amount": 0,
+          "unit": null,
+          "workers": 4,
+          "hours": 10,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "1be863ffcd1cb7b71274ea9cff4df16ec31c49db449c207dfdc16cdb20cfafba",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-18",
+      "sourceText": "Iebetonēja Plan 14 pārsegumu - 3 strādnieki. Lika veidņus balkonu šuvēm virs plan 11- 2 strādnieki. Laistīja un apsedza ar plēvi iebetonēto Plan 14 pārsegumu - 2 strādnieki. Kopā objektā strādāja 5 strādnieki.",
+      "receivedDateISO": "2026-10-02",
+      "sourceFingerprint": "16fe99cdb7370b596eb477f1f3143a985aad0d20eb740f57b97ed80a90f69379",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-10-02",
+          "work": "Masīvo plātņu montāža, stiegrošana, veidņošana, betonēšana",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 iebetonēts pārsegums ar 3 strādniekiem.",
+          "amount": 0,
+          "unit": null,
+          "workers": 3,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:b378f16cdcab672c387c",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "1bd1834a8f6aca6723fe6a74e34e632953f170b0bec24dcc002fac8a719d8f62",
+            "assignmentBasis": "stored-allocation"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-10-02",
+          "work": "Balkonu montāža (ar izkraušana, vates un margu mont)",
+          "location": "Plan 11",
+          "commentSignals": [],
+          "reviewedComment": "Virs Plan 11 uzstādīti veidņi balkonu šuvēm ar 2 strādniekiem.",
+          "amount": 0,
+          "unit": null,
+          "workers": 2,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:512550a6f1b1179bdf7c",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "9657dd7f7fb134a5bc928d763e8c317def52ecd0c6672b88a40437c70db81976",
+            "assignmentBasis": "stored-allocation"
+          }
+        },
+        {
+          "id": "reference-3",
+          "dateISO": "2026-10-02",
+          "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 iebetonētais pārsegums laistīts un apsegts ar plēvi; strādāja 2 strādnieki.",
+          "amount": 0,
+          "unit": null,
+          "workers": 2,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "c407e56d6257d00db2da56dd417a96986972600dc288794c22ab84c93f071b02",
+            "assignmentBasis": "stored-allocation"
+          }
+        },
+        {
+          "id": "reference-4",
+          "dateISO": "2026-10-02",
+          "work": "Piezīmes",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Kopā objektā strādāja 5 strādnieki.",
+          "amount": 0,
+          "unit": null,
+          "workers": 5,
+          "hours": 10,
+          "forma2PositionId": null,
+          "checkLocation": false,
+          "provenance": {
+            "recordFingerprint": "a73588c53d8e217030893ee652330afefc762b657864ae38eee975246f9e500a",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-19",
+      "sourceText": "Sagatavoja Plan 10 telpas grīdu GP03 betonēšanai - 2 strādnieki; Noņēma pārseguma veidņus vannas istabām Plan 14 - 1 strādnieks; iztīrīja grīdu Plan 14 - 1 strādnieks; noņēma un nolaida no Plan 14 balkonu stutu rāmjus un sienu atsaites - 2 strādnieki. Kopā objektā strādāja 3 strādnieki.",
+      "receivedDateISO": "2026-10-07",
+      "sourceFingerprint": "d067f9d095d1cf3ec4efdcb66000be1122a732323482894f42f9b36ac3e14659",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-10-07",
+          "work": "Masīvo plātņu montāža, stiegrošana, veidņošana, betonēšana",
+          "location": "Plan 10",
+          "commentSignals": [],
+          "reviewedComment": "Plan 10 sagatavota telpas grīda GP03 betonēšanai; 2 strādnieki.",
+          "amount": 0,
+          "unit": null,
+          "workers": 2,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:b378f16cdcab672c387c",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "ff4a3e0cd702976bed939c0884368f8f536a204aeaccf525dda88f382a97e448",
+            "assignmentBasis": "stored-allocation"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-10-07",
+          "work": "Pārseguma veidņoš ap trubām, padziļinājumi, atveidņošana",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 vannas istabām noņemti pārseguma veidņi; 1 strādnieks.",
+          "amount": 0,
+          "unit": null,
+          "workers": 1,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:d13ef47ff9e714530375",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "77721a49c8b691445d5110c095cd14dbcd3c94a022234d36a968e9d2416a7d5f",
+            "assignmentBasis": "stored-allocation"
+          }
+        },
+        {
+          "id": "reference-3",
+          "dateISO": "2026-10-07",
+          "work": "Uzkopšanas darbi",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "Plan 14 iztīrīta grīda; 1 strādnieks.",
+          "amount": 0,
+          "unit": null,
+          "workers": 1,
+          "hours": 10,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "53469725ed3f29e5ee61e599c785b864973dd9bf3148f1049a9298c3314e31e5",
+            "assignmentBasis": "not-assigned"
+          }
+        },
+        {
+          "id": "reference-4",
+          "dateISO": "2026-10-07",
+          "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+          "location": "Plan 14",
+          "commentSignals": [],
+          "reviewedComment": "No Plan 14 noņemti un nolaisti balkonu stutu rāmji un sienu atsaites; 2 strādnieki. Kopā objektā strādāja 3 strādnieki.",
+          "amount": 0,
+          "unit": null,
+          "workers": 2,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "96cc57e9e11c0e114007439ba3c2e1d2265f1211825c880055403c9186bb1a15",
+            "assignmentBasis": "stored-allocation"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-20",
+      "sourceText": "Jauca Plan 12 filigrānu stutes. Izcēla to ārā un notīrīja. Objektā strādāja 2 strādnieki.",
+      "receivedDateISO": "2026-10-12",
+      "sourceFingerprint": "13bec566c1ea18fa78ff2cb7d965029f8f59328c304b14d78e181b11a8be8d8c",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-10-12",
+          "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+          "location": "Plan 12",
+          "commentSignals": [],
+          "reviewedComment": "Plan 12 demontēja filigrāno plātņu stutes, izcēla tās ārā un notīrīja. Strādāja 2 strādnieki.",
+          "amount": 0,
+          "unit": null,
+          "workers": 2,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "76412d29645fc4da0f6583249c3f2e5c2d5dc71cc82a289bffcd5eee313a804e",
+            "assignmentBasis": "stored-allocation"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-21",
+      "sourceText": "Nocela lejā un notīrīja un sapakoja Plan 12 stutes ur rīģeļus. Sāka demontēt Plan 13 stutes. Objektā strādāja 3 strādnieki.",
+      "receivedDateISO": "2026-10-13",
+      "sourceFingerprint": "59b1c20ba04de18b09491c8a3c3a6c0afdec798cd0122914e595681858e82a49",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-10-13",
+          "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Nocela lejā un notīrīja un sapakoja Plan 12 stutes ur rīģeļus. Sāka demontēt Plan 13 stutes. Objektā strādāja 3 strādnieki.",
+          "amount": 0,
+          "unit": null,
+          "workers": 3,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+          "checkLocation": false,
+          "provenance": {
+            "recordFingerprint": "8b0467bfb5097ad7719794badf57cc763c4e5d74ec2790446ed84e7f69c0328b",
+            "assignmentBasis": "stored-allocation"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sbstomme-hus-k-review-22",
+      "sourceText": "Nocela lejā un notīrīja un sapakoja Plan 13 stutes un rīģeļus. Objektā strādāja 3 strādnieki.",
+      "receivedDateISO": "2026-10-14",
+      "sourceFingerprint": "e76ea740f869b2e4446f63e666652a07b38fe3b5f182fd92a119208e244bfd4a",
+      "issues": [
+        "legacy-zero-quantity",
+        "duration-not-stated-in-message"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-10-14",
+          "work": "Pēcdarbi (stutu dem, slīpēš, špaktelēša līdz nodošanai)",
+          "location": "Plan 13",
+          "commentSignals": [],
+          "reviewedComment": "Plan 13 stutes un rīģeļus nocēla lejā, notīrīja un sapakoja. Strādāja 3 strādnieki.",
+          "amount": 0,
+          "unit": null,
+          "workers": 3,
+          "hours": 10,
+          "forma2PositionId": "pos:sbstomme-hus-k:2a0fe30d1633c00b4299",
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "9577cdc54fb504a53eaaee71134fdf3608de4a1a3437e4bf1b5a335649f97b3b",
+            "assignmentBasis": "stored-allocation"
+          }
+        }
+      ]
+    }
+  ]
+}

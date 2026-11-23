@@ -1,0 +1,166 @@
+{
+  "auditedAt": "2026-11-20",
+  "method": "Read-only Supabase CLI; exact batch and record fingerprints; only documented author-prefix removal",
+  "cases": [
+    {
+      "caseId": "ocelt-1110-four-earthworks-calculation",
+      "sourceFingerprint": "db35336b6d410dfcc7fc5d3843bab4dd6543887b813792edd221669814296161",
+      "sourceKind": "full-message",
+      "exactInputMatch": true,
+      "inputFingerprint": "86959a064308bfd1d59efac309a0056b97fd3a10dee93b1812e09d5124e554d2",
+      "sourceTextFingerprint": "f48145a0bdd1527fc8e50ed8e031eba77b9c6e714aabc2b598101b20dd8df80e",
+      "rowChecks": [
+        {
+          "recordFingerprint": "10c6fb4aa6a26efbf389fe49139c98c2760bac6fae01184fa28a3afb53f11787",
+          "differentFields": [],
+          "positionMatches": true
+        },
+        {
+          "recordFingerprint": "6a68aa90079988f970120f53f0ad5aee2424ffbcd69495a457390af59b03824b",
+          "differentFields": [],
+          "positionMatches": true
+        },
+        {
+          "recordFingerprint": "487e58984d8cfa7cc8b474d39ec8ba1315315c6c5af8856805c1774067258fbb",
+          "differentFields": [],
+          "positionMatches": true
+        },
+        {
+          "recordFingerprint": "13a7f1c6edbff6c4e74fbb7c693a5a45fa71e139d30ab8d25094defa20ae0750",
+          "differentFields": [],
+          "positionMatches": true
+        }
+      ]
+    },
+    {
+      "caseId": "ocelt-1112-six-sewer-activities",
+      "sourceFingerprint": "73029dee679d60dedddf4e9f0181e588a3c3e613f22ad5d7c15a30f7bdcdea18",
+      "sourceKind": "full-message",
+      "exactInputMatch": true,
+      "inputFingerprint": "6a8bd7deea8496d911dfae4379b3a7635ea6237fa0aee3531634d29e008128fa",
+      "sourceTextFingerprint": "49f5f19282e3b4b1fde670284a1bf738b3af473a1aec47bfebe0b65553429730",
+      "rowChecks": [
+        {
+          "recordFingerprint": "8fec8149b8d2fc47c7a83f5bac04a39d3931ce856dd5aa826c210abe4b655474",
+          "differentFields": [],
+          "positionMatches": true
+        },
+        {
+          "recordFingerprint": "a0abdd0d93be18c983b992bb0b8b77ca1f3da568623036f290b58ec3b7dd9bbd",
+          "differentFields": [],
+          "positionMatches": true
+        },
+        {
+          "recordFingerprint": "787d8e692b531f189c9d41cab8c8c47866ce9130d93a788058d9b975d07abc03",
+          "differentFields": [],
+          "positionMatches": true
+        },
+        {
+          "recordFingerprint": "28b05241ef96b690dea43330ec485ab5af7ec748758e9d76bfa4c1a648464d58",
+          "differentFields": [],
+          "positionMatches": true
+        },
+        {
+          "recordFingerprint": "727bdee02885da4bb66c0471c8c72a1542ccb641b5f69effe6a92e9336a908c1",
+          "differentFields": [],
+          "positionMatches": true
+        },
+        {
+          "recordFingerprint": "fd045c0ee6e8313cb4d1649aa959ebef01d40edd1c485daea80951ea8cb30349",
+          "differentFields": [],
+          "positionMatches": true
+        }
+      ]
+    },
+    {
+      "caseId": "ocelt-1113-pe100-od63-trench",
+      "sourceFingerprint": "e52703b0ec80c0518be4e557c7ada696b0a9e73a574facc80ae3dde0fd004cc4",
+      "sourceKind": "full-message",
+      "exactInputMatch": true,
+      "inputFingerprint": "3b1cd17bd1762bca666c42d2ea57a18cae5175b827717371f9d486e6966a58c3",
+      "sourceTextFingerprint": "1abcbc1b342b618dcebb98e16409f3deea4cad03606ef3a2b47496a935a418da",
+      "rowChecks": [
+        {
+          "recordFingerprint": "168a85a1a4ff8dd3f145f0e16e0203c8a68b9653e7df8a697639f92b7fe9e482",
+          "differentFields": [],
+          "positionMatches": true
+        }
+      ]
+    },
+    {
+      "caseId": "ocelt-1113-concrete-well-dn1000",
+      "sourceFingerprint": "b0520a696b38c376b0c8e6088d78699345082a4acfba743a22a0345d69dead78",
+      "sourceKind": "full-message",
+      "exactInputMatch": true,
+      "inputFingerprint": "2a01ec5ddf9a9ffa98899c3f688493755e811a009fe2f4f9b9825b58ba17336b",
+      "sourceTextFingerprint": "ef541f75179227b77894d290dd121435dd0eb79fcb18e22f84899b67f165b3a1",
+      "rowChecks": [
+        {
+          "recordFingerprint": "2acc0816029bc3a9b7d2ca843ec12489d2ecc2e72371e795284bd46890d4cb27",
+          "differentFields": [],
+          "positionMatches": true
+        }
+      ]
+    },
+    {
+      "caseId": "ocelt-1113-pp-well-dn600",
+      "sourceFingerprint": "45138774e33f5e92e0d2384511734079f68cb0a0ab71212fe9532c19b63c8188",
+      "sourceKind": "full-message",
+      "exactInputMatch": true,
+      "inputFingerprint": "c9516207ccd6a95e5d9583dc4f782f56b7dbe4308985d34f519e6782bab37e7a",
+      "sourceTextFingerprint": "e980396d7bbeb34c655ace62f4836167cf0070c89f2b084e0931e127f5d158d4",
+      "rowChecks": [
+        {
+          "recordFingerprint": "a1775c70c85436aff84683e408dd4109aeeedc84c43a2097dcc05f26d2c0b9a5",
+          "differentFields": [],
+          "positionMatches": true
+        }
+      ]
+    },
+    {
+      "caseId": "ocelt-1113-pp-sewer-d200",
+      "sourceFingerprint": "5db1da6f4ead31b062329ec9d78993ee9b313b3b9657e71e7ca9c3c7998a93e9",
+      "sourceKind": "full-message",
+      "exactInputMatch": true,
+      "inputFingerprint": "88e1d70b7af2a47f598380e7e6153d7bd2ff23ce959677b723d1597a0897b85a",
+      "sourceTextFingerprint": "c841fb123192bd4d23662adf4603593ae324f0b83b711710b33c8e585264e55a",
+      "rowChecks": [
+        {
+          "recordFingerprint": "998f5389a8367906d2aecb00df68b30ed852e34ec799fe9de9e198b661381852",
+          "differentFields": [],
+          "positionMatches": true
+        }
+      ]
+    },
+    {
+      "caseId": "ocelt-1113-sewer-excavation",
+      "sourceFingerprint": "ae5d0778f6fa26bdd38a8c484204aa702909488ea2b14cef07cb210b75895002",
+      "sourceKind": "full-message",
+      "exactInputMatch": true,
+      "inputFingerprint": "0316769e351970e3f0779d1d00bfe63e1e4c728bbe4973a75a8f75a43386f097",
+      "sourceTextFingerprint": "daa9c59cdd6f2a4d472b4f61ceb254a876825d599d4114cef45ea18e3ecb24a3",
+      "rowChecks": [
+        {
+          "recordFingerprint": "b0b1bae5a7a9776aa9c859f08875f9ff759b94f1d622aa2b37df55d7d7e9d0fc",
+          "differentFields": [],
+          "positionMatches": true
+        }
+      ]
+    },
+    {
+      "caseId": "ocelt-1113-compacted-backfill",
+      "sourceFingerprint": "6b5376faff6a90b75a6283425835448004081138bbd483314ea4442a25bf9f0a",
+      "sourceKind": "full-message",
+      "exactInputMatch": true,
+      "inputFingerprint": "94d2df3508bcf85152b2e23cc37d05b89bbc59cf28a8d727275f9c1180df79ca",
+      "sourceTextFingerprint": "7ece8d18e5627c2d343a814d80da36af4a4d434c82e694e0847c884cedb9f155",
+      "rowChecks": [
+        {
+          "recordFingerprint": "e14cb4e65c804ddb613106d35c6a6473d5343976a4744c1d8f7ab59b52c5ec93",
+          "differentFields": [],
+          "positionMatches": true
+        }
+      ]
+    }
+  ]
+}

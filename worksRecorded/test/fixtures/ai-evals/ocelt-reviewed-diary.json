@@ -7,7 +7,7 @@
     "periodEnd": "2026-11-13",
     "snapshotDate": "2026-11-16",
     "sourceSiteFingerprint": "87846983851c81f005bf3ddeb7426aedd81868dc0f9303e187921a0716ac234c",
-    "reviewBasis": "Lietotājs norādīja, ka šī perioda pašreizējie ieraksti ir manuāli izlaboti. method=manual pats par sevi netiek uzskatīts par apstiprinājuma pierādījumu.",
+    "reviewBasis": "Lietotājs norādīja, ka šī perioda pašreizējie ieraksti ir manuāli izlaboti. method=manual pats par sevi netiek uzskatīts par apstiprinājuma pierādījumu. Avotu audits 2026-11-20: visi astoņi ir pilni oriģinālie atsevišķie ziņojumi pēc autora prefiksa noņemšanas, pārbaudīti pēc precīziem avota pakotnes nospiedumiem. Visi 16 sagaidāmie ieraksti joprojām sakrīt ar pašreizējiem datiem.",
     "redactions": [
       "author name prefix",
       "user IDs",
@@ -1483,7 +1483,8 @@
         "multi-work",
         "calculation",
         "backdated",
-        "spoken-latvian"
+        "spoken-latvian",
+        "full-message"
       ],
       "tier": "regression",
       "priority": "critical",
@@ -1559,7 +1560,8 @@
           },
           "reviewedComment": "Izrakta tranšeja 22 m garā K1 cauruļvada posmā, rēķinot 3,33 m³ grunts uz cauruļvada metru."
         }
-      ]
+      ],
+      "sourceKind": "full-message"
     },
     {
       "id": "ocelt-1112-six-sewer-activities",
@@ -1570,7 +1572,8 @@
         "forma2",
         "multi-work",
         "calculation",
-        "spoken-latvian"
+        "spoken-latvian",
+        "full-message"
       ],
       "tier": "regression",
       "priority": "critical",
@@ -1680,7 +1683,8 @@
           },
           "reviewedComment": "Aizbērta tranšeja 22,09 m cauruļvada posmam; norma 2,87 m3 uz tekošo metru."
         }
-      ]
+      ],
+      "sourceKind": "full-message"
     },
     {
       "id": "ocelt-1113-pe100-od63-trench",
@@ -1691,7 +1695,8 @@
         "forma2",
         "single-work",
         "water",
-        "dimensions"
+        "dimensions",
+        "full-message"
       ],
       "tier": "smoke",
       "priority": "critical",
@@ -1716,7 +1721,8 @@
           },
           "reviewedComment": "Ar tranšejas rakšanas metodi izbūvēta PE100 spiedvada caurule OD63x3,8, PN10, SDR17 — 60,87 m."
         }
-      ]
+      ],
+      "sourceKind": "full-message"
     },
     {
       "id": "ocelt-1113-concrete-well-dn1000",
@@ -1728,7 +1734,8 @@
         "single-work",
         "water",
         "unknown-quantity",
-        "dimensions"
+        "dimensions",
+        "full-message"
       ],
       "tier": "smoke",
       "priority": "critical",
@@ -1753,7 +1760,8 @@
           },
           "reviewedComment": "Izbūvēta DN1000 skatakas no saliekamiem dzelzsbetona elementiem AŪ1-1."
         }
-      ]
+      ],
+      "sourceKind": "full-message"
     },
     {
       "id": "ocelt-1113-pp-well-dn600",
@@ -1764,7 +1772,8 @@
         "forma2",
         "single-work",
         "sewer",
-        "dimensions"
+        "dimensions",
+        "full-message"
       ],
       "tier": "smoke",
       "priority": "critical",
@@ -1789,7 +1798,8 @@
           },
           "reviewedComment": "Izbūvēta PP skatakas DN600 no saliekamiem PP elementiem AK1-6."
         }
-      ]
+      ],
+      "sourceKind": "full-message"
     },
     {
       "id": "ocelt-1113-pp-sewer-d200",
@@ -1800,7 +1810,8 @@
         "forma2",
         "single-work",
         "sewer",
-        "dimensions"
+        "dimensions",
+        "full-message"
       ],
       "tier": "smoke",
       "priority": "critical",
@@ -1825,7 +1836,8 @@
           },
           "reviewedComment": "Ieklāta PP daudzslāņu kanalizācijas caurule D200."
         }
-      ]
+      ],
+      "sourceKind": "full-message"
     },
     {
       "id": "ocelt-1113-sewer-excavation",
@@ -1836,7 +1848,8 @@
         "forma2",
         "single-work",
         "sewer",
-        "estimate-code"
+        "estimate-code",
+        "full-message"
       ],
       "tier": "smoke",
       "priority": "critical",
@@ -1861,7 +1874,8 @@
           },
           "reviewedComment": "Izrakta sadzīves kanalizācijas tranšeja 232,55 m3 apjomā."
         }
-      ]
+      ],
+      "sourceKind": "full-message"
     },
     {
       "id": "ocelt-1113-compacted-backfill",
@@ -1872,7 +1886,8 @@
         "forma2",
         "single-work",
         "sewer",
-        "dimensions"
+        "dimensions",
+        "full-message"
       ],
       "tier": "smoke",
       "priority": "critical",
@@ -1897,7 +1912,8 @@
           },
           "reviewedComment": "Sadzīves kanalizācijas tranšeja aizbērta ar smilts-grants maisījumu, blietējot 30 cm kārtās, 200,56 m3 apjomā."
         }
-      ]
+      ],
+      "sourceKind": "full-message"
     }
   ]
 }

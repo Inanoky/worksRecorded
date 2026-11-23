@@ -1,0 +1,1062 @@
+{
+  "version": 1,
+  "provenance": {
+    "organization": "StoneAndTree",
+    "project": "81-317_2026_Waterfront_Kuzu_Group",
+    "periodStart": "2026-08-17",
+    "periodEnd": "2026-09-11",
+    "snapshotDate": "2026-11-20",
+    "sourcePeriodStart": "2026-08-17",
+    "sourcePeriodEnd": "2026-09-11",
+    "sourceSiteFingerprint": "4d6df11f0d0c9389b5ef46b17808038395eae082b8d53e7eaee94928df8e5881",
+    "reviewBasis": "Lietotāja norādītā projekta pašreizējie izlabotie ieraksti; oriģinālie teksti no SiteDiarySaveBatch. Sākotnējā vērtējamā atlase neizmanto neizteiktas 10 stundu/0 apjoma noklusējuma vērtības vai labojumu vēsturi bez konteksta. Neizvēlētie pāri ir tikai pārskatīšanai. method=manual pats par sevi nav cilvēka apstiprinājuma pierādījums.",
+    "redactions": [
+      "author name prefix",
+      "production identity and transport IDs",
+      "photos/audio URLs",
+      "UI-only project settings",
+      "production document/position IDs replaced with project-scoped snapshot IDs"
+    ]
+  },
+  "project": {
+    "key": "stoneandtree-waterfront",
+    "language": "lv",
+    "documentId": "eval:stoneandtree-waterfront:catalog-v1",
+    "config": {
+      "AIpromptToUse": {
+        "Type": "noRender",
+        "Client": "DEPROM"
+      },
+      "Amounts": {
+        "Type": "float",
+        "DisplayName": "Daudzums",
+        "customSettings": {}
+      },
+      "Comments": {
+        "Type": "textInput",
+        "DisplayName": "Comments",
+        "customSettings": {}
+      },
+      "Comments_Custom_1": {
+        "Type": "noRender",
+        "DisplayName": "textInput",
+        "customSettings": {}
+      },
+      "Comments_Custom_2": {
+        "Type": "noRender",
+        "DisplayName": "textInput",
+        "customSettings": {}
+      },
+      "Date": {
+        "Type": "fixed",
+        "DisplayName": "Date",
+        "customSettings": {}
+      },
+      "Date_Custom_1": {
+        "Type": "noRender",
+        "DisplayName": "Date_Custom_1",
+        "customSettings": {}
+      },
+      "Date_Custom_2": {
+        "Type": "noRender",
+        "DisplayName": "Date_Custom_2",
+        "customSettings": {}
+      },
+      "Location": {
+        "Type": "dropdown",
+        "DisplayName": "Lokācija",
+        "DropDownOptions": {
+          "option-1": "Zona A",
+          "option-2": "Zona B",
+          "option-3": "Zona C",
+          "option-4": "Zona D"
+        },
+        "customSettings": {}
+      },
+      "Location_Custom_1": {
+        "Type": "noRender",
+        "DisplayName": "Location_Custom_1",
+        "DropDownOptions": {
+          "option-1": "Location_Custom_1_1",
+          "option-2": "Location_Custom_1_2"
+        },
+        "customSettings": {}
+      },
+      "Location_Custom_2": {
+        "Type": "noRender",
+        "DisplayName": "Location_Custom_2",
+        "DropDownOptions": {
+          "option-1": "Location_Custom_2_1",
+          "option-2": "Location_Custom_2_2"
+        },
+        "customSettings": {}
+      },
+      "TimeInvolved": {
+        "Type": "float",
+        "DisplayName": "Stundas",
+        "customSettings": {
+          "integer": true
+        }
+      },
+      "Units": {
+        "Type": "dropdown",
+        "DisplayName": "Mērv.",
+        "DropDownOptions": {
+          "option-1": "stunda",
+          "option-2": "kg",
+          "option-3": "pacelšana",
+          "option-4": "m",
+          "option-5": "m2",
+          "option-6": "m3",
+          "option-7": "minute",
+          "option-8": "gab.",
+          "option-9": "gab.",
+          "option-10": "projekts",
+          "option-11": "set",
+          "option-12": "tn"
+        },
+        "customSettings": {}
+      },
+      "WorkersInvolved": {
+        "Type": "float",
+        "DisplayName": "Strādnieki",
+        "customSettings": {
+          "integer": true
+        }
+      },
+      "Works": {
+        "Type": "dropdown",
+        "DisplayName": "Darbi",
+        "DropDownOptions": {
+          "option-1": "Dīkstave",
+          "option-2": "Izpildmērījumu veikšana paveikto darbu apjomu fiksēšanai un apliecināšanai. / Execution survey for verification and confirmation of completed work quantities.",
+          "option-3": "Materiālu piegāde",
+          "option-4": "Piezīme",
+          "option-5": "Rievsienu piebēršana ar pievestu salizturīgu smilti, iestrāde un blīvēšana pa kārtām / Backfilling along sheet pile walls",
+          "option-6": "Tehnikas, mehānismu un personāla demobilizācija no objekta. / Demobilization of equipment, machinery and",
+          "option-7": "Tehnikas, mehānismu un personāla mobilizācija objektā. / Mobilization of equipment, machinery and personnel to the site."
+        },
+        "customSettings": {}
+      },
+      "Works_Custom_1": {
+        "Type": "noRender",
+        "DisplayName": "Works_Custom_1",
+        "DropDownOptions": {
+          "option-1": "Works_Custom_1_1",
+          "option-2": "Works_Custom_1_2"
+        },
+        "customSettings": {}
+      },
+      "Works_Custom_2": {
+        "Type": "noRender",
+        "DisplayName": "Works_Custom_2",
+        "DropDownOptions": {
+          "option-1": "Works_Custom_2_1",
+          "option-2": "Works_Custom_2_2"
+        },
+        "customSettings": {}
+      },
+      "otherSettings": {
+        "Type": "noRender",
+        "defaultConstructionProductivity": {
+          "version": 4,
+          "works": [
+            {
+              "costCalculationMode": "output",
+              "hourlyCost": 50,
+              "laborNormHoursPerUnit": 18,
+              "unit": "projekts",
+              "work": "Izpildmērījumu veikšana paveikto darbu apjomu fiksēšanai un apliecināšanai. / Execution survey for verification and confirmation of completed work quantities."
+            },
+            {
+              "costCalculationMode": "output",
+              "hourlyCost": null,
+              "laborNormHoursPerUnit": null,
+              "unit": "",
+              "work": "Materiālu piegāde"
+            },
+            {
+              "costCalculationMode": "output",
+              "hourlyCost": null,
+              "laborNormHoursPerUnit": null,
+              "unit": "",
+              "work": "Piezīme"
+            },
+            {
+              "costCalculationMode": "hourly",
+              "hourlyCost": 18.5,
+              "laborNormHoursPerUnit": 0.22,
+              "unit": "m3",
+              "work": "Rievsienu piebēršana ar pievestu salizturīgu smilti, iestrāde un blīvēšana pa kārtām / Backfilling along sheet pile walls"
+            },
+            {
+              "costCalculationMode": "output",
+              "hourlyCost": 18.5,
+              "laborNormHoursPerUnit": 16,
+              "unit": "set",
+              "work": "Tehnikas, mehānismu un personāla demobilizācija no objekta. / Demobilization of equipment, machinery and"
+            },
+            {
+              "costCalculationMode": "output",
+              "hourlyCost": 18.5,
+              "laborNormHoursPerUnit": 16,
+              "unit": "set",
+              "work": "Tehnikas, mehānismu un personāla mobilizācija objektā. / Mobilization of equipment, machinery and personnel to the site."
+            },
+            {
+              "costCalculationMode": "output",
+              "hourlyCost": null,
+              "laborNormHoursPerUnit": null,
+              "unit": "",
+              "work": "Dīkstave"
+            }
+          ]
+        }
+      }
+    },
+    "positions": []
+  },
+  "cases": [
+    {
+      "id": "stoneandtree-waterfront-0817-technological-pause",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: technological-pause.",
+      "tags": [
+        "stoneandtree-waterfront",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "single-work",
+        "no-forma2",
+        "delay"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-08-17",
+      "sourceText": "Sveiks. Šodien bija tehnoloģiskais pārtraukums. Rītdien atsāksim darbus.",
+      "sourceFingerprint": "bd1ac9655632021ee0930984276094cf8b1bf0a74323527c644bc64b349fe24f",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "b11190a26347cdce3072be2d23e5eaa0bac954889377d2ce843e17dd40c6e740",
+      "inputFingerprint": "330409850a13de4e260b7aaaa6f7590c634157ba5883e8ffcc5f937da910df64",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-08-17",
+          "work": "Kavēšanās",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Tehnoloģiskais pārtraukums. Darbus atsāks rītdien.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "39877bce3b79980a79e096758c758481cae89f310d87ae6e5199b80bdf1cc70c",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stoneandtree-waterfront-0821-sand-delivery-and-backfill",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: sand-delivery-and-backfill.",
+      "tags": [
+        "stoneandtree-waterfront",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "multi-work",
+        "no-forma2",
+        "delivery",
+        "labour"
+      ],
+      "tier": "regression",
+      "priority": "critical",
+      "receivedDateISO": "2026-08-21",
+      "sourceText": "Šodien ievesta smilts 160m3, iestrādāti 140m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "sourceFingerprint": "90d22d548a2fdedbdb903bb8d102715804add1290378d5a4dff43f1161735175",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "7184405a3f23d755db1bc1ef9f95ab8d7ce9cc44ec2f9582662cc6913511d96e",
+      "inputFingerprint": "5c0ba77b2d0f01b682191f723e6672f85e5ddcd73c7ecb9429cc38166debaab8",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-08-21",
+          "work": "Materiālu piegāde",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Piegādāti 160 m³ smilts.",
+          "amount": 160,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "b96345b9ce62c4a8fef9e12987936d722917ff579fb39836ec19dbd45253b611",
+            "assignmentBasis": "not-assigned"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-08-21",
+          "work": "Rievsienu piebēršana ar pievestu salizturīgu smilti, iestrāde un blīvēšana pa kārtām / Backfilling along sheet pile walls",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Iestrādāti 140 m³ smilts; strādāja ekskavatora operators, 2 būvstrādnieki, brigadieris un būvdarbu vadītāja palīgs.",
+          "amount": 140,
+          "unit": "m3",
+          "workers": 5,
+          "hours": 10,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "acd6f26a2bf6fee37e488ac0d1ef31db77b62b9f05cd29f4f16a67df3ab9df46",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stoneandtree-waterfront-0825-sand-works-and-idle-note",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: sand-works-and-idle-note.",
+      "tags": [
+        "stoneandtree-waterfront",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "multi-work",
+        "no-forma2",
+        "delivery",
+        "labour",
+        "downtime"
+      ],
+      "tier": "regression",
+      "priority": "critical",
+      "receivedDateISO": "2026-08-25",
+      "sourceText": "Šodien ievesta smilts 200m3, iestrādāti 140m3. Strādāja pa 9h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs. \nIestājas tehniskais pārtraukums, jo nav frontes. Objektā paliek ap 80m3 neiestrādāta smilts materiāla",
+      "sourceFingerprint": "58a23babe8f3f6edc1dc414777990ece5b49fbb0bd21a79bc0504b483f4c30dc",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "0e7ffa847544c0b3bc58b79801bd6686bb2d17be443d34a840a882a09499fe24",
+      "inputFingerprint": "1ab7cf9e8e1a4ebea556bac2fbd051d4ae266f4a050711eedb9d9b734ce1a80f",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-08-25",
+          "work": "Materiālu piegāde",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Ievesti 200 m3 smilts; objektā paliek ap 80 m3 neiestrādāta materiāla.",
+          "amount": 200,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "a822d7f6aea4cd997e1f8451fc2bba8f5171ee7033184f192350278478d0e381",
+            "assignmentBasis": "not-assigned"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-08-25",
+          "work": "Rievsienu piebēršana ar pievestu salizturīgu smilti, iestrāde un blīvēšana pa kārtām / Backfilling along sheet pile walls",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Iestrādāti 140 m3 smilts. Strādāja ekskavatora operators, 2 būvstrādnieki, brigadieris un būvdarbu vadītāja palīgs.",
+          "amount": 140,
+          "unit": "m3",
+          "workers": 5,
+          "hours": 9,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "ec1b86a96d609f16f19c00807b451b30a1224dda2769840d15139825b553e862",
+            "assignmentBasis": "not-assigned"
+          }
+        },
+        {
+          "id": "reference-3",
+          "dateISO": "2026-08-25",
+          "work": "Dīkstave",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Iestājies tehniskais pārtraukums, jo nav darba frontes.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "ba378aa6268855202f516d6b2fd9522ea80adcc1a7a40e5e92209405126016d8",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stoneandtree-waterfront-0827-idle-extra-quantity-unapproved",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: idle-extra-quantity-unapproved.",
+      "tags": [
+        "stoneandtree-waterfront",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "single-work",
+        "no-forma2",
+        "downtime"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-08-27",
+      "sourceText": "Tehniskais pārtraukums, nav frontes un nav apstiprināti smilts papildus apjomi",
+      "sourceFingerprint": "97095c257127442d7dd64ac2dfc5fbd9a6b09053ad3635e3f7c178708f11eab0",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "a5028fc31143a7763b5963c516dac0c589d1f701f4fc08892efded8bb19a0db4",
+      "inputFingerprint": "c0e9c8d8caf9fd8e22d943644df0912a2026e4fa62d34c143bdd87f227928cae",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-08-27",
+          "work": "Dīkstave",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Tehniskais pārtraukums, jo nav darba frontes un nav apstiprināti smilts papildu apjomi.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "a15d120110edc9c7853706f6ebdab902b692fe0e5d2ccffe34cb2249a8c4515c",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stoneandtree-waterfront-0831-idle-no-work-front",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: idle-no-work-front.",
+      "tags": [
+        "stoneandtree-waterfront",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "single-work",
+        "no-forma2",
+        "downtime"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-08-31",
+      "sourceText": "Tehniskais pārtraukums, nav fronte",
+      "sourceFingerprint": "d491b1b78fdaaab900bad5b800146a88820a901b787cf7c12b4b3f87b5eb6f32",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "44bfdb89b909608cc68c229fd64de01a77c2d4889f73f41aff5a93b390347b4d",
+      "inputFingerprint": "91e36573eff479f5b1683be795213d5453a72ebd7a2c8f6929a400d22f5eb588",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-08-31",
+          "work": "Dīkstave",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Tehniskais pārtraukums, nav darba frontes.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "64349753d4f2b25818881e448e9ecfee168b6a26cb8837495fd60db381fc6224",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stoneandtree-waterfront-0908-inline-corrected-backfill",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: inline-corrected-backfill.",
+      "tags": [
+        "stoneandtree-waterfront",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "multi-work",
+        "no-forma2",
+        "delivery",
+        "labour",
+        "inline-correction"
+      ],
+      "tier": "regression",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-08",
+      "sourceText": "Šodien atsākās darbi objektā. Ievestas smiltis 120 kubi. Iestrādāta smilts 140 kubi. Labojams. Iestrādāti 160 kubi. Strādāja ekskavators ar operatoru 9 stundas, divi būvstrādnieki un būvdarbu vadītāja palīgs 9 stundas.",
+      "sourceFingerprint": "5c10133175e4dae13fb537883d8bcdb9b43d7c071d8588a7a4ceb3a97c034a6b",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "c3c6dfddece2a81dabeb00f696099d257227248db5568e63e429ef05f9cb2870",
+      "inputFingerprint": "6b4d2cb8f6b126219abb5844866d9e21ebbfe9e9680af203b6921167ce42f0ad",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-08",
+          "work": "Materiālu piegāde",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Objektā ievestas smiltis.",
+          "amount": 120,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "3e6f8834babd6427ceab07046ece21a4bb384df4f433160edba0568d4a52903b",
+            "assignmentBasis": "not-assigned"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-09-08",
+          "work": "Rievsienu piebēršana ar pievestu salizturīgu smilti, iestrāde un blīvēšana pa kārtām / Backfilling along sheet pile walls",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Objektā atsākti darbi un iestrādāta smilts; strādāja ekskavatora operators, divi būvstrādnieki un būvdarbu vadītāja palīgs.",
+          "amount": 160,
+          "unit": "m3",
+          "workers": 4,
+          "hours": 9,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "232abce9057d11fa46d0e4e4c86c0e19117d98be25998f7b29007b3a18f78b46",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stoneandtree-waterfront-0909-separate-sand-volumes",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: separate-sand-volumes.",
+      "tags": [
+        "stoneandtree-waterfront",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "multi-work",
+        "no-forma2",
+        "delivery",
+        "labour"
+      ],
+      "tier": "regression",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-09",
+      "sourceText": "Ievesta smilts 220m3\nRievsienas aizbēršana 200m3\n10h ekskav. Operators, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "sourceFingerprint": "f4910c893407c16fc8c9dec3a8d489d1d0c8c571caab0389dcd169d63e889dab",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "669e8ab16ebefe53d2bbac3cf5284ff2d46d928fa81b5d778f193fcde10684f4",
+      "inputFingerprint": "6adcf9ade0242df1ec6d6f0c6d4d2a2dda62f5865c2c8b15fee918aa7c10bb9b",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-09",
+          "work": "Materiālu piegāde",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Objektā ievesta smilts.",
+          "amount": 220,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "2f19da192736fa01e35963d48069a7c3d0b28c9e83f38827155ba4903dec83a7",
+            "assignmentBasis": "not-assigned"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-09-09",
+          "work": "Rievsienu piebēršana ar pievestu salizturīgu smilti, iestrāde un blīvēšana pa kārtām / Backfilling along sheet pile walls",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Veikta rievsienu aizbēršana; strādāja ekskavatora operators, divi būvstrādnieki, brigadieris un būvdarbu vadītāja palīgs.",
+          "amount": 200,
+          "unit": "m3",
+          "workers": 5,
+          "hours": 10,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "010b313d047f2d24dde4462ed1b82ab67539c3d0a17a9de48b9a106660d59346",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stoneandtree-waterfront-0910-final-sand-works-and-delay",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: final-sand-works-and-delay.",
+      "tags": [
+        "stoneandtree-waterfront",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "multi-work",
+        "no-forma2",
+        "delivery",
+        "labour",
+        "delay"
+      ],
+      "tier": "regression",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-10",
+      "sourceText": "Šodien piegādāts materiāls 60 kubi, smilts, iestrādāti 70 kubi. Strādāja ekskavatora operators 10 stundas, divi būvstrādnieki, viņi brigadieris, būvdarbu vadītāja palīgs. Bija aizciršanās visu laiku ar fronti, citi būvnieki maisījās pa vidu. Objekts pabeigts, viss materiāls ievests, iestrādāts.",
+      "sourceFingerprint": "07ac7da2dcdc8c3210faa4bd6a27a2ae314ee791fbef7a5f1ed98db252b07dce",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "720aa8ef623181c2fd56ee3f9811aaf5860b5872750cdebe333a98f26c3a62dc",
+      "inputFingerprint": "8e70f198fe909f4f00ca06890bb8b2602211d10f271c7f32a929fbc31b54b10d",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-10",
+          "work": "Materiālu piegāde",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Objektā piegādāti 60 m3 smilts; visa materiāla piegāde pabeigta.",
+          "amount": 60,
+          "unit": "m3",
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "17aa14c5b7593c9c3e4415b82d0ff73470c3b3baf4a5ad8ea1c6e3b905e0fd75",
+            "assignmentBasis": "not-assigned"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-09-10",
+          "work": "Rievsienu piebēršana ar pievestu salizturīgu smilti, iestrāde un blīvēšana pa kārtām / Backfilling along sheet pile walls",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Iestrādāti 70 m3 smilts un darbi objektā pabeigti; strādāja ekskavatora operators, divi būvstrādnieki, brigadieris un būvdarbu vadītāja palīgs.",
+          "amount": 70,
+          "unit": "m3",
+          "workers": 5,
+          "hours": 10,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "2f29c62b19dad0b3ce874d7e3ec296451d2c9f7dbbaea35f381536de3ec406cf",
+            "assignmentBasis": "not-assigned"
+          }
+        },
+        {
+          "id": "reference-3",
+          "dateISO": "2026-09-10",
+          "work": "Kavēšanās",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Darbu frontē visu laiku radās aizķeršanās, jo citi būvnieki traucēja darbu izpildi.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "33813f852e376c141eed448c2f68fc1375c039f9b5e7153e1f2b7c96ec0685c4",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stoneandtree-waterfront-0911-project-completed-note",
+      "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: project-completed-note.",
+      "tags": [
+        "stoneandtree-waterfront",
+        "real-message",
+        "full-message",
+        "project-reference",
+        "single-work",
+        "no-forma2",
+        "completion-note"
+      ],
+      "tier": "smoke",
+      "priority": "critical",
+      "receivedDateISO": "2026-09-11",
+      "sourceText": "Objekts ir noslēdzies, darbi ir izpildīti.",
+      "sourceFingerprint": "67eea79d1cf6f48928d7802207bde74b16087ba3f3a192dc2d77b46e9a4c79e7",
+      "sourceKind": "full-message",
+      "sourceTextFingerprint": "1a0c6b93b0a9313466e732c6eda9ebba61b6ef5bac3b954292960d9d55db3afd",
+      "inputFingerprint": "5c3696927ae926c8710be23e15c6f8b3735e8c70d45e5c42d9324f6afaf5cccd",
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-09-11",
+          "work": "Piezīme",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Objekts noslēdzies, darbi izpildīti.",
+          "amount": null,
+          "unit": null,
+          "workers": null,
+          "hours": null,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "0e60e0e29030593c2c164ba1a1c2b5ea59b5607e2ebbfba515943572ad365206",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    }
+  ],
+  "referenceCandidates": [
+    {
+      "id": "stoneandtree-waterfront-review-1",
+      "sourceText": "Šodien ievesta smilts 180m3, iestrādāti 120m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-18",
+      "sourceFingerprint": "e6390a94d4b040012b81b6a773ee10c47566e7d661ca2d256da498b7611c6941",
+      "issues": [
+        "outside-initial-reviewed-selection"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-08-18",
+          "work": "Materiālu piegāde",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Ievesta smilts 180 m³.",
+          "amount": 180,
+          "unit": "m3",
+          "workers": null,
+          "hours": 10,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "e1538831d4481d40e15edb698a32f871d72a4c2824c88ba556ac642cc18c5f48",
+            "assignmentBasis": "not-assigned"
+          }
+        },
+        {
+          "id": "reference-2",
+          "dateISO": "2026-08-18",
+          "work": "Rievsienu piebēršana ar pievestu salizturīgu smilti, iestrāde un blīvēšana pa kārtām / Backfilling along sheet pile walls",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Iestrādāta smilts 120 m³ ar ekskavatoru; strādāja operators, 2 būvstrādnieki, brigadieris un būvdarbu vadītāja palīgs.",
+          "amount": 120,
+          "unit": "m3",
+          "workers": 5,
+          "hours": 10,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "a599b6a231c9ad5678561a0b81b2e6f7c173c5ea1ae0b142dd461f74da83e96b",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stoneandtree-waterfront-review-2",
+      "sourceText": "Šodien ievesta smilts 120m3, iestrādāti 160m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-19",
+      "sourceFingerprint": "0f90ca4bf9b2af458985469f92b1867bda16b44b2cd394023f82c920f05eeb41",
+      "issues": [
+        "no-current-reference-rows",
+        "requires-correction-history"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-3",
+      "sourceText": "Šodien ievesta smilts 120m3, iestrādāti 160m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs\nCorrection: Neielikās 19.08.2026. Datumā",
+      "receivedDateISO": "2026-08-20",
+      "sourceFingerprint": "ec012f881aa8fcd44c24604303dd6761ba5c30ce7288faa9796f747c782eb594",
+      "issues": [
+        "requires-correction-history",
+        "delivery-and-installation-need-separate-review"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-08-19",
+          "work": "Materiālu piegāde",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "Ievestas smiltis 140 m3",
+          "amount": 140,
+          "unit": "m3",
+          "workers": 0,
+          "hours": 0,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "a9d3ccb73c3c857f841839b0ef4b8b4533e7e66bc0dc741583f1e3ab9a0401be",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stoneandtree-waterfront-review-4",
+      "sourceText": "Šodien ievesta smilts 140m3, iestrādāti 200m3. Viss ievestais apjoms. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-20",
+      "sourceFingerprint": "b0833efc07acd3458f03e9863ee4ac51cc539dc8b87a3f4511a7b33501666824",
+      "issues": [
+        "delivery-and-installation-need-separate-review"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-08-20",
+          "work": "Materiālu piegāde",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "ievesti 140 m3",
+          "amount": 140,
+          "unit": "m3",
+          "workers": 0,
+          "hours": 0,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "8a1eae69bcc7d0a179b4f2685e1025a7f0dd33a9cce626297888615c77339e02",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stoneandtree-waterfront-review-5",
+      "sourceText": "Šodien ievesta smilts 140m3, iestrādāti 200m3. Viss ievestais apjoms. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "96d5ca6e30a52506fa4080077c50f24699b6ff29b56ddf9a21c3ed5283c9690c",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-6",
+      "sourceText": "Šodien ievesta smilts 140m3, iestrādāti 200m3. Viss ievestais apjoms. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "8607dfe4b2078b007a8e7dbb0f84b294da99520e0b138da48cd9bc52f69aff03",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-7",
+      "sourceText": "Šodien ievesta smilts 140m3, iestrādāti 200m3. Viss ievestais apjoms. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "78b99a5b7fbed40a0b4e3671bdb3508ddd2cb15fb23407a226eacc89e017b817",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-8",
+      "sourceText": "Iestrādāti 200 m3 smilts; ievesti 140 m3. Strādāja ekskavators ar operatoru, 2 būvstrādnieki, brigadieris un būvdarbu vadītājs.",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "90fad700615ed7cc425d6fede9f404206e74001ef6baaae146bba4f2940f17b3",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-9",
+      "sourceText": "Iestrādāti 200 m3 smilts; ievesti 140 m3. Strādāja ekskavators ar operatoru, 2 būvstrādnieki, brigadieris un būvdarbu vadītājs.",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "50480688efa86a23f3cc4e7c246d506a8d36d90745d2a621950be572a0b654c8",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-10",
+      "sourceText": "Iestrādāti 140 m³ smilts; strādāja ekskavatora operators, 2 būvstrādnieki, brigadieris un būvdarbu vadītāja palīgs.",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "1a16256fa1cd1e8cd8363ced071bf3c584796081e946f8c98cbe2d48860d246c",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-11",
+      "sourceText": "Šodien ievesta smilts 140m3, iestrādāti 200m3. Viss ievestais apjoms. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "7a06ae6c281ceadc00b85c972af22fe716f202eef801212c1bd171adea46b3e3",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-12",
+      "sourceText": "Šodien ievesta smilts 140m3, iestrādāti 200m3. Viss ievestais apjoms. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "01122984bcf457388c925ec080a49173d1eae011570a003700cf49c13778fe32",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-13",
+      "sourceText": "Šodien ievesta smilts 140m3, iestrādāti 200m3. Viss ievestais apjoms. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "68d9fa6ff152ff9104c7138a2ddb9b3ed2d9b1c4b0abe990df21b08dc17c0055",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-14",
+      "sourceText": "Šodien ievesta smilts 140m3, iestrādāti 200m3. Viss ievestais apjoms. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "88288714ca737403435aba4d10c59878119ca20195a1e21fc4b7bb11f34a38dc",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-15",
+      "sourceText": "Šodien ievesta smilts 140m3, iestrādāti 200m3. Viss ievestais apjoms. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "35b30d9112860e82eb7e8229c69fb54a3870518e2c11d27af97304b6ed1ccfbd",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-16",
+      "sourceText": "Šodien ievesta smilts 140m3, iestrādāti 200m3. Viss ievestais apjoms. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "c53874834278b397759a9be3b44eec35f7caa31f11899646bb52968867022f86",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-17",
+      "sourceText": "Šodien ievesta smilts 140m3, iestrādāti 200m3. Viss ievestais apjoms. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "f86b64345da993ef4baa8403099580ed35bbbcae0f46a367b9b6aea0ea69a5ae",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-18",
+      "sourceText": "Iestrādāti 180 m³ smilts;  ievesti 250m3, kavējums 3 stundas dēļ pasutītaja, strādāja ekskavatora operators, 2 būvstrādnieki, brigadieris un būvdarbu vadītāja palīgs.",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "3ec6bd426aa7f95c5b05c735c82c491cdde2d6ef5755148c5966e4fdb58544e9",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-19",
+      "sourceText": "Iestrādāti 180 m³ smilts;  ievesti 250m3; darbu kavējums 3 stundas dēļ pasutītaja, strādāja ekskavatora operators, 2 būvstrādnieki, brigadieris un būvdarbu vadītāja palīgs.",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "7f67086ba2beb8602f600ab8bea4d344170338130abd9f70e4bd23cf394d93fb",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-20",
+      "sourceText": "Iestrādāti 200 m3 smilts; ievesti 140 m3. Strādāja ekskavators ar operatoru, 2 būvstrādnieki, brigadieris un būvdarbu vadītājs.",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "96bdbe282a3f800da622c0b3a93ec94f6e6d3c2f2ca6adf5879917de66b46ba6",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-21",
+      "sourceText": "Iestrādāti 200 m3 smilts; ievesti 140 m3. Strādāja ekskavators ar operatoru, 2 būvstrādnieki, brigadieris un būvdarbu vadītājs.",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "7314bcf9d3440bd50bea8f058215bc149e95da8a2be53cd0197d6f37b8351517",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-22",
+      "sourceText": "Šodien ievesta smilts 160m3, iestrādāti 140m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-21",
+      "sourceFingerprint": "8a482ad5c2a645725fc69878f7376df08c2ffcb0260c5a8b16f061a27c45872b",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    },
+    {
+      "id": "stoneandtree-waterfront-review-23",
+      "sourceText": "Šodien ievesta smilts 200m3, iestrādāti 180m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-24",
+      "sourceFingerprint": "fdd551139f44e2d621d2ad92d9797b250810346d97edf7a4948486c4263ed298",
+      "issues": [
+        "delivery-and-installation-need-separate-review"
+      ],
+      "expectedRecords": [
+        {
+          "id": "reference-1",
+          "dateISO": "2026-08-24",
+          "work": "Rievsienu piebēršana ar pievestu salizturīgu smilti, iestrāde un blīvēšana pa kārtām / Backfilling along sheet pile walls",
+          "location": null,
+          "commentSignals": [],
+          "reviewedComment": "iestrādāti 200m3. Strādāja ekskavatora operators, 2 būvstrādnieki, brigadieris un būvdarbu vadītāja palīgs.",
+          "amount": 200,
+          "unit": "m3",
+          "workers": 5,
+          "hours": 10,
+          "forma2PositionId": null,
+          "checkLocation": true,
+          "provenance": {
+            "recordFingerprint": "624198829bdc2dd73fe0e37779eeb732195aeed26b24666ba42ce7ef9501923c",
+            "assignmentBasis": "not-assigned"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stoneandtree-waterfront-review-24",
+      "sourceText": "Šodien ievesta smilts 140m3, iestrādāti 200m3. Viss ievestais apjoms. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+      "receivedDateISO": "2026-08-26",
+      "sourceFingerprint": "66e635a7db4fc01cb0d355ab82169b03df0bf4339ac94536991b982317234134",
+      "issues": [
+        "no-current-reference-rows"
+      ],
+      "expectedRecords": []
+    }
+  ]
+}

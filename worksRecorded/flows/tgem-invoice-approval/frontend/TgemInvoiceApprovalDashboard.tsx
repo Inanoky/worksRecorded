@@ -106,6 +106,7 @@ import {
 import { archiveTgemInvoices } from "@/server/actions/tgem-invoice-archive-actions";
 import { updateTgemInvoiceDetail } from "@/server/actions/tgem-invoice-details-actions";
 import { TgemApprovalControls } from "./TgemApprovalControls";
+import { TgemDocumentSelector } from "./TgemDocumentSelector";
 import { TgemImageViewer } from "./TgemImageViewer";
 import { TgemInvoiceRegisterFilters } from "./TgemInvoiceRegisterFilters";
 import { TgemInvoiceSplitWorkspace } from "./TgemInvoiceSplitWorkspace";
@@ -295,6 +296,7 @@ function getCopy(language?: string | null) {
 			events: {
 				fixture_created: "Izveidots demonstrācijas rēķins",
 				invoice_received: "Rēķins saņemts",
+				invoice_package_review_required: "Dokumentu pakete jāpārbauda",
 				invoice_processing_started: "Sākta rēķina apstrāde",
 				invoice_extraction_completed: "Datu atpazīšana pabeigta",
 				invoice_processing_failed: "Rēķina apstrāde neizdevās",
@@ -495,6 +497,8 @@ function getCopy(language?: string | null) {
 			events: {
 				fixture_created: "Создан демонстрационный счет",
 				invoice_received: "Счет получен",
+				invoice_package_review_required:
+					"Необходима проверка пакета документов",
 				invoice_processing_started: "Обработка счета начата",
 				invoice_extraction_completed: "Распознавание данных завершено",
 				invoice_processing_failed: "Не удалось обработать счет",
@@ -694,6 +698,7 @@ function getCopy(language?: string | null) {
 		events: {
 			fixture_created: "Demo invoice created",
 			invoice_received: "Invoice received",
+			invoice_package_review_required: "Document package requires review",
 			invoice_processing_started: "Invoice processing started",
 			invoice_extraction_completed: "Data extraction completed",
 			invoice_processing_failed: "Invoice processing failed",
@@ -1102,6 +1107,9 @@ function InvoiceRegister({
 	const [previewInvoiceId, setPreviewInvoiceId] = React.useState<string | null>(
 		null,
 	);
+	const [previewDocumentId, setPreviewDocumentId] = React.useState<
+		string | null
+	>(null);
 	const availableInvoices = React.useMemo(
 		() => invoices.filter((invoice) => !deletedIds.has(invoice.id)),
 		[invoices, deletedIds],
@@ -1189,6 +1197,11 @@ function InvoiceRegister({
 	}
 	const previewInvoice =
 		invoices.find((invoice) => invoice.id === previewInvoiceId) ?? null;
+	const previewDocument =
+		previewInvoice?.documents.find(
+			(document) =>
+				document.id === (previewDocumentId ?? previewInvoice.primaryDocumentId),
+		) ?? previewInvoice?.documents[0];
 	const sortedInvoices = React.useMemo(
 		() =>
 			sortTgemInvoiceRegister(filteredInvoices, sort, {
@@ -1240,6 +1253,7 @@ function InvoiceRegister({
 	}
 
 	function openPreview(invoiceId: string) {
+		setPreviewDocumentId(null);
 		setPreviewInvoiceId(invoiceId);
 	}
 	async function exportInvoices() {
@@ -1854,30 +1868,35 @@ function InvoiceRegister({
 								);
 							})()}
 
-							{previewInvoice.documents[0] ? (
+							{previewDocument ? (
 								<div className="mt-5 overflow-hidden rounded-lg border bg-background">
 									<div className="flex items-center gap-2 border-b px-3 py-2.5">
 										<FileText className="h-4 w-4 shrink-0 text-tgem-primary" />
 										<div className="min-w-0 flex-1 truncate text-sm font-medium">
-											{previewInvoice.documents[0].originalFilename}
+											{previewDocument.originalFilename}
 										</div>
 										{previewInvoice.isNewestDuplicateInvoiceNumber ? (
 											<NewestDuplicateInvoiceNumberWarning copy={copy} />
 										) : null}
 									</div>
+									<TgemDocumentSelector
+										invoice={previewInvoice}
+										selectedId={previewDocument.id}
+										onChange={setPreviewDocumentId}
+										language={organizationLanguage}
+									/>
 									<div className="h-72">
-										{previewInvoice.documents[0].contentType ===
-										"application/pdf" ? (
+										{previewDocument.contentType === "application/pdf" ? (
 											<TgemPdfViewer
-												documentPath={previewInvoice.documents[0].documentPath}
-												filename={previewInvoice.documents[0].originalFilename}
+												documentPath={previewDocument.documentPath}
+												filename={previewDocument.originalFilename}
 												language={organizationLanguage}
 											/>
 										) : (
 											<TgemImageViewer
-												key={previewInvoice.documents[0].documentPath}
-												documentPath={previewInvoice.documents[0].documentPath}
-												filename={previewInvoice.documents[0].originalFilename}
+												key={previewDocument.documentPath}
+												documentPath={previewDocument.documentPath}
+												filename={previewDocument.originalFilename}
 												language={organizationLanguage}
 											/>
 										)}
@@ -2612,7 +2631,13 @@ function InvoiceDetails({
 	onChanged: () => Promise<void>;
 	onProjectChanged: (projectId: string) => Promise<void>;
 }) {
-	const document = invoice.documents[0];
+	const [selectedDocumentId, setSelectedDocumentId] = React.useState<
+		string | null
+	>(null);
+	const document =
+		invoice.documents.find(
+			(item) => item.id === (selectedDocumentId ?? invoice.primaryDocumentId),
+		) ?? invoice.documents[0];
 	const [documentView, setDocumentView] = React.useState<"document" | "text">(
 		"document",
 	);
@@ -2620,6 +2645,19 @@ function InvoiceDetails({
 	return (
 		<div className="grid gap-4 xl:grid-cols-[minmax(20rem,0.8fr)_minmax(28rem,1.2fr)]">
 			<div className="space-y-4">
+				{invoice.packageReviewRequired ? (
+					<div
+						role="alert"
+						className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+					>
+						{organizationLanguage === "lv"
+							? "Dokumentu pakete jāpārbauda pirms apstiprināšanas."
+							: organizationLanguage === "ru"
+								? "Проверьте пакет документов перед согласованием."
+								: "Review this document package before starting approval."}{" "}
+						{invoice.packageReviewReason}
+					</div>
+				) : null}
 				{invoice.project ? (
 					<TgemApprovalControls
 						invoice={invoice}
@@ -2764,7 +2802,14 @@ function InvoiceDetails({
 				<CardContent>
 					{document ? (
 						<div className="flex flex-col gap-3">
+							<TgemDocumentSelector
+								invoice={invoice}
+								selectedId={document.id}
+								onChange={setSelectedDocumentId}
+								language={organizationLanguage}
+							/>
 							<OcrDocumentViewer
+								key={document.id}
 								document={document}
 								copy={copy}
 								language={organizationLanguage}

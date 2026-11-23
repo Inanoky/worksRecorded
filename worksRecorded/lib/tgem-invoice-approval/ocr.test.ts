@@ -1,6 +1,56 @@
 import { persistTgemInvoiceOcrResult } from "@/lib/tgem-invoice-approval/ocr";
 
 describe("persistTgemInvoiceOcrResult", () => {
+	it("persists OCR for both documents and records the main document and review warning", async () => {
+		const upsert = jest.fn();
+		const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+		await persistTgemInvoiceOcrResult(
+			{
+				tgemInvoiceOcrPage: { upsert },
+				tgemInvoiceLine: { upsert: jest.fn() },
+				tgemInvoiceCase: { updateMany },
+			} as never,
+			{
+				invoiceCaseId: "case-1",
+				documentId: "receipt",
+				result: {
+					provider: "openai",
+					fields: {},
+					lineItems: [],
+					pages: ["receipt", "invoice"].map((documentId) => ({
+						documentId,
+						pageNumber: 1,
+						width: null,
+						height: null,
+						text: documentId,
+						blocks: [],
+						status: "complete",
+					})),
+					packageReview: {
+						primaryDocumentId: "invoice",
+						needsReview: true,
+						reason: "Atšķirīgi dokumenti",
+					},
+				},
+			},
+		);
+		expect(
+			upsert.mock.calls.map(([call]) => call.where.documentId_pageNumber),
+		).toEqual([
+			{ documentId: "receipt", pageNumber: 1 },
+			{ documentId: "invoice", pageNumber: 1 },
+		]);
+		expect(updateMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					primaryDocumentId: "invoice",
+					packageReviewRequired: true,
+					packageReviewReason: "Atšķirīgi dokumenti",
+					status: "needs_review",
+				}),
+			}),
+		);
+	});
 	it.each(["credit", "debit", "receipt", undefined, "invalid"])(
 		"persists only a valid extracted invoice type: %s",
 		async (invoiceType) => {

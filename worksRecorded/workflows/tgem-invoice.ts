@@ -309,6 +309,15 @@ export async function processTgemInvoiceStep(
 					source: true,
 					status: true,
 					archivedAt: true,
+					documents: {
+						orderBy: [{ documentOrder: "asc" }, { createdAt: "asc" }],
+						select: {
+							id: true,
+							originalFilename: true,
+							canonicalUrl: true,
+							contentType: true,
+						},
+					},
 				},
 			},
 		},
@@ -360,6 +369,23 @@ export async function processTgemInvoiceStep(
 		},
 		contentType: document.contentType,
 		byteSize: document.byteSize,
+		...(document.invoiceCase.documents?.length > 1
+			? {
+					documents: document.invoiceCase.documents.map((item) => ({
+						id: item.id,
+						filename: item.originalFilename,
+						contentType: item.contentType,
+						load: async () => {
+							const response = await fetch(item.canonicalUrl);
+							if (!response.ok)
+								throw new Error(
+									`Could not download package document: ${response.status}`,
+								);
+							return Buffer.from(await response.arrayBuffer());
+						},
+					})),
+				}
+			: {}),
 	});
 }
 

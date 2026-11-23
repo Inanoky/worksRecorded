@@ -1,6 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { traceable } from "langsmith/traceable";
-
 import {
 	normalizeTgemInvoiceIntake,
 	type TgemInvoiceIntakeInput,
@@ -10,6 +9,7 @@ import {
 	buildTgemInvoiceIntakeTraceOutput,
 	buildTgemInvoiceLangSmithConfig,
 } from "@/lib/tgem-invoice-approval/langsmith";
+import { withTgemInvoiceTraceFlush } from "@/lib/tgem-invoice-approval/tracing";
 
 type TgemInvoiceDatabase = Pick<PrismaClient, "tgemInvoiceCase">;
 
@@ -86,5 +86,7 @@ export async function createTgemInvoiceCaseRecord(
 	database: TgemInvoiceDatabase,
 	input: TgemInvoiceIntakeInput,
 ) {
-	return TRACED_CREATE_TGEM_INVOICE_CASE[input.source]({ database, input });
+	return withTgemInvoiceTraceFlush(() =>
+		TRACED_CREATE_TGEM_INVOICE_CASE[input.source]({ database, input }),
+	);
 }

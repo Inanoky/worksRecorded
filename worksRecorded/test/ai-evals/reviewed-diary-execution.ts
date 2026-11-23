@@ -20,6 +20,7 @@ import { runWithSiteManagerToolContext } from "@/server/ai-flows/agents/whatsapp
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import {
 	type DiaryExtractionEvalCase,
+	type FrozenDiaryProject,
 	reviewedDiaryCorpus,
 } from "./reviewed-diary-cases";
 import { getReviewedDiaryModelSettings } from "./reviewed-diary-environment";
@@ -52,33 +53,35 @@ export async function executeReviewedDiaryCase(
 			extractionContext: SiteDiaryExtractionContext;
 		};
 		matchForma2?: boolean;
+		project?: FrozenDiaryProject;
 	},
 ) {
 	const steps: Record<string, unknown>[] = [];
-	const positions: Forma2Position[] = reviewedDiaryCorpus.project.positions.map(
-		(position) => ({
-			...position,
-			plannedQuantity: null,
-			laborNormHoursPerUnit: null,
-			hourlyRate: null,
-			plannedWorkCost: 0,
-			plannedMaterialCost: 0,
-			plannedMechanismCost: 0,
-			plannedTotalCost: 0,
-		}),
-	);
+	const project = scope.project ?? reviewedDiaryCorpus.project;
+	const positions: Forma2Position[] = project.positions.map((position) => ({
+		...position,
+		plannedQuantity: null,
+		laborNormHoursPerUnit: null,
+		hourlyRate: null,
+		plannedWorkCost: 0,
+		plannedMaterialCost: 0,
+		plannedMechanismCost: 0,
+		plannedTotalCost: 0,
+	}));
 	const config = structuredClone(
-		scope.environment?.config ?? reviewedDiaryCorpus.project.config,
+		scope.environment?.config ?? project.config,
 	) as ConfigMap;
 	const state: DefaultConstructionForma2State = {
 		version: 1,
-		document: {
-			id: reviewedDiaryCorpus.project.documentId,
-			fileName: "reviewed-eval-catalog",
-			sheetName: "Forma2",
-			importedAt: "2026-11-16T00:00:00.000Z",
-			positions,
-		},
+		document: positions.length
+			? {
+					id: project.documentId,
+					fileName: "reviewed-eval-catalog",
+					sheetName: "Forma2",
+					importedAt: "2026-11-16T00:00:00.000Z",
+					positions,
+				}
+			: null,
 		allocations: [],
 		materialRules: [],
 	};
@@ -127,7 +130,7 @@ export async function executeReviewedDiaryCase(
 									onStep: (step) =>
 										steps.push(JSON.parse(JSON.stringify(step))),
 									config,
-									language: "lv",
+									language: project.language,
 									extractionContext: scope.environment?.extractionContext ?? {
 										text: `Projekta Forma2 darbu mērvienības:\n${unitContext}\nNav iepriekšējo ziņu vai izlaboto atbilžu piemēru. Iepriekšējās atbildes nav šīs atskaites faktu avots.`,
 										metadata: {
@@ -197,6 +200,7 @@ export async function executeReviewedDiaryCase(
 		});
 	const allocations =
 		run.result.extraction.ok &&
+		positions.length > 0 &&
 		!run.result.extraction.savedAsNote &&
 		scope.matchForma2 !== false
 			? await (scope.trace

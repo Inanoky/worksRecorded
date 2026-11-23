@@ -10,6 +10,7 @@ import { persistTgemInvoiceOcrResult } from "@/lib/tgem-invoice-approval/ocr";
 import { processTgemInvoice } from "@/lib/tgem-invoice-approval/processor";
 import { resolveTgemInvoiceProject } from "@/lib/tgem-invoice-approval/project-resolution";
 import { startTgemInvoiceApproval } from "@/lib/tgem-invoice-approval/start-approval";
+import { withTgemInvoiceTraceFlush } from "@/lib/tgem-invoice-approval/tracing";
 import { prisma } from "@/lib/utils/db";
 
 type ProcessTgemInvoiceCaseInput = {
@@ -22,6 +23,12 @@ type ProcessTgemInvoiceCaseInput = {
 	source: TgemInvoiceSource;
 	content: Buffer | (() => Promise<Buffer>);
 	contentType: string;
+	documents?: Array<{
+		id: string;
+		filename: string;
+		contentType: string;
+		load: () => Promise<Buffer>;
+	}>;
 	byteSize?: number | null;
 };
 
@@ -162,6 +169,21 @@ async function processTgemInvoiceCaseInternal(
 		const result = await processTgemInvoice({
 			content,
 			mimeType: input.contentType,
+			...(input.documents && input.documents.length > 1
+				? {
+						documents: await Promise.all(
+							input.documents.map(async (document) => ({
+								id: document.id,
+								filename: document.filename,
+								mimeType: document.contentType,
+								content:
+									document.id === input.documentId
+										? content
+										: await document.load(),
+							})),
+						),
+					}
+				: {}),
 		});
 		const persisted = await persistTgemInvoiceOcrResult(prisma, {
 			invoiceCaseId: input.invoiceCaseId,
@@ -187,6 +209,28 @@ async function processTgemInvoiceCaseInternal(
 			},
 		});
 
+		if (result.packageReview?.needsReview) {
+			await prisma.tgemInvoiceAuditEvent.create({
+				data: {
+					invoiceCaseId: input.invoiceCaseId,
+					organizationId: input.organizationId,
+					actorUserId: input.actorUserId,
+					actorType: "system",
+					eventType: "invoice_package_review_required",
+					toStatus: "needs_review",
+					payload: {
+						reason: result.packageReview.reason,
+						primaryDocumentId: result.packageReview.primaryDocumentId,
+					},
+				},
+			});
+			return {
+				provider: result.provider,
+				pageCount: persisted.pageCount,
+				lineItemCount: persisted.lineItemCount,
+				warningCount: persisted.warningCount,
+			};
+		}
 		try {
 			await startTgemInvoiceApproval({
 				invoiceCaseId: input.invoiceCaseId,
@@ -264,5 +308,7 @@ const TRACED_PROCESS_TGEM_INVOICE_CASE = {
 export async function processTgemInvoiceCase(
 	input: ProcessTgemInvoiceCaseInput,
 ) {
-	return TRACED_PROCESS_TGEM_INVOICE_CASE[input.source](input);
+	return withTgemInvoiceTraceFlush(() =>
+		TRACED_PROCESS_TGEM_INVOICE_CASE[input.source](input),
+	);
 }

@@ -72,12 +72,12 @@ export async function persistTgemInvoiceOcrResult(
 		await database.tgemInvoiceOcrPage.upsert({
 			where: {
 				documentId_pageNumber: {
-					documentId: input.documentId,
+					documentId: page.documentId ?? input.documentId,
 					pageNumber: page.pageNumber,
 				},
 			},
 			update: data,
-			create: { documentId: input.documentId, ...data },
+			create: { documentId: page.documentId ?? input.documentId, ...data },
 		});
 	}
 
@@ -116,6 +116,11 @@ export async function persistTgemInvoiceOcrResult(
 	}
 
 	const warnings: string[] = [];
+	if (input.result.packageReview?.needsReview)
+		warnings.push(
+			input.result.packageReview.reason ||
+				"Dokumentu pakete jāpārbauda pirms apstiprināšanas.",
+		);
 	if (!stringField(input.result, "invoiceNumber")) {
 		warnings.push(
 			invoiceType === "receipt"
@@ -148,6 +153,9 @@ export async function persistTgemInvoiceOcrResult(
 		fields: input.result.fields,
 		detectedLineItemCount: input.result.lineItems.length,
 		persistedLineItemCount: persistableLineItems.length,
+		...(input.result.packageReview
+			? { packageReview: input.result.packageReview }
+			: {}),
 	};
 	const validationSummary: Prisma.InputJsonValue = {
 		state: warnings.length > 0 ? "warning" : "ready",
@@ -158,6 +166,11 @@ export async function persistTgemInvoiceOcrResult(
 		where: { id: input.invoiceCaseId, archivedAt: null },
 		data: {
 			status: processingComplete ? "needs_review" : "failed_processing",
+			...(input.result.packageReview
+				? { primaryDocumentId: input.result.packageReview.primaryDocumentId }
+				: {}),
+			packageReviewRequired: input.result.packageReview?.needsReview ?? false,
+			packageReviewReason: input.result.packageReview?.reason ?? null,
 			ocrStatus: processingComplete ? "complete" : "failed",
 			extractionStatus: processingComplete ? "complete" : "failed",
 			processingError: input.result.pages.some((page) => page.errorMessage)

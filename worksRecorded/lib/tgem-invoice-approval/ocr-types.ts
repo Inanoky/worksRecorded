@@ -31,6 +31,7 @@ export type TgemOcrSourceAnchor = {
 };
 
 export type TgemOcrPage = {
+	documentId?: string;
 	pageNumber: number;
 	width: number | null;
 	height: number | null;
@@ -60,6 +61,11 @@ export type TgemInvoiceOcrLineItem = {
 };
 
 export type TgemInvoiceOcrResult = {
+	packageReview?: {
+		primaryDocumentId: string;
+		needsReview: boolean;
+		reason: string | null;
+	};
 	provider: TgemOcrProvider;
 	pages: TgemOcrPage[];
 	fields: Record<string, TgemInvoiceOcrField>;

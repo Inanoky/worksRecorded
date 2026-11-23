@@ -48,6 +48,7 @@ function installRouteMocks(args?: {
   recoveryError?: Error;
   mediaError?: Error;
   dedicatedNumber?: boolean;
+  tgem?: boolean;
 }) {
   const handleSiteManagerRoute = args?.routeError
     ? jest.fn().mockRejectedValue(args.routeError)
@@ -130,9 +131,8 @@ function installRouteMocks(args?: {
   jest.doMock("@/flows/default-construction/backend", () => ({
     handleSiteManagerRoute,
   }));
-  jest.doMock("@/flows/tgem-invoice-approval/backend", () => ({
-    handleTgemInvoiceWhatsappRoute: jest.fn(),
-  }));
+  const handleTgemInvoiceWhatsappRoute = jest.fn().mockResolvedValue(undefined);
+  jest.doMock("@/flows/tgem-invoice-approval/backend", () => ({ handleTgemInvoiceWhatsappRoute }));
   jest.doMock("@/flows/default-production/backend", () => ({
     handleWorkerRoute,
   }));
@@ -181,7 +181,7 @@ function installRouteMocks(args?: {
   }));
   jest.doMock("@/lib/flows/resolve-flow-module-server", () => ({
     resolveFlowModuleKeyForRuntime: jest.fn().mockResolvedValue(
-      args?.ztcRole ? "ztc-production" : "default-construction",
+      args?.tgem ? "tgem-invoice-approval" : args?.ztcRole ? "ztc-production" : "default-construction",
     ),
   }));
   jest.doMock("@/lib/flows/worker-runtime-server", () => ({
@@ -218,6 +218,7 @@ function installRouteMocks(args?: {
     fetchMock,
     handleSiteManagerRoute,
     handleWorkerRoute,
+    handleTgemInvoiceWhatsappRoute,
     prisma,
     sendMetaGraphMessage,
     handleZtcWorkerRoute,
@@ -242,6 +243,40 @@ describe("Meta webhook audio replay", () => {
   afterEach(() => {
     process.env = originalEnv;
     jest.restoreAllMocks();
+  });
+
+  it("routes TGEM reply buttons with their draft revision without a sender lock", async () => {
+    const mocks = installRouteMocks({ tgem: true });
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+    const fixture = JSON.parse(JSON.stringify(siteManagerAudioFixture));
+    const buttonId = "tgem:00000000-0000-4000-8000-000000000001:4:together";
+    fixture.entry[0].changes[0].value.messages = [{ id: "wamid.tgem.button", from: "37120000001", timestamp: "1795060000", type: "interactive", interactive: { type: "button_reply", button_reply: { id: buttonId, title: "Viena pakete" } } }];
+    expect((await POST({ json: async () => fixture } as Request)).status).toBe(200);
+    expect(mocks.handleTgemInvoiceWhatsappRoute).toHaveBeenCalledTimes(1);
+    expect(mocks.handleTgemInvoiceWhatsappRoute.mock.calls[0][0].formData.get("TgemDraftButtonId")).toBe(buttonId);
+    expect(mocks.prisma.whatsappTextLock.create).not.toHaveBeenCalled();
+    expect(mocks.handleSiteManagerRoute).not.toHaveBeenCalled();
+  });
+
+  it("ignores TGEM buttons outside the TGEM flow", async () => {
+    const mocks = installRouteMocks();
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+    const fixture = JSON.parse(JSON.stringify(siteManagerAudioFixture));
+    fixture.entry[0].changes[0].value.messages = [{ id: "wamid.other.button", from: "37120000001", type: "interactive", interactive: { type: "button_reply", button_reply: { id: "tgem:00000000-0000-4000-8000-000000000001:4:submit", title: "Iesniegt" } } }];
+    await POST({ json: async () => fixture } as Request);
+    expect(mocks.handleTgemInvoiceWhatsappRoute).not.toHaveBeenCalled();
+    expect(mocks.handleSiteManagerRoute).not.toHaveBeenCalled();
+  });
+
+  it("routes every TGEM file in a multi-message webhook separately into the draft handler", async () => {
+    const mocks = installRouteMocks({ tgem: true, mediaInfo: { url: "https://meta.test/invoice.pdf", mime_type: "application/pdf" } });
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+    const fixture = JSON.parse(JSON.stringify(siteManagerAudioFixture));
+    fixture.entry[0].changes[0].value.messages = [0, 1, 2].map((index) => ({ id: `wamid.tgem.file-${index}`, from: "37120000001", type: "document", document: { id: "meta-audio-media-site-manager-001", mime_type: "application/pdf", filename: `document-${index}.pdf` } }));
+    await POST({ json: async () => fixture } as Request);
+    expect(mocks.handleTgemInvoiceWhatsappRoute).toHaveBeenCalledTimes(3);
+    expect(mocks.handleTgemInvoiceWhatsappRoute.mock.calls.map(([args]) => args.formData.get("MessageId"))).toEqual(["wamid.tgem.file-0", "wamid.tgem.file-1", "wamid.tgem.file-2"]);
+    expect(mocks.prisma.whatsappTextLock.create).not.toHaveBeenCalled();
   });
 
   it("replays a site-manager audio webhook into audio FormData", async () => {

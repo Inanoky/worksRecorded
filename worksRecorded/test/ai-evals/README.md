@@ -37,6 +37,10 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 | List reviewed Ocelt diary cases | `npm run ai:list -- flow diary-reviewed` | None |
 | Run all ten Ocelt diary/Forma2 evals | `npm run eval:ai:ocelt` | Models only; frozen corpus; no database access |
 | Run only the two derived Ocelt scenarios | `npm run eval:ai:ocelt:scenarios` | Models only; frozen corpus; no database access |
+| Review original messages and reference rows for three projects | `npm run eval:ai:diary-projects:review` | None; local HTML |
+| Run the three-project reference benchmark | `npm run eval:ai:diary-projects` | Models only; frozen corpus; no database access |
+| Run HUS K reference cases | `npm run eval:ai:sbstomme` | Models only; frozen corpus; no database access |
+| Run Waterfront reference cases | `npm run eval:ai:waterfront` | Models only; frozen corpus; no database access |
 | Generate HTML from saved reports | `npm run eval:ai:summary -- --flow whatsapp-site-manager` | None |
 | Validate critical eval fixtures | `npm run test:ai:critical-dry-run` | None |
 | Manual WhatsApp image evals | `npm run eval:ai:whatsapp-site-manager:images` | Models and eval database |
@@ -62,7 +66,7 @@ npm run ai:list -- tag bis
 npm run ai:run -- flow whatsapp-site-manager tag correction
 ```
 
-Supported selectors are `critical`, `tag <name>`, `tier <smoke|regression|extended>`, `case <id>`, `--include-manual`, and `flow <dashboard|whatsapp-site-manager|whatsapp-worker|diary-reviewed|ocelt|all>`. `flow ocelt` selects all ten Ocelt cases; `flow diary-reviewed` retains the eight reviewed examples. For real runs, `ai:run` verifies the selected eval target first, runs matching flows, then gates the newest selected reports.
+Supported selectors are `critical`, `tag <name>`, `tier <smoke|regression|extended>`, `case <id>`, `--include-manual`, and `flow <dashboard|whatsapp-site-manager|whatsapp-worker|diary-reviewed|ocelt|diary-projects|sbstomme|waterfront|all>`. `flow ocelt` selects all ten Ocelt cases; `flow diary-reviewed` retains the eight reviewed examples. The three new project selectors require explicit selection and are not added to `flow all` paid runs. For real runs, `ai:run` verifies the selected eval target first, runs matching flows, then gates the newest selected reports.
 
 Dashboard and WhatsApp webhook evals run against the normal application tables, but only through a dedicated eval organization/site/user/worker. Their environment guard refuses to run unless `AI_EVAL_ALLOW_SINGLE_DB=true`, `AI_EVAL_ALLOWED_ORGANIZATION_ID` is set, and the configured eval site/user/worker all belong to that organization. The organization, site, user, and worker names must be clearly marked with `eval`, `test`, or `ai` unless `AI_EVAL_REQUIRE_MARKED_NAMES=false` is set. The `diary-reviewed` frozen-corpus runner has its own guard requiring only `RUN_AI_EVALS=true` and `OPENAI_API_KEY`; it uses synthetic scope IDs and cannot persist diary records.
 
@@ -85,6 +89,51 @@ Optional project speech mappings can be configured in `siteDiaryRecordsMap.other
 ```
 
 Repair candidates prioritize exact position references, compatible dimensions, work wording and configured speech mappings. A configured category explicitly named in the checker's repair plan is retained even in a crowded catalog; a dimensional contradiction still excludes it. Slang is not learned automatically from an unverified model output.
+
+### Original-message benchmark across three projects
+
+`eval:ai:diary-projects` runs the shared default-construction extractor, checker and targeted repair against frozen original messages and current reference rows from three independently scoped projects. It does not run the WhatsApp router, transcription, persistence or outbound messaging. The model receives the source message, received date, project language, field configuration, work options and that project's Forma2 catalog. It never receives the expected rows or reference comments. No Codex SDK implementation is included yet; these inputs and validators can be reused for a later engine comparison.
+
+The snapshot was audited read-only on 2026-11-20:
+
+| Organization | Project selector | Original-message period | Scored messages | Reference rows | Forma2 positions | Additional pairs for review |
+| --- | --- | --- | --- | --- | --- | --- |
+| Ocelt | `ocelt` | 2026-11-10–2026-11-13 | 8 | 16 | 52 | 10 |
+| SBSTOMME | `sbstomme-hus-k` | 2026-09-16–2026-10-16 | 14 | 26 | 21 | 22 |
+| StoneAndTree | `stoneandtree-waterfront` | 2026-08-17–2026-09-11 | 9 | 16 | 0 | 24 |
+
+There were no HUS K or Waterfront messages in the preceding calendar month. Their windows therefore use the latest available 30 days of project activity. The periods above include review candidates; individual case IDs retain their actual source dates.
+
+All 31 scored inputs are complete standalone `SiteDiarySaveBatch.originalText` messages after removing the author prefix. Batch, raw text, redacted input and reference row fingerprints preserve provenance without committing production identity IDs. `ocelt-source-audit.json` separately verifies all eight existing Ocelt messages and all 16 expected rows against their exact batches; these are not fragments of the larger multi-work messages. The legacy `eval:ai:ocelt` command still includes its two synthetic scenarios. The new project benchmark includes only the eight real Ocelt messages.
+
+Reference rows preserve their stored date, work category, quantity, labour, location and comment. Forma2 expectations distinguish `stored-allocation` from `journal-work-selection` (the current configured work-to-position binding). A configured binding is not evidence of an independently reviewed allocation. HUS K's 21 positions cannot match Ocelt positions because snapshot IDs are scoped per project. Waterfront has no Forma2 catalog; its assertions require configured work categories and null Forma2 IDs. The project benchmark also disables the extra offline automatic Forma2 matcher used by the older reviewed suite, so it cannot conceal an extractor/checker assignment failure.
+
+Matching is independent of row order. It checks work identity, date, amount/unit, worker count, duration, explicitly testable locations, review state and configured comment signals. Quantity checks preserve null versus zero and accept only explicit alternatives such as a known catalog unit with an unknown amount. Reports include matched/missing/unexpected works and field correctness per case and project. A missing work counts as missing field coverage; these are not independent claims that its source date or number was misread. The benchmark does not automatically judge the full semantic quality of paraphrased comments. Original reference comments are shown for human comparison, and exact reference wording is not required.
+
+The 56 additional pairs remain visible in the corpus review but are excluded from scoring. They include missing current rows, correction chains, unspoken 10-hour/zero-quantity defaults and unresolved delivery-versus-installation splits. Existing corrected records are useful references, but an import method labelled `manual` is not proof of human approval. Source-backed cases may still expose catalog disagreements: for example, HUS K reports filigran slabs in pieces while its current catalog position uses square metres. Keep the reported pieces in the reference; do not invent an area conversion to make the test pass. Review the catalog or project rule separately.
+
+```bash
+npm run eval:ai:diary-projects:review
+npm run eval:ai:diary-projects -- --dry-run
+npm run eval:ai:sbstomme -- --list
+npm run eval:ai:waterfront -- --dry-run
+RUN_AI_EVALS=true npm run eval:ai:diary-projects
+RUN_AI_EVALS=true npm run eval:ai:diary-projects -- --project ocelt
+RUN_AI_EVALS=true npm run eval:ai:sbstomme
+RUN_AI_EVALS=true npm run eval:ai:waterfront
+```
+
+The runners load `.env` locally and require `OPENAI_API_KEY` for real calls. No database credentials are needed for this benchmark. Tracing is off by default; add `--trace` only when the selected organizations' prompts, outputs and diagnostics are intended for LangSmith upload. The corpus review is `.ai-eval-results/diary-project-corpus-review.html`; real runs save JSON and HTML plus `diary-projects-<all|project-key>-latest.html`. Reports identify the engine, project catalog/input fingerprints, assignment mode and actual model settings. Safe `test:ai:dry-run` validates all three frozen corpora without model calls; no new paid run is automatic.
+
+`eval:ai:diary-projects:review` also exports `.ai-eval-results/diary-project-original-messages.txt` and `diary-project-comparison-cases.json`. The text lists all 31 original inputs verbatim with received dates, expected work dates and reference rows. A separate appendix contains the two derived Ocelt scenarios. The JSON keeps model inputs separate from expected answers, includes each project's context snapshot and uses `caseId` to join future extractor results. Derived scenarios retain their own legacy catalog context. Catalog/category conflicts are labelled without changing reference values; the 56 unscored review candidates are absent from these two exports. Generating the overview makes no model calls or database requests.
+
+To refresh from an authorized, private read-only export, curate exact batch fingerprints in `test/fixtures/ai-evals/project-diary-selection.json`, then import into a new directory for review:
+
+```bash
+npm run eval:ai:diary-projects:import -- --input /private/tmp/project-export.json --output-dir /private/tmp/new-diary-corpora
+```
+
+The importer accepts the Supabase CLI `{ "rows": [...] }` export shape or an array of `DiaryProjectSnapshot` objects, validates site fingerprints, remaps position IDs and refuses to overwrite existing fixture files. It performs no database queries or model calls. Keep the raw export outside the repository, inspect the generated HTML and fixture diff, and review ambiguous references before changing the scored selection.
 
 Run the full safe local suite:
 

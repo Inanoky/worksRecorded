@@ -213,7 +213,11 @@ function isRoutableMetaMessage(message: any) {
 		message?.type === "text" ||
 		message?.type === "image" ||
 		message?.type === "audio" ||
-		message?.type === "document"
+		message?.type === "document" ||
+		(message?.type === "interactive" &&
+			message?.interactive?.type === "button_reply" &&
+			typeof message.interactive.button_reply?.id === "string" &&
+			message.interactive.button_reply.id.startsWith("tgem:"))
 	);
 }
 
@@ -374,6 +378,13 @@ async function toWhatsAppFormData(
 	formData.set("MessageId", message?.id ?? "");
 	formData.set("MessageTimestamp", message?.timestamp ?? "");
 	formData.set("NumMedia", numMedia);
+	if (
+		message?.interactive?.type === "button_reply" &&
+		typeof message.interactive.button_reply?.id === "string" &&
+		message.interactive.button_reply.id.startsWith("tgem:")
+	) {
+		formData.set("TgemDraftButtonId", message.interactive.button_reply.id);
+	}
 
 	if (hasImage) {
 		const mediaStartedAt = Date.now();
@@ -1138,6 +1149,13 @@ async function runResolvedWhatsappRoutingForMeta(args: {
 					siteId: siteManagerUser.lastSelectedSiteIdforWhatsapp,
 				})
 			: null;
+		if (
+			getString(formData, "TgemDraftButtonId") &&
+			siteManagerFlowModuleKey !== FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL
+		) {
+			routeOutcome = "tgem_button_outside_tgem";
+			return;
+		}
 		if (siteManagerUser && isSingleMetaImageFormData(formData)) {
 			if (siteManagerFlowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION) {
 				const batchDecision = await stageDefaultConstructionImageBatch({
@@ -1160,7 +1178,11 @@ async function runResolvedWhatsappRoutingForMeta(args: {
 		}
 
 		const lockStartedAt = Date.now();
-		const acquired = await acquireRoutingLock(identityKey, messageId);
+		const tgemDraftFlow =
+			siteManagerFlowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL;
+		const acquired = tgemDraftFlow
+			? true
+			: await acquireRoutingLock(identityKey, messageId);
 		logMetaWebhookTiming("routing_lock_acquire", lockStartedAt, {
 			messageId,
 			identityKey,
@@ -1181,7 +1203,7 @@ async function runResolvedWhatsappRoutingForMeta(args: {
 			return;
 		}
 
-		lockHeld = true;
+		lockHeld = !tgemDraftFlow;
 		lockKey = identityKey;
 		assertZtcMessageActive();
 
@@ -1281,13 +1303,14 @@ async function runResolvedWhatsappRoutingForMeta(args: {
 		const handlerStartedAt = Date.now();
 		routeOutcome = await runWithWhatsappSourceContext(
 			{ senderPhone: resolved.webhookIdentity.phone ?? null },
-			() => routeRegisteredWhatsappUserByFlow({
-				flowModuleKey:
-					siteManagerFlowModuleKey ?? FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION,
-				from,
-				formData,
-				user,
-			}),
+			() =>
+				routeRegisteredWhatsappUserByFlow({
+					flowModuleKey:
+						siteManagerFlowModuleKey ?? FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION,
+					from,
+					formData,
+					user,
+				}),
 		);
 		logMetaWebhookTiming(`${routeOutcome}_route`, handlerStartedAt, {
 			messageId,

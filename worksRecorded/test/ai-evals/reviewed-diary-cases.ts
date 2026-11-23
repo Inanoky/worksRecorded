@@ -14,10 +14,19 @@ const expectedRecord = z.object({
 	unit: z.string().nullable(),
 	workers: measured,
 	hours: measured,
-	forma2PositionId: z.string().min(1),
+	forma2PositionId: z.string().min(1).nullable(),
+	checkLocation: z.boolean().optional(),
+	locationAlternatives: z.array(z.string().nullable()).optional(),
+	quantityAlternatives: z
+		.array(z.object({ amount: measured, unit: z.string().nullable() }))
+		.optional(),
 	provenance: z.object({
 		recordFingerprint: z.string().length(64),
-		assignmentBasis: z.enum(["stored-allocation", "journal-work-selection"]),
+		assignmentBasis: z.enum([
+			"stored-allocation",
+			"journal-work-selection",
+			"not-assigned",
+		]),
 	}),
 });
 export const ReviewedDiaryCaseSchema = z.object({
@@ -29,6 +38,11 @@ export const ReviewedDiaryCaseSchema = z.object({
 	receivedDateISO: dateISO,
 	sourceText: z.string().min(1),
 	sourceFingerprint: z.string().length(64),
+	sourceKind: z
+		.enum(["full-message", "source-fragment"])
+		.default("full-message"),
+	sourceTextFingerprint: z.string().length(64).optional(),
+	inputFingerprint: z.string().length(64).optional(),
 	expectedRecords: z.array(expectedRecord).min(1),
 });
 export const ReviewedDiaryCorpusSchema = z
@@ -40,30 +54,48 @@ export const ReviewedDiaryCorpusSchema = z
 			periodStart: dateISO,
 			periodEnd: dateISO,
 			snapshotDate: dateISO,
+			sourcePeriodStart: dateISO.optional(),
+			sourcePeriodEnd: dateISO.optional(),
 			sourceSiteFingerprint: z.string().length(64),
 			reviewBasis: z.string(),
 			redactions: z.array(z.string()),
 		}),
 		project: z.object({
+			key: z
+				.string()
+				.regex(/^[a-z0-9-]+$/)
+				.default("ocelt"),
+			language: z.enum(["lv", "en", "ru"]).default("lv"),
 			documentId: z.string(),
 			config: z.record(z.unknown()),
-			positions: z
-				.array(
-					z.object({
-						id: z.string(),
-						code: z.string(),
-						name: z.string(),
-						categoryName: z.string(),
-						categoryCode: z.string(),
-						kind: z.enum(["work", "material"]),
-						parentId: z.string().nullable(),
-						sourceRow: z.number(),
-						unit: z.string(),
-					}),
-				)
-				.min(1),
+			positions: z.array(
+				z.object({
+					id: z.string(),
+					code: z.string(),
+					name: z.string(),
+					categoryName: z.string(),
+					categoryCode: z.string(),
+					kind: z.enum(["work", "material"]),
+					parentId: z.string().nullable(),
+					sourceRow: z.number(),
+					unit: z.string(),
+					manualAssignmentOnly: z.boolean().optional(),
+				}),
+			),
 		}),
 		cases: z.array(ReviewedDiaryCaseSchema).min(1),
+		referenceCandidates: z
+			.array(
+				z.object({
+					id: z.string(),
+					sourceText: z.string(),
+					receivedDateISO: dateISO,
+					sourceFingerprint: z.string().length(64),
+					issues: z.array(z.string()).min(1),
+					expectedRecords: z.array(expectedRecord),
+				}),
+			)
+			.default([]),
 	})
 	.superRefine((corpus, ctx) => {
 		const ids = new Set<string>();
@@ -82,7 +114,11 @@ export const ReviewedDiaryCorpusSchema = z
 			fingerprints.add(evalCase.sourceFingerprint);
 			const rowIds = new Set<string>();
 			for (const [rowIndex, row] of evalCase.expectedRecords.entries()) {
-				if (!positionIds.has(row.forma2PositionId) || rowIds.has(row.id))
+				if (
+					(row.forma2PositionId !== null &&
+						!positionIds.has(row.forma2PositionId)) ||
+					rowIds.has(row.id)
+				)
 					ctx.addIssue({
 						code: z.ZodIssueCode.custom,
 						path: ["cases", index, "expectedRecords", rowIndex],
@@ -102,10 +138,13 @@ export const ReviewedDiaryCorpusSchema = z
 		}
 	});
 export type ReviewedDiaryCase = z.infer<typeof ReviewedDiaryCaseSchema>;
+export type ReviewedDiaryCorpus = z.infer<typeof ReviewedDiaryCorpusSchema>;
+export type FrozenDiaryProject = ReviewedDiaryCorpus["project"];
 export type DiaryExtractionEvalCase = Omit<
 	ReviewedDiaryCase,
-	"sourceFingerprint" | "expectedRecords"
+	"sourceFingerprint" | "sourceKind" | "expectedRecords"
 > & {
+	sourceKind?: ReviewedDiaryCase["sourceKind"];
 	expectedRecords: Array<
 		Omit<
 			ReviewedDiaryCase["expectedRecords"][number],

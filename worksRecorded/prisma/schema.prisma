@@ -39,6 +39,7 @@ model Organization {
       BISmaterialRecords BISmaterialRecords[] //on site can have many BIS material records. 
       siteWeatherHourly SiteWeatherHourly[]
       tgemInvoiceCases TgemInvoiceCase[]
+      tgemInvoiceUploadDrafts TgemInvoiceUploadDraft[]
       tgemInvoiceAuditEvents TgemInvoiceAuditEvent[]
       tgemInvoiceApprovalTemplates TgemInvoiceApprovalTemplate[]
       tgemInvoiceApprovalFlows TgemInvoiceApprovalFlow[]
@@ -92,6 +93,7 @@ model User {
   bisToken          BisToken?
   whatsappIdentities WhatsAppIdentity[]
   tgemInvoiceCasesSubmitted TgemInvoiceCase[] @relation("TgemInvoiceSubmittedBy")
+  tgemInvoiceUploadDrafts TgemInvoiceUploadDraft[]
   tgemInvoiceApprovalSteps TgemInvoiceApprovalStep[] @relation("TgemInvoiceApprover")
   tgemInvoiceTemplateSteps TgemInvoiceApprovalTemplateStep[] @relation("TgemInvoiceTemplateApprover")
   tgemInvoiceApprovalFlowSteps TgemInvoiceApprovalFlowStep[] @relation("TgemInvoiceApprovalFlowApprover")
@@ -147,6 +149,7 @@ model Site {
   ztcRecords        ZtcRecords[]
   BISmaterialRecords BISmaterialRecords[] //on site can have many BIS material records. 
   tgemInvoiceCases TgemInvoiceCase[]
+  tgemInvoiceUploadDrafts TgemInvoiceUploadDraft[]
   tgemInvoiceApprovalTemplates TgemInvoiceApprovalTemplate[]
   tgemInvoiceWorkflowManagers TgemInvoiceWorkflowManager[]
   tgemSiteAccessMemberships TgemSiteAccessMembership[]
@@ -268,6 +271,10 @@ model TgemInvoiceCase {
   validationSummary         Json?
   extractionSummary         Json?
   sourceContext             Json?
+  uploadDraftId            String?
+  primaryDocumentId        String?
+  packageReviewRequired    Boolean   @default(false)
+  packageReviewReason      String?
   projectMatchConfidence    Float?
   projectMatchMethod        String?
   projectMatchSummary       Json?
@@ -293,6 +300,8 @@ model TgemInvoiceCase {
   splitParent               TgemInvoiceCase? @relation("TgemInvoiceCaseSplits", fields: [splitParentInvoiceCaseId], references: [id], onDelete: Restrict)
   splitChildren             TgemInvoiceCase[] @relation("TgemInvoiceCaseSplits")
   documents                 TgemInvoiceDocument[]
+  uploadDraft     TgemInvoiceUploadDraft?   @relation(fields: [uploadDraftId], references: [id], onDelete: SetNull)
+  primaryDocument TgemInvoiceDocument?      @relation("TgemPrimaryDocument", fields: [primaryDocumentId], references: [id], onDelete: SetNull)
   lines                     TgemInvoiceLine[]
   approvalSteps             TgemInvoiceApprovalStep[]
   auditEvents               TgemInvoiceAuditEvent[]
@@ -306,6 +315,51 @@ model TgemInvoiceCase {
   @@index([organizationId, paymentStatus, createdAt])
   @@index([splitParentInvoiceCaseId])
   @@index([splitRootInvoiceCaseId, archivedAt, createdAt])
+  @@index([uploadDraftId])
+}
+
+model TgemInvoiceUploadDraft {
+  source                String                 @default("whatsapp")
+  id                    String                 @id @default(uuid())
+  activeKey             String?                @unique
+  organizationId        String
+  userId                String
+  siteId                String
+  businessPhoneNumberId String
+  sender                String
+  status                String                 @default("collecting")
+  revision              Int                    @default(0)
+  submissionMode        String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  files                 TgemInvoiceDraftFile[]
+  invoices              TgemInvoiceCase[]
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                  User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  site                  Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId, status])
+}
+
+model TgemInvoiceDraftFile {
+  id               String                 @id @default(uuid())
+  draftId          String
+  sourceKey        String                 @unique
+  messageId        String
+  status           String                 @default("uploading")
+  position         Int                    @default(0)
+  storageKey       String?
+  canonicalUrl     String?
+  originalFilename String
+  contentType      String
+  byteSize         Int?
+  sha256           String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  draft            TgemInvoiceUploadDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  invoiceDocument  TgemInvoiceDocument?
+
+  @@index([draftId, status, createdAt])
 }
 
 model TgemInboundMailbox {
@@ -347,10 +401,14 @@ model TgemInvoiceDocument {
   byteSize           Int?
   sha256             String?
   source             String
+  uploadDraftFileId String?  @unique
+  documentOrder     Int      @default(0)
   createdAt          DateTime @default(now())
 
   invoiceCase        TgemInvoiceCase @relation(fields: [invoiceCaseId], references: [id], onDelete: Cascade)
   ocrPages           TgemInvoiceOcrPage[]
+  uploadDraftFile TgemInvoiceDraftFile? @relation(fields: [uploadDraftFileId], references: [id], onDelete: SetNull)
+  primaryFor      TgemInvoiceCase[]     @relation("TgemPrimaryDocument")
 
   @@index([invoiceCaseId, createdAt])
   @@index([sha256])

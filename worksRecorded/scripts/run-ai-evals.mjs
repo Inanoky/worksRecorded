@@ -41,7 +41,7 @@ function usage() {
 		"  tag <name>",
 		"  tier <smoke|regression|extended>",
 		"  case <id>",
-		"  flow <dashboard|whatsapp-site-manager|whatsapp-worker|diary-reviewed|ocelt|all>",
+		"  flow <dashboard|whatsapp-site-manager|whatsapp-worker|diary-reviewed|ocelt|diary-projects|sbstomme|waterfront|all>",
 		"  --include-manual (opt in to image cases)",
 	].join("\n");
 }
@@ -56,6 +56,17 @@ function getValue(args, index, name) {
 
 function findFlow(value) {
 	if (value === "all") return "all";
+	const projectScripts = {
+		"diary-projects": "eval:ai:diary-projects",
+		sbstomme: "eval:ai:sbstomme",
+		waterfront: "eval:ai:waterfront",
+	};
+	if (Object.hasOwn(projectScripts, value))
+		return {
+			aliases: [value],
+			flow: "diary-reviewed",
+			script: projectScripts[value],
+		};
 	const flow = FLOWS.find((flow) => flow.aliases.includes(value));
 	return value === "ocelt" && flow
 		? { ...flow, script: "eval:ai:ocelt" }

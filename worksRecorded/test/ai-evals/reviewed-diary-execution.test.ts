@@ -3,6 +3,7 @@ import { getCurrentForma2WorkSelections } from "@/flows/default-construction/bac
 import { getSiteManagerAgentRunContext } from "@/flows/default-construction/backend/site-manager-agent/runContext";
 import { extractAndSaveSiteDiary } from "@/flows/default-construction/backend/site-manager-agent/tools";
 import { oceltScenarioCases } from "./ocelt-scenario-cases";
+import { projectDiaryCorpora } from "./project-diary-corpora";
 import { reviewedDiaryCases } from "./reviewed-diary-cases";
 import { executeReviewedDiaryCase } from "./reviewed-diary-execution";
 
@@ -24,6 +25,39 @@ jest.mock("openai", () => ({
 		.mockImplementation(() => ({ responses: { parse: jest.fn() } })),
 }));
 const originalClone = globalThis.structuredClone;
+
+it("uses each project's own form, language and catalog without copying the reference answers into model input", async () => {
+	jest
+		.mocked(extractAndSaveSiteDiary)
+		.mockResolvedValue({ ok: true, rows: [] } as never);
+	for (const key of ["sbstomme-hus-k", "stoneandtree-waterfront"] as const) {
+		const corpus = projectDiaryCorpora[key];
+		const item = structuredClone(corpus.cases[0]);
+		item.expectedRecords[0].reviewedComment =
+			"GOLD_PROJECT_ANSWER_MUST_NOT_LEAK";
+		await executeReviewedDiaryCase(item, {
+			siteId: `eval:${key}`,
+			userId: `eval-user:${key}`,
+			runId: "project-context",
+			project: corpus.project,
+			matchForma2: false,
+		});
+		const call = jest.mocked(extractAndSaveSiteDiary).mock.calls.at(-1)?.[0];
+		expect(call?.evaluationContext?.config).toEqual(corpus.project.config);
+		expect(call?.evaluationContext?.language).toBe(corpus.project.language);
+		expect(JSON.stringify(call)).not.toContain(
+			"GOLD_PROJECT_ANSWER_MUST_NOT_LEAK",
+		);
+		expect(JSON.stringify(call)).not.toContain("Skataka DN1000");
+		const state = jest
+			.mocked(getCurrentForma2WorkSelections)
+			.mock.calls.at(-1)?.[1];
+		expect(state?.document?.positions.length ?? 0).toBe(
+			corpus.project.positions.length,
+		);
+	}
+	expect(automaticallyAssignForma2Sources).not.toHaveBeenCalled();
+});
 beforeAll(() => {
 	globalThis.structuredClone = <T>(value: T): T =>
 		JSON.parse(JSON.stringify(value)) as T;
@@ -107,6 +141,7 @@ it("resolves the generated journal selection to a stable Forma2 ID before scorin
 	);
 	if (!evalCase) throw new Error("Missing reference case");
 	const expected = evalCase.expectedRecords[0];
+	if (!expected.forma2PositionId) throw new Error("Missing reference position");
 	jest.mocked(getCurrentForma2WorkSelections).mockReturnValue({
 		positionByWorkKey: new Map([
 			[expected.work.toLocaleLowerCase("lv"), expected.forma2PositionId],

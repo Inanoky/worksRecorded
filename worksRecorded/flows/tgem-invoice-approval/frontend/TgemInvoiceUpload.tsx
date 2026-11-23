@@ -12,6 +12,7 @@ import * as React from "react";
 
 import { useUploadThing } from "@/lib/utils/UploadthingsComponents";
 import { getTgemInvoiceProcessingStatus } from "@/server/actions/tgem-invoice-actions";
+import { submitTgemWebInvoicePackage } from "@/server/actions/tgem-invoice-package-actions";
 
 type UploadStage = "idle" | "uploading" | "processing" | "ready" | "error";
 
@@ -25,7 +26,11 @@ function getUploadCopy(language?: string | null) {
 	if (language === "lv") {
 		return {
 			title: "Iesniegt rēķinu",
-			description: "Pievienojiet PDF, JPG, PNG vai WebP failu līdz 16 MB.",
+			description:
+				"Līdz 10 PDF, JPG, PNG vai WebP failiem; katrs līdz 16 MB, kopā līdz 32 MB.",
+			together: "Viens rēķins ar pielikumiem (piemēram, čeku)",
+			separate: "Katrs fails ir atsevišķs rēķins",
+			limits: "Atļauti līdz 10 failiem, katrs līdz 16 MB, kopā līdz 32 MB.",
 			choose: "Izvēlieties rēķinu",
 			drop: "vai ievelciet failu šeit",
 			upload: "Augšupielāde",
@@ -46,7 +51,11 @@ function getUploadCopy(language?: string | null) {
 	if (language === "ru") {
 		return {
 			title: "Загрузить счет",
-			description: "Добавьте PDF, JPG, PNG или WebP размером до 16 МБ.",
+			description:
+				"До 10 PDF, JPG, PNG или WebP; каждый до 16 МБ, всего до 32 МБ.",
+			together: "Один счет с приложениями (например, чеком)",
+			separate: "Каждый файл — отдельный счет",
+			limits: "До 10 файлов, каждый до 16 МБ, всего до 32 МБ.",
 			choose: "Выбрать счет",
 			drop: "или перетащите файл сюда",
 			upload: "Загрузка",
@@ -65,7 +74,11 @@ function getUploadCopy(language?: string | null) {
 
 	return {
 		title: "Upload invoice",
-		description: "Add a PDF, JPG, PNG, or WebP file up to 16 MB.",
+		description:
+			"Up to 10 PDF, JPG, PNG, or WebP files; 16 MB each, 32 MB total.",
+		together: "One invoice with attachments (such as a receipt)",
+		separate: "Each file is a separate invoice",
+		limits: "Up to 10 files, 16 MB each and 32 MB total.",
 		choose: "Choose invoice",
 		drop: "or drop the file here",
 		upload: "Upload",
@@ -107,6 +120,17 @@ export function TgemInvoiceUpload({
 		warningCount: number;
 	} | null>(null);
 	const [dragActive, setDragActive] = React.useState(false);
+	const [mode, setMode] = React.useState<"together" | "separate">("together");
+	const pendingDraftId = React.useRef<string | null>(null);
+	const pendingFiles = React.useRef<File[]>([]);
+	const pendingProjectId = React.useRef<string | null>(null);
+	const { startUpload: startPackageUpload } = useUploadThing(
+		"tgemInvoicePackageUploader",
+		{
+			uploadProgressGranularity: "fine",
+			onUploadProgress: setProgress,
+		},
+	);
 	const { startUpload } = useUploadThing("tgemInvoiceUploader", {
 		uploadProgressGranularity: "fine",
 		onUploadProgress: setProgress,
@@ -119,68 +143,121 @@ export function TgemInvoiceUpload({
 		setFileName(null);
 		setError(null);
 		setResult(null);
+		pendingDraftId.current = null;
+		pendingFiles.current = [];
+		pendingProjectId.current = null;
 		if (inputRef.current) inputRef.current.value = "";
 	}, []);
 
 	const processFile = React.useCallback(
-		async (file: File | undefined) => {
+		async (files: File[], resume = false) => {
+			const file = files[0];
 			if (!file || busy) return;
-			if (!selectedProjectId) {
+			const projectId = resume ? pendingProjectId.current : selectedProjectId;
+			if (!projectId) {
 				setStage("error");
 				setError(copy.projectRequired);
 				return;
 			}
-			if (!ACCEPTED_FILE_TYPES.has(file.type)) {
+			if (files.some((item) => !ACCEPTED_FILE_TYPES.has(item.type))) {
 				setStage("error");
 				setError(copy.invalid);
 				return;
 			}
+			if (
+				files.length > 10 ||
+				files.some((item) => item.size > 16 * 1024 * 1024) ||
+				files.reduce((sum, item) => sum + item.size, 0) > 32 * 1024 * 1024
+			) {
+				setStage("error");
+				setError(copy.limits);
+				return;
+			}
 
-			setFileName(file.name);
+			setFileName(files.map((item) => item.name).join(", "));
 			setError(null);
 			setResult(null);
 			setProgress(0);
 			setStage("uploading");
+			if (!resume) {
+				pendingDraftId.current = null;
+				pendingFiles.current = files;
+				pendingProjectId.current = projectId;
+			}
 
 			try {
-				const uploaded = await startUpload([file], {
-					siteId: selectedProjectId,
-				});
-				const serverData = uploaded?.[0]?.serverData;
-				if (!serverData?.invoiceCaseId || !serverData.documentId) {
+				let invoices: Array<{ invoiceCaseId: string; documentId?: string }>;
+				if (files.length > 1) {
+					if (!pendingDraftId.current) {
+						const uploaded = await startPackageUpload(files, {
+							siteId: projectId,
+						});
+						const draftId = uploaded?.[0]?.serverData?.draftId;
+						if (
+							!draftId ||
+							uploaded?.length !== files.length ||
+							uploaded.some((item) => item.serverData?.draftId !== draftId)
+						)
+							throw new Error(copy.failed);
+						pendingDraftId.current = draftId;
+					}
+					const draftId = pendingDraftId.current;
+					invoices = await submitTgemWebInvoicePackage({ draftId, mode });
+				} else {
+					const uploaded = await startUpload([file], {
+						siteId: projectId,
+					});
+					const data = uploaded?.[0]?.serverData;
+					invoices = data ? [data] : [];
+				}
+				if (
+					!invoices.length ||
+					invoices.some((item) => !item.invoiceCaseId || !item.documentId)
+				) {
 					throw new Error(copy.failed);
 				}
 
 				setProgress(100);
 				setStage("processing");
-				let ocrResult: Awaited<
-					ReturnType<typeof getTgemInvoiceProcessingStatus>
-				> = null;
-				for (let attempt = 0; attempt < 80; attempt += 1) {
-					ocrResult = await getTgemInvoiceProcessingStatus({
-						invoiceCaseId: serverData.invoiceCaseId,
-						documentId: serverData.documentId,
-					});
-					if (
-						ocrResult &&
-						!["received", "processing"].includes(ocrResult.status)
-					) {
-						break;
-					}
-					await new Promise((resolve) => setTimeout(resolve, 1_500));
-				}
-				if (!ocrResult || ocrResult.status === "failed_processing") {
-					throw new Error(ocrResult?.processingError || copy.failed);
-				}
-				if (["received", "processing"].includes(ocrResult.status)) {
-					throw new Error(copy.failed);
-				}
+				const results = await Promise.all(
+					invoices.map(async (serverData) => {
+						let ocrResult: Awaited<
+							ReturnType<typeof getTgemInvoiceProcessingStatus>
+						> = null;
+						for (let attempt = 0; attempt < 80; attempt += 1) {
+							ocrResult = await getTgemInvoiceProcessingStatus({
+								invoiceCaseId: serverData.invoiceCaseId,
+								documentId: serverData.documentId as string,
+							});
+							if (
+								ocrResult &&
+								!["received", "processing"].includes(ocrResult.status)
+							) {
+								break;
+							}
+							await new Promise((resolve) => setTimeout(resolve, 1_500));
+						}
+						if (!ocrResult || ocrResult.status === "failed_processing") {
+							throw new Error(ocrResult?.processingError || copy.failed);
+						}
+						if (["received", "processing"].includes(ocrResult.status)) {
+							throw new Error(copy.failed);
+						}
+						return ocrResult;
+					}),
+				);
 
 				setResult({
-					lineItemCount: ocrResult.lineItemCount,
-					warningCount: ocrResult.warningCount,
+					lineItemCount: results.reduce(
+						(sum, item) => sum + item.lineItemCount,
+						0,
+					),
+					warningCount: results.reduce(
+						(sum, item) => sum + item.warningCount,
+						0,
+					),
 				});
-				await onInvoiceReady(serverData.invoiceCaseId, selectedProjectId);
+				await onInvoiceReady(invoices[0].invoiceCaseId, projectId);
 				setStage("ready");
 			} catch (uploadError) {
 				setStage("error");
@@ -194,6 +271,9 @@ export function TgemInvoiceUpload({
 			copy.failed,
 			copy.invalid,
 			copy.projectRequired,
+			copy.limits,
+			mode,
+			startPackageUpload,
 			onInvoiceReady,
 			selectedProjectId,
 			startUpload,
@@ -226,7 +306,7 @@ export function TgemInvoiceUpload({
 			onDrop={(event) => {
 				event.preventDefault();
 				setDragActive(false);
-				void processFile(event.dataTransfer.files[0]);
+				void processFile(Array.from(event.dataTransfer.files));
 			}}
 		>
 			<div className="grid lg:grid-cols-[minmax(18rem,0.7fr)_minmax(28rem,1.3fr)]">
@@ -246,6 +326,27 @@ export function TgemInvoiceUpload({
 				</div>
 
 				<div className="relative min-h-28 p-4">
+					{stage === "idle" ? (
+						<fieldset className="mb-3 flex flex-col gap-2 text-xs">
+							{(
+								[
+									["together", copy.together],
+									["separate", copy.separate],
+								] as const
+							).map(([value, label]) => (
+								<label key={value} className="flex items-center gap-2">
+									<input
+										type="radio"
+										name={`${inputId}-mode`}
+										value={value}
+										checked={mode === value}
+										onChange={() => setMode(value)}
+									/>
+									{label}
+								</label>
+							))}
+						</fieldset>
+					) : null}
 					{stage === "idle" ? (
 						<div className="flex h-full flex-col items-center justify-center gap-2 text-center sm:flex-row sm:justify-between sm:text-left">
 							<div>
@@ -284,7 +385,11 @@ export function TgemInvoiceUpload({
 								{!busy ? (
 									<button
 										type="button"
-										onClick={reset}
+										onClick={() => {
+											if (stage === "error" && pendingDraftId.current)
+												void processFile(pendingFiles.current, true);
+											else reset();
+										}}
 										className="inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium hover:bg-tgem-primary/10 hover:text-tgem-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
 									>
 										<RotateCcw className="h-3.5 w-3.5" />
@@ -341,10 +446,13 @@ export function TgemInvoiceUpload({
 				ref={inputRef}
 				id={inputId}
 				type="file"
+				multiple
 				accept="application/pdf,image/jpeg,image/png,image/webp"
 				disabled={busy || !selectedProjectId}
 				className="sr-only"
-				onChange={(event) => void processFile(event.target.files?.[0])}
+				onChange={(event) =>
+					void processFile(Array.from(event.target.files ?? []))
+				}
 			/>
 		</section>
 	);

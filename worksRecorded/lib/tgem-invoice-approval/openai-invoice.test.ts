@@ -14,6 +14,7 @@ import {
 	createTgemOpenAiTransport,
 	getTgemOpenAiConfig,
 	mapOpenAiInvoiceResponse,
+	mapOpenAiPackageResponse,
 	processTgemInvoiceWithOpenAi,
 } from "@/lib/tgem-invoice-approval/openai-invoice";
 
@@ -56,8 +57,93 @@ const extractedInvoice = {
 };
 
 describe("OpenAI TGEM invoice extraction", () => {
+	const documents = [
+		{
+			id: "receipt",
+			filename: "receipt.jpg",
+			mimeType: "image/jpeg",
+			content: Buffer.from("receipt"),
+		},
+		{
+			id: "invoice",
+			filename: "invoice.pdf",
+			mimeType: "application/pdf",
+			content: Buffer.from("invoice"),
+		},
+	];
+	const packagePayload = {
+		...extractedInvoice,
+		primaryDocumentIndex: 1,
+		needsReview: false,
+		reviewReason: null,
+		pages: [
+			{ documentIndex: 0, pageNumber: 1, text: "Čeks 60,50 EUR" },
+			{ documentIndex: 1, pageNumber: 1, text: "Rēķins 60,50 EUR" },
+		],
+	};
 	beforeEach(() => {
 		jest.clearAllMocks();
+	});
+
+	it("keeps one invoice amount and maps each attachment's first OCR page separately", () => {
+		const result = mapOpenAiPackageResponse(packagePayload, documents);
+		expect(result.fields.total.value).toBe(60.5);
+		expect(result.lineItems).toHaveLength(1);
+		expect(result.packageReview).toEqual({
+			primaryDocumentId: "invoice",
+			needsReview: false,
+			reason: null,
+		});
+		expect(
+			result.pages.map(({ documentId, pageNumber }) => [
+				documentId,
+				pageNumber,
+			]),
+		).toEqual([
+			["receipt", 1],
+			["invoice", 1],
+		]);
+	});
+
+	it.each([
+		{ ...packagePayload, primaryDocumentIndex: 2 },
+		{ ...packagePayload, pages: [packagePayload.pages[0]] },
+		{
+			...packagePayload,
+			pages: [...packagePayload.pages, packagePayload.pages[0]],
+		},
+	])("rejects invalid or incomplete package references", (payload) => {
+		expect(() => mapOpenAiPackageResponse(payload, documents)).toThrow();
+	});
+
+	it("sends all package documents in one request with financial deduplication instructions", async () => {
+		mockResponsesParse.mockResolvedValue({ output_parsed: packagePayload });
+		const transport = createTgemOpenAiTransport({
+			apiKey: "test",
+			model: "test-model",
+		});
+		await processTgemInvoiceWithOpenAi(
+			{
+				content: documents[0].content,
+				mimeType: documents[0].mimeType,
+				documents,
+			},
+			transport,
+		);
+		expect(mockResponsesParse).toHaveBeenCalledTimes(1);
+		const request = mockResponsesParse.mock.calls[0][0];
+		expect(
+			request.input[0].content.map((part: { type: string }) => part.type),
+		).toEqual([
+			"input_text",
+			"input_text",
+			"input_image",
+			"input_text",
+			"input_file",
+		]);
+		expect(request.instructions).toContain("NEVER sum or duplicate amounts");
+		expect(request.instructions).toContain("must NOT mark the invoice paid");
+		expect(request.instructions).toContain("set needsReview=true");
 	});
 
 	it("builds high-detail image and PDF inputs from document bytes", () => {

@@ -29,6 +29,9 @@ jest.mock("next/navigation", () => ({
 }));
 
 const mockStartUpload = jest.fn();
+jest.mock("@/server/actions/tgem-invoice-package-actions", () => ({
+	submitTgemWebInvoicePackage: jest.fn(),
+}));
 const mockSaveApprovalTemplate = jest.fn();
 const mockSaveWorkflowManagers = jest.fn();
 const mockGetApprovalSetup = jest.fn();
@@ -349,6 +352,59 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			},
 		});
 	});
+
+	it.each(["approval", "register"] as const)(
+		"opens the main document and switches attachments in the %s view",
+		async (view) => {
+			const original = dashboardData.invoices[0].documents[0];
+			jest.mocked(getTgemInvoiceDashboardData).mockResolvedValue({
+				...dashboardData,
+				invoices: [
+					{
+						...dashboardData.invoices[0],
+						primaryDocumentId: "main-doc",
+						documents: [
+							{
+								...original,
+								id: "receipt-doc",
+								originalFilename: "receipt.png",
+								documentPath: "/receipt.png",
+							},
+							{
+								...original,
+								id: "main-doc",
+								originalFilename: "main-invoice.png",
+								documentPath: "/main-invoice.png",
+							},
+						],
+					},
+				],
+			});
+			render(
+				<TgemInvoiceApprovalDashboard
+					siteId="site-1"
+					initialView={view}
+					organizationLanguage="en"
+				/>,
+			);
+			if (view === "register")
+				fireEvent.click(
+					await screen.findByRole("button", {
+						name: "Invoice preview: TG-2026-0718",
+					}),
+				);
+			expect(
+				await screen.findByRole("img", { name: "main-invoice.png" }),
+			).toBeInTheDocument();
+			fireEvent.change(
+				screen.getByRole("combobox", { name: "Choose document" }),
+				{ target: { value: "receipt-doc" } },
+			);
+			expect(
+				screen.getByRole("img", { name: "receipt.png" }),
+			).toBeInTheDocument();
+		},
+	);
 
 	it("refreshes the scoped register without clearing its filters", async () => {
 		let finishRefresh!: (value: TgemDashboardData) => void;

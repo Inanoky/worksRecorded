@@ -293,7 +293,7 @@ const dashboardInvoiceInclude = {
 				orderBy: { pageNumber: "asc" },
 			},
 		},
-		orderBy: { createdAt: "asc" },
+		orderBy: [{ documentOrder: "asc" }, { createdAt: "asc" }],
 	},
 	lines: {
 		select: {
@@ -362,6 +362,9 @@ function serializeTgemDashboardInvoice(
 	return {
 		id: invoiceCase.id,
 		permissions: [],
+		primaryDocumentId: invoiceCase.primaryDocumentId,
+		packageReviewRequired: invoiceCase.packageReviewRequired,
+		packageReviewReason: invoiceCase.packageReviewReason,
 		project: invoiceCase.site,
 		source: invoiceCase.source,
 		status: invoiceCase.status,

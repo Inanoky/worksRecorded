@@ -41,6 +41,9 @@ export type TgemDashboardInvoiceDocument = {
 };
 
 export type TgemDashboardInvoice = {
+	primaryDocumentId?: string | null;
+	packageReviewRequired?: boolean;
+	packageReviewReason?: string | null;
 	id: string;
 	permissions: TgemPermission[];
 	project: {

@@ -1,4 +1,5 @@
 import type { TgemInvoiceSource } from "@/lib/tgem-invoice-approval/intake";
+import { getTgemInvoiceTracingClient } from "@/lib/tgem-invoice-approval/tracing";
 
 export type TgemInvoiceTraceStage = "request" | "intake" | "processing";
 
@@ -21,6 +22,7 @@ export function buildTgemInvoiceLangSmithConfig(input: {
 				: "Processing";
 
 	return {
+		client: getTgemInvoiceTracingClient(),
 		name: `TGEM ${SOURCE_LABELS[input.source]} Invoice ${stageLabel}`,
 		run_type: "chain",
 		tags: [

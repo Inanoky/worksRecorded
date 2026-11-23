@@ -138,4 +138,71 @@ describe("processTgemInvoiceCase email project resolution", () => {
 			trigger: "automatic",
 		});
 	});
+
+	it("loads all attachments once and defers approval for an ambiguous package", async () => {
+		const firstLoad = jest.fn().mockResolvedValue(Buffer.from("invoice"));
+		const supportLoad = jest.fn().mockResolvedValue(Buffer.from("receipt"));
+		mockProcessTgemInvoice.mockResolvedValue({
+			provider: "openai",
+			fields: {},
+			lineItems: [],
+			pages: [],
+			packageReview: {
+				primaryDocumentId: "document-1",
+				needsReview: true,
+				reason: "Atšķirīgi rēķini",
+			},
+		});
+		await processTgemInvoiceCase({
+			invoiceCaseId: "case-1",
+			documentId: "document-1",
+			organizationId: "org-1",
+			siteId: "site-1",
+			actorUserId: "user-1",
+			actorType: "whatsapp",
+			source: "whatsapp",
+			content: firstLoad,
+			contentType: "application/pdf",
+			documents: [
+				{
+					id: "document-1",
+					filename: "invoice.pdf",
+					contentType: "application/pdf",
+					load: firstLoad,
+				},
+				{
+					id: "document-2",
+					filename: "receipt.jpg",
+					contentType: "image/jpeg",
+					load: supportLoad,
+				},
+			],
+		});
+		expect(firstLoad).toHaveBeenCalledTimes(1);
+		expect(supportLoad).toHaveBeenCalledTimes(1);
+		expect(mockProcessTgemInvoice).toHaveBeenCalledWith(
+			expect.objectContaining({
+				documents: [
+					expect.objectContaining({
+						id: "document-1",
+						content: Buffer.from("invoice"),
+					}),
+					expect.objectContaining({
+						id: "document-2",
+						content: Buffer.from("receipt"),
+					}),
+				],
+			}),
+		);
+		expect(mockStartTgemInvoiceApproval).not.toHaveBeenCalled();
+		expect(mockPrisma.tgemInvoiceAuditEvent.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				eventType: "invoice_package_review_required",
+				payload: {
+					primaryDocumentId: "document-1",
+					reason: "Atšķirīgi rēķini",
+				},
+			}),
+		});
+	});
 });

@@ -1,21 +1,27 @@
-import { requireDiaryPhotoAccess, appendDiaryPhoto } from "@/flows/default-construction/backend/diary-photo-upload";
-import { diaryPhotoUploadInput } from "@/flows/default-construction/lib/diary-photo-upload-input";
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
-import { createUploadthing, type FileRouter } from "uploadthing/next";
+import { createUploadthing, type FileRouter, UTFiles } from "uploadthing/next";
 import { UploadThingError } from "uploadthing/server";
 import { z } from "zod";
-
+import {
+	appendDiaryPhoto,
+	requireDiaryPhotoAccess,
+} from "@/flows/default-construction/backend/diary-photo-upload";
 import {
 	requireWarehouseImportAccess,
 	signWarehouseUpload,
 } from "@/flows/default-construction/backend/warehouse-import-upload";
+import { diaryPhotoUploadInput } from "@/flows/default-construction/lib/diary-photo-upload-input";
+import { prepareVisualDrawingPreviews } from "@/flows/default-construction/visual/prepared-preview-store";
 import {
 	createVisualDrawing,
 	requireVisualAccess,
 } from "@/flows/default-construction/visual/store";
 import { validateWarehouseImportFiles } from "@/flows/default-construction/warehouse-import";
-import { prepareVisualDrawingPreviews } from "@/flows/default-construction/visual/prepared-preview-store";
 import { createTgemInvoiceCaseRecord } from "@/lib/tgem-invoice-approval/create-case";
+import {
+	completeTgemDraftFile,
+	createTgemWebUploadDraft,
+} from "@/lib/tgem-invoice-approval/upload-drafts";
 import { enqueueTgemInvoiceProcessing } from "@/lib/tgem-invoice-approval/workflow-client";
 import { prisma } from "@/lib/utils/db";
 
@@ -23,15 +29,61 @@ const f = createUploadthing();
 
 // FileRouter for your app, can contain multiple FileRoutes
 export const ourFileRouter = {
-  limeniDiaryPhotoUploader: f({ image: { maxFileSize: "16MB", maxFileCount: 10 } })
-    .input(diaryPhotoUploadInput)
-    .middleware(async ({ input }) => {
-      const { getUser } = getKindeServerSession();
-      const user = await getUser();
-      if (!user) throw new UploadThingError("Unauthorized");
-      return requireDiaryPhotoAccess(user.id, input.siteId, input.recordId);
-    })
-    .onUploadComplete(async ({ metadata, file }) => appendDiaryPhoto({ ...metadata, url: file.ufsUrl })),
+	tgemInvoicePackageUploader: f({
+		image: { maxFileSize: "16MB", maxFileCount: 10 },
+		pdf: { maxFileSize: "16MB", maxFileCount: 10 },
+	})
+		.input(z.object({ siteId: z.string().min(1) }))
+		.middleware(async ({ input, files }) => {
+			const { getUser } = getKindeServerSession();
+			const user = await getUser();
+			if (!user) throw new UploadThingError("Unauthorized");
+			const dbUser = await prisma.user.findUnique({
+				where: { id: user.id },
+				select: { organizationId: true },
+			});
+			if (!dbUser?.organizationId)
+				throw new UploadThingError("Organization access required");
+			const scope = {
+				userId: user.id,
+				organizationId: dbUser.organizationId,
+				siteId: input.siteId,
+				businessPhoneNumberId: "dashboard",
+				sender: user.id,
+			};
+			const draft = await createTgemWebUploadDraft(scope, files);
+			return {
+				...scope,
+				draftId: draft.id,
+				[UTFiles]: files.map((file, index) => ({
+					...file,
+					customId: draft.files[index].id,
+				})),
+			};
+		})
+		.onUploadComplete(async ({ metadata, file }) => {
+			if (!file.customId) throw new UploadThingError("Missing draft file");
+			const draft = await completeTgemDraftFile(metadata, file.customId, {
+				canonicalUrl: file.ufsUrl,
+				storageKey: file.key,
+				byteSize: file.size,
+				sha256: file.fileHash || file.key,
+			});
+			return { draftId: draft.id };
+		}),
+	limeniDiaryPhotoUploader: f({
+		image: { maxFileSize: "16MB", maxFileCount: 10 },
+	})
+		.input(diaryPhotoUploadInput)
+		.middleware(async ({ input }) => {
+			const { getUser } = getKindeServerSession();
+			const user = await getUser();
+			if (!user) throw new UploadThingError("Unauthorized");
+			return requireDiaryPhotoAccess(user.id, input.siteId, input.recordId);
+		})
+		.onUploadComplete(async ({ metadata, file }) =>
+			appendDiaryPhoto({ ...metadata, url: file.ufsUrl }),
+		),
 	limeniVisualDrawingUploader: f({
 		pdf: { maxFileSize: "16MB", maxFileCount: 1 },
 	})
@@ -63,7 +115,10 @@ export const ourFileRouter = {
 			try {
 				await prepareVisualDrawingPreviews(drawingId);
 			} catch {
-				console.warn("[visual] Drawing saved; preview preparation can be retried", { drawingId });
+				console.warn(
+					"[visual] Drawing saved; preview preparation can be retried",
+					{ drawingId },
+				);
 			}
 			return { drawingId };
 		}),

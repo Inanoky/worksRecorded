@@ -1,0 +1,280 @@
+[
+  {
+    "key": "ocelt",
+    "siteFingerprint": "87846983851c81f005bf3ddeb7426aedd81868dc0f9303e187921a0716ac234c",
+    "cases": [
+      {
+        "batchFingerprint": "db35336b6d410dfcc7fc5d3843bab4dd6543887b813792edd221669814296161",
+        "id": "ocelt-1110-four-earthworks-calculation",
+        "tags": [
+          "calculation",
+          "backdated",
+          "spoken-latvian"
+        ],
+        "intent": "Četri skaidri zemes darbi: norma reizināta ar 22 m un datums atpakaļ uz 10.11."
+      },
+      {
+        "batchFingerprint": "73029dee679d60dedddf4e9f0181e588a3c3e613f22ad5d7c15a30f7bdcdea18",
+        "id": "ocelt-1112-six-sewer-activities",
+        "tags": [
+          "calculation",
+          "spoken-latvian"
+        ],
+        "intent": "Sešas atsevišķas darbības: DN600 aka, D200 caurule un četri zemes darbi."
+      },
+      {
+        "batchFingerprint": "e52703b0ec80c0518be4e557c7ada696b0a9e73a574facc80ae3dde0fd004cc4",
+        "id": "ocelt-1113-pe100-od63-trench",
+        "tags": [
+          "water",
+          "dimensions"
+        ],
+        "intent": "PE100 OD63 ūdensvads tranšejā, 60,87 m; izmēri nav darba apjoms."
+      },
+      {
+        "batchFingerprint": "b0520a696b38c376b0c8e6088d78699345082a4acfba743a22a0345d69dead78",
+        "id": "ocelt-1113-concrete-well-dn1000",
+        "tags": [
+          "water",
+          "unknown-quantity",
+          "dimensions"
+        ],
+        "intent": "DN1000 dzelzsbetona aka; diametrs un apzīmējums nerada izdomātu skaitu."
+      },
+      {
+        "batchFingerprint": "45138774e33f5e92e0d2384511734079f68cb0a0ab71212fe9532c19b63c8188",
+        "id": "ocelt-1113-pp-well-dn600",
+        "tags": [
+          "sewer",
+          "dimensions"
+        ],
+        "intent": "PP skataka DN600, 1 komplekts; nesajaukt ar ūdensvada dzelzsbetona aku."
+      },
+      {
+        "batchFingerprint": "5db1da6f4ead31b062329ec9d78993ee9b313b3b9657e71e7ca9c3c7998a93e9",
+        "id": "ocelt-1113-pp-sewer-d200",
+        "tags": [
+          "sewer",
+          "dimensions"
+        ],
+        "intent": "PP kanalizācijas caurule D200, 69,85 m; neizvēlēties ūdensvada pozīciju."
+      },
+      {
+        "batchFingerprint": "ae5d0778f6fa26bdd38a8c484204aa702909488ea2b14cef07cb210b75895002",
+        "id": "ocelt-1113-sewer-excavation",
+        "tags": [
+          "sewer",
+          "estimate-code"
+        ],
+        "intent": "Tranšejas rakšana, 232,55 m³, ar lietotāja norādīto pozīcijas kodu."
+      },
+      {
+        "batchFingerprint": "6b5376faff6a90b75a6283425835448004081138bbd483314ea4442a25bf9f0a",
+        "id": "ocelt-1113-compacted-backfill",
+        "tags": [
+          "sewer",
+          "dimensions"
+        ],
+        "intent": "Smilts-grants tranšejas aizbēršana, 200,56 m³; 30 cm ir slāņa biezums."
+      }
+    ]
+  },
+  {
+    "key": "sbstomme-hus-k",
+    "siteFingerprint": "c6c6aebf98ce2540f7da382ec7a4b17bd3bb9124c12808c6b6c46799b6fa9887",
+    "cases": [
+      {
+        "batchFingerprint": "54f2bdd1ab695c4ab77f9d25e31305ba7d679abafeb38121f76c92dd7bc51767",
+        "id": "sbstomme-hus-k-0917-slab-concrete",
+        "tags": [],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: slab-concrete."
+      },
+      {
+        "batchFingerprint": "46852474225a519d47ab2754b5e9412087b6b639dd533f37cc91c96d7b524e67",
+        "id": "sbstomme-hus-k-0918-concrete-wall-braces",
+        "tags": [
+          "spoken-latvian"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: concrete-wall-braces."
+      },
+      {
+        "batchFingerprint": "0c3ad8b0a7efe146d90e42cada14dc144076565e2008a7f034711d34e3aff362",
+        "id": "sbstomme-hus-k-0918-slab-side-formwork",
+        "tags": [],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: slab-side-formwork."
+      },
+      {
+        "batchFingerprint": "b93896d87b59674f995b7087850410aeee6d9dfde658f378f9866d7126335096",
+        "id": "sbstomme-hus-k-0918-timber-wall-transport-braces",
+        "tags": [],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: timber-wall-transport-braces."
+      },
+      {
+        "batchFingerprint": "c34c55d3152fa18515416db1d17d6727190d3c9fc4c5d4e4c9586e28f8b44510",
+        "id": "sbstomme-hus-k-0918-seven-workers-note",
+        "tags": [
+          "labour-note"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: seven-workers-note."
+      },
+      {
+        "batchFingerprint": "c93054745c2f7aa9ab5b6c3ea130f46451907e45a54047184604f5099fd7881e",
+        "id": "sbstomme-hus-k-0918-balcony-joints-hours",
+        "tags": [
+          "fractional-hours"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: balcony-joints-hours."
+      },
+      {
+        "batchFingerprint": "1d00b394a08961db376cdd8dc11fa0e8afed5b5169f665cdf7f42d1e41fbb480",
+        "id": "sbstomme-hus-k-0918-welded-wall-joints",
+        "tags": [],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: welded-wall-joints."
+      },
+      {
+        "batchFingerprint": "c770e5673d09d660b71c87af7ea784abd09b944b7329c4a11ec1a5a53e7b94e4",
+        "id": "sbstomme-hus-k-0923-stairs-half-hour",
+        "tags": [
+          "fractional-hours"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: stairs-half-hour."
+      },
+      {
+        "batchFingerprint": "c30750a8f5094691b4285d9fc1b0801a3ef325781bfa9150d6253a70d8df22e1",
+        "id": "sbstomme-hus-k-0924-three-works-filigran-floor-joints",
+        "tags": [
+          "multi-location"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: three-works-filigran-floor-joints."
+      },
+      {
+        "batchFingerprint": "2c99cfe81be6843c7d37600306adebc2072286e7a83723c8aadc4478458519cb",
+        "id": "sbstomme-hus-k-0924-additional-work-person-hours",
+        "tags": [
+          "additional-work",
+          "person-hours"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: additional-work-person-hours."
+      },
+      {
+        "batchFingerprint": "578543e4db1211c21cb1ce138b461962c66e1382313689adb6e7d410818af9cf",
+        "id": "sbstomme-hus-k-0930-two-works-shared-crew",
+        "tags": [
+          "labour-note"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: two-works-shared-crew."
+      },
+      {
+        "batchFingerprint": "248a36dadebf427c831965146f0ca19b05a974af0820aef73ad873c233c0702d",
+        "id": "sbstomme-hus-k-1015-five-works-across-floors",
+        "tags": [
+          "multi-location"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: five-works-across-floors."
+      },
+      {
+        "batchFingerprint": "afb6ca08946b1b379f741620b921a0e1400ad91db25d58308d8414b1c48c8342",
+        "id": "sbstomme-hus-k-1015-crew-only-note",
+        "tags": [
+          "labour-note"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: crew-only-note."
+      },
+      {
+        "batchFingerprint": "f1e7b26c2fa58ff0cb9b5f9086ef88c12432f05474632a69d4a3cb2de37e80da",
+        "id": "sbstomme-hus-k-1016-four-finishing-works-and-crew",
+        "tags": [
+          "multi-location",
+          "labour-note"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: four-finishing-works-and-crew."
+      }
+    ]
+  },
+  {
+    "key": "stoneandtree-waterfront",
+    "siteFingerprint": "4d6df11f0d0c9389b5ef46b17808038395eae082b8d53e7eaee94928df8e5881",
+    "cases": [
+      {
+        "batchFingerprint": "bd1ac9655632021ee0930984276094cf8b1bf0a74323527c644bc64b349fe24f",
+        "id": "stoneandtree-waterfront-0817-technological-pause",
+        "tags": [
+          "delay"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: technological-pause."
+      },
+      {
+        "batchFingerprint": "90d22d548a2fdedbdb903bb8d102715804add1290378d5a4dff43f1161735175",
+        "id": "stoneandtree-waterfront-0821-sand-delivery-and-backfill",
+        "tags": [
+          "delivery",
+          "labour"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: sand-delivery-and-backfill."
+      },
+      {
+        "batchFingerprint": "58a23babe8f3f6edc1dc414777990ece5b49fbb0bd21a79bc0504b483f4c30dc",
+        "id": "stoneandtree-waterfront-0825-sand-works-and-idle-note",
+        "tags": [
+          "delivery",
+          "labour",
+          "downtime"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: sand-works-and-idle-note."
+      },
+      {
+        "batchFingerprint": "97095c257127442d7dd64ac2dfc5fbd9a6b09053ad3635e3f7c178708f11eab0",
+        "id": "stoneandtree-waterfront-0827-idle-extra-quantity-unapproved",
+        "tags": [
+          "downtime"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: idle-extra-quantity-unapproved."
+      },
+      {
+        "batchFingerprint": "d491b1b78fdaaab900bad5b800146a88820a901b787cf7c12b4b3f87b5eb6f32",
+        "id": "stoneandtree-waterfront-0831-idle-no-work-front",
+        "tags": [
+          "downtime"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: idle-no-work-front."
+      },
+      {
+        "batchFingerprint": "5c10133175e4dae13fb537883d8bcdb9b43d7c071d8588a7a4ceb3a97c034a6b",
+        "id": "stoneandtree-waterfront-0908-inline-corrected-backfill",
+        "tags": [
+          "delivery",
+          "labour",
+          "inline-correction"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: inline-corrected-backfill."
+      },
+      {
+        "batchFingerprint": "f4910c893407c16fc8c9dec3a8d489d1d0c8c571caab0389dcd169d63e889dab",
+        "id": "stoneandtree-waterfront-0909-separate-sand-volumes",
+        "tags": [
+          "delivery",
+          "labour"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: separate-sand-volumes."
+      },
+      {
+        "batchFingerprint": "07ac7da2dcdc8c3210faa4bd6a27a2ae314ee791fbef7a5f1ed98db252b07dce",
+        "id": "stoneandtree-waterfront-0910-final-sand-works-and-delay",
+        "tags": [
+          "delivery",
+          "labour",
+          "delay"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: final-sand-works-and-delay."
+      },
+      {
+        "batchFingerprint": "67eea79d1cf6f48928d7802207bde74b16087ba3f3a192dc2d77b46e9a4c79e7",
+        "id": "stoneandtree-waterfront-0911-project-completed-note",
+        "tags": [
+          "completion-note"
+        ],
+        "intent": "Salīdzināt pilnu oriģinālo projekta ziņu ar pašreizējiem izlabotajiem ierakstiem: project-completed-note."
+      }
+    ]
+  }
+]

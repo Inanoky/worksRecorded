@@ -6,6 +6,7 @@ const mockCreateTgemInvoiceCaseRecord = jest.fn();
 const mockGetUploadThingUfsUrl = jest.fn();
 const mockCreateHook = jest.fn();
 const mockStart = jest.fn();
+const mockProcessCase = jest.fn();
 const mockPrisma = {
 	tgemInboundMailbox: { findMany: jest.fn() },
 	flowAssignment: { findFirst: jest.fn() },
@@ -40,7 +41,7 @@ jest.mock("@/lib/tgem-invoice-approval/create-case", () => ({
 }));
 
 jest.mock("@/lib/tgem-invoice-approval/process-case", () => ({
-	processTgemInvoiceCase: jest.fn(),
+	processTgemInvoiceCase: (...args: unknown[]) => mockProcessCase(...args),
 }));
 
 jest.mock("@/lib/utils/db", () => ({ prisma: mockPrisma }));
@@ -62,6 +63,7 @@ jest.mock("workflow/api", () => ({
 import {
 	loadTgemInboundEmailStep,
 	processTgemInboundEmailWorkflow,
+	processTgemInvoiceStep,
 	resolveTgemInboundOrganizationStep,
 	storeTgemInboundAttachmentStep,
 } from "@/workflows/tgem-invoice";
@@ -94,6 +96,49 @@ describe("TGEM email workflows", () => {
 		} else {
 			process.env.RESEND_API_KEY = previousApiKey;
 		}
+	});
+
+	it("passes every saved package document to processing with durable download loaders", async () => {
+		const documents = [
+			{
+				id: "document-1",
+				originalFilename: "invoice.pdf",
+				canonicalUrl: "https://files.test/invoice.pdf",
+				contentType: "application/pdf",
+			},
+			{
+				id: "document-2",
+				originalFilename: "receipt.jpg",
+				canonicalUrl: "https://files.test/receipt.jpg",
+				contentType: "image/jpeg",
+			},
+		];
+		mockPrisma.tgemInvoiceDocument.findFirst.mockResolvedValue({
+			...documents[0],
+			byteSize: 100,
+			invoiceCase: {
+				id: "case-1",
+				organizationId: "org-1",
+				siteId: "site-1",
+				source: "whatsapp",
+				submittedByUserId: "user-1",
+				status: "received",
+				archivedAt: null,
+				documents,
+			},
+		});
+		await processTgemInvoiceStep({
+			invoiceCaseId: "case-1",
+			documentId: "document-1",
+		});
+		const input = mockProcessCase.mock.calls[0][0];
+		expect(
+			input.documents.map((document: { id: string }) => document.id),
+		).toEqual(["document-1", "document-2"]);
+		await input.content();
+		await input.documents[1].load();
+		expect(mockFetch).toHaveBeenCalledWith("https://files.test/invoice.pdf");
+		expect(mockFetch).toHaveBeenCalledWith("https://files.test/receipt.jpg");
 	});
 
 	it("keeps only supported attachments within the size limit", async () => {
