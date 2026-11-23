@@ -1,12 +1,6 @@
 "use client";
 
-import {
-	CheckCircle2,
-	Loader2,
-	MessageCircle,
-	UserRound,
-	UsersRound,
-} from "lucide-react";
+import { Loader2, MessageCircle, UserRound, UsersRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
@@ -32,11 +26,8 @@ import {
 	planningWhatsAppMessageWithReportingNote,
 	planningWhatsAppTemplateMessage,
 } from "./planning-whatsapp";
-import {
-	type PlanningWhatsAppSendResult,
-	readWasenderTaskReceipt,
-	sendPlanningWhatsAppTask,
-} from "./planning-whatsapp-send-client";
+import { startPlanningWhatsAppSend } from "./planning-whatsapp-background-send";
+import type { PlanningWhatsAppSendResult } from "./planning-whatsapp-send-client";
 import type { VisualClientCache } from "./visual-client-cache";
 import { WhatsAppGroupPicker } from "./WhatsAppGroupPicker";
 import type { WhatsAppGroupConnection } from "./whatsapp-groups-client";
@@ -80,61 +71,8 @@ export function VisualPlanningWhatsApp({
 	}>({ key: "", images: [] });
 	const [imageError, setImageError] = useState<string | null>(null);
 	const [retry, setRetry] = useState(0);
-	const [sending, setSending] = useState(false);
-	const [sendError, setSendError] = useState<string | null>(null);
-	const [sendResult, setSendResult] =
-		useState<PlanningWhatsAppSendResult | null>(null);
-	const sendId = sendResult?.sendId;
-	const sendStatus = sendResult?.status;
-	const queuedImageCount =
-		sendResult?.items.filter(({ status }) => status === "queued").length ?? 0;
-	const sentImageCount =
-		sendResult?.items.filter(({ status }) =>
-			["sent", "delivered", "read"].includes(status),
-		).length ?? 0;
-	const hasQueuedImages = queuedImageCount > 0;
-	const canRetryGroupImages =
-		target === "group" &&
-		!!sendResult?.items.some(
-			({ status }) => status === "failed" || status === "pending",
-		) &&
-		!sendResult.items.some(({ status }) => status === "processing");
-	const groupSendFailure =
-		target === "group"
-			? sendResult?.items.find(({ error }) => error)?.error
-			: null;
-	const [clientRequestId, setClientRequestId] = useState("");
 	const creator = useRef(createImages);
 	const initial = useRef(initialImages);
-	const resultHandler = useRef(onSendResult);
-	useEffect(() => {
-		resultHandler.current = onSendResult;
-	}, [onSendResult]);
-	useEffect(() => {
-		if (!open || !sendId || !hasQueuedImages || sending) return;
-		const controller = new AbortController();
-		let timer: ReturnType<typeof setTimeout>;
-		let remaining = 15;
-		const refresh = async () => {
-			const result = await readWasenderTaskReceipt(
-				siteId,
-				sendId,
-				controller.signal,
-			).catch(() => null);
-			if (controller.signal.aborted) return;
-			if (result) {
-				setSendResult(result);
-				resultHandler.current?.(result);
-				if (!result.items.some(({ status }) => status === "queued")) return;
-			}
-			if (--remaining > 0) timer = setTimeout(refresh, 5000);
-		};
-		timer = setTimeout(refresh, 5000);
-		return () => {
-			controller.abort();
-			clearTimeout(timer);
-		};
-	}, [hasQueuedImages, open, sending, sendId, siteId]);
 	useEffect(() => {
 		creator.current = createImages;
 		initial.current = initialImages;
@@ -168,11 +106,6 @@ export function VisualPlanningWhatsApp({
 			for (const url of urls) URL.revokeObjectURL(url);
 		};
 	}, [active, imageKey, retry]);
-	useEffect(() => {
-		if (!open || sendStatus !== "sent") return;
-		const timer = setTimeout(() => setOpen(false), 1100);
-		return () => clearTimeout(timer);
-	}, [open, sendStatus]);
 	useEffect(() => {
 		if (!active) return;
 		let cancelled = false;
@@ -212,22 +145,15 @@ export function VisualPlanningWhatsApp({
 	const id = useId();
 	const sendDisabled =
 		disabled ||
-		sending ||
 		!images.length ||
 		!canAddress ||
 		!outgoingMessage ||
-		messageTooLong ||
-		(target === "group" &&
-			sendResult?.status === "processing" &&
-			!canRetryGroupImages) ||
-		sendResult?.status === "sent";
-	async function sendTask() {
-		if (sendDisabled || !clientRequestId) return;
-		setMessage(normalizePlanningWhatsAppMessage(message));
-		setSending(true);
-		setSendError(null);
-		try {
-			const result = await sendPlanningWhatsAppTask({
+		messageTooLong;
+	function sendTask() {
+		if (sendDisabled) return;
+		setOpen(false);
+		startPlanningWhatsAppSend(
+			{
 				siteId,
 				planId: plan.id,
 				planVersion: plan.version,
@@ -236,32 +162,21 @@ export function VisualPlanningWhatsApp({
 					? { group: { id: group.id, sender: groupSender } }
 					: {}),
 				message: outgoingMessage,
-				clientRequestId,
+				clientRequestId: crypto.randomUUID(),
 				images,
-				signal: new AbortController().signal,
-			});
-			setSendResult(result);
-			onSendResult?.(result);
-		} catch (error) {
-			setSendError(
-				error instanceof Error ? error.message : "Neizdevās nosūtīt uzdevumu.",
-			);
-		} finally {
-			setSending(false);
-		}
+			},
+			`${plan.work} · ${group?.name ?? contact?.name ?? recipient}`,
+			onSendResult,
+		);
 	}
 	return (
 		<Dialog
 			open={open}
 			onOpenChange={(next) => {
-				if (sending) return;
 				if (next) {
 					setMessage(planningWhatsAppTemplateMessage(plan));
 					setTarget("direct");
 					setGroupId("");
-					setSendError(null);
-					setSendResult(null);
-					setClientRequestId(crypto.randomUUID());
 				}
 				setOpen(next);
 			}}
@@ -273,16 +188,6 @@ export function VisualPlanningWhatsApp({
 				</Button>
 			</DialogTrigger>
 			<DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col sm:max-w-3xl">
-				{sendResult?.status === "sent" ? (
-					<output
-						aria-live="polite"
-						aria-label="WhatsApp sūtījums veiksmīgs"
-						className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 rounded-lg bg-background p-8 text-center"
-					>
-						<CheckCircle2 className="h-16 w-16 text-emerald-600" />
-						<strong className="text-2xl text-emerald-700">Nosūtīts</strong>
-					</output>
-				) : null}
 				<DialogHeader className="shrink-0">
 					<DialogTitle>Nosūtīt uzdevumu</DialogTitle>
 					<DialogDescription className="sr-only">
@@ -302,16 +207,12 @@ export function VisualPlanningWhatsApp({
 							variant="outline"
 							size="sm"
 							aria-pressed={target === "direct"}
-							disabled={sending || Boolean(sendResult)}
 							className={
 								target === "direct"
 									? "border-primary bg-primary/10 text-primary"
 									: undefined
 							}
-							onClick={() => {
-								setTarget("direct");
-								setSendError(null);
-							}}
+							onClick={() => setTarget("direct")}
 						>
 							<UserRound className="size-4" /> Kontaktpersona
 						</Button>
@@ -320,16 +221,12 @@ export function VisualPlanningWhatsApp({
 							variant="outline"
 							size="sm"
 							aria-pressed={target === "group"}
-							disabled={sending || Boolean(sendResult)}
 							className={
 								target === "group"
 									? "border-primary bg-primary/10 text-primary"
 									: undefined
 							}
-							onClick={() => {
-								setTarget("group");
-								setSendError(null);
-							}}
+							onClick={() => setTarget("group")}
 						>
 							<UsersRound className="size-4" /> WhatsApp grupa
 						</Button>
@@ -380,7 +277,7 @@ export function VisualPlanningWhatsApp({
 							<WhatsAppGroupPicker
 								groups={connection.groups}
 								value={groupId}
-								disabled={sending || Boolean(sendResult)}
+								disabled={disabled}
 								onChange={setGroupId}
 							/>
 							<p className="text-sm text-muted-foreground">
@@ -477,7 +374,6 @@ export function VisualPlanningWhatsApp({
 								id={`${id}-message`}
 								rows={8}
 								value={message}
-								disabled={Boolean(sendResult) || sending}
 								aria-invalid={messageTooLong}
 								onChange={(event) => setMessage(event.target.value)}
 								onBlur={() =>
@@ -494,52 +390,18 @@ export function VisualPlanningWhatsApp({
 								</p>
 							) : null}
 						</div>
-						{sendResult && sendResult.status !== "sent" ? (
-							<output className="block text-sm text-amber-700">
-								{hasQueuedImages
-									? `WaSenderAPI pieņēma ${sentImageCount + queuedImageCount} no ${sendResult.items.length} attēliem. Gaida nosūtīšanas apstiprinājumu.`
-									: `Nosūtīti ${sentImageCount} no ${sendResult.items.length} attēliem.`}
-								{!hasQueuedImages &&
-								target === "group" &&
-								sendResult.status === "processing"
-									? " Pārbaudiet WhatsApp grupu, lai pārliecinātos par pārējo attēlu nosūtīšanu."
-									: null}
-							</output>
-						) : null}
-						{sendError ? (
-							<p role="alert" className="text-sm text-destructive">
-								{sendError}
-							</p>
-						) : null}
-						{groupSendFailure ? (
-							<p role="alert" className="text-sm text-destructive">
-								{groupSendFailure}
-							</p>
-						) : null}
 					</div>
 				</div>
 				<DialogFooter className="shrink-0">
 					<Button
 						type="button"
 						variant="outline"
-						disabled={sending}
 						onClick={() => setOpen(false)}
 					>
 						Atcelt
 					</Button>
-					<Button
-						type="button"
-						disabled={sendDisabled}
-						onClick={() => void sendTask()}
-					>
-						{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-						{target === "group" &&
-						sendResult?.status === "processing" &&
-						!canRetryGroupImages
-							? "Gaida apstiprinājumu"
-							: sendResult && sendResult.status !== "sent"
-								? "Atkārtot nenosūtītos"
-								: "Nosūtīt"}
+					<Button type="button" disabled={sendDisabled} onClick={sendTask}>
+						Nosūtīt
 					</Button>
 				</DialogFooter>
 			</DialogContent>

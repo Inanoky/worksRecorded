@@ -561,6 +561,21 @@ export function VisualPlanningPanel({
 		siteId,
 		planningSaves,
 	]);
+	const whatsAppRefresh = useRef<{
+		cache: VisualClientCache;
+		drawingId: string;
+		refresh: typeof refreshPlanning;
+	} | null>(null);
+	useEffect(() => {
+		whatsAppRefresh.current = {
+			cache,
+			drawingId: drawing.id,
+			refresh: refreshPlanning,
+		};
+		return () => {
+			whatsAppRefresh.current = null;
+		};
+	}, [cache, drawing.id, refreshPlanning]);
 	useEffect(() => {
 		if (active && !wasActive.current) void refreshPlanning();
 		wasActive.current = active;
@@ -1882,11 +1897,14 @@ export function VisualPlanningPanel({
 													(contact) => contact.id === selectedPlan.contactId,
 												)}
 												disabled={saving || planPending || dirty || areaEditing}
-												onSendResult={(result) => {
-													if (result.status === "sent")
-														setWhatsAppHistoryPlanId(selectedPlan.id);
+												onSendResult={() => {
 													cache.invalidatePlanning(drawing.id);
-													void refreshPlanning();
+													const current = whatsAppRefresh.current;
+													if (
+														current?.cache === cache &&
+														current.drawingId === drawing.id
+													)
+														void current.refresh();
 												}}
 											/>
 										) : null}
