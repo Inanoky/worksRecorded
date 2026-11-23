@@ -88,6 +88,12 @@ export function VisualPlanningWhatsApp({
 	const hasQueuedImages = !!sendResult?.items.some(
 		({ status }) => status === "queued",
 	);
+	const canRetryGroupImages =
+		target === "group" &&
+		!!sendResult?.items.some(
+			({ status }) => status === "failed" || status === "pending",
+		) &&
+		!sendResult.items.some(({ status }) => status === "processing");
 	const groupSendFailure =
 		target === "group"
 			? sendResult?.items.find(({ error }) => error)?.error
@@ -101,7 +107,7 @@ export function VisualPlanningWhatsApp({
 		resultHandler.current = onSendResult;
 	}, [onSendResult]);
 	useEffect(() => {
-		if (!open || !sendId || !hasQueuedImages) return;
+		if (!open || !sendId || !hasQueuedImages || sending) return;
 		const controller = new AbortController();
 		let timer: ReturnType<typeof setTimeout>;
 		let remaining = 15;
@@ -124,7 +130,7 @@ export function VisualPlanningWhatsApp({
 			controller.abort();
 			clearTimeout(timer);
 		};
-	}, [hasQueuedImages, open, sendId, siteId]);
+	}, [hasQueuedImages, open, sending, sendId, siteId]);
 	useEffect(() => {
 		creator.current = createImages;
 		initial.current = initialImages;
@@ -208,7 +214,9 @@ export function VisualPlanningWhatsApp({
 		!canAddress ||
 		!outgoingMessage ||
 		messageTooLong ||
-		(target === "group" && sendResult?.status === "processing") ||
+		(target === "group" &&
+			sendResult?.status === "processing" &&
+			!canRetryGroupImages) ||
 		sendResult?.status === "sent";
 	async function sendTask() {
 		if (sendDisabled || !clientRequestId) return;
@@ -535,7 +543,9 @@ export function VisualPlanningWhatsApp({
 						onClick={() => void sendTask()}
 					>
 						{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-						{target === "group" && sendResult?.status === "processing"
+						{target === "group" &&
+						sendResult?.status === "processing" &&
+						!canRetryGroupImages
 							? "Gaida apstiprinājumu"
 							: sendResult && sendResult.status !== "sent"
 								? "Atkārtot nenosūtītos"

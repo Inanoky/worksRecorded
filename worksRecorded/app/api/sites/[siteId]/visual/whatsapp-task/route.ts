@@ -8,6 +8,8 @@ import {
 import { readLimitedBody } from "@/flows/default-construction/visual/share-body";
 import { WasenderConnectionError } from "@/flows/default-construction/visual/wasender-connections-store";
 
+export const maxDuration = 300;
+
 const privateHeaders = { "Cache-Control": "private, no-store" };
 
 export async function GET(

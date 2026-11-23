@@ -14,7 +14,9 @@ const stageWasenderTaskImage = jest.fn();
 const discardWasenderTaskImages = jest.fn();
 const sendFindFirst = jest.fn();
 const originalFetch = global.fetch;
+const sleep = jest.fn<Promise<void>, [number]>();
 
+jest.mock("node:timers/promises", () => ({ setTimeout: sleep }));
 jest.mock("./store", () => ({ requireVisualAccess }));
 jest.mock("./wasender-groups-store", () => ({ resolveWasenderTaskRecipient }));
 jest.mock("./wasender-connections-store", () => ({
@@ -85,7 +87,7 @@ function validRequest() {
 
 function groupRequest() {
 	const request = validRequest();
-	return {
+	const group = {
 		...request,
 		input: {
 			...request.input,
@@ -94,10 +96,22 @@ function groupRequest() {
 			groupSender: "37120000001",
 		},
 	};
+	resolveWasenderTaskRecipient.mockResolvedValue({
+		token: "channel-token",
+		phone: group.input.groupSender,
+		connectionId: "connection-1",
+		group: { id: group.input.groupId, name: "Projekta brigāde" },
+	});
+	return group;
 }
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	let now = 100_000;
+	jest.spyOn(Date, "now").mockImplementation(() => now);
+	sleep.mockImplementation(async (delay) => {
+		now += delay;
+	});
 	process.env.LIMENI_META_ACCESS_TOKEN = "limeni-secret";
 	requireVisualAccess.mockResolvedValue({ organizationId: "limeni-org" });
 	constructionPlanFindFirst.mockResolvedValue({
@@ -166,12 +180,6 @@ beforeEach(() => {
 
 it("sends a task and section through WaSenderAPI and confirms them through receipts without resending", async () => {
 	const request = groupRequest();
-	resolveWasenderTaskRecipient.mockResolvedValue({
-		token: "channel-token",
-		phone: request.input.groupSender,
-		connectionId: "connection-1",
-		group: { id: request.input.groupId, name: "Projekta brigāde" },
-	});
 	let message = 0;
 	let sent = false;
 	const fetchMock = jest.fn(
@@ -213,6 +221,7 @@ it("sends a task and section through WaSenderAPI and confirms them through recei
 		([, init]) => init.method === "POST",
 	);
 	expect(posts).toHaveLength(2);
+	expect(sleep.mock.calls).toEqual([[5000]]);
 	for (const [url, init] of posts) {
 		expect(url).toBe("https://wasenderapi.com/api/send-message");
 		expect(new Headers(init.headers).get("Authorization")).toBe(
@@ -252,6 +261,96 @@ it("sends a task and section through WaSenderAPI and confirms them through recei
 	).toHaveLength(2);
 });
 
+it.each([
+	["WaSender's retry_after", { retry_after: 7 }, {}, 7000],
+	["Retry-After header", {}, { "Retry-After": "9" }, 9000],
+	[
+		"longest cooldown",
+		{ retry_after: 6 },
+		{ "X-RateLimit-Reset": "12" },
+		12000,
+	],
+	["minimum delay", { retry_after: 1 }, {}, 5000],
+] as const)(
+	"retries only the rejected image using %s",
+	async (_case, body, headers, delay) => {
+		const request = groupRequest();
+		const posts: Array<{ imageUrl: string; time: number }> = [];
+		global.fetch = jest.fn(async (input, init) => {
+			if (init?.method !== "POST") {
+				const msgId = String(input).split("/").at(-2);
+				return {
+					ok: true,
+					json: async () => ({ success: true, data: { msgId, status: 2 } }),
+				} as Response;
+			}
+			posts.push({
+				imageUrl: JSON.parse(String(init.body)).imageUrl,
+				time: Date.now(),
+			});
+			if (posts.length === 2)
+				return {
+					ok: false,
+					status: 429,
+					headers: new Headers(headers),
+					json: async () => body,
+				} as Response;
+			return {
+				ok: true,
+				json: async () => ({ success: true, data: { msgId: posts.length } }),
+			} as Response;
+		});
+
+		await expect(
+			sendVisualPlanningWhatsAppTask(request),
+		).resolves.toMatchObject({
+			status: "sent",
+			items: [{ status: "sent" }, { status: "sent" }],
+		});
+		expect(posts).toEqual([
+			{ imageUrl: "https://example.com/item-1", time: 100_000 },
+			{ imageUrl: "https://example.com/item-2", time: 105_000 },
+			{ imageUrl: "https://example.com/item-2", time: 105_000 + delay },
+		]);
+		expect(stageWasenderTaskImage).toHaveBeenCalledTimes(2);
+	},
+);
+
+it.each([
+	["provider cooldown exceeds the wait budget", "120", [], 1],
+	["provider gives no retry hint", "", [[5000], [10_000]], 3],
+] as const)(
+	"stops the batch when %s",
+	async (_case, hint, pauses, attempts) => {
+		const request = groupRequest();
+		global.fetch = jest.fn(
+			async () =>
+				({
+					ok: false,
+					status: 429,
+					headers: hint ? new Headers({ "Retry-After": hint }) : new Headers(),
+					json: async () => ({}),
+				}) as Response,
+		);
+
+		await expect(
+			sendVisualPlanningWhatsAppTask(request),
+		).resolves.toMatchObject({
+			status: "processing",
+			items: [
+				{
+					status: "failed",
+					error: expect.stringContaining("sūtīšanas limits"),
+				},
+				{ status: "pending" },
+			],
+		});
+		expect(global.fetch).toHaveBeenCalledTimes(attempts);
+		expect(sleep.mock.calls).toEqual(pauses);
+		expect(stageWasenderTaskImage).toHaveBeenCalledTimes(1);
+	},
+);
+
 it("stops before sending when the group is outside the project allowlist", async () => {
 	const request = groupRequest();
 	resolveWasenderTaskRecipient.mockRejectedValue(
@@ -268,6 +367,7 @@ it("stops before sending when the group is outside the project allowlist", async
 afterEach(() => {
 	delete process.env.LIMENI_META_ACCESS_TOKEN;
 	global.fetch = originalFetch;
+	jest.restoreAllMocks();
 });
 
 it("sends every ordered image with the approved template", async () => {

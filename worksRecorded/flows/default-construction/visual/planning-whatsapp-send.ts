@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { setTimeout as sleep } from "node:timers/promises";
 import sharp from "sharp";
 import { z } from "zod";
 import { prisma } from "@/lib/utils/db";
@@ -35,6 +36,9 @@ import {
 
 export const WHATSAPP_TASK_MAX_BODY = 16_000_000;
 const WHATSAPP_TASK_MAX_IMAGE = 5_000_000;
+const WASENDER_IMAGE_INTERVAL_MS = 5000;
+const WASENDER_MAX_RETRY_WAIT_MS = 60_000;
+const WASENDER_MAX_RETRIES = 2;
 
 const sendInputSchema = z
 	.object({
@@ -84,8 +88,43 @@ function userFacingProviderError() {
 
 function groupSendError(reason: string | null) {
 	return reason === "WaSenderAPI request failed (429)"
-		? "WaSenderAPI sūtīšanas limits ir sasniegts. Mēģiniet vēlreiz pēc minūtes."
+		? "WaSenderAPI sūtīšanas limits ir sasniegts. Vēlāk atkārtojiet nenosūtītos attēlus."
 		: "Ziņu neizdevās nosūtīt. Pārbaudiet WhatsApp grupas savienojumu.";
+}
+
+function wasenderRateLimited(error: unknown): error is WasenderApiError {
+	return error instanceof WasenderApiError && error.status === 429;
+}
+
+function createPacedWasenderSender() {
+	let nextSendAt = 0;
+	let retryCount = 0;
+	let remainingRetryWait = WASENDER_MAX_RETRY_WAIT_MS;
+	return async (...args: Parameters<typeof sendWasenderGroupImage>) => {
+		while (true) {
+			const wait = nextSendAt - Date.now();
+			if (wait > 0) await sleep(wait);
+			try {
+				return await sendWasenderGroupImage(...args);
+			} catch (error) {
+				if (!wasenderRateLimited(error) || retryCount >= WASENDER_MAX_RETRIES)
+					throw error;
+				const delay = Math.max(
+					WASENDER_IMAGE_INTERVAL_MS,
+					error.retryAfterMs ?? WASENDER_IMAGE_INTERVAL_MS * 2 ** retryCount,
+				);
+				if (delay > remainingRetryWait) throw error;
+				retryCount++;
+				remainingRetryWait -= delay;
+				nextSendAt = Date.now() + delay;
+			} finally {
+				nextSendAt = Math.max(
+					nextSendAt,
+					Date.now() + WASENDER_IMAGE_INTERVAL_MS,
+				);
+			}
+		}
+	};
 }
 
 class WhatsAppProviderError extends Error {
@@ -469,8 +508,10 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 	const items = [...send.items].sort(
 		(left, right) => left.ordinal - right.ordinal,
 	);
+	const sendGroupImage = createPacedWasenderSender();
 	if (group) await discardWasenderTaskImages([]).catch(() => {});
 	for (const item of items) {
+		if (group && item.status === "processing") break;
 		if (item.status !== "pending" && item.status !== "failed") continue;
 		const data = { status: "processing", providerError: null, failedAt: null };
 		if (group) {
@@ -478,7 +519,7 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 				where: { id: item.id, status: { in: ["pending", "failed"] } },
 				data,
 			});
-			if (!claim.count) continue;
+			if (!claim.count) break;
 		} else {
 			await prisma.whatsAppTaskSendItem.update({
 				where: { id: item.id },
@@ -494,7 +535,7 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 			if (group) {
 				const imageUrl = await stageWasenderTaskImage(item.id, file);
 				attemptedGroupSend = true;
-				const wasenderMessageId = await sendWasenderGroupImage(
+				const wasenderMessageId = await sendGroupImage(
 					group.token,
 					recipient,
 					item.ordinal === 0 ? send.message : label,
@@ -560,6 +601,7 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 					failedAt: uncertain ? null : new Date(),
 				},
 			});
+			if (group && wasenderRateLimited(error)) break;
 		}
 	}
 

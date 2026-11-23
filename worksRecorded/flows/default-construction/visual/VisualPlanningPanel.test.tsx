@@ -1338,6 +1338,71 @@ it("preloads saved WhatsApp groups and reuses them when opening the dialog or sw
 	expect(groups).toHaveBeenCalledTimes(1);
 });
 
+it("can retry a rate-limited section while the zone image awaits confirmation", async () => {
+	jest.mocked(readWhatsAppGroups).mockResolvedValueOnce({
+		status: "connected",
+		phone: "37120000000",
+		groups: [{ id: "120000000000000001@g.us", name: "Testa grupa" }],
+	});
+	const send = jest.mocked(sendPlanningWhatsAppTask);
+	send.mockResolvedValueOnce({
+		sendId: "send-1",
+		status: "processing",
+		items: [
+			{
+				ordinal: 0,
+				page: 1,
+				section: null,
+				status: "queued",
+				metaMessageId: null,
+				error: null,
+			},
+			{
+				ordinal: 1,
+				page: 11,
+				section: "PA1.6",
+				status: "failed",
+				metaMessageId: null,
+				error: "WaSenderAPI sūtīšanas limits ir sasniegts.",
+			},
+		],
+	});
+	render(
+		<VisualPlanningWhatsApp
+			siteId="site"
+			cache={new VisualClientCache("site")}
+			plan={plan}
+			imageKey="test-image-key"
+			disabled={false}
+			createImages={async () => [
+				{ page: 1, blob: new Blob(["zone"], { type: "image/png" }) },
+				{
+					page: 11,
+					section: "PA1.6",
+					blob: new Blob(["detail"], { type: "image/png" }),
+				},
+			]}
+		/>,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
+	fireEvent.click(screen.getByRole("button", { name: "WhatsApp grupa" }));
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Izvēlēties grupu" }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Testa grupa" }));
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt", exact: true }));
+	const retry = await screen.findByRole("button", {
+		name: "Atkārtot nenosūtītos",
+	});
+	expect(retry).toBeEnabled();
+	fireEvent.click(retry);
+	await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+	expect(send.mock.calls[1][0].clientRequestId).toBe(
+		send.mock.calls[0][0].clientRequestId,
+	);
+	await screen.findByText("Nosūtīts");
+});
+
 it("shows WhatsApp delivery history on the connected planning task", async () => {
 	jest.mocked(getVisualPlanning).mockResolvedValue({
 		...emptyIndex,

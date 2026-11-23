@@ -23,6 +23,7 @@ export class WasenderApiError extends Error {
 	constructor(
 		readonly status: number,
 		readonly sessionLimit = false,
+		readonly retryAfterMs?: number,
 	) {
 		super(`WaSenderAPI request failed (${status})`);
 	}
@@ -30,6 +31,34 @@ export class WasenderApiError extends Error {
 
 export function getWasenderAccessToken() {
 	return process.env.WASENDER_LIMENI_ACCESS_TOKEN?.trim() || null;
+}
+
+function rateLimitDelay(headers: Headers, payload: unknown) {
+	const body = z
+		.object({ retry_after: z.number().nonnegative() })
+		.safeParse(payload);
+	const retryAfter = headers.get("Retry-After")?.trim();
+	const retryAfterMs = retryAfter
+		? /^\d+(\.\d+)?$/.test(retryAfter)
+			? Number(retryAfter) * 1000
+			: Date.parse(retryAfter) - Date.now()
+		: 0;
+	const windowResetMs = Number(headers.get("X-RateLimit-Reset")) * 1000;
+	const dailyResetMs =
+		headers.get("X-RateLimit-Daily-Remaining") === "0"
+			? Number(headers.get("X-RateLimit-Daily-Reset")) * 1000
+			: 0;
+	return (
+		Math.max(
+			0,
+			...[
+				body.success ? body.data.retry_after * 1000 : 0,
+				retryAfterMs,
+				windowResetMs,
+				dailyResetMs,
+			].filter(Number.isFinite),
+		) || undefined
+	);
 }
 
 async function request(path: string, token: string, init?: RequestInit) {
@@ -56,6 +85,9 @@ async function request(path: string, token: string, init?: RequestInit) {
 				/session limit|maximum number of (?:whatsapp )?sessions/i.test(
 					error.data.message ?? error.data.error ?? "",
 				),
+			response.status === 429
+				? rateLimitDelay(response.headers, data)
+				: undefined,
 		);
 	}
 	return data;
