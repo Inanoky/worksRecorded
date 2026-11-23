@@ -20,6 +20,13 @@ import {
 	planningWhatsAppTemplateContent,
 } from "./planning-whatsapp-templates";
 import { requireVisualAccess } from "./store";
+import {
+	sendWhapiImage,
+	WhapiRequestError,
+	whapiGroupIdSchema,
+	whapiPhoneSchema,
+} from "./whapi-groups-api";
+import { resolveWhapiTaskRecipient } from "./whapi-groups-store";
 
 export const WHATSAPP_TASK_MAX_BODY = 16_000_000;
 const WHATSAPP_TASK_MAX_IMAGE = 5_000_000;
@@ -29,6 +36,8 @@ const sendInputSchema = z
 		planId: z.string().uuid(),
 		planVersion: z.number().int().positive(),
 		recipient: z.string().transform((value) => normalizeMetaPhone(value)),
+		groupId: whapiGroupIdSchema.optional(),
+		groupSender: whapiPhoneSchema.optional(),
 		message: z
 			.string()
 			.transform(normalizePlanningWhatsAppMessage)
@@ -95,12 +104,8 @@ async function graphJson(args: {
 	return payload;
 }
 
-async function uploadMetaImage(args: {
-	businessPhoneNumberId: string;
-	token: string;
-	file: File;
-}) {
-	const normalized = await sharp(Buffer.from(await args.file.arrayBuffer()), {
+async function normalizeTaskImage(file: File) {
+	const normalized = await sharp(Buffer.from(await file.arrayBuffer()), {
 		limitInputPixels: 4_000_000,
 	})
 		.rotate()
@@ -108,14 +113,19 @@ async function uploadMetaImage(args: {
 		.toBuffer();
 	if (!normalized.length || normalized.length > WHATSAPP_TASK_MAX_IMAGE)
 		throw new Error("Invalid WhatsApp task image size");
+	return new File([new Uint8Array(normalized)], "work-task.jpg", {
+		type: "image/jpeg",
+	});
+}
+
+async function uploadMetaImage(args: {
+	businessPhoneNumberId: string;
+	token: string;
+	file: File;
+}) {
 	const form = new FormData();
 	form.set("messaging_product", "whatsapp");
-	form.set(
-		"file",
-		new File([new Uint8Array(normalized)], "work-task.jpg", {
-			type: "image/jpeg",
-		}),
-	);
+	form.set("file", args.file);
 	const payload = await graphJson({
 		url: `${getMetaGraphBaseUrl()}/${args.businessPhoneNumberId}/media`,
 		token: args.token,
@@ -185,7 +195,12 @@ async function resultForSend(sendId: string) {
 				section: item.section,
 				status: item.status,
 				metaMessageId: item.metaMessageId,
-				error: item.status === "failed" ? userFacingProviderError() : null,
+				error:
+					item.status === "failed"
+						? send.provider === "whapi"
+							? "Ziņu neizdevās nosūtīt. Pārbaudiet WhatsApp grupas savienojumu."
+							: userFacingProviderError()
+						: null,
 			}),
 		),
 	};
@@ -198,9 +213,14 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 	files: File[];
 }) {
 	const input = sendInputSchema.parse(args.input);
-	if (!input.recipient || !/^\d{8,15}$/.test(input.recipient))
+	if (Boolean(input.groupId) !== Boolean(input.groupSender))
+		throw new Error("Nederīgs WhatsApp grupas saņēmējs.");
+	const recipient = input.groupId ?? input.recipient;
+	if (
+		!recipient ||
+		(!input.groupId && !whapiPhoneSchema.safeParse(recipient).success)
+	)
 		throw new Error("Nederīgs saņēmēja tālruņa numurs.");
-	const recipient = input.recipient;
 	if (args.files.length !== input.images.length)
 		throw new Error("Trūkst darba uzdevuma attēlu.");
 	for (const file of args.files) {
@@ -240,16 +260,32 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 	if (JSON.stringify(expected) !== JSON.stringify(input.images))
 		throw new Error("Attēli neatbilst saglabātā plāna zonām.");
 
-	const businessNumber = await prisma.whatsAppBusinessNumber.findFirst({
-		where: {
-			organizationId: access.organizationId,
-			purpose: VISUAL_WORK_TASK_PURPOSE,
-			active: true,
-		},
-	});
-	if (!businessNumber)
+	const group =
+		input.groupId && input.groupSender
+			? await resolveWhapiTaskRecipient(
+					{
+						organizationId: access.organizationId,
+						userId: args.userId,
+						siteId: args.siteId,
+					},
+					input.groupId,
+					input.groupSender,
+				)
+			: null;
+	const businessNumber = group
+		? null
+		: await prisma.whatsAppBusinessNumber.findFirst({
+				where: {
+					organizationId: access.organizationId,
+					purpose: VISUAL_WORK_TASK_PURPOSE,
+					active: true,
+				},
+			});
+	if (!group && !businessNumber)
 		throw new Error("Limeni WhatsApp numurs nav aktivizēts.");
-	const token = getWhatsAppBusinessToken(businessNumber.credentialProfile);
+	const token = businessNumber
+		? getWhatsAppBusinessToken(businessNumber.credentialProfile)
+		: null;
 	const message = planningWhatsAppMessageWithReportingNote(input.message);
 	const idempotencyKey = `${access.organizationId}:${input.clientRequestId}`;
 	let send = await prisma.whatsAppTaskSend.findUnique({
@@ -264,7 +300,11 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 			send.siteId !== args.siteId ||
 			send.planId !== input.planId ||
 			send.planVersion !== input.planVersion ||
-			send.recipient !== input.recipient ||
+			send.recipient !== recipient ||
+			(send.provider === "whapi") !== Boolean(group) ||
+			(group &&
+				(send.senderUserId !== args.userId ||
+					send.senderAddress !== group.phone)) ||
 			planningWhatsAppMessageWithReportingNote(send.message) !== message ||
 			existingItems.length !== input.images.length ||
 			existingItems.some(
@@ -290,7 +330,14 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 				planId: input.planId,
 				planVersion: input.planVersion,
 				senderUserId: args.userId,
-				recipient: input.recipient,
+				recipient,
+				...(group
+					? {
+							provider: "whapi",
+							recipientLabel: group.group.name,
+							senderAddress: group.phone,
+						}
+					: {}),
 				message,
 				items: {
 					create: input.images.map((image, ordinal) => ({
@@ -310,19 +357,45 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 	);
 	for (const item of items) {
 		if (item.status !== "pending" && item.status !== "failed") continue;
-		await prisma.whatsAppTaskSendItem.update({
-			where: { id: item.id },
-			data: { status: "processing", providerError: null, failedAt: null },
-		});
-		try {
-			const mediaId = await uploadMetaImage({
-				businessPhoneNumberId: businessNumber.businessPhoneNumberId,
-				token,
-				file: args.files[item.ordinal],
+		const data = { status: "processing", providerError: null, failedAt: null };
+		if (group) {
+			const claim = await prisma.whatsAppTaskSendItem.updateMany({
+				where: { id: item.id, status: { in: ["pending", "failed"] } },
+				data,
 			});
+			if (!claim.count) continue;
+		} else {
+			await prisma.whatsAppTaskSendItem.update({
+				where: { id: item.id },
+				data,
+			});
+		}
+		let attemptedGroupSend = false;
+		try {
+			const file = await normalizeTaskImage(args.files[item.ordinal]);
 			const label = item.section
 				? `Sekcija ${item.section}`
 				: `PDF lapa ${item.page}`;
+			if (group) {
+				attemptedGroupSend = true;
+				const whapiMessageId = await sendWhapiImage({
+					token: group.token,
+					groupId: recipient,
+					image: file,
+					caption: item.ordinal === 0 ? send.message : label,
+				});
+				await prisma.whatsAppTaskSendItem.update({
+					where: { id: item.id },
+					data: { status: "sent", whapiMessageId, sentAt: new Date() },
+				});
+				continue;
+			}
+			if (!businessNumber || !token) throw new Error("Meta sender unavailable");
+			const mediaId = await uploadMetaImage({
+				businessPhoneNumberId: businessNumber.businessPhoneNumberId,
+				token,
+				file,
+			});
 			const metaMessageId = await sendTemplate({
 				businessPhoneNumberId: businessNumber.businessPhoneNumberId,
 				token,
@@ -350,12 +423,23 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 				},
 			});
 		} catch (error) {
+			const uncertain =
+				attemptedGroupSend &&
+				!(
+					error instanceof WhapiRequestError &&
+					error.status >= 400 &&
+					error.status < 500 &&
+					error.status !== 408
+				);
 			await prisma.whatsAppTaskSendItem.update({
 				where: { id: item.id },
 				data: {
-					status: "failed",
-					providerError: safeProviderError(error),
-					failedAt: new Date(),
+					status: uncertain ? "unknown" : "failed",
+					providerError:
+						group && !(error instanceof WhapiRequestError)
+							? "Whapi send could not be confirmed"
+							: safeProviderError(error),
+					failedAt: uncertain ? null : new Date(),
 				},
 			});
 		}

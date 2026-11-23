@@ -1,7 +1,14 @@
 "use client";
 
-import { CheckCircle2, Loader2, MessageCircle } from "lucide-react";
+import {
+	CheckCircle2,
+	Loader2,
+	MessageCircle,
+	UserRound,
+	UsersRound,
+} from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +36,11 @@ import {
 	type PlanningWhatsAppSendResult,
 	sendPlanningWhatsAppTask,
 } from "./planning-whatsapp-send-client";
+import { WhatsAppGroupPicker } from "./WhatsAppGroupPicker";
+import {
+	readWhatsAppGroups,
+	type WhatsAppGroupConnection,
+} from "./whatsapp-groups-client";
 
 type PreviewImage = PlanningImage & { url: string };
 
@@ -53,6 +65,13 @@ export function VisualPlanningWhatsApp({
 }) {
 	const [open, setOpen] = useState(false);
 	const [message, setMessage] = useState("");
+	const [target, setTarget] = useState<"direct" | "group">("direct");
+	const [connection, setConnection] = useState<WhatsAppGroupConnection | null>(
+		null,
+	);
+	const [groupId, setGroupId] = useState("");
+	const [groupError, setGroupError] = useState(false);
+	const [reloadGroups, setReloadGroups] = useState(0);
 	const [prepared, setPrepared] = useState<{
 		key: string;
 		images: PreviewImage[];
@@ -105,8 +124,41 @@ export function VisualPlanningWhatsApp({
 		},
 		[],
 	);
+	useEffect(() => {
+		if (!open || target !== "group" || sending || sendResult) return;
+		if (reloadGroups > 0) setGroupError(false);
+		const controller = new AbortController();
+		const refresh = () => {
+			void readWhatsAppGroups(siteId, { signal: controller.signal }).then(
+				(next) => {
+					if (controller.signal.aborted) return;
+					setConnection(next);
+					setGroupError(false);
+				},
+				() => {
+					if (controller.signal.aborted) return;
+					setConnection(null);
+					setGroupError(true);
+				},
+			);
+		};
+		refresh();
+		window.addEventListener("focus", refresh);
+		return () => {
+			window.removeEventListener("focus", refresh);
+			controller.abort();
+		};
+	}, [open, target, siteId, reloadGroups, sending, sendResult]);
 	const images = prepared.key === imageKey ? prepared.images : [];
 	const recipient = normalizePlanningWhatsAppPhone(contact?.phone ?? "");
+	const group =
+		target === "group" && connection?.status === "connected"
+			? connection.groups.find((item) => item.id === groupId)
+			: undefined;
+	const groupSender = connection?.phone;
+	const canAddress =
+		target === "direct" ? Boolean(recipient) : Boolean(group && groupSender);
+	const settingsLink = `/dashboard/sites/${encodeURIComponent(siteId)}/settings#whatsapp-groups-${encodeURIComponent(siteId)}`;
 	const outgoingMessage = planningWhatsAppMessageWithReportingNote(message);
 	const messageTooLong =
 		outgoingMessage.length > PLANNING_WHATSAPP_MESSAGE_LIMIT;
@@ -115,12 +167,13 @@ export function VisualPlanningWhatsApp({
 		disabled ||
 		sending ||
 		!images.length ||
-		!recipient ||
+		!canAddress ||
 		!outgoingMessage ||
 		messageTooLong ||
+		(target === "group" && sendResult?.status === "processing") ||
 		sendResult?.status === "sent";
 	async function sendTask() {
-		if (sendDisabled || !recipient || !clientRequestId) return;
+		if (sendDisabled || !clientRequestId) return;
 		setMessage(normalizePlanningWhatsAppMessage(message));
 		setSending(true);
 		setSendError(null);
@@ -129,7 +182,10 @@ export function VisualPlanningWhatsApp({
 				siteId,
 				planId: plan.id,
 				planVersion: plan.version,
-				recipient,
+				recipient: target === "direct" ? (recipient ?? "") : "",
+				...(group && groupSender
+					? { group: { id: group.id, sender: groupSender } }
+					: {}),
 				message: outgoingMessage,
 				clientRequestId,
 				images,
@@ -161,6 +217,10 @@ export function VisualPlanningWhatsApp({
 				}
 				if (next) {
 					setMessage(planningWhatsAppTemplateMessage(plan));
+					setTarget("direct");
+					setGroupId("");
+					setConnection(null);
+					setGroupError(false);
 					setSendError(null);
 					setSendResult(null);
 					setClientRequestId(crypto.randomUUID());
@@ -187,13 +247,132 @@ export function VisualPlanningWhatsApp({
 				) : null}
 				<DialogHeader className="shrink-0">
 					<DialogTitle>Nosūtīt uzdevumu</DialogTitle>
-					<DialogDescription
-						className={contact ? "flex items-center gap-2" : "sr-only"}
-					>
-						<MessageCircle className="h-4 w-4" />
-						{contact?.name ?? "Darba uzdevums WhatsApp"}
+					<DialogDescription className="sr-only">
+						Darba uzdevums WhatsApp
 					</DialogDescription>
 				</DialogHeader>
+				<div className="shrink-0 space-y-2 border-b pb-3">
+					<p className="text-sm font-medium" id={`${id}-target`}>
+						Nosūtīt uz
+					</p>
+					<fieldset
+						aria-labelledby={`${id}-target`}
+						className="flex flex-wrap gap-2"
+					>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							aria-pressed={target === "direct"}
+							disabled={sending || Boolean(sendResult)}
+							className={
+								target === "direct"
+									? "border-primary bg-primary/10 text-primary"
+									: undefined
+							}
+							onClick={() => {
+								setTarget("direct");
+								setSendError(null);
+							}}
+						>
+							<UserRound className="size-4" /> Kontaktpersona
+						</Button>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							aria-pressed={target === "group"}
+							disabled={sending || Boolean(sendResult)}
+							className={
+								target === "group"
+									? "border-primary bg-primary/10 text-primary"
+									: undefined
+							}
+							onClick={() => {
+								setTarget("group");
+								setSendError(null);
+							}}
+						>
+							<UsersRound className="size-4" /> WhatsApp grupa
+						</Button>
+					</fieldset>
+					{target === "direct" ? (
+						<div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
+							<span>
+								Sūtītājs{" "}
+								<strong className="font-medium text-foreground">
+									ThermoWhite
+								</strong>
+							</span>
+							{contact ? (
+								<span>
+									Saņēmējs{" "}
+									<strong className="font-medium text-foreground">
+										{contact.name}
+									</strong>
+									{recipient ? ` · +${recipient}` : ""}
+								</span>
+							) : null}
+						</div>
+					) : groupError ? (
+						<div className="flex flex-wrap items-center gap-2">
+							<p role="alert" className="text-sm text-destructive">
+								Neizdevās ielādēt WhatsApp grupas.
+							</p>
+							<Button
+								size="sm"
+								type="button"
+								variant="outline"
+								onClick={() => {
+									setGroupError(false);
+									setReloadGroups((previous) => previous + 1);
+								}}
+							>
+								Mēģināt vēlreiz
+							</Button>
+						</div>
+					) : !connection ? (
+						<output className="block text-sm text-muted-foreground">
+							Ielādē projekta grupas…
+						</output>
+					) : connection.status === "connected" && connection.groups.length ? (
+						<div className="grid items-center gap-2 sm:grid-cols-2">
+							<WhatsAppGroupPicker
+								groups={connection.groups}
+								value={groupId}
+								disabled={sending || Boolean(sendResult)}
+								onChange={setGroupId}
+							/>
+							<p className="text-sm text-muted-foreground">
+								Sūtītājs{" "}
+								<strong className="font-medium text-foreground">
+									+{groupSender}
+								</strong>{" "}
+								· Whapi
+							</p>
+						</div>
+					) : (
+						<p className="text-sm text-muted-foreground">
+							{connection.status === "unavailable" ? (
+								"WhatsApp grupu integrācija vēl nav aktivizēta."
+							) : (
+								<Link
+									href={settingsLink}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="font-medium text-primary underline-offset-4 hover:underline"
+								>
+									{connection.status === "connected"
+										? "Pievienot grupas projekta iestatījumos"
+										: connection.status === "reconnect" ||
+												connection.status === "expired"
+											? "Atkārtoti savienot WhatsApp"
+											: "Savienot WhatsApp projekta iestatījumos"}
+								</Link>
+							)}
+						</p>
+					)}
+				</div>
 				<div className="grid min-h-0 gap-4 overflow-y-auto sm:grid-cols-2">
 					<div className="space-y-3">
 						{!images.length && !imageError ? (
@@ -247,7 +426,7 @@ export function VisualPlanningWhatsApp({
 						) : null}
 					</div>
 					<div className="space-y-3">
-						{!recipient ? (
+						{target === "direct" && !recipient ? (
 							<p role="alert" className="text-sm text-destructive">
 								Izvēlieties uzdevumam kontaktu ar WhatsApp numuru.
 							</p>
@@ -279,10 +458,14 @@ export function VisualPlanningWhatsApp({
 							<output className="block text-sm text-amber-700">
 								Nosūtīti{" "}
 								{
-									sendResult.items.filter((item) => item.status !== "failed")
-										.length
+									sendResult.items.filter((item) =>
+										["sent", "delivered", "read"].includes(item.status),
+									).length
 								}{" "}
 								no {sendResult.items.length} attēliem.
+								{target === "group" && sendResult.status === "processing"
+									? " Pārbaudiet WhatsApp grupu, lai pārliecinātos par pārējo attēlu nosūtīšanu."
+									: null}
 							</output>
 						) : null}
 						{sendError ? (
@@ -307,9 +490,11 @@ export function VisualPlanningWhatsApp({
 						onClick={() => void sendTask()}
 					>
 						{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-						{sendResult && sendResult.status !== "sent"
-							? "Atkārtot nenosūtītos"
-							: "Nosūtīt"}
+						{target === "group" && sendResult?.status === "processing"
+							? "Gaida apstiprinājumu"
+							: sendResult && sendResult.status !== "sent"
+								? "Atkārtot nenosūtītos"
+								: "Nosūtīt"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

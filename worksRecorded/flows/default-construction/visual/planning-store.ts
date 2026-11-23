@@ -326,6 +326,13 @@ export function visualPlansForLocation(
 					id: send.id,
 					planVersion: send.planVersion,
 					recipient: send.recipient,
+					...(send.provider === "whapi"
+						? {
+								provider: "whapi" as const,
+								recipientLabel: send.recipientLabel,
+								senderAddress: send.senderAddress,
+							}
+						: {}),
 					message: send.message,
 					status: send.status,
 					createdAt: send.createdAt.toISOString(),
@@ -342,7 +349,9 @@ export function visualPlansForLocation(
 						failedAt: item.failedAt?.toISOString() ?? null,
 						failureReason:
 							item.status === "failed"
-								? whatsAppFailureReason(item.providerError)
+								? send.provider === "whapi"
+									? "Pārbaudiet WhatsApp grupas savienojumu."
+									: whatsAppFailureReason(item.providerError)
 								: null,
 					})),
 				})),

@@ -4,6 +4,7 @@ import {
 	WHATSAPP_TASK_MAX_BODY,
 } from "@/flows/default-construction/visual/planning-whatsapp-send";
 import { readLimitedBody } from "@/flows/default-construction/visual/share-body";
+import { WhapiGroupsError } from "@/flows/default-construction/visual/whapi-groups-store";
 
 export async function POST(
 	request: Request,
@@ -38,6 +39,8 @@ export async function POST(
 				planId: form.get("planId"),
 				planVersion: Number(form.get("planVersion")),
 				recipient: form.get("recipient"),
+				groupId: form.get("groupId") ?? undefined,
+				groupSender: form.get("groupSender") ?? undefined,
 				message: form.get("message"),
 				clientRequestId: form.get("clientRequestId"),
 				images: JSON.parse(String(form.get("imageMetadata"))),
@@ -54,7 +57,8 @@ export async function POST(
 		return Response.json(
 			{
 				error:
-					error instanceof Error && error.message.startsWith("Nederīgs")
+					error instanceof WhapiGroupsError ||
+					(error instanceof Error && error.message.startsWith("Nederīgs"))
 						? error.message
 						: "Neizdevās nosūtīt WhatsApp darba uzdevumu. Pārbaudiet saglabāto plānu un mēģiniet vēlreiz.",
 			},
