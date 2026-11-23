@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, ExternalLink } from "lucide-react";
-import { Fragment, useId, useMemo, useState } from "react";
+import { Fragment, type ReactNode, useId, useMemo, useState } from "react";
 import { FimaBisState } from "@/components/sitediary/FimaBisState";
 import { Button } from "@/components/ui/button";
 import {
@@ -164,6 +164,11 @@ function Forma2PositionAct({
 		totals.set(unit, quantity === null ? total : (total ?? 0) + quantity);
 	}
 	const quantities = totals.size ? [...totals] : [["—", null] as const];
+	const amounts = quantities.map(([unit, quantity]) => (
+		<span key={unit} className="block font-medium">
+			{quantity === null ? "—" : numberFormat.format(quantity)}
+		</span>
+	));
 	return (
 		<tr className="[&_td]:px-3 [&_td]:py-2 [&_td]:align-top">
 			<td className="w-px">
@@ -184,18 +189,17 @@ function Forma2PositionAct({
 				))}
 			</td>
 			<td className="w-px whitespace-nowrap tabular-nums">
-				{quantities.map(([unit, quantity]) => (
-					<div key={unit} className="font-medium">
-						{quantity === null ? "—" : numberFormat.format(quantity)}
-					</div>
-				))}
 				{works.length ? (
 					<Forma2ActWorkQuantities
 						works={works}
 						latvian={latvian}
 						numberFormat={numberFormat}
-					/>
-				) : null}
+					>
+						{amounts}
+					</Forma2ActWorkQuantities>
+				) : (
+					amounts
+				)}
 			</td>
 			<td className="w-px whitespace-nowrap">
 				<FimaBisState
@@ -216,10 +220,12 @@ function Forma2PositionAct({
 }
 
 function Forma2ActWorkQuantities({
+	children,
 	works,
 	latvian,
 	numberFormat,
 }: {
+	children: ReactNode;
 	works: PositionAct["workQuantities"];
 	latvian: boolean;
 	numberFormat: Intl.NumberFormat;
@@ -229,11 +235,14 @@ function Forma2ActWorkQuantities({
 			? "—"
 			: `${numberFormat.format(quantity)} ${unit ?? (latvian ? "(mērv. nav norādīta)" : "(unit unavailable)")}`;
 	return (
-		<details className="text-xs">
-			<summary className="w-fit cursor-pointer py-0.5 text-muted-foreground hover:text-foreground">
-				{latvian ? "Darbu apjomi" : "Work quantities"}
+		<details>
+			<summary
+				className="w-fit cursor-pointer list-none underline decoration-dotted underline-offset-4 hover:text-primary [&::-webkit-details-marker]:hidden"
+				title={latvian ? "BIS darbu apjomi" : "BIS work quantities"}
+			>
+				{children}
 			</summary>
-			<ul className="my-1 ml-2 w-fit space-y-1 border-l pl-3 tabular-nums">
+			<ul className="my-1 ml-2 w-fit space-y-1 border-l pl-3 text-xs tabular-nums">
 				{works.map(({ id, number, quantity, unit }, index) => {
 					const label = number
 						? `BIS Nr. ${number}`
