@@ -1010,6 +1010,18 @@ export function VisualPlanningPanel({
 	);
 	const selectedWhatsAppSends = selectedPlan?.whatsAppSends ?? [];
 	const pdfUrl = `${cache.endpoint(drawing.id)}?pdf=1`;
+	const hasSavedZones = index?.plans.some(
+		(plan) => !plan.archivedAt && plan.geometry.areas.length > 0,
+	);
+	useEffect(() => {
+		if (active) void cache.loadWhatsAppGroups().catch(() => {});
+	}, [active, cache]);
+	useEffect(() => {
+		if (!active || !hasSavedZones) return;
+		const pdf = cache.openPdf(pdfUrl);
+		void pdf.promise.catch(() => {});
+		return pdf.release;
+	}, [active, cache, hasSavedZones, pdfUrl]);
 	const imagePlan = useMemo(
 		() =>
 			draft?.areas.length
@@ -1044,11 +1056,23 @@ export function VisualPlanningPanel({
 	}, [cache, pdfUrl, imagePlan, imageColor, imageSection]);
 	useEffect(() => {
 		if (!active || areaEditing || !imagePlan || draft?.archivedAt) return;
+		if (selectedPlan && !dirty) {
+			void createImages().catch(() => {});
+			return;
+		}
 		const timer = window.setTimeout(() => {
 			void createImages().catch(() => {});
 		}, 250);
 		return () => window.clearTimeout(timer);
-	}, [active, areaEditing, imagePlan, draft?.archivedAt, createImages]);
+	}, [
+		active,
+		areaEditing,
+		imagePlan,
+		draft?.archivedAt,
+		createImages,
+		dirty,
+		selectedPlan,
+	]);
 
 	return (
 		<div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -1848,6 +1872,8 @@ export function VisualPlanningPanel({
 											<VisualPlanningWhatsApp
 												siteId={siteId}
 												key={selectedPlan.id}
+												active={active}
+												cache={cache}
 												plan={selectedPlan}
 												imageKey={imageKey}
 												initialImages={cache.peekPlanningImages(imageKey)}

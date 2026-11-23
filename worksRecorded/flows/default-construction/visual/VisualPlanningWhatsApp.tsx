@@ -37,16 +37,16 @@ import {
 	readWasenderTaskReceipt,
 	sendPlanningWhatsAppTask,
 } from "./planning-whatsapp-send-client";
+import type { VisualClientCache } from "./visual-client-cache";
 import { WhatsAppGroupPicker } from "./WhatsAppGroupPicker";
-import {
-	readWhatsAppGroups,
-	type WhatsAppGroupConnection,
-} from "./whatsapp-groups-client";
+import type { WhatsAppGroupConnection } from "./whatsapp-groups-client";
 
 type PreviewImage = PlanningImage & { url: string };
 
 export function VisualPlanningWhatsApp({
 	siteId,
+	active = true,
+	cache,
 	plan,
 	imageKey,
 	initialImages,
@@ -56,6 +56,8 @@ export function VisualPlanningWhatsApp({
 	onSendResult,
 }: {
 	siteId: string;
+	active?: boolean;
+	cache: VisualClientCache;
 	plan: VisualPlan;
 	imageKey: string;
 	initialImages?: PlanningImage[];
@@ -68,11 +70,10 @@ export function VisualPlanningWhatsApp({
 	const [message, setMessage] = useState("");
 	const [target, setTarget] = useState<"direct" | "group">("direct");
 	const [connection, setConnection] = useState<WhatsAppGroupConnection | null>(
-		null,
+		() => cache.peekWhatsAppGroups() ?? null,
 	);
 	const [groupId, setGroupId] = useState("");
 	const [groupError, setGroupError] = useState(false);
-	const [reloadGroups, setReloadGroups] = useState(0);
 	const [prepared, setPrepared] = useState<{
 		key: string;
 		images: PreviewImage[];
@@ -129,6 +130,7 @@ export function VisualPlanningWhatsApp({
 		initial.current = initialImages;
 	}, [createImages, initialImages]);
 	useEffect(() => {
+		if (!active) return;
 		const controller = new AbortController();
 		let urls: string[] = [];
 		setImageError(null);
@@ -155,7 +157,7 @@ export function VisualPlanningWhatsApp({
 			controller.abort();
 			for (const url of urls) URL.revokeObjectURL(url);
 		};
-	}, [imageKey, retry]);
+	}, [active, imageKey, retry]);
 	useEffect(
 		() => () => {
 			if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -163,30 +165,28 @@ export function VisualPlanningWhatsApp({
 		[],
 	);
 	useEffect(() => {
-		if (!open || target !== "group" || sending || sendResult) return;
-		if (reloadGroups > 0) setGroupError(false);
-		const controller = new AbortController();
-		const refresh = () => {
-			void readWhatsAppGroups(siteId, { signal: controller.signal }).then(
+		if (!active) return;
+		let cancelled = false;
+		const refresh = (force = false) => {
+			void cache.loadWhatsAppGroups({ force }).then(
 				(next) => {
-					if (controller.signal.aborted) return;
+					if (cancelled) return;
 					setConnection(next);
 					setGroupError(false);
 				},
 				() => {
-					if (controller.signal.aborted) return;
-					setConnection(null);
-					setGroupError(true);
+					if (!cancelled) setGroupError(!cache.peekWhatsAppGroups());
 				},
 			);
 		};
 		refresh();
-		window.addEventListener("focus", refresh);
+		const refreshOnFocus = () => refresh(true);
+		if (open) window.addEventListener("focus", refreshOnFocus);
 		return () => {
-			window.removeEventListener("focus", refresh);
-			controller.abort();
+			cancelled = true;
+			window.removeEventListener("focus", refreshOnFocus);
 		};
-	}, [open, target, siteId, reloadGroups, sending, sendResult]);
+	}, [active, cache, open]);
 	const images = prepared.key === imageKey ? prepared.images : [];
 	const recipient = normalizePlanningWhatsAppPhone(contact?.phone ?? "");
 	const group =
@@ -257,8 +257,6 @@ export function VisualPlanningWhatsApp({
 					setMessage(planningWhatsAppTemplateMessage(plan));
 					setTarget("direct");
 					setGroupId("");
-					setConnection(null);
-					setGroupError(false);
 					setSendError(null);
 					setSendResult(null);
 					setClientRequestId(crypto.randomUUID());
@@ -363,7 +361,9 @@ export function VisualPlanningWhatsApp({
 								variant="outline"
 								onClick={() => {
 									setGroupError(false);
-									setReloadGroups((previous) => previous + 1);
+									void cache
+										.loadWhatsAppGroups({ force: true })
+										.then(setConnection, () => setGroupError(true));
 								}}
 							>
 								Mēģināt vēlreiz

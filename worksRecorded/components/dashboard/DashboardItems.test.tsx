@@ -617,6 +617,40 @@ function seedProject(userId: string, id: string, name: string) {
 	);
 }
 
+it("searches Līmeni projects inside the dropdown and selects a match with the keyboard", async () => {
+	mockPathname = "/dashboard/sites/smerla/izpildshemas";
+	seedProject("limeni-nav", "smerla", "Šmerļa iela 3");
+	const user = userEvent.setup();
+	render(
+		<ProjectProvider userId="limeni-nav">
+			<DashboardProjectNavigation
+				searchProjects
+				availableProjects={[
+					{ id: "smerla", name: "Šmerļa iela 3" },
+					{ id: "raudas", name: "Raudas iela, Tukums" },
+					{ id: "upb", name: "Hipokrātu iela 2, Rīga (UPB)" },
+				]}
+				organizationLanguage="lv"
+			/>
+		</ProjectProvider>,
+	);
+	await user.click(screen.getByRole("button", { name: "Mainīt projektu" }));
+	const input = screen.getByRole("textbox", { name: "Meklēt projektu" });
+	await waitFor(() => expect(input).toHaveFocus());
+	await user.type(input, "absent");
+	expect(screen.getByText("Nav atrasts neviens projekts.")).toBeVisible();
+	await user.clear(input);
+	await user.type(input, "hipokratu");
+	expect(screen.queryByRole("menuitem", { name: /Raudas/ })).not.toBeInTheDocument();
+	expect(screen.getByRole("menuitem", { name: /Hipokrātu/ })).toHaveAttribute(
+		"href",
+		"/dashboard/sites/upb/izpildshemas",
+	);
+	await user.keyboard("{Enter}");
+	expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+	expect(window.sessionStorage.getItem("project:limeni-nav")).toContain('"upb"');
+});
+
 it("shows Acts for the enabled FIMA project and preserves the Acts route when switching projects", async () => {
   mockPathname = "/dashboard/sites/fima-acts/acts";
   seedProject("acts-nav", "fima-acts", "Olaine");

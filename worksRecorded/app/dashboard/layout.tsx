@@ -303,6 +303,7 @@ export default async function DashboardLayout({
 
 					<DashboardProjectNavigation
 						availableProjects={headerProjects}
+						searchProjects={limeniSuiteEnabled}
 						fimaCollaborationEnabled={fimaCollaborationEnabled}
 						organizationLanguage={organizationLanguage}
 						canAccessAiEvals={canAccessAiEvals}

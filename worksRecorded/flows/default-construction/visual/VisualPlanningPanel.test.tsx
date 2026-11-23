@@ -35,6 +35,7 @@ import {
 } from "./VisualPlanningPanel";
 import { VisualPlanningWhatsApp } from "./VisualPlanningWhatsApp";
 import { VisualClientCache } from "./visual-client-cache";
+import { readWhatsAppGroups } from "./whatsapp-groups-client";
 
 jest.mock("./actions", () => ({
 	addVisualSection: jest.fn(),
@@ -46,6 +47,14 @@ jest.mock("./actions", () => ({
 }));
 jest.mock("./planning-whatsapp-send-client", () => ({
 	sendPlanningWhatsAppTask: jest.fn(),
+}));
+jest.mock("./whatsapp-groups-client", () => ({
+	...jest.requireActual("./whatsapp-groups-client"),
+	readWhatsAppGroups: jest.fn().mockResolvedValue({
+		status: "disconnected",
+		phone: null,
+		groups: [],
+	}),
 }));
 jest.mock("./VisualPdf", () => ({
 	VisualPdf: ({
@@ -640,6 +649,7 @@ it("reports a dedicated-number send failure and allows an explicit retry", async
 	render(
 		<VisualPlanningWhatsApp
 			siteId="site"
+			cache={new VisualClientCache("site")}
 			plan={plan}
 			imageKey="test-image-key"
 			contact={{ name: "Anna", phone: "37120000000" }}
@@ -1283,6 +1293,49 @@ it("prepares images before opening and sends to the assigned contact without ask
 			}),
 		),
 	);
+});
+
+it("preloads saved WhatsApp groups and reuses them when opening the dialog or switching recipients", async () => {
+	const groups = jest.mocked(readWhatsAppGroups);
+	groups.mockResolvedValueOnce({
+		status: "connected",
+		phone: "37120000000",
+		groups: [{ id: "120000000000000001@g.us", name: "Testa grupa" }],
+	});
+	jest.mocked(getVisualPlanning).mockResolvedValue({
+		...emptyIndex,
+		plans: [indexedPlan],
+	});
+	const cache = new VisualClientCache("site");
+	render(
+		<VisualPlanningPanel
+			siteId="site"
+			drawing={drawing}
+			sidebarOpen
+			resourceCache={cache}
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	await waitFor(() =>
+		expect(cache.peekWhatsAppGroups()?.groups).toHaveLength(1),
+	);
+	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	fireEvent.click(
+		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
+	);
+	for (let attempt = 0; attempt < 2; attempt++) {
+		fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
+		fireEvent.click(screen.getByRole("button", { name: "WhatsApp grupa" }));
+		expect(
+			screen.getByRole("button", { name: "Izvēlēties grupu" }),
+		).toBeEnabled();
+		expect(
+			screen.queryByText("Ielādē projekta grupas…"),
+		).not.toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Kontaktpersona" }));
+		fireEvent.click(screen.getByRole("button", { name: "Atcelt" }));
+	}
+	expect(groups).toHaveBeenCalledTimes(1);
 });
 
 it("shows WhatsApp delivery history on the connected planning task", async () => {

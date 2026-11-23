@@ -22,6 +22,10 @@ import {
 	SMERLA_SECTION_MAP_SITE_ID,
 } from "./section-boundaries";
 import { fetchSectionDrawing } from "./section-drawing-client";
+import {
+	readWhatsAppGroups,
+	type WhatsAppGroupConnection,
+} from "./whatsapp-groups-client";
 
 export const VISUAL_CACHE_FRESH_MS = 60_000;
 export const VISUAL_PLANNING_CACHE_INVALIDATED =
@@ -62,6 +66,42 @@ type TilePriority = { background: boolean };
 export class VisualClientCache {
 	private suspended = false;
 	private planningImages = new PlanningImageCache();
+	private whatsAppGroups?: CacheEntry<WhatsAppGroupConnection>;
+	private whatsAppGroupRequest?: {
+		controller: AbortController;
+		promise: Promise<WhatsAppGroupConnection>;
+	};
+
+	peekWhatsAppGroups() {
+		return this.whatsAppGroups?.value;
+	}
+
+	loadWhatsAppGroups({ force = false }: LoadOptions = {}) {
+		if (this.whatsAppGroupRequest) return this.whatsAppGroupRequest.promise;
+		const cached = this.whatsAppGroups;
+		if (
+			!force &&
+			cached &&
+			this.now() - cached.updatedAt < VISUAL_CACHE_FRESH_MS
+		)
+			return Promise.resolve(cached.value);
+		const controller = new AbortController();
+		const promise = readWhatsAppGroups(this.siteId, {
+			signal: controller.signal,
+		})
+			.then((value) => {
+				controller.signal.throwIfAborted();
+				this.whatsAppGroups = { value, updatedAt: this.now() };
+				return value;
+			})
+			.finally(() => {
+				if (this.whatsAppGroupRequest?.controller === controller)
+					this.whatsAppGroupRequest = undefined;
+			});
+		this.whatsAppGroupRequest = { controller, promise };
+		return promise;
+	}
+
 	planningImageKey(
 		url: string,
 		plan: PlanningImagePlan,
@@ -1024,6 +1064,9 @@ export class VisualClientCache {
 
 	clear() {
 		this.planningImages.clear();
+		this.whatsAppGroupRequest?.controller.abort();
+		this.whatsAppGroupRequest = undefined;
+		this.whatsAppGroups = undefined;
 		this.tileAbort.abort();
 		this.tileAbort = new AbortController();
 		this.tileBlobs.clear();
