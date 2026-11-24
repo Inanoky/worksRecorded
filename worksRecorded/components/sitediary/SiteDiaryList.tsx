@@ -17,7 +17,6 @@ import type { FimaDiaryFilters as FimaFilters } from "@/lib/fima/diary-filters";
 import { FimaBisState } from "./FimaBisState";
 import { fimaDiaryColumnWeights, fimaDiaryTableClassName } from "@/lib/fima/diary-table";
 import { getFimaDiaryCollaboration, refreshFimaBisMaterials } from "@/server/actions/fima-diary-collaboration";
-import { FimaMaterialRefresh } from "./FimaMaterialRefresh";
 import { createFimaPageCache, fetchFimaPage } from "@/lib/fima/page-cache";
 import { mergeFimaCollaboration } from "@/lib/fima/diary-list-summary";
 import { FimaInlineCell } from "./FimaInlineCell";
@@ -3499,7 +3498,6 @@ export default function SiteDiaryCalendar({
         className={cn("w-full mx-auto px-2 sm:px-4 py-4", fimaDiary && "select-text")}
         style={{ maxWidth: fimaDiary ? "none" : `${screenWidth}rem`, minWidth: 0 }}
       >
-        {fimaDiary && siteId ? <FimaMaterialRefresh key={siteId} siteId={siteId} records={rows} onChange={updateFimaCollaboration} autoRefresh={false} /> : null}
         <Tabs
           value={viewMode}
           onValueChange={(v) =>

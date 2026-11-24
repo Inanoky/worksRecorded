@@ -23,6 +23,7 @@ export class WasenderApiError extends Error {
 	constructor(
 		readonly status: number,
 		readonly sessionLimit = false,
+		readonly retryAfterMs?: number,
 	) {
 		super(`WaSenderAPI request failed (${status})`);
 	}
@@ -30,6 +31,34 @@ export class WasenderApiError extends Error {
 
 export function getWasenderAccessToken() {
 	return process.env.WASENDER_LIMENI_ACCESS_TOKEN?.trim() || null;
+}
+
+function rateLimitDelay(headers: Headers, payload: unknown) {
+	const body = z
+		.object({ retry_after: z.number().nonnegative() })
+		.safeParse(payload);
+	const retryAfter = headers.get("Retry-After")?.trim();
+	const retryAfterMs = retryAfter
+		? /^\d+(\.\d+)?$/.test(retryAfter)
+			? Number(retryAfter) * 1000
+			: Date.parse(retryAfter) - Date.now()
+		: 0;
+	const windowResetMs = Number(headers.get("X-RateLimit-Reset")) * 1000;
+	const dailyResetMs =
+		headers.get("X-RateLimit-Daily-Remaining") === "0"
+			? Number(headers.get("X-RateLimit-Daily-Reset")) * 1000
+			: 0;
+	return (
+		Math.max(
+			0,
+			...[
+				body.success ? body.data.retry_after * 1000 : 0,
+				retryAfterMs,
+				windowResetMs,
+				dailyResetMs,
+			].filter(Number.isFinite),
+		) || undefined
+	);
 }
 
 async function request(path: string, token: string, init?: RequestInit) {
@@ -56,6 +85,9 @@ async function request(path: string, token: string, init?: RequestInit) {
 				/session limit|maximum number of (?:whatsapp )?sessions/i.test(
 					error.data.message ?? error.data.error ?? "",
 				),
+			response.status === 429
+				? rateLimitDelay(response.headers, data)
+				: undefined,
 		);
 	}
 	return data;
@@ -138,4 +170,120 @@ export async function disconnectWasenderSession(token: string, id: number) {
 
 export async function removeWasenderSession(token: string, id: number) {
 	await request(`${sessionsPath}/${id}`, token, { method: "DELETE" });
+}
+
+export const wasenderGroupId = z.string().regex(/^[\d-]{10,31}@g\.us$/);
+export const wasenderGroups = z.array(
+	z.object({ id: wasenderGroupId, name: z.string() }),
+);
+const messageId = z
+	.union([z.string().regex(/^\d+$/), z.number().int().positive().safe()])
+	.transform(String);
+
+const groupRows = z.array(z.unknown());
+const groupPage = success.extend({
+	data: z.union([
+		groupRows,
+		z.object({
+			items: groupRows,
+			pagination: z.object({
+				page: z.number().int().positive(),
+				totalPages: z.number().int().nonnegative(),
+			}),
+		}),
+	]),
+});
+const groupEntry = z.object({
+	jid: wasenderGroupId.optional().catch(undefined),
+	id: wasenderGroupId.optional().catch(undefined),
+	name: z.string().optional().catch(undefined),
+	subject: z.string().optional().catch(undefined),
+});
+
+export async function listWasenderGroups(token: string) {
+	const groups = new Map<string, { id: string; name: string }>();
+	let page = 1;
+	while (true) {
+		const path = page === 1 ? "/groups" : `/groups?paginated=true&page=${page}`;
+		const { data } = groupPage.parse(await request(path, token));
+		const rows = Array.isArray(data) ? data : data.items;
+		for (const row of rows) {
+			const entry = groupEntry.safeParse(row);
+			if (!entry.success) continue;
+			const id = entry.data.jid ?? entry.data.id;
+			if (!id) continue;
+			const name = entry.data.name?.trim() || entry.data.subject?.trim();
+			groups.set(id, {
+				id,
+				name: name?.slice(0, 150) || "Grupa bez nosaukuma",
+			});
+		}
+		if (Array.isArray(data)) break;
+		if (data.pagination.page !== page)
+			throw new Error("WaSenderAPI returned an unexpected group page");
+		if (page >= data.pagination.totalPages) break;
+		page++;
+	}
+	return Array.from(groups.values()).sort((a, b) =>
+		a.name.localeCompare(b.name, "lv"),
+	);
+}
+
+export async function sendWasenderGroupImage(
+	token: string,
+	to: string,
+	text: string,
+	imageUrl: string,
+) {
+	return success.extend({ data: z.object({ msgId: messageId }) }).parse(
+		await request("/send-message", token, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ to, text, imageUrl }),
+		}),
+	).data.msgId;
+}
+
+export async function readWasenderMessageStatus(token: string, id: string) {
+	const { data } = success
+		.extend({ data: z.object({ status: z.number().int(), msgId: messageId }) })
+		.parse(await request(`/messages/${encodeURIComponent(id)}/info`, token));
+	if (data.msgId !== id)
+		throw new Error("WaSenderAPI returned a different message");
+	return data.status;
+}
+
+const messageLogEntry = z.object({
+	id: messageId,
+	whatsapp_session_id: messageId,
+	status: z.literal("sent"),
+});
+
+export async function readWasenderSentActivity(
+	sessionId: number,
+	messageIds: string[],
+) {
+	const sent = new Set<string>();
+	const token = getWasenderAccessToken();
+	if (!token || !messageIds.length) return sent;
+	const requested = new Set(messageIds);
+	const { data } = success
+		.extend({ data: z.object({ data: z.array(z.unknown()) }) })
+		.parse(
+			await request(
+				`${sessionsPath}/${sessionId}/message-logs?per_page=25`,
+				token,
+			),
+		);
+	for (const row of data.data) {
+		const entry = messageLogEntry.safeParse(row);
+		if (
+			entry.success &&
+			entry.data.whatsapp_session_id === String(sessionId) &&
+			requested.has(entry.data.id)
+		) {
+			sent.add(entry.data.id);
+		}
+	}
+	return sent;
 }

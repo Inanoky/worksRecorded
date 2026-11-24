@@ -70,9 +70,12 @@ function isMissing(error: unknown) {
 	return error instanceof WasenderApiError && error.status === 404;
 }
 
-async function findOwnedConnection(owner: Owner, id: string) {
+async function findOwnedConnection(
+	{ organizationId, userId }: Owner,
+	id: string,
+) {
 	const row = await prisma.wasenderWhatsAppConnection.findFirst({
-		where: { ...owner, id },
+		where: { organizationId, userId, id },
 	});
 	if (!row) throw new WasenderConnectionError("Numurs nav pieejams.", 404);
 	return row;
@@ -120,6 +123,30 @@ async function connectionStatus(row: Connection, session: Session) {
 	}
 }
 
+export async function requireConnectedWasenderSession(
+	owner: Owner,
+	id: string,
+) {
+	const token = getWasenderAccessToken();
+	if (!token)
+		throw new WasenderConnectionError("WaSenderAPI vēl nav aktivizēts.", 503);
+	const row = await findOwnedConnection(owner, id);
+	const session = await providerSession(token, row);
+	if (
+		!session?.api_key ||
+		(await connectionStatus(row, session)) !== "connected"
+	)
+		throw new WasenderConnectionError(
+			"Savienojiet šo numuru ar WaSenderAPI projekta iestatījumos.",
+		);
+	return {
+		token: session.api_key,
+		phone: row.phone,
+		connectionId: row.id,
+		providerSessionId: session.id,
+	};
+}
+
 async function readConnection(token: string, row: Connection) {
 	if (row.providerSessionId === null) return view(row, "pending");
 	const session = await providerSession(token, row);
@@ -129,13 +156,14 @@ async function readConnection(token: string, row: Connection) {
 	);
 }
 
-export async function readWasenderConnections(
-	owner: Owner,
-): Promise<WasenderConnections> {
+export async function readWasenderConnections({
+	organizationId,
+	userId,
+}: Owner): Promise<WasenderConnections> {
 	const token = getWasenderAccessToken();
 	if (!token) return { enabled: false, connections: [] };
 	const rows = await prisma.wasenderWhatsAppConnection.findMany({
-		where: owner,
+		where: { organizationId, userId },
 		orderBy: { createdAt: "asc" },
 	});
 	const connections = await Promise.all(

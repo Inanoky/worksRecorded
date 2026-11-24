@@ -1,12 +1,16 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { projectIdFromHref } from "@/components/projects/workspace-store";
+import { cn } from "@/lib/utils/utils";
 import {
 	type ProjectLoadingProgress,
 	ProjectLoadingProgressBar,
 } from "./ProjectLoadingProgressBar";
 import {
+	useFimaProjectPreload,
 	useProjectLoadingProgress,
 	useProjectPreparation,
 	useProjectPreparationManaged,
@@ -29,12 +33,22 @@ export function ProjectOpeningOverlay({
 	const enabled = useProjectLoadingProgress();
 	const visualPreload = useVisualProjectPreload(siteId);
 	const showProgress = enabled || visualPreload;
-	const preparation = useProjectPreparation(siteId);
+	const pathname = usePathname();
+	const routeSiteId = projectIdFromHref(pathname ?? "") ?? undefined;
+	const fimaProject = useFimaProjectPreload(siteId ?? routeSiteId);
+	const preparation = useProjectPreparation(
+		siteId ?? (fimaProject ? routeSiteId : undefined),
+	);
 	const managed = useProjectPreparationManaged();
 	if (managed && !primary) return null;
 	return (
 		<output
-			className="fixed inset-0 z-[100] flex items-center justify-center bg-background/85 p-6 backdrop-blur-sm"
+			className={cn(
+				"flex items-center justify-center p-6",
+				fimaProject
+					? "my-4 min-h-48"
+					: "fixed inset-0 z-[100] bg-background/85 backdrop-blur-sm",
+			)}
 			aria-live="polite"
 			aria-label={label}
 		>

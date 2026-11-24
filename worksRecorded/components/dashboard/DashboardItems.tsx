@@ -1,6 +1,12 @@
 "use client";
 
-import { Building2, Check, ChevronDown, MoreHorizontal } from "lucide-react";
+import {
+	Building2,
+	Check,
+	ChevronDown,
+	MoreHorizontal,
+	Search,
+} from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
@@ -15,6 +21,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
 	Tooltip,
 	TooltipContent,
@@ -30,7 +37,10 @@ import {
 	getTgemWorkspaceNavLinks,
 	type TgemWorkspaceNavLink,
 } from "./NavLinks";
-import { useDashboardNavigation } from "./useDashboardNavigation";
+import {
+	type DashboardNavigationProject,
+	useDashboardNavigation,
+} from "./useDashboardNavigation";
 
 export function DashboardItems({
 	organizationId,
@@ -107,6 +117,7 @@ export function DashboardProjectNavigation({
 	canAccessFlowConfigAdmin = false,
 	flowModuleKey = null,
 	constructionBootstrapClickOnly = false,
+	searchProjects = false,
 }: {
 	fimaCollaborationEnabled?: boolean;
 	availableProjects?: ProjectSwitcherOption[];
@@ -115,6 +126,7 @@ export function DashboardProjectNavigation({
 	canAccessFlowConfigAdmin?: boolean;
 	flowModuleKey?: FlowModuleKey | null;
 	constructionBootstrapClickOnly?: boolean;
+	searchProjects?: boolean;
 }) {
 	const {
 		isProjectRoute,
@@ -126,9 +138,7 @@ export function DashboardProjectNavigation({
 		utilityProjectNavLinks,
 	} = useDashboardNavigation({
 		fimaCollaborationEnabled,
-		fimaActProjectIds: availableProjects
-			.filter((project) => project.fimaActsEnabled)
-			.map((project) => project.id),
+		availableProjects,
 		organizationLanguage,
 		canAccessAiEvals,
 		canAccessFlowConfigAdmin,
@@ -235,6 +245,7 @@ export function DashboardProjectNavigation({
 				onSelectProject={setProject}
 				pathname={pathname}
 				prefetchOnIntent={!constructionBootstrapClickOnly}
+				searchable={searchProjects}
 			/>
 
 			<div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
@@ -381,11 +392,7 @@ type ResolvedProjectLink = ReturnType<
 	typeof useDashboardNavigation
 >["projectNavLinks"][number];
 
-type ProjectSwitcherOption = {
-	id: string;
-	name: string;
-	fimaActsEnabled?: boolean;
-};
+type ProjectSwitcherOption = DashboardNavigationProject;
 
 const projectNavItemClasses =
 	"inline-flex h-10 min-w-0 items-center gap-2 rounded-lg border px-3.5 text-[13px] font-medium leading-none whitespace-nowrap transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-green-500/20 focus-visible:border-green-500 active:translate-y-px dark:focus-visible:ring-emerald-400/25 dark:focus-visible:border-emerald-400";
@@ -410,20 +417,25 @@ function ProjectSwitcher({
 	onSelectProject,
 	pathname,
 	prefetchOnIntent = true,
+	searchable = false,
 }: {
 	showAllProjects?: boolean;
 	activeProjectId: string;
 	activeProjectName: string;
 	availableProjects: ProjectSwitcherOption[];
 	isActive: boolean;
-	labels: { more: string; project: string; switchProject: string };
+	labels: ReturnType<typeof getProjectNavigationLabels>;
 	onProjectIntent?: (siteId: string) => void;
 	onRoutePrefetch?: (href: string) => void;
 	onSelectProject: (id: string, name: string) => void;
 	pathname: string;
 	prefetchOnIntent?: boolean;
+	searchable?: boolean;
 }) {
 	const [open, setOpen] = useState(false);
+	const [search, setSearch] = useState("");
+	const searchInput = useRef<HTMLInputElement>(null);
+	const menu = useRef<HTMLDivElement>(null);
 	const intentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const preparedProjects = useRef(new Set<string>());
 	const workspace = useWorkspaceNavigation();
@@ -434,6 +446,12 @@ function ProjectSwitcher({
 		activeProjectId,
 		activeProjectName,
 	);
+	const query = normalizeProjectSearch(search.trim());
+	const visibleProjects = query
+		? projects.filter(({ name }) =>
+				normalizeProjectSearch(name).includes(query),
+			)
+		: projects;
 	const clearIntentTimer = () => {
 		if (!intentTimer.current) return;
 		clearTimeout(intentTimer.current);
@@ -448,7 +466,11 @@ function ProjectSwitcher({
 			workspace?.store.hasRoute(href)
 		)
 			return;
-		if (!prefetchOnIntent && !projects.find((project) => project.id === projectId)?.fimaActsEnabled) return;
+		if (
+			!prefetchOnIntent &&
+			!projects.find((project) => project.id === projectId)?.fimaActsEnabled
+		)
+			return;
 		if (!onProjectIntent && !onRoutePrefetch) return;
 		preparedProjects.current.add(projectId);
 		if (onProjectIntent) onProjectIntent(projectId);
@@ -466,6 +488,7 @@ function ProjectSwitcher({
 		setOpen(nextOpen);
 		if (!nextOpen) {
 			clearIntentTimer();
+			setSearch("");
 			return;
 		}
 		if (!onProjectIntent) return;
@@ -489,6 +512,11 @@ function ProjectSwitcher({
 		},
 		[],
 	);
+	useEffect(() => {
+		if (!searchable || !open) return;
+		const frame = requestAnimationFrame(() => searchInput.current?.focus());
+		return () => cancelAnimationFrame(frame);
+	}, [open, searchable]);
 
 	if (projects.length <= 1) {
 		return (
@@ -529,10 +557,55 @@ function ProjectSwitcher({
 					/>
 				</button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="start" className="w-72">
+			<DropdownMenuContent ref={menu} align="start" className="w-72">
 				<DropdownMenuLabel>{labels.switchProject}</DropdownMenuLabel>
+				{searchable ? (
+					<div className="sticky top-0 z-10 bg-popover px-1 pb-1">
+						<Search
+							aria-hidden="true"
+							className="pointer-events-none absolute left-3 top-2 size-4 text-muted-foreground"
+						/>
+						<Input
+							ref={searchInput}
+							value={search}
+							onFocus={clearIntentTimer}
+							onChange={(event) => setSearch(event.target.value)}
+							aria-label={labels.searchProjects}
+							placeholder={labels.searchProjects}
+							autoComplete="off"
+							className="h-8 pl-8"
+							onKeyDown={(event) => {
+								if (event.key === "Escape" || event.key === "Tab") return;
+								event.stopPropagation();
+								if (
+									event.nativeEvent.isComposing ||
+									!["ArrowDown", "ArrowUp", "Enter"].includes(event.key)
+								)
+									return;
+								event.preventDefault();
+								const items =
+									menu.current?.querySelectorAll<HTMLElement>(
+										'[role="menuitem"]',
+									);
+								if (event.key === "Enter") {
+									items?.[0]?.click();
+								} else {
+									(event.key === "ArrowUp"
+										? items?.[items.length - 1]
+										: items?.[0]
+									)?.focus();
+								}
+							}}
+						/>
+					</div>
+				) : null}
 				<DropdownMenuSeparator />
-				{projects.map((project) => {
+				{!visibleProjects.length ? (
+					<p className="px-2 py-2 text-sm text-muted-foreground">
+						{labels.noProjects}
+					</p>
+				) : null}
+				{visibleProjects.map((project) => {
 					const href =
 						project.id === "__all__"
 							? "/dashboard/all-projects"
@@ -553,6 +626,7 @@ function ProjectSwitcher({
 										prepareProject(project.id, href);
 										onSelectProject(project.id, project.name);
 									}
+									if (searchable) handleOpenChange(false);
 								}}
 								onFocus={() => scheduleProject(project, href)}
 								onMouseEnter={() => scheduleProject(project, href)}
@@ -700,10 +774,26 @@ function normalizeProjectSwitcherOptions(
 	return projects.filter((project) => project.id && project.name);
 }
 
+function normalizeProjectSearch(value: string) {
+	return value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("lv");
+}
+
 function getProjectNavigationLabels(language?: string | null) {
 	return String(language ?? "")
 		.toLowerCase()
 		.startsWith("lv")
-		? { more: "Vairāk", project: "Projekts", switchProject: "Mainīt projektu" }
-		: { more: "More", project: "Project", switchProject: "Switch project" };
+		? {
+				more: "Vairāk",
+				project: "Projekts",
+				switchProject: "Mainīt projektu",
+				searchProjects: "Meklēt projektu",
+				noProjects: "Nav atrasts neviens projekts.",
+			}
+		: {
+				more: "More",
+				project: "Project",
+				switchProject: "Switch project",
+				searchProjects: "Search projects",
+				noProjects: "No matching projects.",
+			};
 }

@@ -21,7 +21,10 @@ import {
 	getTgemWorkspaceNavLinks,
 	type TgemWorkspaceNavLink,
 } from "./NavLinks";
-import { useDashboardNavigation } from "./useDashboardNavigation";
+import {
+	type DashboardNavigationProject,
+	useDashboardNavigation,
+} from "./useDashboardNavigation";
 
 export function MobileMenu({
 	fimaCollaborationEnabled = false,
@@ -38,11 +41,7 @@ export function MobileMenu({
 	canAccessAiEvals?: boolean;
 	canAccessFlowConfigAdmin?: boolean;
 	flowModuleKey?: FlowModuleKey | null;
-	availableProjects?: Array<{
-		id: string;
-		name: string;
-		fimaActsEnabled?: boolean;
-	}>;
+	availableProjects?: DashboardNavigationProject[];
 }) {
 	const {
 		globalNavLinks,
@@ -53,9 +52,7 @@ export function MobileMenu({
 		projectNavLinks,
 	} = useDashboardNavigation({
 		fimaCollaborationEnabled,
-		fimaActProjectIds: availableProjects
-			.filter((project) => project.fimaActsEnabled)
-			.map((project) => project.id),
+		availableProjects,
 		organizationId,
 		organizationLanguage,
 		canAccessAiEvals,

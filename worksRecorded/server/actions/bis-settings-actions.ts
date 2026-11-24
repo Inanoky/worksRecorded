@@ -7,6 +7,7 @@ import { orgCheck } from "@/server/actions/shared-actions";
 import {
   deleteUserBisTokens,
   exchangeBisAuthorizationCode,
+  fetchBisAvailableCases,
   fetchBisCaseConstructionRounds,
   getSiteBisConfig,
   getUserBisTokenByUserId,
@@ -18,10 +19,12 @@ import {
 export async function disconnectBisAction(formData: FormData) {
   const siteId = String(formData.get("siteId") ?? "");
   const user = await requireUser();
+  if (siteId && !(await orgCheck(user.id, siteId))) {
+    throw new Error("Project access denied");
+  }
   await deleteUserBisTokens(user.id);
 
   if (siteId) {
-    await orgCheck(user.id, siteId);
     await setSiteBisConfig(siteId, {
       bisCaseId: null,
       bisCaseNumber: null,
@@ -44,23 +47,20 @@ export async function disconnectBisAction(formData: FormData) {
 export async function assignBisCaseToSiteAction(formData: FormData) {
   const siteId = String(formData.get("siteId") ?? "");
   const bisCaseId = String(formData.get("bisCaseId") ?? "");
-  const bisCaseNumber = String(formData.get("bisCaseNumber") ?? "");
-  const bisCaseName = String(formData.get("bisCaseName") ?? "");
-  const bisCaseStage = String(formData.get("bisCaseStage") ?? "");
 
   if (!siteId || !bisCaseId) {
     throw new Error("Missing BIS case selection");
   }
 
   const user = await requireUser();
-  await orgCheck(user.id, siteId);
+  if (!(await orgCheck(user.id, siteId))) throw new Error("Project access denied");
 
   const [site, token] = await Promise.all([
     getSiteBisConfig(siteId),
     getUserBisTokenByUserId(user.id),
   ]);
 
-  if (!token) {
+  if (!token?.accessToken) {
     throw new Error("Connect BIS before assigning a case");
   }
 
@@ -68,11 +68,14 @@ export async function assignBisCaseToSiteAction(formData: FormData) {
     throw new Error("BIS case has already been selected for this site");
   }
 
+  const cases = await fetchBisAvailableCases(token.accessToken);
+  const selected = cases.find((entry) => entry.id === bisCaseId);
+  if (!selected) throw new Error("Selected case is not available in BIS");
   await setSiteBisConfig(siteId, {
     bisCaseId,
-    bisCaseNumber: bisCaseNumber || null,
-    bisCaseName: bisCaseName || null,
-    bisCaseStage: bisCaseStage || null,
+    bisCaseNumber: selected.caseNumber,
+    bisCaseName: selected.constructionName,
+    bisCaseStage: selected.stageName,
     bisConstructionRoundId: null,
     bisConstructionRoundName: null,
     bisConstructionRoundNumber: null,
@@ -94,7 +97,7 @@ export async function setBisConstructionRoundForSiteAction(formData: FormData) {
   }
 
   const user = await requireUser();
-  await orgCheck(user.id, siteId);
+  if (!(await orgCheck(user.id, siteId))) throw new Error("Project access denied");
 
   const [site, token] = await Promise.all([
     getSiteBisConfig(siteId),
@@ -142,7 +145,7 @@ export async function completeBisManualAuthorizationAction(formData: FormData) {
     throw new Error("Missing site id");
   }
 
-  await orgCheck(user.id, siteId);
+  if (!(await orgCheck(user.id, siteId))) throw new Error("Project access denied");
 
   const authorizationCode = manualAuthorizationCode || process.env.BIS_AUTHORIZATION_CODE;
 

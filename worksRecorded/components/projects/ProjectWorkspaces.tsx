@@ -19,6 +19,7 @@ import { RetainedView } from "@/components/providers/RetainedView";
 import { LimeniProjectData } from "@/flows/default-construction/frontend/LimeniProjectData";
 import { RetainedLimeniDiary } from "@/flows/default-construction/frontend/RetainedLimeniDiary";
 import { RetainedLimeniForma2 } from "@/flows/default-construction/frontend/RetainedLimeniForma2";
+import { RetainedLimeniProjectSettings } from "@/flows/default-construction/frontend/RetainedLimeniProjectSettings";
 import { VisualProjectView } from "@/flows/default-construction/visual/VisualProjectView";
 import { WorkspaceActivityContext } from "./WorkspaceActivity";
 import { WorkspaceNavigationContext as Context } from "./WorkspaceNavigation";
@@ -293,6 +294,9 @@ function Workspace({
 									{!entry.descriptor.fimaForma2 ? (
 										<RetainedLimeniForma2 siteId={siteId} />
 									) : null}
+									{entry.descriptor.visualPreload ? (
+											<RetainedLimeniProjectSettings siteId={siteId} />
+										) : null}
 								</RetainedLimeniDiary>
 							</VisualProjectView>
 						</LimeniProjectData>

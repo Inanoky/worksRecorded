@@ -124,7 +124,16 @@ export default async function DashboardLayout({
 				: bbbuveSuiteEnabled
 					? "WorksRecorded — BB BŪVE business suite"
 					: undefined;
-	let headerProjects = allHeaderProjects.map(({ siteDiaryRecordsMap, bisCaseId, ...project }) => ({...project, fimaActsEnabled: Boolean(bisCaseId && isFimaDiary(siteDiaryRecordsMap))}));
+	let headerProjects = allHeaderProjects.map(({ siteDiaryRecordsMap, bisCaseId, ...project }) => {
+		const fima = isFimaDiary(siteDiaryRecordsMap);
+		return {
+			...project,
+			fimaActsEnabled: Boolean(bisCaseId && fima),
+			...(fima && flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION
+				? { fimaForma2Enabled: true }
+				: {}),
+		};
+	});
 	if (
 		flowModuleKey === FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL &&
 		organizationId
@@ -137,10 +146,9 @@ export default async function DashboardLayout({
 	}
 
 	const fimaActProjectIds = headerProjects.filter(project => project.fimaActsEnabled).map(project => project.id);
-	const visibleProjectIds = new Set(headerProjects.map(project => project.id));
-	const fimaForma2ProjectIds = flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION
-		? allHeaderProjects.filter(project => visibleProjectIds.has(project.id) && isFimaDiary(project.siteDiaryRecordsMap)).map(project => project.id)
-		: [];
+	const fimaForma2ProjectIds = headerProjects
+		.filter((project) => project.fimaForma2Enabled)
+		.map((project) => project.id);
 	const fimaActCacheScope = JSON.stringify([
 		userId, organizationId,
 		allHeaderProjects.filter(project => fimaActProjectIds.includes(project.id) || fimaForma2ProjectIds.includes(project.id)).map(project => [project.id, project.bisCaseId]),
@@ -295,6 +303,7 @@ export default async function DashboardLayout({
 
 					<DashboardProjectNavigation
 						availableProjects={headerProjects}
+						searchProjects={limeniSuiteEnabled}
 						fimaCollaborationEnabled={fimaCollaborationEnabled}
 						organizationLanguage={organizationLanguage}
 						canAccessAiEvals={canAccessAiEvals}

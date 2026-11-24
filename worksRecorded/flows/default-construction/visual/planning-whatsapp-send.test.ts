@@ -8,16 +8,30 @@ const itemUpdate = jest.fn();
 const itemUpdateMany = jest.fn();
 const itemFindMany = jest.fn();
 const sendFindUniqueOrThrow = jest.fn();
-const resolveWhapiTaskRecipient = jest.fn();
+const resolveWasenderTaskRecipient = jest.fn();
+const requireConnectedWasenderSession = jest.fn();
+const stageWasenderTaskImage = jest.fn();
+const discardWasenderTaskImages = jest.fn();
+const sendFindFirst = jest.fn();
 const originalFetch = global.fetch;
+const sleep = jest.fn<Promise<void>, [number]>();
 
+jest.mock("node:timers/promises", () => ({ setTimeout: sleep }));
 jest.mock("./store", () => ({ requireVisualAccess }));
-jest.mock("./whapi-groups-store", () => ({ resolveWhapiTaskRecipient }));
+jest.mock("./wasender-groups-store", () => ({ resolveWasenderTaskRecipient }));
+jest.mock("./wasender-connections-store", () => ({
+	requireConnectedWasenderSession,
+}));
+jest.mock("./wasender-task-images", () => ({
+	stageWasenderTaskImage,
+	discardWasenderTaskImages,
+}));
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
 		constructionPlan: { findFirst: constructionPlanFindFirst },
 		whatsAppBusinessNumber: { findFirst: businessNumberFindFirst },
 		whatsAppTaskSend: {
+			findFirst: sendFindFirst,
 			findUnique: sendFindUnique,
 			findUniqueOrThrow: sendFindUniqueOrThrow,
 			create: sendCreate,
@@ -35,7 +49,10 @@ import {
 	LIMENI_TASK_REPORTING_NOTE,
 	PLANNING_WHATSAPP_MESSAGE_LIMIT,
 } from "./planning-whatsapp";
-import { sendVisualPlanningWhatsAppTask } from "./planning-whatsapp-send";
+import {
+	refreshWasenderTaskSend,
+	sendVisualPlanningWhatsAppTask,
+} from "./planning-whatsapp-send";
 
 const png = Buffer.from(
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
@@ -70,7 +87,7 @@ function validRequest() {
 
 function groupRequest() {
 	const request = validRequest();
-	return {
+	const group = {
 		...request,
 		input: {
 			...request.input,
@@ -79,10 +96,23 @@ function groupRequest() {
 			groupSender: "37120000001",
 		},
 	};
+	resolveWasenderTaskRecipient.mockResolvedValue({
+		token: "channel-token",
+		phone: group.input.groupSender,
+		connectionId: "connection-1",
+		providerSessionId: 31,
+		group: { id: group.input.groupId, name: "Projekta brigāde" },
+	});
+	return group;
 }
 
 beforeEach(() => {
 	jest.clearAllMocks();
+	let now = 100_000;
+	jest.spyOn(Date, "now").mockImplementation(() => now);
+	sleep.mockImplementation(async (delay) => {
+		now += delay;
+	});
 	process.env.LIMENI_META_ACCESS_TOKEN = "limeni-secret";
 	requireVisualAccess.mockResolvedValue({ organizationId: "limeni-org" });
 	constructionPlanFindFirst.mockResolvedValue({
@@ -111,6 +141,10 @@ beforeEach(() => {
 		templateLanguage: "lv",
 	});
 	sendFindUnique.mockResolvedValue(null);
+	discardWasenderTaskImages.mockResolvedValue(undefined);
+	stageWasenderTaskImage.mockImplementation(
+		async (itemId) => `https://example.com/${itemId}`,
+	);
 	const items = [
 		{ id: "item-1", ordinal: 0, page: 1, section: null, status: "pending" },
 		{ id: "item-2", ordinal: 1, page: 11, section: "PA1.6", status: "pending" },
@@ -125,41 +159,56 @@ beforeEach(() => {
 		Object.assign(item, data);
 		return {};
 	});
-	itemFindMany.mockImplementation(async () => items);
+	itemFindMany.mockImplementation(async ({ where }) =>
+		items.filter((item) => !where.status || where.status === item.status),
+	);
 	itemUpdateMany.mockImplementation(async ({ where, data }) => {
 		const item = items.find((candidate) => candidate.id === where.id);
-		if (!item || !where.status.in.includes(item.status)) return { count: 0 };
+		const allowed =
+			typeof where.status === "string" ? [where.status] : where.status.in;
+		if (!item || !allowed.includes(item.status)) return { count: 0 };
 		Object.assign(item, data);
 		return { count: 1 };
 	});
 	sendUpdate.mockResolvedValue({});
 	sendFindUniqueOrThrow.mockImplementation(async () => ({
 		id: "send-1",
+		provider: sendCreate.mock.calls.at(-1)?.[0].data.provider ?? "meta",
 		status: sendUpdate.mock.calls.at(-1)?.[0].data.status ?? "processing",
 		items,
 	}));
 });
 
-it("sends an enabled project group the task and section through Whapi", async () => {
+it("sends a task and section through WaSenderAPI and confirms them through receipts without resending", async () => {
 	const request = groupRequest();
-	resolveWhapiTaskRecipient.mockResolvedValue({
-		token: "channel-token",
-		phone: request.input.groupSender,
-		group: { id: request.input.groupId, name: "Projekta brigāde" },
-	});
+	let message = 0;
+	let sent = false;
 	const fetchMock = jest.fn(
-		async (_url: string, _init: RequestInit) =>
+		async (url: string, _init: RequestInit) =>
 			({
 				ok: true,
-				json: async () => ({ sent: true, message: { id: "whapi-message" } }),
+				json: async () =>
+					url.endsWith("/send-message")
+						? {
+								success: true,
+								data: { msgId: ++message, status: "in_progress" },
+							}
+						: {
+								success: true,
+								data: {
+									msgId: Number(url.split("/").at(-2)),
+									status: sent ? 2 : 1,
+								},
+							},
 			}) as Response,
 	);
 	global.fetch = fetchMock as unknown as typeof fetch;
 
 	await expect(sendVisualPlanningWhatsAppTask(request)).resolves.toMatchObject({
-		status: "sent",
+		status: "processing",
+		items: [{ status: "queued" }, { status: "queued" }],
 	});
-	expect(resolveWhapiTaskRecipient).toHaveBeenCalledWith(
+	expect(resolveWasenderTaskRecipient).toHaveBeenCalledWith(
 		{
 			organizationId: "limeni-org",
 			userId: request.userId,
@@ -169,30 +218,222 @@ it("sends an enabled project group the task and section through Whapi", async ()
 		request.input.groupSender,
 	);
 	expect(businessNumberFindFirst).not.toHaveBeenCalled();
-	expect(fetchMock).toHaveBeenCalledTimes(2);
-	for (const [url, init] of fetchMock.mock.calls) {
-		expect(url).toBe("https://gate.whapi.cloud/messages/image");
+	const posts = fetchMock.mock.calls.filter(
+		([, init]) => init.method === "POST",
+	);
+	expect(posts).toHaveLength(2);
+	expect(sleep.mock.calls).toEqual([[5000]]);
+	for (const [url, init] of posts) {
+		expect(url).toBe("https://wasenderapi.com/api/send-message");
 		expect(new Headers(init.headers).get("Authorization")).toBe(
 			"Bearer channel-token",
 		);
-		expect((init.body as FormData).get("to")).toBe(request.input.groupId);
+		expect(JSON.parse(String(init.body)).to).toBe(request.input.groupId);
 	}
-	expect(
-		(fetchMock.mock.calls[0][1].body as FormData).get("caption"),
-	).toContain(LIMENI_TASK_REPORTING_NOTE);
-	expect((fetchMock.mock.calls[1][1].body as FormData).get("caption")).toBe(
-		"Sekcija PA1.6",
-	);
+	expect(JSON.parse(String(posts[0][1].body))).toMatchObject({
+		text: expect.stringContaining(LIMENI_TASK_REPORTING_NOTE),
+		imageUrl: "https://example.com/item-1",
+	});
+	expect(JSON.parse(String(posts[1][1].body))).toMatchObject({
+		text: "Sekcija PA1.6",
+		imageUrl: "https://example.com/item-2",
+	});
 	expect(sendCreate.mock.calls[0][0].data).toMatchObject({
-		provider: "whapi",
+		provider: "wasender",
 		recipientLabel: "Projekta brigāde",
 		senderAddress: request.input.groupSender,
+		wasenderConnectionId: "connection-1",
 	});
+	sendFindFirst.mockResolvedValue({
+		id: "send-1",
+		wasenderConnectionId: "connection-1",
+		status: "processing",
+	});
+	requireConnectedWasenderSession.mockResolvedValue({
+		token: "channel-token",
+		providerSessionId: 31,
+	});
+	sent = true;
+	await expect(
+		refreshWasenderTaskSend(request.userId, request.siteId, "send-1"),
+	).resolves.toMatchObject({
+		status: "sent",
+		items: [{ status: "sent" }, { status: "sent" }],
+	});
+	expect(
+		fetchMock.mock.calls.filter(([, init]) => init.method === "POST"),
+	).toHaveLength(2);
 });
+
+it("uses exact outgoing activity matches when WaSender message receipts stay pending", async () => {
+	jest.replaceProperty(process, "env", {
+		...process.env,
+		WASENDER_LIMENI_ACCESS_TOKEN: "account-token",
+	});
+	const request = groupRequest();
+	let message = 1000;
+	let secondSession = "32";
+	const json = (body: unknown) =>
+		({ ok: true, json: async () => body }) as Response;
+	const fetchMock = jest.fn(
+		async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = String(input);
+			if (url.endsWith("/send-message"))
+				return json({ success: true, data: { msgId: ++message } });
+			if (url.endsWith("/info"))
+				return json({
+					success: true,
+					data: { msgId: Number(url.split("/").at(-2)), status: 1 },
+				});
+			expect(url).toBe(
+				"https://wasenderapi.com/api/whatsapp-sessions/31/message-logs?per_page=25",
+			);
+			expect(new Headers(init?.headers).get("Authorization")).toBe(
+				"Bearer account-token",
+			);
+			return json({
+				success: true,
+				data: {
+					data: [
+						{
+							id: "1001",
+							whatsapp_session_id: 31,
+							status: "sent",
+							content: null,
+							to: null,
+						},
+						{ id: 1002, whatsapp_session_id: secondSession, status: "sent" },
+						{ id: "1002", whatsapp_session_id: "31", status: "in_progress" },
+					],
+				},
+			});
+		},
+	);
+	global.fetch = fetchMock;
+
+	await expect(sendVisualPlanningWhatsAppTask(request)).resolves.toMatchObject({
+		status: "processing",
+		items: [{ status: "sent" }, { status: "queued" }],
+	});
+	sendFindFirst.mockResolvedValue({
+		id: "send-1",
+		wasenderConnectionId: "connection-1",
+		status: "processing",
+	});
+	requireConnectedWasenderSession.mockResolvedValue({
+		token: "channel-token",
+		providerSessionId: 31,
+	});
+	secondSession = "31";
+	await expect(
+		refreshWasenderTaskSend(request.userId, request.siteId, "send-1"),
+	).resolves.toMatchObject({
+		status: "sent",
+		items: [{ status: "sent" }, { status: "sent" }],
+	});
+	expect(
+		fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
+	).toHaveLength(2);
+	expect(
+		fetchMock.mock.calls.filter(([url]) =>
+			String(url).includes("/message-logs"),
+		),
+	).toHaveLength(2);
+});
+
+it.each([
+	["WaSender's retry_after", { retry_after: 7 }, {}, 7000],
+	["Retry-After header", {}, { "Retry-After": "9" }, 9000],
+	[
+		"longest cooldown",
+		{ retry_after: 6 },
+		{ "X-RateLimit-Reset": "12" },
+		12000,
+	],
+	["minimum delay", { retry_after: 1 }, {}, 5000],
+] as const)(
+	"retries only the rejected image using %s",
+	async (_case, body, headers, delay) => {
+		const request = groupRequest();
+		const posts: Array<{ imageUrl: string; time: number }> = [];
+		global.fetch = jest.fn(async (input, init) => {
+			if (init?.method !== "POST") {
+				const msgId = String(input).split("/").at(-2);
+				return {
+					ok: true,
+					json: async () => ({ success: true, data: { msgId, status: 2 } }),
+				} as Response;
+			}
+			posts.push({
+				imageUrl: JSON.parse(String(init.body)).imageUrl,
+				time: Date.now(),
+			});
+			if (posts.length === 2)
+				return {
+					ok: false,
+					status: 429,
+					headers: new Headers(headers),
+					json: async () => body,
+				} as Response;
+			return {
+				ok: true,
+				json: async () => ({ success: true, data: { msgId: posts.length } }),
+			} as Response;
+		});
+
+		await expect(
+			sendVisualPlanningWhatsAppTask(request),
+		).resolves.toMatchObject({
+			status: "sent",
+			items: [{ status: "sent" }, { status: "sent" }],
+		});
+		expect(posts).toEqual([
+			{ imageUrl: "https://example.com/item-1", time: 100_000 },
+			{ imageUrl: "https://example.com/item-2", time: 105_000 },
+			{ imageUrl: "https://example.com/item-2", time: 105_000 + delay },
+		]);
+		expect(stageWasenderTaskImage).toHaveBeenCalledTimes(2);
+	},
+);
+
+it.each([
+	["provider cooldown exceeds the wait budget", "120", [], 1],
+	["provider gives no retry hint", "", [[5000], [10_000]], 3],
+] as const)(
+	"stops the batch when %s",
+	async (_case, hint, pauses, attempts) => {
+		const request = groupRequest();
+		global.fetch = jest.fn(
+			async () =>
+				({
+					ok: false,
+					status: 429,
+					headers: hint ? new Headers({ "Retry-After": hint }) : new Headers(),
+					json: async () => ({}),
+				}) as Response,
+		);
+
+		await expect(
+			sendVisualPlanningWhatsAppTask(request),
+		).resolves.toMatchObject({
+			status: "processing",
+			items: [
+				{
+					status: "failed",
+					error: expect.stringContaining("sūtīšanas limits"),
+				},
+				{ status: "pending" },
+			],
+		});
+		expect(global.fetch).toHaveBeenCalledTimes(attempts);
+		expect(sleep.mock.calls).toEqual(pauses);
+		expect(stageWasenderTaskImage).toHaveBeenCalledTimes(1);
+	},
+);
 
 it("stops before sending when the group is outside the project allowlist", async () => {
 	const request = groupRequest();
-	resolveWhapiTaskRecipient.mockRejectedValue(
+	resolveWasenderTaskRecipient.mockRejectedValue(
 		new Error("Šī WhatsApp grupa nav iespējota projektam."),
 	);
 	global.fetch = jest.fn();
@@ -204,6 +445,7 @@ it("stops before sending when the group is outside the project allowlist", async
 });
 
 afterEach(() => {
+	jest.restoreAllMocks();
 	delete process.env.LIMENI_META_ACCESS_TOKEN;
 	global.fetch = originalFetch;
 });
@@ -424,6 +666,7 @@ it("continues after a provider failure and retries only the failed item", async 
 		planId: input.planId,
 		planVersion: input.planVersion,
 		recipient: input.recipient,
+		provider: "meta",
 		message: sendCreate.mock.calls[0][0].data.message,
 		items: existingItems,
 	});

@@ -124,6 +124,7 @@ const statusClasses = {
 
 const whatsAppStatusLabels: Record<string, string> = {
 	processing: "Apstrādā",
+	queued: "Gaida nosūtīšanu",
 	pending: "Gaida",
 	sent: "Nosūtīts",
 	delivered: "Piegādāts",
@@ -560,6 +561,21 @@ export function VisualPlanningPanel({
 		siteId,
 		planningSaves,
 	]);
+	const whatsAppRefresh = useRef<{
+		cache: VisualClientCache;
+		drawingId: string;
+		refresh: typeof refreshPlanning;
+	} | null>(null);
+	useEffect(() => {
+		whatsAppRefresh.current = {
+			cache,
+			drawingId: drawing.id,
+			refresh: refreshPlanning,
+		};
+		return () => {
+			whatsAppRefresh.current = null;
+		};
+	}, [cache, drawing.id, refreshPlanning]);
 	useEffect(() => {
 		if (active && !wasActive.current) void refreshPlanning();
 		wasActive.current = active;
@@ -1009,6 +1025,18 @@ export function VisualPlanningPanel({
 	);
 	const selectedWhatsAppSends = selectedPlan?.whatsAppSends ?? [];
 	const pdfUrl = `${cache.endpoint(drawing.id)}?pdf=1`;
+	const hasSavedZones = index?.plans.some(
+		(plan) => !plan.archivedAt && plan.geometry.areas.length > 0,
+	);
+	useEffect(() => {
+		if (active) void cache.loadWhatsAppGroups().catch(() => {});
+	}, [active, cache]);
+	useEffect(() => {
+		if (!active || !hasSavedZones) return;
+		const pdf = cache.openPdf(pdfUrl);
+		void pdf.promise.catch(() => {});
+		return pdf.release;
+	}, [active, cache, hasSavedZones, pdfUrl]);
 	const imagePlan = useMemo(
 		() =>
 			draft?.areas.length
@@ -1043,11 +1071,23 @@ export function VisualPlanningPanel({
 	}, [cache, pdfUrl, imagePlan, imageColor, imageSection]);
 	useEffect(() => {
 		if (!active || areaEditing || !imagePlan || draft?.archivedAt) return;
+		if (selectedPlan && !dirty) {
+			void createImages().catch(() => {});
+			return;
+		}
 		const timer = window.setTimeout(() => {
 			void createImages().catch(() => {});
 		}, 250);
 		return () => window.clearTimeout(timer);
-	}, [active, areaEditing, imagePlan, draft?.archivedAt, createImages]);
+	}, [
+		active,
+		areaEditing,
+		imagePlan,
+		draft?.archivedAt,
+		createImages,
+		dirty,
+		selectedPlan,
+	]);
 
 	return (
 		<div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -1701,7 +1741,7 @@ export function VisualPlanningPanel({
 													>
 														<div className="flex items-start justify-between gap-3">
 															<span className="tabular-nums text-muted-foreground">
-																{send.provider === "whapi"
+																{send.provider
 																	? (send.recipientLabel ?? send.recipient)
 																	: `+${send.recipient}`}{" "}
 																· {formatWhatsAppDateTime(send.createdAt)}
@@ -1711,7 +1751,7 @@ export function VisualPlanningPanel({
 															</span>
 														</div>
 														<p className="mt-1 text-muted-foreground">
-															{send.provider === "whapi" ? (
+															{send.provider ? (
 																<>
 																	WhatsApp grupa
 																	{send.senderAddress
@@ -1847,6 +1887,8 @@ export function VisualPlanningPanel({
 											<VisualPlanningWhatsApp
 												siteId={siteId}
 												key={selectedPlan.id}
+												active={active}
+												cache={cache}
 												plan={selectedPlan}
 												imageKey={imageKey}
 												initialImages={cache.peekPlanningImages(imageKey)}
@@ -1855,11 +1897,14 @@ export function VisualPlanningPanel({
 													(contact) => contact.id === selectedPlan.contactId,
 												)}
 												disabled={saving || planPending || dirty || areaEditing}
-												onSendResult={(result) => {
-													if (result.status === "sent")
-														setWhatsAppHistoryPlanId(selectedPlan.id);
+												onSendResult={() => {
 													cache.invalidatePlanning(drawing.id);
-													void refreshPlanning();
+													const current = whatsAppRefresh.current;
+													if (
+														current?.cache === cache &&
+														current.drawingId === drawing.id
+													)
+														void current.refresh();
 												}}
 											/>
 										) : null}

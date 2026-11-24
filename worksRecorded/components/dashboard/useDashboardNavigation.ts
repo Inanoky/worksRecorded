@@ -13,14 +13,11 @@ import {
 	type ProjectNavLink,
 } from "./NavLinks";
 
-type FlowNavigationConfig = {
-	labels: {
-		navigationTitle: string;
-		navigationTitleLv: string;
-	};
-	navigation: {
-		hiddenProjectNavPaths: string[];
-	};
+export type DashboardNavigationProject = {
+	id: string;
+	name: string;
+	fimaActsEnabled?: boolean;
+	fimaForma2Enabled?: boolean;
 };
 
 type ResolvedGlobalNavLink = GlobalNavLink & {
@@ -35,7 +32,7 @@ type ResolvedProjectNavLink = ProjectNavLink & {
 
 type DashboardNavigationOptions = {
 	fimaCollaborationEnabled?: boolean;
-	fimaActProjectIds?: string[];
+	availableProjects?: readonly DashboardNavigationProject[];
 	organizationId?: string | null;
 	organizationLanguage?: string | null;
 	canAccessAiEvals?: boolean;
@@ -54,7 +51,7 @@ const projectNavigationRuntimeCache = new Map<
 
 export function useDashboardNavigation({
 	fimaCollaborationEnabled = false,
-	fimaActProjectIds,
+	availableProjects,
 	organizationId,
 	organizationLanguage,
 	canAccessAiEvals = false,
@@ -66,19 +63,38 @@ export function useDashboardNavigation({
 	const router = useRouter();
 	const pathProjectId = getProjectIdFromPathname(pathname);
 	const activeProjectId = pathProjectId || projectId;
-	const [productionNavigationConfig, setProductionNavigationConfig] =
-		useState<FlowNavigationConfig | null>(null);
-	const [activeFlowModuleKey, setActiveFlowModuleKey] =
-		useState<FlowModuleKey | null>(null);
-	const [showVisual, setShowVisual] = useState(false);
-	const [showAnalytics, setShowAnalytics] = useState(false);
+	const [navigationRuntime, setNavigationRuntime] = useState<{
+		siteId: string;
+		data: ProjectNavigationRuntime;
+	} | null>(null);
 	const isProjectRoute = /^\/dashboard\/sites\/[^/]+/.test(pathname);
 	const languageLabel = normalizeLanguageLabel(organizationLanguage);
-	const [runtimeProjectName, setRuntimeProjectName] = useState("");
+	const knownProject = availableProjects?.find(
+		(project) => project.id === activeProjectId,
+	);
+	const preloadedFimaName =
+		knownProject?.fimaActsEnabled || knownProject?.fimaForma2Enabled
+			? knownProject.name
+			: "";
+	const runtime =
+		navigationRuntime?.siteId === activeProjectId
+			? navigationRuntime.data
+			: null;
+	const productionNavigationConfig = runtime?.productionConfig ?? null;
+	const activeFlowModuleKey =
+		runtime?.flowModuleKey ??
+		(knownProject?.fimaForma2Enabled
+			? FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION
+			: null);
+	const showAnalytics =
+		activeFlowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION;
+	const showVisual = runtime?.visualEnabled === true;
+	const showFimaActs =
+		fimaCollaborationEnabled && knownProject?.fimaActsEnabled === true;
 	const activeProjectName =
 		activeProjectId === projectId && projectName
 			? projectName
-			: runtimeProjectName;
+			: runtime?.siteName || preloadedFimaName;
 
 	const globalNavLinks = useMemo<ResolvedGlobalNavLink[]>(
 		() =>
@@ -106,52 +122,26 @@ export function useDashboardNavigation({
 			getProjectNavLinks(organizationLanguage, {
 				showAnalytics,
 				showVisual,
-				showFimaActs:
-					fimaCollaborationEnabled &&
-					(fimaActProjectIds?.includes(activeProjectId) ?? false),
+				showFimaActs,
 			}),
-		[
-			organizationLanguage,
-			showAnalytics,
-			showVisual,
-			fimaCollaborationEnabled,
-			fimaActProjectIds,
-			activeProjectId,
-		],
+		[organizationLanguage, showAnalytics, showVisual, showFimaActs],
 	);
 
 	useEffect(() => {
+		if (!activeProjectId || !isProjectRoute) return;
 		let cancelled = false;
-		if (!activeProjectId || !isProjectRoute) {
-			setProductionNavigationConfig(null);
-			setActiveFlowModuleKey(null);
-			setShowAnalytics(false);
-			setShowVisual(false);
-			setRuntimeProjectName("");
-			return;
-		}
 
 		getProjectNavigationRuntime(activeProjectId)
 			.then((runtime) => {
 				if (cancelled) return;
-				setProductionNavigationConfig(runtime?.productionConfig ?? null);
-				setShowVisual(runtime?.visualEnabled === true);
-				setActiveFlowModuleKey(runtime?.flowModuleKey ?? null);
-				setShowAnalytics(
-					runtime?.flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION,
-				);
-				setRuntimeProjectName(runtime?.siteName ?? "");
+				setNavigationRuntime({ siteId: activeProjectId, data: runtime });
 				if (runtime?.siteName && activeProjectId !== projectId && !projectId) {
 					setProject(activeProjectId, runtime.siteName);
 				}
 			})
 			.catch(() => {
 				if (cancelled) return;
-				setProductionNavigationConfig(null);
-				setActiveFlowModuleKey(null);
-				setShowAnalytics(false);
-				setShowVisual(false);
-				setRuntimeProjectName("");
+				setNavigationRuntime({ siteId: activeProjectId, data: null });
 			});
 
 		return () => {

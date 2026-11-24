@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { type ReactNode, useEffect } from "react";
+import { type Action, toast } from "sonner";
 import {
 	addVisualSection,
 	archiveVisualPlanningItem,
@@ -25,7 +26,10 @@ import type {
 	VisualPlanInput,
 } from "./planning-model";
 import { LIMENI_TASK_REPORTING_NOTE } from "./planning-whatsapp";
-import { sendPlanningWhatsAppTask } from "./planning-whatsapp-send-client";
+import {
+	readWasenderTaskReceipt,
+	sendPlanningWhatsAppTask,
+} from "./planning-whatsapp-send-client";
 import { fetchSectionDrawing } from "./section-drawing-client";
 import {
 	cumulativeVisualPlanningPlans,
@@ -35,6 +39,11 @@ import {
 } from "./VisualPlanningPanel";
 import { VisualPlanningWhatsApp } from "./VisualPlanningWhatsApp";
 import { VisualClientCache } from "./visual-client-cache";
+import { requestWasenderConnections } from "./wasender-connections-client";
+import {
+	readWhatsAppGroups,
+	updateWhatsAppGroups,
+} from "./whatsapp-groups-client";
 
 jest.mock("./actions", () => ({
 	addVisualSection: jest.fn(),
@@ -45,7 +54,26 @@ jest.mock("./actions", () => ({
 	saveVisualDrawingScale: jest.fn(),
 }));
 jest.mock("./planning-whatsapp-send-client", () => ({
+	readWasenderTaskReceipt: jest.fn(),
 	sendPlanningWhatsAppTask: jest.fn(),
+}));
+jest.mock("sonner", () => ({
+	toast: {
+		error: jest.fn(),
+		info: jest.fn(),
+		loading: jest.fn(),
+		success: jest.fn(),
+		warning: jest.fn(),
+	},
+}));
+jest.mock("./whatsapp-groups-client", () => ({
+	...jest.requireActual("./whatsapp-groups-client"),
+	readWhatsAppGroups: jest.fn(),
+	updateWhatsAppGroups: jest.fn(),
+}));
+jest.mock("./wasender-connections-client", () => ({
+	...jest.requireActual("./wasender-connections-client"),
+	requestWasenderConnections: jest.fn(),
 }));
 jest.mock("./VisualPdf", () => ({
 	VisualPdf: ({
@@ -386,7 +414,8 @@ it("plans one measured polygon for multiple works and sends each task separately
 		const send = within(dialog).getByRole("button", { name: "Nosūtīt" });
 		await waitFor(() => expect(send).toBeEnabled());
 		fireEvent.click(send);
-		await within(dialog).findByText("Testa sūtījums");
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(index + 1));
 		expect(sendPlanningWhatsAppTask).toHaveBeenNthCalledWith(
 			index + 1,
 			expect.objectContaining({
@@ -399,7 +428,6 @@ it("plans one measured polygon for multiple works and sends each task separately
 		expect(
 			jest.mocked(sendPlanningWhatsAppTask).mock.calls[index][0].message,
 		).toContain("42,56 m2");
-		fireEvent.click(within(dialog).getByRole("button", { name: "Atcelt" }));
 	}
 });
 
@@ -507,8 +535,30 @@ function sidebarAddTask() {
 		screen.getByRole("complementary", { name: "Darbu plānošana" }),
 	).getByRole("button", { name: "Pievienot uzdevumu" });
 }
+
+async function clickToastAction(action: Action) {
+	const view = render(
+		<button type="button" onClick={action.onClick}>
+			{action.label}
+		</button>,
+	);
+	await act(async () => {
+		fireEvent.click(within(view.container).getByRole("button"));
+	});
+	view.unmount();
+}
+
 beforeEach(() => {
 	jest.clearAllMocks();
+	jest
+		.mocked(readWhatsAppGroups)
+		.mockReset()
+		.mockResolvedValue({ status: "disconnected", phone: null, groups: [] });
+	jest
+		.mocked(requestWasenderConnections)
+		.mockReset()
+		.mockResolvedValue({ enabled: true, connections: [] });
+	jest.mocked(updateWhatsAppGroups).mockReset();
 	jest.spyOn(VisualClientCache.prototype, "openPdf").mockReturnValue({
 		promise: Promise.resolve({} as PDFDocumentProxy),
 		release: jest.fn(),
@@ -633,13 +683,18 @@ it("adds project sections from the dropdown and saves the selected section witho
 	);
 });
 
-it("reports a dedicated-number send failure and allows an explicit retry", async () => {
-	jest
-		.mocked(sendPlanningWhatsAppTask)
-		.mockRejectedValueOnce(new Error("Meta failed"));
+it("closes before the direct send finishes and offers a retry from the error toast", async () => {
+	const sendTask = jest.mocked(sendPlanningWhatsAppTask);
+	let rejectSend!: (error: Error) => void;
+	sendTask.mockReturnValueOnce(
+		new Promise((_, reject) => {
+			rejectSend = reject;
+		}),
+	);
 	render(
 		<VisualPlanningWhatsApp
 			siteId="site"
+			cache={new VisualClientCache("site")}
 			plan={plan}
 			imageKey="test-image-key"
 			contact={{ name: "Anna", phone: "37120000000" }}
@@ -654,18 +709,28 @@ it("reports a dedicated-number send failure and allows an explicit retry", async
 		name: "Nosūtīt",
 	});
 	fireEvent.click(send);
-	expect(await screen.findByRole("alert")).toHaveTextContent("Meta failed");
-	fireEvent.click(send);
-	expect(
-		await screen.findByRole("status", {
-			name: "WhatsApp sūtījums veiksmīgs",
+	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	expect(toast.success).not.toHaveBeenCalled();
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt" }));
+	expect(sendTask).toHaveBeenCalledTimes(1);
+	await act(async () => rejectSend(new Error("Meta failed")));
+	expect(toast.error).toHaveBeenCalledWith(
+		"Neizdevās nosūtīt WhatsApp darba uzdevumu.",
+		expect.objectContaining({
+			description: expect.stringContaining("Meta failed"),
 		}),
-	).toHaveTextContent(/Nosūtīts/);
-	await waitFor(
-		() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
-		{ timeout: 2_000 },
 	);
-	expect(sendPlanningWhatsAppTask).toHaveBeenCalledTimes(2);
+	const retry = jest.mocked(toast.error).mock.calls[0][1]?.action as Action;
+	await clickToastAction(retry);
+	expect(toast.success).toHaveBeenCalledWith(
+		"Darba uzdevums nosūtīts WhatsApp.",
+		expect.anything(),
+	);
+	expect(sendTask).toHaveBeenCalledTimes(2);
+	expect(sendTask.mock.calls[1][0].clientRequestId).toBe(
+		sendTask.mock.calls[0][0].clientRequestId,
+	);
 });
 
 it("builds empty and single-day planning timeline ranges", () => {
@@ -1282,6 +1347,317 @@ it("prepares images before opening and sends to the assigned contact without ask
 				images: [expect.objectContaining({ page: 1 })],
 			}),
 		),
+	);
+});
+
+it("opens saved WhatsApp groups from cache while checking the connection in the background", async () => {
+	const groups = jest.mocked(readWhatsAppGroups);
+	groups.mockResolvedValue({
+		status: "connected",
+		phone: "37120000000",
+		groups: [{ id: "120000000000000001@g.us", name: "Testa grupa" }],
+	});
+	jest.mocked(getVisualPlanning).mockResolvedValue({
+		...emptyIndex,
+		plans: [indexedPlan],
+	});
+	const cache = new VisualClientCache("site");
+	render(
+		<VisualPlanningPanel
+			siteId="site"
+			drawing={drawing}
+			sidebarOpen
+			resourceCache={cache}
+			onDirtyChange={jest.fn()}
+		/>,
+	);
+	await waitFor(() =>
+		expect(cache.peekWhatsAppGroups()?.groups).toHaveLength(1),
+	);
+	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	fireEvent.click(
+		await screen.findByRole("button", { name: /Smilts.*12\.10\.2026/ }),
+	);
+	for (let attempt = 0; attempt < 2; attempt++) {
+		fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
+		fireEvent.click(screen.getByRole("button", { name: "WhatsApp grupa" }));
+		expect(
+			screen.getByRole("button", { name: "Izvēlēties grupu" }),
+		).toBeEnabled();
+		expect(
+			screen.queryByText("Ielādē projekta grupas…"),
+		).not.toBeInTheDocument();
+		await waitFor(() => expect(groups).toHaveBeenCalledTimes(attempt + 2));
+		fireEvent.click(screen.getByRole("button", { name: "Kontaktpersona" }));
+		fireEvent.click(screen.getByRole("button", { name: "Atcelt" }));
+	}
+});
+
+it.each(["reconnect", "first connection", "link a different number"])(
+	"pairs WhatsApp inside the task dialog for %s",
+	async (scenario) => {
+		jest.useFakeTimers();
+		const reconnect = scenario === "reconnect";
+		const differentNumber = scenario === "link a different number";
+		const number = { id: "phone-connection", phone: "+37120000000" };
+		const group = { id: "120000000000000001@g.us", name: "Testa grupa" };
+		const connected = {
+			status: "connected" as const,
+			phone: "37120000000",
+			connectionId: number.id,
+			groups: reconnect ? [group] : [],
+		};
+		let scanned = false;
+		const disconnected = {
+			status:
+				reconnect || differentNumber
+					? ("reconnect" as const)
+					: ("disconnected" as const),
+			phone: null,
+			groups: [],
+			connectionId: reconnect
+				? number.id
+				: differentNumber
+					? "old-connection"
+					: undefined,
+		};
+		jest
+			.mocked(readWhatsAppGroups)
+			.mockImplementation(async (_site, options) =>
+				scanned && (!differentNumber || options?.manage)
+					? {
+							...connected,
+							...(options?.manage ? { availableGroups: [group] } : {}),
+						}
+					: disconnected,
+			);
+		const requests = jest.mocked(requestWasenderConnections);
+		requests.mockResolvedValueOnce({
+			connection: { ...number, status: "pairing" },
+		});
+		requests.mockResolvedValueOnce({ ...number, status: "connected" });
+		jest
+			.mocked(updateWhatsAppGroups)
+			.mockResolvedValueOnce({ ...connected, groups: [group] });
+		const cache = new VisualClientCache("site");
+		if (reconnect) cache.setWhatsAppGroups(connected);
+		render(
+			<VisualPlanningWhatsApp
+				siteId="site"
+				cache={cache}
+				plan={plan}
+				imageKey="test-image-key"
+				disabled={false}
+				createImages={async () => [
+					{ page: 1, blob: new Blob(["zone"], { type: "image/png" }) },
+				]}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
+		fireEvent.change(screen.getByRole("textbox", { name: "Ziņa" }), {
+			target: { value: "Pārbaudīt zonu" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "WhatsApp grupa" }));
+		fireEvent.change(
+			await screen.findByRole("textbox", { name: "Tālruņa numurs" }),
+			{ target: { value: number.phone } },
+		);
+		expect(requests).not.toHaveBeenCalled();
+		fireEvent.click(screen.getByRole("button", { name: "Turpināt" }));
+		const qr = await screen.findByRole("img", {
+			name: "WhatsApp savienošanas QR kods",
+		});
+		expect(
+			screen.queryByRole("img", { name: /Uzdevuma zona/ }),
+		).not.toBeInTheDocument();
+		expect(qr).toHaveAttribute(
+			"src",
+			expect.stringContaining(`whatsapp-connections?qr=${number.id}`),
+		);
+		expect(screen.getByRole("button", { name: "Nosūtīt" })).toBeDisabled();
+		expect(requests).toHaveBeenCalledWith(
+			"/api/sites/site/visual/whatsapp-connections",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({ action: "add", phone: number.phone }),
+			}),
+		);
+
+		scanned = true;
+		await act(async () => jest.advanceTimersByTimeAsync(4500));
+		if (reconnect) {
+			fireEvent.click(
+				await screen.findByRole("button", { name: "Izvēlēties grupu" }),
+			);
+			fireEvent.click(screen.getByRole("button", { name: group.name }));
+		} else {
+			fireEvent.click(
+				await screen.findByRole("checkbox", { name: group.name }),
+			);
+			expect(readWhatsAppGroups).toHaveBeenCalledWith(
+				"site",
+				expect.objectContaining({ manage: true, connectionId: number.id }),
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Saglabāt grupas" }));
+			await waitFor(() =>
+				expect(updateWhatsAppGroups).toHaveBeenCalledWith("site", {
+					action: "save-groups",
+					connectionId: number.id,
+					groupIds: [group.id],
+				}),
+			);
+		}
+		expect(screen.getByRole("dialog")).toBeInTheDocument();
+		expect(
+			screen.queryByRole("img", { name: "WhatsApp savienošanas QR kods" }),
+		).not.toBeInTheDocument();
+		expect(await screen.findByRole("textbox", { name: "Ziņa" })).toHaveValue(
+			"Pārbaudīt zonu",
+		);
+		expect(screen.getByRole("img", { name: /Uzdevuma zona/ })).toBeVisible();
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Nosūtīt" })).toBeEnabled(),
+		);
+	},
+);
+
+it("opens phone entry without waiting for WhatsApp and cancels a QR check immediately", async () => {
+	jest.useFakeTimers();
+	jest.mocked(readWhatsAppGroups).mockReturnValue(new Promise(() => {}));
+	const number = { id: "phone-connection", phone: "+37120000000" };
+	const connection = { ...number, status: "pairing" as const };
+	let finishCheck!: (value: typeof number & { status: "connected" }) => void;
+	const pendingCheck = new Promise<typeof number & { status: "connected" }>(
+		(resolve) => {
+			finishCheck = resolve;
+		},
+	);
+	const requests = jest.mocked(requestWasenderConnections);
+	requests
+		.mockResolvedValueOnce({ connection })
+		.mockReturnValueOnce(pendingCheck)
+		.mockResolvedValueOnce({ connection });
+	render(
+		<VisualPlanningWhatsApp
+			siteId="site"
+			cache={new VisualClientCache("site")}
+			plan={plan}
+			imageKey="test-image-key"
+			disabled={false}
+			createImages={async () => []}
+		/>,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
+	fireEvent.click(screen.getByRole("button", { name: "WhatsApp grupa" }));
+	const phone = screen.getByRole("textbox", { name: "Tālruņa numurs" });
+	expect(phone).toBeEnabled();
+	const qrName = "WhatsApp savienošanas QR kods";
+	expect(screen.queryByRole("img", { name: qrName })).not.toBeInTheDocument();
+	fireEvent.change(phone, { target: { value: number.phone } });
+	await act(async () => {
+		fireEvent.click(screen.getByRole("button", { name: "Turpināt" }));
+	});
+	const firstQr = screen.getByRole("img", { name: qrName }).getAttribute("src");
+	await act(async () => jest.advanceTimersByTimeAsync(4500));
+	const statusSignal = requests.mock.calls[1][1].signal;
+	fireEvent.click(screen.getByRole("button", { name: "Atcelt savienošanu" }));
+	expect(statusSignal?.aborted).toBe(true);
+	expect(screen.queryByRole("img", { name: qrName })).not.toBeInTheDocument();
+	expect(screen.getByRole("textbox", { name: "Tālruņa numurs" })).toHaveValue(
+		number.phone,
+	);
+	await act(async () => finishCheck({ ...number, status: "connected" }));
+	expect(requests).toHaveBeenCalledTimes(2);
+	await act(async () => {
+		fireEvent.click(screen.getByRole("button", { name: "Turpināt" }));
+	});
+	expect(
+		screen.getByRole("img", { name: qrName }).getAttribute("src"),
+	).not.toBe(firstQr);
+});
+
+it("checks group receipts after leaving the task and retries only through the original send", async () => {
+	jest.mocked(readWhatsAppGroups).mockResolvedValue({
+		status: "connected",
+		phone: "37120000000",
+		groups: [{ id: "120000000000000001@g.us", name: "Testa grupa" }],
+	});
+	const send = jest.mocked(sendPlanningWhatsAppTask);
+	const processing = {
+		sendId: "send-1",
+		status: "processing" as const,
+		items: [
+			{
+				ordinal: 0,
+				page: 1,
+				section: null,
+				status: "queued",
+				metaMessageId: null,
+				error: null,
+			},
+			{
+				ordinal: 1,
+				page: 11,
+				section: "PA1.6",
+				status: "failed",
+				metaMessageId: null,
+				error: "WaSenderAPI sūtīšanas limits ir sasniegts.",
+			},
+		],
+	};
+	send.mockResolvedValueOnce(processing);
+	const receipt = jest.mocked(readWasenderTaskReceipt);
+	receipt.mockResolvedValueOnce({
+		...processing,
+		status: "partial",
+		items: [{ ...processing.items[0], status: "sent" }, processing.items[1]],
+	});
+	const { unmount } = render(
+		<VisualPlanningWhatsApp
+			siteId="site"
+			cache={new VisualClientCache("site")}
+			plan={plan}
+			imageKey="test-image-key"
+			disabled={false}
+			createImages={async () => [
+				{ page: 1, blob: new Blob(["zone"], { type: "image/png" }) },
+				{
+					page: 11,
+					section: "PA1.6",
+					blob: new Blob(["detail"], { type: "image/png" }),
+				},
+			]}
+		/>,
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt uzdevumu" }));
+	fireEvent.click(screen.getByRole("button", { name: "WhatsApp grupa" }));
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Izvēlēties grupu" }),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Testa grupa" }));
+	jest.useFakeTimers();
+	fireEvent.click(screen.getByRole("button", { name: "Nosūtīt" }));
+	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	await act(async () => {});
+	expect(toast.success).not.toHaveBeenCalled();
+	unmount();
+	await act(async () => jest.advanceTimersByTimeAsync(5000));
+	expect(receipt).toHaveBeenCalledWith("site", "send-1", expect.anything());
+	expect(toast.warning).toHaveBeenCalledWith(
+		"WhatsApp darba uzdevums nosūtīts daļēji.",
+		expect.objectContaining({
+			description: expect.stringContaining("Nosūtīti 1 no 2 attēliem."),
+		}),
+	);
+	const retry = jest.mocked(toast.warning).mock.calls[0][1]?.action as Action;
+	await clickToastAction(retry);
+	expect(send).toHaveBeenCalledTimes(2);
+	expect(send.mock.calls[1][0].clientRequestId).toBe(
+		send.mock.calls[0][0].clientRequestId,
+	);
+	expect(toast.success).toHaveBeenCalledWith(
+		"Darba uzdevums nosūtīts WhatsApp.",
+		expect.anything(),
 	);
 });
 

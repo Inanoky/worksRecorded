@@ -6,6 +6,7 @@ import {
 	waitFor,
 } from "@testing-library/react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { DashboardSettingsLink } from "@/components/dashboard/DashboardSettingsLink";
 import { FimaProjectNavigationLink } from "@/components/fima/FimaProjectNavigationLink";
 import OpenProjectButton from "@/components/providers/ButtonClient";
 import {
@@ -85,6 +86,21 @@ jest.mock("@/flows/default-construction/frontend/RetainedLimeniForma2", () => ({
 jest.mock("@/flows/default-construction/visual/VisualProjectView", () => ({
 	VisualProjectView: ({ children }: { children: ReactNode }) => children,
 }));
+jest.mock(
+	"@/app/dashboard/sites/[siteId]/settings/ProjectSettingsView",
+	() => ({
+		ProjectSettingsView: ({
+			data,
+		}: {
+			data: { siteId: string; bis?: { isConnected: boolean } };
+		}) => (
+			<>
+				<StatefulScreen id={`${data.siteId}-settings`} />
+				{data.bis?.isConnected ? <p>BIS connected</p> : null}
+			</>
+		),
+	}),
+);
 
 import { RegisterWorkspaceRoot } from "./ProjectRegistration";
 import {
@@ -173,6 +189,9 @@ function Navigation() {
 			<FimaProjectNavigationLink href={href("a", "spending")}>
 				Izmaksu dinamika
 			</FimaProjectNavigationLink>
+			<DashboardSettingsLink href={href("a", "settings")}>
+				Project settings
+			</DashboardSettingsLink>
 			{["a", "b"].map((id) => (
 				<button
 					key={id}
@@ -239,6 +258,69 @@ beforeEach(() => {
 		});
 });
 afterEach(() => jest.restoreAllMocks());
+
+it("preloads Līmeni settings with the project and opens the form while BIS loads", async () => {
+	descriptors.set("a", { ...descriptor("a"), visualPreload: true });
+	const previous = global.fetch;
+	let completeBis!: (value: {
+		ok: boolean;
+		json: () => Promise<unknown>;
+	}) => void;
+	const bis = new Promise<{ ok: boolean; json: () => Promise<unknown> }>(
+		(resolve) => {
+			completeBis = resolve;
+		},
+	);
+	const request = jest.fn((url: string) =>
+		url.endsWith("part=bis")
+			? bis
+			: Promise.resolve({
+					ok: true,
+					json: async () => ({ siteId: "a", bisDeferred: true }),
+				}),
+	);
+	global.fetch = request as unknown as typeof fetch;
+	try {
+		render(<App serverId="a" />);
+		await waitFor(() =>
+			expect(request).toHaveBeenCalledWith(
+				"/api/sites/a/project-settings?part=base",
+				{ cache: "no-store" },
+			),
+		);
+		expect(request).toHaveBeenCalledTimes(1);
+		expect(screen.queryByLabelText("edit-a-settings")).not.toBeInTheDocument();
+		const settings = screen.getByRole("link", { name: "Project settings" });
+		fireEvent.click(settings);
+		expect(window.location.pathname).toBe(href("a", "settings"));
+		expect(mockRouteLoad).not.toHaveBeenCalled();
+		const field = await screen.findByLabelText("edit-a-settings");
+		expect(
+			screen.queryByText("Ielādē projekta iestatījumus…"),
+		).not.toBeInTheDocument();
+		expect(request).toHaveBeenCalledWith(
+			"/api/sites/a/project-settings?part=bis",
+			{ cache: "no-store" },
+		);
+		await act(async () =>
+			completeBis({
+				ok: true,
+				json: async () => ({ bis: { isConnected: true } }),
+			}),
+		);
+		expect(screen.getByText("BIS connected")).toBeVisible();
+		fireEvent.change(field, { target: { value: "unsaved change" } });
+		fireEvent.click(screen.getByText("back-a"));
+		expect(field).not.toBeVisible();
+		fireEvent.click(settings);
+		expect(field).toBeVisible();
+		expect(field).toHaveValue("unsaved change");
+		expect(request).toHaveBeenCalledTimes(2);
+		expect(mockRouteLoad).not.toHaveBeenCalled();
+	} finally {
+		global.fetch = previous;
+	}
+});
 
 it("loads the financial route on its first visit and then restores its filters without another route load", () => {
 	descriptors.set("a", { ...descriptor("a"), visualPreload: true });

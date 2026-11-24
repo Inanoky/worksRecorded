@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { setTimeout as sleep } from "node:timers/promises";
 import sharp from "sharp";
 import { z } from "zod";
 import { prisma } from "@/lib/utils/db";
@@ -21,23 +22,35 @@ import {
 } from "./planning-whatsapp-templates";
 import { requireVisualAccess } from "./store";
 import {
-	sendWhapiImage,
-	WhapiRequestError,
-	whapiGroupIdSchema,
-	whapiPhoneSchema,
-} from "./whapi-groups-api";
-import { resolveWhapiTaskRecipient } from "./whapi-groups-store";
+	readWasenderMessageStatus,
+	readWasenderSentActivity,
+	sendWasenderGroupImage,
+	WasenderApiError,
+	wasenderGroupId,
+} from "./wasender-connections-api";
+import { requireConnectedWasenderSession } from "./wasender-connections-store";
+import { resolveWasenderTaskRecipient } from "./wasender-groups-store";
+import {
+	discardWasenderTaskImages,
+	stageWasenderTaskImage,
+} from "./wasender-task-images";
 
 export const WHATSAPP_TASK_MAX_BODY = 16_000_000;
 const WHATSAPP_TASK_MAX_IMAGE = 5_000_000;
+const WASENDER_IMAGE_INTERVAL_MS = 5000;
+const WASENDER_MAX_RETRY_WAIT_MS = 60_000;
+const WASENDER_MAX_RETRIES = 2;
 
 const sendInputSchema = z
 	.object({
 		planId: z.string().uuid(),
 		planVersion: z.number().int().positive(),
 		recipient: z.string().transform((value) => normalizeMetaPhone(value)),
-		groupId: whapiGroupIdSchema.optional(),
-		groupSender: whapiPhoneSchema.optional(),
+		groupId: wasenderGroupId.optional(),
+		groupSender: z
+			.string()
+			.regex(/^\d{8,15}$/)
+			.optional(),
 		message: z
 			.string()
 			.transform(normalizePlanningWhatsAppMessage)
@@ -72,6 +85,47 @@ function safeProviderError(error: unknown) {
 
 function userFacingProviderError() {
 	return "Ziņu neizdevās nosūtīt. Pārbaudiet Meta numura un veidnes iestatījumus.";
+}
+
+function groupSendError(reason: string | null) {
+	return reason === "WaSenderAPI request failed (429)"
+		? "WaSenderAPI sūtīšanas limits ir sasniegts. Vēlāk atkārtojiet nenosūtītos attēlus."
+		: "Ziņu neizdevās nosūtīt. Pārbaudiet WhatsApp grupas savienojumu.";
+}
+
+function wasenderRateLimited(error: unknown): error is WasenderApiError {
+	return error instanceof WasenderApiError && error.status === 429;
+}
+
+function createPacedWasenderSender() {
+	let nextSendAt = 0;
+	let retryCount = 0;
+	let remainingRetryWait = WASENDER_MAX_RETRY_WAIT_MS;
+	return async (...args: Parameters<typeof sendWasenderGroupImage>) => {
+		while (true) {
+			const wait = nextSendAt - Date.now();
+			if (wait > 0) await sleep(wait);
+			try {
+				return await sendWasenderGroupImage(...args);
+			} catch (error) {
+				if (!wasenderRateLimited(error) || retryCount >= WASENDER_MAX_RETRIES)
+					throw error;
+				const delay = Math.max(
+					WASENDER_IMAGE_INTERVAL_MS,
+					error.retryAfterMs ?? WASENDER_IMAGE_INTERVAL_MS * 2 ** retryCount,
+				);
+				if (delay > remainingRetryWait) throw error;
+				retryCount++;
+				remainingRetryWait -= delay;
+				nextSendAt = Date.now() + delay;
+			} finally {
+				nextSendAt = Math.max(
+					nextSendAt,
+					Date.now() + WASENDER_IMAGE_INTERVAL_MS,
+				);
+			}
+		}
+	};
 }
 
 class WhatsAppProviderError extends Error {
@@ -197,13 +251,128 @@ async function resultForSend(sendId: string) {
 				metaMessageId: item.metaMessageId,
 				error:
 					item.status === "failed"
-						? send.provider === "whapi"
-							? "Ziņu neizdevās nosūtīt. Pārbaudiet WhatsApp grupas savienojumu."
+						? send.provider !== "meta"
+							? groupSendError(item.providerError)
 							: userFacingProviderError()
 						: null,
 			}),
 		),
 	};
+}
+
+async function reconcileWasenderReceipts(
+	sendId: string,
+	session: { token: string; providerSessionId: number },
+) {
+	const queued = await prisma.whatsAppTaskSendItem.findMany({
+		where: { sendId, status: "queued" },
+		include: { wasenderImage: { select: { tokenHash: true } } },
+	});
+	const receipts = await Promise.all(
+		queued.flatMap((item) => {
+			const messageId = item.wasenderMessageId;
+			if (!messageId) return [];
+			return readWasenderMessageStatus(session.token, messageId)
+				.catch(() => null)
+				.then((code) => ({ item, messageId, code }));
+		}),
+	);
+	const awaitingIds = receipts
+		.filter(({ code }) => code === 1 || code === null)
+		.map(({ messageId }) => messageId);
+	const sentActivity = await readWasenderSentActivity(
+		session.providerSessionId,
+		awaitingIds,
+	).catch(() => null);
+	await Promise.all(
+		receipts.map(async ({ item, messageId, code }) => {
+			const now = new Date();
+			const status =
+				code === 0
+					? "failed"
+					: code === 2 || sentActivity?.has(messageId)
+						? "sent"
+						: code === 3
+							? "delivered"
+							: code === 4 || code === 5
+								? "read"
+								: null;
+			if (!status) return;
+			const updated = await prisma.whatsAppTaskSendItem.updateMany({
+				where: {
+					id: item.id,
+					status: "queued",
+					wasenderMessageId: messageId,
+				},
+				data: {
+					status,
+					...(status === "failed"
+						? {
+								failedAt: now,
+								providerError: "WaSenderAPI failed to send the image",
+							}
+						: { sentAt: now }),
+					...(["delivered", "read"].includes(status)
+						? { deliveredAt: now }
+						: {}),
+					...(status === "read" ? { readAt: now } : {}),
+				},
+			});
+			if (updated.count && item.wasenderImage)
+				await discardWasenderTaskImages(
+					[item.id],
+					item.wasenderImage.tokenHash,
+				).catch(() => {});
+		}),
+	);
+}
+
+async function finishSend(sendId: string) {
+	const completed = await prisma.whatsAppTaskSendItem.findMany({
+		where: { sendId },
+	});
+	const sent = completed.filter((item) =>
+		["sent", "delivered", "read"].includes(item.status),
+	).length;
+	const failed = completed.filter((item) => item.status === "failed").length;
+	const status =
+		sent === completed.length
+			? "sent"
+			: failed === completed.length
+				? "failed"
+				: sent + failed === completed.length
+					? "partial"
+					: "processing";
+	await prisma.whatsAppTaskSend.update({
+		where: { id: sendId },
+		data: { status, completedAt: status === "processing" ? null : new Date() },
+	});
+	return resultForSend(sendId);
+}
+
+export async function refreshWasenderTaskSend(
+	userId: string,
+	siteId: string,
+	sendId: string,
+) {
+	const { organizationId } = await requireVisualAccess(userId, siteId);
+	const send = await prisma.whatsAppTaskSend.findFirst({
+		where: {
+			id: sendId,
+			siteId,
+			organizationId,
+			senderUserId: userId,
+			provider: "wasender",
+		},
+	});
+	if (!send?.wasenderConnectionId) return null;
+	if (send.status !== "processing") return resultForSend(send.id);
+	const session = await requireConnectedWasenderSession(
+		{ userId, organizationId },
+		send.wasenderConnectionId,
+	);
+	await reconcileWasenderReceipts(send.id, session);
+	return finishSend(send.id);
 }
 
 export async function sendVisualPlanningWhatsAppTask(args: {
@@ -216,10 +385,7 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 	if (Boolean(input.groupId) !== Boolean(input.groupSender))
 		throw new Error("Nederīgs WhatsApp grupas saņēmējs.");
 	const recipient = input.groupId ?? input.recipient;
-	if (
-		!recipient ||
-		(!input.groupId && !whapiPhoneSchema.safeParse(recipient).success)
-	)
+	if (!recipient || (!input.groupId && !/^\d{8,15}$/.test(recipient)))
 		throw new Error("Nederīgs saņēmēja tālruņa numurs.");
 	if (args.files.length !== input.images.length)
 		throw new Error("Trūkst darba uzdevuma attēlu.");
@@ -262,7 +428,7 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 
 	const group =
 		input.groupId && input.groupSender
-			? await resolveWhapiTaskRecipient(
+			? await resolveWasenderTaskRecipient(
 					{
 						organizationId: access.organizationId,
 						userId: args.userId,
@@ -301,10 +467,11 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 			send.planId !== input.planId ||
 			send.planVersion !== input.planVersion ||
 			send.recipient !== recipient ||
-			(send.provider === "whapi") !== Boolean(group) ||
+			send.provider !== (group ? "wasender" : "meta") ||
 			(group &&
 				(send.senderUserId !== args.userId ||
-					send.senderAddress !== group.phone)) ||
+					send.senderAddress !== group.phone ||
+					send.wasenderConnectionId !== group.connectionId)) ||
 			planningWhatsAppMessageWithReportingNote(send.message) !== message ||
 			existingItems.length !== input.images.length ||
 			existingItems.some(
@@ -333,9 +500,10 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 				recipient,
 				...(group
 					? {
-							provider: "whapi",
+							provider: "wasender",
 							recipientLabel: group.group.name,
 							senderAddress: group.phone,
+							wasenderConnectionId: group.connectionId,
 						}
 					: {}),
 				message,
@@ -355,7 +523,10 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 	const items = [...send.items].sort(
 		(left, right) => left.ordinal - right.ordinal,
 	);
+	const sendGroupImage = createPacedWasenderSender();
+	if (group) await discardWasenderTaskImages([]).catch(() => {});
 	for (const item of items) {
+		if (group && item.status === "processing") break;
 		if (item.status !== "pending" && item.status !== "failed") continue;
 		const data = { status: "processing", providerError: null, failedAt: null };
 		if (group) {
@@ -363,7 +534,7 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 				where: { id: item.id, status: { in: ["pending", "failed"] } },
 				data,
 			});
-			if (!claim.count) continue;
+			if (!claim.count) break;
 		} else {
 			await prisma.whatsAppTaskSendItem.update({
 				where: { id: item.id },
@@ -377,16 +548,17 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 				? `Sekcija ${item.section}`
 				: `PDF lapa ${item.page}`;
 			if (group) {
+				const imageUrl = await stageWasenderTaskImage(item.id, file);
 				attemptedGroupSend = true;
-				const whapiMessageId = await sendWhapiImage({
-					token: group.token,
-					groupId: recipient,
-					image: file,
-					caption: item.ordinal === 0 ? send.message : label,
-				});
+				const wasenderMessageId = await sendGroupImage(
+					group.token,
+					recipient,
+					item.ordinal === 0 ? send.message : label,
+					imageUrl,
+				);
 				await prisma.whatsAppTaskSendItem.update({
 					where: { id: item.id },
-					data: { status: "sent", whapiMessageId, sentAt: new Date() },
+					data: { status: "queued", wasenderMessageId },
 				});
 				continue;
 			}
@@ -426,46 +598,28 @@ export async function sendVisualPlanningWhatsAppTask(args: {
 			const uncertain =
 				attemptedGroupSend &&
 				!(
-					error instanceof WhapiRequestError &&
+					error instanceof WasenderApiError &&
 					error.status >= 400 &&
 					error.status < 500 &&
 					error.status !== 408
 				);
+			if (group && !uncertain)
+				await discardWasenderTaskImages([item.id]).catch(() => {});
 			await prisma.whatsAppTaskSendItem.update({
 				where: { id: item.id },
 				data: {
 					status: uncertain ? "unknown" : "failed",
 					providerError:
-						group && !(error instanceof WhapiRequestError)
-							? "Whapi send could not be confirmed"
+						group && !(error instanceof WasenderApiError)
+							? "WaSenderAPI send could not be confirmed"
 							: safeProviderError(error),
 					failedAt: uncertain ? null : new Date(),
 				},
 			});
+			if (group && wasenderRateLimited(error)) break;
 		}
 	}
 
-	const completed = await prisma.whatsAppTaskSendItem.findMany({
-		where: { sendId: send.id },
-	});
-	const sentCount = completed.filter((item) => item.status === "sent").length;
-	const failedCount = completed.filter(
-		(item) => item.status === "failed",
-	).length;
-	const status =
-		sentCount === completed.length
-			? "sent"
-			: sentCount > 0 && failedCount > 0
-				? "partial"
-				: failedCount === completed.length
-					? "failed"
-					: "processing";
-	await prisma.whatsAppTaskSend.update({
-		where: { id: send.id },
-		data: {
-			status,
-			completedAt: status === "processing" ? null : new Date(),
-		},
-	});
-	return resultForSend(send.id);
+	if (group) await reconcileWasenderReceipts(send.id, group);
+	return finishSend(send.id);
 }

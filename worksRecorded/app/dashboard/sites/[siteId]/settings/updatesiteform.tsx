@@ -2,10 +2,11 @@
 
 // worksRecorded\app\dashboard\sites\[siteId]\settings\updatesiteform.tsx
 
-import { useTransition } from "react";
+import { useContext, useTransition } from "react";
 import { toast } from "sonner";
 
 import GeoMap from "@/components/settings/geomap";
+import { SettingsRefreshContext } from "@/components/settings/SettingsRefreshContext";
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { updateSiteAction } from "@/server/actions/shared-actions";
@@ -40,6 +41,7 @@ export function UpdateSiteForm({
   const t = getSiteSettingsMessages(language);
   const toastMessages = getToastMessages(language);
   const [isPending, startTransition] = useTransition();
+  const refresh = useContext(SettingsRefreshContext);
 
   async function formAction(formData: FormData) {
     startTransition(async () => {
@@ -50,6 +52,7 @@ export function UpdateSiteForm({
           return;
         }
         toast.success(toastMessages.changesSaved);
+        refresh?.();
       } catch (error) {
         console.error("Failed to update site", error);
         toast.error(toastMessages.failedSaveChanges);

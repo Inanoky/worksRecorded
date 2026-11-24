@@ -145,19 +145,22 @@ it("shows each assigned act in one row with aligned quantities and a separate st
 		"komplekts",
 		"m",
 	]);
-	expect(
-		[...amounts.children].slice(0, 2).map((item) => item.textContent),
-	).toEqual(["22", "1,5"]);
-	const workDetails = within(amounts)
-		.getByText("Darbu apjomi")
-		.closest("details");
-	expect(workDetails).not.toBeNull();
-	(workDetails as HTMLDetailsElement).open = true;
+	const firstAmount = within(amounts).getByText("22");
+	const secondAmount = within(amounts).getByText("1,5");
+	const workDetails = firstAmount.closest("details");
+	expect(secondAmount.closest("summary")).toBe(firstAmount.closest("summary"));
+	expect(within(amounts).queryByText("Darbu apjomi")).not.toBeInTheDocument();
+	expect(workDetails).not.toHaveAttribute("open");
+	fireEvent.click(firstAmount);
+	expect(workDetails).toHaveAttribute("open");
 	expect(screen.getByRole("link", { name: "BIS Nr. 696" })).toHaveAttribute(
 		"href",
 		"https://bis.gov.lv/bisp/lv/portal/logbooks/performed_works/200/edit?entry_ids%5B%5D=200",
 	);
 	expect(screen.getByText("8 komplekts")).toBeVisible();
+	fireEvent.click(secondAmount);
+	expect(workDetails).not.toHaveAttribute("open");
+	expect(screen.getByText("8 komplekts")).not.toBeVisible();
 
 	fireEvent.click(trigger);
 	expect(trigger).toHaveAttribute("aria-expanded", "false");
