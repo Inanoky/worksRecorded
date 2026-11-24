@@ -21,13 +21,7 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
 	requestWasenderConnections,
@@ -70,9 +64,6 @@ export function VisualWhatsAppConnectionsCard({
 					<Smartphone className="size-5 text-muted-foreground" /> WhatsApp
 					numuri
 				</CardTitle>
-				<CardDescription>
-					Pievienojiet savu WhatsApp numuru ar WaSenderAPI.
-				</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<VisualWhatsAppConnectionControls

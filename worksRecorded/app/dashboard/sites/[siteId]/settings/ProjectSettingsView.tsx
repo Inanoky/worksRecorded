@@ -149,7 +149,7 @@ export function ProjectSettingsView({
 				/>
 			</div>
 			{data.showVisualPlanningContacts ? (
-				<>
+				<div className="flex flex-col gap-6">
 					<VisualPlanningContactsCard
 						siteId={siteId}
 						initialContacts={data.visualPlanningContacts}
@@ -163,7 +163,7 @@ export function ProjectSettingsView({
 						siteId={siteId}
 						connectionRevision={connectionRevision}
 					/>
-				</>
+				</div>
 			) : null}
 			<Card
 				data-tour="settings-danger-zone"

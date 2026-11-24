@@ -3,13 +3,7 @@
 import { Search, UsersRound } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
 	filterWhatsAppGroups,
@@ -245,9 +239,6 @@ export function VisualWhatsAppGroupsCard({
 					<UsersRound className="size-5 text-muted-foreground" /> WhatsApp
 					grupas
 				</CardTitle>
-				<CardDescription>
-					Izvēlieties projekta grupas no numura, kas savienots ar WaSenderAPI.
-				</CardDescription>
 			</CardHeader>
 			<CardContent>{content}</CardContent>
 		</Card>
