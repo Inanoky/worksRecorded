@@ -600,6 +600,121 @@ describe("save_to_database site diary tool", () => {
 		);
 	});
 
+	it.each([1, null])(
+		"persists the spoken one-hour delivery interval when the extractor returns Hours=%s",
+		async (extractedHours) => {
+			const source =
+				"No pulksten diviem līdz pulksten trijiem braucu uz starpstacijai pakaļ materiāliem uz Stipro.";
+			getConfigMock.mockResolvedValue({
+				...siteConfig,
+				Date: { Type: "datePicker" },
+				Comments: { Type: "textInput" },
+				Works: {
+					...siteConfig.Works,
+					DropDownOptions: { delivery: "Materiālu piegāde", notes: "Piezīmes" },
+				},
+			});
+			structuredInvokeMock.mockResolvedValueOnce({
+				records: [
+					{
+						Date: "2026-11-24",
+						Activity: "Materiālu piegāde",
+						Comments: source,
+						Hours: extractedHours,
+						Workers: null,
+						Quantity: null,
+						Mrv: null,
+					},
+				],
+			});
+			const accepted = {
+				parsed: {
+					verdict: "accept",
+					reason: "Intervāls pamato vienu stundu.",
+					badSplitSignals: [],
+					repairActions: [],
+					repairInstructions: "",
+					expectedRecordCount: 1,
+				},
+			};
+			if (extractedHours === null) {
+				structuredInvokeMock
+					.mockResolvedValueOnce({
+						parsed: {
+							...accepted.parsed,
+							verdict: "needs_model_repair",
+							repairInstructions:
+								"Iestati TimeInvolved=1; citus laukus nemaini.",
+							coverageComplete: true,
+							modelRepairTargets: [
+								{
+									rowIndex: 0,
+									fields: ["TimeInvolved"],
+									allowStructuralChanges: false,
+								},
+							],
+							rowReviews: [
+								{
+									rowIndex: 0,
+									status: "needs_review",
+									reason: "Trūkst vienas stundas.",
+									sourceText: source,
+									sourceSpans: [source],
+								},
+							],
+						},
+					})
+					.mockResolvedValueOnce({
+						changes: [
+							{
+								rowId: "row-1",
+								field: "TimeInvolved",
+								value: 1,
+								sourceSpans: [source],
+								calculationEvidence: null,
+							},
+						],
+						replacements: [],
+						additions: [],
+						unresolvedRowIds: [],
+						reason: "Saglabāta intervāla stunda.",
+					});
+			}
+			structuredInvokeMock.mockResolvedValueOnce(accepted);
+			saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
+			const result = await extractAndSaveSiteDiary({
+				question: source,
+				requestedDate: "24-11-2026",
+			});
+			expect(result.ok).toBe(true);
+			expect(result.savedAsNote).not.toBe(true);
+			expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+			expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+				expect.objectContaining({
+					Works: "Materiālu piegāde",
+					TimeInvolved: 1,
+					WorkersInvolved: null,
+					Amounts: null,
+					Units: null,
+					Comments: source,
+				}),
+			]);
+			expect(structuredInvokeMock).toHaveBeenCalledTimes(
+				extractedHours === null ? 4 : 2,
+			);
+			if (extractedHours === null) {
+				expect(recordTraceMock).toHaveBeenCalledWith(
+					expect.objectContaining({
+						checker: expect.objectContaining({
+							appliedRepair: true,
+							repairVerdict: "accept",
+						}),
+					}),
+				);
+			}
+		},
+	);
+
 	it("preserves two accepted works after repair fails while merging two unresolved rows", async () => {
 		const good = ["Iebetonēti 12 m3 betona.", "Samontētas 3 sienas."];
 		const unclear =

@@ -127,6 +127,7 @@ import {
 	hasStructuredSaveTraceContext,
 	recordStructuredSaveTrace,
 } from "./structuredSaveTrace";
+import { readClockIntervalEvidence } from "./timeIntervalEvidence";
 
 function currentDiaryDate() {
 	const parts = new Intl.DateTimeFormat("en-GB", {
@@ -456,8 +457,11 @@ function matchesParsedDuration(value: number, hours: string, minutes: string) {
 
 function parseTimeInvolvedFromSource(source: string, value: number) {
 	if (!Number.isFinite(value)) return null;
+	const evidence = readClockIntervalEvidence(source);
+	if (evidence.intervalHours.includes(value)) return value;
+	const durationSource = evidence.durationSource;
 
-	const clockMatch = source.match(
+	const clockMatch = durationSource.match(
 		/(?:^|[^\d])(\d{1,2})\s*:\s*([0-5]\d)(?=$|[^\p{L}\p{N}_])/iu,
 	);
 	if (
@@ -467,7 +471,7 @@ function parseTimeInvolvedFromSource(source: string, value: number) {
 		return clockTimeToDecimalHours(clockMatch[1], clockMatch[2]);
 	}
 
-	const compactHourMinuteMatch = source.match(
+	const compactHourMinuteMatch = durationSource.match(
 		/(?:^|[^\d])(\d{1,2})\s*h\s*([0-5]\d)(?=$|[^\p{L}\p{N}_])/iu,
 	);
 	if (
@@ -484,7 +488,7 @@ function parseTimeInvolvedFromSource(source: string, value: number) {
 		);
 	}
 
-	const wordHourMinuteMatch = source.match(
+	const wordHourMinuteMatch = durationSource.match(
 		/(?:^|[^\d])(\d{1,2})\s*(?:h|st\.?|stunda|stundas|stundu|hour|hours)\s+([0-5]?\d)\s*(?:min|mins|min\.?|minūte|minūtes|minūšu|minutes?)(?=$|[^\p{L}\p{N}_])/iu,
 	);
 	if (
@@ -497,7 +501,7 @@ function parseTimeInvolvedFromSource(source: string, value: number) {
 		);
 	}
 
-	const dotClockMatch = source.match(
+	const dotClockMatch = durationSource.match(
 		/(?:^|[^\d])(\d{1,2})\.([0-5]\d)\s*(?:h|st\.?|stunda|stundas|stundu|hour|hours)(?=$|[^\p{L}\p{N}_])/iu,
 	);
 	if (
@@ -507,7 +511,7 @@ function parseTimeInvolvedFromSource(source: string, value: number) {
 		return clockTimeToDecimalHours(dotClockMatch[1], dotClockMatch[2]);
 	}
 
-	if (hasNumberWithUnit(source, value, timeUnitPattern)) return value;
+	if (hasNumberWithUnit(durationSource, value, timeUnitPattern)) return value;
 	return null;
 }
 

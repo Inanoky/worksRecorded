@@ -1508,11 +1508,12 @@ function InvoiceRegister({
 												{invoice.costCode || "—"}
 											</TableCell>
 											<TableCell className="w-36 max-w-36 align-top font-semibold">
-												<div className="grid gap-1.5">
+												<div className="grid min-w-0 gap-1.5">
 													<button
 														type="button"
 														aria-label={`${copy.previewInvoice}: ${invoiceLabel}`}
-														className="max-w-36 break-all text-left leading-tight hover:text-tgem-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
+														title={invoiceLabel}
+														className="block w-32 max-w-full truncate text-left leading-tight hover:text-tgem-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
 													>
 														{invoiceLabel}
 													</button>
@@ -1647,7 +1648,10 @@ function InvoiceRegister({
 												{copy.costCode}: {invoice.costCode || "—"}
 											</div>
 											<div className="font-semibold">
-												<span className="truncate">
+												<span
+													className="block truncate"
+													title={invoice.invoiceNumber || invoice.id}
+												>
 													{invoice.invoiceNumber || invoice.id}
 												</span>
 											</div>

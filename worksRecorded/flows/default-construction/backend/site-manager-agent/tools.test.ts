@@ -210,6 +210,66 @@ describe("normalizeUnknownNumericFields", () => {
 		).toMatchObject({ TimeInvolved: null });
 	});
 
+	it.each([
+		"No pulksten diviem līdz pulksten trijiem braucu uz starpstacijai pakaļ materiāliem uz Stipro.",
+		"No plkst. 14:00 līdz 15:00 braucu pēc materiāliem.",
+		"Brauciens pēc materiāliem 14:00–15:00.",
+		"No plkst. 14.30 līdz 15.30 braucu pēc materiāliem.",
+		"Braucu pēc materiāliem vienu stundu.",
+	])("preserves one hour backed by the current source: %s", (source) => {
+		expect(
+			normalizeUnknownNumericFields(
+				{ Works: "Materiālu piegāde", TimeInvolved: 1, WorkersInvolved: null },
+				source,
+			),
+		).toMatchObject({ TimeInvolved: 1, WorkersInvolved: null });
+	});
+
+	it.each([
+		"Braucu pēc materiāliem.",
+		"No pulksten vieniem braucu pēc materiāliem.",
+		"No plkst. 1:00 braucu pēc materiāliem.",
+		"Braucu pēc materiāliem no 1:00.",
+		"No plkst. 1:00 līdz 3:00 braucu pēc materiāliem.",
+		"Braucu pēc materiāliem 1:00–3:00.",
+		"No plkst. 1:00 līdz 1:00 braucu pēc materiāliem.",
+		"No plkst. 23:00 līdz 0:00 braucu pēc materiāliem.",
+		"No plkst. 1:99 līdz 2:99 braucu pēc materiāliem.",
+		"No 1 līdz 2 stāviem vedu materiālus.",
+	])(
+		"does not accept one hour from unsupported or mismatched evidence: %s",
+		(source) => {
+			expect(
+				normalizeUnknownNumericFields(
+					{ Works: "Materiālu piegāde", TimeInvolved: 1 },
+					source,
+				),
+			).toMatchObject({ TimeInvolved: null });
+		},
+	);
+
+	it("preserves an explicit duration independently of a clock interval", () => {
+		expect(
+			normalizeUnknownNumericFields(
+				{ Works: "Papildu darbi", TimeInvolved: 1 },
+				"No plkst. 1:00 līdz 3:00 strādāju. Papildu darbs 1 stundu.",
+			),
+		).toMatchObject({ TimeInvolved: 1 });
+	});
+
+	it.each([
+		"Darbs ilga 1:30.",
+		"Darbs ilga 1h30.",
+		"Darbs ilga 1 stundu 30 minūtes.",
+	])("retains existing hour-minute duration parsing: %s", (source) => {
+		expect(
+			normalizeUnknownNumericFields(
+				{ Works: "Darbs", TimeInvolved: 1.3 },
+				source,
+			),
+		).toMatchObject({ TimeInvolved: 1.5 });
+	});
+
 	it("preserves m2 amounts backed by Latvian kvadrātmetru evidence", () => {
 		const source =
 			"Šodien trīs cilvēki pa desmit stundām aizbetonēja 100 kvadrātmetru, 100 milimetru biezuma grīdas, un arī divi cilvēki sastiegroja 150 kvadrātmetru stiegrojumu, un arī bija papildu darbi trīs stundas divi cilvēki, viņi tur piebetonēja, pasūtītājam vēl tur nelielu siju.";
