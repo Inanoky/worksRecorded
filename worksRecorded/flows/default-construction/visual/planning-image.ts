@@ -3,6 +3,11 @@ import type { VisualPlan, VisualPlanArea } from "./planning-model";
 
 export type PlanningImage = { page: number; blob: Blob; section?: string };
 
+function spanWithContext(span: number) {
+	const padding = Math.max(0.045, span * 0.12);
+	return Math.min(1, span + 2 * padding);
+}
+
 export function planningImageRegion(areas: VisualPlanArea[]) {
 	const points = areas.flatMap((area) => area.polygon);
 	if (!points.length) throw new Error("Plānam nav saglabātu zonu.");
@@ -12,9 +17,8 @@ export function planningImageRegion(areas: VisualPlanArea[]) {
 	const maxX = Math.max(...xs);
 	const minY = Math.min(...ys);
 	const maxY = Math.max(...ys);
-	const zoomOut = 3.5;
-	const width = Math.min(1, Math.max(0.004, (maxX - minX) * 1.24) * zoomOut);
-	const height = Math.min(1, Math.max(0.004, (maxY - minY) * 1.24) * zoomOut);
+	const width = spanWithContext(maxX - minX);
+	const height = spanWithContext(maxY - minY);
 	return {
 		x: Math.max(0, Math.min(1 - width, (minX + maxX - width) / 2)),
 		y: Math.max(0, Math.min(1 - height, (minY + maxY - height) / 2)),

@@ -25,11 +25,11 @@ it("keeps edge zones and surrounding context inside the exported page", () => {
 	expect(crop.y).toBeLessThan(0.8);
 	expect(crop.x + crop.width).toBeCloseTo(1);
 	expect(crop.y + crop.height).toBeCloseTo(1);
-	expect(crop.width).toBeCloseTo(0.868);
-	expect(crop.height).toBeCloseTo(0.868);
+	expect(crop.width).toBeCloseTo(0.29);
+	expect(crop.height).toBeCloseTo(0.29);
 });
 
-it("zooms out 3.5 times around small polygons to include nearby drawing axes", () => {
+it("keeps some nearby drawing context around a small zone", () => {
 	const smallArea = {
 		...area,
 		polygon: [
@@ -39,8 +39,8 @@ it("zooms out 3.5 times around small polygons to include nearby drawing axes", (
 		],
 	};
 	const crop = planningImageRegion([smallArea]);
-	expect(crop.width / (0.02 * 1.24)).toBeCloseTo(3.5);
-	expect(crop.height / (0.03 * 1.24)).toBeCloseTo(3.5);
+	expect(crop.width).toBeCloseTo(0.11);
+	expect(crop.height).toBeCloseTo(0.12);
 	expect(crop.x + crop.width / 2).toBeCloseTo(0.51);
 	expect(crop.y + crop.height / 2).toBeCloseTo(0.515);
 	for (const axis of [
@@ -52,6 +52,24 @@ it("zooms out 3.5 times around small polygons to include nearby drawing axes", (
 		expect(axis.x).toBeLessThan(crop.x + crop.width);
 		expect(axis.y).toBeLessThan(crop.y + crop.height);
 	}
+});
+
+it("crops around a work zone spanning roughly one quarter of the sheet width", () => {
+	const crop = planningImageRegion([
+		{
+			...area,
+			polygon: [
+				{ x: 0.16, y: 0.24 },
+				{ x: 0.4, y: 0.36 },
+				{ x: 0.29, y: 0.57 },
+				{ x: 0.17, y: 0.45 },
+			],
+		},
+	]);
+	expect(crop.x).toBeCloseTo(0.115);
+	expect(crop.y).toBeCloseTo(0.195);
+	expect(crop.width).toBeCloseTo(0.33);
+	expect(crop.height).toBeCloseTo(0.42);
 });
 
 it("keeps every selected task zone inside the crop", () => {
@@ -71,7 +89,8 @@ it("keeps every selected task zone inside the crop", () => {
 	expect(crop.y).toBeLessThanOrEqual(0.2);
 	expect(crop.x + crop.width).toBeCloseTo(1);
 	expect(crop.y + crop.height).toBeCloseTo(1);
-	expect(crop).toEqual({ x: 0, y: 0, width: 1, height: 1 });
+	expect(crop.width).toBe(1);
+	expect(crop.height).toBeCloseTo(0.992);
 });
 
 function setupCanvas() {
