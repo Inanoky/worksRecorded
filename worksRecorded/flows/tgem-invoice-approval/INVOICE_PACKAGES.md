@@ -43,8 +43,12 @@ and message IDs are recorded in invoice audit events; this does not prove
 delivery. Notifications outside the 24-hour submission window are skipped.
 No new database migration is required for completion notifications.
 
-Web upload also accepts multiple files, with a choice between one invoice with
-attachments and separate invoices. Every selected file must be saved before the
+Web upload stages selected or dropped files locally for review. Users can add or
+remove files, choose between one invoice with attachments and separate invoices,
+then explicitly press Upload. Selecting files never uploads or starts extraction.
+Selected images show local thumbnails that open a larger preview. Removing a file
+or leaving the selection releases its local preview.
+Every selected file must be saved before the
 web draft can be submitted. A failed submission can be retried without uploading
 the package again. Single-file web intake keeps its existing path.
 

@@ -4,17 +4,33 @@ import {
 	AlertCircle,
 	Check,
 	FileSearch,
+	FileText,
 	FileUp,
 	Loader2,
 	RotateCcw,
+	X,
 } from "lucide-react";
+import Image from "next/image";
 import * as React from "react";
 
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogTitle,
+	DialogTrigger,
+} from "@/components/ui/dialog";
 import { useUploadThing } from "@/lib/utils/UploadthingsComponents";
 import { getTgemInvoiceProcessingStatus } from "@/server/actions/tgem-invoice-actions";
 import { submitTgemWebInvoicePackage } from "@/server/actions/tgem-invoice-package-actions";
 
-type UploadStage = "idle" | "uploading" | "processing" | "ready" | "error";
+type UploadStage =
+	| "idle"
+	| "selected"
+	| "uploading"
+	| "processing"
+	| "ready"
+	| "error";
 
 type Props = {
 	selectedProjectId?: string | null;
@@ -32,7 +48,16 @@ function getUploadCopy(language?: string | null) {
 			separate: "Katrs fails ir atsevišķs rēķins",
 			limits: "Atļauti līdz 10 failiem, katrs līdz 16 MB, kopā līdz 32 MB.",
 			choose: "Izvēlieties rēķinu",
-			drop: "vai ievelciet failu šeit",
+			drop: "vai ievelciet failus šeit",
+			selectedFiles: "Izvēlētie faili",
+			addFiles: "Pievienot failus",
+			removeFile: "Noņemt failu",
+			previewImage: "Priekšskatīt attēlu",
+			closePreview: "Aizvērt priekšskatījumu",
+			grouping: "Kā apstrādāt dokumentus?",
+			selectionHint:
+				"Pārbaudiet failus un izvēlieties apstrādes veidu. Augšupielāde sāksies tikai pēc pogas nospiešanas.",
+			startUpload: "Augšupielādēt",
 			upload: "Augšupielāde",
 			process: "OCR un datu nolasīšana",
 			review: "Gatavs pārbaudei",
@@ -57,7 +82,16 @@ function getUploadCopy(language?: string | null) {
 			separate: "Каждый файл — отдельный счет",
 			limits: "До 10 файлов, каждый до 16 МБ, всего до 32 МБ.",
 			choose: "Выбрать счет",
-			drop: "или перетащите файл сюда",
+			drop: "или перетащите файлы сюда",
+			selectedFiles: "Выбранные файлы",
+			addFiles: "Добавить файлы",
+			removeFile: "Удалить файл",
+			previewImage: "Просмотреть изображение",
+			closePreview: "Закрыть просмотр",
+			grouping: "Как обработать документы?",
+			selectionHint:
+				"Проверьте файлы и выберите способ обработки. Загрузка начнется только после нажатия кнопки.",
+			startUpload: "Загрузить",
 			upload: "Загрузка",
 			process: "OCR и извлечение данных",
 			review: "Готово к проверке",
@@ -80,7 +114,16 @@ function getUploadCopy(language?: string | null) {
 		separate: "Each file is a separate invoice",
 		limits: "Up to 10 files, 16 MB each and 32 MB total.",
 		choose: "Choose invoice",
-		drop: "or drop the file here",
+		drop: "or drop files here",
+		selectedFiles: "Selected files",
+		addFiles: "Add files",
+		removeFile: "Remove file",
+		previewImage: "Preview image",
+		closePreview: "Close preview",
+		grouping: "How should these documents be processed?",
+		selectionHint:
+			"Review the files and choose how to process them. Uploading starts only when you press Upload.",
+		startUpload: "Upload",
 		upload: "Upload",
 		process: "OCR and extraction",
 		review: "Ready for review",
@@ -103,6 +146,92 @@ const ACCEPTED_FILE_TYPES = new Set([
 	"image/webp",
 ]);
 
+function SelectedImagePreview({
+	file,
+	copy,
+}: {
+	file: File;
+	copy: { previewImage: string; closePreview: string };
+}) {
+	const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+	React.useEffect(() => {
+		if (typeof URL.createObjectURL !== "function") return;
+		const url = URL.createObjectURL(file);
+		setPreviewUrl(url);
+		return () => URL.revokeObjectURL(url);
+	}, [file]);
+
+	if (!previewUrl) {
+		return <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />;
+	}
+
+	return (
+		<Dialog>
+			<DialogTrigger asChild>
+				<button
+					type="button"
+					aria-label={`${copy.previewImage}: ${file.name}`}
+					title={`${copy.previewImage}: ${file.name}`}
+					className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-sm border bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
+				>
+					<Image
+						src={previewUrl}
+						alt={file.name}
+						width={56}
+						height={56}
+						unoptimized
+						className="h-full w-full object-contain"
+					/>
+				</button>
+			</DialogTrigger>
+			<DialogContent
+				aria-describedby={undefined}
+				showCloseButton={false}
+				className="max-h-[90dvh] overflow-y-auto sm:max-w-4xl"
+			>
+				<DialogTitle className="min-w-0 break-all pr-8 text-left text-sm leading-5">
+					{file.name}
+				</DialogTitle>
+				<DialogClose asChild>
+					<button
+						type="button"
+						aria-label={copy.closePreview}
+						className="absolute right-4 top-4 rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
+					>
+						<X className="h-4 w-4" />
+					</button>
+				</DialogClose>
+				<div className="relative h-[65dvh] min-w-0">
+					<Image
+						src={previewUrl}
+						alt={file.name}
+						fill
+						unoptimized
+						className="object-contain"
+					/>
+				</div>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function getFileSelectionError(
+	files: File[],
+	copy: ReturnType<typeof getUploadCopy>,
+) {
+	if (files.some((file) => !ACCEPTED_FILE_TYPES.has(file.type))) {
+		return copy.invalid;
+	}
+	if (
+		files.length > 10 ||
+		files.some((file) => file.size > 16 * 1024 * 1024) ||
+		files.reduce((sum, file) => sum + file.size, 0) > 32 * 1024 * 1024
+	) {
+		return copy.limits;
+	}
+	return null;
+}
+
 export function TgemInvoiceUpload({
 	selectedProjectId,
 	organizationLanguage,
@@ -112,6 +241,7 @@ export function TgemInvoiceUpload({
 	const inputId = React.useId();
 	const inputRef = React.useRef<HTMLInputElement>(null);
 	const [stage, setStage] = React.useState<UploadStage>("idle");
+	const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
 	const [progress, setProgress] = React.useState(0);
 	const [fileName, setFileName] = React.useState<string | null>(null);
 	const [error, setError] = React.useState<string | null>(null);
@@ -124,6 +254,7 @@ export function TgemInvoiceUpload({
 	const pendingDraftId = React.useRef<string | null>(null);
 	const pendingFiles = React.useRef<File[]>([]);
 	const pendingProjectId = React.useRef<string | null>(null);
+	const uploadInFlight = React.useRef(false);
 	const { startUpload: startPackageUpload } = useUploadThing(
 		"tgemInvoicePackageUploader",
 		{
@@ -136,9 +267,11 @@ export function TgemInvoiceUpload({
 		onUploadProgress: setProgress,
 	});
 	const busy = stage === "uploading" || stage === "processing";
+	const selecting = stage === "idle" || stage === "selected";
 
 	const reset = React.useCallback(() => {
 		setStage("idle");
+		setSelectedFiles([]);
 		setProgress(0);
 		setFileName(null);
 		setError(null);
@@ -149,31 +282,54 @@ export function TgemInvoiceUpload({
 		if (inputRef.current) inputRef.current.value = "";
 	}, []);
 
+	const selectFiles = (files: File[]) => {
+		if (!selecting || !files.length) return;
+		if (!selectedProjectId) {
+			setError(copy.projectRequired);
+			return;
+		}
+		const nextFiles = [...selectedFiles];
+		for (const file of files) {
+			if (
+				!nextFiles.some(
+					(selected) =>
+						selected.name === file.name &&
+						selected.type === file.type &&
+						selected.size === file.size &&
+						selected.lastModified === file.lastModified,
+				)
+			) {
+				nextFiles.push(file);
+			}
+		}
+		const selectionError = getFileSelectionError(nextFiles, copy);
+		if (selectionError) {
+			setError(selectionError);
+			return;
+		}
+		setSelectedFiles(nextFiles);
+		setError(null);
+		setStage("selected");
+	};
+
 	const processFile = React.useCallback(
 		async (files: File[], resume = false) => {
 			const file = files[0];
-			if (!file || busy) return;
+			if (!file || busy || uploadInFlight.current) return;
 			const projectId = resume ? pendingProjectId.current : selectedProjectId;
 			if (!projectId) {
 				setStage("error");
 				setError(copy.projectRequired);
 				return;
 			}
-			if (files.some((item) => !ACCEPTED_FILE_TYPES.has(item.type))) {
+			const selectionError = getFileSelectionError(files, copy);
+			if (selectionError) {
 				setStage("error");
-				setError(copy.invalid);
-				return;
-			}
-			if (
-				files.length > 10 ||
-				files.some((item) => item.size > 16 * 1024 * 1024) ||
-				files.reduce((sum, item) => sum + item.size, 0) > 32 * 1024 * 1024
-			) {
-				setStage("error");
-				setError(copy.limits);
+				setError(selectionError);
 				return;
 			}
 
+			uploadInFlight.current = true;
 			setFileName(files.map((item) => item.name).join(", "));
 			setError(null);
 			setResult(null);
@@ -264,14 +420,13 @@ export function TgemInvoiceUpload({
 				setError(
 					uploadError instanceof Error ? uploadError.message : copy.failed,
 				);
+			} finally {
+				uploadInFlight.current = false;
 			}
 		},
 		[
 			busy,
-			copy.failed,
-			copy.invalid,
-			copy.projectRequired,
-			copy.limits,
+			copy,
 			mode,
 			startPackageUpload,
 			onInvoiceReady,
@@ -282,7 +437,10 @@ export function TgemInvoiceUpload({
 
 	const stepState = (step: "uploading" | "processing" | "ready") => {
 		const order = { uploading: 1, processing: 2, ready: 3 };
-		const current = stage === "idle" || stage === "error" ? 0 : order[stage];
+		const current =
+			stage === "idle" || stage === "selected" || stage === "error"
+				? 0
+				: order[stage];
 		return {
 			active: stage === step,
 			complete: current > order[step] || stage === "ready",
@@ -295,7 +453,7 @@ export function TgemInvoiceUpload({
 			className={`min-w-0 w-full overflow-hidden rounded-lg border bg-white transition-colors dark:bg-card ${dragActive ? "border-tgem-primary bg-[#F1F6FF] dark:bg-tgem-primary/10" : "border-[#E1E6ED]"}`}
 			onDragEnter={(event) => {
 				event.preventDefault();
-				if (!busy) setDragActive(true);
+				if (selecting && selectedProjectId) setDragActive(true);
 			}}
 			onDragOver={(event) => event.preventDefault()}
 			onDragLeave={(event) => {
@@ -306,7 +464,7 @@ export function TgemInvoiceUpload({
 			onDrop={(event) => {
 				event.preventDefault();
 				setDragActive(false);
-				void processFile(Array.from(event.dataTransfer.files));
+				selectFiles(Array.from(event.dataTransfer.files));
 			}}
 		>
 			<div className="grid min-w-0 grid-cols-1 lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]">
@@ -326,8 +484,59 @@ export function TgemInvoiceUpload({
 				</div>
 
 				<div className="relative flex min-h-28 min-w-0 flex-col gap-4 p-4">
-					{stage === "idle" ? (
+					{stage === "selected" ? (
+						<div className="grid min-w-0 gap-2">
+							<p className="text-sm font-medium">
+								{copy.selectedFiles} ({selectedFiles.length}/10)
+							</p>
+							<ul
+								aria-label={copy.selectedFiles}
+								className="grid min-w-0 gap-1.5"
+							>
+								{selectedFiles.map((file, index) => (
+									<li
+										key={`${file.name}-${file.size}-${file.lastModified}`}
+										className="flex min-w-0 items-center gap-2 rounded-md border px-2.5 py-2"
+									>
+										{file.type.startsWith("image/") ? (
+											<SelectedImagePreview file={file} copy={copy} />
+										) : (
+											<FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+										)}
+										<span
+											className="min-w-0 flex-1 truncate text-sm"
+											title={file.name}
+										>
+											{file.name}
+										</span>
+										<button
+											type="button"
+											aria-label={`${copy.removeFile}: ${file.name}`}
+											onClick={() => {
+												const remaining = selectedFiles.filter(
+													(_, itemIndex) => itemIndex !== index,
+												);
+												setSelectedFiles(remaining);
+												setError(null);
+												if (!remaining.length) setStage("idle");
+											}}
+											className="shrink-0 rounded-sm p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50"
+										>
+											<X className="h-4 w-4" />
+										</button>
+									</li>
+								))}
+							</ul>
+							<p className="text-xs leading-5 text-muted-foreground">
+								{copy.selectionHint}
+							</p>
+						</div>
+					) : null}
+					{stage === "selected" && selectedFiles.length > 1 ? (
 						<fieldset className="flex min-w-0 w-full flex-col gap-2 text-xs">
+							<legend className="mb-2 text-xs font-medium">
+								{copy.grouping}
+							</legend>
 							{(
 								[
 									["together", copy.together],
@@ -348,22 +557,46 @@ export function TgemInvoiceUpload({
 							))}
 						</fieldset>
 					) : null}
-					{stage === "idle" ? (
-						<div className="flex min-w-0 flex-col items-start gap-3 text-left sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-							<div className="min-w-0">
-								<div className="text-sm font-medium">{copy.drop}</div>
-								<div className="mt-1 text-xs text-muted-foreground">
-									PDF · JPG · PNG · WEBP
+					{selecting ? (
+						<div className="grid min-w-0 gap-3">
+							<div className="flex min-w-0 flex-col items-start gap-3 text-left sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+								<div className="min-w-0">
+									<div className="text-sm font-medium">{copy.drop}</div>
+									<div className="mt-1 text-xs text-muted-foreground">
+										PDF · JPG · PNG · WEBP
+									</div>
+								</div>
+								<div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
+									<label
+										htmlFor={inputId}
+										aria-disabled={!selectedProjectId}
+										className={`inline-flex max-w-full items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold shadow-sm transition focus-within:ring-2 focus-within:ring-tgem-primary/30 focus-within:ring-offset-2 ${!selectedProjectId ? "cursor-not-allowed border-border bg-muted text-muted-foreground" : stage === "selected" ? "cursor-pointer border-border hover:bg-muted" : "cursor-pointer border-tgem-primary bg-tgem-primary text-white hover:border-tgem-primary-hover hover:bg-tgem-primary-hover"}`}
+									>
+										<FileUp className="h-4 w-4 shrink-0" />
+										<span className="min-w-0 break-words">
+											{stage === "selected" ? copy.addFiles : copy.choose}
+										</span>
+									</label>
+									{stage === "selected" ? (
+										<button
+											type="button"
+											disabled={!selectedProjectId}
+											onClick={() => void processFile(selectedFiles)}
+											className="inline-flex max-w-full items-center justify-center gap-2 rounded-md bg-tgem-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-tgem-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tgem-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
+										>
+											<FileUp className="h-4 w-4 shrink-0" />
+											<span className="min-w-0 break-words">
+												{copy.startUpload}
+											</span>
+										</button>
+									) : null}
 								</div>
 							</div>
-							<label
-								htmlFor={inputId}
-								aria-disabled={!selectedProjectId}
-								className={`inline-flex max-w-full items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold shadow-sm transition focus-within:ring-2 focus-within:ring-tgem-primary/30 focus-within:ring-offset-2 ${selectedProjectId ? "cursor-pointer border-tgem-primary bg-tgem-primary text-white hover:border-tgem-primary-hover hover:bg-tgem-primary-hover" : "cursor-not-allowed border-border bg-muted text-muted-foreground"}`}
-							>
-								<FileUp className="h-4 w-4 shrink-0" />
-								<span className="min-w-0 break-words">{copy.choose}</span>
-							</label>
+							{error ? (
+								<p role="alert" className="break-words text-xs text-red-600">
+									{error}
+								</p>
+							) : null}
 						</div>
 					) : (
 						<div
@@ -449,11 +682,12 @@ export function TgemInvoiceUpload({
 				type="file"
 				multiple
 				accept="application/pdf,image/jpeg,image/png,image/webp"
-				disabled={busy || !selectedProjectId}
+				disabled={!selecting || !selectedProjectId}
 				className="sr-only"
-				onChange={(event) =>
-					void processFile(Array.from(event.target.files ?? []))
-				}
+				onChange={(event) => {
+					selectFiles(Array.from(event.target.files ?? []));
+					event.target.value = "";
+				}}
 			/>
 		</section>
 	);

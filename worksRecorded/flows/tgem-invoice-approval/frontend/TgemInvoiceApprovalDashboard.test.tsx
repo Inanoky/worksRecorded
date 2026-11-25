@@ -26,6 +26,7 @@ const mockReplace = jest.fn((href: string) => {
 });
 jest.mock("next/navigation", () => ({
 	useRouter: () => ({ refresh: mockRefresh, replace: mockReplace }),
+	usePathname: () => window.location.pathname,
 }));
 
 const mockStartUpload = jest.fn();
@@ -2567,6 +2568,8 @@ describe("TgemInvoiceApprovalDashboard", () => {
 			type: "image/jpeg",
 		});
 		fireEvent.change(input, { target: { files: [file] } });
+		expect(mockStartUpload).not.toHaveBeenCalled();
+		fireEvent.click(screen.getByRole("button", { name: "Upload" }));
 
 		await waitFor(() => {
 			expect(mockStartUpload).toHaveBeenCalledWith([file], {
