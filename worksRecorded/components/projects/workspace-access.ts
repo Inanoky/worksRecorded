@@ -20,6 +20,7 @@ export async function loadWorkspaceAccess(
 ): Promise<{
 	descriptor: WorkspaceDescriptor;
 	organizationLanguage: string;
+	organizationName?: string | null;
 	bisCaseId: string | null;
 	bisCaseNumber: string | null;
 	siteDiaryRecordsMap: unknown;
@@ -59,6 +60,7 @@ export async function loadWorkspaceAccess(
 	return {
 		descriptor,
 		organizationLanguage: site.organization?.orgLanguage ?? "en",
+		organizationName: site.organization?.name ?? null,
 		bisCaseId: site.bisCaseId ?? null,
 		bisCaseNumber: site.bisCaseNumber ?? null,
 		siteDiaryRecordsMap: site.siteDiaryRecordsMap,

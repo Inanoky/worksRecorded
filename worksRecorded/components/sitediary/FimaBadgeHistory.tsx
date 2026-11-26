@@ -33,10 +33,6 @@ export function FimaBadgeHistory({
 	onChange,
 	kind = "status",
 }: Props) {
-	const title = kind === "act_type" ? "Akta veida vēsture" : "Atzīmju vēsture";
-	const historyLabel =
-		kind === "act_type" ? "Akta veida izmaiņas" : "Atzīmju izmaiņas";
-
 	const [open, setOpen] = useState(false);
 	const [snapshot, setSnapshot] = useState<FimaCollaboration | null>(null);
 	const [loading, setLoading] = useState(false);
@@ -74,15 +70,45 @@ export function FimaBadgeHistory({
 	}, [request]);
 	const history = mergeFimaCollaboration(snapshot ?? undefined, state)
 		.history.filter((event) => event.kind === kind)
-		.toReversed();
+		.map((event) => ({ ...event, text: formatFimaEventText(event) }));
 	return (
-		<Dialog
+		<DiaryBadgeHistory
+			kind={kind}
+			history={history}
+			loading={loading}
+			error={error}
+			onRetry={() => setRequest({ siteId, recordId })}
 			open={open}
 			onOpenChange={(value) => {
 				setOpen(value);
 				setRequest(value ? { siteId, recordId } : null);
 			}}
-		>
+		/>
+	);
+}
+
+export function DiaryBadgeHistory({
+	history,
+	kind = "status",
+	loading = false,
+	error,
+	onRetry,
+	open,
+	onOpenChange,
+}: {
+	history: { id: string; actorName: string; at: string; text: string }[];
+	kind?: "status" | "act_type";
+	loading?: boolean;
+	error?: string;
+	onRetry?: () => void;
+	open?: boolean;
+	onOpenChange?: (value: boolean) => void;
+}) {
+	const title = kind === "act_type" ? "Akta veida vēsture" : "Atzīmju vēsture";
+	const historyLabel =
+		kind === "act_type" ? "Akta veida izmaiņas" : "Atzīmju izmaiņas";
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogTrigger asChild>
 				<button
 					type="button"
@@ -110,18 +136,16 @@ export function FimaBadgeHistory({
 				{error ? (
 					<div role="alert" className="space-y-2 text-sm text-destructive">
 						<p>{error}</p>
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => setRequest({ siteId, recordId })}
-						>
-							Mēģināt vēlreiz
-						</Button>
+						{onRetry ? (
+							<Button variant="outline" size="sm" onClick={onRetry}>
+								Mēģināt vēlreiz
+							</Button>
+						) : null}
 					</div>
 				) : null}
 				{!loading && !error ? (
 					<ol className="space-y-3" aria-label={historyLabel}>
-						{history.map((event) => (
+						{history.toReversed().map((event) => (
 							<li key={event.id} className="rounded-lg border p-3">
 								<p className="text-sm font-medium">{event.actorName}</p>
 								<time
@@ -132,7 +156,7 @@ export function FimaBadgeHistory({
 										timeZone: "Europe/Riga",
 									})}
 								</time>
-								<p className="mt-2 text-sm">{formatFimaEventText(event)}</p>
+								<p className="mt-2 text-sm">{event.text}</p>
 							</li>
 						))}
 						{!history.length ? (

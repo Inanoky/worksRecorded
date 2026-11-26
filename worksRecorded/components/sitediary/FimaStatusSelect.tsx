@@ -25,7 +25,36 @@ const badgeTones = {
 	waiting_for_materials: "border-orange-200 bg-orange-50 text-orange-800",
 	unset: "border-[#E1E6ED] bg-slate-50 text-slate-600",
 };
+type BadgeSelectPresentation = {
+	saving?: boolean;
+	disabled?: boolean;
+	label?: string;
+	actor?: { actorName: string; at: string };
+	history?: ReactNode;
+};
+
+const fimaChoices = { unset: "Nav atzīmes", ...fimaStatuses };
+
 export function FimaStatusSelect({
+	status,
+	selectStatus,
+	...props
+}: BadgeSelectPresentation & {
+	status: FimaCollaboration["status"];
+	selectStatus: (value: FimaCollaboration["status"]) => void;
+}) {
+	return (
+		<DiaryStatusSelect
+			{...props}
+			status={status ?? "unset"}
+			selectStatus={(value) => selectStatus(value === "unset" ? null : value)}
+			choices={fimaChoices}
+			tones={badgeTones}
+		/>
+	);
+}
+
+export function DiaryStatusSelect<T extends string>({
 	status,
 	selectStatus,
 	saving = false,
@@ -33,26 +62,23 @@ export function FimaStatusSelect({
 	label = "Ieraksta rīcība",
 	actor,
 	history,
-}: {
-	status: FimaCollaboration["status"];
-	selectStatus: (value: FimaCollaboration["status"]) => void;
-	saving?: boolean;
-	disabled?: boolean;
-	label?: string;
-	actor?: { actorName: string; at: string };
-	history?: ReactNode;
+	choices,
+	tones,
+}: BadgeSelectPresentation & {
+	status: T;
+	selectStatus: (value: T) => void;
+	choices: Readonly<Record<T, string>>;
+	tones: Readonly<Record<T, string>>;
 }) {
 	return (
 		<div aria-busy={saving} className="min-w-0" data-fima-interactive>
 			<div className="flex min-w-0 flex-wrap items-start gap-1">
 				<Select
-					value={status ?? "unset"}
+					value={status}
 					disabled={disabled}
-					onValueChange={(value) =>
-						selectStatus(
-							value === "unset" ? null : (value as keyof typeof fimaStatuses),
-						)
-					}
+					onValueChange={(value) => {
+						if (Object.hasOwn(choices, value)) selectStatus(value as T);
+					}}
 				>
 					<SelectTrigger
 						aria-label={label}
@@ -63,17 +89,16 @@ export function FimaStatusSelect({
 						<SelectValue className="min-w-0 max-w-full flex-1">
 							<Badge
 								variant="outline"
-								className={`block max-w-full min-w-0 shrink whitespace-normal [overflow-wrap:anywhere] px-1.5 text-left text-[11px] leading-snug ${badgeTones[status ?? "unset"]}`}
+								className={`block max-w-full min-w-0 shrink whitespace-normal [overflow-wrap:anywhere] px-1.5 text-left text-[11px] leading-snug ${tones[status]}`}
 							>
-								{status ? fimaStatuses[status] : "Nav atzīmes"}
+								{choices[status]}
 							</Badge>
 						</SelectValue>
 					</SelectTrigger>
 					<SelectContent>
-						<SelectItem value="unset">Nav atzīmes</SelectItem>
-						{Object.entries(fimaStatuses).map(([key, label]) => (
+						{(Object.keys(choices) as T[]).map((key) => (
 							<SelectItem key={key} value={key}>
-								{label}
+								{choices[key]}
 							</SelectItem>
 						))}
 					</SelectContent>

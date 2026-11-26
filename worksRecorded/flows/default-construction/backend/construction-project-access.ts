@@ -29,6 +29,9 @@ export async function requireConstructionProjectAccess(
 		organizationLanguage: normalizeOrganizationLanguage(
 			site.organization?.orgLanguage,
 		),
-		diaryConfig: buildDefaultConstructionDiaryConfig(site),
+		diaryConfig: buildDefaultConstructionDiaryConfig({
+			...site,
+			organizationName: site.organization?.name,
+		}),
 	};
 }

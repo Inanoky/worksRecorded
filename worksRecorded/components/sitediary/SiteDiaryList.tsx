@@ -39,6 +39,9 @@ import { getDiaryPagePhotoUrls } from "@/flows/default-construction/lib/diary-im
 import { formatLimeniDiaryHours } from "@/flows/default-construction/lib/diary-hours-display";
 import { useDiaryRevalidation } from "@/flows/default-construction/frontend/useDiaryRevalidation";
 import { mergeDiaryEditChanges, type DiaryEditChanges } from "@/flows/default-construction/lib/diary-edit";
+import { patchProject } from "@/flows/default-construction/visual/project-sync";
+import type { ProdevBisReview } from "@/lib/site-diary/prodev-bis-review";
+import { ProdevBisReviewBadge } from "./ProdevBisReviewBadge";
 import { useDiarySaveQueue } from "@/flows/default-construction/frontend/DiarySaveProvider";
 
 import {
@@ -274,6 +277,7 @@ type DiaryRow = {
 
   BISId?: string | null;
   bisStatus?: string | null;
+  prodevBisReview?: ProdevBisReview;
   [key: string]: any;
 };
 
@@ -882,6 +886,22 @@ export default function SiteDiaryCalendar({
   const constructionClientDiary = clientDiary && initialLimeniProject?.settings.organizationId !== LIMENI_ORGANIZATION_ID;
   const fimaPanelRow = rows.find((row) => row.id === fimaRecordId) ?? (fimaRecordId ? fimaSelectedRow : null);
   const fimaDiary = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.fimaCollaboration === true;
+  const prodevBisReview = !isZtcFlow && configSiteId === siteId && defaultMap?.otherSettings?.prodevBisReview === true;
+  const canSendToBis = (row: DiaryRow) => !prodevBisReview || row.prodevBisReview?.status === "send_to_bis";
+  const trailingFields = fimaDiary
+    ? ["FimaReviewStatus", "FimaConfidence"]
+    : prodevBisReview ? ["ProdevBisReview"] : undefined;
+  const updateProdevBisReview = (id: string, state: ProdevBisReview) => {
+    const update = <T extends { id?: string | null; prodevBisReview?: ProdevBisReview }>(row: T): T =>
+      row.id === id && (row.prodevBisReview?.version ?? 0) <= state.version
+        ? { ...row, prodevBisReview: state }
+        : row;
+    setRows((previous) => previous.map(update));
+    if (siteId) patchProject(siteId, (snapshot) => ({
+      ...snapshot,
+      diary: { ...snapshot.diary, rows: snapshot.diary.rows.map(update) },
+    }));
+  };
   const linkedFimaSearch = React.useRef<string | null>(null);
   React.useEffect(() => {
     if (!fimaDiary || linkedFimaSearch.current === siteId) return;
@@ -2845,7 +2865,7 @@ export default function SiteDiaryCalendar({
   // Call server action and download PDF
 
   const openBisPicker = async (row: DiaryRow) => {
-    if (!bisUiEnabled) {
+    if (!bisUiEnabled || !canSendToBis(row)) {
       return;
     }
 
@@ -4818,6 +4838,11 @@ export default function SiteDiaryCalendar({
                                       })()}
                                     </span>
                                   </div>
+                                  {prodevBisReview && siteId && r.id ? (
+                                    <div className="mt-2">
+                                      <ProdevBisReviewBadge siteId={siteId} recordId={r.id} state={r.prodevBisReview} onChange={updateProdevBisReview} />
+                                    </div>
+                                  ) : null}
                                   {fimaDiary && r.id ? <dl className="mt-3 grid grid-cols-2 gap-3 text-xs">{(["Works", "Works_Custom_1", "Location", "Date", "Works_Custom_2", "Amounts", "Units"] as FimaInlineField[]).map(field => <div key={field} className="min-w-0"><dt className="text-muted-foreground">{({ Works: "Darba apraksts", Works_Custom_1: "BIS apraksts", Location: "Balsti", Date: "Datums", Works_Custom_2: "Maiņa", Amounts: "Apjoms", Units: "Mērvienība" })[field]}</dt><dd><FimaInlineCell siteId={siteId!} recordId={r.id!} field={field} value={r[field]} onSaved={updateFimaField} /></dd></div>)}</dl> : null}
                                   {fimaDiary ? <div className="mt-2 grid grid-cols-2 gap-3 border-t pt-2">{fimaVirtualFields.map((field) => <div className={cn("min-w-0", field === "FimaActType" && "col-span-2")} key={field}><p className="text-muted-foreground">{defaultMap[field]?.DisplayName}</p><FimaDiaryCell field={field} siteId={siteId!} row={r} caseNumber={defaultMap.otherSettings?.bisCaseNumber} caseId={defaultMap.otherSettings?.bisCaseId} onOpenRecord={() => openFimaRecord(r)} onChange={updateFimaCollaboration} /></div>)}</div> : null}
                                   {showDayPlan ? <MobilePlan row={planByRecordId.get(r.id ?? "")} actualWork={r.Works} actualQuantity={getDefaultConstructionQuantityComparison(r, defaultMap).enabled ? getDefaultConstructionQuantityComparison(r, defaultMap).actualAmount : r.Amounts} unit={r.Units} /> : null}
@@ -5130,8 +5155,10 @@ export default function SiteDiaryCalendar({
                                               disabled={
                                                 !r.id ||
                                                 bisSendingRowId === r.id ||
-                                                isSent
+                                                isSent ||
+                                                !canSendToBis(r)
                                               }
+                                              title={!isSent && !canSendToBis(r) ? "Izvēlieties atzīmi “Sūtīt uz BIS”." : undefined}
                                               onClick={() => openBisPicker(r)}
                                             >
                                               {isSent ? (
@@ -5946,7 +5973,7 @@ export default function SiteDiaryCalendar({
                                   <Table
                                     className={cn("table-fixed text-xs", showDayPlan || clientDiary || fitDiaryTable ? "w-full min-w-0 [&_th]:!w-auto [&_td]:!w-auto [&_th]:!px-1.5 [&_td]:!px-1.5 [&_th]:!whitespace-normal [&_td]:!whitespace-normal [&_th]:[overflow-wrap:anywhere] [&_td]:[overflow-wrap:anywhere] [&_button]:max-w-full" : isZtcSite ? "min-w-[1180px] sm:text-sm" : "min-w-[985px] sm:text-sm", fimaDiary && fimaDiaryTableClassName, fitDiaryTable && !fimaDiary && "[&_button]:whitespace-normal [&_button]:break-words [&_button]:h-auto [&_button]:min-h-8 [&_button]:px-1")}
                                   >
-                                    {showDayPlan || clientDiary || fitDiaryTable ? <PlanTableColumns hideBisStatus={fimaDiary} trailingFields={fimaDiary ? ["FimaReviewStatus", "FimaConfidence"] : undefined} fields={dayTableHeads} bisEnabled={bisUiEnabled} showPlan={showDayPlan} columnWeights={fitDiaryTable ? {
+                                    {showDayPlan || clientDiary || fitDiaryTable ? <PlanTableColumns hideBisStatus={fimaDiary} trailingFields={trailingFields} fields={dayTableHeads} bisEnabled={bisUiEnabled} showPlan={showDayPlan} columnWeights={fitDiaryTable ? {
                                       ...Object.fromEntries(dayTableHeads.map((field) => [field, getCellWidthByKey(field, defaultMap)])),
                                       FimaReviewStatus: 220, FimaConfidence: 100, FimaMaterials: 500, FimaExamples: 260, select: 52, createdAt: 80, "man-hours": 75, cost: 80, bis: 140, status: 140, action: 80, source: 60,
                                       "plan-Works": getCellWidthByKey("Works", defaultMap), "plan-Amounts": 125,
@@ -6088,6 +6115,7 @@ export default function SiteDiaryCalendar({
                                         </TableHead>
                                         {fimaDiary ? <TableHead className="text-left">Rīcība</TableHead> : null}
                                         {fimaDiary ? <TableHead className="text-left">Confidence</TableHead> : null}
+                                        {prodevBisReview ? <TableHead className="text-left" style={{ width: 155 }}>Rīcība</TableHead> : null}
                                       </TableRow>
                                     </TableHeader>
 
@@ -6369,9 +6397,11 @@ export default function SiteDiaryCalendar({
                                                       className="h-8 bg-green-600 text-white hover:bg-green-700"
                                                       disabled={
                                                         !row.id ||
+                                                        !canSendToBis(originalRow) ||
                                                         bisSendingRowId ===
                                                           row.id
                                                       }
+                                                      title={!canSendToBis(originalRow) ? "Izvēlieties atzīmi “Sūtīt uz BIS”." : undefined}
                                                       onClick={() =>
                                                         openBisPicker(
                                                           originalRow,
@@ -6586,9 +6616,14 @@ export default function SiteDiaryCalendar({
                                           </TableCell>
                                           {fimaDiary ? <TableCell className="align-top px-3 py-3"><FimaDiaryCell field="FimaReviewStatus" siteId={siteId!} row={group.rows[i] ?? row} onChange={updateFimaCollaboration} /></TableCell> : null}
                                           {fimaDiary ? <TableCell className="align-top px-3 py-3"><FimaDiaryCell field="FimaConfidence" siteId={siteId!} row={group.rows[i] ?? row} onChange={updateFimaCollaboration} /></TableCell> : null}
+                                          {prodevBisReview ? (
+                                            <TableCell className="align-top px-3 py-3">
+                                              {siteId && row.id ? <ProdevBisReviewBadge siteId={siteId} recordId={row.id} state={row.prodevBisReview} onChange={updateProdevBisReview} /> : null}
+                                            </TableCell>
+                                          ) : null}
                                         </TableRow>
                                       ))}
-                                      {unmatchedPlans.map((row) => <PlanOnlyRow hideBisStatus={fimaDiary} trailingFields={fimaDiary ? ["FimaReviewStatus", "FimaConfidence"] : undefined} key={row.key} row={row} fields={dayTableHeads} bisEnabled={bisUiEnabled} getAlignment={(field) => getSiteListTextAlignmentByKey(field, defaultMap)} />)}
+                                      {unmatchedPlans.map((row) => <PlanOnlyRow hideBisStatus={fimaDiary} trailingFields={trailingFields} key={row.key} row={row} fields={dayTableHeads} bisEnabled={bisUiEnabled} getAlignment={(field) => getSiteListTextAlignmentByKey(field, defaultMap)} />)}
                                     </TableBody>
                                   </Table>
                                 );

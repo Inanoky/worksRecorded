@@ -40,6 +40,8 @@ import {
   normalizeActualQuantityForStorage,
   parseDefaultConstructionQuantity,
 } from "@/flows/default-construction/lib/quantity-plan-actual";
+import { isProdevOrganization } from "@/lib/branding/prodev";
+import { readProdevBisReview } from "@/lib/site-diary/prodev-bis-review";
 import {
   createDefaultConstructionDiaryUnitResolver,
   setDefaultConstructionWorkDropdownOptions,
@@ -332,6 +334,7 @@ export async function getConfig(
       organizationId: true,
       bisCaseNumber: true,
       bisCaseId: true,
+      organization: { select: { name: true } },
     },
   });
 
@@ -372,7 +375,10 @@ export async function getConfig(
   }
 
   if (!clientConfig) return null;
-  return buildDefaultConstructionDiaryConfig(clientConfig);
+  return buildDefaultConstructionDiaryConfig({
+    ...clientConfig,
+    organizationName: "organization" in clientConfig ? clientConfig.organization?.name : null,
+  });
 }
 
 export async function updateSiteDiaryDropdownOptions(args: {
@@ -3660,11 +3666,20 @@ export async function sendSiteDiaryRecordToBis(
       WorkersInvolved: true,
       Amounts: true,
       Units: true,
+      archivedAt: true,
+      evalMetadata: true,
+      Site: { select: { organization: { select: { name: true } } } },
     },
   });
 
   if (!diaryRecord) {
     throw new Error("Site diary record not found");
+  }
+  if (
+    isProdevOrganization(diaryRecord.Site?.organization?.name) &&
+    (diaryRecord.archivedAt || readProdevBisReview(diaryRecord.evalMetadata)?.status !== "send_to_bis")
+  ) {
+    throw new Error("Pirms nosūtīšanas izvēlieties atzīmi “Sūtīt uz BIS”.");
   }
 
   const references =

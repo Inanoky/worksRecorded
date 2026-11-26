@@ -200,6 +200,24 @@ describe("BIS estimate quantity units", () => {
 			measurement: 12,
 		});
 	});
+	test("requires a ProDev send badge before making a BIS request", async () => {
+		const record = {
+			id: "record-1",
+			siteId: "site-1",
+			Amounts: 100,
+			Units: "cm",
+			Site: { organization: { name: "ProDev" } },
+		};
+		siteDiaryFindUniqueMock.mockResolvedValue(record);
+		await expect(sendSiteDiaryRecordToBis("record-1", options)).rejects.toThrow("Sūtīt uz BIS");
+		expect(bisFetch).not.toHaveBeenCalled();
+		siteDiaryFindUniqueMock.mockResolvedValue({
+			...record,
+			evalMetadata: { prodevBisReview: { status: "send_to_bis", version: 1, history: [] } },
+		});
+		await sendSiteDiaryRecordToBis("record-1", options);
+		expect(bisFetch).toHaveBeenCalledTimes(1);
+	});
 	test("accepts a quantity already entered in the estimate unit without converting it twice", async () => {
 		await sendSiteDiaryRecordToBis("record-1", {
 			...options,
